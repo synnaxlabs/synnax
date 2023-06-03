@@ -12,6 +12,7 @@ import { ReactElement, useEffect, useRef, useState } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Button } from "@/core/std/Button";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
@@ -123,7 +124,7 @@ const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
             return (
               <Tag
                 key={e.key}
-                color={theme.colors.visualization.palettes.default[i]}
+                color={new Color(theme.colors.visualization.palettes.default[i]).hex}
                 onClose={() => onSelect?.(e.key)}
                 size="small"
                 variant="outlined"

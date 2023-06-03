@@ -9,13 +9,13 @@
 
 import { ReactElement, useCallback, useState } from "react";
 
+import { Location } from "@synnaxlabs/x";
+
 import { CSS } from "@/core/css";
 import { NavbarProps } from "@/core/std/Nav/Navbar";
 import { Resize, ResizeProps } from "@/core/std/Resize";
 
 import "@/core/std/Nav/Navdrawer.css";
-
-import { Location } from "@synnaxlabs/x";
 
 export interface NavDrawerItem {
   key: string;

@@ -2,10 +2,10 @@
 
 Thanks for your interest in Synnax! We'd love to have you contribute!
 
-> But in the machine of today we forget that motors are whirring: the motor, finally, has
-come to fulfill its function, which is to whirr as a heart beats - and we give no
-thought to the beating of our heart. Thus, precisely because it is perfect the machine
-dissembles its own existence instead of forcing itself upon our notice.
+> But in the machine of today we forget that motors are whirring: the motor, finally,
+> has come to fulfill its function, which is to whirr as a heart beats - and we give no
+> thought to the beating of our heart. Thus, precisely because it is perfect the machine
+> dissembles its own existence instead of forcing itself upon our notice.
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
@@ -55,7 +55,7 @@ contribute to. There are a few ways to do this:
 
     - [Distributed counters](../aspen/internal/cluster/pledge/pledge.go)
     - [Gossip algorithms](../aspen/internal/kv/gossip.go)
-    - [GPU rendering](../pluto/src/vis/gl)
+    - [GPU rendering](../pluto/src/core/vis)
     - [Transport protocols](../freighter)
     - And more!
 

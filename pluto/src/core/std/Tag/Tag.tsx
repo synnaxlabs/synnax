@@ -16,6 +16,8 @@ import { ComponentSize } from "@/util/component";
 
 import "@/core/std/Tag/Tag.css";
 
+import { ReactElement } from "react";
+
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
   icon?: React.ReactElement;
   onClose?: () => void;

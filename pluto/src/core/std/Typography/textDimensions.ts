@@ -21,12 +21,12 @@ export const textDimensions = (
   font: string,
   context?: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
 ): Dimensions => {
-  if (RUNTIME === "node") return { width: 0, height: 0 };
+  if (RUNTIME === "node") return new Dimensions({ width: 0, height: 0 });
   if (context == null)
     context = getCanvas().getContext("2d") as CanvasRenderingContext2D;
   context.font = font;
   const metrics = context.measureText(text);
-  return {
+  return new Dimensions({
     width: Math.trunc(
       Math.abs(metrics.actualBoundingBoxLeft) + Math.abs(metrics.actualBoundingBoxRight)
     ),
@@ -34,5 +34,5 @@ export const textDimensions = (
       Math.abs(metrics.actualBoundingBoxAscent) +
         Math.abs(metrics.actualBoundingBoxDescent)
     ),
-  };
+  });
 };

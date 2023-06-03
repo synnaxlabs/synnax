@@ -43,14 +43,14 @@ export const ResizeCore = ({
         CSS.dir(location.direction),
         className
       )}
-      style={{ [location.dimension]: `${size}${sizeUnits}`, ...style }}
+      style={{ [location.direction.dimension]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap()))}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.inverse.v))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

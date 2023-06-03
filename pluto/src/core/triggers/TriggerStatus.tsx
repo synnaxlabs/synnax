@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 
 import { Status, StatusTextProps } from "@/core/std/Status";
 import { Trigger } from "@/core/triggers/triggers";

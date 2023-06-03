@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ColorT, Size, Theme } from "./theme";
+import { Size, Theme } from "./theme";
 
 import { createHexOpacityVariants, unitProperty } from "@/core/css";
 
@@ -15,7 +15,7 @@ const OPACITIES: readonly number[] = [80, 60, 40, 20];
 
 export const convertThemeToCSSVars = (
   theme: Theme
-): Record<string, Size | ColorT | undefined> => ({
+): Record<string, Size | string | undefined> => ({
   "--pluto-theme-name": theme.name,
   "--pluto-theme-key": theme.key,
   "--pluto-primary-m1": theme.colors.primary.m1,

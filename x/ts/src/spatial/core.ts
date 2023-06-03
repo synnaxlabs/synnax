@@ -47,6 +47,7 @@ const corner = z.enum(CORNERS);
 const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
 const boundZ = z.object({ lower: z.number(), upper: z.number() });
+const dimension = z.enum(["width", "height"]);
 
 const looseDirection = z.union([direction, location]);
 const looseYLocation = z.union([yLocation, yDirection]);
@@ -75,6 +76,7 @@ export type CornerT = z.infer<typeof corner>;
 export type XYTransformT = z.infer<typeof xyTransform>;
 export type ClientXYT = z.infer<typeof clientXY>;
 export type TransformT = z.infer<typeof transform>;
+export type DimensionT = z.infer<typeof dimension>;
 
 export type LooseXYT = z.input<typeof looseXY>;
 export type LooseYLocationT = z.infer<typeof looseYLocation>;
@@ -114,12 +116,16 @@ export class Direction extends String {
 
   /** @returns "x" if the direction is "y" and "y" if the direction is "x". */
   get inverse(): Direction {
-    return new Direction(this.valueOf() === "x" ? "y" : "x");
+    return new Direction(this.equals("x") ? "y" : "x");
   }
 
   /** @returns "top" if the direction is "y" and "left" if the direction is "x". */
   get location(): Location {
     return new Location(this.valueOf() as DirectionT);
+  }
+
+  get dimension(): DimensionT {
+    return this.equals("x") ? "width" : "height";
   }
 
   /** The "x" direction. */
@@ -162,7 +168,7 @@ export class Location extends String {
    * @returns true if the location and provided location are semantically
    * equal, converting the provided type to a direction if necessary.
    */
-  equal(other: LooseLocationT): boolean {
+  equals(other: LooseLocationT): boolean {
     const o = new Location(other);
     return this.valueOf() === o.valueOf();
   }
@@ -245,6 +251,12 @@ export class Location extends String {
    * A zod schema to parse a Y location i.e. one of "top" or "bottom".
    */
   static readonly strictYZ = yLocation.transform((v) => new Location(v));
+
+  /**
+   * A zod schema to parse an outer location i.e. one of "top", "bottom", "left",
+   * "right".
+   */
+  static readonly strictOuterZ = outerLocation.transform((v) => new Location(v));
 
   private static readonly SWAPPED: Record<LocationT, LocationT> = {
     top: "bottom",

@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { easeQuad } from "d3";
 import { describe, expect, it } from "vitest";
 
 import { Color, RGBA } from "./color";
 
-describe("convert", () => {
+describe("Color", () => {
+  describe("construction", () => {
+    []
+
+  })
   describe("hexToRGBA", () => {
     const TESTS: Array<[string, RGBA]> = [
       ["#000000", [0, 0, 0, 1]],
@@ -27,6 +30,9 @@ describe("convert", () => {
     }
   });
   describe("normalizeRGBA", () => {
+
+
+
     const TESTS: Array<[number, RGBA, RGBA]> = [
       [255, [0, 0, 0, 1], [0, 0, 0, 1]],
       [255, [0, 0, 0, 0], [0, 0, 0, 0]],

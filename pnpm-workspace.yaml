@@ -13,3 +13,4 @@ packages:
   - "x/media"
   - "alamos/ts"
   - "drift/examples/tauri"
+  - "landing/"

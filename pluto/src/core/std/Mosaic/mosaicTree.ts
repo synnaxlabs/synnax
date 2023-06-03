@@ -121,7 +121,7 @@ export const selectMosaicTab = (root: MosaicNode, tabKey: string): MosaicNode =>
 export const moveMosaicTab = (
   root: MosaicNode,
   tabKey: string,
-  loc: Location,
+  loc: LooseLocationT,
   to: number
 ): [MosaicNode, string | null] => {
   const [tab, entry] = findMosaicTab(root, tabKey);

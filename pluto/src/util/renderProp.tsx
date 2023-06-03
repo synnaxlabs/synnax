@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 export type RenderProp<P extends Record<string, any>> = (
   props: P
 ) => ReactElement | null;
@@ -16,5 +18,6 @@ export type RenderProp<P extends Record<string, any>> = (
  */
 export const componentRenderProp =
   <P extends Record<string, any>>(Component: React.ComponentType<P>): RenderProp<P> =>
+  // eslint-disable-next-line react/display-name
   (props) =>
     <Component {...props} />;

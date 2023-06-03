@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon } from "@synnaxlabs/media";
 
 import { CSS } from "@/core/css";
@@ -16,7 +18,7 @@ import { useTabsContext } from "@/core/std/Tabs/Tabs";
 import { Text } from "@/core/std/Typography";
 import { ComponentSize } from "@/util/component";
 
-import "./TabsSelector.css";
+import "@/core/std/Tabs/TabsSelector.css";
 
 export interface TabMeta {
   tabKey: string;
