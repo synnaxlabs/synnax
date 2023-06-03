@@ -55,22 +55,23 @@ const HeaderActionC = ({
   children,
   divided,
 }: HeaderActionCProps): ReactElement => {
-  const content = isValidElement(children) ? (
-    children
-  ) : (
-    <Button.Icon
-      onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        children.onClick?.(e);
-      }}
-      key={index}
-      size={Typography.LevelComponentSizes[level]}
-      {...children}
-    >
-      {children}
-    </Button.Icon>
-  );
+  let content: ReactElement = children as ReactElement;
+  if (!isValidElement(children)) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const props: ButtonIconProps = children as ButtonIconProps;
+    content = (
+      <Button.Icon
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          props.onClick?.(e);
+        }}
+        key={index}
+        size={Typography.LevelComponentSizes[level]}
+        {...props}
+      />
+    );
+  }
   return (
     <Fragment key={index}>
       {divided && <Divider />}

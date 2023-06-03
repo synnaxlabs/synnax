@@ -39,7 +39,7 @@ const CoreNavbar = ({
       )}
       direction={location.direction.inverse}
       style={{
-        [location.dimension]: size,
+        [location.direction.dimension]: size,
         ...style,
       }}
       align="center"
@@ -63,7 +63,7 @@ const contentFactory =
         className={CSS(
           CSS.BE("navbar", "content"),
           CSS.pos(pos),
-          bordered && CSS.bordered(pos),
+          pos !== "" && bordered && CSS.bordered(pos),
           className
         )}
         align="center"

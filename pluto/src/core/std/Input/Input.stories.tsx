@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import type { Meta } from "@storybook/react";
 import { TimeStamp } from "@synnaxlabs/x";
 
-import { Text } from "../Typography";
-
-import { Input } from ".";
+import { Input } from "@/core/std/Input";
+import { Text } from "@/core/std/Typography";
 
 const story: Meta<typeof Input> = {
   title: "Core/Input",

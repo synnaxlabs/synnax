@@ -76,7 +76,7 @@ export interface TabsContextValue {
 export interface TabsProps
   extends Omit<
       SpaceProps,
-      "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd"
+      "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd" | "content"
     >,
     TabsContextValue {
   children?: TabRenderProp;

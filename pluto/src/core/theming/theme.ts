@@ -9,7 +9,7 @@
 
 import "@fontsource/inter";
 
-import { ColorT, Color } from "../color";
+import { Color } from "../color";
 
 import { TypographySpec } from "@/core/std/Typography";
 
@@ -19,38 +19,38 @@ export interface Theme {
   name: string;
   key: string;
   colors: {
-    border: ColorT;
+    border: string;
     primary: {
-      m1: ColorT;
-      z: ColorT;
-      p1: ColorT;
+      m1: string;
+      z: string;
+      p1: string;
     };
     gray: {
-      m3: ColorT;
-      m2: ColorT;
-      m1: ColorT;
-      m0: ColorT;
-      p0: ColorT;
-      p1: ColorT;
-      p2: ColorT;
-      p3: ColorT;
+      m3: string;
+      m2: string;
+      m1: string;
+      m0: string;
+      p0: string;
+      p1: string;
+      p2: string;
+      p3: string;
     };
     error: {
-      m1: ColorT;
-      z: ColorT;
-      p1: ColorT;
+      m1: string;
+      z: string;
+      p1: string;
     };
     visualization: {
       palettes: {
-        default: ColorT[];
-        [key: string]: ColorT[];
+        default: string[];
+        [key: string]: string[];
       };
     };
-    white: ColorT;
-    black: ColorT;
-    background: ColorT;
-    text: ColorT;
-    logo: ColorT;
+    white: string;
+    black: string;
+    background: string;
+    text: string;
+    logo: string;
   };
   sizes: {
     base: number;
@@ -72,8 +72,8 @@ export interface Theme {
   };
 }
 
-const white: ColorT = "#FFFFFF";
-const black: ColorT = "#171716";
+const white: string = "#FFFFFF";
+const black: string = "#171716";
 const fontFamily = "Inter, sans-serif";
 const baseSize: Size = 6;
 

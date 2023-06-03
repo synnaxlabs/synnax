@@ -41,7 +41,7 @@ export class AxisCanvas {
     canvas.fillStyle = this.state.color.hex;
     canvas.strokeStyle = this.state.color.hex;
 
-    switch (this.state.location) {
+    switch (this.state.location.v) {
       case "left":
         this.drawLeft(ctx);
         break;
