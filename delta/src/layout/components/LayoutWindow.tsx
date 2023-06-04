@@ -18,11 +18,10 @@ import { useDispatch } from "react-redux";
 import { useSelectLayout } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
+import "./LayoutWindow.css";
 
 import { Controls } from "@/components";
 import { CSS } from "@/css";
-
-import "./LayoutWindow.css";
 
 export const NavTop = (): ReactElement => {
   const os = useOS();

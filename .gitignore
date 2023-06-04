@@ -27,7 +27,7 @@ nyc_output
 
 # |||| RUST ||||
 
-/target/
+/target/†
 
 # |||| TURBO REPO ||||
 
@@ -54,3 +54,7 @@ work
 
 __pycache__
 *_cache/
+
+# |||| LANDING SITE ||||
+
+landing/

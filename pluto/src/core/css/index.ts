@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/core/css/units";
-export * from "@/core/css/vars";
 export * from "@/core/css/color";
 export * from "@/core/css/classes";
 export * from "@/core/css/bem";

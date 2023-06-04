@@ -12,11 +12,13 @@ import { z } from "zod";
 const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 const hex = z.string().regex(hexRegex);
 const rgba = z.array(z.number()).length(4).min(0).max(255);
+const rgb = z.array(z.number()).length(3).min(0).max(255);
 
 export type RGBA = [number, number, number, number];
+export type RGB = [number, number, number];
 export type Hex = z.infer<typeof hex>;
 
-export type ColorT = Hex | RGBA | Color | string;
+export type ColorT = Hex | RGBA | Color | string | RGB;
 
 const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${hex}`);
 
@@ -39,7 +41,7 @@ export class Color {
     } else {
       if (color.length < 3 || color.length > 4)
         throw new Error(`Invalid color: [${color.join(", ")}]`);
-      this.internal = color;
+      this.internal = color.length === 3 ? [...color, alpha ?? 1] : color;
     }
   }
 
@@ -66,7 +68,7 @@ export class Color {
    */
   get hex(): string {
     const [r, g, b, a] = this.internal;
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}${a === 1 ? "" : toHex(a)}`;
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}${a === 1 ? "" : toHex(a * 255)}`;
   }
 
   /*
@@ -85,6 +87,22 @@ export class Color {
     ];
   }
 
+  get r(): number {
+    return this.internal[0];
+  }
+
+  get g(): number {
+    return this.internal[1];
+  }
+
+  get b(): number {
+    return this.internal[2];
+  }
+
+  get a(): number {
+    return this.internal[3];
+  }
+
   setOpacity(opacity: number): Color {
     const [r, g, b] = this.internal;
     if (opacity > 1) opacity = opacity / 100;
@@ -92,8 +110,8 @@ export class Color {
   }
 
   static readonly z = z
-    .union([hex, rgba, z.instanceof(Color)])
+    .union([hex, rgba, rgb, z.instanceof(Color)])
     .transform((v) => new Color(v as string));
 }
 
-const toHex = (n: number): string => n.toString(16).padStart(2, "0");
+const toHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");

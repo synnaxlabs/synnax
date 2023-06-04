@@ -17,8 +17,7 @@ export type LogLevelFilter = (level: LogLevel) => boolean;
 export const logThresholdFilter = (thresh: LogLevel): LogLevelFilter => {
   const threshIdx = LOG_LEVELS.indexOf(thresh);
   return (level) => LOG_LEVELS.indexOf(level) >= threshIdx;
-}
-
+};
 
 export class Logger {
   meta: Meta = Meta.NOOP;

@@ -20,7 +20,7 @@ import {
 import { convertThemeToCSSVars } from "./css";
 import { Theme, synnaxLight } from "./theme";
 
-import { applyCSSVars } from "@/core/css";
+import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
 
@@ -79,7 +79,7 @@ export const ThemeProvider = ({
   ...props
 }: ThemeProviderProps): ReactElement => {
   useEffect(
-    () => applyCSSVars(document.documentElement, convertThemeToCSSVars(theme)),
+    () => CSS.applyVars(document.documentElement, convertThemeToCSSVars(theme)),
     [theme]
   );
   return (

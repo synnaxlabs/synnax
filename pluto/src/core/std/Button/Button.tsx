@@ -9,6 +9,8 @@
 
 import { ComponentPropsWithoutRef, ReactElement } from "react";
 
+import { Optional } from "@synnaxlabs/x";
+
 import { CSS } from "@/core/css";
 import { SpaceProps } from "@/core/std/Space";
 import { Typography, Text, TextWithIconProps } from "@/core/std/Typography";
@@ -32,7 +34,7 @@ export interface BaseButtonProps
 
 /** The props for the {@link Button} component. */
 export interface ButtonProps
-  extends Omit<TextWithIconProps<"button">, "size" | "level">,
+  extends Optional<Omit<TextWithIconProps<"button">, "size">, "level">,
     ButtonExtensionProps {
   children?: string | number;
   startIcon?: ReactElement | ReactElement[];
@@ -47,6 +49,7 @@ export const Button = ({
   children,
   iconSpacing,
   sharp = false,
+  level,
   ...props
 }: ButtonProps): ReactElement => (
   <Text.WithIcon
@@ -58,7 +61,7 @@ export const Button = ({
       CSS.BM("btn", variant),
       className
     )}
-    level={Typography.ComponentSizeLevels[size]}
+    level={level ?? Typography.ComponentSizeLevels[size]}
     size={iconSpacing}
     noWrap
     {...props}
