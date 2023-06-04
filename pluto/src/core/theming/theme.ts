@@ -126,7 +126,7 @@ const synnaxBase: Theme = {
     white,
     black,
     background: white,
-    text: new Color(black).setOpacity(0.85).hex,
+    text: new Color(black).setAlpha(0.85).hex,
   },
   sizes: {
     base: baseSize,
@@ -206,6 +206,6 @@ export const synnaxDark: Theme = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: new Color(synnaxBase.colors.white).setOpacity(0.9).hex,
+    text: new Color(synnaxBase.colors.white).setAlpha(0.9).hex,
   },
 };

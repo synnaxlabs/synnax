@@ -63,9 +63,41 @@ describe("Color", () => {
     });
   });
   describe("to hex", () => {
+    test("without alpha", () => {
+      const color = new Color("#7a2c26");
+      expect(color.hex).toEqual("#7a2c26");
+    });
     test("with alpha", () => {
       const color = new Color("#7a2c26", 0.5);
       expect(color.hex).toEqual("#7a2c267f");
+    });
+  });
+  describe("to RGBA255", () => {
+    test("with alpha", () => {
+      const color = new Color("#7a2c26", 0.5);
+      const expected = [122, 44, 38, 0.5];
+      expect(color.rgba255).toEqual(expected);
+    });
+    test("without alpha", () => {
+      const color = new Color("#7a2c26");
+      const expected = [122, 44, 38, 1];
+      expect(color.rgba255).toEqual(expected);
+    });
+  });
+  describe("to RGBA1", () => {
+    test("with alpha", () => {
+      const color = new Color("#7a2c26", 0.5);
+      const expected = [122 / 255, 44 / 255, 38 / 255, 0.5];
+      expected.forEach((v, i) => {
+        expect(color.rgba1[i]).toBeCloseTo(v);
+      });
+    });
+    test("without alpha", () => {
+      const color = new Color("#7a2c26");
+      const expected = [122 / 255, 44 / 255, 38 / 255, 1];
+      expected.forEach((v, i) => {
+        expect(color.rgba1[i]).toBeCloseTo(v);
+      });
     });
   });
 });

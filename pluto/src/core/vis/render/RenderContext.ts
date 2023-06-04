@@ -153,7 +153,7 @@ export class RenderContext {
       (box.height + overscan.y * 2) * this.dpr
     );
     const removeScissor = this.scissorGL(os);
-    gl.clearColor(...Color.zero.rgba1);
+    gl.clearColor(...Color.ZERO.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     removeScissor();
   }
