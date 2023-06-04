@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { BEM, newBEM } from "@/core/css/bem";
+import { applyCSSVars } from "@/core/css/vars";
 import { ComponentSize } from "@/util/component";
 
 export interface CSSType extends BEM {
@@ -32,6 +33,7 @@ export interface CSSType extends BEM {
   noSelect: string;
   selected: (selected: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;
+  applyVars: typeof applyCSSVars;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -52,6 +54,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.selected = (selected) => selected && CSS.M("selected");
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
+  CSS.applyVars = applyCSSVars;
   return CSS;
 };
 

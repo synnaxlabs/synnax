@@ -7,79 +7,65 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { Color, RGBA } from "./color";
+import { Color } from "@/core/color";
 
 describe("Color", () => {
-  describe("construction", () => {
-    []
-
-  })
-  describe("hexToRGBA", () => {
-    const TESTS: Array<[string, RGBA]> = [
-      ["#000000", [0, 0, 0, 1]],
-      ["#00000000", [0, 0, 0, 0]],
-      ["#000000ff", [0, 0, 0, 1]],
-      ["#7f11e01f", [127, 17, 224, 0.12]],
-    ];
-    for (const [hex, expected] of TESTS) {
-      it(`should convert ${hex} to ${expected}`, () => {
-        expect(new Color(hex).equals(new Color(expected))).toBe(true);
+  describe("constructor", () => {
+    test("from hex", () => {
+      const color = new Color("#7a2c26");
+      expect(color.r).toEqual(122);
+      expect(color.g).toEqual(44);
+      expect(color.b).toEqual(38);
+    });
+    test("from hex with alpha", () => {
+      const color = new Color("#7a2c26", 0.5);
+      expect(color.r).toEqual(122);
+      expect(color.g).toEqual(44);
+      expect(color.b).toEqual(38);
+      expect(color.a).toEqual(0.5);
+    });
+    describe("from eight digit hex", () => {
+      test("case 1", () => {
+        const color = new Color("#7a2c26ff");
+        expect(color.r).toEqual(122);
+        expect(color.g).toEqual(44);
+        expect(color.b).toEqual(38);
+        expect(color.a).toEqual(1);
       });
-    }
+      test("case 2", () => {
+        const color = new Color("#7a2c2605");
+        expect(color.r).toEqual(122);
+        expect(color.g).toEqual(44);
+        expect(color.b).toEqual(38);
+        expect(color.a).toEqual(5 / 255);
+      });
+    });
+    test("from rgb", () => {
+      const color = new Color([122, 44, 38]);
+      expect(color.r).toEqual(122);
+      expect(color.g).toEqual(44);
+      expect(color.b).toEqual(38);
+    });
+    test("from rgba", () => {
+      const color = new Color([122, 44, 38, 0.5]);
+      expect(color.r).toEqual(122);
+      expect(color.g).toEqual(44);
+      expect(color.b).toEqual(38);
+      expect(color.a).toEqual(0.5);
+    });
+    test("from color", () => {
+      const color = new Color(new Color("#7a2c26"));
+      expect(color.r).toEqual(122);
+      expect(color.g).toEqual(44);
+      expect(color.b).toEqual(38);
+    });
   });
-  describe("normalizeRGBA", () => {
-
-
-
-    const TESTS: Array<[number, RGBA, RGBA]> = [
-      [255, [0, 0, 0, 1], [0, 0, 0, 1]],
-      [255, [0, 0, 0, 0], [0, 0, 0, 0]],
-      [255, [0, 0, 0, 0.5], [0, 0, 0, 0.5]],
-      [255, [127, 17, 224, 0.12], [127 / 255, 17 / 255, 224 / 255, 0.12]],
-      [1, [127, 17, 224, 0.12], [127, 17, 224, 0.12]],
-    ];
-    for (const [divisor, input, expected] of TESTS) {
-      it(`should normalize ${input} to ${expected}`, () => {
-        const actual = normalizeRGBA(input, divisor);
-        expected.forEach((v, i) => {
-          expect(actual[i]).toBeCloseTo(v);
-        });
-      });
-    }
-  });
-  describe("validateHex", () => {
-    const TESTS: Array<[string, boolean]> = [
-      ["#000000", true],
-      ["#00000000", true],
-      ["#000000ff", true],
-      ["#7f11e01f", true],
-      ["#0000000", false],
-      ["#000000000", false],
-      ["#000000fff", false],
-      ["#7f11e01ff", false],
-      ["#000000g", false],
-      ["#000000gg", false],
-    ];
-    for (const [hex, expected] of TESTS) {
-      it(`should validate ${hex} to ${expected}`, () => {
-        expect(validateHex(hex)).toBe(expected);
-      });
-    }
-  });
-  describe("addOpacityToHex", () => {
-    const TESTS: Array<[string, Opacity, string]> = [
-      ["#000000", 99, "#000000FC"],
-      ["#000000", 0, "#00000000"],
-      ["#000000", 1, "#00000003"],
-      ["#000000", 12, "#0000001F"],
-      ["#000000FF", 50, "#00000080"],
-    ];
-    for (const [hex, opacity, expected] of TESTS) {
-      it(`should add opacity ${opacity} to ${hex} to ${expected}`, () => {
-        expect(addOpacityToHex(hex, opacity)).toBe(expected);
-      });
-    }
+  describe("to hex", () => {
+    test("with alpha", () => {
+      const color = new Color("#7a2c26", 0.5);
+      expect(color.hex).toEqual("#7a2c267f");
+    });
   });
 });

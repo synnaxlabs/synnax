@@ -341,6 +341,7 @@ importers:
   landing:
     specifiers:
       '@astrojs/react': ^1.2.2
+      '@fontsource/inter': ^4.5.15
       '@synnaxlabs/media': workspace:*
       '@synnaxlabs/pluto': workspace:*
       '@synnaxlabs/tsconfig': workspace:*
@@ -351,6 +352,7 @@ importers:
       react-dom: ^18.2.0
     dependencies:
       '@astrojs/react': 1.2.2_lhsvdmrfrkqkmxtqosqgyd3k4i
+      '@fontsource/inter': 4.5.15
       '@synnaxlabs/media': link:../x/media
       '@synnaxlabs/pluto': link:../pluto
       '@synnaxlabs/x': link:../x/ts

@@ -126,7 +126,7 @@ const synnaxBase: Theme = {
     white,
     black,
     background: white,
-    text: new Color(black).setOpacity(85).hex,
+    text: new Color(black).setOpacity(0.85).hex,
   },
   sizes: {
     base: baseSize,
@@ -159,8 +159,9 @@ const synnaxBase: Theme = {
     },
     h5: {
       size: 2.25,
-      weight: "bold",
+      weight: 900,
       lineHeight: 2.5,
+      textTransform: "uppercase",
     },
     p: {
       size: 2.25,
@@ -180,13 +181,13 @@ const synnaxBase: Theme = {
   },
 };
 
-export const synnaxLight = {
+export const synnaxLight: Theme = {
   ...synnaxBase,
   key: "synnax-light",
   name: "Synnax Light",
 };
 
-export const synnaxDark = {
+export const synnaxDark: Theme = {
   ...synnaxBase,
   key: "synnax-dark",
   name: "Synnax Dark",
@@ -205,6 +206,6 @@ export const synnaxDark = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: new Color(synnaxBase.colors.white).setOpacity(90),
+    text: new Color(synnaxBase.colors.white).setOpacity(0.9).hex,
   },
 };
