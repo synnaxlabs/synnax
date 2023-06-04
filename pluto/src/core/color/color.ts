@@ -20,20 +20,28 @@ export type Hex = z.infer<typeof hex>;
 
 export type ColorT = Hex | RGBA | Color | string | RGB;
 
-const invalidHexError = (hex: string): Error => new Error(`Invalid hex color: ${hex}`);
-
-const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
-
-const p = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
-
+/**
+ * A color with an alpha channel. It can be used to easily transform
+ * color values from one format to another, as well as make modifications to the color.
+ */
 export class Color {
   private readonly internal: RGBA;
 
-  static get zero(): Color {
-    return new Color([0, 0, 0, 0]);
-  }
-
-  constructor(color: ColorT, alpha?: number) {
+  /**
+   * @constructor Creates a new color from the given color value. The color value can be
+   * a hex string, an array of RGB or RGBA values, or another color.
+   *
+   * @param color - The color value to create the color from. If the color value is a
+   * string, it must be a valid hex color (with or without the '#') with a hasheless
+   * length 6 or 8. If the hex color is 8 characters long, the last twoc haracters are
+   * used as the alpha value. If the color value is an array, it must be an array of
+   * length 3 or 4, with each value between 0 and 255. If the color value is another
+   * color, the color will be copied.
+   *
+   * @param alpha - An optional alpha value to set. If the color value carries its own
+   * alpha value, this value will be ignored. Defaults to 1.
+   */
+  constructor(color: ColorT, alpha: number = 1) {
     if (color instanceof Color) {
       this.internal = color.internal;
     } else if (typeof color === "string") {
@@ -45,24 +53,17 @@ export class Color {
     }
   }
 
-  equals(other: Color): boolean {
-    return this.internal.every((v, i) => v === other.internal[i]);
+  /**
+   * @returns true if the given color is semantically equal to this color. Different
+   * representations of the same color are considered equal (e.g. hex and rgba).
+   */
+  equals(other: ColorT): boolean {
+    const other_ = new Color(other);
+    return this.internal.every((v, i) => v === other_.internal[i]);
   }
 
-  private static fromHex(hex_: string, alpha: number = 1): RGBA {
-    const valid = hex.safeParse(hex_);
-    if (!valid.success) throw invalidHexError(hex_);
-    hex_ = stripHash(hex_);
-    return [
-      p(hex_, 0),
-      p(hex_, 2),
-      p(hex_, 4),
-      hex_.length === 8 ? p(hex_, 6) / 255 : alpha,
-    ];
-  }
-
-  /*
-   * Returns the hex representation of the color. If the color has an opacity of 1,
+  /**
+   * @returns the hex representation of the color. If the color has an opacity of 1,
    * the returned hex will be 6 characters long. Otherwise, it will be 8 characters
    * long.
    */
@@ -71,13 +72,18 @@ export class Color {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}${a === 1 ? "" : toHex(a * 255)}`;
   }
 
-  /*
-   *Returns the color as an RGBA tuple.
+  /**
+   * @returns the color as an RGBA tuple, with each color value between 0 and 255,
+   * and the alpha value between 0 and 1.
    */
   get rgba255(): RGBA {
     return this.internal;
   }
 
+  /**
+   * @returns the color as an RGBA tuple, with each color value between 0 and 1,
+   * and the alpha value between 0 and 1.
+   */
   get rgba1(): RGBA {
     return [
       this.internal[0] / 255,
@@ -87,31 +93,60 @@ export class Color {
     ];
   }
 
+  /** @returns the red value of the color, between 0 and 255. */
   get r(): number {
     return this.internal[0];
   }
 
+  /** @returns the green value of the color, between 0 and 255. */
   get g(): number {
     return this.internal[1];
   }
 
+  /** @returns the blue value of the color, between 0 and 255. */
   get b(): number {
     return this.internal[2];
   }
 
+  /** @returns the alpha value of the color, between 0 and 1. */
   get a(): number {
     return this.internal[3];
   }
 
-  setOpacity(opacity: number): Color {
+  /**
+   * Creates a new color with the given alpha.
+   *
+   * @param alpha - The alpha value to set. If the value is greater than 1, it will be
+   * divided by 100.
+   * @returns A new color with the given alpha.
+   */
+  setAlpha(alpha: number): Color {
     const [r, g, b] = this.internal;
-    if (opacity > 1) opacity = opacity / 100;
-    return new Color([r, g, b, opacity]);
+    if (alpha > 100)
+      throw new Error(`Color opacity must be between 0 and 100, got ${alpha}`);
+    if (alpha > 1) alpha = alpha / 100;
+    return new Color([r, g, b, alpha]);
   }
+
+  static ZERO = new Color([0, 0, 0, 0]);
 
   static readonly z = z
     .union([hex, rgba, rgb, z.instanceof(Color)])
     .transform((v) => new Color(v as string));
+
+  private static fromHex(hex_: string, alpha: number = 1): RGBA {
+    const valid = hex.safeParse(hex_);
+    if (!valid.success) throw new Error(`Invalid hex color: ${hex_}`);
+    hex_ = stripHash(hex_);
+    return [
+      fromHex(hex_, 0),
+      fromHex(hex_, 2),
+      fromHex(hex_, 4),
+      hex_.length === 8 ? fromHex(hex_, 6) / 255 : alpha,
+    ];
+  }
 }
 
 const toHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
+const fromHex = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
+const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);

@@ -24,6 +24,6 @@ export const createHexOpacityVariants = (
 ): Record<string, string> => {
   const color = Color.z.parse(hex);
   return Object.fromEntries(
-    opacities.map((o) => [`${prefix}-${o}`, color.setOpacity(o).hex])
+    opacities.map((o) => [`${prefix}-${o}`, color.setAlpha(o).hex])
   );
 };
