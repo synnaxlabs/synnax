@@ -24,13 +24,13 @@ export class StaticTelem implements XYTelemSource {
     this._y = props.y.map((y) => new LazyArray(y));
   }
 
-  async x(gl?: GLBufferControl): Promise<LazyArray[]> {
-    if (gl != null) this._x.map((x) => x.updateGLBuffer(gl));
+  async x(gl: GLBufferControl): Promise<LazyArray[]> {
+    this._x.map((x) => x.updateGLBuffer(gl));
     return this._x;
   }
 
-  async y(gl?: GLBufferControl): Promise<LazyArray[]> {
-    if (gl != null) this._y.map((y) => y.updateGLBuffer(gl));
+  async y(gl: GLBufferControl): Promise<LazyArray[]> {
+    this._y.map((y) => y.updateGLBuffer(gl));
     return this._y;
   }
 
