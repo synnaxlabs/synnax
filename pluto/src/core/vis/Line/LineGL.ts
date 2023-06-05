@@ -127,7 +127,7 @@ export class LineGL
     this.requestRender = requestRender;
     this.telemProv = telemProv;
     this.telem = this.telemProv.get(props.telem.key);
-    this.setHook(() => this.requestRender());
+    this.setStateHook(() => this.requestRender());
     if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
   }
 

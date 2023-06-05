@@ -33,7 +33,7 @@ export class Canvas extends BobComposite<LinePlot, CanvasState, ParsedCanvasStat
     this.ctx = ctx;
     this.telem = telem;
     this.queue = queue;
-    this.setHook(() => {
+    this.setStateHook(() => {
       this.ctx.resize(new Box(this.state.region), this.state.dpr);
     });
   }

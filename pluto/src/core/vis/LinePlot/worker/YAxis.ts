@@ -67,7 +67,7 @@ export class YAxis extends BobComposite<LineComponent, YAxisState, ParsedYAxisSt
     super(YAxis.TYPE, key, lineFactory, yAxisProps, props);
     this.ctx = ctx;
     this.core = new AxisCanvas(ctx, this.state);
-    this.setHook(() => {
+    this.setStateHook(() => {
       this.core.setState(this.state);
       requestRender();
     });

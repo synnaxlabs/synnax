@@ -67,7 +67,7 @@ export class LinePlot extends BobComposite<XAxis, LinePlotState, ParsedLinePlotS
     super(LinePlot.TYPE, key, xAxisFactory, linePlotState, state);
     this.ctx = ctx;
     this.renderQueue = renderQueue;
-    this.setHook(() => this.requestRender());
+    this.setStateHook(() => this.requestRender());
   }
 
   private get plottingRegion(): Box {
