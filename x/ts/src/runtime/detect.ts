@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type Runtime = "browser" | "node";
+/** JavaScript runtime environments. */
+export type Runtime = "browser" | "node" | "webworker";
 
+/**
+ * Does best effort detection of the runtime environment.
+ *
+ * @returns The runtime environment.
+ */
 export const detectRuntime = (): Runtime => {
   if (
     typeof process !== "undefined" &&
@@ -18,7 +24,7 @@ export const detectRuntime = (): Runtime => {
     return "node";
 
   if (typeof window === "undefined" || window.document === undefined)
-    console.warn("unable to safely detect runtime, assuming browser");
+    return "webworker";
 
   return "browser";
 };

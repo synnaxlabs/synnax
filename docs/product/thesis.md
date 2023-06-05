@@ -20,13 +20,24 @@ _Synnax is the framework for data driven hardware teams._
 
 _Synnax is the software infrastructure for large scale hardware._
 
-# 2 - Problem Definition
+# 2 - Problem
 
-## 2.0 - Long Cycle Times
+From factories to rockets, **productive iteration is the means of improving hardware
+systems.** Teams continuously design, build, and evaluate new versions of their products
+or processes. Increasing the pace and quality of each iteration means organizations can
+deliver better products faster.
 
-- The overall goal is to close the feedback loop between acquiring data and making
-operational decisions. In some cases this feedback loop can be as short as a matter of
-seconds or milliseconds.
+**Data lies at the core of this process**. From initial design and testing to long term
+operational deployment, the information teams create and collect plays a role in every
+decision. The faster teams can acquire, analyze, and act on this data, the faster they
+can improve.
+
+Existing data acquisition and control systems pay little attention to the importance
+of this loop. They focus on recording data and controlling hardware, but disregard the
+rest of the lifecycle, often dumping data to a local file system in a proprietary
+format. This leaves teams with a crevasse between acquisition and meaningful analysis.
+They bridge this gap with a patchwork of tools and processes unsuited for the task at
+hand, leading to a slow, error-prone development cycle.
 
 ## 2.1 - Local File Systems
 
@@ -54,7 +65,7 @@ seconds or milliseconds.
 - Modern UIs are intuitive and gorgeous, existing industrial control interfaces are not.
 - We think there's a long way to go towards improving the user experience.
 
-# 3 - Product Definition
+# 3 - Product
 
 At the highest level, Synnax’s only role is to make the readings of an instrument
 accessible to any entity that requires them. These instruments can be data acquisition
