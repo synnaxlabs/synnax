@@ -27,8 +27,9 @@ export class BobLeaf<EP, IP extends unknown> {
   readonly type: string;
   readonly key: string;
   readonly schema: ZodSchema<IP, ZodTypeDef, EP>;
+  private stateHook?: () => void;
+  private deleteHook?: () => void;
   state: IP;
-  private hook?: () => void;
 
   constructor(
     type: string,
@@ -42,11 +43,26 @@ export class BobLeaf<EP, IP extends unknown> {
     this.schema = schema;
   }
 
-  setHook(hook: () => void): void {
-    this.hook = hook;
+  setStateHook(hook: () => void): void {
+    this.stateHook = hook;
   }
 
   setState(path: string[], type: string, state: any): void {
+    this.validatePath(path);
+    this.state = this.schema.parse(state);
+    this.stateHook?.();
+  }
+
+  setDeleteHook(hook: () => void): void {
+    this.deleteHook = hook;
+  }
+
+  delete(path: string[]): void {
+    this.validatePath(path);
+    this.deleteHook?.();
+  }
+
+  private validatePath(path: string[]): void {
     if (path.length === 0)
       throw new Error(
         `[Leaf.setState] - ${this.type}:${this.key} received an empty path`
@@ -62,12 +78,6 @@ export class BobLeaf<EP, IP extends unknown> {
       throw new Error(
         `[Leaf.setState] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
       );
-    this.state = this.schema.parse(state);
-    this.hook?.();
-  }
-
-  delete(path: string[]): void {
-    // no-op
   }
 }
 

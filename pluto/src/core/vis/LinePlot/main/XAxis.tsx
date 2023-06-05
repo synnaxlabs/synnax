@@ -40,7 +40,7 @@ export const XAxis = memo(
       gridColor: theme.colors.gray.m1,
       position: XY.ZERO,
       font,
-      location,
+      location: "bottom",
       ...props,
     });
     const gridStyle = useAxisPosition(location, key);

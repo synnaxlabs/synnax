@@ -24,11 +24,10 @@ export type AsyncEffectCallback = () => AsyncDestructor;
  * @param effect - The async effect callback.
  * @param deps - The dependencies of the effect.
  */
-export const useAsyncEffect = (effect: AsyncEffectCallback, deps?: unknown[]): void => {
+export const useAsyncEffect = (effect: AsyncEffectCallback, deps?: unknown[]): void =>
   useEffect(() => {
     const p = effect();
     return () => {
       p.then((d) => d?.()).catch((e) => console.error(e));
     };
   }, deps);
-};

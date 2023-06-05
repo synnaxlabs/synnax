@@ -65,7 +65,7 @@ export class XAxis extends BobComposite<YAxis, XAxisState, ParsedXAxisState> {
     super(XAxis.TYPE, key, yAxisFactory, xAxisState, props);
     this.ctx = ctx;
     this.core = new AxisCanvas(ctx, this.state);
-    this.setHook(() => {
+    this.setStateHook(() => {
       this.core.setState(this.state);
       requestRender();
     });

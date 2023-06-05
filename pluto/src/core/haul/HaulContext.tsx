@@ -33,9 +33,8 @@ export const useHaulContext = (): HaulContextValue => {
   return ctx;
 };
 
-export const useOptionalHaulContext = (): HaulContextValue | null => {
-  return useContext(HaulContext);
-};
+export const useOptionalHaulContext = (): HaulContextValue | null =>
+  useContext(HaulContext);
 
 export interface HaulProviderProps extends PropsWithChildren {}
 
@@ -50,15 +49,14 @@ export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
   const [state, setState] = useState<HaulState>(Deep.copy(ZERO_HAUL_STATE));
 
   const startDrag = useCallback(
-    (entities: Hauled[]) => {
-      setState((p) => ({ ...p, dragging: entities }));
-    },
+    (entities: Hauled[]) => setState((p) => ({ ...p, dragging: entities })),
     [setState]
   );
 
-  const endDrag = useCallback(() => {
-    setState((p) => ({ ...p, dragging: [] }));
-  }, [setState]);
+  const endDrag = useCallback(
+    () => setState((p) => ({ ...p, dragging: [] })),
+    [setState]
+  );
 
   return (
     <HaulContext.Provider
