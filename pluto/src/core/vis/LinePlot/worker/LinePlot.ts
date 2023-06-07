@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { BobComponentFactory, BobComposite } from "@/core/bob/worker";
+import { BobComponentFactory, AtherComposite } from "@/core/aether/worker";
 import { LineFactory, LineGLProgram } from "@/core/vis/Line/LineGL";
 import { XAxis, XAxisProps, XAxisFactory } from "@/core/vis/LinePlot/worker/XAxis";
 import { YAxisFactory } from "@/core/vis/LinePlot/worker/YAxis";
@@ -45,7 +45,11 @@ export class LinePlotFactory implements BobComponentFactory<LinePlot> {
   }
 }
 
-export class LinePlot extends BobComposite<XAxis, LinePlotState, ParsedLinePlotState> {
+export class LinePlot extends AtherComposite<
+  XAxis,
+  LinePlotState,
+  ParsedLinePlotState
+> {
   ctx: RenderContext;
   renderQueue: RenderQueue;
 

@@ -13,7 +13,7 @@ import { Optional, XY } from "@synnaxlabs/x";
 
 import { useAxisPosition } from "./LinePlot";
 
-import { Bob } from "@/core/bob/main";
+import { Bob } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
 import {
@@ -35,7 +35,7 @@ export const YAxis = memo(
       key,
       path,
       state: [, setState],
-    } = Bob.useComponent<WorkerYAxisState>(WorkerYAxis.TYPE, {
+    } = Bob.use<WorkerYAxisState>(WorkerYAxis.TYPE, {
       position: XY.ZERO,
       color: theme.colors.gray.p2,
       gridColor: theme.colors.gray.m1,

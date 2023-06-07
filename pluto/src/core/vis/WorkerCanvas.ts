@@ -1,7 +1,7 @@
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { BobComposite } from "@/core/bob/worker";
+import { AtherComposite } from "@/core/aether/worker";
 import { LinePlot, LinePlotFactory } from "@/core/vis/LinePlot/worker";
 import { RenderContext, RenderQueue } from "@/core/vis/render";
 import { TelemProvider } from "@/core/vis/telem/TelemService";
@@ -14,7 +14,7 @@ export const canvasState = z.object({
 export type CanvasState = z.input<typeof canvasState>;
 export type ParsedCanvasState = z.output<typeof canvasState>;
 
-export class Canvas extends BobComposite<LinePlot, CanvasState, ParsedCanvasState> {
+export class Canvas extends AtherComposite<LinePlot, CanvasState, ParsedCanvasState> {
   ctx: RenderContext;
   queue: RenderQueue;
   telem: TelemProvider;
