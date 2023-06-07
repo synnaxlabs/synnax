@@ -150,7 +150,7 @@ export class Writer {
     data?: NativeTypedArray
   ): Promise<boolean> {
     if (!(frame instanceof Frame)) {
-      frame = new Frame(new LazyArray(data as NativeTypedArray), frame);
+      frame = new Frame(frame, new LazyArray(data as NativeTypedArray));
     }
     frame = this.adapter.adapt(frame);
     if (this.errorAccumulated) return false;

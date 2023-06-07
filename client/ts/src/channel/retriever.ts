@@ -102,22 +102,23 @@ export class CacheChannelRetriever implements ChannelRetriever {
     const [keys, names] = splitChannelParams(channels);
 
     const results: ChannelPayload[] = [];
-    const toFetch: Array<string | number> = [];
+    const namesToFetch: ChannelNames = [];
+    const keysToFetch: ChannelKeys = [];
 
     names.forEach((name) => {
       const key = this.namesToKeys.get(name);
-      if (key == null) toFetch.push(name);
+      if (key == null) namesToFetch.push(name);
       else keys.push(key);
     });
 
     keys.forEach((key) => {
       const channel = this.cache.get(key);
       if (channel != null) results.push(channel);
-      else toFetch.push(key);
+      else keysToFetch.push(key);
     });
 
-    if (toFetch.length > 0) {
-      const fetched = await this.wrapped.retrieve(toFetch);
+    if (namesToFetch.length > 0 || keysToFetch.length > 0) {
+      const fetched = await this.wrapped.retrieve(namesToFetch, keysToFetch);
       fetched.forEach((channel) => {
         this.cache.set(channel.key, channel);
         this.namesToKeys.set(channel.name, channel.key);

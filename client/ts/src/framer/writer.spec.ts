@@ -27,7 +27,7 @@ const newChannel = async (): Promise<Channel> => {
 
 describe("Writer", () => {
   describe("Writer", () => {
-    test.only("basic write", async () => {
+    test("basic write", async () => {
       const ch = await newChannel();
       const writer = await client.telem.newWriter(0, ch.key);
       try {

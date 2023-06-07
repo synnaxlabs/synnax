@@ -29,7 +29,7 @@ type Channel struct {
 	DataType    telem.DataType       `json:"data_type" msgpack:"data_type" validate:"required"`
 	Density     telem.Density        `json:"density" msgpack:"density"`
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
-	Index       string               `json:"index" msgpack:"index"`
+	Index       channel.Key          `json:"index" msgpack:"index"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -163,7 +163,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Rate:        ch.Rate,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
-			Index:       ch.Index().String(),
+			Index:       ch.Index(),
 			Density:     ch.DataType.Density(),
 		}
 	}
@@ -179,6 +179,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Rate:        ch.Rate,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
+			LocalIndex:  ch.Index.LocalKey(),
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey

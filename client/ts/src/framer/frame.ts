@@ -11,6 +11,7 @@ import { Size, LazyArray, TimeRange, toArray, DataType, unique } from "@synnaxla
 import { z } from "zod";
 
 import {
+  ChannelKey,
   ChannelKeyOrName,
   ChannelKeys,
   ChannelNames,
@@ -18,83 +19,223 @@ import {
 } from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
 
+type LabeledBy = "key" | "name" | null;
+
+const labeledBy = (labels: ChannelParams): LabeledBy => {
+  const arrKeys = toArray(labels);
+  if (arrKeys.length === 0) return null;
+  if (typeof arrKeys[0] === "number") return "key";
+  return "name";
+};
+
+const validateMatchedLabelsAndArrays = (
+  labels: ChannelParams,
+  arrays: LazyArray[]
+): void => {
+  const labelsArr = toArray(labels);
+  if (labelsArr.length === arrays.length) return;
+  const labeledBy_ = labeledBy(labels);
+  if (labeledBy === null)
+    throw new ValidationError(
+      "[Frame] - channel keys or names must be provided when constructing a frame."
+    );
+  throw new ValidationError(
+    `[Frame] - ${labeledBy_ as string}s and arrays must be the same length.
+    Got ${labelsArr.length} ${labeledBy_ as string}s and ${arrays.length} arrays.`
+  );
+};
+
+/**
+ * A frame is a collection of related typed arrays keyed to a particular channel. Frames
+ * can be keyed by channel name or channel key, but not both.
+ *
+ * Frames have two important characteristics: alignment and orientation.
+ *
+ * A frame's alignment defines how correlated the arrays for different channels in the
+ * frame are:
+ *
+ * - A frame is weakly aligned if it meets the time range occupied by all arrays of a
+ * particular channel is the same for all channels in the frame. This means that the
+ * arrays for a particular channel can have gaps betwen them.
+ *
+ * - A strongly aligned frame means that all channels share the same rate/index and
+ * there are no gaps in time between arrays. Strongly aligned frames are natural
+ * to interpret, as the values in a particular 'row' of the frame share the same
+ * timestamp. All frames written to Synnax must be strongly aligned.
+ *
+ * - Unaligned frames don't meet the requirements for weakly or strongly aligned frames.
+ * Unaligned frames are common when reading from channels that don't have the same
+ * index/rate and are continuous in different periods of time.
+ *
+ * Frames also have an orientation: horizontal, vertical, or square.
+ *
+ * - Horizontal frames have a single channel, and are strongly aligned by default.
+ * A horizontal frame typically has a single array (in which case, it's also 'square'),
+ * although it can have multiple arrays if all the arrays are continuous in time.
+ *
+ * - Vertical frames are strongly aligned and have on or more channels, but ONLY a single
+ * array per channel. Synnax requires that all frames written to the database are
+ * vertical.
+ *
+ * - Square frames are both horizontal and vertical. Only a frame with a single channel
+ * and array can be square.
+ */
 export class Frame {
-  readonly keys: ChannelKeyOrName[];
-  readonly arrays: LazyArray[];
+  readonly labels: ChannelKeys | ChannelNames = [];
+  readonly arrays: LazyArray[] = [];
 
   constructor(
-    data:
+    labelsOrData:
       | FramePayload
-      | Map<ChannelKeyOrName, LazyArray[]>
-      | LazyArray[]
-      | LazyArray = [],
-    keys: ChannelParams = []
+      | ChannelParams
+      | Map<ChannelKeyOrName, LazyArray[] | LazyArray>
+      | Record<ChannelKeyOrName, LazyArray[] | LazyArray> = [],
+    arrays: LazyArray | LazyArray[] = []
   ) {
-    this.keys = [];
-    this.arrays = [];
-    if (Array.isArray(data)) {
-      const arrKeys = toArray(keys);
-      if (arrKeys.length !== data.length)
-        throw new ValidationError("keys and data must be the same length");
-      data.forEach((d, i) => this.push(arrKeys[i], d));
-    } else if ("keys" in data) {
-      const v = data as FramePayload;
-      if (v.arrays == null || v.keys == null || v.keys.length !== v.arrays.length)
-        throw new ValidationError("arrays and keys must be defined");
-      v.keys.forEach((key, i) =>
-        this.push(key, arrayFromPayload((v.arrays as LazyArray[])[i]))
-      );
-    } else if (data instanceof LazyArray) this.push(keys as string, data);
-    else
-      (data as Map<ChannelKeyOrName, LazyArray[]>).forEach(
-        (v: LazyArray[], k: ChannelKeyOrName) => this.push(k, ...v)
-      );
+    // Construction from a map.
+    if (labelsOrData instanceof Map) {
+      labelsOrData.forEach((v, k) => this.push(k, ...toArray(v)));
+      return;
+    }
+
+    const isObject = typeof labelsOrData === "object" && !Array.isArray(labelsOrData);
+
+    // Construction from a payload.
+    if (isObject) {
+      if ("keys" in labelsOrData && "arrays" in labelsOrData) {
+        const data_ = labelsOrData as FramePayload;
+        const arrays = data_.arrays.map((a) => arrayFromPayload(a));
+        validateMatchedLabelsAndArrays(data_.keys, arrays);
+        data_.keys.forEach((key, i) => this.push(key, arrays[i]));
+      } else
+        Object.entries(labelsOrData).forEach(([k, v]) => this.push(k, ...toArray(v)));
+      return;
+    }
+
+    // Construction from a set of arrays and labels.
+    if (
+      Array.isArray(labelsOrData) ||
+      ["string", "number"].includes(typeof labelsOrData)
+    ) {
+      const data_ = toArray(arrays);
+      const labels_ = toArray(labelsOrData) as ChannelKeys | ChannelNames;
+      validateMatchedLabelsAndArrays(labels_, data_);
+      data_.forEach((d, i) => this.push(labels_[i], d));
+      return;
+    }
+
+    throw new ValidationError(
+      `[Frame] - invalid frame construction parameters. data parameter ust be a frame 
+    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel 
+    name. keys parameter must be a set of channel keys or channel names.`
+    );
   }
 
-  private get keyVariant(): "key" | "name" | null {
-    if (this.keys.length === 0) return null;
-    const firstKey = this.keys[0];
+  /**
+   * @returns "key" if the frame is keyed by channel key, "name" if keyed by channel name,
+   * and null if the frame is not keyed by channel key or channel name.
+   */
+  get labeledBy(): "key" | "name" | null {
+    if (this.labels.length === 0) return null;
+    const firstKey = this.labels[0];
     return typeof firstKey === "string" ? "name" : "key";
   }
 
-  get channelKeys(): number[] {
-    if (this.keyVariant !== "key") throw new UnexpectedError("keyVariant is not key");
-    return this.keys as number[];
+  /**
+   * @returns the channel keys if the frame is keyed by channel key, and throws an error
+   * otherwise.
+   */
+  get keys(): ChannelKeys {
+    if (this.labeledBy === "name") throw new UnexpectedError("keyVariant is not key");
+    return (this.labels as ChannelKeys) ?? [];
   }
 
-  get channelNames(): string[] {
-    if (this.keyVariant !== "name") throw new UnexpectedError("keyVariant is not name");
-    return this.keys as string[];
+  /**
+   * @returns the unique channel keys if the frame is keyed by channel key, and throws an
+   * error otherwise.
+   */
+  get uniqueKeys(): ChannelKeys {
+    return unique(this.keys);
+  }
+
+  /**
+   * @returns the channel names if the frame is keyed by channel name, and throws an error
+   * otherwise.
+   */
+  get names(): ChannelNames {
+    if (this.labeledBy === "key") throw new UnexpectedError("keyVariant is not name");
+    return (this.labels as ChannelNames) ?? [];
+  }
+
+  /**
+   * @returns the unique channel names if the frame is keyed by channel name, and throws an
+   * otherwise.
+   */
+  get uniqueNames(): ChannelNames {
+    return unique(this.names);
+  }
+
+  /**
+   * @returns the unique labels in the frame.
+   */
+  get uniqueLabels(): ChannelKeys | ChannelNames {
+    return this.labeledBy === "key" ? this.uniqueKeys : this.uniqueNames;
   }
 
   toPayload(): FramePayload {
     return {
       arrays: this.arrays.map((a) => arrayToPayload(a)),
-      keys: this.channelKeys,
+      keys: this.keys,
     };
   }
 
+  /**
+   * @returns true if the frame is vertical. Vertical frames are strongly aligned and
+   * have on or more channels, but ONLY a single array per channel. Synnax requires
+   * that all frames written to the database are vertical.
+   */
   get isVertical(): boolean {
-    return unique(this.keys).length === this.keys.length;
+    return this.uniqueLabels.length === this.labels.length;
   }
 
+  /**
+   * @returns true if the frame is horizontal. Horizontal frames have a single channel,
+   * and are strongly aligned by default.A horizontal frame typically has a single array
+   * (in which case, it's also 'square'), although it can have multiple arrays if all
+   * the arrays are continuous in time.
+   */
   get isHorizontal(): boolean {
-    return unique(this.keys).length === 1;
+    return this.uniqueLabels.length === 1;
   }
 
+  /**
+   * @returns true if the frame is square. Square frames are both horizontal and vertical.
+   * Only a frame with a single channel and array can be square.
+   */
+  get isSquare(): boolean {
+    return this.isHorizontal && this.isVertical;
+  }
+
+  /**
+   * @returns true if the frame is weakly aligned. A frame is weakly aligned if it meets
+   * the time range occupied by all arrays of a particular channel is the same for all
+   * channels in the frame. This means that the arrays for a particular channel can have
+   * gaps betwen them.
+   */
   get isWeaklyAligned(): boolean {
-    if (this.keys.length <= 1) return true;
-    return this.timeRanges.every((tr) => tr.equals(this.timeRanges[0]));
+    if (this.labels.length <= 1) return true;
+    const ranges = this.timeRanges;
+    return ranges.every((tr) => tr.equals(ranges[0]));
   }
 
-  timeRange(key?: ChannelKeyOrName): TimeRange {
-    if (key == null) {
-      if (this.keys.length === 0) return TimeRange.ZERO;
+  timeRange(label?: ChannelKeyOrName): TimeRange {
+    if (label == null) {
+      if (this.labels.length === 0) return TimeRange.ZERO;
       const start = Math.min(...this.arrays.map((a) => a.timeRange.start.valueOf()));
       const end = Math.max(...this.arrays.map((a) => a.timeRange.end.valueOf()));
       return new TimeRange(start, end);
     }
-    const group = this.get(key);
+    const group = this.get(label);
     if (group == null) return TimeRange.ZERO;
     return new TimeRange(
       group[0].timeRange.start,
@@ -103,35 +244,57 @@ export class Frame {
   }
 
   get timeRanges(): TimeRange[] {
-    return this.keys.map((key) => this.timeRange(key));
+    return this.uniqueLabels.map((label) => this.timeRange(label));
   }
-
-  get(key: ChannelKeyOrName): LazyArray[];
-
-  get(keys: ChannelKeys | ChannelNames): Frame;
 
   /**
-   * @returns all typed arrays matching the given key. If the frame is vertical,
-   * this will return an array of length 1. If the frame is horiztonal, returns all
-   * arrays in the frame.
+   * @returns lazy arrays matching the given channel key or name.
+   * @param key the channel key or name.
    */
+  get(key: ChannelKeyOrName): LazyArray[];
+
+  /**
+   * @returns a frame with the given channel keys or names.
+   * @param keys the channel keys or names.
+   */
+  get(keys: ChannelKeys | ChannelNames): Frame;
+
   get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): LazyArray[] | Frame {
-    // @ts-expect-error
-    if (Array.isArray(key)) return this.filter((k) => key.includes(k));
-    return this.arrays.filter((_, i) => this.keys[i] === key);
+    if (Array.isArray(key))
+      return this.filter((k) => (key as ChannelKeys).includes(k as ChannelKey));
+    return this.arrays.filter((_, i) => this.labels[i] === key);
   }
 
+  /**
+   * Pushes a set of typed arrays for the given channel onto the frame.
+   *
+   * @param key the channel key or name;
+   * @param v the typed arrays to push.
+   */
   push(key: ChannelKeyOrName, ...v: LazyArray[]): void;
 
+  /**
+   * Pushes the frame onto the current frame.
+   *
+   * @param frame  - the frame to push.
+   */
   push(frame: Frame): void;
 
   push(keyOrFrame: ChannelKeyOrName | Frame, ...v: LazyArray[]): void {
     if (keyOrFrame instanceof Frame) {
+      if (keyOrFrame.labeledBy !== this.labeledBy)
+        throw new ValidationError("keyVariant must match");
       this.arrays.push(...keyOrFrame.arrays);
-      this.keys.push(...keyOrFrame.keys);
+      (this.labels as ChannelKeys).push(...(keyOrFrame.labels as ChannelKeys));
     } else {
       this.arrays.push(...v);
-      this.keys.push(...Array.from({ length: v.length }, () => keyOrFrame));
+      if (typeof keyOrFrame === "string" && this.labeledBy === "key")
+        throw new ValidationError("keyVariant must match");
+      else if (typeof keyOrFrame !== "string" && this.labeledBy === "name")
+        throw new ValidationError("keyVariant must match");
+      (this.labels as ChannelKeys).push(
+        ...(Array.from({ length: v.length }, () => keyOrFrame) as ChannelKeys)
+      );
     }
   }
 
@@ -140,13 +303,27 @@ export class Frame {
    * provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.arrays, ...frame.arrays], [...this.keys, ...frame.keys]);
+    return new Frame([...this.labels, ...frame.labels] as ChannelKeys, [
+      ...this.arrays,
+      ...frame.arrays,
+    ]);
   }
 
+  /**
+   * @returns true if the frame contains the provided channel key or name.
+   * @param channel the channel key or name to check.
+   */
   has(channel: ChannelKeyOrName): boolean {
-    return this.keys.includes(channel);
+    if (typeof channel === "string" && this.labeledBy === "key") return false;
+    else if (typeof channel === "number" && this.labeledBy === "name") return false;
+    return (this.labels as ChannelKeys).includes(channel as ChannelKey);
   }
 
+  /**
+   * @returns a new frame containing the mapped output of the provided function.
+   * @param fn a function that takes a channel key and typed array and returns a
+   * boolean.
+   */
   map(
     fn: (
       k: ChannelKeyOrName,
@@ -159,26 +336,40 @@ export class Frame {
     return frame;
   }
 
+  /**
+   * Iterates over all typed arrays in the current frame.
+   *
+   * @param fn a function that takes a channel key and typed array.
+   */
   forEach(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => void): void {
-    this.keys.forEach((k, i) => {
+    this.labels.forEach((k, i) => {
       const a = this.arrays[i];
       fn(k, a, i);
     });
   }
 
+  /**
+   * @returns a new frame containing all typed arrays in the current frame that pass
+   * the provided filter function.
+   * @param fn a function that takes a channel key and typed array and returns a boolean.
+   */
   filter(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => boolean): Frame {
     const frame = new Frame();
-    this.keys.forEach((k, i) => {
+    this.labels.forEach((k, i) => {
       const a = this.arrays[i];
       if (fn(k, a, i)) frame.push(k, a);
     });
     return frame;
   }
 
-  get size(): Size {
-    return new Size(
-      this.arrays.reduce((acc, v) => acc.add(new Size(v.buffer.byteLength)), Size.ZERO)
-    );
+  /** @returns the total number of bytes in the frame. */
+  get byteLength(): Size {
+    return new Size(this.arrays.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
+  }
+
+  /** @returns the total number of samples in the frame. */
+  get length(): number {
+    return this.arrays.reduce((acc, v) => acc + v.length, 0);
   }
 }
 
@@ -197,9 +388,11 @@ export const array = z.object({
 
 export type ArrayPayload = z.infer<typeof array>;
 
+const nullTransform = z.null().transform(() => []);
+
 export const frameZ = z.object({
-  keys: z.number().array().nullable().default([]),
-  arrays: array.array().nullable().default([]),
+  keys: z.union([nullTransform, z.number().array().optional().default([])]),
+  arrays: z.union([nullTransform, array.array().optional().default([])]),
 });
 
 export type FramePayload = z.infer<typeof frameZ>;

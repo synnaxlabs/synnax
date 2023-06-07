@@ -13,6 +13,7 @@ import {
   TimeRange,
   UnparsedTimeStamp,
   TimeStamp,
+  toArray,
 } from "@synnaxlabs/x";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
@@ -121,7 +122,7 @@ export class FrameClient {
     const channels = await this.retriever.retrieve(...params);
     const i = await this.newIterator(
       tr,
-      channels.map((c) => c.key)
+      toArray(channels).map((c) => c.key)
     );
     let frame = new Frame();
     try {
