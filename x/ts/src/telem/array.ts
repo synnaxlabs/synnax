@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { GLBufferController, GLBufferUsage } from "./gl";
+
 import { Compare } from "@/compare";
-import { Bound } from "@/spatial";
 import {
   convertDataType,
   DataType,
@@ -34,18 +35,6 @@ interface GL {
   bufferUsage: GLBufferUsage;
 }
 
-export interface GLBufferControl {
-  bufferData: (target: number, data: ArrayBufferLike, usage: number) => void;
-  bufferSubData: (target: number, offset: number, data: ArrayBufferLike) => void;
-  bindBuffer: (target: number, buffer: WebGLBuffer | null) => void;
-  createBuffer: () => WebGLBuffer | null;
-  ARRAY_BUFFER: number;
-  STATIC_DRAW: number;
-  DYNAMIC_DRAW: number;
-}
-
-type GLBufferUsage = "static" | "dynamic";
-
 const FULL_BUFFER = -1;
 
 /**
@@ -60,15 +49,28 @@ export class LazyArray {
   readonly _timeRange?: TimeRange;
   private _min?: SampleValue;
   private _max?: SampleValue;
-  private readonly pos: number = FULL_BUFFER;
+  private pos: number = FULL_BUFFER;
 
   static alloc(
     length: number,
     dataType: UnparsedDataType,
     timeRange?: TimeRange
   ): LazyArray {
+    if (length === 0)
+      throw new Error("[LazyArray] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
-    return new LazyArray(data.buffer, dataType, timeRange);
+    const arr = new LazyArray(data.buffer, dataType, timeRange);
+    arr.pos = 0;
+    return arr;
+  }
+
+  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): LazyArray {
+    const tr = start.spanRange(rate.span(length));
+    const data = new BigInt64Array(length);
+    for (let i = 0; i < length; i++) {
+      data[i] = BigInt(start.add(rate.span(i)).valueOf());
+    }
+    return new LazyArray(data, DataType.TIMESTAMP, tr);
   }
 
   constructor(
@@ -100,15 +102,16 @@ export class LazyArray {
   write(other: LazyArray): number {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
-    // Mark the GL buffer as needing to be updated
+
+    // We've filled the entire underlying buffer.
     if (this.pos === FULL_BUFFER) return 0;
-    const available = this.length - this.pos;
-    if (available < other.length) {
-      this.data.set(other.data.slice(0, available) as any, this.pos);
-      return available;
-    }
-    this.data.set(other.data as any, this.pos);
-    return other.length;
+    const available = this.cap - this.pos;
+
+    const toWrite = available < other.length ? other.slice(0, available) : other;
+    this.underlyingData.set(toWrite.data as any, this.pos);
+    this.maybeRecomputeMinMax(toWrite);
+    this.pos += toWrite.length;
+    return toWrite.length;
   }
 
   /** @returns the underlying buffer backing this array. */
@@ -116,9 +119,14 @@ export class LazyArray {
     return this._data;
   }
 
+  private get underlyingData(): NativeTypedArray {
+    return new this.dataType.Array(this._data);
+  }
+
   /** @returns a native typed array with the proper data type. */
   get data(): NativeTypedArray {
-    return new this.dataType.Array(this._data);
+    if (this.pos === FULL_BUFFER) return this.underlyingData;
+    return new this.dataType.Array(this._data, 0, this.pos);
   }
 
   /** @returns the time range of this array. */
@@ -127,40 +135,50 @@ export class LazyArray {
     return this._timeRange as TimeRange;
   }
 
-  /** @returns the size of the underlying buffer in bytes. */
-  get cap(): Size {
+  /** @returns the capacity of the underlying buffer in bytes. */
+  get byteCap(): Size {
     return new Size(this.buffer.byteLength);
+  }
+
+  /** @returns the capacity of the underlying buffer in samples. */
+  get cap(): number {
+    return this.dataType.density.length(this.byteCap);
+  }
+
+  /** @returns the length of the underlying buffer in samples. */
+  get byteLength(): Size {
+    if (this.pos === FULL_BUFFER) return this.byteCap;
+    return this.dataType.density.size(this.pos);
   }
 
   /** @returns the number of samples in this array. */
   get length(): number {
-    return this.dataType.density.length(this.cap);
+    if (this.pos === FULL_BUFFER) return this.data.length;
+    return this.pos;
   }
 
   /**
    * Creates a new array with a different data type.
    * @param target the data type to convert to.
-   * @param offset an offset to apply to each sample. This can help with precision
+   * @param sampleOffset an offset to apply to each sample. This can help with precision
    * issues when converting between data types.
    *
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, offset: SampleValue = 0): LazyArray {
+  convert(target: DataType, sampleOffset: SampleValue = 0): LazyArray {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
-      data[i] = convertDataType(this.dataType, target, this.data[i], offset);
+      data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
     }
-    const n = new LazyArray(data.buffer, target, this._timeRange, offset);
-    if (this._max != null) n._max = addSamples(this._max, offset);
-    if (this._min != null) n._min = addSamples(this._min, offset);
-    return n;
+    return new LazyArray(data.buffer, target, this._timeRange, sampleOffset);
   }
 
   /** Returns the maximum value in the array */
   get max(): SampleValue {
-    if (this._max == null) {
+    if (this.pos === 0) return addSamples(0, this.sampleOffset);
+    else if (this._max == null) {
       if (this.dataType.equals(DataType.TIMESTAMP)) {
         this._max = this.data[this.data.length - 1];
       } else if (this.dataType.usesBigInt) {
@@ -174,9 +192,15 @@ export class LazyArray {
     return addSamples(this._max, this.sampleOffset);
   }
 
+  private maybeRecomputeMinMax(update: LazyArray): void {
+    if (this._min != null && update.min < this._min) this._min = update.min;
+    if (this._max != null && update.max > this._max) this._max = update.max;
+  }
+
   /** Returns the minimum value in the array */
   get min(): SampleValue {
-    if (this._min == null) {
+    if (this.pos === 0) return addSamples(0, this.sampleOffset);
+    else if (this._min == null) {
       if (this.dataType.equals(DataType.TIMESTAMP)) {
         this._min = this.data[0];
       } else if (this.dataType.usesBigInt) {
@@ -188,10 +212,6 @@ export class LazyArray {
       }
     }
     return addSamples(this._min, this.sampleOffset);
-  }
-
-  get bound(): Bound {
-    return new Bound(Number(this.min), Number(this.max));
   }
 
   enrich(): void {
@@ -223,19 +243,31 @@ export class LazyArray {
     return left;
   }
 
-  updateGLBuffer(gl: GLBufferControl): void {
+  updateGLBuffer(gl: GLBufferController): void {
+    if (!this.dataType.equals(DataType.FLOAT32))
+      throw new Error("Only FLOAT32 arrays can be used in WebGL");
     const { buffer, bufferUsage, prevBuffer } = this.gl;
-    if (this.pos === prevBuffer) return;
+
+    // If no buffer has been created yet, create one.
     if (buffer == null) this.gl.buffer = gl.createBuffer();
+    // If the current write position is the same as the previous buffer, we're already
+    // up date.
+    if (this.pos === prevBuffer) return;
+
+    // Bind the buffer.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
+
+    // This means we only need to buffer part of the array.
     if (this.pos !== FULL_BUFFER) {
-      gl.bufferSubData(
-        gl.ARRAY_BUFFER,
-        this.dataType.density.size(prevBuffer).valueOf(),
-        this.buffer.slice(this.gl.prevBuffer, this.pos)
-      );
+      if (prevBuffer === 0) {
+        gl.bufferData(gl.ARRAY_BUFFER, this.byteCap.valueOf(), gl.STATIC_DRAW);
+      }
+      const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
+      const slice = this.underlyingData.slice(this.gl.prevBuffer, this.pos);
+      gl.bufferSubData(gl.ARRAY_BUFFER, byteOffset, slice.buffer);
       this.gl.prevBuffer = this.pos;
     } else {
+      // This means we can buffer the entire array in a single go.
       gl.bufferData(
         gl.ARRAY_BUFFER,
         this.buffer,
@@ -252,17 +284,8 @@ export class LazyArray {
   }
 
   slice(start: number, end?: number): LazyArray {
-    const data = this.data.slice(start, end);
-    const n = new LazyArray(
-      data.buffer,
-      this.dataType,
-      this._timeRange,
-      this.sampleOffset
-    );
-    n.gl.buffer = this.gl.buffer;
-    n.gl.prevBuffer = this.gl.prevBuffer;
-    n.gl.bufferUsage = this.gl.bufferUsage;
-    return n;
+    const d = this.data.slice(start, end);
+    return new LazyArray(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
   }
 }
 
@@ -270,20 +293,4 @@ export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
   return Number(a) + Number(b);
-};
-
-export const generateTimeArray = (
-  r: Rate,
-  start: TimeStamp,
-  length: number
-): LazyArray => {
-  const data = new BigInt64Array(length);
-  for (let i = 0; i < length; i++) {
-    data[i] = BigInt(start.add(r.span(i)).valueOf());
-  }
-  return new LazyArray(
-    data,
-    DataType.TIMESTAMP,
-    new TimeRange(start, start.add(r.span(length)))
-  );
 };
