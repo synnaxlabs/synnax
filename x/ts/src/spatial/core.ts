@@ -192,7 +192,35 @@ export class Location extends String {
    * call the "inverse" getter on the returned direction.
    */
   get direction(): Direction {
-    return new Direction(this.valueOf() as DirectionT);
+    return new Direction(this.v as DirectionT);
+  }
+
+  /**
+   * @returns true if the location is an outer location i.e. not "center".
+   */
+  get isOuter(): boolean {
+    return OUTER_LOCATIONS.includes(this.v as OuterLocationT);
+  }
+
+  /**
+   * @returns true if the location is an x location i.e. "left" or "right".
+   */
+  get isX(): boolean {
+    return X_LOCATIONS.includes(this.v as XLocationT);
+  }
+
+  /**
+   * @returns true if the location is a y location i.e. "top" or "bottom".
+   */
+  get isY(): boolean {
+    return Y_LOCATIONS.includes(this.v as YLocationT);
+  }
+
+  /**
+   * @returns true if the location is a center location i.e. "center".
+   */
+  get isCenter(): boolean {
+    return this.v === "center";
   }
 
   /** The "top" location. */
@@ -245,18 +273,24 @@ export class Location extends String {
   /**
    * A zod schema to parse an X location i.e. one of "left" or "right".
    */
-  static readonly strictXZ = xLocation.transform((v) => new Location(v));
+  static readonly strictXZ = xLocation
+    .or(z.instanceof(Location).refine((l) => l.isX))
+    .transform((v) => new Location(v));
 
   /**
    * A zod schema to parse a Y location i.e. one of "top" or "bottom".
    */
-  static readonly strictYZ = yLocation.transform((v) => new Location(v));
+  static readonly strictYZ = yLocation
+    .or(z.instanceof(Location).refine((l) => l.isY))
+    .transform((v) => new Location(v));
 
   /**
    * A zod schema to parse an outer location i.e. one of "top", "bottom", "left",
    * "right".
    */
-  static readonly strictOuterZ = outerLocation.transform((v) => new Location(v));
+  static readonly strictOuterZ = outerLocation
+    .or(z.instanceof(Location).refine((v) => v.isOuter))
+    .transform((v) => new Location(v));
 
   private static readonly SWAPPED: Record<LocationT, LocationT> = {
     top: "bottom",

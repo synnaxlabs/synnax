@@ -22,7 +22,7 @@ import {
 
 import { Box, Location, OuterLocationT } from "@synnaxlabs/x";
 
-import { Bob } from "@/core/aether/main";
+import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import {
@@ -83,7 +83,7 @@ export const LinePlotC = ({
   const {
     path,
     state: [, setState],
-  } = Bob.use<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
+  } = Aether.use<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
     plot: Box.ZERO,
     container: Box.ZERO,
     viewport: Box.DECIMAL,
@@ -143,7 +143,7 @@ export const LinePlotC = ({
       ref={containerResizeRef}
       {...props}
     >
-      <Bob.Composite path={path}>
+      <Aether.Composite path={path}>
         <LinePlotContext.Provider value={{ setAxis, deleteAxis }}>
           {children}
           <Viewport.Mask
@@ -152,7 +152,7 @@ export const LinePlotC = ({
             ref={viewportRefCallback}
           />
         </LinePlotContext.Provider>
-      </Bob.Composite>
+      </Aether.Composite>
     </div>
   );
 };

@@ -139,7 +139,7 @@ export const BobComposite = ({ children, path }: BobCompositeProps): JSX.Element
   );
 };
 
-export const Bob = {
+export const Aether = {
   Provider: BobProvider,
   Composite: BobComposite,
   use: useAether,

@@ -18,7 +18,7 @@ import {
 
 import { Box } from "@synnaxlabs/x";
 
-import { Bob } from "@/core/aether/main";
+import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import {
   Bootstrap,
@@ -34,11 +34,11 @@ type HTMLCanvasProps = DetailedHTMLProps<
 export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
 export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement => {
-  const bootstrap = Bob.useBootstrap<Bootstrap>();
+  const bootstrap = Aether.useBootstrap<Bootstrap>();
   const {
     path,
     state: [, setCanvas],
-  } = Bob.use<WorkerCanvasProps>(
+  } = Aether.use<WorkerCanvasProps>(
     WorkerCanvas.TYPE,
     {
       region: Box.ZERO,
@@ -98,7 +98,7 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
     <>
       <canvas ref={canvasRefCallback} {...props} />
       <canvas ref={glRefCallback} {...props} />
-      <Bob.Composite path={path}>{bootstrapped && children}</Bob.Composite>
+      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
     </>
   );
 };

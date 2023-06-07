@@ -1058,17 +1058,20 @@ export interface TimeRangeT {
   end: TimeStampT;
 }
 
-export type NativeTypedArray =
-  | Uint8Array
-  | Uint16Array
-  | Uint32Array
-  | BigUint64Array
-  | Float32Array
-  | Float64Array
-  | Int8Array
-  | Int16Array
-  | Int32Array
-  | BigInt64Array;
+export const nativeTypedArray = z.union([
+  z.instanceof(Uint8Array),
+  z.instanceof(Uint16Array),
+  z.instanceof(Uint32Array),
+  z.instanceof(BigUint64Array),
+  z.instanceof(Float32Array),
+  z.instanceof(Float64Array),
+  z.instanceof(Int8Array),
+  z.instanceof(Int16Array),
+  z.instanceof(Int32Array),
+  z.instanceof(BigInt64Array),
+]);
+
+export type NativeTypedArray = z.infer<typeof nativeTypedArray>;
 
 type NativeTypedArrayConstructor =
   | Uint8ArrayConstructor

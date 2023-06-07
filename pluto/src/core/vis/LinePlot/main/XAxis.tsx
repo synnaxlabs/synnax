@@ -13,7 +13,7 @@ import { Optional, XY } from "@synnaxlabs/x";
 
 import { useAxisPosition } from "./LinePlot";
 
-import { Bob } from "@/core/aether/main";
+import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
 import {
@@ -35,7 +35,7 @@ export const XAxis = memo(
       key,
       path,
       state: [, setState],
-    } = Bob.use<WorkerXAxisState>(WorkerXAxis.TYPE, {
+    } = Aether.use<WorkerXAxisState>(WorkerXAxis.TYPE, {
       color: theme.colors.gray.p2,
       gridColor: theme.colors.gray.m1,
       position: XY.ZERO,
@@ -54,14 +54,14 @@ export const XAxis = memo(
       { debounce: 100 }
     );
     return (
-      <Bob.Composite path={path}>
+      <Aether.Composite path={path}>
         <div
           className="x-axis"
           style={{ ...gridStyle, backgroundColor: "var(--pluto-gray-z)" }}
           ref={resizeRef}
         />
         {children}
-      </Bob.Composite>
+      </Aether.Composite>
     );
   }
 );

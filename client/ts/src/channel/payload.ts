@@ -29,7 +29,7 @@ export const channelPayload = z.object({
   dataType: DataType.z,
   name: z.string(),
   leaseholder: z.number().default(0).optional(),
-  index: z.string().default("").optional(),
+  index: z.number().default(0).optional(),
   isIndex: z.boolean().default(false).optional(),
 });
 
@@ -47,7 +47,7 @@ export interface UnparsedChannel {
   dataType: UnparsedDataType;
   rate?: UnparsedRate;
   leaseholder?: number;
-  index?: string;
+  index?: number;
   isIndex?: boolean;
 }
 

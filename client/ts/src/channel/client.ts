@@ -21,6 +21,7 @@ import {
 
 import { ChannelCreator } from "./creator";
 import {
+  ChannelKey,
   ChannelKeyOrName,
   ChannelParams,
   ChannelPayload,
@@ -47,7 +48,7 @@ export class Channel {
     key = 0,
     density = 0,
     isIndex = false,
-    index = "",
+    index = 0,
     segmentClient,
   }: UnparsedChannel & {
     segmentClient?: FrameClient;
@@ -89,6 +90,14 @@ export class Channel {
 
   get rate(): Rate {
     return this.payload.rate;
+  }
+
+  get isIndexed(): boolean {
+    return this.index !== 0;
+  }
+
+  get index(): ChannelKey {
+    return this.payload.index ?? 0;
   }
 
   get dataType(): DataType {
