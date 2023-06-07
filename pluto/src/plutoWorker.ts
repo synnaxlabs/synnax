@@ -1,7 +1,6 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
-import { BobRoot } from "./core/bob/worker";
-
+import { AetherRoot } from "@/core/aether/worker";
 import { newBootstrapFn } from "@/core/vis/WorkerCanvas";
 import { TelemWorker } from "@/telem/worker";
 
@@ -10,4 +9,4 @@ onmessage = (e) => w.handle(e);
 const telem = new TelemWorker(w.route("telem"));
 const fn = newBootstrapFn(telem);
 // eslint-disable-next-line no-new
-new BobRoot(w.route("vis"), fn);
+new AetherRoot(w.route("vis"), fn);

@@ -1,6 +1,13 @@
-import { TimeRange } from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { VisArray } from "@/telem/visArray";
+import { TimeRange, LazyArray } from "@synnaxlabs/x";
 
 export class StaticCache {
   private readonly entries: CachedRead[];
@@ -20,7 +27,7 @@ export class StaticCache {
     return this.entries.map((r) => r.gap);
   }
 
-  write(tr: TimeRange, entries: VisArray[]): void {
+  write(tr: TimeRange, entries: LazyArray[]): void {
     const read = new CachedRead(tr, entries);
     const i = this.getInsertionIndex(tr);
     if (i !== this.entries.length) {
@@ -39,7 +46,7 @@ export class StaticCache {
     return i;
   }
 
-  read(tr: TimeRange): [VisArray[], TimeRange[]] {
+  read(tr: TimeRange): [LazyArray[], TimeRange[]] {
     const reads = this.entries.filter((r) => {
       return r.timeRange.overlapsWith(tr);
     });
@@ -60,10 +67,10 @@ export class StaticCache {
 
 class CachedRead {
   timeRange: TimeRange;
-  data: VisArray[];
+  data: LazyArray[];
   gap: TimeRange;
 
-  constructor(timeRange: TimeRange, data: VisArray[]) {
+  constructor(timeRange: TimeRange, data: LazyArray[]) {
     this.timeRange = timeRange;
     this.data = data;
     this.gap = TimeRange.ZERO;

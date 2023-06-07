@@ -1,15 +1,20 @@
-import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { GLBufferController } from "@/telem/cache/bufferController";
+import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 export class DynamicCache {
   private readonly dataType: DataType;
   curr: LazyArray;
   private readonly cap: number;
-  private readonly gl: GLBufferController;
 
-  constructor(gl: GLBufferController, cap: number, dataType: DataType) {
-    this.gl = gl;
+  constructor(cap: number, dataType: DataType) {
     this.dataType = dataType;
     this.curr = this.allocate(cap);
     this.cap = cap;
@@ -33,14 +38,11 @@ export class DynamicCache {
   }
 
   private allocate(length: number): LazyArray {
-    const tArray = LazyArray.alloc(length, this.dataType, TimeStamp.now().spanRange(0));
-    tArray.updateGLBuffer(this.gl);
-    return tArray;
+    return LazyArray.alloc(length, this.dataType, TimeStamp.now().spanRange(0));
   }
 
   private _write(arr: LazyArray): LazyArray[] {
     const amountWritten = this.curr.write(arr);
-    this.curr.updateGLBuffer(this.gl);
     if (amountWritten === arr.length) return [];
     const next = this.allocate(this.cap);
     return [next, ...this._write(arr.slice(amountWritten))];

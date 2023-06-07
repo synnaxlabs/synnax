@@ -13,8 +13,10 @@ import {
   convertDataType,
   DataType,
   NativeTypedArray,
+  Rate,
   Size,
   TimeRange,
+  TimeStamp,
   UnparsedDataType,
 } from "@/telem/telem";
 
@@ -268,4 +270,20 @@ export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
   return Number(a) + Number(b);
+};
+
+export const generateTimeArray = (
+  r: Rate,
+  start: TimeStamp,
+  length: number
+): LazyArray => {
+  const data = new BigInt64Array(length);
+  for (let i = 0; i < length; i++) {
+    data[i] = BigInt(start.add(r.span(i)).valueOf());
+  }
+  return new LazyArray(
+    data,
+    DataType.TIMESTAMP,
+    new TimeRange(start, start.add(r.span(length)))
+  );
 };

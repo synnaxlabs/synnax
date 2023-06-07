@@ -1,6 +1,14 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Channel, LazyArray, TimeRange } from "@synnaxlabs/client";
 
-import { GLBufferController } from "@/telem/cache/bufferController";
 import { DynamicCache } from "@/telem/cache/dynamic";
 import { StaticCache } from "@/telem/cache/static";
 
@@ -8,12 +16,10 @@ export class Cache {
   channel: Channel;
   static: StaticCache;
   dynamic: DynamicCache;
-  gl: GLBufferController;
 
-  constructor(gl: GLBufferController, dynamicCap: number, channel: Channel) {
-    this.gl = gl;
+  constructor(dynamicCap: number, channel: Channel) {
     this.static = new StaticCache();
-    this.dynamic = new DynamicCache(gl, dynamicCap, channel.dataType);
+    this.dynamic = new DynamicCache(dynamicCap, channel.dataType);
     this.channel = channel;
   }
 
@@ -31,7 +37,6 @@ export class Cache {
   }
 
   writeStatic(tr: TimeRange, arrs: LazyArray[]): void {
-    arrs.forEach((arr) => arr.updateGLBuffer(this.gl));
     this.static.write(tr, arrs);
   }
 

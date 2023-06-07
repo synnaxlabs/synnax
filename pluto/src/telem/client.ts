@@ -11,28 +11,24 @@ import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/
 import { LazyArray, TimeRange } from "@synnaxlabs/x";
 
 import { Cache } from "@/telem/cache";
-import { GLBufferController } from "@/telem/cache/bufferController";
-import { ChannelRange, Range } from "@/telem/range";
 
-export type StreamHandler = (data: ReadResponse[] | null) => void;
+export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
   private _streamer: Streamer | null;
   readonly core: Synnax;
   private readonly cache: Map<ChannelKey, Cache>;
-  private readonly listeners: Map<StreamHandler, ChannelRange>;
-  private readonly gl: GLBufferController;
+  private readonly listeners: Map<StreamHandler, ChannelKeys>;
 
-  constructor(wrap: Synnax, gl: GLBufferController) {
+  constructor(wrap: Synnax) {
     this.core = wrap;
     this._streamer = null;
-    this.gl = gl;
     this.cache = new Map();
     this.listeners = new Map();
   }
 
-  setStreamhandler(handler: StreamHandler, range: ChannelRange): void {
-    this.listeners.set(handler, range);
+  setStreamhandler(handler: StreamHandler, keys: ChannelKeys): void {
+    this.listeners.set(handler, keys);
     void this.updateStreamer();
   }
 
@@ -41,7 +37,21 @@ export class Client {
     void this.updateStreamer();
   }
 
-  async read(range: ChannelRange): Promise<ReadResponse[]> {
+  /**
+   * Reads telemetry from the given channels for the given time range.
+   *
+   * @param tr
+   * @param channels
+   * @returns a record with the read response for each channel. Each channel is guaranteed
+   * to have a response, regardless of whether or not data was found. Responses without
+   * data will have no LazyArrays. Responses are NOT guaranteed to have the same topology
+   * i.e. the same number of LazyArrays where each LazyArray has the same length.
+   * It's up to the caller to normalize the data shape if necessary.
+   */
+  async read(
+    tr: TimeRange,
+    channels: number[]
+  ): Promise<Record<ChannelKey, ReadResponse>> {
     const toFetch = new Map<string, [TimeRange, ChannelKeys]>();
     const responses: Record<ChannelKey, [Channel, LazyArray[]]> = {};
     for (const key of range.channels) {
@@ -72,14 +82,14 @@ export class Client {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache = new Cache(this.gl, 1000, channel);
+    const cache = new Cache(1000, channel);
     this.cache.set(key, cache);
     return cache;
   }
 
   private async updateStreamer(): Promise<void> {
     const keys = new Set<ChannelKey>();
-    this.listeners.forEach((v) => v.channels.forEach((k) => keys.add(k)));
+    this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
     if (keys.size === 0) {
       this._streamer?.close();
       this._streamer = null;
@@ -90,37 +100,35 @@ export class Client {
   }
 
   private async start(streamer: Streamer): Promise<void> {
-    const changed = new Map<ChannelKey, [Channel, LazyArray[]]>();
     for await (const frame of streamer) {
+      const changed = new Map<ChannelKey, [Channel, LazyArray[]]>();
       for (const k of frame.channelKeys) {
         const arrays = frame.get(k);
         const cache = await this.getCache(k);
         const out = cache.writeDynamic(arrays);
         if (out.length > 0) changed.set(k, [cache.channel, out]);
       }
+      this.listeners.forEach((v, k) => {
+        const notify = v
+          .map((c) => {
+            const change = changed.get(c);
+            if (change == null) return null;
+            const [ch, arrays] = change;
+            return new ReadResponse(ch, arrays);
+          })
+          .filter((e) => e != null) as ReadResponse[];
+        if (notify.length > 0) k(notify);
+      });
     }
-    this.listeners.forEach((v, k) => {
-      const notify = v.channels
-        .map((c) => {
-          const change = changed.get(c);
-          if (change == null) return null;
-          const [ch, arrays] = change;
-          return new ReadResponse(ch, v, arrays);
-        })
-        .filter((e) => e != null) as ReadResponse[];
-      if (notify.length > 0) k(notify);
-    });
   }
 }
 
 export class ReadResponse {
   channel: Channel;
-  range: Range;
   data: LazyArray[];
 
-  constructor(channel: Channel, range: Range, data: LazyArray[]) {
+  constructor(channel: Channel, data: LazyArray[]) {
     this.channel = channel;
-    this.range = range;
     this.data = data;
   }
 
