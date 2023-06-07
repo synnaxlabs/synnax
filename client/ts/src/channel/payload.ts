@@ -16,12 +16,7 @@ export type ChannelName = string;
 export type ChannelNames = string[];
 export type ChannelKeyOrName = ChannelKey | ChannelName;
 export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
-export type ChannelParams =
-  | ChannelKey
-  | ChannelName
-  | ChannelKeys
-  | ChannelNames
-  | Array<ChannelKey | ChannelName>;
+export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
 
 export const channelPayload = z.object({
   key: z.number(),

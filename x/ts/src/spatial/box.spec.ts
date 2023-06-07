@@ -11,7 +11,7 @@ import { describe, test, expect, it } from "vitest";
 
 import { Box, positionInCenter } from "@/spatial";
 
-describe.only("Box", () => {
+describe("Box", () => {
   describe("construction", () => {
     test("from dom rect", () => {
       const b = new Box({ left: 0, top: 0, right: 10, bottom: 10 });

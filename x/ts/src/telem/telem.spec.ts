@@ -47,7 +47,7 @@ describe("TimeStamp", () => {
     ).toBeTruthy();
   });
 
-  test.only("construct from date", () => {
+  test("construct from date", () => {
     const ts = new TimeStamp([2021, 1, 1], "UTC");
     expect(ts.date().getUTCFullYear()).toEqual(2021);
     expect(ts.date().getUTCMonth()).toEqual(0);

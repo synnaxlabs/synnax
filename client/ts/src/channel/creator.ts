@@ -26,11 +26,11 @@ const RequestSchema = z.object({
 
 type Request = z.infer<typeof RequestSchema>;
 
-const ResponseSchema = z.object({
+const responseZ = z.object({
   channels: channelPayload.array(),
 });
 
-type Response = z.infer<typeof ResponseSchema>;
+type Response = z.infer<typeof responseZ>;
 
 export class ChannelCreator {
   private static readonly ENDPOINT = "/channel/create";
@@ -60,9 +60,7 @@ export class ChannelCreator {
     const [res, err] = await this.client.send(
       ChannelCreator.ENDPOINT,
       request,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      ResponseSchema
+      responseZ
     );
     if (err != null) throw err;
     return res as Response;

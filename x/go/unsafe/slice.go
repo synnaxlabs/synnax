@@ -12,5 +12,8 @@ package unsafe
 import "unsafe"
 
 func ConvertSlice[A, B any](in []A) []B {
+	if len(in) == 0 {
+		return nil
+	}
 	return unsafe.Slice((*B)(unsafe.Pointer(&in[0])), len(in))
 }

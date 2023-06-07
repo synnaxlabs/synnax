@@ -18,7 +18,7 @@ import {
   XY,
 } from "@/spatial";
 
-describe.only("Spatial Core", () => {
+describe("Spatial Core", () => {
   describe("XY", () => {
     describe("construction", () => {
       [

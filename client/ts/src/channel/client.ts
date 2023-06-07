@@ -100,6 +100,10 @@ export class Channel {
     return this.payload.index ?? 0;
   }
 
+  get isIndex(): boolean {
+    return this.payload.isIndex ?? false;
+  }
+
   get dataType(): DataType {
     return this.payload.dataType;
   }

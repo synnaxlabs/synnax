@@ -14,41 +14,104 @@ import { Frame } from "..";
 
 describe("Frame", () => {
   describe("construction", () => {
-    describe("from keys and arrays", () => {
-      test("valid", () => {
-        const f = new Frame([new LazyArray(new Float32Array([1, 2, 3]))], ["a"]);
-        expect(f.size.valueOf()).toEqual(12);
-        expect(f.keys.length).toEqual(1);
+    describe("valid", () => {
+      test("from an array of channel names and an array of arrays", () => {
+        const f = new Frame(
+          ["a", "b", "c"],
+          [
+            new LazyArray(new Float32Array([1, 2, 3])),
+            new LazyArray(new Float32Array([1, 2, 3])),
+            new LazyArray(new Float32Array([1, 2, 3])),
+          ]
+        );
+        expect(f.length).toEqual(9);
+        expect(f.labeledBy).toEqual("name");
+      });
+
+      test("from an array of channel keys and an array of arrays", () => {
+        const f = new Frame(
+          [12, 13, 14],
+          [
+            new LazyArray(new Float32Array([1, 2, 3])),
+            new LazyArray(new Float32Array([1, 2, 3])),
+            new LazyArray(new Float32Array([1, 2, 3])),
+          ]
+        );
+        expect(f.length).toEqual(9);
+        expect(f.labeledBy).toEqual("key");
+      });
+
+      test("from a single name and an array of arrays", () => {
+        const f = new Frame("a", [new LazyArray(new Float32Array([1, 2, 3]))]);
+        expect(f.length).toEqual(3);
+        expect(f.labeledBy).toEqual("name");
+      });
+
+      test("from a single key and an array of arrays", () => {
+        const f = new Frame(12, [new LazyArray(new Float32Array([1, 2, 3]))]);
+        expect(f.length).toEqual(3);
+        expect(f.labeledBy).toEqual("key");
+      });
+
+      test("from a single key and a single array", () => {
+        const f = new Frame(12, new LazyArray(new Float32Array([1, 2, 3])));
+        expect(f.length).toEqual(3);
+        expect(f.labeledBy).toEqual("key");
+      });
+
+      test("from a single name and a single array", () => {
+        const f = new Frame("a", new LazyArray(new Float32Array([1, 2, 3])));
+        expect(f.length).toEqual(3);
+        expect(f.labeledBy).toEqual("name");
+      });
+
+      test("from payload", () => {
+        const f = new Frame({
+          keys: [12],
+          arrays: [
+            {
+              dataType: new DataType("float32"),
+              data: new SharedArrayBuffer(12),
+            },
+          ],
+        });
+        expect(f.length.valueOf()).toEqual(3);
+        expect(f.labels.length).toEqual(1);
         expect(f.arrays.length).toEqual(1);
       });
-      test("invalid", () => {
+
+      test("from record", () => {
+        const f = new Frame({
+          a: new LazyArray(new Float32Array([1, 2, 3])),
+        });
+        expect(f.length.valueOf()).toEqual(3);
+        expect(f.labels.length).toEqual(1);
+        expect(f.arrays.length).toEqual(1);
+      });
+
+      test("from map", () => {
+        const f = new Frame(
+          new Map([[12, new LazyArray(new Float32Array([1, 2, 3]))]])
+        );
+        expect(f.length).toEqual(3);
+        expect(f.labels.length).toEqual(1);
+        expect(f.arrays.length).toEqual(1);
+      });
+    });
+
+    describe("invalid", () => {
+      test("mismatched lengths", () => {
         expect(
-          () => new Frame([new LazyArray(new Float32Array([1, 2, 3]))], [])
+          () =>
+            new Frame(
+              ["a", "b", "c"],
+              [
+                new LazyArray(new Float32Array([1, 2, 3])),
+                new LazyArray(new Float32Array([1, 2, 3])),
+              ]
+            )
         ).toThrow();
-        expect(() => new Frame([], ["a"])).toThrow();
       });
-    });
-    test("from payload", () => {
-      const f = new Frame({
-        keys: [12],
-        arrays: [
-          {
-            dataType: new DataType("float32"),
-            data: new SharedArrayBuffer(12),
-          },
-        ],
-      });
-      expect(f.size.valueOf()).toEqual(12);
-      expect(f.keys.length).toEqual(1);
-      expect(f.arrays.length).toEqual(1);
-    });
-    test("from map", () => {
-      const f = new Frame(
-        new Map([[12, [new LazyArray(new Float32Array([1, 2, 3]))]]])
-      );
-      expect(f.size.valueOf()).toEqual(12);
-      expect(f.keys.length).toEqual(1);
-      expect(f.arrays.length).toEqual(1);
     });
   });
 
@@ -173,30 +236,18 @@ describe("Frame", () => {
 
     describe("key provided", () => {
       it("should return the time range of the key", () => {
-        const f = new Frame(
-          new Map([
-            [
-              12,
-              [
-                new LazyArray(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(40, 50000)
-                ),
-              ],
-            ],
-            [
-              13,
-              [
-                new LazyArray(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(500, 50001)
-                ),
-              ],
-            ],
-          ])
-        );
+        const f = new Frame({
+          a: new LazyArray(
+            new Float32Array([1, 2, 3]),
+            undefined,
+            new TimeRange(40, 50000)
+          ),
+          b: new LazyArray(
+            new Float32Array([1, 2, 3]),
+            undefined,
+            new TimeRange(500, 50001)
+          ),
+        });
         expect(f.timeRange("a")).toEqual(new TimeRange(40, 50000));
       });
     });
@@ -227,7 +278,7 @@ describe("Frame", () => {
             ],
           ])
         );
-        expect(f.filter((k) => k === "a").keys).toEqual(["a"]);
+        expect(f.filter((k) => k === 12).labels).toEqual([12]);
       });
     });
   });
@@ -259,7 +310,7 @@ describe("Frame", () => {
         ])
       );
       const pld = f.toPayload();
-      expect(pld.keys).toEqual(["a", "b"]);
+      expect(pld.keys).toEqual([12, 13]);
       expect(pld.arrays?.[0].data.byteLength).toEqual(12);
     });
   });
