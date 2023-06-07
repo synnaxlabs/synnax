@@ -10,7 +10,7 @@
 import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { BobComponentFactory, BobComposite } from "@/core/bob/worker";
+import { BobComponentFactory, AtherComposite } from "@/core/aether/worker";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
 import { YAxis, YAxisContext, autoBounds } from "@/core/vis/LinePlot/worker/YAxis";
@@ -50,7 +50,7 @@ export class XAxisFactory implements BobComponentFactory<XAxis> {
   }
 }
 
-export class XAxis extends BobComposite<YAxis, XAxisState, ParsedXAxisState> {
+export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
   ctx: RenderContext;
   core: Axis;
   static readonly TYPE = "x-axis";

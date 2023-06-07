@@ -18,7 +18,7 @@ import {
 
 import { Box } from "@synnaxlabs/x";
 
-import { Bob } from "@/core/bob/main";
+import { Bob } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import {
   Bootstrap,
@@ -38,7 +38,7 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
   const {
     path,
     state: [, setCanvas],
-  } = Bob.useComponent<WorkerCanvasProps>(
+  } = Bob.use<WorkerCanvasProps>(
     WorkerCanvas.TYPE,
     {
       region: Box.ZERO,

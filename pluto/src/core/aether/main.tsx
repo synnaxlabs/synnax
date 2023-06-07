@@ -13,15 +13,16 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
-import { WorkerMessage } from "@/core/bob/message";
+import { WorkerMessage } from "@/core/aether/message";
 import { PsuedoSetStateArg } from "@/core/hooks/useStateRef";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useTypedWorker } from "@/worker/Context";
 
-export interface BobContextValue {
+export interface AetherContextValue {
   path: string[];
   bootstrap: (state: any, transfer?: Transferable[]) => void;
   setState: (
@@ -33,57 +34,64 @@ export interface BobContextValue {
   delete: (path: string[]) => void;
 }
 
-export const BobContext = createContext<BobContextValue | null>(null);
+export const AetherContext = createContext<AetherContextValue | null>(null);
 
-export interface UseBobComponentReturn<S extends unknown> {
+export interface UseAetherReturn<S extends unknown> {
   key: string;
   path: string[];
   state: [S, (state: PsuedoSetStateArg<S>, transfer?: Transferable[]) => void];
 }
 
-export const useBobContext = (): BobContextValue => {
-  const ctx = useContext(BobContext);
+export const useAetherContext = (): AetherContextValue => {
+  const ctx = useContext(AetherContext);
   if (ctx == null) throw new Error("useBobContext must be used within a BobProvider");
   return ctx;
 };
 
-export const useBobComponent = <S extends unknown>(
+export const useAether = <S extends unknown>(
   type: string,
   initialState: S,
   key?: string,
   initialTransfer: Transferable[] = []
-): UseBobComponentReturn<S> => {
+): UseAetherReturn<S> => {
   const oKey = useUniqueKey(key);
-  const ctx = useBobContext();
+  const ctx = useAetherContext();
   const path = [...ctx.path, oKey];
-  const [state, _setState] = useState(() => {
-    ctx.setState(path, type, initialState, initialTransfer);
-    return initialState;
-  });
+
+  const [internalState, setInternalState] = useState(initialState);
+
+  const initialStateSet = useRef(false);
+
   const setState = useCallback(
     (next: PsuedoSetStateArg<S>, transfer: Transferable[] = []): void => {
-      if (typeof next === "function") {
-        _setState((prev) => {
+      if (typeof next === "function")
+        setInternalState((prev) => {
           const nextS = (next as (prev: S) => S)(prev);
           ctx.setState(path, type, nextS, transfer);
           return nextS;
         });
-      } else {
-        _setState(next);
+      else {
+        setInternalState(next);
         ctx.setState(path, type, next, transfer);
       }
     },
     [ctx, path, type]
   );
+
+  if (!initialStateSet.current) {
+    initialStateSet.current = true;
+    ctx.setState(path, type, initialState, initialTransfer);
+  }
+
   useEffect(() => () => ctx.delete(path), []);
-  return { key: oKey, path, state: [state, setState] };
+  return { key: oKey, path, state: [internalState, setState] };
 };
 
 export const useBobBootstrap = <P extends unknown>(): ((
   state: P,
   transfer?: Transferable[]
 ) => void) => {
-  const ctx = useBobContext();
+  const ctx = useAetherContext();
   return useCallback(
     (state: P, transfer: Transferable[] = []): void => ctx.bootstrap(state, transfer),
     [ctx]
@@ -114,9 +122,9 @@ export const BobProvider = ({ workerKey, children }: BobProviderProps): JSX.Elem
   );
 
   return (
-    <BobContext.Provider value={{ path: [], setState, delete: delete_, bootstrap }}>
+    <AetherContext.Provider value={{ path: [], setState, delete: delete_, bootstrap }}>
       {children}
-    </BobContext.Provider>
+    </AetherContext.Provider>
   );
 };
 
@@ -125,13 +133,15 @@ export interface BobCompositeProps extends PropsWithChildren {
 }
 
 export const BobComposite = ({ children, path }: BobCompositeProps): JSX.Element => {
-  const ctx = useBobContext();
-  return <BobContext.Provider value={{ ...ctx, path }}>{children}</BobContext.Provider>;
+  const ctx = useAetherContext();
+  return (
+    <AetherContext.Provider value={{ ...ctx, path }}>{children}</AetherContext.Provider>
+  );
 };
 
 export const Bob = {
   Provider: BobProvider,
   Composite: BobComposite,
-  useComponent: useBobComponent,
+  use: useAether,
   useBootstrap: useBobBootstrap,
 };

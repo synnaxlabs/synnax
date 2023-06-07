@@ -9,7 +9,7 @@
 
 import { Bound, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
 
-import { BobComponentFactory, BobLeaf } from "@/core/bob/worker";
+import { BobComponentFactory, AetherLeaf } from "@/core/aether/worker";
 import {
   LineComponent,
   LineState,
@@ -105,7 +105,7 @@ export class LineGLProgram extends GLProgram {
 }
 
 export class LineGL
-  extends BobLeaf<LineState, ParsedLineState>
+  extends AetherLeaf<LineState, ParsedLineState>
   implements LineComponent
 {
   prog: LineGLProgram;

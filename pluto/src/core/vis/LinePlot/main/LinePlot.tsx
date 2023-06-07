@@ -22,7 +22,7 @@ import {
 
 import { Box, Location, OuterLocationT } from "@synnaxlabs/x";
 
-import { Bob } from "@/core/bob/main";
+import { Bob } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import {
@@ -83,7 +83,7 @@ export const LinePlotC = ({
   const {
     path,
     state: [, setState],
-  } = Bob.useComponent<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
+  } = Bob.use<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
     plot: Box.ZERO,
     container: Box.ZERO,
     viewport: Box.DECIMAL,

@@ -10,20 +10,20 @@
 import { TypedWorker } from "@synnaxlabs/x";
 import { ZodSchema, ZodTypeDef } from "zod";
 
-import { WorkerMessage } from "@/core/bob/message";
+import { WorkerMessage } from "@/core/aether/message";
 
-export interface BobComponent {
+export interface AetherComponent {
   type: string;
   key: string;
   setState: (path: string[], type: string, state: any) => void;
   delete: (path: string[]) => void;
 }
 
-export interface BobComponentFactory<C extends BobComponent> {
+export interface BobComponentFactory<C extends AetherComponent> {
   create: (type: string, key: string, state: any) => C;
 }
 
-export class BobLeaf<EP, IP extends unknown> {
+export class AetherLeaf<EP, IP extends unknown> {
   readonly type: string;
   readonly key: string;
   readonly schema: ZodSchema<IP, ZodTypeDef, EP>;
@@ -81,9 +81,9 @@ export class BobLeaf<EP, IP extends unknown> {
   }
 }
 
-export class BobComposite<C extends BobComponent, EP, IP extends unknown>
-  extends BobLeaf<EP, IP>
-  implements BobComponent
+export class AtherComposite<C extends AetherComponent, EP, IP extends unknown>
+  extends AetherLeaf<EP, IP>
+  implements AetherComponent
 {
   readonly children: C[];
   readonly factory: BobComponentFactory<C>;
@@ -152,7 +152,7 @@ export class BobComposite<C extends BobComponent, EP, IP extends unknown>
   }
 }
 
-export class CompositeComponentFactory<C extends BobComponent>
+export class CompositeComponentFactory<C extends AetherComponent>
   implements BobComponentFactory<C>
 {
   readonly factories: Record<string, BobComponentFactory<C>>;
@@ -171,12 +171,15 @@ export class CompositeComponentFactory<C extends BobComponent>
   }
 }
 
-export class BobRoot<B extends unknown> {
+export class AetherRoot<B extends unknown> {
   wrap: TypedWorker<WorkerMessage>;
-  root: BobComponent | null;
-  bootstrap: (data: B) => BobComponent;
+  root: AetherComponent | null;
+  bootstrap: (data: B) => AetherComponent;
 
-  constructor(wrap: TypedWorker<WorkerMessage>, bootstrap: (data: B) => BobComponent) {
+  constructor(
+    wrap: TypedWorker<WorkerMessage>,
+    bootstrap: (data: B) => AetherComponent
+  ) {
     this.wrap = wrap;
     this.root = null;
     this.wrap.handle((msg) => this.handle(msg));

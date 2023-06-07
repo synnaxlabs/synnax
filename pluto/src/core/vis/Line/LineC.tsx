@@ -11,12 +11,12 @@ import { ReactElement } from "react";
 
 import { Optional } from "@synnaxlabs/x";
 
-import { Bob } from "@/core/bob/main";
+import { Bob } from "@/core/aether/main";
 import { LineState } from "@/core/vis/Line/core";
 
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
 export const Line = (props: LineProps): ReactElement | null => {
-  Bob.useComponent<LineState>("line", props);
+  Bob.use<LineState>("line", props);
   return null;
 };

@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface WorkerSetPropsMessage {
+export interface SetPropsMessage {
   variant: "setState";
   path: string[];
   type: string;
   state: any;
 }
 
-export interface WorkerDeleteMessage {
+export interface DeleteMessage {
   variant: "delete";
   path: string[];
 }
 
-export interface WorkerBootstrapMessage {
+export interface BootstrapMessage {
   variant: "bootstrap";
   data: any;
 }
 
-export type WorkerMessage =
-  | WorkerSetPropsMessage
-  | WorkerDeleteMessage
-  | WorkerBootstrapMessage;
+export type WorkerMessage = SetPropsMessage | DeleteMessage | BootstrapMessage;
