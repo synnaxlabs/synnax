@@ -67,6 +67,7 @@ export class TimeStamp extends Number {
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    console.log(TimeStamp.utcOffset.toString());
     return new TimeStamp(
       date.getTime() * TimeStamp.MILLISECOND.valueOf() - TimeStamp.utcOffset.valueOf()
     ).valueOf();
