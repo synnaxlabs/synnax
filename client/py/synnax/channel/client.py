@@ -13,7 +13,12 @@ from numpy import ndarray
 from pydantic import PrivateAttr
 
 from synnax.channel.create import ChannelCreator
-from synnax.channel.payload import ChannelPayload, ChannelParams
+from synnax.channel.payload import (
+    ChannelPayload,
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
+)
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FrameClient
@@ -42,9 +47,9 @@ class Channel(ChannelPayload):
         data_type: UnparsedDataType,
         rate: UnparsedRate = 0,
         is_index: bool = False,
-        index: str = "",
+        index: ChannelKey = 0,
         leaseholder: int = 0,
-        key: int = 0,
+        key: ChannelKey = 0,
         _frame_client: FrameClient | None = None,
     ):
         """Initializes a new Channel using the given parameters. It's important to note
@@ -158,9 +163,9 @@ class ChannelClient:
         channels: None = None,
         *,
         data_type: UnparsedDataType = DataType.UNKNOWN,
-        name: str = "",
+        name: ChannelName = "",
         rate: UnparsedRate = Rate(0),
-        index: str = "",
+        index: ChannelKey = 0,
         is_index: bool = False,
         leaseholder: int = 0,
     ) -> Channel:
@@ -179,10 +184,10 @@ class ChannelClient:
         channels: Channel | list[Channel] | None = None,
         *,
         data_type: UnparsedDataType = DataType.UNKNOWN,
-        name: str = "",
+        name: ChannelName = "",
         rate: UnparsedRate = Rate(0),
         is_index: bool = False,
-        index: str = "",
+        index: ChannelKey = 0,
         leaseholder: int = 0,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments

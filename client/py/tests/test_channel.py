@@ -33,7 +33,6 @@ class TestChannelClient:
         )
 
     @pytest.mark.channel
-    @pytest.mark.focus
     def test_write_read(self, client: sy.Synnax):
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
