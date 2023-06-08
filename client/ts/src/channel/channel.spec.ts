@@ -29,7 +29,7 @@ describe("Channel", () => {
       expect(channel.rate).toEqual(Rate.hz(1));
       expect(channel.dataType).toEqual(DataType.FLOAT32);
     });
-    test.only("create index and indexed pair", async () => {
+    test("create index and indexed pair", async () => {
       const one = await client.channels.create({
         name: "Time",
         isIndex: true,
