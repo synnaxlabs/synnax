@@ -15,7 +15,12 @@ from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
 from freighter import HTTPClientPool, Payload, UnaryClient
-from synnax.channel.payload import ChannelPayload, ChannelKeys, ChannelNames, ChannelParams
+from synnax.channel.payload import (
+    ChannelPayload,
+    ChannelKeys,
+    ChannelNames,
+    ChannelParams
+)
 from synnax.exceptions import QueryError
 from synnax.util.flatten import flatten
 
