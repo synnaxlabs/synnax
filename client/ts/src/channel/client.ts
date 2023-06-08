@@ -19,6 +19,8 @@ import {
   TimeRange,
 } from "@synnaxlabs/x";
 
+import { QueryError } from "..";
+
 import { ChannelCreator } from "./creator";
 import {
   ChannelKey,
@@ -151,9 +153,7 @@ export class ChannelClient {
 
   async create(channel: UnparsedChannel): Promise<Channel>;
 
-  async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
-  ): Promise<Channel[]>;
+  async create(channels: UnparsedChannel[]): Promise<Channel[]>;
 
   /**
    * Creates a new channel with the given properties.
@@ -166,10 +166,10 @@ export class ChannelClient {
    * @returns The created channel.
    */
   async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+    channels: UnparsedChannel | UnparsedChannel[]
   ): Promise<Channel | Channel[]> {
-    const single = channels.length === 1 && !Array.isArray(channels[0]);
-    const res = this.sugar(await this.creator.create(...channels));
+    const single = !Array.isArray(channels);
+    const res = this.sugar(await this.creator.create(channels));
     return single ? res[0] : res;
   }
 
@@ -186,9 +186,14 @@ export class ChannelClient {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(channels: ChannelParams): Promise<Channel | Channel[]> {
-    const { single, normalized } = analyzeChannelParams(channels);
-    const resChannels = await this.retriever.retrieve(normalized);
-    const res = this.sugar(resChannels);
+    const { single, actual } = analyzeChannelParams(channels);
+    const res = this.sugar(await this.retriever.retrieve(channels));
+    if (single) {
+      if (res.length === 0)
+        throw new QueryError(`channel matching ${actual} not found`);
+      if (res.length > 1)
+        throw new QueryError(`multiple channels matching ${actual} found`);
+    }
     return single ? res[0] : res;
   }
 

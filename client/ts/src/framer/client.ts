@@ -65,18 +65,16 @@ export class FrameClient {
     );
   }
 
-  async newStreamer(...params: ChannelParams[]): Promise<Streamer>;
+  async newStreamer(params: ChannelParams): Promise<Streamer>;
 
-  async newStreamer(from: TimeStamp, ...params: ChannelParams[]): Promise<Streamer>;
+  async newStreamer(params: ChannelParams, from: TimeStamp): Promise<Streamer>;
 
   async newStreamer(
-    from: TimeStamp | ChannelParams,
-    params: ChannelParams
+    params: ChannelParams,
+    from: TimeStamp = TimeStamp.now()
   ): Promise<Streamer> {
-    const start = from instanceof TimeStamp ? from : TimeStamp.now();
-    params = from instanceof TimeStamp ? params : from;
     return await Streamer._open(
-      start,
+      from,
       params,
       this.retriever,
       this.transport.streamClient

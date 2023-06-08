@@ -26,5 +26,5 @@ export interface UnaryClient extends Transport {
     target: string,
     req: z.input<RQ> | null,
     resSchema: RS | null
-  ) => Promise<[z.output<RS> | null, Error | null]>;
+  ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }

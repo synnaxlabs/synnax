@@ -24,7 +24,7 @@ export interface StreamReceiver<RS extends z.ZodTypeAny> {
    *  returns the error the server returned.
    *  @raises Error: if the transport fails.
    */
-  receive: () => Promise<[z.output<RS> | null, Error | null]>;
+  receive: () => Promise<[z.output<RS>, null] | [null, Error]>;
 
   /**
    * @returns true if the stream has received a response

@@ -388,11 +388,15 @@ export const array = z.object({
 
 export type ArrayPayload = z.infer<typeof array>;
 
-const nullTransform = z.null().transform(() => []);
-
 export const frameZ = z.object({
-  keys: z.union([nullTransform, z.number().array().optional().default([])]),
-  arrays: z.union([nullTransform, array.array().optional().default([])]),
+  keys: z.union([
+    z.null().transform(() => [] as number[]),
+    z.number().array().optional().default([]),
+  ]),
+  arrays: z.union([
+    z.null().transform(() => [] as Array<z.infer<typeof array>>),
+    array.array().optional().default([]),
+  ]),
 });
 
 export type FramePayload = z.infer<typeof frameZ>;
