@@ -389,7 +389,10 @@ export class TimeStamp extends Number {
   static readonly ZERO = new TimeStamp(0);
 
   /** A zod schema for validating timestamps */
-  static readonly z = z.number().transform((n) => new TimeStamp(n));
+  static readonly z = z.union([
+    z.number().transform((n) => new TimeStamp(n)),
+    z.instanceof(TimeStamp),
+  ]);
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
@@ -546,7 +549,10 @@ export class TimeSpan extends Number {
   static readonly ZERO = new TimeSpan(0);
 
   /** A zod schema for validating and transforming timespans */
-  static readonly z = z.number().transform((n) => new TimeSpan(n));
+  static readonly z = z.union([
+    z.number().transform((n) => new TimeSpan(n)),
+    z.instanceof(TimeSpan),
+  ]);
 }
 
 /** Rate represents a data rate in Hz. */
@@ -638,7 +644,10 @@ export class Rate extends Number {
   }
 
   /** A zod schema for validating and transforming rates */
-  static readonly z = z.number().transform((n) => new Rate(n));
+  static readonly z = z.union([
+    z.number().transform((n) => new Rate(n)),
+    z.instanceof(Rate),
+  ]);
 }
 
 /** Density represents the number of bytes in a value. */
@@ -679,7 +688,10 @@ export class Density extends Number {
   static readonly BIT8 = new Density(1);
 
   /** A zod schema for validating and transforming densities */
-  static readonly z = z.number().transform((n) => new Density(n));
+  static readonly z = z.union([
+    z.number().transform((n) => new Density(n)),
+    z.instanceof(Density),
+  ]);
 }
 
 /**
@@ -793,9 +805,12 @@ export class TimeRange {
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
 
   /** A zod schema for validating and transforming time ranges */
-  static readonly z = z
-    .object({ start: TimeStamp.z, end: TimeStamp.z })
-    .transform((v) => new TimeRange(v.start, v.end));
+  static readonly z = z.union([
+    z
+      .object({ start: TimeStamp.z, end: TimeStamp.z })
+      .transform((v) => new TimeRange(v.start, v.end)),
+    z.instanceof(TimeRange),
+  ]);
 }
 
 /** DataType is a string that represents a data type. */
@@ -931,7 +946,10 @@ export class DataType extends String {
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
   /** A zod schema for a DataType. */
-  static readonly z = z.string().transform((v) => new DataType(v));
+  static readonly z = z.union([
+    z.string().transform((v) => new DataType(v)),
+    z.instanceof(DataType),
+  ]);
 }
 
 /**
@@ -1029,7 +1047,10 @@ export class Size extends Number {
   static readonly ZERO = new Size(0);
 
   /** A zod schema for a Size. */
-  static readonly SCHEMA = z.number().transform((v) => new Size(v));
+  static readonly z = z.union([
+    z.number().transform((v) => new Size(v)),
+    z.instanceof(Size),
+  ]);
 
   isZero(): boolean {
     return this.valueOf() === 0;

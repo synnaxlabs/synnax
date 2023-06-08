@@ -22,58 +22,56 @@ const ENDPOINT = new URL({
 
 const factory = new HTTPClientFactory(ENDPOINT, new JSONEncoderDecoder());
 
-const MessageSchema = z.object({
+const messageZ = z.object({
   id: z.number().optional(),
   message: z.string().optional(),
 });
-
-type Message = z.infer<typeof MessageSchema>;
 
 const getClient = factory.newGET();
 const postClient = factory.newPOST();
 
 describe("http", () => {
   test("post echo", async () => {
-    const [response, error] = await postClient.send<Message, Message>(
+    const [response, error] = await postClient.send<typeof messageZ>(
       "/echo",
       {
         id: 1,
         message: "hello",
       },
-      MessageSchema
+      messageZ
     );
     expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
   test("get echo", async () => {
-    const [response, error] = await getClient.send<Message, Message>(
+    const [response, error] = await getClient.send<typeof messageZ>(
       "/echo",
       {
         id: 1,
         message: "hello",
       },
-      MessageSchema
+      messageZ
     );
     expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
   test("get not found", async () => {
-    const [response, error] = await getClient.send<Message, Message>(
+    const [response, error] = await getClient.send<typeof messageZ>(
       "/not-found",
       {},
-      MessageSchema
+      messageZ
     );
     expect(error?.message).toEqual("Cannot GET /unary/not-found");
     expect(response).toBeNull();
   });
 
   test("post not found", async () => {
-    const [response, error] = await postClient.send<Message, Message>(
+    const [response, error] = await postClient.send<typeof messageZ>(
       "/not-found",
       {},
-      MessageSchema
+      messageZ
     );
     expect(error?.message).toEqual("Cannot POST /unary/not-found");
     expect(response).toBeNull();
@@ -85,10 +83,10 @@ describe("http", () => {
       md.params.Test = "test";
       return await next(md);
     });
-    const [response, error] = await client.send<Message, Message>(
+    const [response, error] = await client.send<typeof messageZ>(
       "/middlewareCheck",
       {},
-      MessageSchema
+      messageZ
     );
     expect(error).toBeNull();
     expect(response?.message).toEqual("");

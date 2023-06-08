@@ -61,8 +61,6 @@ const resZ = z.object({
   frame: frameZ.optional(),
 });
 
-type Response = z.infer<typeof resZ>;
-
 /**
  * Used to iterate over a clusters telemetry in time-order. It should not be
  * instantiated directly, and should instead be instantiated via the SegmentClient.
@@ -73,12 +71,12 @@ type Response = z.infer<typeof resZ>;
  */
 export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
-  private readonly stream: StreamProxy<Request, Response>;
+  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: BackwardFrameAdapter;
   value: Frame;
 
   private constructor(
-    stream: Stream<Request, Response>,
+    stream: Stream<typeof reqZ, typeof resZ>,
     adapter: BackwardFrameAdapter
   ) {
     this.stream = new StreamProxy("Iterator", stream);
@@ -95,12 +93,11 @@ export class Iterator {
    */
   static async _open(
     tr: TimeRange,
-    channels: ChannelParams[],
+    channels: ChannelParams,
     retriever: ChannelRetriever,
     client: StreamClient
   ): Promise<Iterator> {
     const adapter = await BackwardFrameAdapter.open(retriever, channels);
-    // @ts-expect-error
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({ command: Command.Open, keys: adapter.keys, bounds: tr });
@@ -202,12 +199,41 @@ export class Iterator {
     await this.stream.closeAndAck();
   }
 
+  [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
+    return new IteratorIterator(this);
+  }
+
   private async execute(request: Request): Promise<boolean> {
     this.stream.send(request);
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === ResponseVariant.Ack) return res.ack;
       this.value = this.adapter.adapt(new Frame(res.frame));
+    }
+  }
+}
+
+class IteratorIterator implements AsyncIterator<Frame> {
+  private readonly iter: Iterator;
+  private open: boolean = false;
+
+  constructor(iter: Iterator) {
+    this.iter = iter;
+  }
+
+  async next(): Promise<IteratorResult<Frame, any>> {
+    try {
+      let ok = true;
+      if (!this.open) {
+        if (!(await this.iter.seekFirst())) ok = false;
+        this.open = true;
+      }
+      if (!(await this.iter.next())) ok = false;
+      if (!ok) await this.iter.close();
+      return { done: !ok, value: this.iter.value };
+    } catch (e) {
+      await this.iter.close();
+      throw e;
     }
   }
 }

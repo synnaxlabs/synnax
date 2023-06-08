@@ -13,13 +13,12 @@ import {
   TimeRange,
   UnparsedTimeStamp,
   TimeStamp,
-  toArray,
 } from "@synnaxlabs/x";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever, isSingleParam } from "@/channel/retriever";
+import { ChannelRetriever, analyzeChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
-import { AUTO_SPAN, Iterator } from "@/framer/iterator";
+import { Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
 import { Writer } from "@/framer/writer";
 import { Transport } from "@/transport";
@@ -40,7 +39,7 @@ export class FrameClient {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(tr: TimeRange, ...channels: ChannelParams[]): Promise<Iterator> {
+  async newIterator(tr: TimeRange, channels: ChannelParams): Promise<Iterator> {
     return await Iterator._open(
       tr,
       channels,
@@ -57,10 +56,7 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(
-    start: UnparsedTimeStamp,
-    ...channels: ChannelParams[]
-  ): Promise<Writer> {
+  async newWriter(start: UnparsedTimeStamp, channels: ChannelParams): Promise<Writer> {
     return await Writer._open(
       start,
       channels,
@@ -75,10 +71,10 @@ export class FrameClient {
 
   async newStreamer(
     from: TimeStamp | ChannelParams,
-    ...params: ChannelParams[]
+    params: ChannelParams
   ): Promise<Streamer> {
     const start = from instanceof TimeStamp ? from : TimeStamp.now();
-    params = from instanceof TimeStamp ? params : [from, ...params];
+    params = from instanceof TimeStamp ? params : from;
     return await Streamer._open(
       start,
       params,
@@ -112,29 +108,19 @@ export class FrameClient {
 
   async read(tr: TimeRange, channel: ChannelKeyOrName): Promise<LazyArray>;
 
-  async read(tr: TimeRange, ...channels: ChannelParams[]): Promise<Frame>;
+  async read(tr: TimeRange, channels: ChannelParams): Promise<Frame>;
 
-  async read(tr: TimeRange, ...channels: ChannelParams[]): Promise<LazyArray | Frame> {
-    const fr = await this.readFrame(tr, ...channels);
-    if (isSingleParam(channels)) {
-      return fr.arrays[0];
-    }
+  async read(tr: TimeRange, channels: ChannelParams): Promise<LazyArray | Frame> {
+    const { single } = analyzeChannelParams(channels);
+    const fr = await this.readFrame(tr, channels);
+    if (single) return fr.arrays[0];
     return fr;
   }
 
-  private async readFrame(tr: TimeRange, ...params: ChannelParams[]): Promise<Frame> {
-    const channels = await this.retriever.retrieve(...params);
-    const i = await this.newIterator(
-      tr,
-      toArray(channels).map((c) => c.key)
-    );
-    let frame = new Frame();
-    try {
-      if (await i.seekFirst())
-        while (await i.next(AUTO_SPAN)) frame = frame.concat(i.value);
-    } finally {
-      await i.close();
-    }
+  private async readFrame(tr: TimeRange, params: ChannelParams): Promise<Frame> {
+    const i = await this.newIterator(tr, params);
+    const frame = new Frame();
+    for await (const f of i) frame.push(f);
     return frame;
   }
 }

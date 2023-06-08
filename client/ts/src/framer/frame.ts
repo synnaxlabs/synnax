@@ -282,7 +282,7 @@ export class Frame {
 
   push(keyOrFrame: ChannelKeyOrName | Frame, ...v: LazyArray[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (keyOrFrame.labeledBy !== this.labeledBy)
+      if (this.labeledBy !== null && keyOrFrame.labeledBy !== this.labeledBy)
         throw new ValidationError("keyVariant must match");
       this.arrays.push(...keyOrFrame.arrays);
       (this.labels as ChannelKeys).push(...(keyOrFrame.labels as ChannelKeys));

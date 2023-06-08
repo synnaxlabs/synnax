@@ -10,7 +10,7 @@
 import { URL, buildQueryString, Case } from "@synnaxlabs/x";
 import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse, RawAxiosRequestHeaders } from "axios";
-import { ZodSchema } from "zod";
+import { z } from "zod";
 
 import { EncoderDecoder } from "@/encoder";
 import { errorZ, decodeError } from "@/errors";
@@ -76,10 +76,10 @@ class Core extends MiddlewareCollector {
     };
   }
 
-  async execute<RS>(
+  async execute<RS extends z.ZodTypeAny>(
     request: AxiosRequestConfig,
-    resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | null, Error | null]> {
+    resSchema: RS | null
+  ): Promise<[z.output<RS> | null, Error | null]> {
     let rs: RS | null = null;
 
     if (request.url == null)
@@ -123,11 +123,11 @@ class Core extends MiddlewareCollector {
  * should not be instantiated directly, but through the HTTPClientFactory.
  */
 export class GETClient extends Core implements UnaryClient {
-  async send<RQ, RS>(
+  async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: RQ | null,
-    resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | null, Error | null]> {
+    req: z.input<RQ> | null,
+    resSchema: RS | null
+  ): Promise<[z.output<RS> | null, Error | null]> {
     const request = this.requestConfig();
     request.method = "GET";
     request.url =
@@ -143,11 +143,11 @@ export class GETClient extends Core implements UnaryClient {
  * should not be instantiated directly, but through the HTTPClientFactory.
  */
 export class POSTClient extends Core implements UnaryClient {
-  async send<RQ, RS>(
+  async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: RQ | null,
-    resSchema: ZodSchema<RS> | null
-  ): Promise<[RS | null, Error | null]> {
+    req: z.input<RQ> | null,
+    resSchema: RS | null
+  ): Promise<[z.output<RS> | null, Error | null]> {
     const url = this.endpoint.child(target).toString();
     const request = this.requestConfig();
     request.method = "POST";

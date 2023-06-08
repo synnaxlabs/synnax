@@ -28,7 +28,7 @@ import {
   channelPayload,
   UnparsedChannel,
 } from "./payload";
-import { ChannelRetriever, isSingleParam } from "./retriever";
+import { analyzeChannelParams, ChannelRetriever } from "./retriever";
 
 import { FrameClient } from "@/framer";
 
@@ -175,7 +175,7 @@ export class ChannelClient {
 
   async retrieve(channel: ChannelKeyOrName): Promise<Channel>;
 
-  async retrieve(...channels: ChannelParams[]): Promise<Channel[]>;
+  async retrieve(channels: ChannelParams): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -185,9 +185,9 @@ export class ChannelClient {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(...channels: ChannelParams[]): Promise<Channel | Channel[]> {
-    const single = isSingleParam(channels);
-    const resChannels = await this.retriever.retrieve(...channels);
+  async retrieve(channels: ChannelParams): Promise<Channel | Channel[]> {
+    const { single, normalized } = analyzeChannelParams(channels);
+    const resChannels = await this.retriever.retrieve(normalized);
     const res = this.sugar(resChannels);
     return single ? res[0] : res;
   }

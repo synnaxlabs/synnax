@@ -93,10 +93,13 @@ type Response = z.infer<typeof resZ>;
  */
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
-  private readonly stream: StreamProxy<Request, Response>;
+  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ForwardFrameAdapter;
 
-  private constructor(stream: Stream<Request, Response>, adapter: ForwardFrameAdapter) {
+  private constructor(
+    stream: Stream<typeof reqZ, typeof resZ>,
+    adapter: ForwardFrameAdapter
+  ) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
   }
@@ -112,12 +115,11 @@ export class Writer {
    */
   static async _open(
     start: UnparsedTimeStamp,
-    channels: ChannelParams[],
+    channels: ChannelParams,
     retriever: ChannelRetriever,
     client: StreamClient
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
-    // @ts-expect-error
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({

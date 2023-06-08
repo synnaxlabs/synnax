@@ -20,17 +20,17 @@ import {
 
 import { Transport } from "@/transport";
 
-const RequestSchema = z.object({
+const requestZ = z.object({
   channels: unkeyedChannelPayload.array(),
 });
 
-type Request = z.infer<typeof RequestSchema>;
+type Request = z.input<typeof requestZ>;
 
 const responseZ = z.object({
   channels: channelPayload.array(),
 });
 
-type Response = z.infer<typeof responseZ>;
+type Response = z.output<typeof responseZ>;
 
 export class ChannelCreator {
   private static readonly ENDPOINT = "/channel/create";
@@ -57,7 +57,7 @@ export class ChannelCreator {
   }
 
   private async execute(request: Request): Promise<Response> {
-    const [res, err] = await this.client.send(
+    const [res, err] = await this.client.send<typeof requestZ, typeof responseZ>(
       ChannelCreator.ENDPOINT,
       request,
       responseZ
