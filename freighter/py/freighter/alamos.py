@@ -24,13 +24,13 @@ def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    def _middleware(context: Context, next_: Next):
-        if context.role == Role.CLIENT:
-            instrumentation.T.propagate(context)
-        with instrumentation.T.debug(context.target) as span:
-            res, exc = next_(context)
+    def _middleware(ctx: Context, next_: Next):
+        with instrumentation.T.debug(ctx.target) as span:
+            if ctx.role == Role.CLIENT:
+                instrumentation.T.propagate(ctx)
+            res, exc = next_(ctx)
             span.record_exception(exc)
-        _log(context, instrumentation, exc)
+        _log(ctx, instrumentation, exc)
         return res, exc
 
     return _middleware

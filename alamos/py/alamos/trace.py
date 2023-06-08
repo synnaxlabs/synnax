@@ -168,15 +168,16 @@ class Tracer:
         with self.trace(key, "prod") as span:
             yield span
 
-    class _Setter(Setter):
+    class _Setter(Setter[Carrier]):
         @staticmethod
         def set(carrier: Carrier, key: str, value: str) -> None:
+            print("setting", key, value)
             carrier.set(key, value)
 
     @noopd
     def propagate(self, carrier: Carrier) -> None:
         """Injects meta-data about the current trace into the provided carrier.
-        This meta-data can be parsed on the other side of a network or IPC request using 
+        This meta-data can be parsed on the other side of a network or IPC request using
         allowing the trace to propagate across services.
 
         :param carrier: The carrier to set the trace meta-data on.
