@@ -12,7 +12,7 @@ from typing import Generic, Type, Any
 from websockets.client import connect, WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosedOK
 
-from freighter.context import Context
+from freighter.context import Context, Role
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
 from freighter.stream import AsyncStream, AsyncStreamClient
@@ -96,7 +96,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
             return EOF()
         return None
 
-    async def close_send(self):
+    async def close_send(self) -> Exception | None:
         """Implements the AsyncStream protocol."""
         if self.send_closed or self.server_closed is not None:
             return
@@ -157,7 +157,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
     async def stream(
         self,
         target: str,
-        req_t: Type[RQ],
+        _req_t: Type[RQ],
         res_t: Type[RS],
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
@@ -167,7 +167,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal socket
-            out_ctx = Context(target, "websocket", "client")
+            out_ctx = Context(target, "websocket", Role.CLIENT)
             headers.update(ctx.params)
             try:
                 ws = await connect(
@@ -182,7 +182,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                 return out_ctx, e
             return out_ctx, None
 
-        _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
+        _, exc = await self.exec(Context(target, "websocket", Role.CLIENT), finalizer)
         if exc is not None:
             raise exc
 

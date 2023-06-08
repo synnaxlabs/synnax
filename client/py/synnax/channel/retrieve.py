@@ -15,7 +15,7 @@ from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
 from freighter import HTTPClientPool, Payload, UnaryClient
-from synnax.channel.payload import ChannelPayload, Keys, Names, KeysOrNames
+from synnax.channel.payload import ChannelPayload, ChannelKeys, ChannelNames, ChannelParams
 from synnax.exceptions import QueryError
 from synnax.util.flatten import flatten
 
@@ -44,8 +44,8 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[ChannelPayload]:
@@ -54,8 +54,8 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: Keys,
-        *keys_or_names: Keys,
+        key_or_name: ChannelKeys,
+        *keys_or_names: ChannelKeys,
         leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[int]]:
@@ -64,8 +64,8 @@ class ChannelRetriever(Protocol):
     @overload
     def retrieve(
         self,
-        key_or_name: Names,
-        *keys_or_names: Names,
+        key_or_name: ChannelNames,
+        *keys_or_names: ChannelNames,
         leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[ChannelPayload], list[str]]:
@@ -73,8 +73,8 @@ class ChannelRetriever(Protocol):
 
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -105,8 +105,8 @@ class ClusterChannelRetriever:
     @trace("debug")
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -155,8 +155,8 @@ class CacheChannelRetriever:
     @trace("debug")
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> (
@@ -217,16 +217,16 @@ class CacheChannelRetriever:
 
 
 def is_single(
-    key_or_name: KeysOrNames,
-    keys_or_names: tuple[KeysOrNames],
+    key_or_name: ChannelParams,
+    keys_or_names: tuple[ChannelParams],
 ) -> bool:
     """Determine if a list of keys or names is a single key or name."""
     return isinstance(key_or_name, (str, int)) and len(keys_or_names) == 0
 
 
 def split_keys_and_names(
-    key_or_name: KeysOrNames,
-    keys_or_names: tuple[KeysOrNames],
+    key_or_name: ChannelParams,
+    keys_or_names: tuple[ChannelParams],
 ) -> tuple[list[int], list[str]]:
     """Split a list of keys or names into a list of keys and a list of names."""
     keys = list()

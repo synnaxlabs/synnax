@@ -25,15 +25,15 @@ from synnax.transport import Transport
 class Synnax(FrameClient):
     """Client to perform operations against a Synnax cluster.
 
-    If using the client for data analysis/personal use, the easiest way to connect
+    If using the py for data analysis/personal use, the easiest way to connect
     is to use the ``synnax login`` command, which will prompt and securely store your
-    credentials. The client can then be initialized without parameters.
+    credentials. The py can then be initialized without parameters.
 
     After running the synnax login command::
-        client = Synnax()
+        py = Synnax()
 
     Without running the synnax login command::
-        client = Synnax(
+        py = Synnax(
             host="synnax.example.com",
             port=9090,
             username="synnax",
@@ -59,14 +59,14 @@ class Synnax(FrameClient):
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
     ):
-        """Creates a new client. Connection parameters can be provided as arguments, or,
-        if none are provided, the client will attempt to load them from the Synnax
+        """Creates a new py. Connection parameters can be provided as arguments, or,
+        if none are provided, the py will attempt to load them from the Synnax
         configuration file (~/.synnax/config.json) as well as credentials stored in the
         operating system's keychain.
 
-        If using the client for data analysis/personal use, the easiest way to connect
+        If using the py for data analysis/personal use, the easiest way to connect
         is to use the `synnax login` command, which will prompt and securely store your
-        credentials. The client can then be initialized without parameters.
+        credentials. The py can then be initialized without parameters.
 
         :param host: Hostname of a node in the Synnax cluster.
         :param port: Port of the node.
@@ -91,7 +91,7 @@ class Synnax(FrameClient):
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
 
     def close(self):
-        """Shuts down the client and closes all connections. All open iterators or
+        """Shuts down the py and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
         # No-op for now, we'll definitely add cleanup logic in the future, so it's

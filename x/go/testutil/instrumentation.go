@@ -81,7 +81,10 @@ func newReports() *alamos.Reporter {
 }
 
 func Instrumentation(key string, configs ...InstrumentationConfig) alamos.Instrumentation {
-	cfg := MustSucceed(config.New(DefaultInstrumentationConfig, configs...))
+	cfg, err := config.New(DefaultInstrumentationConfig, configs...)
+	if err != nil {
+		zap.S().Fatal(err)
+	}
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))

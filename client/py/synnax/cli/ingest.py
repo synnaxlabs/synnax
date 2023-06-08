@@ -107,7 +107,7 @@ def initialize_reader(
 
 
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to connect to a Synnax client."""
+    """Prompts the user to connect to a Synnax py."""
     if cli.client is None:
         cli.client = connect_client(ctx)
     return "ingest_all" if cli.client else None

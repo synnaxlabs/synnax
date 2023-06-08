@@ -13,7 +13,7 @@ from numpy import ndarray
 from pydantic import PrivateAttr
 
 from synnax.channel.create import ChannelCreator
-from synnax.channel.payload import ChannelPayload, KeysOrNames
+from synnax.channel.payload import ChannelPayload, ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FrameClient
@@ -51,19 +51,20 @@ class Channel(ChannelPayload):
         that this does not create the Channel in the cluster. To create the channel,
         call .channels.create().
 
-        :param data_type: The data type of the samples in the channel e.g np.int64
-        :param rate: Rate sets the rate at which the channels values are written. If this
-        parameter is non-zero, is_index must be false and index must be an empty string or
-        unspecified.
-        :param name: A human readable name for the channel.
-        :param key: Is auto-assigned by the cluster, and should not be set by the caller.
-        :param is_index: Boolean indicating whether or not the channel is an index. Index
+        :param data_type: The data type of the samples in the channel e.g. np.int64
+        :param rate: Rate sets the rate at which the channels values are written. If
+        this parameter is non-zero, is_index must be false and index must be an empty
+        string or unspecified.
+        :param name: A human-readable name for the channel.
+        :param key: Is auto-assigned by the cluster, and should not be set by the
+        caller.
+        :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param leaseholder: The node that holds the lease for this channel. If you don't know
-        what this is, leave it at the default value of 0.
-        :param _frame_client: The backing client for reading and writing data to and
-        from the channel. This is provided by the Synnax client during calls to
+        :param leaseholder: The node that holds the lease for this channel. If you
+        don't know what this is, leave it at the default value of 0.
+        :param _frame_client: The backing py for reading and writing data to and
+        from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
         super().__init__(
@@ -78,7 +79,9 @@ class Channel(ChannelPayload):
         self.__frame_client = _frame_client
 
     def read(
-        self, start: UnparsedTimeStamp, end: UnparsedTimeStamp = None
+        self,
+        start: UnparsedTimeStamp,
+        end: UnparsedTimeStamp,
     ) -> tuple[ndarray, TimeRange]:
         """Reads telemetry from the channel between the two timestamps.
 
@@ -133,7 +136,7 @@ class Channel(ChannelPayload):
 
 
 class ChannelClient:
-    """The core client class for executing channel operations against a Synnax cluster."""
+    """The core py class for executing channel operations against a Synnax cluster."""
 
     _frame_client: FrameClient
     _retriever: ChannelRetriever
@@ -234,8 +237,8 @@ class ChannelClient:
     @overload
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: Literal[False] = False,
     ) -> list[Channel]:
@@ -244,8 +247,8 @@ class ChannelClient:
     @overload
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: Literal[True] = True,
     ) -> tuple[list[Channel], list[str]]:
@@ -253,8 +256,8 @@ class ChannelClient:
 
     def retrieve(
         self,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
         leaseholder: int | None = None,
         include_not_found: bool = False,
     ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:

@@ -11,9 +11,12 @@ from freighter import Payload
 
 from synnax.telem import DataType, Rate
 
-Keys = int | tuple[int] | list[int]
-Names = str | tuple[str] | list[str]
-KeysOrNames = Keys | Names
+
+ChannelKey = int
+ChannelName = str
+ChannelKeys = tuple[int] | list[int]
+ChannelNames = tuple[str] | list[str]
+ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
 
 
 class ChannelPayload(Payload):
@@ -21,10 +24,10 @@ class ChannelPayload(Payload):
     from the Synnax server.
     """
 
+    key: ChannelKey = 0
     data_type: DataType
     rate: Rate = Rate(0)
     name: str = ""
     leaseholder: int = 0
-    key: int = 0
     is_index: bool = False
-    index: str = ""
+    index: ChannelKey = 0
