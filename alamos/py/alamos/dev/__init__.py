@@ -27,7 +27,7 @@ def instrumentation() -> Instrumentation:
         deployment_environment="dev",
     )
     return Instrumentation(
-        key="",
+        key="dev",
         service_name="synnax",
         tracer=Tracer(
             otel_provider=get_tracer_provider(),

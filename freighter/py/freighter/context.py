@@ -15,8 +15,8 @@ from typing import MutableMapping, Any
 class Role(Enum):
     """Role is the role played by the transport, either client or server.
     """
-    CLIENT = 1
-    SERVER = 2
+    CLIENT = "client"
+    SERVER = "server"
 
 
 @dataclass

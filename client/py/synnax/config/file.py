@@ -14,7 +14,7 @@ CONFIG_DIR_NAME = "./synnax"
 
 
 class ConfigFile:
-    """The global synnax client configuration file."""
+    """The global synnax py configuration file."""
 
     file: pathlib.Path
     config: dict

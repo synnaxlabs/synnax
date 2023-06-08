@@ -103,15 +103,15 @@ class MiddlewareCollector:
         middleware until the end of the chain is reached. It then calls
         the finalizer with the metadata.
 
-        :param md: the metadata to pass to the middleware
-        :param finalizer: the finalizer to call at the end of the chain
+        :param ctx: the context to pass to the middleware.
+        :param finalizer: the finalizer to call at the end of the chain.
         """
         middleware = self._middleware.copy()
 
-        def _next(ctx: Context) -> tuple[Context, Exception | None]:
+        def _next(ctx_: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
-                return finalizer(ctx)
-            return middleware.pop()(ctx, _next)
+                return finalizer(ctx_)
+            return middleware.pop()(ctx_, _next)
 
         return _next(ctx)
 

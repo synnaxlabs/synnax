@@ -44,5 +44,5 @@ SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client
 without having to log in. To connect the cluster in a Python shell, use the following:
 
 from synnax import Synnax
-client = Synnax()
+py = Synnax()
 """

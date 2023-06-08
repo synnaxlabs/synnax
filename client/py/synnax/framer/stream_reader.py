@@ -9,7 +9,7 @@
 
 from freighter import Payload, ExceptionPayload, Stream, StreamClient, EOF
 
-from synnax.channel.payload import Keys, KeysOrNames
+from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import GeneralError, UnexpectedError
 from synnax.framer.payload import BinaryFrame, NumpyFrame
@@ -19,7 +19,7 @@ from synnax.util.flatten import flatten
 
 class _Request(Payload):
     start: TimeStamp
-    keys: Keys
+    keys: ChannelKeys
 
 
 class _Response(Payload):
@@ -31,14 +31,14 @@ class FrameStreamReader:
     _ENDPOINT = "/frame/read"
     __stream: Stream[_Request, _Response] | None
 
-    keys: Keys
+    keys: ChannelKeys
     start: UnparsedTimeStamp
 
     def __init__(
         self,
         client: StreamClient,
         start: UnparsedTimeStamp,
-        *keys: Keys,
+        *keys: ChannelKeys,
     ) -> None:
         self.start = start
         self.keys = flatten(*keys)
@@ -109,7 +109,7 @@ class NumpyStreamReader(FrameStreamReader):
         transport: StreamClient,
         channels: ChannelRetriever,
         start: TimeStamp,
-        *keys_or_names: KeysOrNames,
+        *keys_or_names: ChannelParams,
     ):
         self._channels = channels
         self._keys_or_names = flatten(*keys_or_names)
@@ -131,7 +131,7 @@ class NumpyStreamReader(FrameStreamReader):
         v.keys = self._value_keys(v.keys)
         return NumpyFrame.from_binary(v)
 
-    def _value_keys(self, keys: Keys) -> KeysOrNames:
+    def _value_keys(self, keys: ChannelKeys) -> ChannelParams:
         # We can safely ignore the none case here because we've already
         # checked that all channels can be retrieved.
         channels = self._channels.retrieve(keys)

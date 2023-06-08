@@ -15,7 +15,7 @@ from urllib.parse import urlencode
 from urllib3 import HTTPResponse, PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 
-from freighter.context import Context
+from freighter.context import Context, Role
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import ExceptionPayload, decode_exception, Unreachable
 from freighter.transport import MiddlewareCollector

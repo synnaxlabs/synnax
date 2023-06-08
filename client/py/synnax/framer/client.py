@@ -13,7 +13,7 @@ import pandas as pd
 from numpy import ndarray
 
 from alamos import trace, Instrumentation, NOOP
-from synnax.channel.payload import KeysOrNames
+from synnax.channel.payload import ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.framer.iterator import NumpyIterator
 from synnax.framer.payload import NumpyFrame
@@ -46,7 +46,7 @@ class FrameClient:
     def new_writer(
         self,
         start: UnparsedTimeStamp,
-        *keys_or_names: KeysOrNames,
+        *keys_or_names: ChannelParams,
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> DataFrameWriter:
@@ -69,7 +69,7 @@ class FrameClient:
     def new_iterator(
         self,
         tr: TimeRange,
-        *keys_or_names: KeysOrNames,
+        *keys_or_names: ChannelParams,
         aggregate: bool = False,
     ) -> NumpyIterator:
         """Opens a new iterator over the given channels within the provided time range.
@@ -130,8 +130,8 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        key_or_name: KeysOrNames,
-        *keys_or_names: KeysOrNames,
+        key_or_name: ChannelParams,
+        *keys_or_names: ChannelParams,
     ) -> tuple[ndarray, TimeRange] | NumpyFrame:
         """Reads telemetry from the channel between the two timestamps.
 
@@ -155,7 +155,7 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        *key_or_names: KeysOrNames,
+        *key_or_names: ChannelParams,
     ) -> NumpyFrame:
         """Reads a Segment from the given channel between the two timestamps.
 
@@ -174,7 +174,7 @@ class FrameClient:
     def stream(
         self,
         start: UnparsedTimeStamp,
-        *keys_or_names: KeysOrNames,
+        *keys_or_names: ChannelParams,
     ) -> NumpyStreamReader:
         return NumpyStreamReader(
             self._transport.stream,

@@ -12,7 +12,7 @@ from enum import Enum
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
 from alamos import trace, Instrumentation, NOOP
-from synnax.channel.payload import Keys, KeysOrNames
+from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import UnexpectedError
 from synnax.framer.payload import BinaryFrame, NumpyFrame
@@ -45,7 +45,7 @@ class _Request(Payload):
     span: TimeSpan | None = None
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: Keys | None = None
+    keys: ChannelKeys | None = None
 
 
 class _Response(Payload):
@@ -278,7 +278,7 @@ class NumpyIterator(FrameIterator):
         v.keys = self._value_keys(v.keys)
         return NumpyFrame.from_binary(v)
 
-    def _value_keys(self, keys: Keys) -> KeysOrNames:
+    def _value_keys(self, keys: ChannelKeys) -> ChannelParams:
         # We can safely ignore the none case here because we've already
         # checked that all channels can be retrieved.
         channels = self._channels.retrieve(keys)

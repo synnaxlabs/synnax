@@ -22,7 +22,7 @@ from numpy import can_cast as np_can_cast, ndarray
 from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
-from synnax.channel.payload import ChannelPayload, Keys
+from synnax.channel.payload import ChannelPayload, ChannelKeys
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import Field, GeneralError, ValidationError
 from synnax.framer.payload import BinaryFrame, NumpyFrame
@@ -38,7 +38,7 @@ class _Command(int, Enum):
 
 
 class _Config(Payload):
-    keys: Keys
+    keys: ChannelKeys
     start: TimeStamp
 
 
@@ -57,13 +57,13 @@ class _Response(Payload):
 class FrameWriter:
     """CoreWriter is used to write a range of telemetry to a set of channels in time
     order. It should not be instantiated directly, and should instead be created using
-    the frame client.
+    the frame py.
 
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
-    writing large volumes of data (such as recording telemetry from a sensor or ingesting
-    data from a file). Simpler methods (such as the frame client's write method) should
-    be used in most cases.
+    writing large volumes of data (such as recording telemetry from a sensor or
+    ingesting data from a file). Simpler methods (such as the frame py's write method)
+    should be used in most cases.
 
     The protocol is as follows:
 
@@ -97,28 +97,20 @@ class FrameWriter:
 
     __stream: Stream[_Request, _Response] | None
 
-    keys: Keys
+    keys: ChannelKeys
     start: UnparsedTimeStamp
 
     def __init__(
         self,
         client: StreamClient,
         start: UnparsedTimeStamp,
-        *keys: Keys,
+        *keys: ChannelKeys,
     ) -> None:
         self.start = start
         self.keys = flatten(*keys)
         self._open(client)
 
     def _open(self, client: StreamClient):
-        """Opens the writer to write a range of telemetry starting at the given time.
-
-        :param start: The starting timestamp of the new range to write to. If start
-        overlaps with existing telemetry, the writer will fail to open.
-        :param keys: A list of keys representing the channels the writer will write to.
-        All frames written to the writer must have exactly one array for each key in
-        this list.
-        """
         self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
         self._stream.send(
             _Request(
@@ -200,9 +192,9 @@ class FrameWriter:
                 return decode_exception(res.error)
 
     def close(self):
-        """Closes the writer, raising any accumulated error encountered during operation.
-        A writer MUST be closed after use, and this method should probably be placed in
-        a 'finally' block.
+        """Closes the writer, raising any accumulated error encountered during
+        operation. A writer MUST be closed after use, and this method should probably
+        be placed in a 'finally' block.
         """
         self._stream.close_send()
         res, err = self._stream.receive()
