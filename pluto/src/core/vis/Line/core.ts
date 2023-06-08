@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, Box, XYScale } from "@synnaxlabs/x";
+import { Bounds, Box, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
@@ -41,6 +41,6 @@ export interface LineContext {
 export interface LineComponent extends AetherComponent {
   state: LineState;
   render: (ctx: LineContext) => void;
-  xBound: () => Promise<Bound>;
-  yBound: () => Promise<Bound>;
+  xBound: () => Promise<Bounds>;
+  yBound: () => Promise<Bounds>;
 }

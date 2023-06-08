@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
+import { Bounds, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
 
 import { BobComponentFactory, AetherLeaf } from "@/core/aether/worker";
 import {
@@ -131,11 +131,11 @@ export class LineGL
     if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
   }
 
-  async xBound(): Promise<Bound> {
+  async xBound(): Promise<Bounds> {
     return await this.telem.xBound();
   }
 
-  async yBound(): Promise<Bound> {
+  async yBound(): Promise<Bounds> {
     return await this.telem.yBound();
   }
 

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { GLBufferController, GLBufferUsage } from "./gl";
-
 import { Compare } from "@/compare";
+import { Bounds } from "@/spatial/core";
+import { GLBufferController, GLBufferUsage } from "@/telem/gl";
 import {
   convertDataType,
   DataType,
@@ -175,7 +175,7 @@ export class LazyArray {
     return new LazyArray(data.buffer, target, this._timeRange, sampleOffset);
   }
 
-  /** Returns the maximum value in the array */
+  /** @returns the maximum value in the array */
   get max(): SampleValue {
     if (this.pos === 0) return addSamples(0, this.sampleOffset);
     else if (this._max == null) {
@@ -192,12 +192,7 @@ export class LazyArray {
     return addSamples(this._max, this.sampleOffset);
   }
 
-  private maybeRecomputeMinMax(update: LazyArray): void {
-    if (this._min != null && update.min < this._min) this._min = update.min;
-    if (this._max != null && update.max > this._max) this._max = update.max;
-  }
-
-  /** Returns the minimum value in the array */
+  /** @returns the minimum value in the array */
   get min(): SampleValue {
     if (this.pos === 0) return addSamples(0, this.sampleOffset);
     else if (this._min == null) {
@@ -212,6 +207,16 @@ export class LazyArray {
       }
     }
     return addSamples(this._min, this.sampleOffset);
+  }
+
+  /** @returns the bounds of this array. */
+  get bounds(): Bounds {
+    return new Bounds(Number(this.min), Number(this.max));
+  }
+
+  private maybeRecomputeMinMax(update: LazyArray): void {
+    if (this._min != null && update.min < this._min) this._min = update.min;
+    if (this._max != null && update.max > this._max) this._max = update.max;
   }
 
   enrich(): void {

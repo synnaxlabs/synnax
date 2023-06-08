@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LazyArray, GLBufferControl, Bound, nativeTypedArray } from "@synnaxlabs/x";
+import { LazyArray, GLBufferController, Bounds, nativeTypedArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
@@ -33,22 +33,22 @@ export class StaticXYTelem implements XYTelemSource {
     this._y = props.y.map((y) => new LazyArray(y));
   }
 
-  async x(gl?: GLBufferControl): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<LazyArray[]> {
     if (gl != null) this._x.map((x) => x.updateGLBuffer(gl));
     return this._x;
   }
 
-  async y(gl?: GLBufferControl): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<LazyArray[]> {
     if (gl != null) this._y.map((y) => y.updateGLBuffer(gl));
     return this._y;
   }
 
-  async xBound(): Promise<Bound> {
-    return Bound.max(this._x.map((x) => x.bound));
+  async xBound(): Promise<Bounds> {
+    return Bounds.max(this._x.map((x) => x.bounds));
   }
 
-  async yBound(): Promise<Bound> {
-    return Bound.max(this._y.map((y) => y.bound));
+  async yBound(): Promise<Bounds> {
+    return Bounds.max(this._y.map((y) => y.bounds));
   }
 
   setProps(props_: any): void {

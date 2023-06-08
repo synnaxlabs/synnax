@@ -9,8 +9,8 @@
 
 import { Channel, LazyArray, TimeRange } from "@synnaxlabs/client";
 
-import { DynamicCache } from "@/telem/cache/dynamic";
-import { StaticCache } from "@/telem/cache/static";
+import { DynamicCache } from "@/telem/cache/DynamicCache";
+import { StaticCache } from "@/telem/cache/StaticCache";
 
 export class Cache {
   channel: Channel;
@@ -33,7 +33,7 @@ export class Cache {
         ),
         flushed
       );
-    return [...flushed, this.dynamic.curr];
+    return [...flushed, this.dynamic.buffer];
   }
 
   writeStatic(tr: TimeRange, arrs: LazyArray[]): void {
@@ -41,8 +41,8 @@ export class Cache {
   }
 
   read(tr: TimeRange): [LazyArray[], TimeRange[]] {
-    const dynamic = this.dynamic.read(tr);
-    const [staticRes, gaps] = this.static.read(tr);
+    const dynamic = this.dynamic.dirtyRead(tr);
+    const [staticRes, gaps] = this.static.dirtyRead(tr);
     return [dynamic != null ? staticRes.concat(dynamic) : staticRes, gaps];
   }
 }

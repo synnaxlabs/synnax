@@ -10,7 +10,7 @@
 import { clamp } from "@/clamp";
 import { Box } from "@/spatial/box";
 import {
-  Bound,
+  Bounds,
   CornerT,
   cornerLocations as cornerLocs,
   XY,
@@ -25,13 +25,13 @@ export type ScaleBound = "domain" | "range";
 type ValueType = "position" | "dimension";
 
 type Operation = (
-  currScale: Bound | null,
+  currScale: Bounds | null,
   type: ValueType,
   number: number,
   reverse: boolean
 ) => OperationReturn;
 
-type OperationReturn = [Bound | null, number];
+type OperationReturn = [Bounds | null, number];
 
 interface TypedOperation extends Operation {
   type: "translate" | "magnify" | "scale" | "invert" | "clamp" | "re-bound";
@@ -50,7 +50,7 @@ const curriedMagnify =
     [currScale, reverse ? v / magnify : v * magnify];
 
 const curriedScale =
-  (bound: Bound): Operation =>
+  (bound: Bounds): Operation =>
   (currScale, type, v) => {
     if (currScale === null) return [bound, v];
     const { lower: prevLower, upper: prevUpper } = currScale;
@@ -63,7 +63,7 @@ const curriedScale =
   };
 
 const curriedReBound =
-  (bound: Bound): Operation =>
+  (bound: Bounds): Operation =>
   (currScale, type, v) =>
     [bound, v];
 
@@ -75,7 +75,7 @@ const curriedInvert = (): Operation => (currScale, type, v) => {
 };
 
 const curriedClamp =
-  (bound: Bound): Operation =>
+  (bound: Bounds): Operation =>
   (currScale, type, v) => {
     if (currScale === null) return [currScale, v];
     const { lower, upper } = currScale;
@@ -85,7 +85,7 @@ const curriedClamp =
 
 export class Scale {
   ops: TypedOperation[] = [];
-  currBounds: Bound | null = null;
+  currBounds: Bounds | null = null;
   currType: ValueType | null = null;
   private reversed = false;
 
@@ -122,7 +122,7 @@ export class Scale {
   }
 
   scale(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
-    const b = new Bound(lowerOrBound, upper);
+    const b = new Bounds(lowerOrBound, upper);
     const next = this.new();
     const f = curriedScale(b) as TypedOperation;
     f.type = "scale";
@@ -131,7 +131,7 @@ export class Scale {
   }
 
   clamp(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
-    const b = new Bound(lowerOrBound, upper);
+    const b = new Bounds(lowerOrBound, upper);
     const next = this.new();
     const f = curriedClamp(b) as TypedOperation;
     f.type = "clamp";
@@ -140,7 +140,7 @@ export class Scale {
   }
 
   reBound(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
-    const b = new Bound(lowerOrBound, upper);
+    const b = new Bounds(lowerOrBound, upper);
     const next = this.new();
     const f = curriedReBound(b) as TypedOperation;
     f.type = "re-bound";

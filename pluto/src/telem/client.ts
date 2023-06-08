@@ -15,8 +15,8 @@ import { Cache } from "@/telem/cache";
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
-  private _streamer: Streamer | null;
   readonly core: Synnax;
+  private _streamer: Streamer | null;
   private readonly cache: Map<ChannelKey, Cache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
 
@@ -25,16 +25,6 @@ export class Client {
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
-  }
-
-  setStreamhandler(handler: StreamHandler, keys: ChannelKeys): void {
-    this.listeners.set(handler, keys);
-    void this.updateStreamer();
-  }
-
-  removeStreamHandler(handler: StreamHandler): void {
-    this.listeners.delete(handler);
-    void this.updateStreamer();
   }
 
   /**
@@ -50,32 +40,57 @@ export class Client {
    */
   async read(
     tr: TimeRange,
-    channels: number[]
+    channels: ChannelKeys
   ): Promise<Record<ChannelKey, ReadResponse>> {
+    // Instead of executing a fetch for each channel, we'll batch related time ranges
+    // together to get the most out of each fetch.
     const toFetch = new Map<string, [TimeRange, ChannelKeys]>();
-    const responses: Record<ChannelKey, [Channel, LazyArray[]]> = {};
-    for (const key of range.channels) {
+    const responses: Record<ChannelKey, ReadResponse> = {};
+
+    for (const key of channels) {
+      // Read from cache.
       const cache = await this.getCache(key);
-      const [data, gaps] = cache.read(range.timeRange);
-      responses[key] = [cache.channel, data];
-      for (const gap of gaps) {
+      const [data, gaps] = cache.read(tr);
+      // In this case we have all the data we need and don't need to execute a fetch
+      // for this channel.
+      if (gaps.length === 0) responses[key] = new ReadResponse(cache.channel, data);
+
+      // For each gap in the data, add it in the fetch map.
+      gaps.forEach((gap) => {
         const exists = toFetch.get(gap.toString());
         if (exists == null) toFetch.set(gap.toString(), [gap, [key]]);
         else toFetch.set(gap.toString(), [gap, [...exists[1], key]]);
-      }
+      });
     }
+
+    // Fetch any missing gaps in the data. Writing to the cache will automatically
+    // order the data correctly.
     for (const [, [range, keys]] of toFetch) {
-      const frame = await this.core.telem.read(range, ...keys);
+      const frame = await this.core.telem.read(range, keys);
       for (const key of keys) {
         const cache = await this.getCache(key);
-        const arrays = frame.get(key);
         cache.writeStatic(range, frame.get(key));
-        responses[key] = [cache.channel, responses[key][1].concat(arrays)];
       }
     }
-    return Object.values(responses).map(
-      ([channel, data]) => new ReadResponse(channel, range, data)
-    );
+
+    // Re-read from cache so we get correct ordering.
+    for (const key of channels) {
+      const cache = await this.getCache(key);
+      const [data] = cache.read(tr);
+      responses[key] = new ReadResponse(cache.channel, data);
+    }
+
+    return responses;
+  }
+
+  setStreamhandler(handler: StreamHandler, keys: ChannelKeys): void {
+    this.listeners.set(handler, keys);
+    void this.updateStreamer();
+  }
+
+  removeStreamHandler(handler: StreamHandler): void {
+    this.listeners.delete(handler);
+    void this.updateStreamer();
   }
 
   private async getCache(key: ChannelKey): Promise<Cache> {
@@ -88,21 +103,28 @@ export class Client {
   }
 
   private async updateStreamer(): Promise<void> {
+    // Assemble the set of keys we need to stream.
     const keys = new Set<ChannelKey>();
     this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
+
+    // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
       this._streamer?.close();
       this._streamer = null;
     }
-    if (this._streamer != null) return await this._streamer.update(...keys);
-    this._streamer = await this.core.telem.newStreamer(...keys);
+
+    // Update or create the streamer.
+    const arrKeys = Array.from(keys);
+    if (this._streamer != null) return await this._streamer.update(arrKeys);
+    this._streamer = await this.core.telem.newStreamer(arrKeys);
+
     void this.start(this._streamer);
   }
 
   private async start(streamer: Streamer): Promise<void> {
     for await (const frame of streamer) {
       const changed = new Map<ChannelKey, [Channel, LazyArray[]]>();
-      for (const k of frame.channelKeys) {
+      for (const k of frame.keys) {
         const arrays = frame.get(k);
         const cache = await this.getCache(k);
         const out = cache.writeDynamic(arrays);

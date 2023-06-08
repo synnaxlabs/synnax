@@ -10,7 +10,7 @@
 import { describe, expect, test, it } from "vitest";
 
 import {
-  Bound,
+  Bounds,
   Dimensions,
   LooseBoundT,
   LooseDimensionsT,
@@ -111,54 +111,54 @@ describe("Spatial Core", () => {
     });
   });
 
-  describe("Bound", () => {
+  describe("Bounds", () => {
     describe("construction", () => {
       [
         ["from couple", [1, 2]],
         ["from bounds", { lower: 1, upper: 2 }],
       ].forEach(([name, arg]) => {
         test(name as string, () => {
-          const bound = new Bound(arg as LooseBoundT);
+          const bound = new Bounds(arg as LooseBoundT);
           expect(bound.lower).toEqual(1);
           expect(bound.upper).toEqual(2);
         });
       });
       it("should consider a single argument as the upper bound", () => {
-        const bound = new Bound(1);
+        const bound = new Bounds(1);
         expect(bound.lower).toEqual(0);
         expect(bound.upper).toEqual(1);
       });
     });
     describe("contains", () => {
       it("should return true if the value is within the bounds", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.contains(1.5)).toEqual(true);
       });
       it("should return false if the value is outside the bounds", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.contains(2.5)).toEqual(false);
       });
       it("should return true if the value is equal to the lower bound", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.contains(1)).toEqual(true);
       });
       it("should return false if the value is equal to the upper bound", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.contains(2)).toEqual(false);
       });
     });
     describe("span", () => {
       it("should return the span of the bound", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.span).toEqual(1);
       });
     });
     test("isZero", () => {
-      const bound = new Bound([0, 0]);
+      const bound = new Bounds([0, 0]);
       expect(bound.isZero).toEqual(true);
     });
     test("spanIsZero", () => {
-      const bound = new Bound([1, 1]);
+      const bound = new Bounds([1, 1]);
       expect(bound.spanIsZero).toEqual(true);
     });
     describe("max", () => {
@@ -167,7 +167,7 @@ describe("Spatial Core", () => {
           [1, 2],
           [-1, 1],
         ];
-        const bound = Bound.max(bounds);
+        const bound = Bounds.max(bounds);
         expect(bound.lower).toEqual(-1);
         expect(bound.upper).toEqual(2);
       });
@@ -178,18 +178,18 @@ describe("Spatial Core", () => {
           [1, 2],
           [-1, 1],
         ];
-        const bound = Bound.min(bounds);
+        const bound = Bounds.min(bounds);
         expect(bound.lower).toEqual(1);
         expect(bound.upper).toEqual(1);
       });
     });
     describe("isFinite", () => {
       it("should return false if either bound is infinite", () => {
-        const bound = new Bound([1, Infinity]);
+        const bound = new Bounds([1, Infinity]);
         expect(bound.isFinite).toEqual(false);
       });
       it("should return true if both bounds are finite", () => {
-        const bound = new Bound([1, 2]);
+        const bound = new Bounds([1, 2]);
         expect(bound.isFinite).toEqual(true);
       });
     });

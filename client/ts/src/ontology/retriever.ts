@@ -64,7 +64,8 @@ export class OntologyRetriever {
       includeSchema,
     });
     if (Array.isArray(ids)) return resources;
-    if (resources.length == 0) throw new QueryError(`No resource found with ID ${ids}`);
+    if (resources.length === 0)
+      throw new QueryError(`No resource found with ID ${ids.toString()}`);
     return resources[0];
   }
 
@@ -101,6 +102,6 @@ export class OntologyRetriever {
       responseSchema
     );
     if (err != null) throw err;
-    return res?.resources as OntologyResource[];
+    return res.resources;
   }
 }

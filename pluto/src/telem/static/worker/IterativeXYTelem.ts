@@ -10,7 +10,7 @@
 import { LazyArray, NativeTypedArray } from "@synnaxlabs/x";
 
 import { DynamicXYTelemSource } from "@/core/vis/telem";
-import { StaticXYTelem } from "@/telem/static/StaticXYTelem";
+import { StaticXYTelem } from "@/telem/static/worker/StaticXYTelem";
 
 export interface IterativeXYTelemProps {
   x: NativeTypedArray[];

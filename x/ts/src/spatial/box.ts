@@ -15,7 +15,7 @@ import {
   CornerT,
   XY,
   SignedDimensionsT,
-  Bound,
+  Bounds,
   OuterLocationT,
   Location,
   XLocationT,
@@ -258,12 +258,12 @@ export class Box implements Stringer {
     return this.root.toLowerCase().includes("top") ? this.top : this.bottom;
   }
 
-  get xBound(): Bound {
-    return new Bound(this.one.x, this.two.x);
+  get xBound(): Bounds {
+    return new Bounds(this.one.x, this.two.x);
   }
 
-  get yBound(): Bound {
-    return new Bound(this.one.y, this.two.y);
+  get yBound(): Bounds {
+    return new Bounds(this.one.y, this.two.y);
   }
 
   copy(root?: CornerT): Box {

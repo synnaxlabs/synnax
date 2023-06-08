@@ -1,8 +1,6 @@
-import { Bound, GLBufferControl, LazyArray, NativeTypedArray } from "@synnaxlabs/x";
+import { Bounds, GLBufferControl, LazyArray, NativeTypedArray } from "@synnaxlabs/x";
 
 import { DynamicXYTelemSource, TelemSourceMeta } from "@/core/vis/telem/TelemSource";
-
-
 
 export class StaticTelemFactory {
   new(

@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, GLBufferControl, LazyArray, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  Bounds,
+  GLBufferController,
+  LazyArray,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Client, StreamHandler } from "../client";
@@ -72,13 +78,13 @@ export class DynamicRangeXYTelem implements DynamicXYTelemSource {
     this.client.setStreamhandler(this.streamHandler, [x, y]);
   }
 
-  async xBound(): Promise<Bound> {
+  async xBound(): Promise<Bounds> {
     const x = await this.x();
-    return Bound.max(x.map((a) => a.bound));
+    return Bounds.max(x.map((a) => a.bound));
   }
 
-  async yBound(): Promise<Bound> {
+  async yBound(): Promise<Bounds> {
     const y = await this.y();
-    return Bound.max(y.map((a) => a.bound));
+    return Bounds.max(y.map((a) => a.bound));
   }
 }

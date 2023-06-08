@@ -14,7 +14,7 @@ import {
   DeepPartial,
   Dimensions,
   ONE_DIMS,
-  Bound,
+  Bounds,
   ZERO_BOUND,
 } from "@synnaxlabs/x";
 
@@ -33,7 +33,7 @@ export interface ViewportState {
 
 export interface BoundState {
   driven: boolean;
-  bound: Bound;
+  bound: Bounds;
 }
 
 export type BoundsState = Record<AxisKey, BoundState>;
