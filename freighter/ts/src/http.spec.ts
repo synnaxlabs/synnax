@@ -42,7 +42,7 @@ describe("http", () => {
       },
       MessageSchema
     );
-    expect(error).toBeUndefined();
+    expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
@@ -55,7 +55,7 @@ describe("http", () => {
       },
       MessageSchema
     );
-    expect(error).toBeUndefined();
+    expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
@@ -66,7 +66,7 @@ describe("http", () => {
       MessageSchema
     );
     expect(error?.message).toEqual("Cannot GET /unary/not-found");
-    expect(response).toBeUndefined();
+    expect(response).toBeNull();
   });
 
   test("post not found", async () => {
@@ -76,7 +76,7 @@ describe("http", () => {
       MessageSchema
     );
     expect(error?.message).toEqual("Cannot POST /unary/not-found");
-    expect(response).toBeUndefined();
+    expect(response).toBeNull();
   });
 
   test("middleware", async () => {
@@ -90,7 +90,7 @@ describe("http", () => {
       {},
       MessageSchema
     );
-    expect(error).toBeUndefined();
+    expect(error).toBeNull();
     expect(response?.message).toEqual("");
   });
 });

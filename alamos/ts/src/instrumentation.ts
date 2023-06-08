@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Logger } from "@/log";
-import { Tracer } from "@/trace";
 import { Meta } from "@/meta";
+import { Tracer } from "@/trace";
 
 export interface InstrumentationOptions {
   key?: string;
@@ -40,12 +40,10 @@ export class Instrumentation {
       key: meta.key,
       logger: this.L.child(meta),
       tracer: this.T.child(meta),
-    })
+    });
     ins.meta = meta;
-    return ins
+    return ins;
   }
 
   static readonly NOOP = new Instrumentation({});
 }
-
-
