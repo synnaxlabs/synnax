@@ -11,7 +11,7 @@ import pytest
 
 import freighter.exceptions
 from freighter.encoder import MsgpackEncoder
-from freighter.metadata import Context
+from freighter.context import Context
 from freighter.sync import SyncStreamClient
 from freighter.transport import Next, AsyncNext
 from freighter.url import URL
