@@ -44,11 +44,12 @@ describe("Writer", () => {
       const ch = await newChannel();
       const data = randomTypedArray(10, ch.dataType);
       await client.telem.write(ch.key, TimeStamp.seconds(1), data);
-      await client.telem.read(
+      const resData = await client.telem.read(
         new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(10000000)),
         ch.key
       );
-      expect(data.length).toEqual(10);
+      expect(resData.length).toEqual(data.length);
+      expect(resData.data).toEqual(data);
     });
   });
 });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate } from "@synnaxlabs/x";
+import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
 import { Channel } from "@/channel";
@@ -27,13 +27,13 @@ describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
     const streamer = await client.telem.newStreamer(ch.key);
-    const writer = await client.telem.newWriter(ch.key);
+    const writer = await client.telem.newWriter(TimeStamp.now(), ch.key);
     try {
       await writer.write(ch.key, new Float64Array([1, 2, 3]));
     } finally {
       await writer.close();
     }
     const d = await streamer.read();
-    expect(d.get(ch.key)).toEqual(new Float64Array([1, 2, 3]));
+    expect(d.get(ch.key)[0].data).toEqual(new Float64Array([1, 2, 3]));
   });
 });

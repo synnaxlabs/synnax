@@ -15,7 +15,9 @@ package api
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter/falamos"
 	"go/types"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -78,10 +80,10 @@ type API struct {
 // BindTo binds the API to the provided Transport implementation.
 func (a *API) BindTo(t Transport) {
 	var (
-		err = errors.Middleware()
-		tk  = tokenMiddleware(a.provider.auth.token)
-		//instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{err}
+		err                = errors.Middleware()
+		tk                 = tokenMiddleware(a.provider.auth.token)
+		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
+		insecureMiddleware = []freighter.Middleware{instrumentation, err}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)

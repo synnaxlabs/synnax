@@ -27,7 +27,7 @@ class _Response(Payload):
     error: ExceptionPayload | None
 
 
-class FrameStreamReader:
+class FrameStreamer:
     _ENDPOINT = "/frame/read"
     __stream: Stream[_Request, _Response] | None
 
@@ -92,7 +92,7 @@ class FrameStreamReader:
             )
 
 
-class NumpyStreamReader(FrameStreamReader):
+class NumpyStreamer(FrameStreamer):
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
 
