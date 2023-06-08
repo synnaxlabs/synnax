@@ -17,7 +17,7 @@ from synnax.channel.payload import ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.framer.iterator import NumpyIterator
 from synnax.framer.payload import NumpyFrame
-from synnax.framer.stream_reader import NumpyStreamReader
+from synnax.framer.streamer import NumpyStreamer
 from synnax.framer.writer import DataFrameWriter
 from synnax.telem import TimeRange, UnparsedTimeStamp
 from synnax.transport import Transport
@@ -175,8 +175,8 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         *keys_or_names: ChannelParams,
-    ) -> NumpyStreamReader:
-        return NumpyStreamReader(
+    ) -> NumpyStreamer:
+        return NumpyStreamer(
             self._transport.stream,
             self._channels,
             start,

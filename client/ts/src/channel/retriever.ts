@@ -66,7 +66,7 @@ export class ClusterChannelRetriever implements ChannelRetriever {
   async retrieve(
     ...channels: ChannelParams[]
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingle(channels);
+    const single = isSingleParam(channels);
     const [keys, names] = splitChannelParams(channels);
     const res = await this.execute({ keys, names });
     if (!single) return res;
@@ -98,7 +98,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
   async retrieve(
     ...channels: ChannelParams[]
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingle(channels);
+    const single = isSingleParam(channels);
     const [keys, names] = splitChannelParams(channels);
 
     const results: ChannelPayload[] = [];
@@ -146,7 +146,7 @@ export const splitChannelParams = (channels: ChannelParams[]): [number[], string
   return [keys, names];
 };
 
-export const isSingle = (channels: ChannelParams[]): boolean => {
+export const isSingleParam = (channels: ChannelParams[]): boolean => {
   return (
     channels.length === 1 &&
     (typeof channels[0] === "string" || typeof channels[0] === "number")

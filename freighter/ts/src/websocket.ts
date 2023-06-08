@@ -196,8 +196,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       ws.onopen = () => {
         resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
       };
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      ws.onerror = (ev: Event) => resolve(new Error(ev.toString()));
+      ws.onerror = (ev: Event) => {
+        const ev_ = ev as ErrorEvent;
+        resolve(new Error(ev_.message));
+      };
     });
   }
 }

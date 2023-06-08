@@ -143,7 +143,7 @@ func (c carrier) Keys() []string {
 }
 
 func log(ctx freighter.Context, err error, cfg Config) {
-	logF := lo.Ternary(err == nil, cfg.L.Debug, cfg.L.Error)
+	logF := lo.Ternary(err == nil, cfg.L.Info, cfg.L.Error)
 	logF(ctx.Target.String(),
 		zap.String("protocol", ctx.Protocol),
 		zap.Stringer("variant", ctx.Variant),

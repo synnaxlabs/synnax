@@ -32,7 +32,7 @@ const resZ = z.object({
 type Response = z.infer<typeof resZ>;
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
-  private static readonly ENDPOINT = "/frame/read";
+  private static readonly ENDPOINT = "/frame/stream";
   private readonly stream: StreamProxy<Request, Response>;
   private readonly adapter: BackwardFrameAdapter;
 
@@ -51,7 +51,6 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     client: StreamClient
   ): Promise<Streamer> {
     const adapter = await BackwardFrameAdapter.open(retriever, channels);
-    // @ts-expect-error
     const stream = await client.stream(Streamer.ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
     stream.send({ start: new TimeStamp(start), keys: adapter.keys });

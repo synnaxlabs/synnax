@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever } from "@/channel/retriever";
+import { ChannelRetriever, isSingleParam } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
@@ -78,6 +78,7 @@ export class FrameClient {
     ...params: ChannelParams[]
   ): Promise<Streamer> {
     const start = from instanceof TimeStamp ? from : TimeStamp.now();
+    params = from instanceof TimeStamp ? params : [from, ...params];
     return await Streamer._open(
       start,
       params,
@@ -115,6 +116,9 @@ export class FrameClient {
 
   async read(tr: TimeRange, ...channels: ChannelParams[]): Promise<LazyArray | Frame> {
     const fr = await this.readFrame(tr, ...channels);
+    if (isSingleParam(channels)) {
+      return fr.arrays[0];
+    }
     return fr;
   }
 

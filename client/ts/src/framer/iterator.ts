@@ -46,7 +46,7 @@ enum ResponseVariant {
 const reqZ = z.object({
   command: z.nativeEnum(Command),
   span: TimeSpan.z.optional(),
-  range: TimeRange.z.optional(),
+  bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
   keys: z.number().array().optional(),
 });
@@ -103,7 +103,7 @@ export class Iterator {
     // @ts-expect-error
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
     const iter = new Iterator(stream, adapter);
-    await iter.execute({ command: Command.Open, keys: adapter.keys, range: tr });
+    await iter.execute({ command: Command.Open, keys: adapter.keys, bounds: tr });
     return iter;
   }
 
