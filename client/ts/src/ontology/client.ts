@@ -10,4 +10,4 @@
 import { OntologyRetriever } from "@/ontology/retriever";
 
 /** The core client class for executing queries against a Synnax cluster ontology */
-export class OntologyClient extends OntologyRetriever { }
+export class OntologyClient extends OntologyRetriever {}

@@ -15,7 +15,7 @@ const ontologyResourceTypeSchema = z.union([
   z.literal("channel"),
   z.literal("node"),
   z.literal("group"),
-  z.literal("range")
+  z.literal("range"),
 ]);
 
 export type OntologyResourceType = z.infer<typeof ontologyResourceTypeSchema>;

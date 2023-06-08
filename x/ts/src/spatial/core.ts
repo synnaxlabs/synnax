@@ -449,7 +449,7 @@ export class Dimensions {
  * A lower and upper bound of values, where the lower bound is inclusive
  * and the upper bound is exclusive.
  */
-export class Bound {
+export class Bounds {
   readonly lower: number;
   readonly upper: number;
 
@@ -517,9 +517,9 @@ export class Bound {
    * Finds the combination of upper and lower bounds from the given set that result
    * in the bound with the maximum possible span.
    * */
-  static max(bounds: LooseBoundT[]): Bound {
-    const parsed = bounds.map((b) => new Bound(b));
-    return new Bound({
+  static max(bounds: LooseBoundT[]): Bounds {
+    const parsed = bounds.map((b) => new Bounds(b));
+    return new Bounds({
       lower: Math.min(...parsed.map((b) => b.lower)),
       upper: Math.max(...parsed.map((b) => b.upper)),
     });
@@ -529,39 +529,39 @@ export class Bound {
    * Finds the combination of upper and lower bounds from the given set that result
    * in the bound with the minimum possible span.
    * */
-  static min(bounds: LooseBoundT[]): Bound {
-    const parsed = bounds.map((b) => new Bound(b));
-    return new Bound({
+  static min(bounds: LooseBoundT[]): Bounds {
+    const parsed = bounds.map((b) => new Bounds(b));
+    return new Bounds({
       lower: Math.max(...parsed.map((b) => b.lower)),
       upper: Math.min(...parsed.map((b) => b.upper)),
     });
   }
 
   /** An upper and lower bound of zero */
-  static readonly ZERO = new Bound(0, 0);
+  static readonly ZERO = new Bounds(0, 0);
 
   /**
    * An upper and lower bound of negative and positive infinity.
    * An infinite bound contains all values except for positive infinity.
    */
-  static readonly INFINITE = new Bound(-Infinity, Infinity);
+  static readonly INFINITE = new Bounds(-Infinity, Infinity);
 
   /** A lower bound of zero and an upper bound of one */
-  static readonly DECIMAL = new Bound(1);
+  static readonly DECIMAL = new Bounds(1);
 
   /** @returns clip space with a lower bound of -1 and an upper bound of 1 */
-  static readonly CLIP = new Bound(-1, 1);
+  static readonly CLIP = new Bounds(-1, 1);
 
   /**
    * z is a zod schema for parsing a bound. This schema is loose in that it will
    * accept and convert a variety of inputs into a bound. If you only want to accept
    * strict bounds, use strictZ.
    */
-  static readonly looseZ = looseBoundZ.transform((v) => new Bound(v));
+  static readonly looseZ = looseBoundZ.transform((v) => new Bounds(v));
 
   /**
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
    * only accept a bound as an input.
    * */
-  static readonly strictZ = boundZ.transform((v) => new Bound(v));
+  static readonly strictZ = boundZ.transform((v) => new Bounds(v));
 }

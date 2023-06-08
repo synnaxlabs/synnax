@@ -25,18 +25,18 @@ export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   };
 };
 
-export const InsecureCredentialsSchema = z.object({
+export const insecureCredentialsZ = z.object({
   username: z.string(),
   password: z.string(),
 });
-export type InsecureCredentials = z.infer<typeof InsecureCredentialsSchema>;
+export type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
 
-export const TokenResponseSchema = z.object({
+export const tokenResponseZ = z.object({
   token: z.string(),
   user: userPayloadSchema,
 });
 
-export type TokenResponse = z.infer<typeof TokenResponseSchema>;
+export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
 export class AuthenticationClient {
   private static readonly ENDPOINT = "/auth/login";
@@ -57,10 +57,10 @@ export class AuthenticationClient {
   authenticate(): void {
     this.authenticating = new Promise((resolve, reject) => {
       this.client
-        .send<InsecureCredentials, TokenResponse>(
+        .send<typeof insecureCredentialsZ, typeof tokenResponseZ>(
           AuthenticationClient.ENDPOINT,
           this.credentials,
-          TokenResponseSchema
+          tokenResponseZ
         )
         .then(([res, err]) => {
           if (err != null) {

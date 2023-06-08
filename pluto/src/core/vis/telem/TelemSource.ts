@@ -1,4 +1,4 @@
-import { GLBufferControl, Bound, LazyArray } from "@synnaxlabs/x";
+import { GLBufferControl, Bounds, LazyArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -63,12 +63,12 @@ export interface XYTelemSource extends TelemSourceMeta {
    * @returns the maximum possible bound of the X axis data. This is useful for
    * automatically scaling the X axis of a plot.
    */
-  xBound: () => Promise<Bound>;
+  xBound: () => Promise<Bounds>;
   /**
    * @returns the maximum possible bound of the Y axis data. This is useful for
    * automatically scaling the Y axis of a plot.
    */
-  yBound: () => Promise<Bound>;
+  yBound: () => Promise<Bounds>;
 }
 
 /**

@@ -9,6 +9,10 @@
 
 import { TimeRange, LazyArray } from "@synnaxlabs/x";
 
+/**
+ * A cache for channel data that only accepts pre-written arrays i.e. it performs
+ * no allocatio, buffering, or modification of new arrays.
+ */
 export class StaticCache {
   private readonly entries: CachedRead[];
 
@@ -16,14 +20,20 @@ export class StaticCache {
     this.entries = [];
   }
 
-  extent(): TimeRange {
+  /**
+   * @returns the total time range of all entries in the cache.
+   */
+  get extent(): TimeRange {
     if (this.entries.length === 0) return TimeRange.ZERO;
     const first = this.entries[0].timeRange;
     const last = this.entries[this.entries.length - 1].timeRange;
     return new TimeRange(first.start, last.end);
   }
 
-  gaps(): TimeRange[] {
+  /**
+   * @returns a list of all gaps between cache reads.
+   */
+  get gaps(): TimeRange[] {
     return this.entries.map((r) => r.gap);
   }
 
@@ -46,10 +56,8 @@ export class StaticCache {
     return i;
   }
 
-  read(tr: TimeRange): [LazyArray[], TimeRange[]] {
-    const reads = this.entries.filter((r) => {
-      return r.timeRange.overlapsWith(tr);
-    });
+  dirtyRead(tr: TimeRange): [LazyArray[], TimeRange[]] {
+    const reads = this.entries.filter((r) => r.timeRange.overlapsWith(tr));
     if (reads.length === 0) return [[], [tr]];
     const gaps = reads
       .map((r) => r.gap)

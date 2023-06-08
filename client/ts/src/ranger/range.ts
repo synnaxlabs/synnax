@@ -65,10 +65,10 @@ export class Range {
 
   read(channel: ChannelKeyOrName): Promise<LazyArray>;
 
-  read(...channels: ChannelParams[]): Promise<Frame>;
+  read(channels: ChannelParams): Promise<Frame>;
 
-  async read(...channels: ChannelParams[]): Promise<LazyArray | Frame> {
-    return await this.frameClient.read(this.timeRange, ...channels);
+  async read(channels: ChannelParams): Promise<LazyArray | Frame> {
+    return await this.frameClient.read(this.timeRange, channels);
   }
 }
 

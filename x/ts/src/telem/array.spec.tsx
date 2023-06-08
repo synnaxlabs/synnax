@@ -9,8 +9,8 @@
 
 import { describe, expect, test, it } from "vitest";
 
+import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { LazyArray } from "@/telem/array";
-import { MockGLBufferController } from "@/telem/gl";
 import { DataType, Rate, Size, TimeRange, TimeStamp } from "@/telem/telem";
 
 describe("LazyArray", () => {

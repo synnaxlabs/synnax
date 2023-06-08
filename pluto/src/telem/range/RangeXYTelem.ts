@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Bound,
+  Bounds,
   GLBufferControl,
   LazyArray,
   TimeRange,
@@ -79,14 +79,14 @@ export class RangeXYTelem implements XYTelemSource {
     }
   }
 
-  async xBound(): Promise<Bound> {
+  async xBound(): Promise<Bounds> {
     const x = await this.x();
-    return Bound.max(x.map((x) => x.bound));
+    return Bounds.max(x.map((x) => x.bound));
   }
 
-  async yBound(): Promise<Bound> {
+  async yBound(): Promise<Bounds> {
     const y = await this.y();
-    return Bound.max(y.map((y) => y.bound));
+    return Bounds.max(y.map((y) => y.bound));
   }
 
   setProps(props_: any): void {}

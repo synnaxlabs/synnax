@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AtherComposite, BobComponentFactory } from "@/core/aether/worker";
@@ -18,7 +18,7 @@ import { RenderContext } from "@/core/vis/render";
 
 export const yAxisProps = axisState.extend({
   location: Location.strictXZ.optional().default("left"),
-  bound: Bound.looseZ.optional(),
+  bound: Bounds.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -73,8 +73,8 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
     });
   }
 
-  async xBound(): Promise<Bound> {
-    return Bound.max(
+  async xBound(): Promise<Bounds> {
+    return Bounds.max(
       await Promise.all(this.children.map(async (el) => await el.xBound()))
     );
   }
@@ -97,7 +97,7 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
     await Promise.all(this.children.map(async (el) => el.render(lineCtx)));
   }
 
-  private async yBound(): Promise<[Bound, number]> {
+  private async yBound(): Promise<[Bounds, number]> {
     if (this.state.bound != null) return [this.state.bound, this.state.bound.lower];
     const bounds = await Promise.all(
       this.children.map(async (el) => await el.yBound())
@@ -123,11 +123,11 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
   }
 }
 
-export const autoBounds = (padding: number, bounds: Bound[]): [Bound, number] => {
-  if (bounds.length === 0) return [new Bound({ lower: 0, upper: 1 }), 0];
-  const { upper, lower } = Bound.max(bounds);
+export const autoBounds = (padding: number, bounds: Bounds[]): [Bounds, number] => {
+  if (bounds.length === 0) return [new Bounds({ lower: 0, upper: 1 }), 0];
+  const { upper, lower } = Bounds.max(bounds);
   if (upper === lower)
-    return [new Bound({ lower: lower - 1, upper: upper - 1 }), lower];
+    return [new Bounds({ lower: lower - 1, upper: upper - 1 }), lower];
   const _padding = (upper - lower) * padding;
-  return [new Bound({ lower: lower - _padding, upper: upper + _padding }), lower];
+  return [new Bounds({ lower: lower - _padding, upper: upper + _padding }), lower];
 };

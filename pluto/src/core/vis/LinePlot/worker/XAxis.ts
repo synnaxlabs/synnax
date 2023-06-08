@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bound, Box, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { BobComponentFactory, AtherComposite } from "@/core/aether/worker";
@@ -18,7 +18,7 @@ import { RenderContext } from "@/core/vis/render";
 
 export const xAxisState = axisState.extend({
   location: Location.strictYZ.optional().default("bottom"),
-  bound: Bound.looseZ.optional(),
+  bound: Bounds.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.1),
 });
 
@@ -94,13 +94,13 @@ export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
     );
   }
 
-  async xBound(): Promise<[Bound, number]> {
+  async xBound(): Promise<[Bounds, number]> {
     if (this.state.bound != null) return [this.state.bound, this.state.bound.lower];
     const bounds = await Promise.all(
       this.children.map(async (el) => await el.xBound())
     );
     if (bounds.every((bound) => !bound.isFinite))
-      return [new Bound({ lower: 0, upper: 1 }), 0];
+      return [new Bounds({ lower: 0, upper: 1 }), 0];
     const { autoBoundPadding = 0.1 } = this.state;
     return autoBounds(autoBoundPadding, bounds);
   }
