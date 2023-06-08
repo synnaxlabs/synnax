@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { Channel } from "../channel";
@@ -44,12 +44,9 @@ describe("Writer", () => {
       const ch = await newChannel();
       const data = randomTypedArray(10, ch.dataType);
       await client.telem.write(ch.key, TimeStamp.seconds(1), data);
-      const resData = await client.telem.read(
-        new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(10000000)),
-        ch.key
-      );
-      expect(resData.length).toEqual(data.length);
-      expect(resData.data).toEqual(data);
+      const res = await client.telem.read(TimeRange.MAX, ch.key);
+      expect(res.length).toEqual(data.length);
+      expect(res.data).toEqual(data);
     });
   });
 });

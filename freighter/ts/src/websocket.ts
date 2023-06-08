@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { RUNTIME, URL, buildQueryString } from "@synnaxlabs/x";
-import { ZodSchema, z } from "zod";
+import { z } from "zod";
 
 import type { EncoderDecoder } from "@/encoder";
 import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
@@ -33,22 +33,19 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
+class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+  implements Stream<RQ, RS>
+{
   private readonly encoder: EncoderDecoder;
-  private readonly reqSchema: z.ZodSchema<RQ>;
-  private readonly resSchema: z.ZodSchema<RS>;
+  private readonly reqSchema: RQ;
+  private readonly resSchema: RS;
   private readonly ws: WebSocket;
   private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
-  constructor(
-    ws: WebSocket,
-    encoder: EncoderDecoder,
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ) {
+  constructor(ws: WebSocket, encoder: EncoderDecoder, reqSchema: RQ, resSchema: RS) {
     this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
@@ -59,7 +56,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 
   /** Implements the Stream protocol */
-  send(req: RQ): Error | null {
+  send(req: z.input<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.encoder.encode({ type: "data", payload: req }));
@@ -67,7 +64,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[RS | null, Error | null]> {
+  async receive(): Promise<[z.output<RS> | null, Error | null]> {
     if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
@@ -153,10 +150,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   /** Implements the StreamClient interface. */
-  async stream<RQ, RS>(
+  async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    reqSchema: ZodSchema<RQ>,
-    resSchema: ZodSchema<RS>
+    reqSchema: RQ,
+    resSchema: RS
   ): Promise<Stream<RQ, RS>> {
     const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
@@ -187,10 +184,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     return this.baseUrl.child(target).toString() + qs;
   }
 
-  private async wrapSocket<RQ, RS>(
+  private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     ws: WebSocket,
-    reqSchema: ZodSchema<RQ>,
-    resSchema: ZodSchema<RS>
+    reqSchema: RQ,
+    resSchema: RS
   ): Promise<WebSocketStream<RQ, RS> | Error> {
     return await new Promise((resolve) => {
       ws.onopen = () => {

@@ -22,22 +22,18 @@ const reqZ = z.object({
   keys: z.number().array(),
 });
 
-type Request = z.infer<typeof reqZ>;
-
 const resZ = z.object({
   frame: frameZ,
   error: errorZ.optional().nullable(),
 });
 
-type Response = z.infer<typeof resZ>;
-
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private static readonly ENDPOINT = "/frame/stream";
-  private readonly stream: StreamProxy<Request, Response>;
+  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: BackwardFrameAdapter;
 
   private constructor(
-    stream: Stream<Request, Response>,
+    stream: Stream<typeof reqZ, typeof resZ>,
     adapter: BackwardFrameAdapter
   ) {
     this.stream = new StreamProxy("Streamer", stream);
@@ -46,7 +42,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   static async _open(
     start: UnparsedTimeStamp,
-    channels: ChannelParams[],
+    channels: ChannelParams,
     retriever: ChannelRetriever,
     client: StreamClient
   ): Promise<Streamer> {
@@ -66,20 +62,20 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     }
   }
 
-  [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
-    return this;
-  }
-
   async read(): Promise<Frame> {
     return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
   }
 
-  async update(...params: ChannelParams[]): Promise<void> {
+  async update(params: ChannelParams): Promise<void> {
     await this.adapter.update(params);
     this.stream.send({ keys: this.adapter.keys });
   }
 
   close(): void {
     this.stream.closeSend();
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
+    return this;
   }
 }

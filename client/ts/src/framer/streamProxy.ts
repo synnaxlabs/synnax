@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Stream, EOF } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
 import { UnexpectedError } from "@/errors";
 
-export class StreamProxy<RQ, RS> {
+export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
   readonly name: string;
   private readonly stream: Stream<RQ, RS>;
 
@@ -20,7 +21,7 @@ export class StreamProxy<RQ, RS> {
     this.name = name;
   }
 
-  async receive(): Promise<RS> {
+  async receive(): Promise<z.output<RS>> {
     const [res, err] = await this.stream.receive();
     if (err != null) throw err;
     if (res == null)
@@ -52,7 +53,7 @@ export class StreamProxy<RQ, RS> {
     this.stream.closeSend();
   }
 
-  send(req: RQ): void {
+  send(req: z.input<RQ>): void {
     const err = this.stream.send(req);
     if (err != null) throw err;
   }

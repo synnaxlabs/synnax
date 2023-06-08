@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ChannelKey, ChannelName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever, splitChannelParams } from "@/channel/retriever";
+import { ChannelRetriever, analyzeChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 
 export class BackwardFrameAdapter {
@@ -24,23 +24,23 @@ export class BackwardFrameAdapter {
 
   static async open(
     retriever: ChannelRetriever,
-    channels: ChannelParams[]
+    channels: ChannelParams
   ): Promise<BackwardFrameAdapter> {
     const adapter = new BackwardFrameAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async update(channels: ChannelParams[]): Promise<void> {
-    const [keys, names] = splitChannelParams(channels);
-    if (names.length === 0) {
+  async update(channels: ChannelParams): Promise<void> {
+    const { variant, normalized } = analyzeChannelParams(channels);
+    if (variant === "keys") {
       this.adapter = null;
-      this.keys = keys;
+      this.keys = normalized;
       return;
     }
-    const fetched = await this.retriever.retrieve(...channels);
+    const fetched = await this.retriever.retrieve(normalized);
     this.adapter = new Map<ChannelKey, ChannelName>();
-    names.forEach((name) => {
+    normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
       if (channel == null) throw new Error(`Channel ${name} not found`);
       // @ts-expect-error;
@@ -76,23 +76,23 @@ export class ForwardFrameAdapter {
 
   static async open(
     retriever: ChannelRetriever,
-    channels: ChannelParams[]
+    channels: ChannelParams
   ): Promise<ForwardFrameAdapter> {
     const adapter = new ForwardFrameAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async update(channels: ChannelParams[]): Promise<void> {
-    const [keys, names] = splitChannelParams(channels);
-    if (names.length === 0) {
+  async update(channels: ChannelParams): Promise<void> {
+    const { variant, normalized } = analyzeChannelParams(channels);
+    if (variant === "keys") {
       this.adapter = null;
-      this.keys = keys;
+      this.keys = normalized;
       return;
     }
-    const fetched = await this.retriever.retrieve(...channels);
+    const fetched = await this.retriever.retrieve(normalized);
     this.adapter = new Map<ChannelName, ChannelKey>();
-    names.forEach((name) => {
+    normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
       if (channel == null) throw new Error(`Channel ${name} not found`);
       // @ts-expect-error;

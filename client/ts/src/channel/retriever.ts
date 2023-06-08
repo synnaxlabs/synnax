@@ -8,11 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   ChannelKeyOrName,
   ChannelKeys,
+  ChannelKeysOrNames,
   ChannelNames,
   ChannelParams,
   ChannelPayload,
@@ -29,13 +31,13 @@ const requestSchema = z.object({
 
 type Request = z.infer<typeof requestSchema>;
 
-const responseSchema = z.object({
+const resZ = z.object({
   channels: channelPayload.array(),
 });
 
 export interface ChannelRetriever {
-  retrieve: ((channel: ChannelKeyOrName) => Promise<ChannelPayload>) &
-    ((...channels: ChannelParams[]) => Promise<ChannelPayload[]>);
+  retrieve: ((channels: ChannelKeyOrName) => Promise<ChannelPayload>) &
+    ((channels: ChannelKeysOrNames) => Promise<ChannelPayload[]>);
   retrieveAll: () => Promise<ChannelPayload[]>;
 }
 
@@ -51,24 +53,19 @@ export class ClusterChannelRetriever implements ChannelRetriever {
     const [res, err] = await this.client.send(
       ClusterChannelRetriever.ENDPOINT,
       request,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      responseSchema
+      resZ
     );
     if (err != null) throw err;
     return res?.channels as ChannelPayload[];
   }
 
-  async retrieve(channel: ChannelKeyOrName): Promise<ChannelPayload>;
+  async retrieve(channels: ChannelKeyOrName): Promise<ChannelPayload>;
 
-  async retrieve(...cahnnels: ChannelParams[]): Promise<ChannelPayload[]>;
+  async retrieve(channels: ChannelKeysOrNames): Promise<ChannelPayload[]>;
 
-  async retrieve(
-    ...channels: ChannelParams[]
-  ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingleParam(channels);
-    const [keys, names] = splitChannelParams(channels);
-    const res = await this.execute({ keys, names });
+  async retrieve(channels: ChannelParams): Promise<ChannelPayload | ChannelPayload[]> {
+    const { single, variant, normalized } = analyzeChannelParams(channels);
+    const res = await this.execute({ [variant]: normalized });
     if (!single) return res;
     if (res.length === 0) throw new QueryError("Channel not found");
     if (res.length > 1) throw new ValidationError("Multiple channels found");
@@ -91,34 +88,29 @@ export class CacheChannelRetriever implements ChannelRetriever {
     this.wrapped = wrapped;
   }
 
-  async retrieve(channel: ChannelKeyOrName): Promise<ChannelPayload>;
+  private get(channel: ChannelKeyOrName): ChannelPayload | undefined {
+    const key = typeof channel === "number" ? channel : this.namesToKeys.get(channel);
+    if (key == null) return undefined;
+    return this.cache.get(key);
+  }
 
-  async retrieve(...channels: ChannelParams[]): Promise<ChannelPayload[]>;
+  async retrieve(channels: ChannelKeyOrName): Promise<ChannelPayload>;
 
-  async retrieve(
-    ...channels: ChannelParams[]
-  ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = isSingleParam(channels);
-    const [keys, names] = splitChannelParams(channels);
+  async retrieve(channels: ChannelKeysOrNames): Promise<ChannelPayload[]>;
+
+  async retrieve(channels: ChannelParams): Promise<ChannelPayload | ChannelPayload[]> {
+    const { single, normalized } = analyzeChannelParams(channels);
 
     const results: ChannelPayload[] = [];
-    const namesToFetch: ChannelNames = [];
-    const keysToFetch: ChannelKeys = [];
-
-    names.forEach((name) => {
-      const key = this.namesToKeys.get(name);
-      if (key == null) namesToFetch.push(name);
-      else keys.push(key);
+    const toFetch: ChannelKeysOrNames = [];
+    normalized.forEach((name) => {
+      const c = this.get(name);
+      if (c != null) results.push(c);
+      else toFetch.push(name as never);
     });
 
-    keys.forEach((key) => {
-      const channel = this.cache.get(key);
-      if (channel != null) results.push(channel);
-      else keysToFetch.push(key);
-    });
-
-    if (namesToFetch.length > 0 || keysToFetch.length > 0) {
-      const fetched = await this.wrapped.retrieve(namesToFetch, keysToFetch);
+    if (toFetch.length > 0) {
+      const fetched = await this.wrapped.retrieve(toFetch);
       fetched.forEach((channel) => {
         this.cache.set(channel.key, channel);
         this.namesToKeys.set(channel.name, channel.key);
@@ -126,7 +118,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
       results.push(...fetched);
     }
     if (!single) return results;
-    if (results.length === 0) throw new QueryError("Channel not found");
+    if (results.length === 0) throw new QueryError(`Channel not found`);
     else if (results.length > 1) throw new QueryError("Multiple channels found");
     return results[0];
   }
@@ -136,19 +128,23 @@ export class CacheChannelRetriever implements ChannelRetriever {
   }
 }
 
-export const splitChannelParams = (channels: ChannelParams[]): [number[], string[]] => {
-  const keys: ChannelKeys = [];
-  const names: ChannelNames = [];
-  channels.flat().forEach((channel) => {
-    if (typeof channel === "number") keys.push(channel);
-    else names.push(channel);
-  });
-  return [keys, names];
-};
+export type ParamAnalysisResult =
+  | {
+      single: boolean;
+      variant: "keys";
+      normalized: ChannelKeys;
+    }
+  | {
+      single: boolean;
+      variant: "names";
+      normalized: ChannelNames;
+    };
 
-export const isSingleParam = (channels: ChannelParams[]): boolean => {
-  return (
-    channels.length === 1 &&
-    (typeof channels[0] === "string" || typeof channels[0] === "number")
-  );
+export const analyzeChannelParams = (channels: ChannelParams): ParamAnalysisResult => {
+  const normalized = toArray(channels) as ChannelKeysOrNames;
+  return {
+    single: !Array.isArray(channels),
+    variant: normalized[0] === "number" ? "keys" : "names",
+    normalized,
+  } as const as ParamAnalysisResult;
 };
