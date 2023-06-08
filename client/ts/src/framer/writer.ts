@@ -156,6 +156,7 @@ export class Writer {
     }
     frame = this.adapter.adapt(frame);
     if (this.errorAccumulated) return false;
+    // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
@@ -194,6 +195,7 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
+    // @ts-expect-error
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

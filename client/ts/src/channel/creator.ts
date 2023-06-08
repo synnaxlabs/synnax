@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -43,15 +44,15 @@ export class ChannelCreator {
   async create(channel: UnparsedChannel): Promise<ChannelPayload>;
 
   async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+    channels: UnparsedChannel | UnparsedChannel[]
   ): Promise<ChannelPayload[]>;
 
   async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+    channels: UnparsedChannel | UnparsedChannel[]
   ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = channels.length === 1 && !Array.isArray(channels[0]);
+    const single = !Array.isArray(channels);
     const { channels: ch_ } = await this.execute({
-      channels: parseChannels(channels.flat()),
+      channels: parseChannels(toArray(channels)),
     });
     return single ? ch_[0] : ch_;
   }
@@ -63,6 +64,6 @@ export class ChannelCreator {
       responseZ
     );
     if (err != null) throw err;
-    return res as Response;
+    return res;
   }
 }
