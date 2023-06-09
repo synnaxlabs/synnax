@@ -15,7 +15,6 @@ import { VisCanvas } from "@/core/vis/Canvas";
 import { Line } from "@/core/vis/Line/LineC";
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
-import { useDynamicTelem } from "@/telem/useStaticTelem";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",
@@ -23,27 +22,6 @@ const story: Meta<typeof LinePlot> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = useDynamicTelem({
-    x: [Float32Array.from({ length: 1000 }, (_, i) => i)],
-    y: [
-      Float32Array.from(
-        { length: 1000 },
-        (_, i) => Math.sin(i / 100) * 20 + Math.random()
-      ),
-    ],
-    updateRate: 30,
-  });
-  const telem2 = useDynamicTelem({
-    x: [Float32Array.from({ length: 1000 }, (_, i) => i)],
-    y: [
-      Float32Array.from(
-        { length: 1000 },
-        (_, i) => Math.cos(i / 100) * 20 + Math.random()
-      ),
-    ],
-    updateRate: 30,
-  });
-
   return (
     <VisCanvas
       style={{

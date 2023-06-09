@@ -16,7 +16,6 @@ export * from "@/util/component";
 export * from "@/util/transform";
 export * from "@/util/debounce";
 export * from "@/util/renderProp";
-export * from "@/vis";
 export * from "@/core/triggers";
 export * from "@/core/memo";
 export * from "@/core/os";

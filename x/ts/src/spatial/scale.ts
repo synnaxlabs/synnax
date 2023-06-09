@@ -270,15 +270,15 @@ export class BoxScale {
       if (prevX !== currX) next.x = next.x.invert();
       if (prevY !== currY) next.y = next.y.invert();
     }
-    next.x = next.x.scale(box.xBound);
-    next.y = next.y.scale(box.yBound);
+    next.x = next.x.scale(box.xBounds);
+    next.y = next.y.scale(box.yBounds);
     return next;
   }
 
   clamp(box: Box): BoxScale {
     const next = this.new();
-    next.x = this.x.clamp(box.xBound);
-    next.y = this.y.clamp(box.yBound);
+    next.x = this.x.clamp(box.xBounds);
+    next.y = this.y.clamp(box.yBounds);
     return next;
   }
 

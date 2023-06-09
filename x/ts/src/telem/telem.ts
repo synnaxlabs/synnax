@@ -67,7 +67,6 @@ export class TimeStamp extends Number {
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    console.log(TimeStamp.utcOffset.toString());
     return new TimeStamp(
       date.getTime() * TimeStamp.MILLISECOND.valueOf() - TimeStamp.utcOffset.valueOf()
     ).valueOf();
@@ -380,10 +379,10 @@ export class TimeStamp extends Number {
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
+  static readonly MAX = new TimeStamp(9223372036854775807);
 
   /** The minimum possible value for a timestamp */
-  static readonly MIN = new TimeStamp(TimeStamp.MIN_SAFE_INTEGER);
+  static readonly MIN = new TimeStamp(-9223372036854775808);
 
   /** The unix epoch */
   static readonly ZERO = new TimeStamp(0);
@@ -578,7 +577,7 @@ export class Rate extends Number {
    * @returns A TimeSpan representing the period of the Rate.
    */
   get period(): TimeSpan {
-    return TimeSpan.seconds(this.valueOf());
+    return TimeSpan.seconds(1 / this.valueOf());
   }
 
   /**
@@ -816,7 +815,11 @@ export class TimeRange {
 /** DataType is a string that represents a data type. */
 export class DataType extends String {
   constructor(value: UnparsedDataType) {
-    if (value instanceof DataType || typeof value === "string") {
+    if (
+      value instanceof DataType ||
+      typeof value === "string" ||
+      typeof value.valueOf() === "string"
+    ) {
       super(value.valueOf());
       return;
     } else {

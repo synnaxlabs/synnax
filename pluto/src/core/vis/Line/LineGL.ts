@@ -20,7 +20,7 @@ import {
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
 import { GLProgram, RenderContext } from "@/core/vis/render";
-import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
+import { XYTelemSource } from "@/core/vis/telem";
 import { TelemProvider } from "@/core/vis/telem/TelemService";
 
 /**
@@ -111,7 +111,7 @@ export class LineGL
   prog: LineGLProgram;
   requestRender: () => void;
   telemProv: TelemProvider;
-  telem: XYTelemSource | DynamicXYTelemSource;
+  telem: XYTelemSource;
 
   static readonly TYPE = "line";
 
@@ -131,20 +131,32 @@ export class LineGL
     if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
   }
 
-  async xBound(): Promise<Bounds> {
-    return await this.telem.xBound();
+  async xBounds(): Promise<Bounds> {
+    return await this.telem.xBounds();
   }
 
-  async yBound(): Promise<Bounds> {
-    return await this.telem.yBound();
+  async yBounds(): Promise<Bounds> {
+    return await this.telem.yBounds();
   }
 
   async render(ctx: LineContext): Promise<void> {
     this.prog.setAsActive();
     const xData = await this.telem.x(this.prog.ctx.gl);
     const yData = await this.telem.y(this.prog.ctx.gl);
-    const count = this.prog.bindPropsAndContext(ctx, this.state);
-    xData.forEach((x, i) => this.prog.draw(x, yData[i], count));
+    xData.forEach((x, i) => {
+      const y = yData[i];
+      const count = this.prog.bindPropsAndContext(
+        {
+          ...ctx,
+          scale: {
+            x: ctx.scale.x.translate(ctx.scale.x.dim(Number(x.sampleOffset))),
+            y: ctx.scale.y.translate(ctx.scale.x.dim(Number(y.sampleOffset))),
+          },
+        },
+        this.state
+      );
+      this.prog.draw(x, y, count);
+    });
   }
 }
 

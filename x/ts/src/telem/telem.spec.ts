@@ -208,6 +208,9 @@ describe("Rate", () => {
 
   test("period", () => expect(new Rate(1).period.equals(TimeSpan.SECOND)).toBeTruthy());
 
+  test("period", () =>
+    expect(new Rate(2).period.equals(TimeSpan.milliseconds(500))).toBeTruthy());
+
   test("sampleCount", () =>
     expect(new Rate(1).sampleCount(TimeSpan.SECOND)).toEqual(1));
 
