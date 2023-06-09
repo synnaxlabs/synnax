@@ -73,9 +73,9 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
     });
   }
 
-  async xBound(): Promise<Bounds> {
+  async xBounds(): Promise<Bounds> {
     return Bounds.max(
-      await Promise.all(this.children.map(async (el) => await el.xBound()))
+      await Promise.all(this.children.map(async (el) => await el.xBounds()))
     );
   }
 
@@ -97,17 +97,17 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
     await Promise.all(this.children.map(async (el) => el.render(lineCtx)));
   }
 
-  private async yBound(): Promise<[Bounds, number]> {
+  private async yBounds(): Promise<[Bounds, number]> {
     if (this.state.bound != null) return [this.state.bound, this.state.bound.lower];
     const bounds = await Promise.all(
-      this.children.map(async (el) => await el.yBound())
+      this.children.map(async (el) => await el.yBounds())
     );
     const { autoBoundPadding = 0.1 } = this.state;
     return autoBounds(autoBoundPadding, bounds);
   }
 
   private async scales(ctx: YAxisContext): Promise<[Scale, Scale]> {
-    const [bound] = await this.yBound();
+    const [bound] = await this.yBounds();
     return [
       Scale.scale(bound)
         .scale(1)

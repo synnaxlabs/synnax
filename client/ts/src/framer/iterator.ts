@@ -205,10 +205,11 @@ export class Iterator {
 
   private async execute(request: Request): Promise<boolean> {
     this.stream.send(request);
+    this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();
       if (res.variant === ResponseVariant.Ack) return res.ack;
-      this.value = this.adapter.adapt(new Frame(res.frame));
+      this.value.push(this.adapter.adapt(new Frame(res.frame)));
     }
   }
 }

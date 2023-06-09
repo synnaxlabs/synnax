@@ -1,4 +1,4 @@
-import { GLBufferControl, Bounds, LazyArray } from "@synnaxlabs/x";
+import { GLBufferController, Bounds, LazyArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 export const telemSourceMeta = z.object({
   key: z.string(),
-  type: z.string(),
+  variant: z.string(),
 });
 
 /**
@@ -21,9 +21,8 @@ export type TelemSourceMeta = z.infer<typeof telemSourceMeta>;
 /**
  * Meta data for telemetry source that provides X and Y correlated data.
  */
-export const xyTelemSourceMeta = z.object({
-  type: z.literal("xy"),
-  key: z.string(),
+export const xyTelemSourceMeta = telemSourceMeta.extend({
+  variant: z.literal("xy"),
 });
 
 /**
@@ -38,59 +37,37 @@ export interface XYTelemSource extends TelemSourceMeta {
   /**
    * Resolves data for the X axis.
    *
-   * @param gl - The GLBufferControl to use for buffering the data into
+   * @param gl - The GLBufferController to use for buffering the data into
    * the GPU. Data can be cached by the source and only updated when it changes.
-   * The GLBufferControl identity does not change throughought the lifetime of the
+   * The GLBufferController identity does not change throughought the lifetime of the
    * source, and it remains attached to the same rendering context.
    *
    * @returns - lazy arrays that areexpected to have the same topology as the Y axis
    * data i.e. the same number of arrays and the same length for each array.
    */
-  x: (gl: GLBufferControl) => Promise<LazyArray[]>;
+  x: (gl: GLBufferController) => Promise<LazyArray[]>;
   /**
    * Resolves data for the Y axis.
    *
-   * @param gl - The GLBufferControl to use for buffering the data into
+   * @param gl - The GLBufferController to use for buffering the data into
    * the GPU. Data can be cached by the source and only updated when it changes.
-   * The GLBufferControl identity does not change throughought the lifetime of the
+   * The GLBufferController identity does not change throughought the lifetime of the
    * source, and it remains attached to the same rendering context.
    *
    * @returns - lazy arrays that are expected to have the same topology as the X axis
    * data i.e. the same number of arrays and the same length for each array.
    */
-  y: (gl: GLBufferControl) => Promise<LazyArray[]>;
+  y: (gl: GLBufferController) => Promise<LazyArray[]>;
   /**
    * @returns the maximum possible bound of the X axis data. This is useful for
    * automatically scaling the X axis of a plot.
    */
-  xBound: () => Promise<Bounds>;
+  xBounds: () => Promise<Bounds>;
   /**
    * @returns the maximum possible bound of the Y axis data. This is useful for
    * automatically scaling the Y axis of a plot.
    */
-  yBound: () => Promise<Bounds>;
-}
-
-/**
- * Metadata for an extension of xyTelemSource that allows for the source to call a
- * provided callback when the data changes i.e. request a re-render.
- */
-export const dynamicXYTelemSourceMeta = z.object({
-  type: z.literal("dynamic-xy"),
-  key: z.string(),
-});
-
-/**
- * Metadata for an extension of xyTelemSource that allows for the source to call a provided
- * callback when the data changes i.e. request a re-render.
- */
-export type DynamicXYTelemSourceMeta = z.infer<typeof dynamicXYTelemSourceMeta>;
-
-/**
- * An extension of xyTelemSource that allows for the source to call a provided
- * callback when the data changes i.e. request a re-render.
- */
-export interface DynamicXYTelemSource extends XYTelemSource {
+  yBounds: () => Promise<Bounds>;
   /**
    * Binds the provided callback to the source, and calls the callback whenever
    * x or y data changes.

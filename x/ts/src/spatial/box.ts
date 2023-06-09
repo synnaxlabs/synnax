@@ -258,11 +258,11 @@ export class Box implements Stringer {
     return this.root.toLowerCase().includes("top") ? this.top : this.bottom;
   }
 
-  get xBound(): Bounds {
+  get xBounds(): Bounds {
     return new Bounds(this.one.x, this.two.x);
   }
 
-  get yBound(): Bounds {
+  get yBounds(): Bounds {
     return new Bounds(this.one.y, this.two.y);
   }
 

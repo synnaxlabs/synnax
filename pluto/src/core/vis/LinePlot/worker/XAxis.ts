@@ -94,10 +94,10 @@ export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
     );
   }
 
-  async xBound(): Promise<[Bounds, number]> {
+  async xBounds(): Promise<[Bounds, number]> {
     if (this.state.bound != null) return [this.state.bound, this.state.bound.lower];
     const bounds = await Promise.all(
-      this.children.map(async (el) => await el.xBound())
+      this.children.map(async (el) => await el.xBounds())
     );
     if (bounds.every((bound) => !bound.isFinite))
       return [new Bounds({ lower: 0, upper: 1 }), 0];
@@ -106,7 +106,7 @@ export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
   }
 
   private async scales(ctx: XAxisProps): Promise<[Scale, Scale]> {
-    const [bound] = await this.xBound();
+    const [bound] = await this.xBounds();
     return [
       Scale.scale(bound)
         .scale(1)

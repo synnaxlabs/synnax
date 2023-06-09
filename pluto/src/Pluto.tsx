@@ -1,8 +1,7 @@
 import { PropsWithChildren, ReactElement } from "react";
 
-import { Telem } from "./telem";
-
 import { Aether } from "@/core/aether/main";
+import { TelemProvider } from "@/telem/Context";
 import { Worker } from "@/worker";
 
 export interface PlutoProps extends PropsWithChildren {}
@@ -13,7 +12,7 @@ export const Pluto = ({ children }: PlutoProps): ReactElement => {
   return (
     <Worker.Provider url={WORKER_URL}>
       <Aether.Provider workerKey="vis">
-        <Telem.Provider>{children}</Telem.Provider>
+        <TelemProvider>{children}</TelemProvider>
       </Aether.Provider>
     </Worker.Provider>
   );

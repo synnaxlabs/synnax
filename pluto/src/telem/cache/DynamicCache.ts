@@ -25,7 +25,6 @@ export class DynamicCache {
    * @param dataType - The data type of the channel.
    */
   constructor(cap: number, dataType: DataType) {
-    this.dataType = dataType;
     this.buffer = this.allocate(cap);
     this.cap = cap;
   }
@@ -53,12 +52,13 @@ export class DynamicCache {
    * @returns the buffer if it overlaps with the given time range, null otherwise.
    */
   dirtyRead(tr: TimeRange): LazyArray | null {
-    if (this.buffer.timeRange.overlapsWith(tr)) return this.buffer;
+    if (this.buffer.timeRange.overlapsWith(tr) && this.buffer.length > 0)
+      return this.buffer;
     return null;
   }
 
   private allocate(length: number): LazyArray {
-    return LazyArray.alloc(length, this.dataType, TimeStamp.now().spanRange(0));
+    return LazyArray.alloc(length, DataType.FLOAT32, TimeStamp.now().spanRange(0));
   }
 
   private _write(arr: LazyArray): LazyArray[] {

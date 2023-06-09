@@ -11,6 +11,7 @@ import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/
 import { LazyArray, TimeRange } from "@synnaxlabs/x";
 
 import { Cache } from "@/telem/cache";
+import { convertArrays } from "@/telem/convertArrays";
 
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
@@ -69,7 +70,7 @@ export class Client {
       const frame = await this.core.telem.read(range, keys);
       for (const key of keys) {
         const cache = await this.getCache(key);
-        cache.writeStatic(range, frame.get(key));
+        cache.writeStatic(range, convertArrays(frame.get(key)));
       }
     }
 
@@ -127,7 +128,7 @@ export class Client {
       for (const k of frame.keys) {
         const arrays = frame.get(k);
         const cache = await this.getCache(k);
-        const out = cache.writeDynamic(arrays);
+        const out = cache.writeDynamic(convertArrays(arrays));
         if (out.length > 0) changed.set(k, [cache.channel, out]);
       }
       this.listeners.forEach((v, k) => {

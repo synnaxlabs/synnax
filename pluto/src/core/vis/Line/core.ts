@@ -10,13 +10,13 @@
 import { Bounds, Box, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { dynamicXYTelemSourceMeta, xyTelemSourceMeta } from "../telem/TelemSource";
+import { xyTelemSourceMeta } from "../telem/TelemSource";
 
 import { AetherComponent } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 
 export const lineState = z.object({
-  telem: z.union([xyTelemSourceMeta, dynamicXYTelemSourceMeta]),
+  telem: xyTelemSourceMeta,
   color: Color.z,
   strokeWidth: z.number().default(1),
 });
@@ -41,6 +41,6 @@ export interface LineContext {
 export interface LineComponent extends AetherComponent {
   state: LineState;
   render: (ctx: LineContext) => void;
-  xBound: () => Promise<Bounds>;
-  yBound: () => Promise<Bounds>;
+  xBounds: () => Promise<Bounds>;
+  yBounds: () => Promise<Bounds>;
 }
