@@ -105,7 +105,7 @@ class Unreachable(Exception):
     target: str
     message: str
 
-    def __init__(self, target: str, message="Unreachable"):
+    def __init__(self, target: str = "", message="Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)
@@ -130,20 +130,6 @@ class EOF(Exception):
 
     def __str__(self):
         return "EOF"
-
-
-class Unreachable(Exception):
-    """
-    Raise when a target is unreachable.
-    """
-
-    target: str
-    base: Exception
-
-    def __init__(self, target: str, base: Exception | None = None):
-        self.target = target
-        self.base = base
-        super().__init__(f"Target {target} unreachable")
 
 
 _EXCEPTIONS = [

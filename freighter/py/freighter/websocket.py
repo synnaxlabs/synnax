@@ -96,13 +96,14 @@ class WebsocketStream(AsyncStream[RQ, RS]):
     async def close_send(self) -> Exception | None:
         """Implements the AsyncStream protocol."""
         if self.send_closed or self.server_closed is not None:
-            return
+            return None
 
         msg = _Message(type="close", payload=None, error=None)
         try:
             await self.internal.send(self.encoder.encode(msg))
         finally:
             self.send_closed = True
+        return None
 
     async def _close_server(self, server_err: Exception | None):
         if self.server_closed is not None:
@@ -114,7 +115,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         await self.internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):

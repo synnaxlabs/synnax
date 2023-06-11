@@ -33,9 +33,7 @@ def client(endpoint: URL) -> HTTPClient:
 class TestClient:
     def test_echo(self, client: HTTPClient):
         """Should echo an incremented ID back to the caller."""
-        res, err = client.send(
-            "/echo", Message(id=1, message="hello"), Message
-        )
+        res, err = client.send("/echo", Message(id=1, message="hello"), Message)
         assert err is None
         assert res.id == 2
         assert res.message == "hello"

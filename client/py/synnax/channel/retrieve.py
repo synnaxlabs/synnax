@@ -11,12 +11,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from typing import Protocol, overload
+from typing import Protocol
 
 from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
-from freighter import HTTPClient, Payload, UnaryClient
+from freighter import Payload, UnaryClient
 from synnax.channel.payload import (
     ChannelPayload,
     ChannelKeys,

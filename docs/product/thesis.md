@@ -20,19 +20,20 @@ _Synnax is the framework for data driven hardware teams._
 
 _Synnax is the software infrastructure for large scale hardware._
 
-# 2 - Problem
+# 2 - The Problem
 
 From factories to rockets, **productive iteration is the means of improving hardware
 systems.** Teams continuously design, build, and evaluate new versions of their products
-or processes. Increasing the pace and quality of each iteration means organizations can
-deliver better products faster.
+or operations. Increasing the pace and quality of each iteration means organizations can
+deliver better solutions faster.
 
 **Data lies at the core of this process**. From initial design and testing to long term
 operational deployment, the information teams create and collect plays a role in every
 decision. The faster teams can acquire, analyze, and act on this data, the faster they
 can improve.
 
-Existing data acquisition and control systems pay little attention to the importance
+Existing data acquisition and control (DAQ) systems pay little attention to the
+importance
 of this loop. They focus on recording data and controlling hardware, but disregard the
 rest of the lifecycle, often dumping data to a local file system in a proprietary
 format. This leaves teams with a crevasse between acquisition and meaningful analysis.
@@ -41,12 +42,29 @@ hand, leading to a slow, error-prone development cycle.
 
 ## 2.1 - Local File Systems
 
-- Windows C:/ drive.
-- Proprietary file types.
-- Only accessible by a small number of users.
-- Meaningless names.
-- Requires considerable data cleaning and processing to share.
-- Impossible to query at scale.
+Existing systems export recorded data to a local file system. These files use
+proprietary formats (like `.tdms`) and are only accessible by the small number of users
+with access to the machine. To share data, engineers must manually convert it to a more
+accessible format and upload it to a network drive. The files on these drives can have
+obscure names, making it difficult for an engineer to locate specific data sets.
+
+Engineers typically query a small subset of the data stored in a file. When accessing a
+file with 1000 channels, they may only examine 3, yet they still need to download the
+entire file to their local machine and load it into their analysis tool of choice.
+
+Accessing data at scale is impossible. To understand the evolution of a system over
+time, an engineer must manually search for dozens or even hundreds of files,
+post-process each one, and aggregate the results by hand.
+
+The process of taking recorded data from a file and extracting meaningful insights is
+slow and error-prone. In consequence, engineers often under-analyze the systems they
+operate, leading to less effective, slower, and more expensive development cycles.
+
+## 2.3 - Antiquated Programming Paradigms
+
+Existing platforms are iterations on software developed in the 80s and 90s. LabVIEW,
+a visual language first released in 1986, remains the front-runner in data acquisition
+programming.
 
 ## 2.2 - Closed, Proprietary Software
 
@@ -65,7 +83,9 @@ hand, leading to a slow, error-prone development cycle.
 - Modern UIs are intuitive and gorgeous, existing industrial control interfaces are not.
 - We think there's a long way to go towards improving the user experience.
 
-# 3 - Product
+# 3 - The Opportunity
+
+# 3 - The Solution
 
 At the highest level, Synnax’s only role is to make the readings of an instrument
 accessible to any entity that requires them. These instruments can be data acquisition
