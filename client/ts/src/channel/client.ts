@@ -19,9 +19,9 @@ import {
   TimeRange,
 } from "@synnaxlabs/x";
 
-import { QueryError } from "..";
+import { analyzeChannelParams, ChannelRetriever } from "./retriever";
 
-import { ChannelCreator } from "./creator";
+import { ChannelCreator } from "@/channel/creator";
 import {
   ChannelKey,
   ChannelKeyOrName,
@@ -29,9 +29,8 @@ import {
   ChannelPayload,
   channelPayload,
   UnparsedChannel,
-} from "./payload";
-import { analyzeChannelParams, ChannelRetriever } from "./retriever";
-
+} from "@/channel/payload";
+import { QueryError } from "@/errors";
 import { FrameClient } from "@/framer";
 
 /**

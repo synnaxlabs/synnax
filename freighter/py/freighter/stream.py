@@ -15,7 +15,7 @@ from freighter.transport import RQ, RS, Transport, AsyncTransport
 class AsyncStreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of response asynchronously."""
 
-    async def receive(self) -> tuple[RS | None, Exception | None]:
+    async def receive(self) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 
@@ -30,7 +30,7 @@ class AsyncStreamReceiver(Protocol[RS]):
 class StreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of responses."""
 
-    def receive(self) -> tuple[RS | None, Exception | None]:
+    def receive(self) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 

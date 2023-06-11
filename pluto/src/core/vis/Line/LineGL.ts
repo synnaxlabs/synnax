@@ -9,7 +9,7 @@
 
 import { Bounds, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
 
-import { BobComponentFactory, AetherLeaf } from "@/core/aether/worker";
+import { AetherFactory, AetherLeaf } from "@/core/aether/worker";
 import {
   LineComponent,
   LineState,
@@ -26,7 +26,7 @@ import { TelemProvider } from "@/core/vis/telem/TelemService";
 /**
  * A factory for creating webgl rendered lines.
  */
-export class LineFactory implements BobComponentFactory<LineComponent> {
+export class LineFactory implements AetherFactory<LineComponent> {
   private readonly program: LineGLProgram;
   private readonly telem: TelemProvider;
   requestRender: () => void;

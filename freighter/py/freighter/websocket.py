@@ -8,23 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 from pydantic import BaseModel
-from typing import Generic, Type, Any
+from typing import Generic, Type, Any, Literal
 from websockets.client import connect, WebSocketClientProtocol
 from websockets.exceptions import ConnectionClosedOK
 
-from freighter.context import Context, Role
+from freighter.context import Context
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
 from freighter.stream import AsyncStream, AsyncStreamClient
 from freighter.transport import RQ, RS, P, AsyncMiddlewareCollector
 from freighter.url import URL
 
-_DATA_MESSAGE = "data"
-_CLOSE_MESSAGE = "close"
-
 
 class _Message(Generic[P], BaseModel):
-    type: str
+    type: Literal["data", "close"]
     payload: P | None
     error: ExceptionPayload | None
 
@@ -66,7 +63,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         assert isinstance(data, bytes)
         msg = self.encoder.decode(data, self.res_msg_t)
 
-        if msg.type == _CLOSE_MESSAGE:
+        if msg.type == "data":
             assert msg.error is not None
             await self._close_server(decode_exception(msg.error))
             return None, self.server_closed
@@ -84,7 +81,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         if self.send_closed:
             raise StreamClosed
 
-        msg = _Message(type=_DATA_MESSAGE, payload=payload, error=None)
+        msg = _Message(type="data", payload=payload, error=None)
         encoded = self.encoder.encode(msg)
 
         # If the server closed with an error, we return freighter.EOF to the
@@ -101,7 +98,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         if self.send_closed or self.server_closed is not None:
             return
 
-        msg = _Message(type=_CLOSE_MESSAGE, payload=None, error=None)
+        msg = _Message(type="close", payload=None, error=None)
         try:
             await self.internal.send(self.encoder.encode(msg))
         finally:
@@ -167,7 +164,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal socket
-            out_ctx = Context(target, "websocket", Role.CLIENT)
+            out_ctx = Context(target, "websocket", "client")
             headers.update(ctx.params)
             try:
                 ws = await connect(
@@ -182,7 +179,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                 return out_ctx, e
             return out_ctx, None
 
-        _, exc = await self.exec(Context(target, "websocket", Role.CLIENT), finalizer)
+        _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
             raise exc
 

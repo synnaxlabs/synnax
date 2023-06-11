@@ -19,7 +19,7 @@ import (
 func main() {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(logger.New())
-	server.BindTo(app, zap.S())
+	server.BindTo(app)
 	if err := app.Listen(":8080"); err != nil {
 		zap.S().Fatalw("server failed", "err", err)
 	}

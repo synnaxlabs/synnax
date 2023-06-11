@@ -101,19 +101,7 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.St
 	return s
 }
 
-func UnaryGetServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
-	us := &unaryServer[RQ, RS]{
-		Reporter: unaryReporter,
-		path:     path,
-		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {
-			return req, parseQueryParams(c, &req)
-		},
-	}
-	r.register(path, "GET", us, us.fiberHandler)
-	return us
-}
-
-func UnaryPostServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
 		Reporter: unaryReporter,
 		path:     path,

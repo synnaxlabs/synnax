@@ -17,7 +17,7 @@ from freighter.context import Context, Role
 from freighter.encoder import EncoderDecoder, MsgpackEncoder, JSONEncoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed
 from freighter.exceptions import register_exception, encode_exception, decode_exception
-from freighter.http import HTTPClientPool
+from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.sync import SyncStreamClient
 from freighter.transport import (

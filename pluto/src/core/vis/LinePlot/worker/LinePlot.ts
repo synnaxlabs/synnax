@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { BobComponentFactory, AtherComposite } from "@/core/aether/worker";
+import { AetherFactory, AtherComposite } from "@/core/aether/worker";
 import { LineFactory, LineGLProgram } from "@/core/vis/Line/LineGL";
 import { XAxis, XAxisProps, XAxisFactory } from "@/core/vis/LinePlot/worker/XAxis";
 import { YAxisFactory } from "@/core/vis/LinePlot/worker/YAxis";
@@ -27,7 +27,7 @@ export const linePlotState = z.object({
 export type LinePlotState = z.input<typeof linePlotState>;
 export type ParsedLinePlotState = z.output<typeof linePlotState>;
 
-export class LinePlotFactory implements BobComponentFactory<LinePlot> {
+export class LinePlotFactory implements AetherFactory<LinePlot> {
   ctx: RenderContext;
   lines: LineGLProgram;
   renderQueue: RenderQueue;

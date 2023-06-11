@@ -10,7 +10,7 @@
 import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AtherComposite, BobComponentFactory } from "@/core/aether/worker";
+import { AtherComposite, AetherFactory } from "@/core/aether/worker";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineContext } from "@/core/vis/Line/core";
@@ -31,14 +31,14 @@ export interface YAxisContext {
   xScale: Scale;
 }
 
-export class YAxisFactory implements BobComponentFactory<YAxis> {
+export class YAxisFactory implements AetherFactory<YAxis> {
   ctx: RenderContext;
-  lineFactory: BobComponentFactory<LineComponent>;
+  lineFactory: AetherFactory<LineComponent>;
   requestRender: () => void;
 
   constructor(
     ctx: RenderContext,
-    lineFactory: BobComponentFactory<LineComponent>,
+    lineFactory: AetherFactory<LineComponent>,
     requestRender: () => void
   ) {
     this.ctx = ctx;
@@ -59,7 +59,7 @@ export class YAxis extends AtherComposite<LineComponent, YAxisState, ParsedYAxis
 
   constructor(
     ctx: RenderContext,
-    lineFactory: BobComponentFactory<LineComponent>,
+    lineFactory: AetherFactory<LineComponent>,
     key: string,
     props: YAxisState,
     requestRender: () => void

@@ -130,10 +130,6 @@ func encodeAndWrite(c *fiber.Ctx, ecd httputil.EncoderDecoder, v interface{}) er
 	return err
 }
 
-func parseQueryParams[V any](c *fiber.Ctx, v *V) error {
-	return c.QueryParser(v)
-}
-
 func parseRequestCtx(c *fiber.Ctx, target address.Address) freighter.Context {
 	md := freighter.Context{
 		Context:  c.Context(),
