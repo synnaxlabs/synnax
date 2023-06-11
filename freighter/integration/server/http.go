@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
+func BindTo(f *fiber.App) {
 	router := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: testutil.Instrumentation("freighter-integration")})
 	echoServer := fhttp.StreamServer[Message, Message](router, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
@@ -39,13 +39,10 @@ func BindTo(f *fiber.App, logger *zap.SugaredLogger) {
 	streamRespondWithTenMessagesServer := fhttp.StreamServer[Message, Message](router, "/stream/respondWithTenMessages")
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
-	unaryPostEchoServer := fhttp.UnaryPostServer[Message, Message](router, "/unary/echo")
-	unaryPostEchoServer.BindHandler(unaryEcho)
-
-	unaryGetEchoServer := fhttp.UnaryGetServer[Message, Message](router, "/unary/echo")
+	unaryGetEchoServer := fhttp.UnaryServer[Message, Message](router, "/unary/echo")
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
-	unaryMiddlewareCheckServer := fhttp.UnaryGetServer[Message, Message](router, "/unary/middlewareCheck")
+	unaryMiddlewareCheckServer := fhttp.UnaryServer[Message, Message](router, "/unary/middlewareCheck")
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
@@ -63,12 +60,12 @@ func checkMiddleware(ctx freighter.Context, next freighter.Next) (freighter.Cont
 	return next(ctx)
 }
 
-func unaryEcho(ctx context.Context, req Message) (Message, error) {
+func unaryEcho(_ context.Context, req Message) (Message, error) {
 	req.ID++
 	return req, nil
 }
 
-func streamEcho(ctx context.Context, stream ServerStream) error {
+func streamEcho(_ context.Context, stream ServerStream) error {
 	for {
 		msg, err := stream.Receive()
 		if err != nil {
@@ -82,7 +79,7 @@ func streamEcho(ctx context.Context, stream ServerStream) error {
 }
 
 func streamRespondWithTenMessages(
-	ctx context.Context,
+	_ context.Context,
 	stream ServerStream,
 ) error {
 	for i := 0; i < 10; i++ {
@@ -94,7 +91,7 @@ func streamRespondWithTenMessages(
 }
 
 func streamSendMessageAfterClientClose(
-	ctx context.Context,
+	_ context.Context,
 	stream ServerStream,
 ) error {
 	for {
@@ -110,7 +107,7 @@ func streamSendMessageAfterClientClose(
 }
 
 func streamReceiveAndExitWithErr(
-	ctx context.Context,
+	_ context.Context,
 	stream ServerStream,
 ) error {
 	_, err := stream.Receive()
@@ -121,15 +118,15 @@ func streamReceiveAndExitWithErr(
 }
 
 func streamImmediatelyExitWithErr(
-	ctx context.Context,
-	stream ServerStream,
+	context.Context,
+	ServerStream,
 ) error {
 	return TestError{Code: 1, Message: "unexpected error"}
 }
 
 func streamImmediatelyExitNominally(
-	ctx context.Context,
-	stream ServerStream,
+	context.Context,
+	ServerStream,
 ) error {
 	return nil
 }

@@ -17,7 +17,6 @@ import {
   OntologyResource,
   ontologyResourceSchema,
 } from "@/ontology/payload";
-import { Transport } from "@/transport";
 
 const requestSchema = z.object({
   ids: z.string().array(),
@@ -37,8 +36,8 @@ export class OntologyRetriever {
   private static readonly ENDPOINT = "/ontology/retrieve";
   private readonly client: UnaryClient;
 
-  constructor(transport: Transport) {
-    this.client = transport.getClient();
+  constructor(unary: UnaryClient) {
+    this.client = unary;
   }
 
   async retrieve(

@@ -44,7 +44,7 @@ class Synnax(FrameClient):
 
     channels: ChannelClient
 
-    _transport: Transport
+    __client: Transport
 
     def __init__(
         self,
@@ -83,10 +83,10 @@ class Synnax(FrameClient):
             max_retries=max_retries,
         )
         ch_retriever = CacheChannelRetriever(
-            ClusterChannelRetriever(self._transport.http),
+            ClusterChannelRetriever(self._transport.unary),
             instrumentation,
         )
-        ch_creator = ChannelCreator(self._transport.http)
+        ch_creator = ChannelCreator(self._transport.unary)
         super().__init__(self._transport, ch_retriever)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
 
@@ -117,7 +117,7 @@ def _configure_transport(
     )
     if opts.username != "" or opts.password != "":
         auth = AuthenticationClient(
-            transport=t.http.post_client(),
+            transport=t.unary,
             username=opts.username,
             password=opts.password,
         )

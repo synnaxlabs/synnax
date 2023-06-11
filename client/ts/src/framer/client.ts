@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { StreamClient } from "@synnaxlabs/freighter";
 import {
   NativeTypedArray,
   LazyArray,
@@ -21,14 +22,13 @@ import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
 import { Writer } from "@/framer/writer";
-import { Transport } from "@/transport";
 
 export class FrameClient {
-  private readonly transport: Transport;
+  private readonly stream: StreamClient;
   private readonly retriever: ChannelRetriever;
 
-  constructor(transport: Transport, retriever: ChannelRetriever) {
-    this.transport = transport;
+  constructor(stream: StreamClient, retriever: ChannelRetriever) {
+    this.stream = stream;
     this.retriever = retriever;
   }
 
@@ -40,12 +40,7 @@ export class FrameClient {
    * @returns a new {@link TypedIterator}.
    */
   async newIterator(tr: TimeRange, channels: ChannelParams): Promise<Iterator> {
-    return await Iterator._open(
-      tr,
-      channels,
-      this.retriever,
-      this.transport.streamClient
-    );
+    return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
   /**
@@ -57,12 +52,7 @@ export class FrameClient {
    * @returns a new {@link RecordWriter}.
    */
   async newWriter(start: UnparsedTimeStamp, channels: ChannelParams): Promise<Writer> {
-    return await Writer._open(
-      start,
-      channels,
-      this.retriever,
-      this.transport.streamClient
-    );
+    return await Writer._open(start, channels, this.retriever, this.stream);
   }
 
   async newStreamer(params: ChannelParams): Promise<Streamer>;
@@ -73,12 +63,7 @@ export class FrameClient {
     params: ChannelParams,
     from: TimeStamp = TimeStamp.now()
   ): Promise<Streamer> {
-    return await Streamer._open(
-      from,
-      params,
-      this.retriever,
-      this.transport.streamClient
-    );
+    return await Streamer._open(from, params, this.retriever, this.stream);
   }
 
   /**

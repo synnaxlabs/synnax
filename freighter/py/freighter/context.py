@@ -8,15 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import MutableMapping, Any
+from typing import MutableMapping, Any, Literal
 
-
-class Role(Enum):
-    """Role is the role played by the transport, either client or server.
-    """
-    CLIENT = "client"
-    SERVER = "server"
+Role = Literal["client", "server"]
 
 
 @dataclass

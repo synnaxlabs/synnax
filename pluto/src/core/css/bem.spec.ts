@@ -13,22 +13,10 @@ import { newBEM } from "./bem";
 
 describe("BEM", () => {
   const bem = newBEM("test");
-  test("B", () => {
-    expect(bem.B("a")).toBe("test-a");
-  });
-  test("E", () => {
-    expect(bem.E("a")).toBe("test__a");
-  });
-  test("M", () => {
-    expect(bem.M("a")).toBe("test--a");
-  });
-  test("BE", () => {
-    expect(bem.BE("a", "b")).toBe("test-a__b");
-  });
-  test("BM", () => {
-    expect(bem.BM("a", "b")).toBe("test-a--b");
-  });
-  test("BEM", () => {
-    expect(bem.BEM("a", "b", "c")).toBe("test-a__b--c");
-  });
+  test("B", () => expect(bem.B("a")).toBe("test-a"));
+  test("E", () => expect(bem.E("a")).toBe("test__a"));
+  test("M", () => expect(bem.M("a")).toBe("test--a"));
+  test("BE", () => expect(bem.BE("a", "b")).toBe("test-a__b"));
+  test("BM", () => expect(bem.BM("a", "b")).toBe("test-a--b"));
+  test("BEM", () => expect(bem.BEM("a", "b", "c")).toBe("test-a__b--c"));
 });

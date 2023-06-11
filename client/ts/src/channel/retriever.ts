@@ -22,7 +22,6 @@ import {
   ChannelPayload,
   channelPayload,
 } from "@/channel/payload";
-import { Transport } from "@/transport";
 
 const requestSchema = z.object({
   leaseholder: z.number().optional(),
@@ -45,18 +44,8 @@ export class ClusterChannelRetriever implements ChannelRetriever {
   private static readonly ENDPOINT = "/channel/retrieve";
   private readonly client: UnaryClient;
 
-  constructor(transport: Transport) {
-    this.client = transport.getClient();
-  }
-
-  private async execute(request: Request): Promise<ChannelPayload[]> {
-    const [res, err] = await this.client.send(
-      ClusterChannelRetriever.ENDPOINT,
-      request,
-      resZ
-    );
-    if (err != null) throw err;
-    return res?.channels as ChannelPayload[];
+  constructor(client: UnaryClient) {
+    this.client = client;
   }
 
   async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
@@ -66,6 +55,16 @@ export class ClusterChannelRetriever implements ChannelRetriever {
 
   async retrieveAll(): Promise<ChannelPayload[]> {
     return await this.execute({});
+  }
+
+  private async execute(request: Request): Promise<ChannelPayload[]> {
+    const [res, err] = await this.client.send(
+      ClusterChannelRetriever.ENDPOINT,
+      request,
+      resZ
+    );
+    if (err != null) throw err;
+    return res.channels;
   }
 }
 

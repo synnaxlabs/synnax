@@ -54,8 +54,6 @@ func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamCl
 	}
 }
 
-func UnaryPostClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
-	return &unaryClient[RQ, RS]{
-		ecd: c.EncoderDecoder,
-	}
+func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
+	return &unaryClient[RQ, RS]{ecd: c.EncoderDecoder}
 }

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import HTTPClientPool, Payload, UnaryClient
+from freighter import HTTPClient, Payload, UnaryClient
 from synnax.channel.payload import ChannelPayload
 
 
@@ -25,9 +25,9 @@ class ChannelCreator:
 
     def __init__(
         self,
-        client: HTTPClientPool,
+        client: UnaryClient,
     ):
-        self.client = client.post_client()
+        self.client = client
 
     def create(
         self,

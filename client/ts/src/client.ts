@@ -72,7 +72,7 @@ export default class Synnax {
   }: SynnaxProps) {
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
     if (username != null && password != null) {
-      this.auth = new AuthenticationClient(this.transport.httpFactory, {
+      this.auth = new AuthenticationClient(this.transport.unary, {
         username,
         password,
       });

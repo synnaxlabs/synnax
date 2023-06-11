@@ -109,8 +109,8 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		EncoderDecoder: httputil.JSONEncoderDecoder,
 	})
-	server := fhttp.UnaryPostServer[request, response](router, "/")
-	client := fhttp.UnaryPostClient[request, response](factory)
+	server := fhttp.UnaryServer[request, response](router, "/")
+	client := fhttp.UnaryClient[request, response](factory)
 	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)

@@ -12,7 +12,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { JSONEncoderDecoder } from "@/encoder";
-import { HTTPClientFactory } from "@/http";
+import { HTTPClient } from "@/http";
 
 const ENDPOINT = new URL({
   host: "127.0.0.1",
@@ -20,19 +20,16 @@ const ENDPOINT = new URL({
   pathPrefix: "unary",
 });
 
-const factory = new HTTPClientFactory(ENDPOINT, new JSONEncoderDecoder());
+const client = new HTTPClient(ENDPOINT, new JSONEncoderDecoder());
 
 const messageZ = z.object({
   id: z.number().optional(),
   message: z.string().optional(),
 });
 
-const getClient = factory.newGET();
-const postClient = factory.newPOST();
-
 describe("http", () => {
-  test("post echo", async () => {
-    const [response, error] = await postClient.send<typeof messageZ>(
+  test("echo", async () => {
+    const [response, error] = await client.send<typeof messageZ>(
       "/echo",
       {
         id: 1,
@@ -44,31 +41,8 @@ describe("http", () => {
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
-  test("get echo", async () => {
-    const [response, error] = await getClient.send<typeof messageZ>(
-      "/echo",
-      {
-        id: 1,
-        message: "hello",
-      },
-      messageZ
-    );
-    expect(error).toBeNull();
-    expect(response).toEqual({ id: 2, message: "hello" });
-  });
-
-  test("get not found", async () => {
-    const [response, error] = await getClient.send<typeof messageZ>(
-      "/not-found",
-      {},
-      messageZ
-    );
-    expect(error?.message).toEqual("Cannot GET /unary/not-found");
-    expect(response).toBeNull();
-  });
-
-  test("post not found", async () => {
-    const [response, error] = await postClient.send<typeof messageZ>(
+  test("not found", async () => {
+    const [response, error] = await client.send<typeof messageZ>(
       "/not-found",
       {},
       messageZ
@@ -78,7 +52,6 @@ describe("http", () => {
   });
 
   test("middleware", async () => {
-    const client = factory.newGET();
     client.use(async (md, next) => {
       md.params.Test = "test";
       return await next(md);

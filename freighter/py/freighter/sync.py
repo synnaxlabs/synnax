@@ -156,9 +156,9 @@ class SyncStream(Thread, Stream[RQ, RS]):
         self.start()
         self._ack_open()
 
-    async def _mw(self, md: Context, _next: AsyncNext):
-        md.params.update(self._ctx.params)
-        return await _next(md)
+    async def _mw(self, ctx: Context, _next: AsyncNext):
+        ctx.params.update(self._ctx.params)
+        return await _next(ctx)
 
     def run(self) -> None:
         loop = events.new_event_loop()

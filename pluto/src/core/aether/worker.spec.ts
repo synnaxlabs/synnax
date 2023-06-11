@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AtherComposite, BobComponentFactory, AetherLeaf } from "@/core/aether/worker";
+import { AtherComposite, AetherFactory, AetherLeaf } from "@/core/aether/worker";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -20,7 +20,7 @@ type ExampleProps = z.input<typeof exampleProps>;
 type ParsedExampleProps = z.output<typeof exampleProps>;
 
 export class ExampleFactory
-  implements BobComponentFactory<AetherLeaf<ExampleProps, ParsedExampleProps>>
+  implements AetherFactory<AetherLeaf<ExampleProps, ParsedExampleProps>>
 {
   create(
     type: string,

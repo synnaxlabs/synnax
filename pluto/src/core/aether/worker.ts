@@ -19,7 +19,7 @@ export interface AetherComponent {
   delete: (path: string[]) => void;
 }
 
-export interface BobComponentFactory<C extends AetherComponent> {
+export interface AetherFactory<C extends AetherComponent> {
   create: (type: string, key: string, state: any) => C;
 }
 
@@ -86,12 +86,12 @@ export class AtherComposite<C extends AetherComponent, EP, IP extends unknown>
   implements AetherComponent
 {
   readonly children: C[];
-  readonly factory: BobComponentFactory<C>;
+  readonly factory: AetherFactory<C>;
 
   constructor(
     type: string,
     key: string,
-    factory: BobComponentFactory<C>,
+    factory: AetherFactory<C>,
     schema: ZodSchema<IP, ZodTypeDef, EP>,
     state: EP
   ) {
@@ -153,11 +153,11 @@ export class AtherComposite<C extends AetherComponent, EP, IP extends unknown>
 }
 
 export class CompositeComponentFactory<C extends AetherComponent>
-  implements BobComponentFactory<C>
+  implements AetherFactory<C>
 {
-  readonly factories: Record<string, BobComponentFactory<C>>;
+  readonly factories: Record<string, AetherFactory<C>>;
 
-  constructor(factories: Record<string, BobComponentFactory<C>>) {
+  constructor(factories: Record<string, AetherFactory<C>>) {
     this.factories = factories;
   }
 

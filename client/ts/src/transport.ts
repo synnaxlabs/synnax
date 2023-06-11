@@ -8,39 +8,33 @@
 // included in the file licenses/APL.txt.
 
 import {
-  HTTPClientFactory,
+  HTTPClient,
   JSONEncoderDecoder,
   WebSocketClient,
+  Middleware,
+  StreamClient,
+  UnaryClient,
 } from "@synnaxlabs/freighter";
-import type { Middleware, StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import { URL } from "@synnaxlabs/x";
 
 const baseAPIEndpoint = "/api/v1/";
 
 export class Transport {
   url: URL;
-  httpFactory: HTTPClientFactory;
-  streamClient: StreamClient;
+  unary: UnaryClient;
+  stream: StreamClient;
   secure: boolean;
 
   constructor(url: URL, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child(baseAPIEndpoint);
     const ecd = new JSONEncoderDecoder();
-    this.httpFactory = new HTTPClientFactory(this.url, ecd, this.secure);
-    this.streamClient = new WebSocketClient(this.url, ecd, this.secure);
-  }
-
-  getClient(): UnaryClient {
-    return this.httpFactory.newGET();
-  }
-
-  postClient(): UnaryClient {
-    return this.httpFactory.newPOST();
+    this.unary = new HTTPClient(this.url, ecd, this.secure);
+    this.stream = new WebSocketClient(this.url, ecd, this.secure);
   }
 
   use(...middleware: Middleware[]): void {
-    this.httpFactory.use(...middleware);
-    this.streamClient.use(...middleware);
+    this.unary.use(...middleware);
+    this.stream.use(...middleware);
   }
 }

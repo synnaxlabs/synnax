@@ -13,13 +13,14 @@ from freighter import (
     URL,
     AsyncMiddleware,
     AsyncStreamClient,
-    HTTPClientPool,
+    HTTPClient,
     JSONEncoder,
     Middleware,
     MsgpackEncoder,
     StreamClient,
     SyncStreamClient,
     WebsocketClient,
+    UnaryClient,
 )
 
 from synnax.telem import TimeSpan
@@ -29,7 +30,7 @@ class Transport:
     url: URL
     stream: StreamClient
     stream_async: AsyncStreamClient
-    http: HTTPClientPool
+    unary: UnaryClient
     secure: bool
 
     def __init__(
@@ -53,7 +54,7 @@ class Transport:
             ping_timeout=read_timeout.seconds(),
         )
         self.stream = SyncStreamClient(self.stream_async)
-        self.http = HTTPClientPool(
+        self.unary = HTTPClient(
             url=self.url,
             encoder_decoder=JSONEncoder(),
             secure=secure,
@@ -64,7 +65,7 @@ class Transport:
         )
 
     def use(self, *middleware: Middleware):
-        self.http.use(*middleware)
+        self.unary.use(*middleware)
         self.stream.use(*middleware)
 
     def use_async(self, *middleware: AsyncMiddleware):
