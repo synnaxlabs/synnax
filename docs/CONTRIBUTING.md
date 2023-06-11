@@ -9,25 +9,6 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 0 - Our Vision
-
-At Synnax, we build software to strengthen our connection with the physical world. We
-provide the foundational tools that empower teams to develop revolutionary technologies
-that advance humanity.
-
-Software is the most important technology humanity may ever develop. Let's use it to
-strengthen the connection with the world we live in.
-
-We provide the foundational tools that empower teams to develop revolutionary
-technologies
-that advance humanity.
-
-[//]: # (developing high bandwidth data links between computer systems and hardware infrastructure,)
-
-[//]: # (we're empowering the emergence of sustainable, revolutionary technologies that advance)
-
-[//]: # (humanity towards a state of harmony with the universe we inhabit.)
-
 # 1 - Product
 
 Making meaningful contributions to Synnax starts with having a clear understanding of
