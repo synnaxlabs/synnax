@@ -28,6 +28,7 @@ class HTTPClient(MiddlewareCollector):
     """HTTPClientFactory provides a factory for creating POST and GET implementation of
     the UnaryClient protocol.
     """
+
     _ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
     _ERROR_ENCODING_HEADER_VALUE = "freighter"
     _CONTENT_TYPE_HEADER_KEY = "Content-Type"
@@ -57,7 +58,7 @@ class HTTPClient(MiddlewareCollector):
 
     def send(
         self, target: str, req: RQ, res_t: Type[RS]
-    ) -> tuple[RS | None, Exception | None]:
+    ) -> tuple[RS, None] | tuple[None, Exception]:
         """Implements the UnaryClient protocol."""
         return self.request(
             "POST",
@@ -81,7 +82,7 @@ class HTTPClient(MiddlewareCollector):
         role: Role,
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
-    ) -> tuple[RS | None, Exception | None]:
+    ) -> tuple[RS, None] | tuple[None, Exception]:
         in_ctx = Context(url, self.endpoint.protocol, role)
 
         res: RS | None = None
@@ -98,10 +99,7 @@ class HTTPClient(MiddlewareCollector):
             http_res: BaseHTTPResponse
             try:
                 http_res = self.pool.request(
-                    method=method,
-                    url=url,
-                    headers=head,
-                    body=data
+                    method=method, url=url, headers=head, body=data
                 )
             except MaxRetryError as e:
                 return out_meta_data, Unreachable(url, e)

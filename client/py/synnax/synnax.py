@@ -25,9 +25,11 @@ from synnax.transport import Transport
 class Synnax(FrameClient):
     """Client to perform operations against a Synnax cluster.
 
-    If using the py for data analysis/personal use, the easiest way to connect
-    is to use the ``synnax login`` command, which will prompt and securely store your
-    credentials. The py can then be initialized without parameters.
+    If using the python client for data analysis/personal use, the easiest way to
+    connect is to use the `synnax login` command, which will prompt and securely
+    store your credentials. The py can then be initialized without parameters. When
+    using the client in a production environment, it's best to provide the connection
+    parameter as arguments loaded from a configuration or environment variable.
 
     After running the synnax login command::
         py = Synnax()
@@ -72,7 +74,7 @@ class Synnax(FrameClient):
         :param port: Port of the node.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connnecting to the cluster.
+        :param secure: Whether to use TLS when connecting to the cluster.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
         self._transport = _configure_transport(
@@ -87,7 +89,7 @@ class Synnax(FrameClient):
             instrumentation,
         )
         ch_creator = ChannelCreator(self._transport.unary)
-        super().__init__(self._transport, ch_retriever)
+        super().__init__(self._transport.stream, ch_retriever)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
 
     def close(self):

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload, Literal
+from typing import overload
 
 from numpy import ndarray
 from pydantic import PrivateAttr
@@ -18,8 +18,10 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelKey,
     ChannelName,
+    ChannelKeys,
+    ChannelNames,
 )
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
 from synnax.exceptions import ValidationError, QueryError
 from synnax.framer import FrameClient
 from synnax.telem import (
@@ -160,7 +162,6 @@ class ChannelClient:
     @overload
     def create(
         self,
-        channels: None = None,
         *,
         data_type: UnparsedDataType = DataType.UNKNOWN,
         name: ChannelName = "",
@@ -236,36 +237,20 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, key_or_name: str) -> Channel:
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
         ...
 
     @overload
     def retrieve(
         self,
-        key_or_name: ChannelParams,
-        *keys_or_names: ChannelParams,
-        leaseholder: int | None = None,
-        include_not_found: Literal[False] = False,
+        channel: ChannelKeys | ChannelNames,
     ) -> list[Channel]:
         ...
 
-    @overload
     def retrieve(
         self,
-        key_or_name: ChannelParams,
-        *keys_or_names: ChannelParams,
-        leaseholder: int | None = None,
-        include_not_found: Literal[True] = True,
-    ) -> tuple[list[Channel], list[str]]:
-        ...
-
-    def retrieve(
-        self,
-        key_or_name: ChannelParams,
-        *keys_or_names: ChannelParams,
-        leaseholder: int | None = None,
-        include_not_found: bool = False,
-    ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
+        channel: ChannelParams,
+    ) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -292,19 +277,16 @@ class ChannelClient:
         containing the retrieved channels and the keys or names of the channels that were
         not found.
         """
-        res = self._retriever.retrieve(
-            key_or_name,
-            *keys_or_names,
-            leaseholder=leaseholder,
-            include_not_found=include_not_found,
-        )
-        if res is None:
-            raise QueryError(f"Channel matching key or name {key_or_name} not found.")
-        if isinstance(res, ChannelPayload):
-            return self._sugar([res])[0]
-        if isinstance(res, tuple):
-            return self._sugar(res[0]), res[1]
-        return self._sugar(res)
+        normal = normalize_channel_params(channel)
+        res = self._retriever.retrieve(channel)
+        sug = self._sugar(res)
+        if normal.single:
+            if len(res) == 0:
+                raise QueryError(f"Channel matching {channel} not found.")
+            if len(res) > 1:
+                raise QueryError(f"Multiple channels matching {channel} found.")
+            return sug[0]
+        return sug
 
     def _sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), _frame_client=self._frame_client) for c in channels]
