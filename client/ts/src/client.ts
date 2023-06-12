@@ -79,16 +79,16 @@ export default class Synnax {
       this.transport.use(this.auth.middleware());
     }
     const retriever = new CacheChannelRetriever(
-      new ClusterChannelRetriever(this.transport)
+      new ClusterChannelRetriever(this.transport.unary)
     );
-    const creator = new ChannelCreator(this.transport);
-    this.telem = new FrameClient(this.transport, retriever);
+    const creator = new ChannelCreator(this.transport.unary);
+    this.telem = new FrameClient(this.transport.stream, retriever);
     this.channels = new ChannelClient(this.telem, retriever, creator);
     this.connectivity = new ConnectivityClient(
-      this.transport.getClient(),
+      this.transport.unary,
       connectivityPollFrequency
     );
-    this.ontology = new OntologyClient(this.transport);
+    this.ontology = new OntologyClient(this.transport.unary);
   }
 
   close(): void {

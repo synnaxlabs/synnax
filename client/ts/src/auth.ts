@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HTTPClientFactory } from "@synnaxlabs/freighter";
 import type { Middleware, UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
@@ -47,8 +46,8 @@ export class AuthenticationClient {
   authenticated: boolean;
   user: UserPayload | undefined;
 
-  constructor(factory: HTTPClientFactory, creds: InsecureCredentials) {
-    this.client = factory.newPOST();
+  constructor(client: UnaryClient, creds: InsecureCredentials) {
+    this.client = client;
     this.credentials = creds;
     this.authenticated = false;
     this.authenticate();
