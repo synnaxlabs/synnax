@@ -9,8 +9,7 @@
 
 import "@fontsource/inter";
 
-import { Color } from "../color";
-
+import { Color } from "@/core/color";
 import { TypographySpec } from "@/core/std/Typography";
 
 export type Size = number | string;
@@ -209,3 +208,5 @@ export const synnaxDark: Theme = {
     text: new Color(synnaxBase.colors.white).setAlpha(0.9).hex,
   },
 };
+
+export const themes = { synnaxDark, synnaxLight };

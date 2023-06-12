@@ -20,7 +20,7 @@ import {
 import { WorkerMessage } from "@/core/aether/message";
 import { PsuedoSetStateArg } from "@/core/hooks/useStateRef";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
-import { useTypedWorker } from "@/worker/Context";
+import { useTypedWorker } from "@/core/worker/Context";
 
 export interface AetherContextValue {
   path: string[];

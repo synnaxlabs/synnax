@@ -9,7 +9,7 @@
 
 import { ComponentPropsWithoutRef, ReactElement, useRef } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { CSS } from "@/core/css";
@@ -20,26 +20,31 @@ import { RenderProp } from "@/util/renderProp";
 
 import "@/core/std/List/ListCore.css";
 
-export interface ListVirtualCoreProps<E extends KeyedRenderableRecord<E>>
-  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+export interface ListVirtualCoreProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
-  children: RenderProp<ListItemProps<E>>;
+  children: RenderProp<ListItemProps<K, E>>;
   overscan?: number;
 }
 
-const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
+const ListVirtualCore = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   itemHeight,
   children,
   overscan = 5,
   ...props
-}: ListVirtualCoreProps<E>): ReactElement => {
+}: ListVirtualCoreProps<K, E>): ReactElement => {
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const {
     data,
     emptyContent,
     columnar: { columns },
     select: { onSelect },
-  } = useListContext<E>();
+  } = useListContext<K, E>();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: data.length,
@@ -62,7 +67,7 @@ const ListVirtualCore = <E extends KeyedRenderableRecord<E>>({
               onSelect,
               entry,
               columns,
-              selected: (entry as SelectedRecord<E>)?.selected ?? false,
+              selected: (entry as SelectedRecord<K, E>)?.selected ?? false,
               style: {
                 transform: `translateY(${start}px)`,
                 position: "absolute",

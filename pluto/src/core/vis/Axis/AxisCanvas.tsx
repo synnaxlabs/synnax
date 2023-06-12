@@ -15,6 +15,8 @@ import {
   axisState,
   AxisState,
   ParsedAxisState,
+  X_AXIS_SIZE,
+  Y_AXIS_SIZE,
 } from "@/core/vis/Axis/core";
 import { Tick, TickFactory, newTickFactory } from "@/core/vis/Axis/TickFactory";
 import { RenderContext } from "@/core/vis/render";
@@ -88,7 +90,7 @@ export class AxisCanvas {
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
-    const p = this.state.position.translateY(20);
+    const p = this.state.position.translateY(Y_AXIS_SIZE);
     this.drawLine(p, p.translateX(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.drawTicks(ticks, (d, tick) => {
@@ -112,7 +114,7 @@ export class AxisCanvas {
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
-    const p = this.state.position.translateX(40);
+    const p = this.state.position.translateX(X_AXIS_SIZE);
     this.drawLine(p, p.translateY(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.drawTicks(ticks, (d, tick) => {

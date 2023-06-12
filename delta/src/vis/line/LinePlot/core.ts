@@ -7,45 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ChannelKey } from "@synnaxlabs/client";
 import {
   XY,
-  ZERO_XY,
   Deep,
   DeepPartial,
   Dimensions,
-  ONE_DIMS,
+  BoundT,
+  XYT,
+  DimensionsT,
   Bounds,
-  ZERO_BOUND,
 } from "@synnaxlabs/x";
 
-import { StatusTextProps } from "@/core";
 import { Layout, LayoutCreator } from "@/layout";
-import { AxisKey, XAxisRecord, YAxisKey, YAxisRecord } from "@/vis/axis";
+import { AxisKey, MultiXAxisRecord, MultiYAxisRecord, XAxisRecord } from "@/vis/axis";
 import { VisMeta } from "@/vis/core";
 import { createVis } from "@/vis/layout";
 
-export type ChannelsState = XAxisRecord<string> & YAxisRecord<readonly string[]>;
-export type RangesState = XAxisRecord<readonly string[]>;
 export interface ViewportState {
-  zoom: Dimensions;
-  pan: XY;
+  zoom: DimensionsT;
+  pan: XYT;
 }
-
-export interface BoundState {
-  driven: boolean;
-  bound: Bounds;
-}
-
-export type BoundsState = Record<AxisKey, BoundState>;
 
 export interface AxisState {
-  name: string;
+  label?: string;
+  bounds: BoundT;
+  driven: boolean;
 }
 
 export type AxesState = Record<AxisKey, AxisState>;
 
 export interface LineState {
-  axis: YAxisKey;
+  key: string;
   range: string;
   color: string;
   width: number;
@@ -53,22 +46,25 @@ export interface LineState {
 
 export type LineStylesState = LineState[];
 
+export type ChannelsState = MultiYAxisRecord<ChannelKey> & XAxisRecord<ChannelKey>;
+
+export type RangesState = MultiXAxisRecord<string>;
+
 export interface LineVis extends VisMeta {
   channels: ChannelsState;
   ranges: RangesState;
   viewport: ViewportState;
   styles: LineStylesState;
   axes: AxesState;
-  bounds: BoundsState;
 }
 
-export const ZERO_CHANNELS_STATE = {
-  x1: "",
-  x2: "",
-  y1: [] as readonly string[],
-  y2: [] as readonly string[],
-  y3: [] as readonly string[],
-  y4: [] as readonly string[],
+export const ZERO_CHANNELS_STATE: ChannelsState = {
+  x1: 0,
+  x2: 0,
+  y1: [] as number[],
+  y2: [] as number[],
+  y3: [] as number[],
+  y4: [] as number[],
 };
 
 export const ZERO_RANGES_STATE: RangesState = {
@@ -77,28 +73,16 @@ export const ZERO_RANGES_STATE: RangesState = {
 };
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
-  zoom: ONE_DIMS,
-  pan: ZERO_XY,
+  zoom: Dimensions.ZERO.v,
+  pan: XY.ZERO.v,
 };
 
 export const ZERO_LINE_STYLES_STATE: LineStylesState = [];
 
 export const ZERO_AXIS_STATE: AxisState = {
-  name: "",
-};
-
-export const ZERO_BOUND_STATE: BoundState = {
-  driven: false,
-  bound: ZERO_BOUND,
-};
-
-export const ZERO_BOUNDS_STATE: BoundsState = {
-  x1: ZERO_BOUND_STATE,
-  x2: ZERO_BOUND_STATE,
-  y1: ZERO_BOUND_STATE,
-  y2: ZERO_BOUND_STATE,
-  y3: ZERO_BOUND_STATE,
-  y4: ZERO_BOUND_STATE,
+  label: "",
+  driven: true,
+  bounds: Bounds.ZERO.v,
 };
 
 export const ZERO_AXES_STATE: AxesState = {
@@ -117,7 +101,6 @@ export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
   viewport: ZERO_VIEWPORT_STATE,
   styles: ZERO_LINE_STYLES_STATE,
   axes: ZERO_AXES_STATE,
-  bounds: ZERO_BOUNDS_STATE,
 };
 
 export const createLineVis = (
@@ -126,19 +109,3 @@ export const createLineVis = (
   createVis<LineVis>(
     Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
   );
-
-export interface Status extends Omit<StatusTextProps, "level"> {
-  display: boolean;
-}
-
-export interface StatusProvider {
-  status: Status;
-}
-
-export const GOOD_STATUS: Status = { display: false, variant: "success" };
-
-export const INVALID_VIS_STATUS: Status = {
-  display: true,
-  children: "Invalid visualization",
-  variant: "info",
-};

@@ -9,24 +9,27 @@
 
 import { PropsWithChildren, useContext, createContext, ReactElement } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { UseTransformsReturn } from "@/core/hooks/useTransforms";
 import { ListColumn } from "@/core/std/List/types";
 
 export interface ListContextProps<
-  E extends KeyedRenderableRecord<E> = KeyedRenderableRecord
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Omit<UseTransformsReturn<E>, "transform"> {
   columnar: {
-    columns: Array<ListColumn<E>>;
-    setColumns: (cbk: (columns: Array<ListColumn<E>>) => Array<ListColumn<E>>) => void;
+    columns: Array<ListColumn<K, E>>;
+    setColumns: (
+      cbk: (columns: Array<ListColumn<K, E>>) => Array<ListColumn<K, E>>
+    ) => void;
   };
   data: E[];
   sourceData: E[];
   select: {
-    onSelect?: (key: string) => void;
+    onSelect?: (key: K) => void;
     clear?: () => void;
-    setOnSelect: (cbk: (key: string) => void) => void;
+    setOnSelect: (cbk: (key: K) => void) => void;
     setClear: (cbk: () => void) => void;
   };
   emptyContent?: ReactElement;
@@ -51,20 +54,26 @@ export const ListContext = createContext<ListContextProps>({
 });
 
 export const useListContext = <
-  E extends KeyedRenderableRecord<E>
->(): ListContextProps<E> => {
-  return useContext(ListContext) as unknown as ListContextProps<E>;
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>(): ListContextProps<K, E> => {
+  return useContext(ListContext) as unknown as ListContextProps<K, E>;
 };
 
-export interface ListContextProviderProps<E extends KeyedRenderableRecord<E>>
-  extends PropsWithChildren<unknown> {
-  value: ListContextProps<E>;
+export interface ListContextProviderProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends PropsWithChildren<unknown> {
+  value: ListContextProps<K, E>;
 }
 
-export const ListContextProvider = <E extends KeyedRenderableRecord<E>>({
+export const ListContextProvider = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   value,
   children,
-}: ListContextProviderProps<E>): ReactElement => {
+}: ListContextProviderProps<K, E>): ReactElement => {
   return (
     <ListContext.Provider value={value as unknown as ListContextProps}>
       {children}

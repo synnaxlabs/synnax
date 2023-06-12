@@ -8,8 +8,8 @@ import {
   useId,
 } from "react";
 
+import { useTypedWorker } from "@/core/worker/Context";
 import { WorkerMessage } from "@/telem/worker";
-import { useTypedWorker } from "@/worker/Context";
 
 export interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;

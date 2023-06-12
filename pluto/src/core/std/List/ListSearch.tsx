@@ -9,7 +9,7 @@
 
 import { ReactElement, useEffect, useState } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useSearchTransform, UseSearchTransformProps } from "@/core/hooks";
 import { Input as DefaultInput, InputControl } from "@/core/std/Input";
@@ -17,22 +17,27 @@ import { useListContext } from "@/core/std/List/ListContext";
 import { useDebouncedCallback } from "@/util/debounce";
 import { RenderProp } from "@/util/renderProp";
 
-export interface ListSearchProps<E extends KeyedRenderableRecord<E>>
-  extends Omit<UseSearchTransformProps<E>, "query"> {
+export interface ListSearchProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Omit<UseSearchTransformProps<E>, "query"> {
   children?: RenderProp<InputControl<string>>;
   debounce?: number;
 }
 
-export const ListSearch = <E extends KeyedRenderableRecord<E>>({
+export const ListSearch = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   children = (props) => <DefaultInput {...props} />,
   debounce = 250,
   opts,
-}: ListSearchProps<E>): ReactElement | null => {
+}: ListSearchProps<K, E>): ReactElement | null => {
   const [value, setValue] = useState("");
 
   const search = useSearchTransform<E>({ query: value, opts });
 
-  const { setTransform } = useListContext<E>();
+  const { setTransform } = useListContext<K, E>();
 
   useEffect(() => setTransform("search", search), [search]);
   const onChange = useDebouncedCallback((v: any) => setValue(v), debounce, [setValue]);

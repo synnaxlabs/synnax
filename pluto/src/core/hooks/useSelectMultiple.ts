@@ -9,27 +9,35 @@
 
 import { useCallback, useRef } from "react";
 
-import { KeyedRecord, unique } from "@synnaxlabs/x";
+import { Key, KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { InputControl } from "@/core/std/Input";
 import { Triggers } from "@/core/triggers";
 import { ArrayTransform } from "@/util/transform";
 
-export type SelectedRecord<E extends KeyedRecord<E>> = E & {
+export type SelectedRecord<
+  K extends Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>
+> = E & {
   selected?: true;
 };
 
 /** Props for the {@link useSelectMultiple} hook. */
-export interface UseSelectMultipleProps<E extends KeyedRecord<E>>
-  extends InputControl<readonly string[]> {
+export interface UseSelectMultipleProps<
+  K extends Key = Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>
+> extends InputControl<readonly K[]> {
   data: E[];
   allowMultiple?: boolean;
 }
 
 /** Return value for the {@link useSelectMultiple} hook. */
-export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
-  transform: ArrayTransform<E, SelectedRecord<E>>;
-  onSelect: (key: string) => void;
+export interface UseSelectMultipleReturn<
+  K extends Key = Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>
+> {
+  transform: ArrayTransform<E, SelectedRecord<K, E>>;
+  onSelect: (key: K) => void;
   clear: () => void;
 }
 
@@ -58,18 +66,21 @@ export interface UseSelectMultipleReturn<E extends KeyedRecord<E>> {
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelectMultiple = <E extends KeyedRecord<E>>({
+export const useSelectMultiple = <
+  K extends Key = Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>
+>({
   data = [],
   value = [],
   allowMultiple = true,
   onChange,
-}: UseSelectMultipleProps<E>): UseSelectMultipleReturn<E> => {
-  const shiftValueRef = useRef<string | null>(null);
+}: UseSelectMultipleProps<K, E>): UseSelectMultipleReturn<K, E> => {
+  const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
 
   const handleSelect = useCallback(
-    (key: string): void => {
-      let nextSelected: readonly string[] = [];
+    (key: K): void => {
+      let nextSelected: readonly K[] = [];
       const shiftValue = shiftValueRef.current;
       if (!allowMultiple) {
         nextSelected = value.includes(key) ? [] : [key];
@@ -91,7 +102,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
-      onChange(unique(nextSelected as string[]));
+      onChange(unique(nextSelected as K[]));
     },
     [onChange, value, data, allowMultiple]
   );
@@ -99,7 +110,7 @@ export const useSelectMultiple = <E extends KeyedRecord<E>>({
   const clear = useCallback((): void => onChange([]), [onChange]);
 
   const transform = useCallback(
-    (data: E[]): Array<SelectedRecord<E>> =>
+    (data: E[]): Array<SelectedRecord<K, E>> =>
       data.map((d) => (value.includes(d.key) ? { ...d, selected: true } : d)),
     [value]
   );

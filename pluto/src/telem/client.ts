@@ -16,7 +16,7 @@ import { convertArrays } from "@/telem/convertArrays";
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
-  readonly core: Synnax;
+  readonly core: Synnax | null;
   private _streamer: Streamer | null;
   private readonly cache: Map<ChannelKey, Cache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;

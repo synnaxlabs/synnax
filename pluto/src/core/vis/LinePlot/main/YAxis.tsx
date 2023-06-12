@@ -9,13 +9,12 @@
 
 import { PropsWithChildren, ReactElement, memo } from "react";
 
-import { Optional, XY } from "@synnaxlabs/x";
-
-import { useAxisPosition } from "./LinePlot";
+import { Optional, OuterLocationT, XY, Location } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
+import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
 import {
   YAxisState as WorkerYAxisState,
   YAxis as WorkerYAxis,
@@ -28,9 +27,6 @@ export interface YAxisProps
 export const YAxis = memo(
   ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
     const theme = Theming.use();
-    const font = `${theme.typography.tiny.size * theme.sizes.base}px ${
-      theme.typography.family
-    }`;
     const {
       key,
       path,
@@ -40,10 +36,14 @@ export const YAxis = memo(
       color: theme.colors.gray.p2,
       gridColor: theme.colors.gray.m1,
       location,
-      font,
+      font: Theming.font(theme, "small"),
       ...props,
     });
-    const gridStyle = useAxisPosition(location, key);
+    const gridStyle = useAxisPosition(
+      new Location(location).v as OuterLocationT,
+      key,
+      "YAxis"
+    );
     const resizeRef = useResize(
       (box) => {
         setState((state) => ({

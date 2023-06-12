@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { ReactElement, useCallback } from "react";
 
+import { ChannelKey } from "@synnaxlabs/client";
 import { Input, InputItemProps } from "@synnaxlabs/pluto";
 
 import {
@@ -21,11 +22,15 @@ import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<
-    InputItemProps<readonly string[], readonly string[], SelectMultipleChannelsProps>,
+    InputItemProps<
+      readonly ChannelKey[],
+      readonly ChannelKey[],
+      SelectMultipleChannelsProps
+    >,
     "onChange" | "label"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: readonly string[]) => void;
+  onChange: (key: AxisKey, v: readonly ChannelKey[]) => void;
 }
 
 export const SelectMultipleAxesInputItem = ({
@@ -33,7 +38,7 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item<readonly string[], readonly string[], SelectMultipleChannelsProps>
+  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], SelectMultipleChannelsProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
@@ -46,11 +51,11 @@ export const SelectMultipleAxesInputItem = ({
 
 export interface SelectAxisInputItemProps
   extends Omit<
-    InputItemProps<string, string, SelectChannelProps>,
+    InputItemProps<ChannelKey, ChannelKey, SelectChannelProps>,
     "onChange" | "label"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: string) => void;
+  onChange: (key: AxisKey, v: ChannelKey) => void;
 }
 
 export const SelectAxisInputItem = ({
@@ -58,7 +63,7 @@ export const SelectAxisInputItem = ({
   onChange,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item<string, string, SelectChannelProps>
+  <Input.Item<ChannelKey, ChannelKey, SelectChannelProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}

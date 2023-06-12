@@ -15,7 +15,6 @@ import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
  */
 export class DynamicCache {
   buffer: LazyArray;
-  private readonly dataType: DataType;
   private readonly cap: number;
 
   /**

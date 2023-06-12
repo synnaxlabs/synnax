@@ -10,7 +10,13 @@
 import { CSSProperties, ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Compare, convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
+import {
+  Compare,
+  convertRenderV,
+  Key,
+  KeyedRenderableRecord,
+  RenderableRecord,
+} from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useListContext } from "@/core/std/List/ListContext";
@@ -18,30 +24,33 @@ import { ListItemProps, ListColumn as ListColumnT } from "@/core/std/List/types"
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/core/std/Menu/ContextMenu";
 import { Space } from "@/core/std/Space";
 import { Text } from "@/core/std/Typography";
-import { useFont } from "@/core/theming";
+import { Theming } from "@/core/theming";
 import { ArrayTransform } from "@/util/transform";
 
 import "@/core/std/List/ListColumn.css";
 
-type SortState<E extends KeyedRenderableRecord<E>> = [keyof E | null, boolean];
+type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
 
-export interface ListColumnHeaderProps<E extends KeyedRenderableRecord<E>> {
-  columns: Array<ListColumnT<E>>;
+export interface ListColumnHeaderProps<
+  K extends Key,
+  E extends KeyedRenderableRecord<K>
+> {
+  columns: Array<ListColumnT<K, E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
-const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
+const ListColumnHeader = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   columns: initialColumns,
-}: ListColumnHeaderProps<E>): ReactElement => {
+}: ListColumnHeaderProps<K, E>): ReactElement => {
   const {
     columnar: { columns, setColumns },
     sourceData,
     setTransform,
     deleteTransform,
-  } = useListContext<E>();
+  } = useListContext<K, E>();
 
-  const font = useFont("p");
+  const font = Theming.useFont("p");
   const [sort, setSort] = useState<SortState<E>>([null, false]);
 
   const onSort = (k: keyof E): void => {
@@ -88,9 +97,7 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
               endIcon={endIcon}
               style={{ width }}
               shrink={false}
-              onClick={() =>
-                entry != null && (key as string) in entry && onSort(key as keyof E)
-              }
+              onClick={() => entry != null && key in entry && onSort(key as keyof E)}
             >
               {name}
             </Text.WithIcon>
@@ -100,14 +107,17 @@ const ListColumnHeader = <E extends KeyedRenderableRecord<E>>({
   );
 };
 
-const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
+const ListColumnItem = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   entry,
   selected,
   columns,
   onSelect,
   index,
   ...props
-}: ListItemProps<E>): ReactElement => {
+}: ListItemProps<K, E>): ReactElement => {
   const handleSelect = (): void => onSelect?.(entry.key);
   return (
     <Space
@@ -129,38 +139,44 @@ const ListColumnItem = <E extends KeyedRenderableRecord<E>>({
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
-          <ListColumnValue key={col.key as string} entry={entry} col={col} />
+          <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
         ))}
     </Space>
   );
 };
 
-interface ListColumnValueProps<E extends KeyedRenderableRecord<E>> {
+interface ListColumnValueProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> {
   entry: E;
-  col: ListColumnT<E>;
+  col: ListColumnT<K, E>;
 }
 
-const ListColumnValue = <E extends KeyedRenderableRecord<E>>({
+const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   entry,
   col: { width, ...col },
-}: ListColumnValueProps<E>): ReactElement | null => {
+}: ListColumnValueProps<K, E>): ReactElement | null => {
   const style: CSSProperties = { width: col.cWidth, userSelect: "none", padding: 6 };
   if (col.render != null) return col.render({ key: col.key, entry, style });
   let rv: E[keyof E] | string;
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];
   return (
-    <Text key={col.key as string} level="p" style={style}>
+    <Text key={col.key.toString()} level="p" style={style}>
       {convertRenderV(rv)}
     </Text>
   );
 };
 
-const columnWidths = <E extends KeyedRenderableRecord<E>>(
-  columns: Array<ListColumnT<E>>,
+const columnWidths = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>(
+  columns: Array<ListColumnT<K, E>>,
   data: E[],
   font: string
-): Array<ListColumnT<E>> => {
+): Array<ListColumnT<K, E>> => {
   const le = longestEntries(data, columns);
   return columns.map((col) => {
     if (col.width != null) col.cWidth = col.width;
@@ -173,9 +189,12 @@ const columnWidths = <E extends KeyedRenderableRecord<E>>(
   });
 };
 
-const longestEntries = <E extends KeyedRenderableRecord<E>>(
+const longestEntries = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>(
   data: E[],
-  columns: Array<ListColumnT<E>>
+  columns: Array<ListColumnT<K, E>>
 ): Record<keyof E, string> => {
   const longest = {} as const as Record<keyof E, string>;
   data.forEach((entry: E) => {
@@ -192,7 +211,13 @@ const longestEntries = <E extends KeyedRenderableRecord<E>>(
 };
 
 const sortTransform =
-  <E extends KeyedRenderableRecord<E>>(k: keyof E, dir: boolean): ArrayTransform<E> =>
+  <
+    K extends Key = Key,
+    E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  >(
+    k: keyof E,
+    dir: boolean
+  ): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
     return [...data].sort(Compare.newFieldF(k, data[0], !dir));

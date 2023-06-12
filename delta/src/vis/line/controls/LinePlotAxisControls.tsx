@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemo } from "react";
+import { ReactElement, useMemo } from "react";
 
 import { Input, List } from "@synnaxlabs/pluto";
 

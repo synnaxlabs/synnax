@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { convertThemeToCSSVars } from "./css";
-import { synnaxDark, synnaxLight, Theme } from "./theme";
+import { convertThemeToCSSVars } from "@/core/theming/css";
+import { font, useFont } from "@/core/theming/font";
+import { Theme, themes } from "@/core/theming/theme";
 import {
   ThemeProvider,
   ThemeSwitch,
   useThemeContext,
   useThemeProvider,
-} from "./ThemeContext";
-export * from "./hooks";
-export type { Theme } from "./theme";
-export type { ThemeProviderProps } from "./ThemeContext";
+} from "@/core/theming/ThemeContext";
+export type { Theme } from "@/core/theming/theme";
+export type { ThemeProviderProps } from "@/core/theming/ThemeContext";
 
 export const Theming = {
   Provider: ThemeProvider,
@@ -25,6 +25,8 @@ export const Theming = {
   useContext: useThemeContext,
   useProvider: useThemeProvider,
   use: (): Theme => useThemeContext().theme,
-  themes: { synnaxDark, synnaxLight },
+  themes,
   toCSSVars: convertThemeToCSSVars,
+  font,
+  useFont,
 };

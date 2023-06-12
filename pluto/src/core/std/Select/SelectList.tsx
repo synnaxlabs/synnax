@@ -9,21 +9,21 @@
 
 import { ReactElement } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { List, ListColumnHeaderProps, ListSelectorProps } from "@/core/std/List";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface SelectListProps<E extends KeyedRenderableRecord<E>>
-  extends ListSelectorProps<E>,
-    ListColumnHeaderProps<E> {}
+export interface SelectListProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+  extends ListSelectorProps<K, E>,
+    ListColumnHeaderProps<K, E> {}
 
-export const SelectList = <E extends KeyedRenderableRecord<E>>({
+export const SelectList = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   value,
   onChange,
   allowMultiple,
   ...props
-}: SelectListProps<E>): ReactElement => (
+}: SelectListProps<K, E>): ReactElement => (
   <>
     <List.Selector value={value} onChange={onChange} allowMultiple={allowMultiple} />
     <List.Column.Header {...props} />

@@ -22,6 +22,7 @@ const WorkerContext = createContext<WorkerContextValue>({
 
 export interface WorkerProviderProps extends PropsWithChildren<{}> {
   url: URL;
+  enabled?: boolean;
 }
 
 interface WorkerState {
@@ -32,9 +33,12 @@ interface WorkerState {
 export const WorkerProvider = ({
   children,
   url,
+  enabled = true,
 }: WorkerProviderProps): ReactElement | null => {
   const [state, setState] = useState<WorkerState | null>(null);
+
   useEffect(() => {
+    if (!enabled) return;
     const worker = new Worker(new URL(url), { type: "module" });
     const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
     worker.onmessage = (e) => router.handle(e);

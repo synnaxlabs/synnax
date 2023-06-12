@@ -23,7 +23,7 @@ export interface AetherFactory<C extends AetherComponent> {
   create: (type: string, key: string, state: any) => C;
 }
 
-export class AetherLeaf<EP, IP extends unknown> {
+export class AetherLeaf<EP, IP extends unknown> implements AetherComponent {
   readonly type: string;
   readonly key: string;
   readonly schema: ZodSchema<IP, ZodTypeDef, EP>;
@@ -176,7 +176,14 @@ export class AetherRoot<B extends unknown> {
   root: AetherComponent | null;
   bootstrap: (data: B) => AetherComponent;
 
-  constructor(
+  static render<B extends unknown>(
+    wrap: TypedWorker<WorkerMessage>,
+    bootstrap: (data: B) => AetherComponent
+  ): AetherRoot<B> {
+    return new AetherRoot(wrap, bootstrap);
+  }
+
+  private constructor(
     wrap: TypedWorker<WorkerMessage>,
     bootstrap: (data: B) => AetherComponent
   ) {

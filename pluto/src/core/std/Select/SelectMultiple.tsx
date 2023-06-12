@@ -10,7 +10,7 @@
 import { ReactElement, useEffect, useRef, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { convertRenderV, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { convertRenderV, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
@@ -26,15 +26,20 @@ import { Theming } from "@/core/theming";
 
 import "@/core/std/Select/SelectMultiple.css";
 
-export interface SelectMultipleProps<E extends KeyedRenderableRecord<E>>
-  extends Omit<DropdownProps, "visible" | "onChange" | "children">,
-    InputControl<readonly string[]>,
-    Omit<ListProps<E>, "children"> {
-  columns?: Array<ListColumn<E>>;
+export interface SelectMultipleProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Omit<DropdownProps, "visible" | "onChange" | "children">,
+    InputControl<readonly K[]>,
+    Omit<ListProps<K, E>, "children"> {
+  columns?: Array<ListColumn<K, E>>;
   tagKey?: keyof E;
 }
 
-export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
+export const SelectMultiple = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   onChange,
   value,
   location,
@@ -43,14 +48,14 @@ export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   tagKey = "key",
   emptyContent,
   ...props
-}: SelectMultipleProps<E>): ReactElement => {
+}: SelectMultipleProps<K, E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
   return (
     <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} location={location} {...props}>
         <List.Search>
           {({ onChange, value: searchV }) => (
-            <SelectMultipleInput<E>
+            <SelectMultipleInput<K, E>
               onChange={onChange}
               value={searchV}
               selected={value}
@@ -66,25 +71,25 @@ export const SelectMultiple = <E extends KeyedRenderableRecord<E>>({
   );
 };
 
-interface SelectMultipleInputProps<E extends KeyedRenderableRecord<E>>
+interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Pick<InputProps, "onChange" | "onFocus" | "value"> {
-  selected: readonly string[];
+  selected: readonly K[];
   tagKey: keyof E;
   visible: boolean;
 }
 
-const SelectMultipleInput = <E extends KeyedRenderableRecord<E>>({
+const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   selected,
   onChange,
   onFocus,
   visible,
   tagKey,
   ...props
-}: SelectMultipleInputProps<E>): ReactElement => {
+}: SelectMultipleInputProps<K, E>): ReactElement => {
   const {
     sourceData,
     select: { onSelect, clear },
-  } = List.useContext<E>();
+  } = List.useContext<K, E>();
   const [value, setValue] = useState("");
 
   const { theme } = Theming.useContext();

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
-import { ChannelPayload } from "@synnaxlabs/client";
-import { Space } from "@synnaxlabs/pluto";
+import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
+import { Space, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useClusterClient } from "@/cluster";
-import { useAsyncEffect } from "@/hooks";
 import { AxisKey } from "@/vis/axis";
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "@/vis/components";
 import { Channels } from "@/vis/line/channels";
@@ -46,7 +45,7 @@ export const LinePlotChannelControls = ({
 
   const handleChannelSelect = (
     key: AxisKey,
-    value: readonly string[] | string
+    value: readonly ChannelKey[] | ChannelKey
   ): void => {
     dispatch(updateVis({ key: layoutKey, channels: { [key]: value } }));
   };

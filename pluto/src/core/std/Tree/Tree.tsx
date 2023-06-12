@@ -10,7 +10,7 @@
 import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { ButtonProps, Button, ButtonLinkProps } from "@/core/std/Button";
@@ -20,19 +20,24 @@ import { RenderProp } from "@/util/renderProp";
 
 import "@/core/std/Tree/Tree.css";
 
-export interface TreeProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
-  extends Partial<InputControl<readonly string[], string>>,
+export interface TreeProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Partial<InputControl<readonly string[], string>>,
     Omit<
       DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
       "children" | "onChange"
     > {
-  data: Array<TreeLeaf<E>>;
+  data: Array<TreeLeaf<K, E>>;
   onExpand?: (key: string) => void;
-  children?: RenderProp<TreeLeafCProps<E>>;
+  children?: RenderProp<TreeLeafCProps<K, E>>;
   size?: ComponentSize;
 }
 
-export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>({
+export const Tree = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   data,
   value = [],
   onChange,
@@ -40,7 +45,7 @@ export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   children = ButtonLeaf,
   size,
   ...props
-}: TreeProps<E>): JSX.Element => {
+}: TreeProps<K, E>): JSX.Element => {
   const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
   return (
     <ul className={CSS(CSS.BE("tree", "list"), CSS.BE("tree", "container"))} {...props}>
@@ -62,31 +67,37 @@ export const Tree = <E extends KeyedRenderableRecord<E> = KeyedRenderableRecord>
   );
 };
 
-export type TreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
+export type TreeLeaf<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> = {
   hasChildren?: boolean;
   icon?: ReactElement;
-  children?: Array<TreeLeaf<E>>;
+  children?: Array<TreeLeaf<K, E>>;
   url?: string;
-} & RenderableTreeLeaf<E>;
+} & RenderableTreeLeaf<K, E>;
 
-type RenderableTreeLeaf<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = {
+type RenderableTreeLeaf<K extends Key, E extends KeyedRenderableRecord<K, E>> = {
   key: string;
   name: string;
 } & Omit<E, "name" | "key">;
 
-type TreeLeafProps<E extends KeyedRenderableRecord<E>> = TreeLeaf<E> & {
+type TreeLeafProps<K extends Key, E extends KeyedRenderableRecord<K, E>> = TreeLeaf<
+  K,
+  E
+> & {
   selected: readonly string[];
   nodeKey: string;
   hasChildren?: boolean;
   prevPaddingLeft: number;
   onExpand?: (key: string) => void;
   onSelect?: (key: string) => void;
-  render: RenderProp<TreeLeafCProps<E>>;
+  render: RenderProp<TreeLeafCProps<K, E>>;
   siblingsHaveChildren: boolean;
   size?: ComponentSize;
 };
 
-const TreeLeafParent = <E extends KeyedRenderableRecord>({
+const TreeLeafParent = <K extends Key, E extends KeyedRenderableRecord<K>>({
   nodeKey,
   name,
   icon,
@@ -100,7 +111,7 @@ const TreeLeafParent = <E extends KeyedRenderableRecord>({
   siblingsHaveChildren,
   size,
   ...rest
-}: TreeLeafProps<E>): JSX.Element => {
+}: TreeLeafProps<K, E>): JSX.Element => {
   const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
   const handleExpand = (key: string): void => {
     onExpand?.(key);
@@ -126,7 +137,7 @@ const TreeLeafParent = <E extends KeyedRenderableRecord>({
         onSelect,
         size,
         ...rest,
-      } as const as TreeLeafCProps<E>)}
+      } as const as TreeLeafCProps<K, E>)}
       {expanded && children.length > 0 && (
         <ul className={CSS.BE("tree", "list")}>
           {children.map((child) => (
@@ -148,8 +159,8 @@ const TreeLeafParent = <E extends KeyedRenderableRecord>({
   );
 };
 
-type TreeLeafCProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = Omit<
-  RenderableTreeLeaf<E>,
+type TreeLeafCProps<K extends Key, E extends KeyedRenderableRecord<K>> = Omit<
+  RenderableTreeLeaf<K, E>,
   "key"
 > & {
   nodeKey: string;
@@ -164,7 +175,7 @@ type TreeLeafCProps<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> 
   onSelect?: (key: string) => void;
 };
 
-export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
+export const ButtonLeaf = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   name,
   icon,
   nodeKey,
@@ -175,7 +186,7 @@ export const ButtonLeaf = <E extends KeyedRenderableRecord<E>>({
   onExpand,
   url,
   ...props
-}: TreeLeafCProps<E>): JSX.Element => {
+}: TreeLeafCProps<K, E>): JSX.Element => {
   const icons: ReactElement[] = [];
   if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
   if (icon != null) icons.push(icon);

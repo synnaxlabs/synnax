@@ -10,7 +10,5 @@
 export type {
   TelemSourceMeta,
   XYTelemSourceMeta,
-  DynamicXYTelemSourceMeta,
   XYTelemSource,
-  DynamicXYTelemSource,
 } from "@/core/vis/telem/TelemSource";

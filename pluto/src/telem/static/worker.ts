@@ -18,11 +18,13 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
+import { XYTelemSource } from "@/core/vis/telem";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 
 export class StaticTelemFactory implements TelemFactory {
+  type = "static";
+
   create(key: string, type: string, props: any): ModifiableTelemSourceMeta | null {
     switch (type) {
       case StaticXYTelem.TYPE:
@@ -122,10 +124,7 @@ export const iterativeXYTelemProps = staticXYTelemProps.extend({
 
 export type IterativeXYTelemProps = z.infer<typeof iterativeXYTelemProps>;
 
-export class IterativeXYTelem
-  extends StaticXYTelemCore
-  implements DynamicXYTelemSource
-{
+export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource {
   position: number;
   interval?: NodeJS.Timer;
 

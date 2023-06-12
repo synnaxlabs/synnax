@@ -26,16 +26,16 @@
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "typescript": "^4.9.4",
-    "zod": "3.19.1"
+    "typescript": "^5.1.3",
+    "zod": "3.21.4"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^18.11.18",
+    "@types/node": "^20.3.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "^4.0.4",
-    "vitest": "^0.27.1"
+    "vite": "^4.3.9",
+    "vitest": "^0.32.0"
   },
   "main": "dist/client.cjs.js",
   "module": "dist/client.es.js",
