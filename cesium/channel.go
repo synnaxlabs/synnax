@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -29,7 +28,7 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 }
 
 // RetrieveChannels implements DB.
-func (db *DB) RetrieveChannels(ctx context.Context, keys ...core.ChannelKey) ([]Channel, error) {
+func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
 		ch, err := db.RetrieveChannel(ctx, key)
@@ -42,7 +41,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...core.ChannelKey) ([]
 }
 
 // RetrieveChannel implements DB.
-func (db *DB) RetrieveChannel(_ context.Context, key core.ChannelKey) (Channel, error) {
+func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	ch, ok := db.dbs[key]
 	if !ok {
 		return Channel{}, ChannelNotFound
