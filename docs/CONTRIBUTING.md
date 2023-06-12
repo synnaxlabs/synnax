@@ -42,9 +42,16 @@ contribute to. There are a few ways to do this:
 
 # 2 - Technical
 
+Synnax is large, complex platform with many moving parts.
 
+## 3 - The Layered Architecture
 
+### 3.1 - Storage Layer
 
+### 3.2 - Distribution Layer
 
+### 3.3 - Service Layer
+
+### 3.4 - Interface Layer
 
 

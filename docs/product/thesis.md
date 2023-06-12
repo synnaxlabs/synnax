@@ -33,57 +33,63 @@ decision. The faster teams can acquire, analyze, and act on this data, the faste
 can improve.
 
 Existing data acquisition and control (DAQ) systems pay little attention to the
-importance
-of this loop. They focus on recording data and controlling hardware, but disregard the
-rest of the lifecycle, often dumping data to a local file system in a proprietary
-format. This leaves teams with a crevasse between acquisition and meaningful analysis.
-They bridge this gap with a patchwork of tools and processes unsuited for the task at
-hand, leading to a slow, error-prone development cycle.
+importance of this cycle. **They focus on recording data and controlling hardware, but
+disregard the analysis process**. Leaving out this critical step is akin to writing
+a turkey recipe without instructions for cooking it: it's well-dressed, but nobody
+can eat it.
+
+Larger, well funded teams bridge this gap with a patchwork of tools, while smaller ones
+end up under-analyzing their data. Both of these approaches lead to slower, error-prone
+development cycles.
 
 ## 2.1 - Local File Systems
 
 Existing systems export recorded data to a local file system. These files use
-proprietary formats (like `.tdms`) and are only accessible by the small number of users
-with access to the machine. To share data, engineers must manually convert it to a more
-accessible format and upload it to a network drive. The files on these drives can have
-obscure names, making it difficult for an engineer to locate specific data sets.
+proprietary formats (like `.tdms`) and are **only accessible by the small number of
+users** with access to the machine. To share data, engineers must manually convert it
+to a more accessible format and upload it to a network drive. The files on these drives
+can have obscure names, making it difficult for an engineer to locate specific data
+sets.
 
 Engineers typically query a small subset of the data stored in a file. When accessing a
-file with 1000 channels, they may only examine 3, yet they still need to download the
+file with 1000 channels, they may only examine 3, yet still need to download the
 entire file to their local machine and load it into their analysis tool of choice.
 
-Accessing data at scale is impossible. To understand the evolution of a system over
-time, an engineer must manually search for dozens or even hundreds of files,
+**Accessing data at scale is extremely challenging**. To understand the evolution of a
+system over time, an engineer must manually search for dozens or even hundreds of files,
 post-process each one, and aggregate the results by hand.
 
 The process of taking recorded data from a file and extracting meaningful insights is
 slow and error-prone. In consequence, engineers often under-analyze the systems they
 operate, leading to less effective, slower, and more expensive development cycles.
 
-## 2.3 - Antiquated Programming Paradigms
-
-Existing platforms are iterations on software developed in the 80s and 90s. LabVIEW,
-a visual language first released in 1986, remains the front-runner in data acquisition
-programming.
-
 ## 2.2 - Closed, Proprietary Software
 
-- Restricted to a small set of programming languages and paradigms.
-- Closed source ecosystem with few extensions for modern data aggregation and processing
-  systems.
+Current DAQ platforms are iterations on software developed decades ago. These systems
+are **proprietary and restrict users to their internal ecosystem**. Modern, cloud-native
+data processing and aggregation tools such as Apache Kafka and Spark have shifted the
+landscape of data engineering and analysis, and big data and machine learning are
+becoming one of the most important assets for the modern enterprise. Existing DAQ
+platforms provide limited or no support for integration with these tools.
 
-## 2.3 - Antiquated Programming Paradigms
+LabVIEW, the clear frontrunner in data acquisition, was initially released in
+the 1980s and implements a domain specific, graphical programming language. Finding
+engineers with experience is difficult, and training new hires involves paying
+the vendor for expensive courses.
 
-- Advancements in cloud computing and distributed data processing.
-- Lack of hire-able engineers.
-- Open source software means you can contribute to the system you use.
-
-## 2.4 - Archaic User Interfaces
+## 2.3 - Archaic User Experiences
 
 - Modern UIs are intuitive and gorgeous, existing industrial control interfaces are not.
 - We think there's a long way to go towards improving the user experience.
 
 # 3 - The Opportunity
+
+**Cloud native computing has revolutionized the way we work with data**
+
+**Big data and artificial intelligence are the most important asset for the modern
+enterprise**
+
+**Open source software is the new standard for quality**
 
 # 3 - The Solution
 
