@@ -26,7 +26,7 @@ import { testConnection } from "@/cluster/util/testConnection";
 import { CSS } from "@/css";
 import { Layout, LayoutRendererProps } from "@/layout";
 
-import "./ConnectCluster.css";
+import "@/cluster/components/ConnectCluster.css";
 
 const formSchema = synnaxPropsSchema.extend({ name: z.string() });
 

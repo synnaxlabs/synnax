@@ -9,32 +9,35 @@
 
 import { PropsWithChildren, ReactElement, useMemo, useState } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useTransforms } from "@/core/hooks";
 import { ListContextProvider } from "@/core/std/List/ListContext";
 import { ListColumn } from "@/core/std/List/types";
 
-export interface ListProps<E extends KeyedRenderableRecord<E>>
-  extends PropsWithChildren<unknown> {
+export interface ListProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends PropsWithChildren<unknown> {
   data: E[];
   emptyContent?: ReactElement;
 }
 
-export const List = <E extends KeyedRenderableRecord<E>>({
+export const List = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   children,
   data,
   emptyContent,
-}: ListProps<E>): ReactElement => {
-  const [columns, setColumns] = useState<Array<ListColumn<E>>>([]);
-  const [onSelect, setOnSelect] = useState<((key: string) => void) | undefined>(
-    undefined
-  );
+}: ListProps<K, E>): ReactElement => {
+  const [columns, setColumns] = useState<Array<ListColumn<K, E>>>([]);
+  const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
   const [clear, setClear] = useState<(() => void) | undefined>(undefined);
   const { transform, setTransform, deleteTransform } = useTransforms<E>({});
   const transformedData = useMemo(() => transform(data), [data, transform]);
   return (
-    <ListContextProvider<E>
+    <ListContextProvider<K, E>
       value={{
         sourceData: data,
         data: transformedData,

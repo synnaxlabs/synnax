@@ -1,10 +1,11 @@
-import { QueryError, UnexpectedError } from "@synnaxlabs/client";
+import { QueryError, SynnaxProps, UnexpectedError } from "@synnaxlabs/client";
 import { TypedWorker } from "@synnaxlabs/x";
 
 import { TelemProvider } from "@/core/vis/telem/TelemService";
 import { TelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import { CompoundTelemFactory, TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
+import { StaticTelemFactory } from "@/telem/static/worker";
 
 interface RemoveMessage {
   variant: "remove";
@@ -18,14 +19,19 @@ export interface SetMessage {
   props: any;
 }
 
+export interface ConnectMessage {
+  variant: "connect";
+  props: SynnaxProps;
+}
+
 export type WorkerMessage = RemoveMessage | SetMessage;
 
 export class TelemService implements TelemProvider {
-  factory: TelemFactory;
+  factory: CompoundTelemFactory;
   telem: Map<string, ModifiableTelemSourceMeta> = new Map();
 
-  constructor(wrap: TypedWorker<WorkerMessage>, factories: TelemFactory[]) {
-    this.factory = new CompoundTelemFactory(factories);
+  constructor(wrap: TypedWorker<WorkerMessage>) {
+    this.factory = new CompoundTelemFactory([new StaticTelemFactory()]);
     wrap.handle((message) => this.handle(message));
   }
 
@@ -38,6 +44,9 @@ export class TelemService implements TelemProvider {
 
   handle(message: WorkerMessage): void {
     const source = this.telem.get(message.key);
+    if (message.variant === "connect") {
+      this.factory.add(new StaticTelemFactory(message.props));
+    }
     if (message.variant === "remove") {
       if (source == null) {
         console.warn(

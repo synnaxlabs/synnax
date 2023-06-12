@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ChannelPayload } from "@synnaxlabs/client";
+import { ReactElement } from "react";
+
+import type { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { Select } from "@synnaxlabs/pluto";
 import type { ListColumn, SelectMultipleProps, SelectProps } from "@synnaxlabs/pluto";
 
-const channelColumns: Array<ListColumn<ChannelPayload>> = [
+const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
     key: "name",
     name: "Name",
   },
 ];
 
-const verboseChannelColumns: Array<ListColumn<ChannelPayload>> = [
+const verboseChannelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
     key: "name",
     name: "Name",
@@ -34,7 +36,7 @@ const verboseChannelColumns: Array<ListColumn<ChannelPayload>> = [
 ];
 
 export interface SelectMultipleChannelsProps
-  extends Omit<SelectMultipleProps<ChannelPayload>, "columns"> {
+  extends Omit<SelectMultipleProps<ChannelKey, ChannelPayload>, "columns"> {
   verbose?: boolean;
 }
 
@@ -49,7 +51,7 @@ export const SelectMultipleChannels = ({
 );
 
 export interface SelectChannelProps
-  extends Omit<SelectProps<ChannelPayload>, "columns"> {
+  extends Omit<SelectProps<ChannelKey, ChannelPayload>, "columns"> {
   verbose?: boolean;
 }
 

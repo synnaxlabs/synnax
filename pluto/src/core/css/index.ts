@@ -9,5 +9,5 @@
 
 export * from "@/core/css/units";
 export * from "@/core/css/color";
-export * from "@/core/css/classes";
+export * from "@/core/css/css";
 export * from "@/core/css/bem";

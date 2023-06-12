@@ -20,11 +20,12 @@ import {
   useState,
 } from "react";
 
-import { Box, Location, OuterLocationT } from "@synnaxlabs/x";
+import { Box, OuterLocationT, Location } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
+import { X_AXIS_SIZE, Y_AXIS_SIZE } from "@/core/vis/Axis/core";
 import {
   LinePlot as WorkerLinePlot,
   LinePlotState as WorkerLinePlotState,
@@ -35,7 +36,7 @@ import "@/core/vis/LinePlot/main/LinePlot.css";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
-export interface LinePlotCProps
+export interface LinePlotProps
   extends PropsWithChildren,
     Pick<WorkerLinePlotState, "clearOverscan">,
     HTMLDivProps {}
@@ -45,40 +46,39 @@ export interface LinePlotContextValue {
   deleteAxis: (key: string) => void;
 }
 
-const LinePlotContext = createContext<LinePlotContextValue>({
-  setAxis: () => {},
-  deleteAxis: () => {},
-});
+const LinePlotContext = createContext<LinePlotContextValue | null>(null);
 
-export const useAxisPosition = (loc: OuterLocationT, key: string): CSSProperties => {
-  const { setAxis: addAxis, deleteAxis } = useContext(LinePlotContext);
+export const useLinePlotContext = (component: string): LinePlotContextValue => {
+  const ctx = useContext(LinePlotContext);
+  if (ctx == null)
+    throw new Error(`Cannot to use ${component} as a non-child of LinePlot.`);
+  return ctx;
+};
+
+export const useAxisPosition = (
+  loc: OuterLocationT,
+  key: string,
+  component: string
+): CSSProperties => {
+  const { setAxis, deleteAxis } = useLinePlotContext(component);
   useEffect(() => {
-    addAxis(loc, key);
+    setAxis(loc, key);
     return () => deleteAxis(key);
-  }, [addAxis, deleteAxis, loc]);
+  }, [setAxis, deleteAxis, loc]);
   const dir = new Location(loc).direction.inverse;
-  if (dir.equals("x"))
-    return {
-      gridColumnStart: "plot-start",
-      gridColumnEnd: "plot-end",
-      gridRowStart: `axis-start-${key}`,
-      gridRowEnd: `axis-end-${key}`,
-    };
-  return {
-    gridRowStart: "plot-start",
-    gridRowEnd: "plot-end",
-    gridColumnStart: `axis-start-${key}`,
-    gridColumnEnd: `axis-end-${key}`,
-  };
+  const gridArea = dir.equals("x")
+    ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
+    : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
+  return { gridArea };
 };
 
 type AxisState = Array<[OuterLocationT, string]>;
 
-export const LinePlotC = ({
+export const LinePlot = ({
   children,
   style,
   ...props
-}: LinePlotCProps): ReactElement => {
+}: LinePlotProps): ReactElement => {
   const [axes, setAxes] = useState<AxisState>([]);
   const {
     path,
@@ -147,7 +147,7 @@ export const LinePlotC = ({
         <LinePlotContext.Provider value={{ setAxis, deleteAxis }}>
           {children}
           <Viewport.Mask
-            style={{ gridArea: "plot-start / plot-start / plot-end / plot-end" }}
+            className={CSS.BE("line-plot", "viewport")}
             {...viewportProps}
             ref={viewportRefCallback}
           />
@@ -157,89 +157,23 @@ export const LinePlotC = ({
   );
 };
 
-export const X_AXIS_WIDTH = 20;
-export const Y_AXIS_WIDTH = 40;
-
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
-  const grid = new CSSGridBuilder();
+  const builder = CSS.newGridBuilder();
   const filterAxisLoc = (loc: OuterLocationT): AxisState =>
     axisCounts.filter(([l]) => l === loc);
-  filterAxisLoc("top").forEach(([loc, key]) => {
-    grid.addRow({
-      startLabel: `axis-start-${key}`,
-      endLabel: `axis-end-${key}`,
-      size: X_AXIS_WIDTH,
-    });
-  });
-  grid.addRow({ startLabel: "plot-start", endLabel: "plot-end", size: "auto" });
-  filterAxisLoc("bottom").forEach(([loc, key]) => {
-    grid.addRow({
-      startLabel: `axis-start-${key}`,
-      endLabel: `axis-end-${key}`,
-      size: X_AXIS_WIDTH,
-    });
-  });
-  filterAxisLoc("left").forEach(([loc, key]) => {
-    grid.addColumn({
-      startLabel: `axis-start-${key}`,
-      endLabel: `axis-end-${key}`,
-      size: Y_AXIS_WIDTH,
-    });
-  });
-  grid.addColumn({ startLabel: "plot-start", endLabel: "plot-end", size: "auto" });
-  filterAxisLoc("right").forEach(([loc, key]) => {
-    grid.addColumn({
-      startLabel: `axis-start-${key}`,
-      endLabel: `axis-end-${key}`,
-      size: Y_AXIS_WIDTH,
-    });
-  });
-  return grid.build();
+  filterAxisLoc("top").forEach(([, key]) =>
+    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, X_AXIS_SIZE)
+  );
+  builder.addRow("plot-start", "plot-end", "auto");
+  filterAxisLoc("bottom").forEach(([loc, key]) =>
+    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, X_AXIS_SIZE)
+  );
+  filterAxisLoc("left").forEach(([, key]) =>
+    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, Y_AXIS_SIZE)
+  );
+  builder.addColumn("plot-start", "plot-end", "auto");
+  filterAxisLoc("right").forEach(([, key]) =>
+    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, Y_AXIS_SIZE)
+  );
+  return builder.build();
 };
-
-export interface CSSGridEntry {
-  startLabel: string;
-  endLabel: string;
-  size: number | string;
-}
-
-export class CSSGridBuilder {
-  rows: CSSGridEntry[] = [];
-  columns: CSSGridEntry[] = [];
-
-  addRow(entry: CSSGridEntry): this {
-    this.rows.push(entry);
-    return this;
-  }
-
-  addColumn(entry: CSSGridEntry): this {
-    this.columns.push(entry);
-    return this;
-  }
-
-  build(): CSSProperties {
-    return {
-      display: "grid",
-      gridTemplateRows: this.rows
-        .map((r, i) => {
-          let t = i === 0 ? "[" : "";
-          t += `${r.startLabel}] ${r.size}${typeof r.size === "number" ? "px" : ""} [${
-            r.endLabel
-          }`;
-          t += i === this.rows.length - 1 ? "]" : "";
-          return t;
-        })
-        .join(" "),
-      gridTemplateColumns: this.columns
-        .map((c, i) => {
-          let t = i === 0 ? "[" : "";
-          t += `${c.startLabel}] ${c.size}${typeof c.size === "number" ? "px" : ""} [${
-            c.endLabel
-          }`;
-          t += i === this.columns.length - 1 ? "]" : "";
-          return t;
-        })
-        .join(" "),
-    };
-  }
-}

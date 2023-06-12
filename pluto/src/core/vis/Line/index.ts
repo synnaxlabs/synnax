@@ -7,17 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useThemeContext } from "./ThemeContext";
-
-import { TypographyLevel } from "@/core/std";
-
-export const useFont = (level: TypographyLevel): string => {
-  const {
-    theme: {
-      typography,
-      sizes: { base },
-    },
-  } = useThemeContext();
-  const { size } = typography[level];
-  return `${(size as number) * base}px ${typography.family}`;
-};
+export { Line } from "@/core/vis/Line/Line";
+export type { LineProps } from "@/core/vis/Line/Line";

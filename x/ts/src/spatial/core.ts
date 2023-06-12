@@ -69,7 +69,7 @@ export type DirectionT = z.infer<typeof direction>;
 export type XYT = z.infer<typeof xy>;
 export type DimensionsT = z.infer<typeof dimensions>;
 export type SignedDimensionsT = z.infer<typeof signedDimensions>;
-export type BoundT = z.input<typeof looseBoundZ>;
+export type BoundT = z.input<typeof boundZ>;
 export type PositionT = z.infer<typeof position>;
 export type OrderT = z.infer<typeof order>;
 export type CornerT = z.infer<typeof corner>;
@@ -103,6 +103,11 @@ export class Direction extends String {
     if (DIRECTIONS.includes(direction as DirectionT)) super(direction);
     else if (Y_LOCATIONS.includes(direction as YLocationT)) super("y");
     else super("x");
+  }
+
+  /** @returns the direction in its primitive form i.e. the string "x" or "y". */
+  get v(): DirectionT {
+    return this.valueOf() as DirectionT;
   }
 
   /**
@@ -338,6 +343,11 @@ export class XY {
     }
   }
 
+  /** @returns the XY in its primitive form i.e {x: number, y: number} */
+  get v(): XYT {
+    return { x: this.x, y: this.y };
+  }
+
   /** @returns an XY coordinate translated by the given x value */
   translateX(x: number): XY {
     return new XY(this.x + x, this.y);
@@ -419,6 +429,11 @@ export class Dimensions {
     }
   }
 
+  /** @returns the dimensions in its primitive form i.e {width: number, height: number} */
+  get v(): DimensionsT {
+    return { width: this.width, height: this.height };
+  }
+
   /** Dimensions with zero width and height. */
   static readonly ZERO = new Dimensions(0, 0);
   /** Dimensions with a width and height of 1. */
@@ -478,6 +493,11 @@ export class Bounds {
       this.upper = lower.upper;
     }
     [this.lower, this.upper] = this.makeValid();
+  }
+
+  /** @returns the bound in its primitive form i.e {lower: number, upper: number} */
+  get v(): BoundT {
+    return { lower: this.lower, upper: this.upper };
   }
 
   private makeValid(): [number, number] {

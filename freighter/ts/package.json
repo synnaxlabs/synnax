@@ -27,22 +27,22 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@synnaxlabs/x": "workspace:*",
     "@synnaxlabs/alamos": "workspace:*",
-    "axios": "^1.2.1",
+    "@synnaxlabs/x": "workspace:*",
+    "axios": "^1.4.0",
     "js-convert-case": "^4.2.0",
-    "msgpackr": "^1.7.0",
-    "ws": "^8.8.1",
-    "zod": "3.19.1"
+    "msgpackr": "^1.9.5",
+    "ws": "^8.13.0",
+    "zod": "3.21.4"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^18.11.18",
+    "@types/node": "^20.3.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^4.9.4",
-    "vite": "^4.0.4",
-    "vitest": "^0.26.3"
+    "typescript": "^5.1.3",
+    "vite": "^4.3.9",
+    "vitest": "^0.32.0"
   },
   "main": "dist/freighter.cjs.js",
   "module": "dist/freighter.es.js",

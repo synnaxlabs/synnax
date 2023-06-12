@@ -9,23 +9,28 @@
 
 import { FocusEventHandler, ReactElement, useEffect, useState } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/std/Input";
 import { List, ListColumn, ListProps } from "@/core/std/List";
 import { SelectList } from "@/core/std/Select/SelectList";
 
-export interface SelectProps<E extends KeyedRenderableRecord<E>>
-  extends Omit<DropdownProps, "onChange" | "visible" | "children">,
-    InputControl<string>,
-    Omit<ListProps<E>, "children"> {
+export interface SelectProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Omit<DropdownProps, "onChange" | "visible" | "children">,
+    InputControl<K>,
+    Omit<ListProps<K, E>, "children"> {
   tagKey?: keyof E;
-  columns?: Array<ListColumn<E>>;
+  columns?: Array<ListColumn<K, E>>;
   inputProps?: Omit<InputProps, "onChange">;
 }
 
-export const Select = <E extends KeyedRenderableRecord<E>>({
+export const Select = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   onChange,
   value,
   tagKey = "key",
@@ -34,10 +39,10 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   emptyContent,
   inputProps,
   ...props
-}: SelectProps<E>): ReactElement => {
+}: SelectProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
 
-  const handleChange = ([key]: readonly string[]): void => {
+  const handleChange = ([key]: readonly K[]): void => {
     onChange(key);
     close();
   };
@@ -47,7 +52,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
       <Dropdown ref={ref} visible={visible} {...props}>
         <List.Search>
           {({ onChange }: InputProps) => (
-            <SelectInput
+            <SelectInput<K, E>
               data={data}
               selected={value}
               tagKey={tagKey}
@@ -58,7 +63,7 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
             />
           )}
         </List.Search>
-        <SelectList
+        <SelectList<K, E>
           value={[value]}
           onChange={handleChange}
           allowMultiple={false}
@@ -69,16 +74,16 @@ export const Select = <E extends KeyedRenderableRecord<E>>({
   );
 };
 
-export interface SelectInputProps<E extends KeyedRenderableRecord<E>>
+export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<InputProps, "value"> {
   tagKey: keyof E;
-  selected: string;
+  selected: K;
   visible: boolean;
   data: E[];
   debounceSearch?: number;
 }
 
-const SelectInput = <E extends KeyedRenderableRecord<E>>({
+const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   data,
   tagKey,
   selected,
@@ -87,7 +92,7 @@ const SelectInput = <E extends KeyedRenderableRecord<E>>({
   onFocus,
   debounceSearch = 250,
   ...props
-}: SelectInputProps<E>): ReactElement => {
+}: SelectInputProps<K, E>): ReactElement => {
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the
@@ -100,10 +105,14 @@ const SelectInput = <E extends KeyedRenderableRecord<E>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    if (selected == null || selected.length === 0) return setValue("");
+    const isZero =
+      selected === null ||
+      (typeof selected === "number" && selected === 0) ||
+      (typeof selected === "string" && selected.length === 0);
+    if (isZero) return setValue("");
     const e = data.find(({ key }) => key === selected);
     const v = e?.[tagKey] ?? selected;
-    setValue?.(v as string);
+    setValue?.(v.toString());
   }, [selected, data, visible, tagKey]);
 
   const handleChange = (v: string): void => {

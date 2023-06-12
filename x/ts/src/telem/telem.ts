@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+import { Stringer } from "@/primitive";
+
 export type TZInfo = "UTC" | "local";
 
 export type TimeStampStringFormat =
@@ -49,7 +51,7 @@ export type DateComponents = [number?, number?, number?];
  * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
-export class TimeStamp extends Number {
+export class TimeStamp extends Number implements Stringer {
   constructor(value?: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) return TimeStamp.now();
     else if (value instanceof Date)
@@ -395,7 +397,7 @@ export class TimeStamp extends Number {
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
-export class TimeSpan extends Number {
+export class TimeSpan extends Number implements Stringer {
   constructor(value: UnparsedTimeSpan) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
@@ -555,7 +557,7 @@ export class TimeSpan extends Number {
 }
 
 /** Rate represents a data rate in Hz. */
-export class Rate extends Number {
+export class Rate extends Number implements Stringer {
   constructor(value: UnparsedRate) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
@@ -650,7 +652,7 @@ export class Rate extends Number {
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density extends Number {
+export class Density extends Number implements Stringer {
   /**
    * Creates a Density representing the given number of bytes per value.
    *
@@ -701,7 +703,7 @@ export class Density extends Number {
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
-export class TimeRange {
+export class TimeRange implements Stringer {
   start: TimeStamp;
   end: TimeStamp;
 
@@ -813,7 +815,7 @@ export class TimeRange {
 }
 
 /** DataType is a string that represents a data type. */
-export class DataType extends String {
+export class DataType extends String implements Stringer {
   constructor(value: UnparsedDataType) {
     if (
       value instanceof DataType ||
@@ -958,7 +960,7 @@ export class DataType extends String {
 /**
  * The Size of an elementy in bytes.
  */
-export class Size extends Number {
+export class Size extends Number implements Stringer {
   constructor(value: UnparsedSize) {
     super(value.valueOf());
   }

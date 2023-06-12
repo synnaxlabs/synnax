@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import {
   InputItemProps,
   Select,
@@ -14,7 +16,6 @@ import {
   SelectProps,
   Input,
   Space,
-  Text,
   Status,
   Button,
 } from "@synnaxlabs/pluto";
@@ -27,13 +28,15 @@ import { rangeListColumns } from "./RangesList";
 import { useLayoutPlacer } from "@/layout";
 
 export interface SelectMultipleRangesProps
-  extends Omit<SelectMultipleProps<Range>, "columns"> {}
+  extends Omit<SelectMultipleProps<string, Range>, "columns"> {}
 
-export const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement => (
+export const SelectMultipleRanges = (
+  props: SelectMultipleRangesProps
+): ReactElement => (
   <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
 );
 
-export interface SelectRangeProps extends Omit<SelectProps<Range>, "columns"> {}
+export interface SelectRangeProps extends Omit<SelectProps<string, Range>, "columns"> {}
 
 export const SelectRange = (props: SelectRangeProps): ReactElement => (
   <Select columns={rangeListColumns} {...props} tagKey="name" />
@@ -83,7 +86,9 @@ export const SelectMultipleRangesInputItem = (
 export interface SelectRangeInputItemProps
   extends Omit<InputItemProps<string, string, SelectRangeProps>, "label"> {}
 
-export const SelectRangeInputItem = (props: SelectRangeInputItemProps): ReactElement => (
+export const SelectRangeInputItem = (
+  props: SelectRangeInputItemProps
+): ReactElement => (
   <Input.Item<string, string, SelectRangeProps> label="Range:" {...props}>
     {SelectRange}
   </Input.Item>

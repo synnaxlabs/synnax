@@ -16,6 +16,8 @@ import {
   PositionT,
 } from "@synnaxlabs/x";
 
+import { CSSGridBuilder } from "./grid";
+
 import { BEM, newBEM } from "@/core/css/bem";
 import { applyCSSVars } from "@/core/css/vars";
 import { ComponentSize } from "@/util/component";
@@ -34,6 +36,7 @@ export interface CSSType extends BEM {
   selected: (selected: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
+  newGridBuilder: () => CSSGridBuilder;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -55,6 +58,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
+  CSS.newGridBuilder = () => new CSSGridBuilder();
   return CSS;
 };
 

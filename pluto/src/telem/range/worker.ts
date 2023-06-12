@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Channel } from "@synnaxlabs/client";
 import {
   Bounds,
   GLBufferController,
@@ -17,12 +18,14 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { DynamicXYTelemSource, XYTelemSource } from "@/core/vis/telem";
+import { XYTelemSource } from "@/core/vis/telem";
 import { Client, StreamHandler } from "@/telem/client";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 
 export class RangeTelemFactory implements TelemFactory {
+  type = "range";
+
   private readonly client: Client;
   constructor(client: Client) {
     this.client = client;
@@ -80,13 +83,22 @@ class RangeXYTelemCore {
     return Bounds.max(y.map((y) => y.bounds));
   }
 
+  async retrieveChannels(
+    y: number,
+    x?: number
+  ): Promise<{ y: Channel; x: Channel | null }> {
+    const yChan = await this.client.core.channels.retrieve(y);
+    if (x == null) x = yChan.index;
+    return {
+      y: yChan,
+      x: x === 0 ? null : await this.client.core.channels.retrieve(x),
+    };
+  }
+
   async readFixed(tr: TimeRange, y: number, x?: number): Promise<void> {
+    const { x: xChan } = await this.retrieveChannels(y, x);
     const toRead = [y];
-    if (x == null) {
-      const yChan = await this.client.core.channels.retrieve(y);
-      // If the channel is indexed, read from its index.
-      if (yChan.isIndexed) toRead.push(yChan.index);
-    } else toRead.push(x);
+    if (xChan != null) toRead.push(xChan.key);
     const d = await this.client.read(tr, toRead);
     const rate = d[y].channel.rate;
     this._y = d[y].data;
@@ -150,16 +162,13 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
 
 export const dynamicRangeXYTelemProps = z.object({
   span: TimeSpan.z,
-  x: z.number(),
+  x: z.number().optional(),
   y: z.number(),
 });
 
 export type DynamicRangeXYTelemProps = z.infer<typeof dynamicRangeXYTelemProps>;
 
-export class DynamicRangeXYTelem
-  extends RangeXYTelemCore
-  implements DynamicXYTelemSource
-{
+export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
   private props: DynamicRangeXYTelemProps;
 
   private streamHandler: StreamHandler | null = null;
@@ -186,20 +195,32 @@ export class DynamicRangeXYTelem
     const { x, y, span } = this.props;
     const tr = TimeStamp.now().spanRange(span);
     await this.readFixed(tr, y, x);
-    this.udpateStreamHandler();
+    await this.udpateStreamHandler();
   }
 
-  private udpateStreamHandler(): void {
+  private async udpateStreamHandler(): Promise<void> {
     if (this.streamHandler != null) this.client.removeStreamHandler(this.streamHandler);
-    const { x, y } = this.props;
+    const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     this.streamHandler = (data) => {
       if (data != null) {
-        if (x in data) this._x?.push(...data[x].data);
-        if (y in data) this._y?.push(...data[y].data);
+        if (!(y.key in data)) return;
+        const yd = data[y.key].data;
+        this._y?.push(...yd);
+        if (x != null) {
+          if (x.key in data) this._x?.push(...data[x.key].data);
+        } else {
+          this._x?.push(
+            ...yd.map((arr) =>
+              LazyArray.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
+            )
+          );
+        }
       }
       this.handler?.();
     };
-    this.client.setStreamhandler(this.streamHandler, [x, y]);
+    const toStream = [y.key];
+    if (x != null) toStream.push(x.key);
+    this.client.setStreamhandler(this.streamHandler, toStream);
   }
 
   setProps(props: any): void {

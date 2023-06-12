@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { VisCanvas } from "@/core/vis/Canvas";
-import { Line } from "@/core/vis/Line/LineC";
+import { Line } from "@/core/vis/Line/Line";
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
 
@@ -35,8 +35,8 @@ const Example = (): ReactElement => {
       <LinePlot style={{ padding: 10 }}>
         <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
-            <Line telem={telem} color="#F733FF" strokeWidth={10} />
-            <Line telem={telem2} color="#D5E04E" strokeWidth={10} />
+            {/* <Line telem={telem} color="#F733FF" strokeWidth={10} />
+            <Line telem={telem2} color="#D5E04E" strokeWidth={10} /> */}
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>

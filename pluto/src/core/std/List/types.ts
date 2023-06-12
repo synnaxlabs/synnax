@@ -10,23 +10,27 @@
 import type { CSSProperties } from "react";
 import React from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { RenderProp } from "@/util/renderProp";
 
-type RenderF<E extends KeyedRenderableRecord<E> = KeyedRenderableRecord> = RenderProp<{
+type RenderF<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> = RenderProp<{
   key: string | number | symbol;
   entry: E;
   style: CSSProperties;
 }>;
 
 export interface ListColumn<
-  E extends KeyedRenderableRecord<E> = KeyedRenderableRecord
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > {
   /** The key of the object to render. */
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
-  render?: RenderF<E>;
+  render?: RenderF<K, E>;
   stringer?: (entry: E) => string;
   /** The name/title of the column. */
   name: string;
@@ -41,12 +45,15 @@ export interface ListColumn<
   cWidth?: number;
 }
 
-export interface ListItemProps<E extends KeyedRenderableRecord<E>> {
+export interface ListItemProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> {
   key: string | number;
   entry: E;
   index: number;
   style: React.CSSProperties;
   selected: boolean;
-  columns: Array<ListColumn<E>>;
-  onSelect?: (key: string) => void;
+  columns: Array<ListColumn<K, E>>;
+  onSelect?: (key: K) => void;
 }

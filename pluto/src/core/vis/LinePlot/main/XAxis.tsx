@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, memo } from "react";
 
-import { Optional, XY } from "@synnaxlabs/x";
+import { Optional, OuterLocationT, XY, Location } from "@synnaxlabs/x";
 
 import { useAxisPosition } from "./LinePlot";
 
@@ -28,9 +28,6 @@ export interface XAxisCProps
 export const XAxis = memo(
   ({ children, location = "bottom", ...props }: XAxisCProps): ReactElement => {
     const theme = Theming.use();
-    const font = `${theme.typography.tiny.size * theme.sizes.base}px ${
-      theme.typography.family
-    }`;
     const {
       key,
       path,
@@ -39,11 +36,15 @@ export const XAxis = memo(
       color: theme.colors.gray.p2,
       gridColor: theme.colors.gray.m1,
       position: XY.ZERO,
-      font,
+      font: Theming.font(theme, "small"),
       location,
       ...props,
     });
-    const gridStyle = useAxisPosition(location, key);
+    const gridStyle = useAxisPosition(
+      new Location(location).v as OuterLocationT,
+      key,
+      "XAxis"
+    );
     const resizeRef = useResize(
       (box) => {
         setState((state) => ({

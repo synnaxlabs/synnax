@@ -24,7 +24,7 @@ interface SampleRecord {
   age: number;
 }
 
-const cols: Array<ListColumn<SampleRecord>> = [
+const cols: Array<ListColumn<string, SampleRecord>> = [
   {
     key: "name",
     name: "Name",

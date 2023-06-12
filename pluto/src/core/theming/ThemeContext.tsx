@@ -12,17 +12,16 @@ import {
   ReactElement,
   createContext,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 
-import { convertThemeToCSSVars } from "./css";
-import { Theme, synnaxLight } from "./theme";
-
 import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
+import { convertThemeToCSSVars } from "@/core/theming/css";
+import { Theme, themes } from "@/core/theming/theme";
 
 import "@/core/theming/theme.css";
 
@@ -33,7 +32,7 @@ export interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: synnaxLight,
+  theme: themes.synnaxLight,
   toggleTheme: () => undefined,
   setTheme: () => undefined,
 });
@@ -43,10 +42,12 @@ export interface UseThemeProviderProps {
   defaultTheme?: string;
 }
 
+export type UseThemeProviderReturn = ThemeContextValue;
+
 export const useThemeProvider = ({
   themes,
   defaultTheme,
-}: UseThemeProviderProps): ThemeProviderProps => {
+}: UseThemeProviderProps): UseThemeProviderReturn => {
   const [selected, setSelected] = useState<string>(
     defaultTheme ?? Object.keys(themes)[0]
   );
@@ -71,22 +72,32 @@ export const useThemeContext = (): ThemeContextValue => useContext(ThemeContext)
 
 export interface ThemeProviderProps
   extends PropsWithChildren<unknown>,
-    ThemeContextValue {}
+    Partial<ThemeContextValue> {}
 
 export const ThemeProvider = ({
-  theme,
   children,
-  ...props
+  theme,
+  setTheme,
+  toggleTheme,
 }: ThemeProviderProps): ReactElement => {
-  useEffect(
-    () => CSS.applyVars(document.documentElement, convertThemeToCSSVars(theme)),
-    [theme]
+  let ret: UseThemeProviderReturn;
+  if (theme == null || toggleTheme == null || setTheme == null) {
+    ret = useThemeProvider({
+      themes,
+      defaultTheme: "synnaxLight",
+    });
+  } else {
+    ret = {
+      theme,
+      toggleTheme,
+      setTheme,
+    };
+  }
+  useLayoutEffect(
+    () => CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme)),
+    [ret.theme]
   );
-  return (
-    <ThemeContext.Provider value={{ theme, ...props }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={ret}>{children}</ThemeContext.Provider>;
 };
 
 export const ThemeSwitch = ({

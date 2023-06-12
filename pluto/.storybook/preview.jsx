@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { Theming, Triggers } from "../src";
+import { Pluto } from "../src";
 import "./index.css";
 import 'reactflow/dist/style.css';
 
@@ -25,11 +25,5 @@ export const parameters = {
 };
 
 export const decorators = [
-    (StoryFn) => (
-            <Theming.Provider theme={Theming.themes.synnaxDark}>
-                <Triggers.Provider>
-                    {StoryFn()}
-                </Triggers.Provider>
-            </Theming.Provider>
-    ),
+    (StoryFn) => (<Pluto>{StoryFn()}</Pluto>),
 ];

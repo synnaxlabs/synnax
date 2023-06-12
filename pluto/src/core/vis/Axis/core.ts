@@ -17,6 +17,9 @@ import {
   tickType,
 } from "@/core/vis/Axis/TickFactory";
 
+export const Y_AXIS_SIZE = 40;
+export const X_AXIS_SIZE = 20;
+
 export const axisState = tickFactoryProps.extend({
   color: Color.z,
   position: XY.z,

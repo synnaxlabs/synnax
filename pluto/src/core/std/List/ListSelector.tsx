@@ -9,7 +9,7 @@
 
 import { useEffect } from "react";
 
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import {
   useSelectMultiple,
@@ -17,19 +17,24 @@ import {
 } from "@/core/hooks/useSelectMultiple";
 import { useListContext } from "@/core/std/List/ListContext";
 
-export interface ListSelectorProps<E extends KeyedRenderableRecord<E>>
-  extends Omit<UseSelectMultipleProps<E>, "data"> {}
+export interface ListSelectorProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> extends Omit<UseSelectMultipleProps<K, E>, "data"> {}
 
-export const ListSelector = <E extends KeyedRenderableRecord<E>>({
+export const ListSelector = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
   value,
   ...props
-}: ListSelectorProps<E>): null => {
+}: ListSelectorProps<K, E>): null => {
   const {
     data,
     setTransform,
     deleteTransform,
     select: { setOnSelect, setClear },
-  } = useListContext<E>();
+  } = useListContext<K, E>();
 
   const { onSelect, transform, clear } = useSelectMultiple({
     data,

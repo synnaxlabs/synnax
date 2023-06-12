@@ -9,9 +9,12 @@
 
 import { useTelemSourceControl } from "../Context";
 
-import { RangeXYTelem, RangeXYTelemProps } from "./worker";
-
 import { XYTelemSourceMeta } from "@/core/vis/telem";
+import {
+  DynamicRangeXYTelemProps,
+  RangeXYTelem,
+  RangeXYTelemProps,
+} from "@/telem/range/worker";
 
 export const useRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceMeta => {
   return {
@@ -20,7 +23,9 @@ export const useRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceMeta => 
   };
 };
 
-export const useDynamicRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceMeta => {
+export const useDynamicRangeXYTelem = (
+  props: DynamicRangeXYTelemProps
+): XYTelemSourceMeta => {
   return {
     key: useTelemSourceControl(RangeXYTelem.TYPE, props),
     variant: "xy",

@@ -19,7 +19,7 @@ import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
 import { Transport } from "@/transport";
 
-export const synnaxPropsSchema = z.object({
+export const synnaxPropsZ = z.object({
   host: z.string().min(1),
   port: z.number().or(z.string()),
   username: z.string().optional(),
@@ -28,7 +28,7 @@ export const synnaxPropsSchema = z.object({
   secure: z.boolean().default(false).optional(),
 });
 
-export type SynnaxProps = z.infer<typeof synnaxPropsSchema>;
+export type SynnaxProps = z.infer<typeof synnaxPropsZ>;
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -46,6 +46,7 @@ export default class Synnax {
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
   ontology: OntologyClient;
+  props: SynnaxProps;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -62,14 +63,10 @@ export default class Synnax {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor({
-    host,
-    port,
-    username,
-    password,
-    connectivityPollFrequency,
-    secure,
-  }: SynnaxProps) {
+  constructor(props: SynnaxProps) {
+    this.props = props;
+    const { host, port, username, password, connectivityPollFrequency, secure } =
+      this.props;
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
     if (username != null && password != null) {
       this.auth = new AuthenticationClient(this.transport.unary, {

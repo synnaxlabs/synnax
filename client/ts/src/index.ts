@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/channel";
-export { default as Synnax, synnaxPropsSchema } from "@/client";
+export { default as Synnax, synnaxPropsZ as synnaxPropsSchema } from "@/client";
 export type { SynnaxProps } from "@/client";
 export * from "@/connectivity";
 export {
