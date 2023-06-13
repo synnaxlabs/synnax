@@ -245,7 +245,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if(window == null) return null;
+      if (window == null) return null;
       const scaleFactor = await window.scaleFactor();
       const visible = await window.isVisible();
       const nextProps: SetWindowPropsPayload = {
@@ -264,12 +264,16 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if(window == null) return null;
+      if (window == null) return null;
       const scaleFactor = await window?.scaleFactor();
       if (scaleFactor == null) return null;
       const position = await parsePosition(await window.innerPosition(), scaleFactor);
       const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = { label: ev.windowLabel, visible, position };
+      const nextProps: SetWindowPropsPayload = {
+        label: ev.windowLabel,
+        visible,
+        position,
+      };
       return setWindowProps(nextProps);
     },
   },
@@ -291,12 +295,16 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   },
 ];
 
-const parsePosition = async (position: PhysicalPosition, scaleFactor: number): Promise<XY> => {
-  const pos = position.toLogical(scaleFactor)
-  return { x: pos.x, y: pos.y }
-}
+const parsePosition = async (
+  position: PhysicalPosition,
+  scaleFactor: number
+): Promise<XY> => {
+  return new XY(position.toLogical(scaleFactor));
+};
 
-const parseSize = async (size: PhysicalSize, scaleFactor: number): Promise<Dimensions> => {
-  const sz = size.toLogical(scaleFactor)
-  return { width: sz.width, height: sz.height }
-}
+const parseSize = async (
+  size: PhysicalSize,
+  scaleFactor: number
+): Promise<Dimensions> => {
+  return new Dimensions(size.toLogical(scaleFactor));
+};

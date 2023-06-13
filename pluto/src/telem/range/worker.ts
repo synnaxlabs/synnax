@@ -19,7 +19,7 @@ import {
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
-import { Client, StreamHandler } from "@/telem/client";
+import { Client, StreamHandler } from "@/telem/client/client";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 

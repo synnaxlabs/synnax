@@ -83,10 +83,10 @@ export class CacheChannelRetriever implements ChannelRetriever {
     const { normalized } = analyzeChannelParams(channels);
     const results: ChannelPayload[] = [];
     const toFetch: ChannelKeysOrNames = [];
-    normalized.forEach((name) => {
-      const c = this.get(name);
+    normalized.forEach((keyOrName) => {
+      const c = this.get(keyOrName);
       if (c != null) results.push(c);
-      else toFetch.push(name as never);
+      else toFetch.push(keyOrName as never);
     });
     if (toFetch.length === 0) return results;
     const fetched = await this.wrapped.retrieve(toFetch);

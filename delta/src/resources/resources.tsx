@@ -12,10 +12,10 @@ import { ReactElement } from "react";
 import { Synnax } from "@synnaxlabs/client";
 import type { OntologyResourceType } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
+import { Hauled } from "@synnaxlabs/pluto";
 
 import { LayoutPlacer } from "@/layout";
 import { WorkspaceState } from "@/workspace";
-import { Hauled } from "@synnaxlabs/pluto";
 
 export interface ResourceContext {
   client: Synnax;
@@ -38,39 +38,39 @@ export const resourceTypes: Record<string, ResourceType> = {
     icon: <Icon.Cluster />,
     hasChildren: true,
     acceptsDrop: () => false,
-    onDrop: () => { },
+    onDrop: () => {},
   },
   cluster: {
     type: "cluster",
     icon: <Icon.Cluster />,
     hasChildren: true,
     acceptsDrop: () => false,
-    onDrop: () => { },
+    onDrop: () => {},
   },
   node: {
     type: "node",
     icon: <Icon.Node />,
     hasChildren: true,
     acceptsDrop: () => false,
-    onDrop: () => { },
+    onDrop: () => {},
   },
   channel: {
     type: "channel",
     icon: <Icon.Channel />,
     hasChildren: false,
     acceptsDrop: () => false,
-    onDrop: () => { },
+    onDrop: () => {},
   },
   group: {
     type: "group",
     hasChildren: true,
     acceptsDrop: () => true,
-    onDrop: () => { },
+    onDrop: () => {},
   },
   range: {
     type: "range",
     hasChildren: true,
     acceptsDrop: () => true,
-    onDrop: () => { },
-  }
+    onDrop: () => {},
+  },
 };

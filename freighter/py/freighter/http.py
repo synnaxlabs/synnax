@@ -61,7 +61,6 @@ class HTTPClient(MiddlewareCollector):
         self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """Implements the UnaryClient protocol."""
-        print(self.endpoint)
         return self.request(
             "POST",
             self.endpoint.child(target).stringify(),
@@ -104,7 +103,7 @@ class HTTPClient(MiddlewareCollector):
                     method=method, url=url, headers=head, body=data
                 )
             except MaxRetryError as e:
-                return out_meta_data, Unreachable(url, e)
+                return out_meta_data, Unreachable(url, e.url)
             except HTTPError as e:
                 return out_meta_data, e
 

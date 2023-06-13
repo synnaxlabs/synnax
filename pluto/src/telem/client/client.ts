@@ -10,7 +10,7 @@
 import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/client";
 import { LazyArray, TimeRange } from "@synnaxlabs/x";
 
-import { Cache } from "@/telem/cache";
+import { Cache } from "@/telem/client/cache";
 import { convertArrays } from "@/telem/convertArrays";
 
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;

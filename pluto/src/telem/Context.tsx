@@ -48,7 +48,6 @@ export const TelemProvider = ({ children }: TelemProviderProps): ReactElement =>
 
   useEffect(() => {
     if (client == null) return;
-    console.log("CONNECT");
     w.send({ variant: "connect", props: client?.props });
   }, [client]);
 

@@ -18,7 +18,7 @@ import { useSelectDocsLocation } from "@/docs/hooks";
 import { setDocsLocation } from "@/docs/store";
 import { LayoutRenderer } from "@/layout";
 
-import "./DocsLayoutRenderer.css";
+import "@/docs/components/DocsLayoutRenderer.css";
 
 const DOCS_HOST = new URL({
   host: "docs.synnaxlabs.com",
