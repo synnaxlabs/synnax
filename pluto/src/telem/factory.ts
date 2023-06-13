@@ -18,6 +18,15 @@ export class CompoundTelemFactory {
     this.factories.push(factory);
   }
 
+  change(factory: TelemFactory): void {
+    this.remove(factory.type);
+    this.add(factory);
+  }
+
+  remove(type: string): void {
+    this.factories = this.factories.filter((f) => f.type !== type);
+  }
+
   create(key: string, type: string, props: any): ModifiableTelemSourceMeta | null {
     for (const factory of this.factories) {
       const source = factory.create(key, type, props);

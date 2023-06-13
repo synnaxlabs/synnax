@@ -16,16 +16,24 @@ import { convertArrays } from "@/telem/convertArrays";
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
-  readonly core: Synnax | null;
+  core: Synnax;
   private _streamer: Streamer | null;
-  private readonly cache: Map<ChannelKey, Cache>;
-  private readonly listeners: Map<StreamHandler, ChannelKeys>;
+  private cache: Map<ChannelKey, Cache>;
+  private listeners: Map<StreamHandler, ChannelKeys>;
 
   constructor(wrap: Synnax) {
     this.core = wrap;
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
+  }
+
+  swapCore(core: Synnax): void {
+    this.core.close();
+    this.cache = new Map();
+    this.listeners = new Map();
+    this.core = core;
+    this._streamer?.close();
   }
 
   /**

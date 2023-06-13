@@ -48,6 +48,7 @@ class HTTPClient(MiddlewareCollector):
         """
         super().__init__()
         self.endpoint = url
+        self.endpoint.protocol = "https" if secure else "http"
         self.encoder_decoder = encoder_decoder
         self.secure = secure
         self.pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
@@ -60,6 +61,7 @@ class HTTPClient(MiddlewareCollector):
         self, target: str, req: RQ, res_t: Type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """Implements the UnaryClient protocol."""
+        print(self.endpoint)
         return self.request(
             "POST",
             self.endpoint.child(target).stringify(),

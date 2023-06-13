@@ -75,4 +75,8 @@ export interface XYTelemSource extends TelemSourceMeta {
    * @param f - The callback to bind to the source.
    */
   onChange: (f: () => void) => void;
+  /**
+   *
+   */
+  release: (gl: GLBufferController) => void;
 }

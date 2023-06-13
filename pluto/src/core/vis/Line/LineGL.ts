@@ -128,6 +128,7 @@ export class LineGL
     this.telemProv = telemProv;
     this.telem = this.telemProv.get(props.telem.key);
     this.setStateHook(() => this.requestRender());
+    this.setDeleteHook(() => this.cleanup());
     if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
   }
 
@@ -157,6 +158,10 @@ export class LineGL
       );
       this.prog.draw(x, y, count);
     });
+  }
+
+  cleanup(): void {
+    this.telem.release(this.prog.ctx.gl);
   }
 }
 

@@ -63,7 +63,7 @@ export class TimeStamp extends Number implements Stringer {
       let offset = 0;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
-      super(value + offset);
+      super(value.valueOf() + offset);
     }
   }
 
@@ -381,16 +381,17 @@ export class TimeStamp extends Number implements Stringer {
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp(9223372036854775807);
+  static readonly MAX = new TimeStamp(9122272036554776000);
 
   /** The minimum possible value for a timestamp */
-  static readonly MIN = new TimeStamp(-9223372036854775808);
+  static readonly MIN = new TimeStamp(0);
 
   /** The unix epoch */
   static readonly ZERO = new TimeStamp(0);
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
   ]);
@@ -552,6 +553,7 @@ export class TimeSpan extends Number implements Stringer {
   /** A zod schema for validating and transforming timespans */
   static readonly z = z.union([
     z.number().transform((n) => new TimeSpan(n)),
+    z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
 }
@@ -647,6 +649,7 @@ export class Rate extends Number implements Stringer {
   /** A zod schema for validating and transforming rates */
   static readonly z = z.union([
     z.number().transform((n) => new Rate(n)),
+    z.instanceof(Number).transform((n) => new Rate(n)),
     z.instanceof(Rate),
   ]);
 }
@@ -691,6 +694,7 @@ export class Density extends Number implements Stringer {
   /** A zod schema for validating and transforming densities */
   static readonly z = z.union([
     z.number().transform((n) => new Density(n)),
+    z.instanceof(Number).transform((n) => new Density(n)),
     z.instanceof(Density),
   ]);
 }
@@ -1068,17 +1072,18 @@ export type UnparsedTimeStamp =
   | number
   | Date
   | string
-  | DateComponents;
+  | DateComponents
+  | Number;
 export type TimeStampT = number;
-export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
+export type UnparsedTimeSpan = TimeSpan | TimeStamp | number | Number;
 export type TimeSpanT = number;
-export type UnparsedRate = Rate | number;
+export type UnparsedRate = Rate | number | Number;
 export type RateT = number;
-export type UnparsedDensity = Density | number;
+export type UnparsedDensity = Density | number | Number;
 export type DensityT = number;
 export type UnparsedDataType = DataType | string | NativeTypedArray;
 export type DataTypeT = string;
-export type UnparsedSize = Size | number;
+export type UnparsedSize = Size | number | Number;
 export type SizeT = number;
 export interface TimeRangeT {
   start: TimeStampT;

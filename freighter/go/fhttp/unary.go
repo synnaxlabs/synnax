@@ -39,7 +39,6 @@ func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ
 }
 
 func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
-	c.OriginalURL()
 	c.Accepts(httputil.SupportedContentTypes()...)
 	ecd, err := httputil.DetermineEncoderDecoder(c.Get(fiber.HeaderContentType))
 	if err != nil {

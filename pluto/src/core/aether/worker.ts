@@ -129,8 +129,11 @@ export class AtherComposite<C extends AetherComponent, EP, IP extends unknown>
       throw new Error(
         `[Composite.delete] - ${this.type}:${this.key} could not find child with key ${key}`
       );
-    } else if (subPath.length > 1) child?.delete(subPath.slice(1));
-    else this.children.splice(this.children.indexOf(child), 1);
+    } else if (subPath.length > 1) child.delete(subPath.slice(1));
+    else {
+      child.delete(subPath);
+      this.children.splice(this.children.indexOf(child), 1);
+    }
   }
 
   getRequiredKey(path: string[], type?: string): [string, string[]] {

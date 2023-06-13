@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-import React from "react";
+import React, { StrictMode } from "react";
 import { Pluto } from "../src";
 import "./index.css";
 import 'reactflow/dist/style.css';
@@ -24,6 +24,13 @@ export const parameters = {
     },
 };
 
+const CONN_PARAMS = {
+    host: "localhost",
+    port: 9090,
+    username: "synnax",
+    password: "seldon"
+}
+
 export const decorators = [
-    (StoryFn) => (<Pluto>{StoryFn()}</Pluto>),
+    (StoryFn) => (<Pluto connParams={CONN_PARAMS}>{StoryFn()}</Pluto>),
 ];

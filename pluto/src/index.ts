@@ -12,3 +12,4 @@ export * from "@/util/transform";
 export * from "@/util/debounce";
 export * from "@/util/renderProp";
 export * from "@/core";
+export * from "@/Pluto";

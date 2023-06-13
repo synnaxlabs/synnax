@@ -131,6 +131,20 @@ describe("Bob Worker", () => {
         composite.delete(["test", "dog"]);
         expect(composite.children).toHaveLength(0);
       });
+      it("should call the deletion hook on the child of a composite", () => {
+        const composite = new AtherComposite(
+          "test",
+          "test",
+          new ExampleFactory(),
+          exampleProps,
+          { x: 1 }
+        );
+        composite.setState(["test", "dog"], "test", { x: 2 });
+        const called = vi.fn();
+        composite.children[0].setDeleteHook(called);
+        composite.delete(["test", "dog"]);
+        expect(called).toHaveBeenCalled();
+      });
     });
   });
 });

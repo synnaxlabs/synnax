@@ -10,7 +10,7 @@
 import { DataType, LazyArray, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { StaticCache } from "@/telem/cache/StaticCache";
+import { StaticCache } from "@/telem/cache/static";
 
 describe("StaticReadCache", () => {
   test("happy path", () => {

@@ -44,7 +44,7 @@ export const staticXYTelemProps = z.object({
   yOffsets: z.array(z.number()).optional().default([]),
 });
 
-export type StaticXYTelemProps = z.infer<typeof staticXYTelemProps>;
+export type StaticXYTelemProps = z.input<typeof staticXYTelemProps>;
 
 class StaticXYTelemCore {
   key: string;
@@ -76,8 +76,17 @@ class StaticXYTelemCore {
     return Bounds.max(this._y.map((y) => y.bounds));
   }
 
+  release(gl: GLBufferController): void {
+    this._x.map((x) => x.release(gl));
+    this._y.map((y) => y.release(gl));
+  }
+
   onChange(f: () => void): void {
     this.onChangeHandler = f;
+  }
+
+  invalidate(): void {
+    if (this.onChangeHandler != null) this.onChangeHandler();
   }
 
   cleanup(): void {}
@@ -92,14 +101,26 @@ export class StaticXYTelem extends StaticXYTelemCore implements XYTelemSource {
     const props = staticXYTelemProps.parse(props_);
     super(
       key,
-      props.x.map(
-        (x, i) =>
-          new LazyArray(x, DataType.FLOAT32, TimeRange.ZERO, props.xOffsets[i] ?? 0)
-      ),
-      props.y.map(
-        (y, i) =>
-          new LazyArray(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffsets[i] ?? 0)
-      )
+      props.x.map((x, i) => {
+        const arr = new LazyArray(
+          x,
+          DataType.FLOAT32,
+          TimeRange.ZERO,
+          props.xOffsets[i] ?? 0
+        );
+        arr.acquire();
+        return arr;
+      }),
+      props.y.map((y, i) => {
+        const arr = new LazyArray(
+          y,
+          DataType.FLOAT32,
+          TimeRange.ZERO,
+          props.yOffsets[i] ?? 0
+        );
+        arr.acquire();
+        return arr;
+      })
     );
   }
 

@@ -101,7 +101,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     const request = this.requestConfig();
     request.method = "POST";
     request.url = url;
-    if (req != null) request.data = this.encoder.encode(req);
+    request.data = this.encoder.encode(req ?? {});
     return await this.execute(request, resSchema);
   }
 }

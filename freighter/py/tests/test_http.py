@@ -30,6 +30,7 @@ def client(endpoint: URL) -> HTTPClient:
     return HTTPClient(http_endpoint, encoder.JSONEncoder())
 
 
+@pytest.mark.http
 class TestClient:
     def test_echo(self, client: HTTPClient):
         """Should echo an incremented ID back to the caller."""

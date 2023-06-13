@@ -51,24 +51,40 @@ const rangeXYTelemCoreProps = z.object({
 class RangeXYTelemCore {
   key: string;
   variant = "xy";
-  readonly client: Client;
+  client: Client;
+  valid: boolean = false;
   handler: (() => void) | null = null;
-  _x: LazyArray[] | null = null;
-  _y: LazyArray[] | null = null;
+  _x: LazyArray[] = [];
+  _y: LazyArray[] = [];
 
   constructor(key: string, client: Client) {
     this.key = key;
     this.client = client;
   }
 
+  invalidate(): void {
+    this.valid = false;
+    this.handler?.();
+  }
+
+  acquire(gl?: GLBufferController): void {
+    this._x?.forEach((x) => x.acquire(gl));
+    this._y?.forEach((y) => y.acquire(gl));
+  }
+
+  release(gl?: GLBufferController): void {
+    this._x?.forEach((x) => x.release(gl));
+    this._y?.forEach((y) => y.release(gl));
+  }
+
   async x(gl?: GLBufferController): Promise<LazyArray[]> {
-    const x = this._x as LazyArray[];
+    const x = this._x;
     if (gl != null) x.forEach((x) => x.updateGLBuffer(gl));
     return x;
   }
 
   async y(gl?: GLBufferController): Promise<LazyArray[]> {
-    const y = this._y as LazyArray[];
+    const y = this._y;
     if (gl != null) y.forEach((y) => y.updateGLBuffer(gl));
     return y;
   }
@@ -116,6 +132,11 @@ class RangeXYTelemCore {
   onChange(f: () => void): void {
     this.handler = f;
   }
+
+  cleanup(): void {
+    this._x = [];
+    this._y = [];
+  }
 }
 
 export const rangeXYTelemProps = rangeXYTelemCoreProps.extend({
@@ -135,19 +156,22 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
     this.props = rangeXYTelemProps.parse(props_);
   }
 
-  async read(): Promise<void> {
+  async read(gl?: GLBufferController): Promise<void> {
+    this.release(gl);
     const { x, y, timeRange } = this.props;
     await this.readFixed(timeRange, y, x);
+    this.acquire(gl);
+    this.valid = true;
   }
 
   async y(gl?: GLBufferController): Promise<LazyArray[]> {
-    if (this._y == null) await this.read();
-    return await super.y(gl);
+    if (!this.valid) await this.read(gl);
+    return await super.y();
   }
 
   async x(gl?: GLBufferController): Promise<LazyArray[]> {
-    if (this._x == null) await this.read();
-    return await super.x(gl);
+    if (!this.valid) await this.read(gl);
+    return await super.x();
   }
 
   setProps(props: any): void {
@@ -157,6 +181,7 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
 
   cleanup(): void {
     this.handler = null;
+    super.cleanup();
   }
 }
 
@@ -182,19 +207,21 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
   }
 
   async x(gl?: GLBufferController): Promise<LazyArray[]> {
-    if (this._x == null) await this.read();
+    if (this._x == null) await this.read(gl);
     return await super.x(gl);
   }
 
   async y(gl?: GLBufferController): Promise<LazyArray[]> {
-    if (this._y == null) await this.read();
+    if (this._y == null) await this.read(gl);
     return await super.y(gl);
   }
 
-  async read(): Promise<void> {
+  async read(gl?: GLBufferController): Promise<void> {
+    this.release(gl);
     const { x, y, span } = this.props;
     const tr = TimeStamp.now().spanRange(span);
     await this.readFixed(tr, y, x);
+    this.acquire(gl);
     await this.udpateStreamHandler();
   }
 
@@ -205,9 +232,12 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
       if (data != null) {
         if (!(y.key in data)) return;
         const yd = data[y.key].data;
+        yd.forEach((arr) => arr.acquire());
         this._y?.push(...yd);
         if (x != null) {
-          if (x.key in data) this._x?.push(...data[x.key].data);
+          const xd = data[x.key].data;
+          xd.forEach((arr) => arr.acquire());
+          if (x.key in data) this._x?.push(...xd);
         } else {
           this._x?.push(
             ...yd.map((arr) =>
@@ -225,8 +255,7 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
 
   setProps(props: any): void {
     this.props = dynamicRangeXYTelemProps.parse(props);
-    this._x = null;
-    this._y = null;
+    this.valid = false;
     this.handler?.();
   }
 
@@ -234,5 +263,6 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     if (this.streamHandler != null) this.client.removeStreamHandler(this.streamHandler);
     this.streamHandler = null;
     this.handler = null;
+    super.cleanup();
   }
 }

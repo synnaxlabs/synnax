@@ -8,6 +8,7 @@ import {
   useId,
 } from "react";
 
+import { useClient } from "@/client/Context";
 import { useTypedWorker } from "@/core/worker/Context";
 import { WorkerMessage } from "@/telem/worker";
 
@@ -43,6 +44,14 @@ export interface TelemProviderProps extends PropsWithChildren<any> {}
 
 export const TelemProvider = ({ children }: TelemProviderProps): ReactElement => {
   const w = useTypedWorker<WorkerMessage>("telem");
+  const client = useClient();
+
+  useEffect(() => {
+    if (client == null) return;
+    console.log("CONNECT");
+    w.send({ variant: "connect", props: client?.props });
+  }, [client]);
+
   const set = useCallback(
     <P extends any>(key: string, type: string, props: P, transfer?: Transferable[]) =>
       w.send({ variant: "set", key, type, props }, transfer),

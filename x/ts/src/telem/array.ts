@@ -30,6 +30,7 @@ const validateFieldNotNull = (name: string, field: unknown): void => {
 };
 
 interface GL {
+  control: GLBufferController | null;
   buffer: WebGLBuffer | null;
   prevBuffer: number;
   bufferUsage: GLBufferUsage;
@@ -42,14 +43,29 @@ const FULL_BUFFER = -1;
  * by an underlying binary buffer.
  */
 export class LazyArray {
+  /** The data type of the array */
   readonly dataType: DataType;
+  /**
+   * A sample offset that can be used to shift the values of all samples upwards or
+   * downwards. Typically used to convert arrays to lower precision while preserving
+   * the relative range of actual values.
+   */
   sampleOffset: SampleValue;
+  /**
+   * Stores information about the buffer state of this array into a WebGL buffer.
+   */
   private readonly gl: GL;
+  /** The underlying data. */
   private readonly _data: ArrayBuffer;
   readonly _timeRange?: TimeRange;
+  /** A cached minimum value. */
   private _min?: SampleValue;
+  /** A cached maximum value. */
   private _max?: SampleValue;
+  /** The write position of the buffer. */
   private pos: number = FULL_BUFFER;
+  /** Tracks the number of entities currently using this array. */
+  private refCount: number = 0;
 
   static alloc(
     length: number,
@@ -93,10 +109,23 @@ export class LazyArray {
     this._data = data;
     this._timeRange = timeRange;
     this.gl = {
+      control: null,
       buffer: null,
       prevBuffer: 0,
       bufferUsage: glBufferUsage,
     };
+  }
+
+  acquire(gl?: GLBufferController): void {
+    this.refCount++;
+    if (gl != null) this.updateGLBuffer(gl);
+  }
+
+  release(gl?: GLBufferController): void {
+    this.refCount--;
+    if (this.refCount === 0 && gl != null) this.maybeGarbageCollectGLBuffer(gl);
+    else if (this.refCount < 0)
+      throw new Error("cannot release an array with a negative reference count");
   }
 
   write(other: LazyArray): number {
@@ -280,6 +309,11 @@ export class LazyArray {
       );
       this.gl.prevBuffer = FULL_BUFFER;
     }
+  }
+
+  private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
+    if (this.gl.buffer == null) return;
+    gl.deleteBuffer(this.gl.buffer);
   }
 
   get glBuffer(): WebGLBuffer {
