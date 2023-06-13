@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon } from "@synnaxlabs/media";
 
 import { CSS } from "@/core/css";
@@ -16,10 +18,8 @@ import { ComponentSize } from "@/util/component";
 
 import "@/core/std/Tag/Tag.css";
 
-import { ReactElement } from "react";
-
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
-  icon?: React.ReactElement;
+  icon?: ReactElement;
   onClose?: () => void;
   color?: string;
   size?: ComponentSize;

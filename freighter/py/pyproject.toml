@@ -36,3 +36,10 @@ isort = "^5.10.1"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+markers = [
+    "ws: mark test as a websocket test",
+    "http: mark test as an http test",
+    "sync: mark test as a sync test"
+]
+

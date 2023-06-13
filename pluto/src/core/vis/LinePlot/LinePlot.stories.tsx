@@ -15,6 +15,7 @@ import { VisCanvas } from "@/core/vis/Canvas";
 import { Line } from "@/core/vis/Line/Line";
 import { LinePlot } from "@/core/vis/LinePlot";
 import { Pluto } from "@/Pluto";
+import { StaticTelem } from "@/telem/static/main";
 
 const story: Meta<typeof LinePlot> = {
   title: "Vis/LinePlot",
@@ -22,6 +23,10 @@ const story: Meta<typeof LinePlot> = {
 };
 
 const Example = (): ReactElement => {
+  const telem = StaticTelem.useXY({
+    x: [new Float32Array([1, 2, 3])],
+    y: [new Float32Array([1, 2, 3])],
+  });
   return (
     <VisCanvas
       style={{
@@ -35,8 +40,7 @@ const Example = (): ReactElement => {
       <LinePlot style={{ padding: 10 }}>
         <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
-            {/* <Line telem={telem} color="#F733FF" strokeWidth={10} />
-            <Line telem={telem2} color="#D5E04E" strokeWidth={10} /> */}
+            <Line telem={telem} color="#F733FF" strokeWidth={10} />
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>

@@ -3,8 +3,7 @@ import { PropsWithChildren, ReactElement } from "react";
 import { ClientProviderProps } from "./client/Context";
 
 import { Client } from "@/client";
-import { Aether, Haul, ThemeProviderProps, Theming, Triggers } from "@/core";
-import { Worker } from "@/core/worker";
+import { Aether, Haul, ThemeProviderProps, Theming, Triggers, Worker } from "@/core";
 import { TelemProvider } from "@/telem/Context";
 
 export interface PlutoProps

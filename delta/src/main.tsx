@@ -16,7 +16,7 @@ import ReactDOM from "react-dom/client";
 
 import "./index.css";
 
-import { ConnectCluster } from "@/cluster";
+import { ConnectCluster, useSelectCluster } from "@/cluster";
 import { Menu } from "@/components";
 import { DocsLayoutRenderer } from "@/docs";
 import {
@@ -53,8 +53,13 @@ const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
   const menuProps = PMenu.useContextMenu();
   useLoadTauriVersion();
+  const cluster = useSelectCluster();
   return (
-    <Pluto {...theme} workerEnabled={appWindow.label === "main"}>
+    <Pluto
+      {...theme}
+      workerEnabled={appWindow.label === "main"}
+      connParams={cluster?.props}
+    >
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <LayoutWindow />
       </PMenu.ContextMenu>

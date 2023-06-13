@@ -63,7 +63,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         assert isinstance(data, bytes)
         msg = self.encoder.decode(data, self.res_msg_t)
 
-        if msg.type == "data":
+        if msg.type == "close":
             assert msg.error is not None
             await self._close_server(decode_exception(msg.error))
             return None, self.server_closed

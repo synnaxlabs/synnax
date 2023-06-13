@@ -36,9 +36,7 @@ export const ClientProvider = ({
       connectivityPollFrequency: TimeSpan.seconds(5),
     });
     await client.connectivity.check();
-
     if (client.connectivity.status() !== "connected") return;
-
     setState({ client });
 
     return () => {

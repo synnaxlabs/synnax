@@ -54,10 +54,7 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
     selection?.addRange(range);
   }, [editable]);
 
-  useLayoutEffect(() => {
-    if (ref.current == null || editable) return;
-    ref.current.innerHTML = value;
-  });
+  if (ref.current !== null && !editable) ref.current.innerHTML = value;
 
   return (
     // @ts-expect-error

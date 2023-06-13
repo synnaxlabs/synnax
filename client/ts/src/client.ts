@@ -24,11 +24,12 @@ export const synnaxPropsZ = z.object({
   port: z.number().or(z.string()),
   username: z.string().optional(),
   password: z.string().optional(),
-  connectivityPollFrequency: z.instanceof(TimeSpan).optional(),
-  secure: z.boolean().default(false).optional(),
+  connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
+  secure: z.boolean().optional().default(false),
 });
 
-export type SynnaxProps = z.infer<typeof synnaxPropsZ>;
+export type SynnaxProps = z.input<typeof synnaxPropsZ>;
+export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -46,7 +47,7 @@ export default class Synnax {
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
   ontology: OntologyClient;
-  props: SynnaxProps;
+  props: ParsedSynnaxProps;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -64,7 +65,7 @@ export default class Synnax {
    * the client from polling the cluster for connectivity information.
    */
   constructor(props: SynnaxProps) {
-    this.props = props;
+    this.props = synnaxPropsZ.parse(props);
     const { host, port, username, password, connectivityPollFrequency, secure } =
       this.props;
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);

@@ -1,7 +1,7 @@
 import { DataType, LazyArray } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { DynamicCache } from "./DynamicCache";
+import { DynamicCache } from "./dynamic";
 
 describe("DynamicCache", () => {
   describe("write", () => {

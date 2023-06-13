@@ -197,16 +197,15 @@ const longestEntries = <
   columns: Array<ListColumnT<K, E>>
 ): Record<keyof E, string> => {
   const longest = {} as const as Record<keyof E, string>;
-  data.forEach((entry: E) => {
+  data.forEach((entry: E) =>
     columns.forEach(({ key, stringer }) => {
       const rv = entry[key as keyof E];
       if (rv == null) return;
       const value = stringer != null ? stringer(entry) : rv;
-      if (typeof value === "string" && value.length > longest[key as keyof E]?.length) {
+      if (value.length > longest[key as keyof E]?.length)
         longest[key as keyof E] = value;
-      }
-    });
-  });
+    })
+  );
   return longest;
 };
 

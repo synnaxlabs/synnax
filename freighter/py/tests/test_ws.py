@@ -31,6 +31,7 @@ def sync_client(async_client: WebsocketClient) -> SyncStreamClient:
     return SyncStreamClient(async_client)
 
 
+@pytest.mark.ws
 class TestWS:
     async def test_basic_exchange(self, async_client: WebsocketClient):
         """Should exchange ten echo messages that increment the ID."""
@@ -46,7 +47,8 @@ class TestWS:
         assert err is not None
 
     async def test_receive_message_after_close(self, async_client: WebsocketClient):
-        """Should receive a message and EOF error after the server closes the connection."""
+        """Should receive a message and EOF error after the server closes the
+        connection."""
         stream = await async_client.stream(
             "/sendMessageAfterClientClose", Message, Message
         )
