@@ -199,8 +199,8 @@ class ChannelClient:
         :param rate: Rate sets the rate at which the channels values are written. If this
         parameter is non-zero, is_index must be false and index must be an empty string or
         unspecified.
-        :param name: A human readable name for the channel.
-        :param is_index: Boolean indicating whether or not the channel is an index. Index
+        :param name: A human-readable name for the channel.
+        :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you don't know
@@ -247,10 +247,7 @@ class ChannelClient:
     ) -> list[Channel]:
         ...
 
-    def retrieve(
-        self,
-        channel: ChannelParams,
-    ) -> Channel | list[Channel]:
+    def retrieve(self, params: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -277,14 +274,14 @@ class ChannelClient:
         containing the retrieved channels and the keys or names of the channels that were
         not found.
         """
-        normal = normalize_channel_params(channel)
-        res = self._retriever.retrieve(channel)
+        normal = normalize_channel_params(params)
+        res = self._retriever.retrieve(params)
         sug = self._sugar(res)
         if normal.single:
             if len(res) == 0:
-                raise QueryError(f"Channel matching {channel} not found.")
+                raise QueryError(f"Channel matching {params} not found.")
             if len(res) > 1:
-                raise QueryError(f"Multiple channels matching {channel} found.")
+                raise QueryError(f"Multiple channels matching {params} found.")
             return sug[0]
         return sug
 

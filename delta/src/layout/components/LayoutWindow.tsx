@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { ReactElement, useEffect } from "react";
 
 import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, Space, useOS, applyCSSVars } from "@synnaxlabs/pluto";
+import { Nav, Space, useOS, CSS } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { useSelectLayout } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
-import "./LayoutWindow.css";
 
 import { Controls } from "@/components";
-import { CSS } from "@/css";
+
+import "@/layout/components/LayoutWindow.css";
 
 export const NavTop = (): ReactElement => {
   const os = useOS();
@@ -66,7 +66,7 @@ export const LayoutWindow = (): ReactElement | null => {
 const applyWindowsBorders = (): void => {
   window.document.documentElement.style.boxSizing = "border-box";
   window.document.documentElement.style.border = "var(--pluto-border)";
-  applyCSSVars(window.document.documentElement, {
+  CSS.applyVars(window.document.documentElement, {
     "--os-border-offset": "2px",
   });
 };

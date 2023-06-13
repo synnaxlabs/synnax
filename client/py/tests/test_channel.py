@@ -128,14 +128,3 @@ class TestChannelClient:
         fake_names = ["fake1", "fake2", "fake3"]
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
-
-    @pytest.mark.channel
-    def test_retrieve_include_not_found_true(self, client: sy.Synnax):
-        """Should return list of unfound channels when include_not_found is true"""
-        fake_names = ["test", "test2", "fake3"]
-        res_channels, not_found = client.channels.retrieve(
-            fake_names, include_not_found=True
-        )
-        assert len(res_channels) >= 2
-        assert len(not_found) == 1
-        assert not_found[0] == "fake3"

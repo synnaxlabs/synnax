@@ -23,7 +23,6 @@ import {
 import { Location } from "@synnaxlabs/x";
 
 import { NAV_SIZES } from "./constants";
-import "./Nav.css";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
 import { Controls } from "@/components";
@@ -40,6 +39,8 @@ import { ResourcesToolbar } from "@/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
+
+import "@/layouts/LayoutMain/Nav.css";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -196,7 +197,7 @@ export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement 
       location={location}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", new Location(location).direction)
+        CSS.BM("main-nav-drawer", new Location(location).direction.v)
       )}
       activeItem={activeItem}
       onResize={onResize}

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Text, Space, Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -19,7 +21,7 @@ import { useLayoutPlacer } from "@/layout/hooks";
 import { VisToolbar } from "@/vis";
 import { createLineVis } from "@/vis/line";
 
-import "./GetStarted.css";
+import "@/layout/components/GetStarted.css";
 
 export const GetStarted = (): ReactElement => {
   const placer = useLayoutPlacer();

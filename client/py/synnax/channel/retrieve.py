@@ -23,7 +23,6 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelParams, ChannelKey, ChannelName
 )
-from synnax.exceptions import QueryError
 from synnax.util.flatten import flatten
 
 
@@ -66,26 +65,13 @@ class ClusterChannelRetriever:
         self,
         params: ChannelKey | ChannelName,
         include_not_found: bool = False,
-    ) -> (
-        tuple[list[ChannelPayload], list[str] | list[int]]
-        | list[ChannelPayload]
-        | ChannelPayload
-        | None
-    ):
+    ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
+        print(normal.variant, normal.params)
         req = _Request(**{normal.variant: normal.params})
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
-        assert res is not None
-        if include_not_found:
-            return res.channels, res.not_found or list()
-        if normal:
-            if len(res.channels) == 1:
-                return res.channels[0]
-            if len(res.channels) == 0:
-                return None
-            raise QueryError("multiple channels found")
         return res.channels
 
 
@@ -108,59 +94,32 @@ class CacheChannelRetriever:
     def _(self) -> ChannelRetriever:
         return self
 
+    def _get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        if isinstance(param, int):
+            return self.channels.get(param)
+        return self.channels.get(self.names_to_keys.get(param))
+
     @trace("debug")
-    def retrieve(
-        self,
-        key_or_name: ChannelParams,
-        *keys_or_names: ChannelParams,
-        include_not_found: bool = False,
-    ) -> (
-        tuple[list[ChannelPayload], list[str]]
-        | list[ChannelPayload]
-        | ChannelPayload
-        | None
-    ):
-
-        single = normalize_channel_params(key_or_name, keys_or_names)
-        keys, names = split_keys_and_names(key_or_name, keys_or_names)
-
+    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
+        normal = normalize_channel_params(params)
         results = list()
         to_retrieve = list()
-
-        for name in names:
-            key = self.names_to_keys.get(name)
-            if key is None:
-                to_retrieve.append(name)
+        for p in normal.params:
+            ch = self._get(p)
+            if ch is None:
+                to_retrieve.append(p)
             else:
-                results.append(self.channels.get(key))
+                results.append(ch)
 
-        for key in keys:
-            channel = self.channels.get(key)
-            if channel is None:
-                to_retrieve.append(key)
-            else:
-                results.append(channel)
+        if len(to_retrieve) == 0:
+            return results
 
-        not_found = list()
-        if len(to_retrieve) != 0:
-            retrieved, not_found = self._retriever.retrieve(
-                *to_retrieve,
-                include_not_found=True,
-            )
+        retrieved = self._retriever.retrieve(to_retrieve)
+        for ch in retrieved:
+            self.channels[ch.key] = ch
+            self.names_to_keys[ch.name] = ch.key
+            results.append(ch)
 
-            for channel in retrieved:
-                self.channels[channel.key] = channel
-                self.names_to_keys[channel.name] = channel.key
-                results.append(channel)
-
-        if include_not_found:
-            return results, not_found
-        if single:
-            if len(results) == 0:
-                return None
-            if len(results) == 1:
-                return results[0]
-            raise QueryError("multiple channels found")
         return results
 
 
@@ -168,12 +127,12 @@ def normalize_channel_params(
     params: ChannelParams,
 ) -> NormalizedChannelParams:
     """Determine if a list of keys or names is a single key or name."""
-    normalized = flatten(params),
+    normalized = flatten(params)
     if len(normalized) == 0:
         raise ValueError("no keys or names provided")
     return NormalizedChannelParams(
         single=isinstance(params, (str, int)),
-        variant="keys" if isinstance(params, int) else "names",
+        variant="keys" if isinstance(normalized[0], int) else "names",
         params=normalized,
     )
 

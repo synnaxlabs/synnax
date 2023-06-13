@@ -13,7 +13,6 @@ import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { Space, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useClusterClient } from "@/cluster";
 import { AxisKey } from "@/vis/axis";
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "@/vis/components";
 import { Channels } from "@/vis/line/channels";

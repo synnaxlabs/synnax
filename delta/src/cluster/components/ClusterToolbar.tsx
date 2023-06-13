@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon } from "@synnaxlabs/media";
-import { Space, Header, List, Text } from "@synnaxlabs/pluto";
+import { Space, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -19,7 +21,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { useLayoutPlacer, NavDrawerItem } from "@/layout";
 
-import "./ClusterToolbar.css";
+import "@/cluster/components/ClusterToolbar.css";
 
 const Content = (): ReactElement => {
   const dispatch = useDispatch();
@@ -46,9 +48,11 @@ const Content = (): ReactElement => {
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
-      <List<RenderableCluster> data={data}>
+      <List<string, RenderableCluster> data={data}>
         <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
-        <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
+        <List.Core.Virtual itemHeight={30}>
+          {componentRenderProp(ListItem)}
+        </List.Core.Virtual>
       </List>
     </Space>
   );
@@ -60,7 +64,7 @@ const ListItem = ({
   selected,
   onSelect,
   ...props
-}: ListItemProps<RenderableCluster>): ReactElement => (
+}: ListItemProps<string, RenderableCluster>): ReactElement => (
   <Space
     direction="x"
     align="center"

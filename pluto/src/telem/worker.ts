@@ -1,7 +1,7 @@
 import { QueryError, Synnax, SynnaxProps, UnexpectedError } from "@synnaxlabs/client";
-import { TimeSpan, TypedWorker } from "@synnaxlabs/x";
+import { TypedWorker } from "@synnaxlabs/x";
 
-import { Client } from "./client";
+import { Client } from "./client/client";
 import { RangeTelemFactory } from "./range/worker";
 
 import { TelemProvider } from "@/core/vis/telem/TelemService";

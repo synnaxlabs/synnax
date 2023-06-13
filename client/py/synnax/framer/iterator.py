@@ -70,7 +70,7 @@ class FrameIterator:
     aggregate: bool
     open: bool
     tr: TimeRange
-    keys: list[str]
+    keys: ChannelKeys
     instrumentation: Instrumentation
     _client: StreamClient
     _stream: Stream[_Request, _Response]
@@ -80,7 +80,7 @@ class FrameIterator:
         self,
         client: StreamClient,
         tr: TimeRange,
-        keys: list[str],
+        keys: ChannelKeys,
         aggregate: bool = False,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
@@ -254,18 +254,12 @@ class NumpyIterator(FrameIterator):
         transport: StreamClient,
         channels: ChannelRetriever,
         tr: TimeRange,
-        *keys_or_names: str | tuple[str] | list[str],
+        params: ChannelParams,
         aggregate: bool = False,
     ):
         self._channels = channels
-        self._keys_or_names = flatten(*keys_or_names)
-        channels_, not_found = self._channels.retrieve(
-            flatten(*keys_or_names),
-            include_not_found=True,
-        )
-        if len(not_found) > 0:
-            raise ValueError(f"Unable to find channels {not_found}")
-
+        self._keys_or_names = flatten(params)
+        channels_ = self._channels.retrieve(params)
         super().__init__(transport, tr, [ch.key for ch in channels_], aggregate)
 
     @property

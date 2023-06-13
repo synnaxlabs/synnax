@@ -85,7 +85,7 @@ class FrameClient:
             self.__client,
             self.__channels,
             tr,
-            *params,
+            params,
             aggregate=aggregate,
         )
 
@@ -164,7 +164,7 @@ class FrameClient:
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start, end)
-        with self.new_iterator(tr, *params, aggregate=True) as i:
+        with self.new_iterator(tr, params, aggregate=True) as i:
             # exhaust the iterator
             _ = [value for value in i]
             return i.value

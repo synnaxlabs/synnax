@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import type { KeyedRecord } from "@synnaxlabs/x";
+import type { Key, KeyedRecord } from "@synnaxlabs/x";
 import { memoize } from "proxy-memoize";
 import { useSelector } from "react-redux";
 
@@ -28,16 +28,16 @@ export const useMemoSelect = <S extends object, R>(
   deps: unknown[]
 ): R => useSelector(useCallback(memoize(selector), deps));
 
-export const selectByKeys = <S extends KeyedRecord<S>>(
-  state: S[] | Record<string, S>,
-  keys?: string[]
+export const selectByKeys = <K extends Key, S extends KeyedRecord<K, S>>(
+  state: S[] | Record<K, S>,
+  keys?: K[]
 ): S[] => {
   if (!Array.isArray(state)) state = Object.values(state);
   if (keys == null) return state;
   return state.filter((s) => keys.includes(s.key));
 };
 
-export const selectByKey = <S extends KeyedRecord<S>>(
+export const selectByKey = <K extends Key, S extends KeyedRecord<K, S>>(
   state: Record<string, S>,
   key?: string | null,
   defaultKey?: string | null

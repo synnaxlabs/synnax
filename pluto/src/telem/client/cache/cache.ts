@@ -9,10 +9,10 @@
 
 import { Channel, DataType, LazyArray, TimeRange } from "@synnaxlabs/client";
 
-import { DynamicCache } from "@/telem/cache/dynamic";
-import { StaticCache } from "@/telem/cache/static";
+import { DynamicCache } from "@/telem/client/cache/dynamic";
+import { StaticCache } from "@/telem/client/cache/static";
 
-export class Cache {
+export class ChannelCache {
   channel: Channel;
   static: StaticCache;
   dynamic: DynamicCache;

@@ -147,7 +147,7 @@ export type IterativeXYTelemProps = z.infer<typeof iterativeXYTelemProps>;
 
 export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource {
   position: number;
-  interval?: NodeJS.Timer;
+  interval?: number;
 
   static readonly TYPE = "iterative";
 
@@ -189,7 +189,7 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
     this.interval = setInterval(() => {
       this.onChangeHandler?.();
       this.incrementPosition();
-    }, rate.period.milliseconds);
+    }, rate.period.milliseconds) as unknown as number;
   }
 
   private incrementPosition(): void {
