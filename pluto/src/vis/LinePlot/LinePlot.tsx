@@ -21,7 +21,7 @@ export const axisProps = z.object({
   location: Location.strictOuterZ,
   label: z.string().optional(),
   bounds: Bounds.looseZ.optional(),
-  color: Color.z,
+  color: Color.z.optional(),
 });
 
 export type AxisProps = z.input<typeof axisProps>;
@@ -60,7 +60,7 @@ export type ParsedDynamicLineProps = z.output<typeof dynamicLineProps>;
 
 const lineProps = z.union([staticLineProps, dynamicLineProps]);
 
-type LineProps = z.input<typeof lineProps>;
+export type LineProps = z.input<typeof lineProps>;
 type ParsedLineProps = z.output<typeof lineProps>;
 
 export const linePlotProps = z.object({

@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, memo } from "react";
 
-import { Optional, OuterLocationT, XY, Location } from "@synnaxlabs/x";
+import { Optional, CrudeOuterLocation, XY, Location } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
@@ -40,7 +40,7 @@ export const YAxis = memo(
       ...props,
     });
     const gridStyle = useAxisPosition(
-      new Location(location).v as OuterLocationT,
+      new Location(location).v as CrudeOuterLocation,
       key,
       "YAxis"
     );

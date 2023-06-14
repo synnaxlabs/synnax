@@ -14,6 +14,8 @@ import { Location, LooseLocationT } from "@synnaxlabs/x";
 import { CSS } from "@/core/css";
 import { preventDefault } from "@/util/event";
 
+import "@/core/std/Resize/ResizeCore.css";
+
 export interface ResizeCoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   location: LooseLocationT;
@@ -25,7 +27,7 @@ export interface ResizeCoreProps
 
 export const ResizeCore = ({
   location: location_,
-  style = {},
+  style,
   size,
   className,
   children,
@@ -50,7 +52,10 @@ export const ResizeCore = ({
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.inverse.v))}
+          className={CSS(
+            CSS.BE("resize", "handle"),
+            CSS.bordered(location.inverse.crude)
+          )}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

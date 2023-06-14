@@ -8,7 +8,7 @@ import {
 
 import { Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
 
-import { useAsyncEffect } from "..";
+import { useAsyncEffect } from "@/core/hooks";
 
 interface ClientContextValue {
   client: Synnax | null;
@@ -19,20 +19,20 @@ const ClientContext = createContext<ClientContextValue>({ client: null });
 export const useClient = (): Synnax | null => useContext(ClientContext).client;
 
 export interface ClientProviderProps extends PropsWithChildren {
-  connParams?: SynnaxProps;
+  params?: SynnaxProps;
 }
 
 export const ClientProvider = ({
-  connParams,
+  params,
   children,
 }: ClientProviderProps): ReactElement => {
   const [state, setState] = useState<{ client: Synnax | null }>({ client: null });
 
   useAsyncEffect(async () => {
-    if (connParams == null) return;
+    if (params == null) return;
 
     const client = new Synnax({
-      ...connParams,
+      ...params,
       connectivityPollFrequency: TimeSpan.seconds(5),
     });
     await client.connectivity.check();
@@ -43,7 +43,7 @@ export const ClientProvider = ({
       client.close();
       setState({ client: null });
     };
-  }, [connParams]);
+  }, [params]);
 
   return <ClientContext.Provider value={state}>{children}</ClientContext.Provider>;
 };

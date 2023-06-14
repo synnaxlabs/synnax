@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader } from "@/components";
 import { VisToolbarTitle } from "@/vis/components";
-import { LinePlotAxisControls } from "@/vis/line/controls/LinePlotAxisControls";
 import { LinePlotChannelControls } from "@/vis/line/controls/LinePlotChannelControls";
 
 export interface LinePlotToolbarProps {
@@ -19,14 +20,9 @@ export interface LinePlotToolbarProps {
 }
 
 export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
-  const content = ({ tabKey }: Tab): ReactElement => {
-    switch (tabKey) {
-      case "axes":
-        return <LinePlotAxisControls layoutKey={layoutKey} />;
-      default:
-        return <LinePlotChannelControls layoutKey={layoutKey} />;
-    }
-  };
+  const content = ({ tabKey }: Tab): ReactElement => (
+    <LinePlotChannelControls layoutKey={layoutKey} />
+  );
 
   const tabProps = Tabs.useStatic({
     tabs: [

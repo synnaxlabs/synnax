@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export const CORNER_LOCATIONS: Record<CornerT, [XLocationT, YLocationT]> = {
+export const CORNER_LOCATIONS: Record<Corner, [CrudeXLocation, CrudeYLocation]> = {
   topLeft: ["left", "top"],
   topRight: ["right", "top"],
   bottomLeft: ["left", "bottom"],
@@ -46,7 +46,7 @@ const order = z.enum(ORDERS);
 const corner = z.enum(CORNERS);
 const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
-const boundZ = z.object({ lower: z.number(), upper: z.number() });
+const boundsZ = z.object({ lower: z.number(), upper: z.number() });
 const dimension = z.enum(["width", "height"]);
 
 const looseDirection = z.union([direction, location]);
@@ -55,32 +55,32 @@ const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
 const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, numberCouple]);
 const looseLocation = looseDirection;
-const looseBoundZ = z.union([boundZ, numberCouple]);
+const looseBoundZ = z.union([boundsZ, numberCouple]);
 const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
 const looseDimensions = z.union([dimensions, signedDimensions, xy, numberCouple]);
 
 export type NumberCouple = z.infer<typeof numberCouple>;
-export type YLocationT = z.infer<typeof yLocation>;
-export type XLocationT = z.infer<typeof xLocation>;
-export type OuterLocationT = z.infer<typeof outerLocation>;
-export type CenterLocationT = typeof CENTER_LOCATION;
-export type LocationT = z.infer<typeof location>;
-export type DirectionT = z.infer<typeof direction>;
-export type XYT = z.infer<typeof xy>;
-export type DimensionsT = z.infer<typeof dimensions>;
-export type SignedDimensionsT = z.infer<typeof signedDimensions>;
-export type BoundT = z.input<typeof boundZ>;
-export type PositionT = z.infer<typeof position>;
-export type OrderT = z.infer<typeof order>;
-export type CornerT = z.infer<typeof corner>;
+export type CrudeYLocation = z.infer<typeof yLocation>;
+export type CrudeXLocation = z.infer<typeof xLocation>;
+export type CrudeOuterLocation = z.infer<typeof outerLocation>;
+export type CrudeCenterLocation = typeof CENTER_LOCATION;
+export type CrudeLocation = z.infer<typeof location>;
+export type CrudeDirection = z.infer<typeof direction>;
+export type CrudeXY = z.infer<typeof xy>;
+export type CrudeDimensions = z.infer<typeof dimensions>;
+export type SignedDimensions = z.infer<typeof signedDimensions>;
+export type CrudeBounds = z.input<typeof boundsZ>;
+export type CrudePosition = z.infer<typeof position>;
+export type CrudeOrder = z.infer<typeof order>;
+export type Corner = z.infer<typeof corner>;
+export type Dimension = z.infer<typeof dimension>;
 export type XYTransformT = z.infer<typeof xyTransform>;
 export type ClientXYT = z.infer<typeof clientXY>;
 export type TransformT = z.infer<typeof transform>;
-export type DimensionT = z.infer<typeof dimension>;
 
 export type LooseXYT = z.input<typeof looseXY>;
-export type LooseYLocationT = z.infer<typeof looseYLocation>;
-export type LooseXLocationT = z.infer<typeof looseXLocation>;
+export type LooseCrudeYLocation = z.infer<typeof looseYLocation>;
+export type LooseCrudeXLocation = z.infer<typeof looseXLocation>;
 export type LooseXYTransformT = z.infer<typeof looseXYTransform>;
 export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
 export type LooseDimensionsT = z.infer<typeof looseDimensions>;
@@ -92,7 +92,7 @@ export type LooseBoundT = z.infer<typeof looseBoundZ>;
 export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
 export type LooseLocationT = z.infer<typeof looseLocation> | Location;
 
-export const cornerLocations = (corner: CornerT): [XLocationT, YLocationT] =>
+export const cornerLocations = (corner: Corner): [CrudeXLocation, CrudeYLocation] =>
   CORNER_LOCATIONS[corner];
 
 /**
@@ -100,14 +100,15 @@ export const cornerLocations = (corner: CornerT): [XLocationT, YLocationT] =>
  */
 export class Direction extends String {
   constructor(direction: LooseDirectionT) {
-    if (DIRECTIONS.includes(direction as DirectionT)) super(direction);
-    else if (Y_LOCATIONS.includes(direction as YLocationT)) super("y");
+    if (direction instanceof Direction) super(direction.valueOf());
+    else if (DIRECTIONS.includes(direction as CrudeDirection)) super(direction);
+    else if (Y_LOCATIONS.includes(direction as CrudeYLocation)) super("y");
     else super("x");
   }
 
   /** @returns the direction in its primitive form i.e. the string "x" or "y". */
-  get v(): DirectionT {
-    return this.valueOf() as DirectionT;
+  get crude(): CrudeDirection {
+    return this.valueOf() as CrudeDirection;
   }
 
   /**
@@ -126,10 +127,10 @@ export class Direction extends String {
 
   /** @returns "top" if the direction is "y" and "left" if the direction is "x". */
   get location(): Location {
-    return new Location(this.valueOf() as DirectionT);
+    return new Location(this.valueOf() as CrudeDirection);
   }
 
-  get dimension(): DimensionT {
+  get dimension(): Dimension {
     return this.equals("x") ? "width" : "height";
   }
 
@@ -164,7 +165,7 @@ export class Direction extends String {
  */
 export class Location extends String {
   constructor(location: LooseLocationT) {
-    if (!Direction.DIRECTIONS.includes(location as DirectionT)) super(location);
+    if (!Direction.DIRECTIONS.includes(location as CrudeDirection)) super(location);
     else if (location === "x") super("left");
     else super("top");
   }
@@ -179,8 +180,8 @@ export class Location extends String {
   }
 
   /** @returns the value of a location as a primitive javascript scring. */
-  get v(): LocationT {
-    return this.valueOf() as LocationT;
+  get crude(): CrudeLocation {
+    return this.valueOf() as CrudeLocation;
   }
 
   /**
@@ -188,44 +189,44 @@ export class Location extends String {
    * is "right".
    */
   get inverse(): Location {
-    return new Location(Location.SWAPPED[this.valueOf() as LocationT]);
+    return new Location(Location.SWAPPED[this.valueOf() as CrudeLocation]);
   }
 
   /**
    * @returns the direction best representing the location, where "top" and "bottom"
-   * are "y" and "left" and "right" are "x". To get the inverse of this behavior, simply
+   * are "y" and "left" and "right" are "x". To get the inverse of this behavio, simply
    * call the "inverse" getter on the returned direction.
    */
   get direction(): Direction {
-    return new Direction(this.v as DirectionT);
+    return new Direction(this.crude as CrudeDirection);
   }
 
   /**
    * @returns true if the location is an outer location i.e. not "center".
    */
   get isOuter(): boolean {
-    return OUTER_LOCATIONS.includes(this.v as OuterLocationT);
+    return OUTER_LOCATIONS.includes(this.crude as CrudeOuterLocation);
   }
 
   /**
    * @returns true if the location is an x location i.e. "left" or "right".
    */
   get isX(): boolean {
-    return X_LOCATIONS.includes(this.v as XLocationT);
+    return X_LOCATIONS.includes(this.crude as CrudeXLocation);
   }
 
   /**
    * @returns true if the location is a y location i.e. "top" or "bottom".
    */
   get isY(): boolean {
-    return Y_LOCATIONS.includes(this.v as YLocationT);
+    return Y_LOCATIONS.includes(this.crude as CrudeYLocation);
   }
 
   /**
    * @returns true if the location is a center location i.e. "center".
    */
   get isCenter(): boolean {
-    return this.v === "center";
+    return this.crude === "center";
   }
 
   /** The "top" location. */
@@ -297,7 +298,7 @@ export class Location extends String {
     .or(z.instanceof(Location).refine((v) => v.isOuter))
     .transform((v) => new Location(v));
 
-  private static readonly SWAPPED: Record<LocationT, LocationT> = {
+  private static readonly SWAPPED: Record<CrudeLocation, CrudeLocation> = {
     top: "bottom",
     bottom: "top",
     left: "right",
@@ -331,27 +332,25 @@ export class XY {
     } else if ("signedWidth" in x) {
       this.x = x.signedWidth;
       this.y = x.signedHeight;
-    } else if ("width" in x) {
-      this.x = x.width;
-      this.y = x.height;
     } else if ("clientX" in x) {
       this.x = x.clientX;
       this.y = x.clientY;
+    } else if ("width" in x) {
+      this.x = x.width;
+      this.y = x.height;
     } else {
       this.x = x.x;
       this.y = x.y;
     }
   }
 
-  /** @returns the XY in its primitive form i.e {x: number, y: number} */
-  get v(): XYT {
+  /** @returns the XY in its crude form i.e {x: number, y: number} */
+  get crude(): CrudeXY {
     return { x: this.x, y: this.y };
   }
 
   /** @returns an XY coordinate translated by the given x value */
-  translateX(x: number): XY {
-    return new XY(this.x + x, this.y);
-  }
+  translateX(x: number): XY {}
 
   /** @returns an XY coordinate translated by the given y value */
   translateY(y: number): XY {
@@ -430,7 +429,7 @@ export class Dimensions {
   }
 
   /** @returns the dimensions in its primitive form i.e {width: number, height: number} */
-  get v(): DimensionsT {
+  get crude(): CrudeDimensions {
     return { width: this.width, height: this.height };
   }
 
@@ -496,7 +495,7 @@ export class Bounds {
   }
 
   /** @returns the bound in its primitive form i.e {lower: number, upper: number} */
-  get v(): BoundT {
+  get crude(): CrudeBounds {
     return { lower: this.lower, upper: this.upper };
   }
 
@@ -583,5 +582,5 @@ export class Bounds {
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
    * only accept a bound as an input.
    * */
-  static readonly strictZ = boundZ.transform((v) => new Bounds(v));
+  static readonly strictZ = boundsZ.transform((v) => new Bounds(v));
 }

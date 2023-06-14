@@ -13,3 +13,5 @@ export * from "@/util/debounce";
 export * from "@/util/renderProp";
 export * from "@/core";
 export * from "@/Pluto";
+export * from "@/client";
+export * from "@/vis/LinePlot";

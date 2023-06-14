@@ -19,7 +19,7 @@ import { ClusterToolbar, connectClusterWindowLayout } from "@/cluster";
 import { createDocsLayout } from "@/docs";
 import { useLayoutPlacer } from "@/layout/hooks";
 import { VisToolbar } from "@/vis";
-import { createLineVis } from "@/vis/line";
+import { createLineVis } from "@/vis/line/LinePlot/core";
 
 import "@/layout/components/GetStarted.css";
 

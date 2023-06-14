@@ -7,20 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
-import { Tree, Space } from "@synnaxlabs/pluto";
+import { Tree, Space, Client, useAsyncEffect } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
 
-import { useClusterClient } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useAsyncEffect } from "@/hooks";
 import { NavDrawerItem, useLayoutPlacer } from "@/layout";
 import { WorkspaceState } from "@/workspace";
 
@@ -52,7 +50,7 @@ const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => 
 };
 
 const ResourcesTree = (): ReactElement => {
-  const client = useClusterClient();
+  const client = Client.use();
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [data, setData] = useState<TreeLeaf[]>([]);
   const store = useStore();

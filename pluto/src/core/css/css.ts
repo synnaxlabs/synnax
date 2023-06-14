@@ -10,10 +10,10 @@
 import {
   Direction,
   Location,
-  LocationT,
+  CrudeLocation,
   LooseDirectionT,
   LooseLocationT,
-  PositionT,
+  CrudePosition,
 } from "@synnaxlabs/x";
 
 import { CSSGridBuilder } from "./grid";
@@ -26,12 +26,12 @@ export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
   expanded: (expanded: boolean) => string;
   loc: (location: LooseLocationT) => string;
-  pos: (position: PositionT | "") => string;
+  pos: (position: CrudePosition | "") => string;
   dir: (direction?: LooseDirectionT) => string | false;
   size: (size: ComponentSize | number) => string | false;
   sharp: (sharp?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
-  bordered: (location?: LocationT | PositionT | boolean) => string | false;
+  bordered: (location?: CrudeLocation | CrudePosition | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;

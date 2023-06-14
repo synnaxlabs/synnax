@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DirectionT, Location, LocationT, LooseLocationT, OrderT } from "@synnaxlabs/x";
+import {
+  CrudeDirection,
+  Location,
+  CrudeLocation,
+  LooseLocationT,
+  CrudeOrder,
+} from "@synnaxlabs/x";
 
 import { MosaicNode } from "@/core/std/Mosaic/types";
 import { Tab, Tabs } from "@/core/std/Tabs";
@@ -211,7 +217,9 @@ const findMosaicNode = (node: MosaicNode, key: number): MosaicNode | undefined =
   return findMosaicNode(node.last, key);
 };
 
-const splitArrangement = (insertPosition: LocationT): [OrderT, OrderT, DirectionT] => {
+const splitArrangement = (
+  insertPosition: CrudeLocation
+): [CrudeOrder, CrudeOrder, CrudeDirection] => {
   switch (insertPosition) {
     case "top":
       return ["first", "last", "y"];

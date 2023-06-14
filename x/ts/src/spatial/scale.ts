@@ -11,10 +11,10 @@ import { clamp } from "@/clamp";
 import { Box } from "@/spatial/box";
 import {
   Bounds,
-  CornerT,
+  Corner,
   cornerLocations as cornerLocs,
   XY,
-  DirectionT,
+  CrudeDirection,
   XYTransformT,
   LooseXYT,
   LooseBoundT,
@@ -205,7 +205,7 @@ export class Scale {
   }
 }
 
-export type XYScale = Record<DirectionT, Scale>;
+export type XYScale = Record<CrudeDirection, Scale>;
 
 export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
   scale: {
@@ -221,7 +221,7 @@ export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
 export class BoxScale {
   x: Scale;
   y: Scale;
-  currRoot: CornerT | null;
+  currRoot: Corner | null;
 
   constructor() {
     this.x = new Scale();

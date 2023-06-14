@@ -12,17 +12,17 @@ import { z } from "zod";
 import { Stringer } from "@/primitive";
 import {
   Dimensions,
-  CornerT,
+  Corner,
   XY,
-  SignedDimensionsT,
+  SignedDimensions,
   Bounds,
-  OuterLocationT,
+  CrudeOuterLocation,
   Location,
-  XLocationT,
-  XYT,
+  CrudeXLocation,
+  CrudeXY,
   LooseDirectionT,
   Direction,
-  DimensionsT,
+  CrudeDimensions,
 } from "@/spatial/core";
 
 const cssBox = z.object({
@@ -70,7 +70,7 @@ export type DOMRect = z.infer<typeof domRect>;
 export class Box implements Stringer {
   readonly one: XY;
   readonly two: XY;
-  readonly root: CornerT;
+  readonly root: Corner;
 
   readonly isBox: true = true;
 
@@ -78,14 +78,14 @@ export class Box implements Stringer {
     first:
       | number
       | DOMRect
-      | XYT
+      | CrudeXY
       | Box
       | { getBoundingClientRect: () => DOMRect }
       | BoxT,
-    second?: number | XYT | DimensionsT | SignedDimensionsT,
+    second?: number | CrudeXY | CrudeDimensions | SignedDimensions,
     width: number = 0,
     height: number = 0,
-    coordinateRoot?: CornerT
+    coordinateRoot?: Corner
   ) {
     if (first instanceof Box) {
       this.one = first.one;
@@ -159,7 +159,7 @@ export class Box implements Stringer {
     return new Dimensions({ width: this.width, height: this.height });
   }
 
-  get signedDims(): SignedDimensionsT {
+  get signedDims(): SignedDimensions {
     return { signedWidth: this.signedWidth, signedHeight: this.signedHeight };
   }
 
@@ -178,7 +178,7 @@ export class Box implements Stringer {
     return signed ? dim : Math.abs(dim);
   }
 
-  corner(corner: CornerT): XY {
+  corner(corner: Corner): XY {
     switch (corner) {
       case "topLeft":
         return new XY({ x: this.left, y: this.top });
@@ -191,9 +191,9 @@ export class Box implements Stringer {
     }
   }
 
-  loc(loc: OuterLocationT): number {
+  loc(loc: CrudeOuterLocation): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
-    return Location.X_LOCATIONS.includes(loc as XLocationT)
+    return Location.X_LOCATIONS.includes(loc as CrudeXLocation)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
   }
@@ -266,7 +266,7 @@ export class Box implements Stringer {
     return new Bounds(this.one.y, this.two.y);
   }
 
-  copy(root?: CornerT): Box {
+  copy(root?: Corner): Box {
     return new Box(this.one, this.two, 0, 0, root ?? this.root);
   }
 
@@ -274,7 +274,7 @@ export class Box implements Stringer {
     return `Top Left: ${this.topLeft.x}, ${this.topLeft.y} Bottom Right: ${this.bottomRight.x}, ${this.bottomRight.y}`;
   }
 
-  reRoot(corner: CornerT): Box {
+  reRoot(corner: Corner): Box {
     return this.copy(corner);
   }
 

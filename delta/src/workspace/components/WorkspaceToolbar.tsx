@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon } from "@synnaxlabs/media";
 import { Space, Accordion } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -20,7 +22,7 @@ import { VisList } from "./VisList";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
 import { VisToolbar } from "@/vis";
-import { createLineVis } from "@/vis/line";
+import { createLineVis } from "@/vis/line/LinePlot/core";
 
 const Content = (): ReactElement => {
   const newLayout = useLayoutPlacer();
