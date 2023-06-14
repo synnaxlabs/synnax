@@ -60,13 +60,13 @@ importers:
     dependencies:
       '@synnaxlabs/freighter': link:../../freighter/ts
       '@synnaxlabs/x': link:../../x/ts
-      typescript: 5.1.3
       zod: 3.21.4
     devDependencies:
       '@synnaxlabs/tsconfig': link:../../configs/ts
       '@synnaxlabs/vite-plugin': link:../../configs/vite
       '@types/node': 20.3.0
       eslint-config-synnaxlabs: link:../../configs/eslint
+      typescript: 5.1.3
       vite: 4.3.9_@types+node@20.3.0
       vitest: 0.32.0_sauq52y7hglmc4fkxj27tw2q6i
 
@@ -3767,7 +3767,7 @@ packages:
       detect-libc: 2.0.1
       https-proxy-agent: 5.0.1
       make-dir: 3.1.0
-      node-fetch: 2.6.9
+      node-fetch: 2.6.11
       nopt: 5.0.0
       npmlog: 5.0.1
       rimraf: 3.0.2
@@ -7078,7 +7078,7 @@ packages:
       strip-ansi: 7.0.1
       supports-esm: 1.0.0
       tsconfig-resolver: 3.0.1
-      typescript: 4.9.5
+      typescript: 5.1.3
       unist-util-visit: 4.1.2
       vfile: 5.3.7
       vite: 4.3.9_@types+node@20.3.0
@@ -12075,22 +12075,9 @@ packages:
         optional: true
     dependencies:
       whatwg-url: 5.0.0
-    dev: true
 
   /node-fetch/2.6.7:
     resolution: {integrity: sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ==}
-    engines: {node: 4.x || >=6.0.0}
-    peerDependencies:
-      encoding: ^0.1.0
-    peerDependenciesMeta:
-      encoding:
-        optional: true
-    dependencies:
-      whatwg-url: 5.0.0
-    dev: false
-
-  /node-fetch/2.6.9:
-    resolution: {integrity: sha512-DJm/CJkZkRjKKj4Zi4BsKVZh3ValV5IR5s7LVZnW+6YMh0W1BfNA8XSs6DLMGYlId5F3KnA70uu2qepcR08Qqg==}
     engines: {node: 4.x || >=6.0.0}
     peerDependencies:
       encoding: ^0.1.0
@@ -14563,7 +14550,7 @@ packages:
     engines: {node: '>=14'}
     dependencies:
       abort-controller: 3.0.0
-      node-fetch: 2.6.9
+      node-fetch: 2.6.11
     transitivePeerDependencies:
       - encoding
     dev: false

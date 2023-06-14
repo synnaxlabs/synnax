@@ -33,8 +33,8 @@ const CONN_PARAMS = {
 
 export const decorators = [
     (StoryFn) => (
-        <React.StrictMode>
+        <StrictMode>
             <Pluto connParams={CONN_PARAMS}>{StoryFn()}</Pluto>
-        </React.StrictMode>
+        </StrictMode>
     ),
 ];

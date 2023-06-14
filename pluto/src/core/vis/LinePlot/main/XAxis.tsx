@@ -41,7 +41,7 @@ export const XAxis = memo(
       ...props,
     });
     const gridStyle = useAxisPosition(
-      new Location(location).v as CrudeOuterLocation,
+      new Location(location).crude as CrudeOuterLocation,
       key,
       "XAxis"
     );

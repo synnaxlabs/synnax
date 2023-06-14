@@ -61,11 +61,11 @@ export type DOMRect = z.infer<typeof domRect>;
  * Box represents a general box in 2D space. It typically represents a bounding box
  * for a DOM element, but can also represent a box in clip space or decimal space.
  *
- * It'simportant to note that the behavior of a Box varies depending on its coordinate system.
- * Make sure you're aware of which coordinate system you're using.
+ * It'simportant to note that the behavior of a Box varies depending on its coordinate
+ * system.Make sure you're aware of which coordinate system you're using.
  *
- * Many of the properties and methods on a Box access the same semantic value. The different
- * accessors are there for ease of use and semantics.
+ * Many of the properties and methods on a Box access the same semantic value. The
+ * different accessors are there for ease of use and semantics.
  */
 export class Box implements Stringer {
   readonly one: XY;
@@ -139,30 +139,56 @@ export class Box implements Stringer {
     else this.two = new XY(second);
   }
 
-  contains(box: Box | XY): boolean {
-    if ("signedWidth" in box)
+  /**
+   * Checks if a box contains a point or another box.
+   *
+   * @param value - The point or box to check.
+   * @returns true if the box inclusively contains the point or box and false otherwise.
+   */
+  contains(value: Box | XY): boolean {
+    if ("signedWidth" in value)
       return (
-        box.left >= this.left &&
-        box.right <= this.right &&
-        box.top >= this.top &&
-        box.bottom <= this.bottom
+        value.left >= this.left &&
+        value.right <= this.right &&
+        value.top >= this.top &&
+        value.bottom <= this.bottom
       );
     return (
-      box.x >= this.left &&
-      box.x <= this.right &&
-      box.y >= this.top &&
-      box.y <= this.bottom
+      value.x >= this.left &&
+      value.x <= this.right &&
+      value.y >= this.top &&
+      value.y <= this.bottom
     );
   }
 
+  /**
+   * @returns true if the given box is semantically equal to this box and false otherwise.
+   */
+  equals(box: Box): boolean {
+    return (
+      this.one.equals(box.one) && this.two.equals(box.two) && this.root === box.root
+    );
+  }
+
+  /**
+   * @returns the dimensions of the box. Note that these dimensions are guaranteed to
+   * be positive. To get the signed dimensions, use the `signedDims` property.
+   */
   get dims(): Dimensions {
     return new Dimensions({ width: this.width, height: this.height });
   }
 
+  /**
+   * @returns the dimensions of the box. Note that these dimensions may be negative.
+   * To get the unsigned dimensions, use the `dims` property.
+   */
   get signedDims(): SignedDimensions {
     return { signedWidth: this.signedWidth, signedHeight: this.signedHeight };
   }
 
+  /**
+   * @returns the css representation of the box.
+   */
   get css(): CSSBox {
     return {
       top: this.top,
@@ -178,6 +204,7 @@ export class Box implements Stringer {
     return signed ? dim : Math.abs(dim);
   }
 
+  /** @returns the pont corresponding to the given corner of the box. */
   corner(corner: Corner): XY {
     switch (corner) {
       case "topLeft":
@@ -191,6 +218,11 @@ export class Box implements Stringer {
     }
   }
 
+  /**
+   * @returns a one dimensional coordinate corresponding to the location of the given
+   * side of the box i.e. the x coordinate of the left side, the y coordinate of the
+   * top side, etc.
+   */
   loc(loc: CrudeOuterLocation): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
     return Location.X_LOCATIONS.includes(loc as CrudeXLocation)
@@ -278,8 +310,13 @@ export class Box implements Stringer {
     return this.copy(corner);
   }
 
+  /** A box centered at (0,0) with a width and height of 0. */
   static readonly ZERO = new Box(0, 0, 0, 0);
 
+  /**
+   * A box centered at (0,0) with a width and height of 1, and rooted in the
+   * bottom left. Note that pixel space is typically rooted in the top left.
+   */
   static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
 
   static readonly z = box;

@@ -113,13 +113,7 @@ const shouldResize = (
   prev: Box,
   next: Box
 ): boolean => {
-  if (triggers.length === 0)
-    return (
-      prev.width !== next.width ||
-      prev.height !== next.height ||
-      prev.left !== next.left ||
-      prev.top !== next.top
-    );
+  if (triggers.length === 0) return !next.equals(prev);
   if (triggers.includes("resizeX") && prev.width !== next.width) return true;
   if (triggers.includes("resizeY") && prev.height !== next.height) return true;
   if (triggers.includes("moveX") && prev.left !== next.left) return true;

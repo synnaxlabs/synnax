@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { XY } from "./core";
+import { XY } from "@/spatial/core";
 
 export const posititonSoVisible = (target: HTMLElement, xy: XY): [XY, boolean] => {
   const { width, height } = target.getBoundingClientRect();

@@ -26,7 +26,7 @@ export interface ResizeCoreProps
 }
 
 export const ResizeCore = ({
-  location: location_,
+  location: loc_,
   style,
   size,
   className,
@@ -36,26 +36,18 @@ export const ResizeCore = ({
   showHandle = true,
   ...props
 }: ResizeCoreProps): ReactElement => {
-  const location = new Location(location_);
+  const loc = new Location(loc_);
   return (
     <div
-      className={CSS(
-        CSS.B("resize"),
-        CSS.loc(location),
-        CSS.dir(location.direction),
-        className
-      )}
-      style={{ [location.direction.dimension]: `${size}${sizeUnits}`, ...style }}
+      className={CSS(CSS.B("resize"), CSS.loc(loc), CSS.dir(loc.direction), className)}
+      style={{ [loc.direction.dimension]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={CSS(
-            CSS.BE("resize", "handle"),
-            CSS.bordered(location.inverse.crude)
-          )}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(loc.inverse.crude))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}
