@@ -133,7 +133,7 @@ const MosaicTabLeaf = memo(
           {...props}
         />
         {dragMask != null && (
-          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask.v]} />
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask.crude]} />
         )}
       </div>
     );

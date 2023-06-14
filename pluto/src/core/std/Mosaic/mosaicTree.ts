@@ -27,6 +27,7 @@ export const insertMosaicTab = (
   loc_: LooseLocationT = "center",
   key?: number
 ): MosaicNode => {
+  root = shallowCopyNode(root);
   const loc = new Location(loc_);
   if (key === undefined) return insertAnywhere(root, tab);
 
@@ -46,7 +47,7 @@ export const insertMosaicTab = (
   // so we do nothing.
   if (node.tabs == null || node.tabs.length === 0) return root;
 
-  const [insertOrder, siblingOrder, dir] = splitArrangement(loc.v);
+  const [insertOrder, siblingOrder, dir] = splitArrangement(loc.crude);
   node.direction = dir;
 
   node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
@@ -64,21 +65,23 @@ export const insertMosaicTab = (
   node.size = undefined;
   node.selected = undefined;
 
-  return shallowCopyNode(root);
+  return root;
 };
 
-const insertAnywhere = (node: MosaicNode, tab: Tab): MosaicNode => {
-  if (node.tabs != null) {
-    node.tabs.push(tab);
-    node.selected = tab.tabKey;
-    return node;
+const insertAnywhere = (root: MosaicNode, tab: Tab): MosaicNode => {
+  root = shallowCopyNode(root);
+  if (root.tabs != null) {
+    root.tabs.push(tab);
+    root.selected = tab.tabKey;
+    return root;
   }
-  if (node.first != null) node.first = insertAnywhere(node.first, tab);
-  else if (node.last != null) node.last = insertAnywhere(node.last, tab);
-  return node;
+  if (root.first != null) root.first = insertAnywhere(root.first, tab);
+  else if (root.last != null) root.last = insertAnywhere(root.last, tab);
+  return root;
 };
 
 export const autoSelectTabs = (root: MosaicNode): [MosaicNode, string[]] => {
+  root = shallowCopyNode(root);
   const selected: string[] = [];
   if (root.tabs != null) {
     root.selected = Tabs.resetSelection(root.selected, root.tabs);
@@ -94,20 +97,21 @@ export const autoSelectTabs = (root: MosaicNode): [MosaicNode, string[]] => {
     root.last = r;
     selected.push(...l);
   }
-  return [shallowCopyNode(root), selected];
+  return [root, selected];
 };
 
 export const removeMosaicTab = (
   root: MosaicNode,
   tabKey: string
 ): [MosaicNode, string | null] => {
+  root = shallowCopyNode(root);
   const [, node] = findMosaicTab(root, tabKey);
   if (node == null) throw TabNotFound;
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
   const gced = gc(root);
   const selected = node.selected ?? findSelected(root);
-  return [shallowCopyNode(gced), selected];
+  return [gced, selected];
 };
 
 export const findSelected = (root: MosaicNode): string | null => {
@@ -118,10 +122,11 @@ export const findSelected = (root: MosaicNode): string | null => {
 };
 
 export const selectMosaicTab = (root: MosaicNode, tabKey: string): MosaicNode => {
+  root = shallowCopyNode(root);
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   entry.selected = tabKey;
-  return shallowCopyNode(root);
+  return root;
 };
 
 export const moveMosaicTab = (
@@ -130,11 +135,12 @@ export const moveMosaicTab = (
   loc: LooseLocationT,
   to: number
 ): [MosaicNode, string | null] => {
+  root = shallowCopyNode(root);
   const [tab, entry] = findMosaicTab(root, tabKey);
   if (tab == null || entry == null) throw TabNotFound;
   const [r2, selected] = removeMosaicTab(root, tabKey);
   const r3 = insertMosaicTab(r2, tab, loc, to);
-  return [shallowCopyNode(r3), selected];
+  return [r3, selected];
 };
 
 export const resizeMosaicNode = (
@@ -153,10 +159,11 @@ export const renameMosaicTab = (
   tabKey: string,
   name: string
 ): MosaicNode => {
+  root = shallowCopyNode(root);
   const [, leaf] = findMosaicTab(root, tabKey);
   if (leaf == null || leaf.tabs == null) throw TabNotFound;
   leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
-  return shallowCopyNode(root);
+  return root;
 };
 
 /** Finds the node with the given key or its closest ancestor. */
