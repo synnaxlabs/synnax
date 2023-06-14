@@ -17,7 +17,7 @@ export const font = (theme: Theme, level: TypographyLevel): string => {
     sizes: { base },
   } = theme;
   const size = typography[level].size as number;
-  return `${typography.family} ${base * size}`;
+  return ` ${base * size}px ${typography.family}`;
 };
 
 export const useFont = (level: TypographyLevel): string => {
