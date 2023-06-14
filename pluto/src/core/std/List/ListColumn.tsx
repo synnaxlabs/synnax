@@ -183,7 +183,7 @@ const columnWidths = <
     else {
       const { width: labelWidth } = Text.dimensions(col.name, font);
       const { width: entryWidth } = Text.dimensions(le[col.key as keyof E], font);
-      col.cWidth = Math.max(labelWidth, entryWidth);
+      col.cWidth = Math.max(labelWidth, entryWidth) * 1.5;
     }
     return col;
   });
@@ -202,7 +202,7 @@ const longestEntries = <
       const rv = entry[key as keyof E];
       if (rv == null) return;
       const value = stringer != null ? stringer(entry) : rv;
-      if (value.length > longest[key as keyof E]?.length)
+      if (!(key in longest) || value.length > longest[key as keyof E].length)
         longest[key as keyof E] = value;
     })
   );
