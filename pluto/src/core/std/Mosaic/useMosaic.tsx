@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Location } from "@synnaxlabs/x";
+import { Deep, Location } from "@synnaxlabs/x";
 
 import {
   moveMosaicTab,
@@ -52,7 +52,7 @@ export const useMosaic = ({
   const handleSelect = (tabKey: string): void =>
     setRoot((r) => selectMosaicTab(r, tabKey));
 
-  const handleResized = (key: number, size: number): void =>
+  const handleResize = (key: number, size: number): void =>
     setRoot((r) => resizeMosaicNode(r, key, size));
 
   const handleRename = (tabKey: string, title: string): void =>
@@ -63,7 +63,7 @@ export const useMosaic = ({
     onDrop: handleDrop,
     onClose: handleClose,
     onSelect: handleSelect,
-    onResize: handleResized,
+    onResize: handleResize,
     onRename: allowRename ? handleRename : undefined,
   };
 };

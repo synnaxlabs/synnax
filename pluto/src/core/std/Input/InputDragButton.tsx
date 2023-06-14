@@ -68,7 +68,6 @@ export const InputDragButton = ({
     ref: elRef,
     onMove: useCallback(
       (box: Box) => {
-        console.log(box);
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         const { x, y } = normalDragThreshold;

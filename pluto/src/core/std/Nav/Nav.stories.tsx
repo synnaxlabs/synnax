@@ -52,6 +52,7 @@ export const LeftDrawer: StoryFn<typeof Nav.Drawer> = () => {
         key: "2",
         content: <h1>Hello</h1>,
         initialSize: 200,
+        maxSize: 300,
       },
     ],
   });

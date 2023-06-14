@@ -83,8 +83,6 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
     else setSize(index, MIN_SIZE + 1);
   };
 
-  console.log(resizeProps);
-
   return (
     <Resize.Multiple
       empty

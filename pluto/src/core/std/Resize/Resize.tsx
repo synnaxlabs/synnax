@@ -49,7 +49,8 @@ export const Resize = ({
       if (marker.current === null) return 0;
       const dir = location.direction;
       const dim =
-        box.dim(dir, true) * (1 - 2 * Number(["bottom", "right"].includes(location.v)));
+        box.dim(dir, true) *
+        (1 - 2 * Number(["bottom", "right"].includes(location.crude)));
       const rawNextSize = marker.current + dim;
       const nextSize = clamp(rawNextSize, minSize, maxSize);
       if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;

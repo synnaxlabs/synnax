@@ -19,7 +19,7 @@ const story: Meta<typeof Resize> = {
 };
 
 const Template = (args: ResizeProps): ReactElement => (
-  <Resize {...args}>
+  <Resize {...args} location="right">
     <h1>Resize</h1>
   </Resize>
 );
@@ -27,6 +27,8 @@ const Template = (args: ResizeProps): ReactElement => (
 export const Primary: StoryFn<typeof Resize> = Template.bind({});
 Primary.args = {
   style: {
+    position: "absolute",
+    right: 0,
     height: "100%",
     minWidth: 200,
     maxWidth: 500,
