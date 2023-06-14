@@ -102,7 +102,7 @@ export const useSelectMultiple = <
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
-      onChange(unique(nextSelected as K[]));
+      onChange(unique(nextSelected));
     },
     [onChange, value, data, allowMultiple]
   );

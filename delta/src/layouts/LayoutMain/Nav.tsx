@@ -22,8 +22,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
-import { NAV_SIZES } from "./constants";
-
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
@@ -35,6 +33,7 @@ import {
   NavMenuItem,
   useLayoutPlacer,
 } from "@/layout";
+import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { ResourcesToolbar } from "@/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
@@ -197,7 +196,7 @@ export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement 
       location={location}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", new Location(location).direction.v)
+        CSS.BM("main-nav-drawer", new Location(location).direction.crude)
       )}
       activeItem={activeItem}
       onResize={onResize}

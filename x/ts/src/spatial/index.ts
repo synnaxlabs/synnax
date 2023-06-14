@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "./box";
-export * from "./core";
-export * from "./scale";
-export * from "./position";
+export * from "@/spatial/box";
+export * from "@/spatial/core";
+export * from "@/spatial/scale";
+export * from "@/spatial/position";

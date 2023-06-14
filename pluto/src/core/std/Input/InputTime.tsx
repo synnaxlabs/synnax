@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback, useEffect } from "react";
+import { forwardRef, useCallback } from "react";
 
 import { TimeSpan, TimeStamp, TZInfo } from "@synnaxlabs/x";
 
@@ -51,17 +51,16 @@ export const InputTime = forwardRef<HTMLInputElement, InputTimeProps>(
   ) => {
     const ts = new TimeStamp(value, "UTC");
 
-    useEffect(() => {
-      // We want to check for remainder overflow in LOCAL time.
-      const local = ts.sub(TimeStamp.utcOffset);
-      // All good.
-      if (!local.after(TimeStamp.DAY)) return;
+    // We want to check for remainder overflow in LOCAL time.
+    const local = ts.sub(TimeStamp.utcOffset);
+    // All good.
+    if (local.after(TimeStamp.DAY)) {
       // Chop off the extra time.
       const tsV = local.remainder(TimeStamp.DAY);
       // We have a correcly zeroed timestamp in local, now
       // add back the UTC offset to get the UTC timestamp.
       onChange(new TimeStamp(tsV, "local").valueOf());
-    });
+    }
 
     const handleChange = useCallback(
       (value: number | string) => {

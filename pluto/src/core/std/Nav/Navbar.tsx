@@ -33,7 +33,7 @@ const CoreNavbar = ({
     <Space
       className={CSS(
         CSS.B("navbar"),
-        CSS.bordered(location.inverse.v),
+        CSS.bordered(location.inverse.crude),
         CSS.dir(location.direction.inverse),
         className
       )}

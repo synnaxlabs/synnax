@@ -78,8 +78,8 @@ export const ZERO_RANGES_STATE: RangesState = {
 };
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
-  zoom: Dimensions.ZERO.v,
-  pan: XY.ZERO.v,
+  zoom: Dimensions.ZERO.crude,
+  pan: XY.ZERO.crude,
 };
 
 export const ZERO_LINE_STYLES_STATE: LineStylesState = [];
@@ -87,7 +87,7 @@ export const ZERO_LINE_STYLES_STATE: LineStylesState = [];
 export const ZERO_AXIS_STATE: AxisState = {
   label: "",
   driven: true,
-  bounds: Bounds.ZERO.v,
+  bounds: Bounds.ZERO.crude,
 };
 
 export const ZERO_AXES_STATE: AxesState = {

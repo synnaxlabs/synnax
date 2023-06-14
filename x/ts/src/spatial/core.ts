@@ -350,7 +350,9 @@ export class XY {
   }
 
   /** @returns an XY coordinate translated by the given x value */
-  translateX(x: number): XY {}
+  translateX(x: number): XY {
+    return new XY(this.x + x, this.y);
+  }
 
   /** @returns an XY coordinate translated by the given y value */
   translateY(y: number): XY {

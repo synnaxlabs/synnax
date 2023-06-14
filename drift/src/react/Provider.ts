@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState, createElement } from "react";
+import { ReactElement, useState, createElement } from "react";
 
 import type { Action, AnyAction, EnhancedStore } from "@reduxjs/toolkit";
 import { Provider } from "react-redux";
@@ -53,14 +53,14 @@ export const DriftProvider = <
 }: ProviderProps<S, A, M, E>): ReactElement | null => {
   const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  useEffect(() => {
+  if (error != null)
+    return errorContent?.(error) ?? createElement("h1", {}, error.message);
+  if (store == null) {
     // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
     else storeOrPromise.then((s) => setStore(s)).catch((e) => setError(e));
-  }, []);
-  if (error != null)
-    return errorContent?.(error) ?? createElement("h1", {}, error.message);
-  if (store == null) return emptyContent;
+    return emptyContent;
+  }
   // @ts-expect-error
   return createElement(Provider<A, S>, { store }, children);
 };
