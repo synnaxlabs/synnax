@@ -9,7 +9,7 @@
 
 import React, { useState, memo, useCallback, ReactElement } from "react";
 
-import { Location, LocationT } from "@synnaxlabs/x";
+import { Location, CrudeLocation } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Haul, Hauled } from "@/core/haul";
@@ -143,7 +143,7 @@ const MosaicTabLeaf = memo(
 MosaicTabLeaf.displayName = "MosaicTabLeaf";
 
 const maskStyle: Record<
-  LocationT,
+  CrudeLocation,
   { left: string; top: string; width: string; height: string }
 > = {
   top: { left: "0%", top: "0%", width: "100%", height: "50%" },

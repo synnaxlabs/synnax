@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 
-import { Box, OuterLocationT, Location } from "@synnaxlabs/x";
+import { Box, CrudeOuterLocation, Location } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
@@ -42,7 +42,7 @@ export interface LinePlotProps
     HTMLDivProps {}
 
 export interface LinePlotContextValue {
-  setAxis: (loc: OuterLocationT, key: string) => void;
+  setAxis: (loc: CrudeOuterLocation, key: string) => void;
   deleteAxis: (key: string) => void;
 }
 
@@ -56,7 +56,7 @@ export const useLinePlotContext = (component: string): LinePlotContextValue => {
 };
 
 export const useAxisPosition = (
-  loc: OuterLocationT,
+  loc: CrudeOuterLocation,
   key: string,
   component: string
 ): CSSProperties => {
@@ -72,7 +72,7 @@ export const useAxisPosition = (
   return { gridArea };
 };
 
-type AxisState = Array<[OuterLocationT, string]>;
+type AxisState = Array<[CrudeOuterLocation, string]>;
 
 export const LinePlot = ({
   children,
@@ -116,7 +116,7 @@ export const LinePlot = ({
   });
 
   const setAxis = useCallback(
-    (loc: OuterLocationT, key: string) =>
+    (loc: CrudeOuterLocation, key: string) =>
       setAxes((prev) => [...prev.filter(([, k]) => k !== key), [loc, key]]),
     []
   );
@@ -159,7 +159,7 @@ export const LinePlot = ({
 
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
   const builder = CSS.newGridBuilder();
-  const filterAxisLoc = (loc: OuterLocationT): AxisState =>
+  const filterAxisLoc = (loc: CrudeOuterLocation): AxisState =>
     axisCounts.filter(([l]) => l === loc);
   filterAxisLoc("top").forEach(([, key]) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, X_AXIS_SIZE)

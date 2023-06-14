@@ -58,7 +58,7 @@ const MainUnderContext = (): ReactElement => {
     <Pluto
       {...theme}
       workerEnabled={appWindow.label === "main"}
-      connParams={cluster?.props}
+      params={cluster?.props}
     >
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <LayoutWindow />

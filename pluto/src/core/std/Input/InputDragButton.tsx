@@ -9,7 +9,7 @@
 
 import { ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { Box, DirectionT, LooseXYT, XY } from "@synnaxlabs/x";
+import { Box, CrudeDirection, LooseXYT, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { CSS } from "@/core/css";
@@ -20,8 +20,8 @@ import { InputControl } from "@/core/std/Input/types";
 import "@/core/std/Input/InputDragButton.css";
 
 export interface InputDragButtonExtensionProps {
-  direction?: DirectionT;
-  dragDirection?: DirectionT;
+  direction?: CrudeDirection;
+  dragDirection?: CrudeDirection;
   dragScale?: LooseXYT | number;
   dragThreshold?: LooseXYT | number;
 }
@@ -68,6 +68,7 @@ export const InputDragButton = ({
     ref: elRef,
     onMove: useCallback(
       (box: Box) => {
+        console.log(box);
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         const { x, y } = normalDragThreshold;

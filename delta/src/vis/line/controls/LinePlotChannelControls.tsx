@@ -10,13 +10,13 @@
 import { ReactElement, useState } from "react";
 
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
-import { Space, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Space, useAsyncEffect, Client } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { useSelectLinevis } from "../LinePlot/core";
 
 import { AxisKey } from "@/vis/axis";
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "@/vis/components";
-import { Channels } from "@/vis/line/channels";
-import { Ranges } from "@/vis/line/ranges";
 import { updateVis } from "@/vis/store";
 import { SelectMultipleRangesInputItem, useSelectRanges } from "@/workspace";
 
@@ -27,12 +27,11 @@ export interface LinePlotChannelControlsProps {
 export const LinePlotChannelControls = ({
   layoutKey,
 }: LinePlotChannelControlsProps): ReactElement | null => {
-  const ranges = Ranges.useSelectCore(layoutKey);
-  const channels = Channels.useSelectCore(layoutKey);
+  const vis = useSelectLinevis(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectRanges();
 
-  const client = useClusterClient();
+  const client = Client.use();
 
   const [allChannels, setAllChannels] = useState<ChannelPayload[]>([]);
 
@@ -58,7 +57,7 @@ export const LinePlotChannelControls = ({
       <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleChannelSelect}
-        value={channels.y1}
+        value={vis.channels.y1}
         data={allChannels}
         location="top"
         grow
@@ -66,7 +65,7 @@ export const LinePlotChannelControls = ({
       <SelectMultipleAxesInputItem
         axis={"y2"}
         onChange={handleChannelSelect}
-        value={channels.y2}
+        value={vis.channels.y2}
         data={allChannels}
         location="top"
         grow
@@ -75,7 +74,7 @@ export const LinePlotChannelControls = ({
         <SelectMultipleRangesInputItem
           data={allRanges}
           onChange={handleRangeSelect}
-          value={ranges.x1}
+          value={vis.ranges.x1}
           location="top"
           grow
         />
@@ -83,7 +82,7 @@ export const LinePlotChannelControls = ({
         <SelectAxisInputItem
           axis={"x1"}
           onChange={handleChannelSelect}
-          value={channels.x1}
+          value={vis.channels.x1}
           location="top"
           data={allChannels}
           grow

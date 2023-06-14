@@ -13,25 +13,28 @@ import {
   Deep,
   DeepPartial,
   Dimensions,
-  BoundT,
-  XYT,
-  DimensionsT,
+  CrudeBounds,
+  CrudeXY,
+  CrudeDimensions,
   Bounds,
 } from "@synnaxlabs/x";
 
-import { Layout, LayoutCreator } from "@/layout";
+import { useMemoSelect } from "@/hooks";
+import { Layout, LayoutCreator, LayoutStoreState } from "@/layout";
 import { AxisKey, MultiXAxisRecord, MultiYAxisRecord, XAxisRecord } from "@/vis/axis";
 import { VisMeta } from "@/vis/core";
 import { createVis } from "@/vis/layout";
+import { VisStoreState, selectRequiredVis } from "@/vis/store";
+import { Range, WorkspaceStoreState, selectRanges } from "@/workspace";
 
 export interface ViewportState {
-  zoom: DimensionsT;
-  pan: XYT;
+  zoom: CrudeDimensions;
+  pan: CrudeXY;
 }
 
 export interface AxisState {
   label?: string;
-  bounds: BoundT;
+  bounds: CrudeBounds;
   driven: boolean;
 }
 
@@ -49,6 +52,8 @@ export type LineStylesState = LineState[];
 export type ChannelsState = MultiYAxisRecord<ChannelKey> & XAxisRecord<ChannelKey>;
 
 export type RangesState = MultiXAxisRecord<string>;
+
+export type SugaredRangesState = MultiXAxisRecord<Range>;
 
 export interface LineVis extends VisMeta {
   channels: ChannelsState;
@@ -108,4 +113,25 @@ export const createLineVis = (
 ): LayoutCreator =>
   createVis<LineVis>(
     Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
+  );
+
+export const useSelectLineVisRanges = (key: string): SugaredRangesState =>
+  useMemoSelect(
+    (state: VisStoreState & LayoutStoreState & WorkspaceStoreState) => {
+      const core = selectRequiredVis<LineVis>(state, key, "line").ranges;
+      const keys = Object.keys(core);
+      const ranges = selectRanges(state, keys);
+      return {
+        x1: ranges.filter((r) => core.x1.includes(r.key)),
+        x2: ranges.filter((r) => core.x2.includes(r.key)),
+      };
+    },
+    [key]
+  );
+
+export const useSelectLinevis = (key: string): LineVis =>
+  useMemoSelect(
+    (state: VisStoreState & LayoutStoreState & WorkspaceStoreState) =>
+      selectRequiredVis<LineVis>(state, key, "line"),
+    [key]
   );

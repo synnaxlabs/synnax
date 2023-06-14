@@ -16,8 +16,6 @@ import { CSS } from "@/core/css";
 import { useCursorDrag } from "@/core/hooks/useCursorDrag";
 import { ResizeCore, ResizeCoreProps } from "@/core/std/Resize/ResizeCore";
 
-import "@/core/std/Resize/Resize.css";
-
 /** Props for the {@link Resize} component. */
 export interface ResizeProps
   extends Omit<ResizeCoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {

@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { unique, positionSoVisible, ClientXYT, XYT, XY } from "@synnaxlabs/x";
+import { unique, positionSoVisible, ClientXYT, CrudeXY, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside } from "@/core/hooks";
@@ -40,7 +40,7 @@ export type ContextMenuEvent = ClientXYT & {
 
 /** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
 export type ContextMenuOpen = (
-  pos: XYT | ClientXYT | ContextMenuEvent,
+  pos: CrudeXY | ClientXYT | ContextMenuEvent,
   keys?: string[]
 ) => void;
 

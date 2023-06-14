@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, xyScaleToTransform, LazyArray, DirectionT } from "@synnaxlabs/x";
+import { Bounds, xyScaleToTransform, LazyArray, CrudeDirection } from "@synnaxlabs/x";
 
 import { AetherFactory, AetherLeaf } from "@/core/aether/worker";
 import {
@@ -75,7 +75,7 @@ export class LineGLProgram extends GLProgram {
     this.ctx.gl.drawArraysInstanced(this.ctx.gl.LINE_STRIP, 0, x.length, count);
   }
 
-  private bindAttrBuffer(dir: DirectionT, buffer: WebGLBuffer): void {
+  private bindAttrBuffer(dir: CrudeDirection, buffer: WebGLBuffer): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const n = gl.getAttribLocation(this.prog, `a_${dir}`);

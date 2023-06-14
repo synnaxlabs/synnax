@@ -9,7 +9,7 @@
 
 import { FunctionComponent, ReactElement } from "react";
 
-import { Location, LooseLocationT, PositionT } from "@synnaxlabs/x";
+import { Location, LooseLocationT, CrudePosition } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Space, SpaceProps } from "@/core/std/Space";
@@ -55,7 +55,7 @@ export interface NavbarContentProps extends Omit<SpaceProps<"div">, "ref"> {
 }
 
 const contentFactory =
-  (pos: PositionT | ""): FunctionComponent<NavbarContentProps> =>
+  (pos: CrudePosition | ""): FunctionComponent<NavbarContentProps> =>
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...props }: NavbarContentProps): ReactElement =>
     (

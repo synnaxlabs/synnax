@@ -9,14 +9,61 @@
 
 import { ReactElement } from "react";
 
-import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { LinePlot as PLinePlot, AxisProps, LineProps } from "@synnaxlabs/pluto";
+import { TimeRange } from "@synnaxlabs/x";
 
+import {
+  LineVis,
+  SugaredRangesState,
+  useSelectLinevis,
+  useSelectLineVisRanges,
+} from "./core";
 import "./LinePlot.css";
 
-import { useSelectTheme } from "@/layout";
+import { AxisKey, axisLocation, X_AXIS_KEYS, XAxisKey } from "@/vis/axis";
 
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
-  const theme = useSelectTheme();
+  const vis = useSelectLinevis(layoutKey);
+  const ranges = useSelectLineVisRanges(layoutKey);
 
-  return <PLinePlot lines={} axes={} />;
+  return <PLinePlot lines={buildLines(vis, ranges)} axes={buildAxes(vis)} />;
 };
+
+export const buildAxes = (vis: LineVis): AxisProps[] =>
+  Object.entries(vis.axes)
+    .map(([key, axis]): AxisProps | null => {
+      const channels = vis.channels[key as AxisKey];
+      if ((Array.isArray(channels) && channels.length > 0) || channels === 0)
+        return null;
+      return {
+        id: key,
+        location: axisLocation(key as AxisKey),
+      };
+    })
+    .filter((axis: AxisProps | null): boolean => axis !== null) as AxisProps[];
+
+export const buildLines = (vis: LineVis, sug: SugaredRangesState): LineProps[] =>
+  Object.entries(sug).map(([xAxis, ranges]) =>
+    ranges.map((range) =>
+      Object.entries(vis.channels)
+        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
+        .map(([yAxis, yChannels]) => {
+          const xChannel = vis.channels[xAxis as XAxisKey];
+          return (yChannels as number[]).map((channel) => {
+            const v: LineProps = {
+              variant: "static",
+              axes: {
+                x: xAxis,
+                y: yAxis,
+              },
+              channels: {
+                x: xChannel,
+                y: channel,
+              },
+              range: new TimeRange(range.start, range.end),
+            };
+            return v;
+          });
+        })
+    )
+  );

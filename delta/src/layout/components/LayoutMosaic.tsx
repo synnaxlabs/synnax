@@ -26,7 +26,7 @@ import {
 
 import { LayoutContent } from "./LayoutContent";
 
-import { createLineVis } from "@/vis/line";
+import { createLineVis } from "@/vis/line/LinePlot/core";
 
 const emptyContent = <Logo.Watermark />;
 

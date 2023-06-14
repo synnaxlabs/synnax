@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { LineVis } from "./core";
+
+import { useMemoSelect } from "@/hooks";
+import { LayoutStoreState } from "@/layout";
+import { VisStoreState, selectRequiredVis } from "@/vis/store";
+import { WorkspaceStoreState } from "@/workspace";
+
 export * from "./LinePlot";
+

@@ -25,7 +25,7 @@ export const selectVis = <V extends VisMeta>(
   layoutKey?: string,
   variant?: V["variant"]
 ): V | undefined | null => {
-  const v = selectByKey<V>(
+  const v = selectByKey<string, V>(
     state.visualization.visualizations as Record<string, V>,
     layoutKey,
     state.layout.mosaic.activeTab
@@ -61,14 +61,14 @@ export const useSelectVis = <V extends VisMeta = VisMeta>(
   variant?: V["variant"]
 ): V | null | undefined =>
   useMemoSelect(
-    (state: VisualizationStoreState & LayoutStoreState) =>
+    (state: VisStoreState & LayoutStoreState) =>
       selectVis<V>(state, layoutKey, variant),
     [layoutKey]
   );
 
 export const useSelectVisMeta = (layoutKey?: string): VisMeta | null | undefined =>
   useMemoSelect(
-    (state: VisualizationStoreState & LayoutStoreState) => {
+    (state: VisStoreState & LayoutStoreState) => {
       const vis = selectVis(state, layoutKey);
       if (vis == null) return null;
       return {
@@ -81,7 +81,7 @@ export const useSelectVisMeta = (layoutKey?: string): VisMeta | null | undefined
 
 export const useSelectRequiredVisMeta = (layoutKey: string): VisMeta =>
   useMemoSelect(
-    (state: VisualizationStoreState & LayoutStoreState) => {
+    (state: VisStoreState & LayoutStoreState) => {
       const vis = selectRequiredVis(state, layoutKey);
       return {
         key: vis.key,
@@ -92,7 +92,7 @@ export const useSelectRequiredVisMeta = (layoutKey: string): VisMeta =>
   );
 
 export const selectMultipleVis = (
-  state: VisualizationStoreState & LayoutStoreState,
+  state: VisStoreState & LayoutStoreState,
   layoutKeys?: string[]
 ): VisMeta[] =>
   selectByKeys(

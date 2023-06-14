@@ -12,7 +12,7 @@ import { memo } from "react";
 import { useSelectRequiredVisMeta } from "../store";
 
 import { LayoutRenderer, LayoutRendererProps } from "@/layout";
-import { LinePlot } from "@/vis/line";
+import { LinePlot } from "@/vis/line/LinePlot";
 
 export const VisLayoutRenderer: LayoutRenderer = memo(
   ({ layoutKey }: LayoutRendererProps) => {

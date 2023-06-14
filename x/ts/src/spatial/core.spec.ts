@@ -12,8 +12,10 @@ import { describe, expect, test, it } from "vitest";
 import {
   Bounds,
   Dimensions,
+  Direction,
   LooseBoundT,
   LooseDimensionsT,
+  LooseDirectionT,
   LooseXYT,
   XY,
 } from "@/spatial";
@@ -26,6 +28,7 @@ describe("Spatial Core", () => {
         ["from couple", [1, 2]],
         ["from dimensions", { width: 1, height: 2 }],
         ["from signed dimensions", { signedWidth: 1, signedHeight: 2 }],
+        ["from client dimensions", { clientX: 1, clientY: 2 }],
       ].forEach(([name, arg]) => {
         test(name as string, () => {
           const xy = new XY(arg as LooseXYT);
@@ -106,6 +109,20 @@ describe("Spatial Core", () => {
         test(`equals ${i}`, () => {
           const xy = new Dimensions(one);
           expect(xy.equals(new Dimensions(two))).toEqual(expected);
+        });
+      });
+    });
+  });
+
+  describe("Direction", () => {
+    describe("construction", () => {
+      [
+        ["from direction", new Direction("y")],
+        ["from literal", "y"],
+      ].forEach(([name, arg]) => {
+        test(name as string, () => {
+          const direction = new Direction(arg as LooseDirectionT);
+          expect(direction.crude).toEqual("y");
         });
       });
     });

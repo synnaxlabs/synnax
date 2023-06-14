@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, useCallback, useState } from "react";
+import { Dispatch, ReactElement, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
@@ -18,6 +18,7 @@ import {
   Theme,
   useOS,
   Theming,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -36,8 +37,6 @@ import {
   useSelectTheme,
 } from "../store";
 import { Layout } from "../types";
-
-import { useAsyncEffect, AsyncDestructor } from "@/hooks";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
@@ -98,7 +97,7 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
   if (layout == null) throw new Error(`layout with key ${key} does not exist`);
   return () => {
     if (layout.location === "window") dispatch(closeWindow({ key }));
-    dispatch(removeLayout(key))
+    dispatch(removeLayout(key));
   };
 };
 
@@ -113,7 +112,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
-  useAsyncEffect(async (): AsyncDestructor => {
+  useAsyncEffect(async () => {
     if (appWindow.label !== MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);

@@ -46,6 +46,7 @@ Text.WithIcon = TextWithIcon;
 Text.Editable = TextEditable;
 Text.DateTime = TextDateTime;
 Text.Link = TextLink;
+Text.dimensions = textDimensions;
 
 /** Holds typography related components and constants. */
 export const Typography = {

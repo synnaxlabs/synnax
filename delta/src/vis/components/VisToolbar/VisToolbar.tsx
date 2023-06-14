@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Space, Status } from "@synnaxlabs/pluto";
 
 import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem } from "@/layout";
-import { LinePlotToolBar } from "@/vis/line";
+import { LinePlotToolBar } from "@/vis/line/controls/LinePlotToolbar";
 import { useSelectVisMeta } from "@/vis/store";
 
 const NoVisContent = (): ReactElement => (

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, BoxScale, Compare, DimensionsT } from "@synnaxlabs/x";
+import { Box, Dimensions, XY, BoxScale, Compare, CrudeDimensions } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -37,7 +37,7 @@ export interface UseViewportProps {
   triggers?: UseViewportTriggers;
   onChange?: UseViewportHandler;
   resetOnDoubleClick?: boolean;
-  threshold?: DimensionsT;
+  threshold?: CrudeDimensions;
   initial?: Box;
 }
 

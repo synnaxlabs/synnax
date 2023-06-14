@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, forwardRef } from "react";
+import { ReactElement, forwardRef, useCallback } from "react";
 
 import { Pack } from "../Pack";
 
@@ -53,11 +53,20 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       />
     );
 
+    const onDragChange = useCallback(
+      (value: number) => onChange(Math.round(value)),
+      [onChange]
+    );
+
     if (!showDragHandle) return input;
     return (
       <Pack {...props}>
         {input}
-        <InputDragButton direction={dragDirection} value={value} onChange={onChange} />
+        <InputDragButton
+          direction={dragDirection}
+          value={value}
+          onChange={onDragChange}
+        />
       </Pack>
     );
   }
