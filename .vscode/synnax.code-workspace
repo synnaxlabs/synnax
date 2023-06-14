@@ -92,6 +92,10 @@
       "name": "stylelint",
       "path": "../configs/stylelint"
     },
+    {
+      "name": "landing",
+      "path": "../landing"
+    }
   ],
   "settings": {
     "editor.formatOnSave": true,

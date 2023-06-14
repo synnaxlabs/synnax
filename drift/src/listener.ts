@@ -9,10 +9,10 @@
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
 
-import { Communicator } from "./runtime";
-import { PreloadedState, StoreState } from "./state";
-import { sugar } from "./sugar";
-import { validateAction } from "./validate";
+import { Communicator } from "@/runtime";
+import { PreloadedState, StoreState } from "@/state";
+import { sugar } from "@/sugar";
+import { validateAction } from "@/validate";
 
 /** A store whose state can be retrieved. */
 export interface StoreStateGetter<S extends StoreState> {

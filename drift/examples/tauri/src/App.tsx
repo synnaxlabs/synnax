@@ -19,7 +19,7 @@ function App() {
   const dispatch = useDispatch();
   const numCreated = Object.keys(windows).length;
   const numOpen = Object.values(windows).filter(
-    ({ state }) => state === 'created'
+    ({stage}) => stage === 'created'
   ).length;
   return (
     <div className="App">
@@ -44,6 +44,7 @@ function App() {
           onClick={() => {
             dispatch(
               createWindow({
+                key: `window-${numCreated}`,
                 title: `Window ${numCreated}`,
                 url: '/',
               })
