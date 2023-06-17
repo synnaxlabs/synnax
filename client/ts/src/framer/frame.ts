@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, LazyArray, TimeRange, toArray, DataType, unique } from "@synnaxlabs/x";
+import { Size, Series, TimeRange, toArray, DataType, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -30,7 +30,7 @@ const labeledBy = (labels: ChannelParams): LabeledBy => {
 
 const validateMatchedLabelsAndArrays = (
   labels: ChannelParams,
-  arrays: LazyArray[]
+  arrays: Series[]
 ): void => {
   const labelsArr = toArray(labels);
   if (labelsArr.length === arrays.length) return;
@@ -82,15 +82,15 @@ const validateMatchedLabelsAndArrays = (
  */
 export class Frame {
   readonly labels: ChannelKeys | ChannelNames = [];
-  readonly arrays: LazyArray[] = [];
+  readonly arrays: Series[] = [];
 
   constructor(
     labelsOrData:
       | FramePayload
       | ChannelParams
-      | Map<ChannelKeyOrName, LazyArray[] | LazyArray>
-      | Record<ChannelKeyOrName, LazyArray[] | LazyArray> = [],
-    arrays: LazyArray | LazyArray[] = []
+      | Map<ChannelKeyOrName, Series[] | Series>
+      | Record<ChannelKeyOrName, Series[] | Series> = [],
+    arrays: Series | Series[] = []
   ) {
     // Construction from a map.
     if (labelsOrData instanceof Map) {
@@ -251,7 +251,7 @@ export class Frame {
    * @returns lazy arrays matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: ChannelKeyOrName): LazyArray[];
+  get(key: ChannelKeyOrName): Series[];
 
   /**
    * @returns a frame with the given channel keys or names.
@@ -259,7 +259,7 @@ export class Frame {
    */
   get(keys: ChannelKeys | ChannelNames): Frame;
 
-  get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): LazyArray[] | Frame {
+  get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): Series[] | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as ChannelKeys).includes(k as ChannelKey));
     return this.arrays.filter((_, i) => this.labels[i] === key);
@@ -271,7 +271,7 @@ export class Frame {
    * @param key the channel key or name;
    * @param v the typed arrays to push.
    */
-  push(key: ChannelKeyOrName, ...v: LazyArray[]): void;
+  push(key: ChannelKeyOrName, ...v: Series[]): void;
 
   /**
    * Pushes the frame onto the current frame.
@@ -280,7 +280,7 @@ export class Frame {
    */
   push(frame: Frame): void;
 
-  push(keyOrFrame: ChannelKeyOrName | Frame, ...v: LazyArray[]): void {
+  push(keyOrFrame: ChannelKeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
       if (this.labeledBy !== null && keyOrFrame.labeledBy !== this.labeledBy)
         throw new ValidationError("keyVariant must match");
@@ -325,11 +325,7 @@ export class Frame {
    * boolean.
    */
   map(
-    fn: (
-      k: ChannelKeyOrName,
-      arr: LazyArray,
-      i: number
-    ) => [ChannelKeyOrName, LazyArray]
+    fn: (k: ChannelKeyOrName, arr: Series, i: number) => [ChannelKeyOrName, Series]
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
@@ -341,7 +337,7 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and typed array.
    */
-  forEach(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => void): void {
+  forEach(fn: (k: ChannelKeyOrName, arr: Series, i: number) => void): void {
     this.labels.forEach((k, i) => {
       const a = this.arrays[i];
       fn(k, a, i);
@@ -353,7 +349,7 @@ export class Frame {
    * the provided filter function.
    * @param fn a function that takes a channel key and typed array and returns a boolean.
    */
-  filter(fn: (k: ChannelKeyOrName, arr: LazyArray, i: number) => boolean): Frame {
+  filter(fn: (k: ChannelKeyOrName, arr: Series, i: number) => boolean): Frame {
     const frame = new Frame();
     this.labels.forEach((k, i) => {
       const a = this.arrays[i];
@@ -401,12 +397,12 @@ export const frameZ = z.object({
 
 export type FramePayload = z.infer<typeof frameZ>;
 
-export const arrayFromPayload = (payload: ArrayPayload): LazyArray => {
+export const arrayFromPayload = (payload: ArrayPayload): Series => {
   const { dataType, data, timeRange } = payload;
-  return new LazyArray(data, dataType, timeRange);
+  return new Series(data, dataType, timeRange);
 };
 
-export const arrayToPayload = (array: LazyArray): ArrayPayload => {
+export const arrayToPayload = (array: Series): ArrayPayload => {
   return {
     timeRange: array._timeRange,
     dataType: array.dataType,

@@ -7,23 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
-
 import { UnknownRecord } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 
 import { proxyMemo } from "@/core/memo";
 import { ArrayTransform } from "@/util/transform";
 
-/** Props for the {@link useSearchTransform} hook. */
+/** Props for the {@link createSearchTransform} hook. */
 export interface UseSearchTransformProps<E extends UnknownRecord<E>> {
-  query: string;
-  opts?: Fuse.IFuseOptions<E>;
+  term: string;
+  searcher?: Searcher<E> | ((data: E[]) => Searcher<E>);
+}
+
+export interface Searcher<E extends UnknownRecord<E>> {
+  search: (term: string) => E[];
 }
 
 const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
   threshold: 0.3,
 };
+
+export const fuseSearcher =
+  (opts?: Fuse.IFuseOptions<UnknownRecord>) =>
+  <E extends UnknownRecord<E>>(data: E[]): Searcher<E> => {
+    const fuse = new Fuse(data, {
+      keys: Object.keys(data[0]),
+      ...defaultOpts,
+      ...opts,
+    });
+    return {
+      search: (term: string) => fuse.search(term).map(({ item }) => item),
+    };
+  };
+
+const defaultSearcher = fuseSearcher();
 
 /**
  * @returns a transform that can be used to filter an array of objects in memory
@@ -38,19 +55,14 @@ const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
  * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
  * documentation for more information on these options.
  */
-export const useSearchTransform = <E extends UnknownRecord<E>>({
-  query,
-  opts,
+export const createSearchTransform = <E extends UnknownRecord<E>>({
+  term,
+  searcher = defaultSearcher<E>,
 }: UseSearchTransformProps<E>): ArrayTransform<E> =>
-  useCallback(
-    proxyMemo((data) => {
-      if (data?.length === 0 || query.length === 0) return data;
-      const fuse = new Fuse(data, {
-        keys: Object.keys(data[0]),
-        ...opts,
-        ...defaultOpts,
-      });
-      return fuse.search(query).map((res) => res.item);
-    }),
-    [query]
-  );
+  proxyMemo((data) => {
+    if (typeof searcher === "function") {
+      if (term.length === 0 || data?.length === 0) return data;
+      return searcher(data).search(term);
+    }
+    return searcher.search(term);
+  });

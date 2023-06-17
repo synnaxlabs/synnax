@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, LazyArray } from "@synnaxlabs/x";
+import { TimeRange, Series } from "@synnaxlabs/x";
 
 /**
  * A cache for channel data that only accepts pre-written arrays i.e. it performs
@@ -37,7 +37,7 @@ export class StaticCache {
     return this.entries.map((r) => r.gap);
   }
 
-  write(tr: TimeRange, entries: LazyArray[]): void {
+  write(tr: TimeRange, entries: Series[]): void {
     const read = new CachedRead(tr, entries);
     const i = this.getInsertionIndex(tr);
     if (i !== this.entries.length) {
@@ -56,7 +56,7 @@ export class StaticCache {
     return i;
   }
 
-  dirtyRead(tr: TimeRange): [LazyArray[], TimeRange[]] {
+  dirtyRead(tr: TimeRange): [Series[], TimeRange[]] {
     const reads = this.entries.filter((r) => r.timeRange.overlapsWith(tr));
     if (reads.length === 0) return [[], [tr]];
     const gaps = reads
@@ -75,10 +75,10 @@ export class StaticCache {
 
 class CachedRead {
   timeRange: TimeRange;
-  data: LazyArray[];
+  data: Series[];
   gap: TimeRange;
 
-  constructor(timeRange: TimeRange, data: LazyArray[]) {
+  constructor(timeRange: TimeRange, data: Series[]) {
     this.timeRange = timeRange;
     this.data = data;
     this.gap = TimeRange.ZERO;

@@ -10,10 +10,9 @@
 import { Bounds, Box, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { xyTelemSourceMeta } from "../telem/TelemSource";
-
 import { AetherComponent } from "@/core/aether/worker";
 import { Color } from "@/core/color";
+import { xyTelemSourceMeta } from "@/core/vis/telem";
 
 export const lineState = z.object({
   telem: xyTelemSourceMeta,
@@ -24,7 +23,7 @@ export const lineState = z.object({
 export type LineState = z.input<typeof lineState>;
 export type ParsedLineState = z.output<typeof lineState>;
 
-export interface LineContext {
+export interface LineProps {
   /**
    * A box in pixel space representing the region of the display that the line
    * should be rendered in. The root of the pixel coordinate system is the top
@@ -39,8 +38,7 @@ export interface LineContext {
 }
 
 export interface LineComponent extends AetherComponent {
-  state: LineState;
-  render: (ctx: LineContext) => void;
+  render: (props: LineProps) => void;
   xBounds: () => Promise<Bounds>;
   yBounds: () => Promise<Bounds>;
 }

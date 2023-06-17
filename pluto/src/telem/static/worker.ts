@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  LazyArray,
+  Series,
   GLBufferController,
   Bounds,
   nativeTypedArray,
@@ -48,22 +48,22 @@ export type StaticXYTelemProps = z.input<typeof staticXYTelemProps>;
 
 class StaticXYTelemCore {
   key: string;
-  _x: LazyArray[];
-  _y: LazyArray[];
+  _x: Series[];
+  _y: Series[];
   onChangeHandler?: () => void;
 
-  constructor(key: string, x: LazyArray[], y: LazyArray[]) {
+  constructor(key: string, x: Series[], y: Series[]) {
     this.key = key;
     this._x = x;
     this._y = y;
   }
 
-  async x(gl?: GLBufferController): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<Series[]> {
     if (gl != null) this._x.map((x) => x.updateGLBuffer(gl));
     return this._x;
   }
 
-  async y(gl?: GLBufferController): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<Series[]> {
     if (gl != null) this._y.map((y) => y.updateGLBuffer(gl));
     return this._y;
   }
@@ -102,7 +102,7 @@ export class StaticXYTelem extends StaticXYTelemCore implements XYTelemSource {
     super(
       key,
       props.x.map((x, i) => {
-        const arr = new LazyArray(
+        const arr = new Series(
           x,
           DataType.FLOAT32,
           TimeRange.ZERO,
@@ -112,7 +112,7 @@ export class StaticXYTelem extends StaticXYTelemCore implements XYTelemSource {
         return arr;
       }),
       props.y.map((y, i) => {
-        const arr = new LazyArray(
+        const arr = new Series(
           y,
           DataType.FLOAT32,
           TimeRange.ZERO,
@@ -127,12 +127,10 @@ export class StaticXYTelem extends StaticXYTelemCore implements XYTelemSource {
   setProps(props_: any): void {
     const props = staticXYTelemProps.parse(props_);
     this._x = props.x.map(
-      (x, i) =>
-        new LazyArray(x, DataType.FLOAT32, TimeRange.ZERO, props.xOffsets[i] ?? 0)
+      (x, i) => new Series(x, DataType.FLOAT32, TimeRange.ZERO, props.xOffsets[i] ?? 0)
     );
     this._y = props.y.map(
-      (y, i) =>
-        new LazyArray(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffsets[i] ?? 0)
+      (y, i) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffsets[i] ?? 0)
     );
     this.onChangeHandler?.();
   }
@@ -157,8 +155,8 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
     const { x, y, rate, yOffset } = iterativeXYTelemProps.parse(props_);
     super(
       key,
-      x.map((x) => new LazyArray(x)),
-      y.map((y) => new LazyArray(y, DataType.FLOAT32, TimeRange.ZERO, yOffset))
+      x.map((x) => new Series(x)),
+      y.map((y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, yOffset))
     );
     this.position = 0;
     this.start(rate);
@@ -166,19 +164,19 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
 
   setProps(props_: any): void {
     const props = iterativeXYTelemProps.parse(props_);
-    this._x = props.x.map((x) => new LazyArray(x));
+    this._x = props.x.map((x) => new Series(x));
     this._y = props.y.map(
-      (y) => new LazyArray(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffset)
+      (y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffset)
     );
   }
 
-  async x(gl?: GLBufferController): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<Series[]> {
     const x = this._x.map((x) => x.slice(0, this.position));
     if (gl != null) x.map((x) => x.updateGLBuffer(gl));
     return x;
   }
 
-  async y(gl?: GLBufferController): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<Series[]> {
     const y = this._y.map((y) => y.slice(0, this.position));
     if (gl != null) y.map((y) => y.updateGLBuffer(gl));
     return y;

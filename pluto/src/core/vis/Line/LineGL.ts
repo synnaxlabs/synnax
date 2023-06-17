@@ -7,72 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, xyScaleToTransform, LazyArray, CrudeDirection } from "@synnaxlabs/x";
+import { Bounds, xyScaleToTransform, Series, CrudeDirection } from "@synnaxlabs/x";
 
-import { AetherFactory, AetherLeaf } from "@/core/aether/worker";
+import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
 import {
   LineComponent,
-  LineState,
-  LineContext,
-  lineState,
+  LineProps,
   ParsedLineState,
+  lineState,
 } from "@/core/vis/Line/core";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
-import { GLProgram, RenderContext } from "@/core/vis/render";
+import {
+  RenderController,
+  RequestRender,
+  GLProgram,
+  RenderContext,
+} from "@/core/vis/render";
 import { XYTelemSource } from "@/core/vis/telem";
-import { TelemProvider } from "@/core/vis/telem/TelemService";
+import { TelemContext } from "@/core/vis/telem/TelemService";
 
-/**
- * A factory for creating webgl rendered lines.
- */
-export class LineFactory implements AetherFactory<LineComponent> {
-  private readonly program: LineGLProgram;
-  private readonly telem: TelemProvider;
-  requestRender: () => void;
-
-  /**
-   * @param prog - The webgl rendering context to use.
-   * @param telem - A function that returns the telemetry provider.
-   */
-  constructor(prog: LineGLProgram, telem: TelemProvider, requestRender: () => void) {
-    this.program = prog;
-    this.telem = telem;
-    this.requestRender = requestRender;
-  }
-
-  create(type: string, key: string, props: any): LineComponent {
-    if (type !== LineGL.TYPE)
-      throw new Error(
-        `[LineFactory.create] - Expected type ${LineGL.TYPE} but got ${type}`
-      );
-    return new LineGL(key, props, this.program, this.requestRender, this.telem);
-  }
-}
-
-export class LineGLProgram extends GLProgram {
+export class LineGLProgramContext extends GLProgram {
   translationBuffer: WebGLBuffer;
 
-  constructor(ctx: RenderContext) {
+  private static readonly CONTEXT_KEY = "pluto-line-gl-program";
+
+  private constructor(ctx: RenderContext) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
     this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
   }
 
-  bindPropsAndContext(ctx: LineContext, props: ParsedLineState): number {
+  bindPropsAndContext(ctx: LineProps, state: ParsedLineState): number {
     const scaleTransform = xyScaleToTransform(ctx.scale);
     const transform = xyScaleToTransform(this.ctx.scaleRegion(ctx.region));
     this.uniformXY("u_region_scale", transform.scale);
     this.uniformXY("u_region_offset", transform.offset);
-    this.uniformColor("u_color", props.color);
+    this.uniformColor("u_color", state.color);
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
-    return this.attrStrokeWidth(props.strokeWidth);
+    return this.attrStrokeWidth(state.strokeWidth);
   }
 
-  draw(x: LazyArray, y: LazyArray, count: number): void {
+  draw(x: Series, y: Series, count: number): void {
     this.bindAttrBuffer("x", x.glBuffer);
     this.bindAttrBuffer("y", y.glBuffer);
     this.ctx.gl.drawArraysInstanced(this.ctx.gl.LINE_STRIP, 0, x.length, count);
+  }
+
+  static create(ctx: AetherContext): LineGLProgramContext {
+    const render = RenderContext.use(ctx);
+    const line = new LineGLProgramContext(render);
+    ctx.set(LineGLProgramContext.CONTEXT_KEY, line);
+    return line;
+  }
+
+  static use(ctx: AetherContext): LineGLProgramContext {
+    return ctx.get<LineGLProgramContext>(LineGLProgramContext.CONTEXT_KEY);
   }
 
   private bindAttrBuffer(dir: CrudeDirection, buffer: WebGLBuffer): void {
@@ -104,32 +94,29 @@ export class LineGLProgram extends GLProgram {
   }
 }
 
-export class LineGL
-  extends AetherLeaf<LineState, ParsedLineState>
-  implements LineComponent
-{
-  prog: LineGLProgram;
-  requestRender: () => void;
-  telemProv: TelemProvider;
+export class LineGL extends AetherLeaf<typeof lineState> implements LineComponent {
+  prog: LineGLProgramContext;
   telem: XYTelemSource;
+  requestRender: RequestRender;
 
   static readonly TYPE = "line";
 
-  constructor(
-    key: string,
-    props: LineState,
-    program: LineGLProgram,
-    requestRender: () => void,
-    telemProv: TelemProvider
-  ) {
-    super(key, LineGL.TYPE, props, lineState);
-    this.prog = program;
-    this.requestRender = requestRender;
-    this.telemProv = telemProv;
-    this.telem = this.telemProv.get(props.telem.key);
-    this.setStateHook(() => this.requestRender());
-    this.setDeleteHook(() => this.cleanup());
-    if ("onChange" in this.telem) this.telem.onChange(() => this.requestRender());
+  constructor(change: Update) {
+    super(change, lineState);
+    this.prog = LineGLProgramContext.use(change.ctx);
+    this.telem = TelemContext.use<XYTelemSource>(change.ctx, this.state.telem.key);
+    this.requestRender = RenderController.useRequest(change.ctx);
+    this.handleUpdate(change.ctx);
+    this.onUpdate((ctx) => this.handleUpdate(ctx));
+    this.onDelete(() => this.cleanup());
+  }
+
+  private handleUpdate(ctx: AetherContext): void {
+    this.prog = LineGLProgramContext.use(ctx);
+    this.telem = TelemContext.use<XYTelemSource>(ctx, this.state.telem.key);
+    this.requestRender = RenderController.useRequest(ctx);
+    this.telem.onChange(() => this.requestRender());
+    this.requestRender();
   }
 
   async xBounds(): Promise<Bounds> {
@@ -140,7 +127,7 @@ export class LineGL
     return await this.telem.yBounds();
   }
 
-  async render(ctx: LineContext): Promise<void> {
+  async render(props: LineProps): Promise<void> {
     this.prog.setAsActive();
     const xData = await this.telem.x(this.prog.ctx.gl);
     const yData = await this.telem.y(this.prog.ctx.gl);
@@ -148,10 +135,10 @@ export class LineGL
       const y = yData[i];
       const count = this.prog.bindPropsAndContext(
         {
-          ...ctx,
+          ...props,
           scale: {
-            x: ctx.scale.x.translate(ctx.scale.x.dim(Number(x.sampleOffset))),
-            y: ctx.scale.y.translate(ctx.scale.x.dim(Number(y.sampleOffset))),
+            x: props.scale.x.translate(props.scale.x.dim(Number(x.sampleOffset))),
+            y: props.scale.y.translate(props.scale.x.dim(Number(y.sampleOffset))),
           },
         },
         this.state

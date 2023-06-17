@@ -9,6 +9,9 @@
 
 import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
+import { RenderQueue } from "./RenderQueue";
+
+import { AetherContext } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 
 /**
@@ -36,15 +39,25 @@ export class RenderContext {
   /** The device pixel ratio of the canvas */
   dpr: number;
 
-  constructor(
+  /** queue render transitions onto the stack */
+  readonly queue: RenderQueue;
+
+  private static readonly CONTEXT_KEY = "pluto-render";
+
+  static create(
+    ctx: AetherContext,
     glCanvas: OffscreenCanvas,
-    canvasCanvas: OffscreenCanvas,
-    region: Box,
-    dpr: number
-  ) {
+    canvasCanvas: OffscreenCanvas
+  ): RenderContext {
+    const render = new RenderContext(glCanvas, canvasCanvas);
+    ctx.set("render", render);
+    return render;
+  }
+
+  private constructor(glCanvas: OffscreenCanvas, canvasCanvas: OffscreenCanvas) {
     this.canvasCanvas = canvasCanvas;
     this.glCanvas = glCanvas;
-    this.region = region;
+    this.queue = new RenderQueue();
 
     const ctx = canvasCanvas.getContext("2d");
     if (ctx == null) throw new Error("Could not get 2D context");
@@ -54,8 +67,16 @@ export class RenderContext {
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
 
-    this.dpr = dpr;
-    this.resize(region, dpr);
+    this.region = Box.ZERO;
+    this.dpr = 1;
+  }
+
+  static useOptional(ctx: AetherContext): RenderContext | null {
+    return ctx.getOptional<RenderContext>(RenderContext.CONTEXT_KEY);
+  }
+
+  static use(ctx: AetherContext): RenderContext {
+    return ctx.get<RenderContext>(RenderContext.CONTEXT_KEY);
   }
 
   /**
@@ -167,5 +188,29 @@ export class RenderContext {
       box.height + overscan.y * 2
     );
     canvas.clearRect(os.left, os.top, os.width, os.height);
+  }
+}
+
+export type RequestRender = () => void;
+
+export class RenderController {
+  f: RequestRender;
+
+  static readonly CONTEXT_KEY = "pluto-vis-renderer";
+
+  private constructor(f: RequestRender) {
+    this.f = f;
+  }
+
+  static create(ctx: AetherContext, f: RequestRender): void {
+    ctx.set(RenderController.CONTEXT_KEY, new RenderController(f));
+  }
+
+  static useRequest(ctx: AetherContext): () => void {
+    return ctx.get<RenderController>(RenderController.CONTEXT_KEY).f;
+  }
+
+  static requestRender(ctx: AetherContext): void {
+    this.useRequest(ctx)();
   }
 }

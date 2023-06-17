@@ -9,7 +9,7 @@
 
 export * from "@/util/component";
 export * from "@/util/transform";
-export * from "@/util/debounce";
+export * from "@/core/hooks/useDebouncedCallback";
 export * from "@/util/renderProp";
 export * from "@/core";
 export * from "@/Pluto";

@@ -34,7 +34,6 @@ type HTMLCanvasProps = DetailedHTMLProps<
 export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
 export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement => {
-  const bootstrap = Aether.useBootstrap<Bootstrap>();
   const {
     path,
     state: [, setCanvas],

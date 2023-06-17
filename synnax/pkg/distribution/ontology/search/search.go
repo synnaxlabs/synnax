@@ -11,6 +11,7 @@ package search
 
 import (
 	"context"
+
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/blevesearch/bleve/search"
@@ -101,7 +102,7 @@ func (t *Tx) Close() { t.idx = nil; t.batch = nil }
 
 func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	s.L.Debug("registering schema", zap.String("type", string(sch.Type)))
-	ctx, span := s.T.Prod(ctx, "register")
+	_, span := s.T.Prod(ctx, "register")
 	defer span.End()
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("Name", bleve.NewTextFieldMapping())
@@ -111,9 +112,14 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
 
-func (s *Index) Search(term string) ([]schema.ID, error) {
+type SearchRequest struct {
+	Term string
+	Type schema.Type
+}
+
+func (s *Index) Search(req SearchRequest) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(context.Background(), "search")
-	q := bleve.NewQueryStringQuery(term)
+	q := bleve.NewQueryStringQuery(req.Term)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
 	searchResults, err := s.idx.SearchInContext(ctx, search_)

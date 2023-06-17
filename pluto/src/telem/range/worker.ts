@@ -11,7 +11,7 @@ import { Channel } from "@synnaxlabs/client";
 import {
   Bounds,
   GLBufferController,
-  LazyArray,
+  Series,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -54,8 +54,8 @@ class RangeXYTelemCore {
   client: Client;
   valid: boolean = false;
   handler: (() => void) | null = null;
-  _x: LazyArray[] = [];
-  _y: LazyArray[] = [];
+  _x: Series[] = [];
+  _y: Series[] = [];
 
   constructor(key: string, client: Client) {
     this.key = key;
@@ -77,13 +77,13 @@ class RangeXYTelemCore {
     this._y?.forEach((y) => y.release(gl));
   }
 
-  async x(gl?: GLBufferController): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<Series[]> {
     const x = this._x;
     if (gl != null) x.forEach((x) => x.updateGLBuffer(gl));
     return x;
   }
 
-  async y(gl?: GLBufferController): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<Series[]> {
     const y = this._y;
     if (gl != null) y.forEach((y) => y.updateGLBuffer(gl));
     return y;
@@ -122,7 +122,7 @@ class RangeXYTelemCore {
     const mustGenerate = toRead.length === 1;
     if (mustGenerate) {
       this._x = this._y.map((arr) =>
-        LazyArray.generateTimestamps(arr.length, rate, tr.start)
+        Series.generateTimestamps(arr.length, rate, tr.start)
       );
     } else {
       this._x = d[x as number].data;
@@ -164,12 +164,12 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
     this.valid = true;
   }
 
-  async y(gl?: GLBufferController): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
     return await super.y();
   }
 
-  async x(gl?: GLBufferController): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
     return await super.x();
   }
@@ -206,12 +206,12 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     this.key = key;
   }
 
-  async x(gl?: GLBufferController): Promise<LazyArray[]> {
+  async x(gl?: GLBufferController): Promise<Series[]> {
     if (this._x == null) await this.read(gl);
     return await super.x(gl);
   }
 
-  async y(gl?: GLBufferController): Promise<LazyArray[]> {
+  async y(gl?: GLBufferController): Promise<Series[]> {
     if (this._y == null) await this.read(gl);
     return await super.y(gl);
   }
@@ -241,7 +241,7 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
         } else {
           this._x?.push(
             ...yd.map((arr) =>
-              LazyArray.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
+              Series.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
             )
           );
         }

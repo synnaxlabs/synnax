@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, LazyArray, TimeRange } from "@synnaxlabs/x";
+import { DataType, Series, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { Frame } from "..";
@@ -19,9 +19,9 @@ describe("Frame", () => {
         const f = new Frame(
           ["a", "b", "c"],
           [
-            new LazyArray(new Float32Array([1, 2, 3])),
-            new LazyArray(new Float32Array([1, 2, 3])),
-            new LazyArray(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
           ]
         );
         expect(f.length).toEqual(9);
@@ -32,9 +32,9 @@ describe("Frame", () => {
         const f = new Frame(
           [12, 13, 14],
           [
-            new LazyArray(new Float32Array([1, 2, 3])),
-            new LazyArray(new Float32Array([1, 2, 3])),
-            new LazyArray(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
+            new Series(new Float32Array([1, 2, 3])),
           ]
         );
         expect(f.length).toEqual(9);
@@ -42,25 +42,25 @@ describe("Frame", () => {
       });
 
       test("from a single name and an array of arrays", () => {
-        const f = new Frame("a", [new LazyArray(new Float32Array([1, 2, 3]))]);
+        const f = new Frame("a", [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
         expect(f.labeledBy).toEqual("name");
       });
 
       test("from a single key and an array of arrays", () => {
-        const f = new Frame(12, [new LazyArray(new Float32Array([1, 2, 3]))]);
+        const f = new Frame(12, [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
         expect(f.labeledBy).toEqual("key");
       });
 
       test("from a single key and a single array", () => {
-        const f = new Frame(12, new LazyArray(new Float32Array([1, 2, 3])));
+        const f = new Frame(12, new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
         expect(f.labeledBy).toEqual("key");
       });
 
       test("from a single name and a single array", () => {
-        const f = new Frame("a", new LazyArray(new Float32Array([1, 2, 3])));
+        const f = new Frame("a", new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
         expect(f.labeledBy).toEqual("name");
       });
@@ -82,7 +82,7 @@ describe("Frame", () => {
 
       test("from record", () => {
         const f = new Frame({
-          a: new LazyArray(new Float32Array([1, 2, 3])),
+          a: new Series(new Float32Array([1, 2, 3])),
         });
         expect(f.length.valueOf()).toEqual(3);
         expect(f.labels.length).toEqual(1);
@@ -90,9 +90,7 @@ describe("Frame", () => {
       });
 
       test("from map", () => {
-        const f = new Frame(
-          new Map([[12, new LazyArray(new Float32Array([1, 2, 3]))]])
-        );
+        const f = new Frame(new Map([[12, new Series(new Float32Array([1, 2, 3]))]]));
         expect(f.length).toEqual(3);
         expect(f.labels.length).toEqual(1);
         expect(f.arrays.length).toEqual(1);
@@ -106,8 +104,8 @@ describe("Frame", () => {
             new Frame(
               ["a", "b", "c"],
               [
-                new LazyArray(new Float32Array([1, 2, 3])),
-                new LazyArray(new Float32Array([1, 2, 3])),
+                new Series(new Float32Array([1, 2, 3])),
+                new Series(new Float32Array([1, 2, 3])),
               ]
             )
         ).toThrow();
@@ -119,12 +117,12 @@ describe("Frame", () => {
     it("should return false if a key has more than one array", () => {
       const f = new Frame(
         new Map([
-          [12, [new LazyArray(new Float32Array([1, 2, 3]))]],
+          [12, [new Series(new Float32Array([1, 2, 3]))]],
           [
             13,
             [
-              new LazyArray(new Float32Array([1, 2, 3])),
-              new LazyArray(new Float32Array([1, 2, 3])),
+              new Series(new Float32Array([1, 2, 3])),
+              new Series(new Float32Array([1, 2, 3])),
             ],
           ],
         ])
@@ -137,8 +135,8 @@ describe("Frame", () => {
     it("should return false if there is more than one key", () => {
       const f = new Frame(
         new Map([
-          [12, [new LazyArray(new Float32Array([1, 2, 3]))]],
-          [13, [new LazyArray(new Float32Array([1, 2, 3]))]],
+          [12, [new Series(new Float32Array([1, 2, 3]))]],
+          [13, [new Series(new Float32Array([1, 2, 3]))]],
         ])
       );
       expect(f.isHorizontal).toEqual(false);
@@ -152,7 +150,7 @@ describe("Frame", () => {
           [
             12,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(500, 50000)
@@ -162,7 +160,7 @@ describe("Frame", () => {
           [
             13,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(500, 50000)
@@ -180,7 +178,7 @@ describe("Frame", () => {
           [
             12,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(500, 50000)
@@ -190,7 +188,7 @@ describe("Frame", () => {
           [
             13,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(500, 50001)
@@ -211,7 +209,7 @@ describe("Frame", () => {
             [
               12,
               [
-                new LazyArray(
+                new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
                   new TimeRange(40, 50000)
@@ -221,7 +219,7 @@ describe("Frame", () => {
             [
               13,
               [
-                new LazyArray(
+                new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
                   new TimeRange(500, 50001)
@@ -237,12 +235,12 @@ describe("Frame", () => {
     describe("key provided", () => {
       it("should return the time range of the key", () => {
         const f = new Frame({
-          a: new LazyArray(
+          a: new Series(
             new Float32Array([1, 2, 3]),
             undefined,
             new TimeRange(40, 50000)
           ),
-          b: new LazyArray(
+          b: new Series(
             new Float32Array([1, 2, 3]),
             undefined,
             new TimeRange(500, 50001)
@@ -259,7 +257,7 @@ describe("Frame", () => {
             [
               12,
               [
-                new LazyArray(
+                new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
                   new TimeRange(40, 50000)
@@ -269,7 +267,7 @@ describe("Frame", () => {
             [
               13,
               [
-                new LazyArray(
+                new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
                   new TimeRange(500, 50001)
@@ -290,7 +288,7 @@ describe("Frame", () => {
           [
             12,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(40, 50000)
@@ -300,7 +298,7 @@ describe("Frame", () => {
           [
             13,
             [
-              new LazyArray(
+              new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
                 new TimeRange(500, 50001)

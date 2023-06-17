@@ -12,3 +12,4 @@ export type {
   XYTelemSourceMeta,
   XYTelemSource,
 } from "@/core/vis/telem/TelemSource";
+export { xyTelemSourceMeta } from "@/core/vis/telem/TelemSource";

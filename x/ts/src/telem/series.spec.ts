@@ -10,38 +10,38 @@
 import { describe, expect, test, it } from "vitest";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { LazyArray } from "@/telem/array";
+import { Series } from "@/telem/series";
 import { DataType, Rate, Size, TimeRange, TimeStamp } from "@/telem/telem";
 
-describe("LazyArray", () => {
+describe("Series", () => {
   describe("construction", () => {
     test("valid from native", () => {
-      const a = new LazyArray(new Float32Array([1, 2, 3]));
+      const a = new Series(new Float32Array([1, 2, 3]));
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(a.length).toEqual(3);
       expect(a.byteLength).toEqual(Size.bytes(12));
       expect(a.byteCap).toEqual(Size.bytes(12));
       expect(a.cap).toEqual(3);
-      const b = new LazyArray(new BigInt64Array([BigInt(1)]));
+      const b = new Series(new BigInt64Array([BigInt(1)]));
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
-      const c = new LazyArray(new BigInt64Array([BigInt(1)]), DataType.TIMESTAMP);
+      const c = new Series(new BigInt64Array([BigInt(1)]), DataType.TIMESTAMP);
       expect(c.dataType.toString()).toBe(DataType.TIMESTAMP.toString());
     });
 
     test("from buffer without data type provided", () => {
       expect(() => {
         // eslint-disable-next-line no-new
-        new LazyArray(new ArrayBuffer(4));
+        new Series(new ArrayBuffer(4));
       }).toThrow();
     });
 
     test("from buffer with data type provided", () => {
-      const a = new LazyArray(new ArrayBuffer(4), DataType.FLOAT32);
+      const a = new Series(new ArrayBuffer(4), DataType.FLOAT32);
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
     });
 
     test("with time range", () => {
-      const a = new LazyArray(
+      const a = new Series(
         new Float32Array([1, 2, 3]),
         DataType.FLOAT32,
         new TimeRange(1, 2)
@@ -51,7 +51,7 @@ describe("LazyArray", () => {
 
     describe("allocation", () => {
       it("should allocate a lazy array", () => {
-        const arr = LazyArray.alloc(10, DataType.FLOAT32);
+        const arr = Series.alloc(10, DataType.FLOAT32);
         expect(arr.byteCap).toEqual(Size.bytes(40));
         expect(arr.cap).toEqual(10);
         expect(arr.length).toEqual(0);
@@ -59,7 +59,7 @@ describe("LazyArray", () => {
       });
       it("should throw an error when attempting to allocate an array of lenght 0", () => {
         expect(() => {
-          LazyArray.alloc(0, DataType.FLOAT32);
+          Series.alloc(0, DataType.FLOAT32);
         }).toThrow();
       });
     });
@@ -67,7 +67,7 @@ describe("LazyArray", () => {
 
   describe("slice", () => {
     it("should slice a lazy array", () => {
-      const a = new LazyArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const a = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
       const b = a.slice(1, 2);
       expect(b.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(b.data).toEqual(new Float32Array([2]));
@@ -80,12 +80,12 @@ describe("LazyArray", () => {
 
   describe("min and max", () => {
     it("should return a min and max of zero on an allocated array", () => {
-      const arr = LazyArray.alloc(10, DataType.FLOAT32);
+      const arr = Series.alloc(10, DataType.FLOAT32);
       expect(arr.max).toEqual(0);
       expect(arr.min).toEqual(0);
     });
     it("should correctly calculate the min and max of a lazy array", () => {
-      const arr = new LazyArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
       expect(arr.max).toEqual(3);
       expect(arr.min).toEqual(1);
     });
@@ -93,21 +93,21 @@ describe("LazyArray", () => {
 
   describe("conversion", () => {
     test("from float64 to float32", () => {
-      const a = new LazyArray(new Float64Array([1, 2, 3]), DataType.FLOAT64);
+      const a = new Series(new Float64Array([1, 2, 3]), DataType.FLOAT64);
       const b = a.convert(DataType.FLOAT32);
       expect(b.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(b.data).toEqual(new Float32Array([1, 2, 3]));
     });
 
     test("from int64 to int32", () => {
-      const a = new LazyArray(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
+      const a = new Series(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
       const b = a.convert(DataType.INT32);
       expect(b.dataType.toString()).toBe(DataType.INT32.toString());
       expect(b.data).toEqual(new Int32Array([1, 2, 3]));
     });
 
     test("from float32 to int64", () => {
-      const a = new LazyArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const a = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
       const b = a.convert(DataType.INT64);
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       expect(b.data).toEqual(new BigInt64Array([BigInt(1), BigInt(2), BigInt(3)]));
@@ -116,20 +116,20 @@ describe("LazyArray", () => {
 
   describe("writing", () => {
     it("should correctly write to an allocated lazy array", () => {
-      const arr = LazyArray.alloc(10, DataType.FLOAT32);
+      const arr = Series.alloc(10, DataType.FLOAT32);
       expect(arr.byteCap).toEqual(Size.bytes(40));
       expect(arr.length).toEqual(0);
-      const writeOne = new LazyArray(new Float32Array([1]));
+      const writeOne = new Series(new Float32Array([1]));
       expect(arr.write(writeOne)).toEqual(1);
       expect(arr.length).toEqual(1);
-      const writeTwo = new LazyArray(new Float32Array([2, 3]));
+      const writeTwo = new Series(new Float32Array([2, 3]));
       expect(arr.write(writeTwo)).toEqual(2);
       expect(arr.length).toEqual(3);
     });
     it("should recompute cached max and min correctly", () => {
-      const arr = LazyArray.alloc(10, DataType.FLOAT32);
+      const arr = Series.alloc(10, DataType.FLOAT32);
       arr.enrich();
-      const writeTwo = new LazyArray(new Float32Array([2, 3]));
+      const writeTwo = new Series(new Float32Array([2, 3]));
       arr.write(writeTwo);
       expect(arr.max).toEqual(3);
       expect(arr.min).toEqual(2);
@@ -138,7 +138,7 @@ describe("LazyArray", () => {
 
   describe("generateTimeStamps", () => {
     it("should correctly generate timestamps", () => {
-      const ts = LazyArray.generateTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
+      const ts = Series.generateTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
       expect(ts.timeRange).toEqual(
         new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6))
       );
@@ -159,7 +159,7 @@ describe("LazyArray", () => {
 
   describe("webgl buffering", () => {
     it("should correctly buffer a new lazy array", () => {
-      const arr = new LazyArray(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
       const controller = new MockGLBufferController();
       arr.updateGLBuffer(controller);
       expect(controller.createBufferMock).toHaveBeenCalledTimes(1);
@@ -172,7 +172,7 @@ describe("LazyArray", () => {
       expect(buf).toEqual(new Float32Array([1, 2, 3]));
     });
     it("should correctly update a buffer when writing to an allocated array", () => {
-      const arr = LazyArray.alloc(10, DataType.FLOAT32);
+      const arr = Series.alloc(10, DataType.FLOAT32);
       const controller = new MockGLBufferController();
       arr.updateGLBuffer(controller);
       expect(controller.createBufferMock).toHaveBeenCalledTimes(1);
@@ -182,7 +182,7 @@ describe("LazyArray", () => {
       let buf = controller.buffers[arr.glBuffer as number];
       expect(buf).toBeDefined();
       expect(buf.byteLength).toEqual(0);
-      const writeOne = new LazyArray(new Float32Array([1]));
+      const writeOne = new Series(new Float32Array([1]));
       arr.write(writeOne);
       arr.updateGLBuffer(controller);
       expect(controller.bufferDataMock).toHaveBeenCalledTimes(1);
@@ -190,7 +190,7 @@ describe("LazyArray", () => {
       buf = controller.buffers[arr.glBuffer as number];
       expect(buf.byteLength).toEqual(arr.byteCap.valueOf());
       expect(new Float32Array(buf)[0]).toEqual(1);
-      const writeTwo = new LazyArray(new Float32Array([2, 3]));
+      const writeTwo = new Series(new Float32Array([2, 3]));
       arr.write(writeTwo);
       arr.updateGLBuffer(controller);
       expect(controller.bufferDataMock).not.toHaveBeenCalledTimes(2);

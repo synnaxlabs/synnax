@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { GLBufferController, Bounds, LazyArray } from "@synnaxlabs/x";
+import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
@@ -51,10 +51,10 @@ export interface XYTelemSource extends TelemSourceMeta {
    * The GLBufferController identity does not change throughought the lifetime of the
    * source, and it remains attached to the same rendering context.
    *
-   * @returns - lazy arrays that areexpected to have the same topology as the Y axis
+   * @returns - series expected to have the same topology as the Y axis
    * data i.e. the same number of arrays and the same length for each array.
    */
-  x: (gl: GLBufferController) => Promise<LazyArray[]>;
+  x: (gl: GLBufferController) => Promise<Series[]>;
   /**
    * Resolves data for the Y axis.
    *
@@ -66,7 +66,7 @@ export interface XYTelemSource extends TelemSourceMeta {
    * @returns - lazy arrays that are expected to have the same topology as the X axis
    * data i.e. the same number of arrays and the same length for each array.
    */
-  y: (gl: GLBufferController) => Promise<LazyArray[]>;
+  y: (gl: GLBufferController) => Promise<Series[]>;
   /**
    * @returns the maximum possible bound of the X axis data. This is useful for
    * automatically scaling the X axis of a plot.

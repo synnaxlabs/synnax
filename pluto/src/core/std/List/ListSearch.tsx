@@ -7,20 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useCallback, useState } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { useSearchTransform, UseSearchTransformProps } from "@/core/hooks";
+import {
+  createSearchTransform as newSearchTransform,
+  UseSearchTransformProps,
+} from "@/core/hooks";
 import { Input as DefaultInput, InputControl } from "@/core/std/Input";
 import { useListContext } from "@/core/std/List/ListContext";
-import { useDebouncedCallback } from "@/util/debounce";
+import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
 import { RenderProp } from "@/util/renderProp";
 
 export interface ListSearchProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Omit<UseSearchTransformProps<E>, "query"> {
+> extends Omit<UseSearchTransformProps<E>, "term"> {
   children?: RenderProp<InputControl<string>>;
   debounce?: number;
 }
@@ -31,16 +34,28 @@ export const ListSearch = <
 >({
   children = (props) => <DefaultInput {...props} />,
   debounce = 250,
-  opts,
+  searcher,
 }: ListSearchProps<K, E>): ReactElement | null => {
   const [value, setValue] = useState("");
+  const { setTransform, deleteTransform } = useListContext<K, E>();
 
-  const search = useSearchTransform<E>({ query: value, opts });
+  const debounced = useDebouncedCallback(setTransform, debounce, []);
 
-  const { setTransform } = useListContext<K, E>();
-
-  useEffect(() => setTransform("search", search), [search]);
-  const onChange = useDebouncedCallback((v: any) => setValue(v), debounce, [setValue]);
+  const onChange = useCallback(
+    (v: any) => {
+      setValue(v);
+      if (v.length === 0) deleteTransform("search");
+      else debounced("search", newSearchTransform({ term: v, searcher }));
+    },
+    [searcher, setValue]
+  );
 
   return children({ value, onChange });
 };
+
+export interface Searcher<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+> {
+  search: (term: string) => E[];
+}

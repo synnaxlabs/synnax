@@ -15,7 +15,7 @@ import {
   UnparsedDensity,
   UnparsedTimeStamp,
   toArray,
-  LazyArray,
+  Series,
   TimeRange,
 } from "@synnaxlabs/x";
 
@@ -116,7 +116,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<LazyArray | undefined> {
+  async read(tr: TimeRange): Promise<Series | undefined> {
     return await this.framer.read(tr, this.key);
   }
 

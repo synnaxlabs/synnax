@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LazyArray, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { Series, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel";
@@ -63,11 +63,11 @@ export class Range {
     };
   }
 
-  read(channel: ChannelKeyOrName): Promise<LazyArray>;
+  read(channel: ChannelKeyOrName): Promise<Series>;
 
   read(channels: ChannelParams): Promise<Frame>;
 
-  async read(channels: ChannelParams): Promise<LazyArray | Frame> {
+  async read(channels: ChannelParams): Promise<Series | Frame> {
     return await this.frameClient.read(this.timeRange, channels);
   }
 }

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, LazyArray, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 /**
- * A cache for channel data that maintains a single, rolling LazyArray as a buffer
+ * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
  */
 export class DynamicCache {
-  buffer: LazyArray;
+  buffer: Series;
   private readonly cap: number;
 
   /**
@@ -39,7 +39,7 @@ export class DynamicCache {
    * @returns a list of buffers that were filled by the cache during the write. If
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
-  write(arrays: LazyArray[]): LazyArray[] {
+  write(arrays: Series[]): Series[] {
     return arrays.flatMap((arr) => this._write(arr));
   }
 
@@ -50,17 +50,17 @@ export class DynamicCache {
    * @param tr - The time range to read.
    * @returns the buffer if it overlaps with the given time range, null otherwise.
    */
-  dirtyRead(tr: TimeRange): LazyArray | null {
+  dirtyRead(tr: TimeRange): Series | null {
     if (this.buffer.timeRange.overlapsWith(tr) && this.buffer.length > 0)
       return this.buffer;
     return null;
   }
 
-  private allocate(length: number): LazyArray {
-    return LazyArray.alloc(length, DataType.FLOAT32, TimeStamp.now().spanRange(0));
+  private allocate(length: number): Series {
+    return Series.alloc(length, DataType.FLOAT32, TimeStamp.now().spanRange(0));
   }
 
-  private _write(arr: LazyArray): LazyArray[] {
+  private _write(arr: Series): Series[] {
     const amountWritten = this.buffer.write(arr);
     if (amountWritten === arr.length) return [];
     const out = this.buffer;

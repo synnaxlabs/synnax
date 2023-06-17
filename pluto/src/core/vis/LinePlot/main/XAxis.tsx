@@ -40,11 +40,13 @@ export const XAxis = memo(
       location,
       ...props,
     });
+
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
       key,
       "XAxis"
     );
+
     const resizeRef = useResize(
       (box) => {
         setState((state) => ({
@@ -54,6 +56,7 @@ export const XAxis = memo(
       },
       { debounce: 100 }
     );
+
     return (
       <Aether.Composite path={path}>
         <div
