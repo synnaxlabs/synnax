@@ -35,16 +35,21 @@ export const useTransforms = <E extends UnknownRecord>({
   const [transforms, setTransforms] =
     useState<Array<ArrayTransformEntry<E>>>(initialTransforms);
 
-  const setTransform = (key: string, t: ArrayTransform<E>, priority = 0): void =>
-    setTransforms((prev) => {
-      const next = prev.filter((t) => t.key !== key);
-      next.push({ key, transform: t, priority });
-      next.sort((a, b) => b.priority - a.priority);
-      return next;
-    });
+  const setTransform = useCallback(
+    (key: string, t: ArrayTransform<E>, priority = 0): void =>
+      setTransforms((prev) => {
+        const next = prev.filter((t) => t.key !== key);
+        next.push({ key, transform: t, priority });
+        next.sort((a, b) => b.priority - a.priority);
+        return next;
+      }),
+    [setTransforms]
+  );
 
-  const deleteTransform = (key: string): void =>
-    setTransforms((prev) => prev.filter((t) => t.key !== key));
+  const deleteTransform = useCallback(
+    (key: string): void => setTransforms((prev) => prev.filter((t) => t.key !== key)),
+    [setTransform]
+  );
 
   const transform = useCallback(
     (data: E[]) => transforms.reduce((data, t) => t.transform(data), data),

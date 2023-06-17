@@ -10,7 +10,7 @@
 import { StreamClient } from "@synnaxlabs/freighter";
 import {
   NativeTypedArray,
-  LazyArray,
+  Series,
   TimeRange,
   UnparsedTimeStamp,
   TimeStamp,
@@ -89,11 +89,11 @@ export class FrameClient {
     }
   }
 
-  async read(tr: TimeRange, channel: ChannelKeyOrName): Promise<LazyArray>;
+  async read(tr: TimeRange, channel: ChannelKeyOrName): Promise<Series>;
 
   async read(tr: TimeRange, channels: ChannelParams): Promise<Frame>;
 
-  async read(tr: TimeRange, channels: ChannelParams): Promise<LazyArray | Frame> {
+  async read(tr: TimeRange, channels: ChannelParams): Promise<Series | Frame> {
     const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.arrays[0];

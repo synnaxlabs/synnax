@@ -13,7 +13,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
 
@@ -24,7 +23,6 @@ import { useTypedWorker } from "@/core/worker/Context";
 
 export interface AetherContextValue {
   path: string[];
-  bootstrap: (state: any, transfer?: Transferable[]) => void;
   setState: (
     path: string[],
     type: string,
@@ -60,8 +58,6 @@ export const useAether = <S extends unknown>(
 
   const [internalState, setInternalState] = useState(initialState);
 
-  const initialStateSet = useRef(false);
-
   const setState = useCallback(
     (next: PsuedoSetStateArg<S>, transfer: Transferable[] = []): void => {
       if (typeof next === "function")
@@ -77,32 +73,22 @@ export const useAether = <S extends unknown>(
     },
     [ctx, path, type]
   );
-
-  if (!initialStateSet.current) {
-    initialStateSet.current = true;
-    ctx.setState(path, type, initialState, initialTransfer);
-  }
-
-  useEffect(() => () => ctx.delete(path), []);
+  useEffect(
+    () => setState(initialState, initialTransfer),
+    [initialState, initialState]
+  );
+  useEffect(() => () => ctx.delete(path), [path]);
   return { key: oKey, path, state: [internalState, setState] };
 };
 
-export const useBobBootstrap = <P extends unknown>(): ((
-  state: P,
-  transfer?: Transferable[]
-) => void) => {
-  const ctx = useAetherContext();
-  return useCallback(
-    (state: P, transfer: Transferable[] = []): void => ctx.bootstrap(state, transfer),
-    [ctx]
-  );
-};
-
-export interface BobProviderProps extends PropsWithChildren {
+export interface AetherProviderProps extends PropsWithChildren {
   workerKey: string;
 }
 
-export const BobProvider = ({ workerKey, children }: BobProviderProps): JSX.Element => {
+export const AetherProvider = ({
+  workerKey,
+  children,
+}: AetherProviderProps): JSX.Element => {
   const worker = useTypedWorker<WorkerMessage>(workerKey);
   const setState = useCallback(
     (path: string[], type: string, state: any, transfer: Transferable[] = []): void =>
@@ -115,14 +101,8 @@ export const BobProvider = ({ workerKey, children }: BobProviderProps): JSX.Elem
     [worker]
   );
 
-  const bootstrap = useCallback(
-    (state: any, transfer: Transferable[] = []): void =>
-      worker.send({ variant: "bootstrap", data: state }, transfer),
-    []
-  );
-
   return (
-    <AetherContext.Provider value={{ path: [], setState, delete: delete_, bootstrap }}>
+    <AetherContext.Provider value={{ path: [], setState, delete: delete_ }}>
       {children}
     </AetherContext.Provider>
   );
@@ -132,16 +112,14 @@ export interface BobCompositeProps extends PropsWithChildren {
   path: string[];
 }
 
-export const BobComposite = ({ children, path }: BobCompositeProps): JSX.Element => {
-  const ctx = useAetherContext();
-  return (
-    <AetherContext.Provider value={{ ...ctx, path }}>{children}</AetherContext.Provider>
-  );
-};
+export const AetherComposite = ({ children, path }: BobCompositeProps): JSX.Element => (
+  <AetherContext.Provider value={{ ...useAetherContext(), path }}>
+    {children}
+  </AetherContext.Provider>
+);
 
 export const Aether = {
-  Provider: BobProvider,
-  Composite: BobComposite,
+  Provider: AetherProvider,
+  Composite: AetherComposite,
   use: useAether,
-  useBootstrap: useBobBootstrap,
 };

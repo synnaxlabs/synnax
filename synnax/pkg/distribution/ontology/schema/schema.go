@@ -16,6 +16,9 @@ package schema
 // [Schema] in the cluster. in the cluster. in the cluster. in the cluster.
 type Type string
 
+// ZeroType is the zero type and should be assigned to any resource.
+const ZeroType = Type("")
+
 // String implements fmt.Stringer.
 func (t Type) String() string { return string(t) }
 

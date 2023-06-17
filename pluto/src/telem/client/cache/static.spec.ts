@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, LazyArray, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { StaticCache } from "@/telem/cache/static";
@@ -16,7 +16,7 @@ describe("StaticReadCache", () => {
   test("happy path", () => {
     const c = new StaticCache();
     const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
-    c.write(tr, [new LazyArray(new Float32Array([1]), DataType.FLOAT32, tr)]);
+    c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
       TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))
     );
@@ -26,7 +26,7 @@ describe("StaticReadCache", () => {
   it("should correctly return leading and trailing gaps", () => {
     const c = new StaticCache();
     const tr = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
-    c.write(tr, [new LazyArray(new Float32Array([1]), DataType.FLOAT32, tr)]);
+    c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
       TimeStamp.seconds(1).spanRange(TimeSpan.seconds(6))
     );
@@ -41,8 +41,8 @@ describe("StaticReadCache", () => {
     const c = new StaticCache();
     const tr1 = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
     const tr2 = TimeStamp.seconds(6).spanRange(TimeSpan.seconds(3));
-    c.write(tr1, [new LazyArray(new Float32Array([1]), DataType.FLOAT32, tr1)]);
-    c.write(tr2, [new LazyArray(new Float32Array([1]), DataType.FLOAT32, tr2)]);
+    c.write(tr1, [new Series(new Float32Array([1]), DataType.FLOAT32, tr1)]);
+    c.write(tr2, [new Series(new Float32Array([1]), DataType.FLOAT32, tr2)]);
     const [res, gaps] = c.dirtyRead(
       TimeStamp.seconds(1).spanRange(TimeSpan.seconds(7))
     );

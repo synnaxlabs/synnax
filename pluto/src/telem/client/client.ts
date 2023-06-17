@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/client";
-import { LazyArray, TimeRange } from "@synnaxlabs/x";
+import { Series, TimeRange } from "@synnaxlabs/x";
 
 import { Cache } from "@/telem/client/cache";
 import { convertArrays } from "@/telem/convertArrays";
@@ -43,8 +43,8 @@ export class Client {
    * @param channels
    * @returns a record with the read response for each channel. Each channel is guaranteed
    * to have a response, regardless of whether or not data was found. Responses without
-   * data will have no LazyArrays. Responses are NOT guaranteed to have the same topology
-   * i.e. the same number of LazyArrays where each LazyArray has the same length.
+   * data will have no Seriess. Responses are NOT guaranteed to have the same topology
+   * i.e. the same number of Seriess where each Series has the same length.
    * It's up to the caller to normalize the data shape if necessary.
    */
   async read(
@@ -132,7 +132,7 @@ export class Client {
 
   private async start(streamer: Streamer): Promise<void> {
     for await (const frame of streamer) {
-      const changed = new Map<ChannelKey, [Channel, LazyArray[]]>();
+      const changed = new Map<ChannelKey, [Channel, Series[]]>();
       for (const k of frame.keys) {
         const arrays = frame.get(k);
         const cache = await this.getCache(k);
@@ -156,9 +156,9 @@ export class Client {
 
 export class ReadResponse {
   channel: Channel;
-  data: LazyArray[];
+  data: Series[];
 
-  constructor(channel: Channel, data: LazyArray[]) {
+  constructor(channel: Channel, data: Series[]) {
     this.channel = channel;
     this.data = data;
   }

@@ -10,12 +10,9 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherFactory, AtherComposite } from "@/core/aether/worker";
-import { LineFactory, LineGLProgram } from "@/core/vis/Line/LineGL";
-import { XAxis, XAxisProps, XAxisFactory } from "@/core/vis/LinePlot/worker/XAxis";
-import { YAxisFactory } from "@/core/vis/LinePlot/worker/YAxis";
-import { RenderContext, RenderQueue } from "@/core/vis/render";
-import { TelemProvider } from "@/core/vis/telem/TelemService";
+import { AetherComposite, Update } from "@/core/aether/worker";
+import { XAxis } from "@/core/vis/LinePlot/worker/XAxis";
+import { RenderController, RenderContext } from "@/core/vis/render";
 
 export const linePlotState = z.object({
   plot: Box.z,
@@ -25,53 +22,21 @@ export const linePlotState = z.object({
 });
 
 export type LinePlotState = z.input<typeof linePlotState>;
-export type ParsedLinePlotState = z.output<typeof linePlotState>;
 
-export class LinePlotFactory implements AetherFactory<LinePlot> {
+export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   ctx: RenderContext;
-  lines: LineGLProgram;
-  renderQueue: RenderQueue;
-  telem: TelemProvider;
-
-  constructor(ctx: RenderContext, renderQueue: RenderQueue, telem: TelemProvider) {
-    this.ctx = ctx;
-    this.lines = new LineGLProgram(ctx);
-    this.renderQueue = renderQueue;
-    this.telem = telem;
-  }
-
-  create(type: string, key: string, props: LinePlotState): LinePlot {
-    return new LinePlot(this.ctx, key, props, this.lines, this.renderQueue, this.telem);
-  }
-}
-
-export class LinePlot extends AtherComposite<
-  XAxis,
-  LinePlotState,
-  ParsedLinePlotState
-> {
-  ctx: RenderContext;
-  renderQueue: RenderQueue;
 
   static readonly TYPE: string = "line-plot";
 
-  constructor(
-    ctx: RenderContext,
-    key: string,
-    state: LinePlotState,
-    lines: LineGLProgram,
-    renderQueue: RenderQueue,
-    telem: TelemProvider
-  ) {
-    const lineFactory = new LineFactory(lines, telem, () => this.requestRender());
-    const yAxisFactory = new YAxisFactory(ctx, lineFactory, () => this.requestRender());
-    const xAxisFactory = new XAxisFactory(ctx, yAxisFactory, () =>
-      this.requestRender()
-    );
-    super(LinePlot.TYPE, key, xAxisFactory, linePlotState, state);
-    this.ctx = ctx;
-    this.renderQueue = renderQueue;
-    this.setStateHook(() => this.requestRender());
+  constructor(update: Update) {
+    super(update, linePlotState);
+    this.ctx = RenderContext.use(update.ctx);
+    RenderController.create(update.ctx, () => this.requestRender());
+    this.onUpdate(() => this.handleUpdate());
+  }
+
+  private handleUpdate(): void {
+    this.requestRender();
   }
 
   private get plottingRegion(): Box {
@@ -102,18 +67,18 @@ export class LinePlot extends AtherComposite<
     this.erase();
     const removeScissor = this.ctx.scissorGL(this.plottingRegion);
     await Promise.all(
-      this.children.map(async (xAxis) => {
-        const ctx: XAxisProps = {
-          plottingRegion: this.plottingRegion,
-          viewport: this.viewport,
-        };
-        await xAxis.render(ctx);
-      })
+      this.children.map(
+        async (xAxis) =>
+          await xAxis.render({
+            plottingRegion: this.plottingRegion,
+            viewport: this.viewport,
+          })
+      )
     );
     removeScissor();
   }
 
   requestRender(): void {
-    this.renderQueue.push(this.key, async () => await this.render());
+    this.ctx.queue.push(this.key, async () => await this.render());
   }
 }

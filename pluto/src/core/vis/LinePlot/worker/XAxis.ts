@@ -10,11 +10,12 @@
 import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherFactory, AtherComposite } from "@/core/aether/worker";
+import { AetherComposite, Update } from "@/core/aether/worker";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
-import { YAxis, YAxisContext, autoBounds } from "@/core/vis/LinePlot/worker/YAxis";
-import { RenderContext } from "@/core/vis/render";
+import { autoBounds } from "@/core/vis/LinePlot/worker/axis";
+import { YAxis } from "@/core/vis/LinePlot/worker/YAxis";
+import { RenderContext, RenderController } from "@/core/vis/render";
 
 export const xAxisState = axisState.extend({
   location: Location.strictYZ.optional().default("bottom"),
@@ -23,58 +24,31 @@ export const xAxisState = axisState.extend({
 });
 
 export type XAxisState = z.input<typeof xAxisState>;
-export type ParsedXAxisState = z.output<typeof xAxisState>;
 
 export interface XAxisProps {
   plottingRegion: Box;
   viewport: Box;
 }
 
-export class XAxisFactory implements AetherFactory<XAxis> {
-  ctx: RenderContext;
-  yAxisFactory: AetherFactory<YAxis>;
-  requestRender: () => void;
-
-  constructor(
-    ctx: RenderContext,
-    yAxisFactory: AetherFactory<YAxis>,
-    requestRender: () => void
-  ) {
-    this.ctx = ctx;
-    this.yAxisFactory = yAxisFactory;
-    this.requestRender = requestRender;
-  }
-
-  create(type: string, key: string, props: XAxisState): XAxis {
-    return new XAxis(this.ctx, this.yAxisFactory, key, props, this.requestRender);
-  }
-}
-
-export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
+export class XAxis extends AetherComposite<typeof xAxisState, YAxis> {
   ctx: RenderContext;
   core: Axis;
   static readonly TYPE = "x-axis";
 
-  constructor(
-    ctx: RenderContext,
-    yAxisFactory: AetherFactory<YAxis>,
-    key: string,
-    props: XAxisState,
-    requestRender: () => void
-  ) {
-    super(XAxis.TYPE, key, yAxisFactory, xAxisState, props);
-    this.ctx = ctx;
-    this.core = new AxisCanvas(ctx, this.state);
-    this.setStateHook(() => {
+  constructor(update: Update) {
+    super(update, xAxisState);
+    this.ctx = RenderContext.use(update.ctx);
+    this.core = new AxisCanvas(this.ctx, this.state);
+    this.onUpdate((ctx) => {
       this.core.setState(this.state);
-      requestRender();
+      RenderController.requestRender(ctx);
     });
   }
 
   async render(props: XAxisProps): Promise<void> {
-    const [normal, offset] = await this.scales(props);
-    await this.renderAxis(props, normal);
-    await this.renderYAxes(props, offset);
+    const [reversed, normal] = await this.scales(props);
+    await this.renderAxis(props, reversed);
+    await this.renderYAxes(props, normal);
   }
 
   private async renderAxis(ctx: XAxisProps, scale: Scale): Promise<void> {
@@ -83,14 +57,14 @@ export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
 
   private async renderYAxes(ctx: XAxisProps, scale: Scale): Promise<void> {
     await Promise.all(
-      this.children.map(async (el, i) => {
-        const _ctx: YAxisContext = {
-          plottingRegion: ctx.plottingRegion,
-          viewport: ctx.viewport,
-          xScale: scale,
-        };
-        await el.render(_ctx);
-      })
+      this.children.map(
+        async (el) =>
+          await el.render({
+            plottingRegion: ctx.plottingRegion,
+            viewport: ctx.viewport,
+            xScale: scale,
+          })
+      )
     );
   }
 
@@ -101,8 +75,7 @@ export class XAxis extends AtherComposite<YAxis, XAxisState, ParsedXAxisState> {
     );
     if (bounds.every((bound) => !bound.isFinite))
       return [new Bounds({ lower: 0, upper: 1 }), 0];
-    const { autoBoundPadding = 0.1 } = this.state;
-    return autoBounds(autoBoundPadding, bounds);
+    return autoBounds(bounds, this.state.autoBoundPadding);
   }
 
   private async scales(ctx: XAxisProps): Promise<[Scale, Scale]> {

@@ -13,6 +13,8 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { List } from ".";
 
+import { componentRenderProp } from "@/util/renderProp";
+
 const story: Meta<typeof List> = {
   title: "Core/List",
   component: List,
@@ -36,7 +38,7 @@ const dataTypes = [
 
 const namePrefixes = ["strainGauge", "accelerometer", "gyroscope", "magnetometer"];
 
-const data = Array.from({ length: 400 }, (_, i) => ({
+const data = Array.from({ length: 500 }, (_, i) => ({
   key: `key-${i}`,
   dataType: dataTypes[Math.floor(Math.random() * dataTypes.length)],
   name: `${namePrefixes[Math.floor(Math.random() * namePrefixes.length)]}-${i}`,
@@ -72,7 +74,7 @@ export const Search: StoryFn<typeof List> = () => (
     <List.Search />
     <List.Column.Header columns={columns} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
-      {List.Column.Item}
+      {componentRenderProp(List.Column.Item)}
     </List.Core.Virtual>
   </List>
 );

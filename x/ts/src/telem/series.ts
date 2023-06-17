@@ -42,7 +42,7 @@ const FULL_BUFFER = -1;
  * A strongly typed array of telemetry samples backed
  * by an underlying binary buffer.
  */
-export class LazyArray {
+export class Series {
   /** The data type of the array */
   readonly dataType: DataType;
   /**
@@ -71,22 +71,22 @@ export class LazyArray {
     length: number,
     dataType: UnparsedDataType,
     timeRange?: TimeRange
-  ): LazyArray {
+  ): Series {
     if (length === 0)
-      throw new Error("[LazyArray] - cannot allocate an array of length 0");
+      throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
-    const arr = new LazyArray(data.buffer, dataType, timeRange);
+    const arr = new Series(data.buffer, dataType, timeRange);
     arr.pos = 0;
     return arr;
   }
 
-  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): LazyArray {
+  static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
     const tr = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
     for (let i = 0; i < length; i++) {
       data[i] = BigInt(start.add(rate.span(i)).valueOf());
     }
-    return new LazyArray(data, DataType.TIMESTAMP, tr);
+    return new Series(data, DataType.TIMESTAMP, tr);
   }
 
   constructor(
@@ -102,7 +102,7 @@ export class LazyArray {
       this.dataType = new DataType(dataType);
     } else {
       throw new Error(
-        "must provide a data type when constructing a LazyArray from a buffer"
+        "must provide a data type when constructing a Series from a buffer"
       );
     }
     this.sampleOffset = sampleOffset ?? 0;
@@ -128,7 +128,7 @@ export class LazyArray {
       throw new Error("cannot release an array with a negative reference count");
   }
 
-  write(other: LazyArray): number {
+  write(other: Series): number {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
 
@@ -195,13 +195,13 @@ export class LazyArray {
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, sampleOffset: SampleValue = 0): LazyArray {
+  convert(target: DataType, sampleOffset: SampleValue = 0): Series {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
       data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
     }
-    return new LazyArray(data.buffer, target, this._timeRange, sampleOffset);
+    return new Series(data.buffer, target, this._timeRange, sampleOffset);
   }
 
   /** @returns the maximum value in the array */
@@ -243,7 +243,7 @@ export class LazyArray {
     return new Bounds(Number(this.min), Number(this.max));
   }
 
-  private maybeRecomputeMinMax(update: LazyArray): void {
+  private maybeRecomputeMinMax(update: Series): void {
     if (this._min != null && update.min < this._min) this._min = update.min;
     if (this._max != null && update.max > this._max) this._max = update.max;
   }
@@ -322,9 +322,9 @@ export class LazyArray {
     return this.gl.buffer;
   }
 
-  slice(start: number, end?: number): LazyArray {
+  slice(start: number, end?: number): Series {
     const d = this.data.slice(start, end);
-    return new LazyArray(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
+    return new Series(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
   }
 }
 

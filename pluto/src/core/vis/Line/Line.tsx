@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, memo } from "react";
 
 import { Optional } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { LineState } from "@/core/vis/Line/core";
+import { LineGL } from "@/core/vis/Line/LineGL";
 
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
-export const Line = (props: LineProps): ReactElement | null => {
-  Aether.use<LineState>("line", props);
+export const Line = memo((props: LineProps): ReactElement | null => {
+  Aether.use<LineState>(LineGL.TYPE, props);
   return null;
-};
+});
+Line.displayName = "Line";

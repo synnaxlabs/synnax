@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, memo } from "react";
+import { PropsWithChildren, ReactElement, memo, useMemo } from "react";
 
 import { Optional, CrudeOuterLocation, XY, Location } from "@synnaxlabs/x";
 
@@ -27,23 +27,31 @@ export interface YAxisProps
 export const YAxis = memo(
   ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
     const theme = Theming.use();
+
+    const memoProps = useMemo(
+      () => ({
+        position: XY.ZERO,
+        color: theme.colors.gray.p2,
+        gridColor: theme.colors.gray.m1,
+        location,
+        font: Theming.font(theme, "small"),
+        ...props,
+      }),
+      [theme, props]
+    );
+
     const {
       key,
       path,
       state: [, setState],
-    } = Aether.use<WorkerYAxisState>(WorkerYAxis.TYPE, {
-      position: XY.ZERO,
-      color: theme.colors.gray.p2,
-      gridColor: theme.colors.gray.m1,
-      location,
-      font: Theming.font(theme, "small"),
-      ...props,
-    });
+    } = Aether.use<WorkerYAxisState>(WorkerYAxis.TYPE, memoProps);
+
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
       key,
       "YAxis"
     );
+
     const resizeRef = useResize(
       (box) => {
         setState((state) => ({
@@ -53,6 +61,7 @@ export const YAxis = memo(
       },
       { debounce: 100 }
     );
+
     return (
       <Aether.Composite path={path}>
         <div className="y-axis" style={gridStyle} ref={resizeRef}></div>

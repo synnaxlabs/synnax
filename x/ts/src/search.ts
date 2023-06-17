@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CompareF } from "@/compare";
+import { UnknownRecord } from "@/record";
 
 const binary = <T>(arr: T[], target: T, compare: CompareF<T>): number => {
   let left = 0;
@@ -22,4 +23,10 @@ const binary = <T>(arr: T[], target: T, compare: CompareF<T>): number => {
   return -1;
 };
 
-export const Search = { binary };
+export const Search = {
+  binary,
+};
+
+export interface TermSearcher<T, E extends UnknownRecord<E>> {
+  search: (term: T) => E[];
+}
