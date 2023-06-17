@@ -14,11 +14,11 @@ import (
 	"io"
 )
 
-// Endlessly returns a Next implementation that iterates over a collection of values
+// Endlessly returns a Nexter implementation that iterates over a collection of values
 // indefinitely. It's safe to ignore the error and ok values returned by next.
-func Endlessly[T any](values []T) Next[T] {
+func Endlessly[T any](values []T) Nexter[T] {
 	i := 0
-	return NextFunc[T](func(_ context.Context) (T, bool, error) {
+	return NexterFunc[T](func(_ context.Context) (T, bool, error) {
 		val := values[i]
 		if i < (len(values) - 1) {
 			i++
@@ -29,12 +29,12 @@ func Endlessly[T any](values []T) Next[T] {
 	})
 }
 
-// All returns a Next implementation that iterates over a collection of values once.
-// It's safe to ignore the error value returned by next. It's also safe to leave Next
+// All returns a Nexter implementation that iterates over a collection of values once.
+// It's safe to ignore the error value returned by next. It's also safe to leave Nexter
 // unclosed.
-func All[T any](values []T) Next[T] {
+func All[T any](values []T) Nexter[T] {
 	i := 0
-	return NextFunc[T](func(_ context.Context) (t T, ok bool, err error) {
+	return NexterFunc[T](func(_ context.Context) (t T, ok bool, err error) {
 		if i < len(values) {
 			val := values[i]
 			i++
@@ -44,53 +44,53 @@ func All[T any](values []T) Next[T] {
 	})
 }
 
-// Next is a general purpose iterable interface the caller to traverse a collection
+// Nexter is a general purpose iterable interface the caller to traverse a collection
 // of values in sequence.
-type Next[V any] interface {
+type Nexter[V any] interface {
 	// Next returns the next value in the sequence. If there are no more values to return
 	// ok will be false. If an error occurs while iterating over the values, err will be
 	// non-nil.
 	Next(ctx context.Context) (value V, ok bool, err error)
 }
 
-type NextFunc[V any] func(context.Context) (V, bool, error)
+type NexterFunc[V any] func(context.Context) (V, bool, error)
 
-var _ NextFunc[any] = NextFunc[any](nil)
+var _ NexterFunc[any] = NexterFunc[any](nil)
 
-// Next implements NextFunc.
-func (f NextFunc[V]) Next(ctx context.Context) (V, bool, error) { return f(ctx) }
+// Next implements Nexter.
+func (f NexterFunc[V]) Next(ctx context.Context) (V, bool, error) { return f(ctx) }
 
-type NextCloser[V any] interface {
-	Next[V]
+type NexterCloser[V any] interface {
+	Nexter[V]
 	io.Closer
 }
 
-type NopNextCloser[V any] struct{ Wrap Next[V] }
+type NexterNopCloser[V any] struct{ Wrap Nexter[V] }
 
-var _ NextCloser[any] = NopNextCloser[any]{}
+var _ NexterCloser[any] = NexterNopCloser[any]{}
 
-func (n NopNextCloser[V]) Next(ctx context.Context) (V, bool, error) { return n.Wrap.Next(ctx) }
+func (n NexterNopCloser[V]) Next(ctx context.Context) (V, bool, error) { return n.Wrap.Next(ctx) }
 
-func (n NopNextCloser[V]) Close() error { return nil }
+func (n NexterNopCloser[V]) Close() error { return nil }
 
-type NextCloserTranslator[I, O any] struct {
-	Wrap      NextCloser[I]
+type NexterCloserTranslator[I, O any] struct {
+	Wrap      NexterCloser[I]
 	Translate func(I) O
 }
 
-func (n NextCloserTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
+func (n NexterCloserTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
 	val, ok, err := n.Wrap.Next(ctx)
 	return n.Translate(val), ok, err
 }
 
-type NextTranslator[I, O any] struct {
-	Wrap      Next[I]
+type NexterTranslator[I, O any] struct {
+	Wrap      Nexter[I]
 	Translate func(I) O
 }
 
-func (n NextTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
+func (n NexterTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
 	val, ok, err := n.Wrap.Next(ctx)
 	return n.Translate(val), ok, err
 }
 
-func (n NextCloserTranslator[I, O]) Close() error { return n.Wrap.Close() }
+func (n NexterCloserTranslator[I, O]) Close() error { return n.Wrap.Close() }

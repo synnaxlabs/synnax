@@ -52,7 +52,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 type change = changex.Change[uuid.UUID, User]
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
+func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
 	var (
 		translate = func(ch change) schema.Change {
 			return schema.Change{
@@ -62,7 +62,7 @@ func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
 			}
 		}
 		onChange = func(ctx context.Context, reader gorp.TxReader[uuid.UUID, User]) {
-			f(ctx, iter.NextTranslator[change, schema.Change]{
+			f(ctx, iter.NexterTranslator[change, schema.Change]{
 				Wrap:      reader,
 				Translate: translate,
 			})
@@ -72,12 +72,12 @@ func (s *Service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
 }
 
 // OpenNext implements ontology.Service.
-func (s *Service) OpenNext() iter.NextCloser[schema.Resource] {
+func (s *Service) OpenNexter() iter.NexterCloser[schema.Resource] {
 	return newNextCloser(gorp.WrapReader[uuid.UUID, User](s.DB).OpenNext())
 }
 
-func newNextCloser(i iter.NextCloser[User]) iter.NextCloser[schema.Resource] {
-	return iter.NextCloserTranslator[User, schema.Resource]{
+func newNextCloser(i iter.NexterCloser[User]) iter.NexterCloser[schema.Resource] {
+	return iter.NexterCloserTranslator[User, schema.Resource]{
 		Wrap:      i,
 		Translate: newResource,
 	}

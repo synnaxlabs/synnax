@@ -24,7 +24,7 @@ export class TelemContext {
     this.prov = prov;
   }
 
-  static create(ctx: AetherContext, prov: TelemProvider): void {
+  static set(ctx: AetherContext, prov: TelemProvider): void {
     const telem = new TelemContext(prov);
     ctx.set<TelemContext>(TelemContext.CONTEXT_KEY, telem);
   }

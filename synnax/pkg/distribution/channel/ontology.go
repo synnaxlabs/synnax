@@ -67,7 +67,7 @@ func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
+func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
 	var (
 		translate = func(ch change) schema.Change {
 			return schema.Change{
@@ -77,7 +77,7 @@ func (s *service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
 			}
 		}
 		onChange = func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
-			f(ctx, iter.NextTranslator[change, schema.Change]{
+			f(ctx, iter.NexterTranslator[change, schema.Change]{
 				Wrap:      reader,
 				Translate: translate,
 			})
@@ -87,8 +87,8 @@ func (s *service) OnChange(f func(context.Context, iter.Next[schema.Change])) {
 }
 
 // OpenNext implements ontology.service.
-func (s *service) OpenNext() iter.NextCloser[schema.Resource] {
-	return iter.NextCloserTranslator[Channel, schema.Resource]{
+func (s *service) OpenNexter() iter.NexterCloser[schema.Resource] {
+	return iter.NexterCloserTranslator[Channel, schema.Resource]{
 		Wrap:      gorp.WrapReader[Key, Channel](s.DB).OpenNext(),
 		Translate: newResource,
 	}

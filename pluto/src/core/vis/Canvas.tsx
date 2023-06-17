@@ -12,8 +12,7 @@ import {
   DetailedHTMLProps,
   ReactElement,
   useCallback,
-  useEffect,
-  useState,
+  useRef,
 } from "react";
 
 import { Box } from "@synnaxlabs/x";
@@ -21,7 +20,6 @@ import { Box } from "@synnaxlabs/x";
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import {
-  Bootstrap,
   Canvas as WorkerCanvas,
   CanvasState as WorkerCanvasProps,
 } from "@/core/vis/WorkerCanvas";
@@ -33,43 +31,44 @@ type HTMLCanvasProps = DetailedHTMLProps<
 
 export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
 
+const ZERO_PROPS = { region: Box.ZERO, dpr: 1 };
+
+interface Canvases {
+  gl: HTMLCanvasElement | null;
+  canvas: HTMLCanvasElement | null;
+}
+
+const bootstrapped = ({ gl, canvas }: Canvases): boolean =>
+  canvas != null && gl != null;
+
 export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement => {
   const {
     path,
-    state: [, setCanvas],
-  } = Aether.use<WorkerCanvasProps>(
-    WorkerCanvas.TYPE,
-    {
-      region: Box.ZERO,
-      dpr: 1,
-    },
-    "canvas-key"
-  );
+    state: [, setState],
+  } = Aether.use<WorkerCanvasProps>(WorkerCanvas.TYPE, ZERO_PROPS);
 
-  const [glCanvas, setGlCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [canvasCanvas, setCanvasCanvas] = useState<HTMLCanvasElement | null>(null);
-  const [bootstrapped, setBootstrapped] = useState(false);
+  const canvases = useRef<Canvases>({ gl: null, canvas: null });
 
   const handleResize = useCallback(
-    (box: Box) => {
-      if (!bootstrapped) return;
-      const dpr = window.devicePixelRatio;
-      setCanvas({
-        region: box,
-        dpr,
-      });
-    },
-    [bootstrapped]
+    (region: Box) =>
+      bootstrapped(canvases.current) &&
+      setState({ region, dpr: window.devicePixelRatio }),
+    []
   );
 
-  useEffect(() => {
-    if (glCanvas == null || canvasCanvas == null) return;
-    const glOffscreen = glCanvas.transferControlToOffscreen();
-    const canvasOffscreen = canvasCanvas.transferControlToOffscreen();
-    const region = new Box(glCanvas.getBoundingClientRect());
-    bootstrap(
+  const resizeRef = useResize(handleResize, { debounce: 100 });
+
+  const refCallback = useCallback((el: HTMLCanvasElement | null) => {
+    resizeRef(el);
+    if (canvases.current.gl == null) canvases.current.gl = el;
+    else if (canvases.current.canvas == null) canvases.current.canvas = el;
+    const { gl, canvas } = canvases.current;
+    if (gl == null || canvas == null) return;
+    const glOffscreen = canvas.transferControlToOffscreen();
+    const canvasOffscreen = canvas.transferControlToOffscreen();
+    const region = new Box(canvas.getBoundingClientRect());
+    setState(
       {
-        key: path[0],
         glCanvas: glOffscreen,
         canvasCanvas: canvasOffscreen,
         region,
@@ -77,27 +76,15 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
       },
       [glOffscreen, canvasOffscreen]
     );
-    setBootstrapped(true);
-  }, [glCanvas, canvasCanvas]);
-
-  const resizeRef = useResize(handleResize, { debounce: 100 });
-
-  const glRefCallback = useCallback((canvas: HTMLCanvasElement | null) => {
-    resizeRef(canvas);
-    if (glCanvas != null || canvas == null) return;
-    setGlCanvas(canvas);
-  }, []);
-
-  const canvasRefCallback = useCallback((canvas: HTMLCanvasElement | null) => {
-    if (canvasCanvas != null || canvas == null) return;
-    setCanvasCanvas(canvas);
   }, []);
 
   return (
     <>
-      <canvas ref={canvasRefCallback} {...props} />
-      <canvas ref={glRefCallback} {...props} />
-      <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
+      <canvas ref={refCallback} {...props} />
+      <canvas ref={refCallback} {...props} />
+      <Aether.Composite path={path}>
+        {bootstrapped(canvases.current) && children}
+      </Aether.Composite>
     </>
   );
 };

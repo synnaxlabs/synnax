@@ -88,9 +88,9 @@ func (r Reader[K, E]) OpenIterator() *Iterator[E] {
 	)
 }
 
-// OpenNext opens a new Next that can be used to iterate over
+// OpenNext opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNext() iter.NextCloser[E] {
+func (r Reader[K, E]) OpenNext() iter.NexterCloser[E] {
 	return &next[E]{Iterator: r.OpenIterator()}
 }
 
@@ -145,7 +145,7 @@ func (k *Iterator[E]) Valid() bool {
 //
 //	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
 //
-//	r, ok, err := r.Next(ctx)
+//	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return TxReader[K, E]{
 		TxReader:      reader,
@@ -183,9 +183,9 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 
 type next[E any] struct{ *Iterator[E] }
 
-var _ iter.NextCloser[any] = (*next[any])(nil)
+var _ iter.NexterCloser[any] = (*next[any])(nil)
 
-// Next implements iter.Next.
+// Next implements iter.Nexter.
 func (n next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
 	ok = n.Iterator.Next()
 	if !ok {

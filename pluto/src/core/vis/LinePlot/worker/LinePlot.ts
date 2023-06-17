@@ -26,16 +26,15 @@ export type LinePlotState = z.input<typeof linePlotState>;
 export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   ctx: RenderContext;
 
-  static readonly TYPE: string = "line-plot";
+  static readonly TYPE: string = "linePlot";
 
   constructor(update: Update) {
     super(update, linePlotState);
     this.ctx = RenderContext.use(update.ctx);
-    RenderController.create(update.ctx, () => this.requestRender());
-    this.onUpdate(() => this.handleUpdate());
+    RenderController.control(update.ctx, () => this.requestRender());
   }
 
-  private handleUpdate(): void {
+  handleUpdate(): void {
     this.requestRender();
   }
 

@@ -43,7 +43,7 @@ import (
 type (
 	// Schema is a set of definitions that describe the structure of a resource.
 	Schema = schema.Schema
-	// Entity is the underlying data structure of a resource.
+	//  is the underlying data structure of a resource.
 	Resource = schema.Resource
 	ID       = schema.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)
@@ -164,21 +164,21 @@ func (o *Ontology) RegisterService(s Service) {
 	}
 
 	o.search.Go.Go(func(ctx context.Context) error {
-		i := s.OpenNext()
+		n := s.OpenNexter()
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
-			r, ok, err := i.Next(ctx)
-			for ; ok && err != nil; r, ok, err = i.Next(ctx) {
+			r, ok, err := n.Next(ctx)
+			for ; ok && err != nil; r, ok, err = n.Next(ctx) {
 				if err = tx.Index(r); err != nil {
 					return err
 				}
 			}
 			return nil
 		})
-		return errors.CombineErrors(err, i.Close())
+		return errors.CombineErrors(err, n.Close())
 	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
 	// Set up a change handler to index new resources.
-	s.OnChange(func(ctx context.Context, i iter.Next[schema.Change]) {
+	s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			ch, ok, err := i.Next(ctx)
 			for ; ok && err != nil; ch, ok, err = i.Next(ctx) {

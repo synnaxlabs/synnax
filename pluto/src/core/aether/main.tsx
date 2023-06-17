@@ -13,6 +13,8 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -54,30 +56,37 @@ export const useAether = <S extends unknown>(
 ): UseAetherReturn<S> => {
   const oKey = useUniqueKey(key);
   const ctx = useAetherContext();
-  const path = [...ctx.path, oKey];
+  const path = useMemo(() => [...ctx.path, oKey], [ctx]);
 
   const [internalState, setInternalState] = useState(initialState);
 
+  const transferred = useRef<Transferable[]>([]);
+
   const setState = useCallback(
     (next: PsuedoSetStateArg<S>, transfer: Transferable[] = []): void => {
+      const untransferred = transfer.filter((t) => !transferred.current.includes(t));
+      transferred.current = transferred.current.concat(untransferred);
       if (typeof next === "function")
         setInternalState((prev) => {
           const nextS = (next as (prev: S) => S)(prev);
-          ctx.setState(path, type, nextS, transfer);
+          ctx.setState(path, type, nextS, untransferred);
           return nextS;
         });
       else {
         setInternalState(next);
-        ctx.setState(path, type, next, transfer);
+        ctx.setState(path, type, next, untransferred);
       }
     },
     [ctx, path, type]
   );
+
   useEffect(
     () => setState(initialState, initialTransfer),
-    [initialState, initialState]
+    [setState, initialState, initialState]
   );
+
   useEffect(() => () => ctx.delete(path), [path]);
+
   return { key: oKey, path, state: [internalState, setState] };
 };
 

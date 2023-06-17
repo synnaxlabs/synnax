@@ -10,12 +10,11 @@
 import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { autoBounds } from "./axis";
-
-import { AetherComposite, Update } from "@/core/aether/worker";
+import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineProps } from "@/core/vis/Line/core";
+import { autoBounds } from "@/core/vis/LinePlot/worker/axis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
 export const yAxisState = axisState.extend({
@@ -42,10 +41,11 @@ export class YAxis extends AetherComposite<typeof yAxisState, LineComponent> {
     super(update, yAxisState);
     this.ctx = RenderContext.use(update.ctx);
     this.core = new AxisCanvas(this.ctx, this.state);
-    this.onUpdate((ctx) => {
-      this.core.setState(this.state);
-      RenderController.requestRender(ctx);
-    });
+  }
+
+  handleUpdate(ctx: AetherContext): void {
+    this.core.setState(this.state);
+    RenderController.requestRender(ctx);
   }
 
   async xBounds(): Promise<Bounds> {
