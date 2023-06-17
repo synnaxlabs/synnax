@@ -30,37 +30,32 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
   readonly type: string;
   readonly key: string;
   readonly schema: S;
-  private stateHook?: (ctx: AetherContext) => void;
-  private deleteHook?: () => void;
   state: z.output<S>;
 
   constructor(change: Update, schema: S) {
     this.type = change.type;
     this.key = change.path[0];
-    this.state = schema.parse(change.state);
     this.schema = schema;
+    this.state = this.update(change);
   }
 
-  onUpdate(hook: (ctx: AetherContext) => void): void {
-    this.stateHook = hook;
-  }
-
-  update({ path, ctx, state }: Update): void {
+  update({ path, ctx, state }: Update): z.output<S> {
     if (state != null) {
       this.validatePath(path);
       this.state = this.schema.parse(state);
     }
-    this.stateHook?.(ctx);
+    this.handleUpdate(ctx);
+    return this.state;
   }
 
-  onDelete(hook: () => void): void {
-    this.deleteHook = hook;
-  }
+  handleUpdate(ctx: AetherContext): void {}
 
   delete(path: string[]): void {
     this.validatePath(path);
-    this.deleteHook?.();
+    this.handleDelete();
   }
+
+  handleDelete(): void {}
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
@@ -164,7 +159,7 @@ export class AetherComposite<
   }
 }
 
-export type AetherComponentConstructor = new (update: Update) => AetherComponent;
+export type AetherComponentConstructor = (update: Update) => AetherComponent;
 
 export class AetherContext {
   private readonly providers: Map<string, any>;
@@ -189,7 +184,7 @@ export class AetherContext {
   }
 
   create<C extends AetherComponent>(change: Update): C {
-    return new this.registry[change.type](change) as C;
+    return this.registry[change.type](change) as C;
   }
 
   set<P>(key: string, value: P): void {

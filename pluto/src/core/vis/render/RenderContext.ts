@@ -9,10 +9,9 @@
 
 import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
-import { RenderQueue } from "./RenderQueue";
-
 import { AetherContext } from "@/core/aether/worker";
 import { Color } from "@/core/color";
+import { RenderQueue } from "@/core/vis/render/RenderQueue";
 
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
@@ -202,7 +201,7 @@ export class RenderController {
     this.f = f;
   }
 
-  static create(ctx: AetherContext, f: RequestRender): void {
+  static control(ctx: AetherContext, f: RequestRender): void {
     ctx.set(RenderController.CONTEXT_KEY, new RenderController(f));
   }
 

@@ -17,9 +17,10 @@ import {
   useId,
 } from "react";
 
+import { Telem, TelemState } from "./worker";
+
 import { useClient } from "@/client/Context";
-import { useTypedWorker } from "@/core/worker/Context";
-import { WorkerMessage } from "@/telem/worker";
+import { Aether } from "@/core/aether/main";
 
 export interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;
@@ -52,22 +53,31 @@ export const useTelemSourceControl = <P extends any>(
 export interface TelemProviderProps extends PropsWithChildren<any> {}
 
 export const TelemProvider = ({ children }: TelemProviderProps): ReactElement => {
-  const w = useTypedWorker<WorkerMessage>("telem");
+  const {
+    path,
+    state: [, setState],
+  } = Aether.use<TelemState>(Telem.TYPE, undefined);
+
   const client = useClient();
 
   useEffect(() => {
     if (client == null) return;
-    w.send({ variant: "connect", props: client?.props });
+    client != null && setState({ variant: "connect", props: client?.props });
   }, [client]);
 
   const set = useCallback(
     <P extends any>(key: string, type: string, props: P, transfer?: Transferable[]) =>
-      w.send({ variant: "set", key, type, props }, transfer),
-    [w]
+      setState({ variant: "set", key, type, props }, transfer),
+    [setState]
   );
-  const remove = useCallback((key: string) => w.send({ variant: "remove", key }), [w]);
+  const remove = useCallback(
+    (key: string) => setState({ variant: "remove", key }),
+    [setState]
+  );
 
   return (
-    <TelemContext.Provider value={{ set, remove }}>{children}</TelemContext.Provider>
+    <Aether.Composite path={path}>
+      <TelemContext.Provider value={{ set, remove }}>{children}</TelemContext.Provider>
+    </Aether.Composite>
   );
 };

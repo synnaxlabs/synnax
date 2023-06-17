@@ -29,23 +29,16 @@ export class Canvas extends AetherComposite<typeof canvasState> {
 
   constructor(update: Update) {
     super(update, canvasState);
-    this.onUpdate((ctx: AetherContext) => {
-      let renderCtx = RenderContext.useOptional(ctx);
-      if (renderCtx == null) {
-        const { glCanvas, canvasCanvas } = this.state;
-        if (glCanvas == null || canvasCanvas == null) throw new Error("unexpected");
-        renderCtx = RenderContext.create(ctx, glCanvas, canvasCanvas);
-        LineGLProgramContext.create(ctx);
-      }
-      renderCtx.resize(new Box(this.state.region), this.state.dpr);
-    });
+  }
+
+  handleUpdate(ctx: AetherContext): void {
+    let renderCtx = RenderContext.useOptional(ctx);
+    if (renderCtx == null) {
+      const { glCanvas, canvasCanvas } = this.state;
+      if (glCanvas == null || canvasCanvas == null) throw new Error("unexpected");
+      renderCtx = RenderContext.create(ctx, glCanvas, canvasCanvas);
+      LineGLProgramContext.create(ctx);
+    }
+    renderCtx.resize(new Box(this.state.region), this.state.dpr);
   }
 }
-
-export const bootstrap = canvasState.extend({
-  key: z.string(),
-  glCanvas: z.instanceof(OffscreenCanvas),
-  canvasCanvas: z.instanceof(OffscreenCanvas),
-});
-
-export type Bootstrap = z.output<typeof bootstrap>;

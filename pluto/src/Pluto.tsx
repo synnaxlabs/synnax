@@ -21,7 +21,7 @@ export interface PlutoProps
   workerURL?: URL;
 }
 
-const WORKER_URL = new URL("./plutoWorker.ts", import.meta.url);
+const WORKER_URL = new URL("./worker.ts", import.meta.url);
 
 export const Pluto = ({
   children,

@@ -24,7 +24,7 @@ import (
 )
 
 type emptyService struct {
-	observe.Noop[iter.Next[schema.Change]]
+	observe.Noop[iter.Nexter[schema.Change]]
 }
 
 const emptyType ontology.Type = "empty"
@@ -48,8 +48,8 @@ func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontolo
 	return e, nil
 }
 
-func (s *emptyService) OpenNext() iter.NextCloser[ontology.Resource] {
-	return iter.NopNextCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
+func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
+	return iter.NexterNopCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
 		schema.NewResource(s.Schema(), "empty"),
 	})}
 }

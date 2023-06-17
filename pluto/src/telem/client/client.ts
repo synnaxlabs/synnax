@@ -18,22 +18,14 @@ export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => v
 export class Client {
   core: Synnax;
   private _streamer: Streamer | null;
-  private cache: Map<ChannelKey, Cache>;
-  private listeners: Map<StreamHandler, ChannelKeys>;
+  private readonly cache: Map<ChannelKey, Cache>;
+  private readonly listeners: Map<StreamHandler, ChannelKeys>;
 
   constructor(wrap: Synnax) {
     this.core = wrap;
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
-  }
-
-  swapCore(core: Synnax): void {
-    this.core.close();
-    this.cache = new Map();
-    this.listeners = new Map();
-    this.core = core;
-    this._streamer?.close();
   }
 
   /**
@@ -151,6 +143,12 @@ export class Client {
         if (notify.length > 0) k(notify);
       });
     }
+  }
+
+  close(): void {
+    this.cache.clear();
+    this._streamer?.close();
+    this.core.close();
   }
 }
 

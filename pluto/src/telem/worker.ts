@@ -7,45 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { QueryError, Synnax, SynnaxProps, UnexpectedError } from "@synnaxlabs/client";
-import { TypedWorker } from "@synnaxlabs/x";
+import { QueryError, Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
+import { z } from "zod";
 
 import { Client } from "./client/client";
 import { RangeTelemFactory } from "./range/worker";
 
-import { TelemProvider } from "@/core/vis/telem/TelemService";
+import { AetherComposite, Update } from "@/core/aether/worker";
+import { TelemContext, TelemProvider } from "@/core/vis/telem/TelemService";
 import { TelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import { CompoundTelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 import { StaticTelemFactory } from "@/telem/static/worker";
 
-interface RemoveMessage {
-  variant: "remove";
-  key: string;
-}
+export const removeMessage = z.object({
+  variant: z.literal("remove"),
+  key: z.string(),
+});
 
-export interface SetMessage {
-  variant: "set";
-  key: string;
-  type: string;
-  props: any;
-}
+export const setMessage = z.object({
+  variant: z.literal("set"),
+  key: z.string(),
+  type: z.string(),
+  props: z.any(),
+});
 
-export interface ConnectMessage {
-  variant: "connect";
-  props: SynnaxProps;
-}
+export const connectMessage = z.object({
+  variant: z.literal("connect"),
+  props: synnaxPropsZ,
+});
 
-export type WorkerMessage = RemoveMessage | SetMessage | ConnectMessage;
+const message = z.union([setMessage, removeMessage, connectMessage]);
 
-export class TelemService implements TelemProvider {
-  factory: CompoundTelemFactory;
-  telem: Map<string, ModifiableTelemSourceMeta> = new Map();
-  client: Client | null = null;
+export const telemState = message.optional();
 
-  constructor(wrap: TypedWorker<WorkerMessage>) {
-    this.factory = new CompoundTelemFactory([new StaticTelemFactory()]);
-    wrap.handle((message) => this.handle(message));
+export type TelemState = z.input<typeof telemState>;
+
+class TelemProviderImpl implements TelemProvider {
+  readonly telem: Map<string, ModifiableTelemSourceMeta> = new Map();
+
+  constructor() {
+    this.telem = new Map();
   }
 
   get<T extends TelemSourceMeta>(key: string): T {
@@ -54,30 +56,45 @@ export class TelemService implements TelemProvider {
       throw new QueryError(`Telemetry service could not find source with key ${key}`);
     return v as unknown as T;
   }
+}
 
-  handle(message: WorkerMessage): void {
-    if (message.variant === "connect") {
-      const core = new Synnax(message.props);
-      if (this.client == null) this.client = new Client(core);
-      else this.client?.swapCore(core);
+export class Telem extends AetherComposite<typeof telemState> {
+  factory: CompoundTelemFactory;
+  client: Client | null = null;
+  prov: TelemProviderImpl;
+
+  static readonly TYPE = "telem";
+
+  constructor(update: Update) {
+    super(update, telemState);
+    this.factory = new CompoundTelemFactory([new StaticTelemFactory()]);
+    this.prov = new TelemProviderImpl();
+    TelemContext.set(update.ctx, this.prov);
+  }
+
+  handleUpdate(): void {
+    const msg = this.state;
+    if (msg == null) return;
+
+    if (msg.variant === "connect") {
+      if (this.client != null) this.client.close();
+      this.client = new Client(new Synnax(msg.props));
       this.factory.change(new RangeTelemFactory(this.client));
-      this.telem.forEach((source) => source.invalidate());
-      return;
+      return this.prov.telem.forEach((t) => t.invalidate());
     }
-    const source = this.telem.get(message.key);
-    if (message.variant === "remove") {
-      if (source == null) {
-        console.warn(
-          `Telemetry service could not find source with key ${message.key} to remove`
+
+    const source = this.prov.telem.get(msg.key);
+    if (msg.variant === "remove") {
+      if (source == null)
+        return console.warn(
+          `Telemetry service could not find source with key ${msg.key} to remove`
         );
-        return;
-      }
-      source.cleanup();
-      this.telem.delete(message.key);
-      return;
+      this.prov.telem.delete(msg.key);
+      return source.cleanup();
     }
-    if (source == null) this.newSource(message.key, message.type, message.props);
-    else source.setProps(message.props);
+
+    if (source == null) this.newSource(msg.key, msg.type, msg.props);
+    else source.setProps(msg.props);
   }
 
   newSource(key: string, type: string, props: any): void {
@@ -87,6 +104,6 @@ export class TelemService implements TelemProvider {
         `Telemetry service could not find a source for type ${type}`
       );
     }
-    this.telem.set(key, source);
+    this.prov.telem.set(key, source);
   }
 }

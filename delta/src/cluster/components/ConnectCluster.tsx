@@ -10,7 +10,7 @@
 import { ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { synnaxPropsSchema } from "@synnaxlabs/client";
+import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { SynnaxProps } from "@synnaxlabs/client";
 import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
 import type { InputSwitchProps } from "@synnaxlabs/pluto";
@@ -28,7 +28,7 @@ import { Layout, LayoutRendererProps } from "@/layout";
 
 import "@/cluster/components/ConnectCluster.css";
 
-const formSchema = synnaxPropsSchema.extend({ name: z.string() });
+const formSchema = synnaxPropsZ.extend({ name: z.string() });
 
 export const connectClusterWindowLayout: Layout = {
   key: "connectCluster",

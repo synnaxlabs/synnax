@@ -7,66 +7,77 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AetherComposite, AetherFactory, AetherLeaf } from "@/core/aether/worker";
+import {
+  Update,
+  AetherComposite,
+  AetherContext,
+  AetherLeaf,
+} from "@/core/aether/worker";
 
 export const exampleProps = z.object({
   x: z.number(),
 });
 
-type ExampleProps = z.input<typeof exampleProps>;
+class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
+  updatef = vi.fn();
+  deletef = vi.fn();
 
-export class ExampleFactory implements AetherFactory<AetherLeaf<typeof exampleProps>> {
-  create(
-    type: string,
-    key: string,
-    state: ExampleProps
-  ): AetherLeaf<typeof exampleProps> {
-    return new AetherLeaf(type, key, state, exampleProps);
+  handleUpdate(ctx: AetherContext): void {
+    this.updatef(ctx);
+  }
+
+  handleDelete(): void {
+    this.deletef();
   }
 }
 
-describe("Bob Worker", () => {
-  describe("BobLeaf", () => {
-    describe("setState", () => {
+const ctx = new AetherContext({
+  example: (update: Update) => new ExampleLeaf(update, exampleProps),
+});
+
+const update: Update = {
+  ctx,
+  type: "example",
+  path: ["test"],
+  state: { x: 1 },
+};
+
+describe("Aether Worker", () => {
+  describe("AetherLeaf", () => {
+    let leaf: ExampleLeaf;
+    beforeEach(() => {
+      leaf = ctx.create(update);
+    });
+    describe("update", () => {
       it("should throw an error if the path is empty", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        expect(() => leaf.update([], "test", { x: 1 })).toThrowError();
+        expect(() => leaf.update({ ...update, path: [] })).toThrowError();
       });
       it("should throw an error if the path has a subpath", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        expect(() => leaf.update(["test", "dog"], "test", { x: 1 })).toThrowError();
+        expect(() => leaf.update({ ...update, path: ["test", "dog"] })).toThrowError();
       });
       it("should throw an error if the path does not have the correct key", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        expect(() => leaf.update(["dog"], "test", { x: 1 })).toThrowError();
+        expect(() => leaf.update({ ...update, path: ["dog"] })).toThrowError();
       });
-      it("should correctly set the state", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        leaf.update(["test"], "test", { x: 2 });
+      it("should correctly update the state", () => {
+        leaf.update({ ...update, state: { x: 2 } });
         expect(leaf.state).toEqual({ x: 2 });
       });
-      it("should call the state hook", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        const called = vi.fn();
-        leaf.onUpdate(called);
-        leaf.update(["test"], "test", { x: 2 });
-        expect(called).toHaveBeenCalled();
+      it("should call the handleUpdate", () => {
+        leaf.update({ ...update, state: { x: 2 } });
+        expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
     });
     describe("delete", () => {
-      it("should call the delete hook", () => {
-        const leaf = new AetherLeaf("test", "test", { x: 1 }, exampleProps);
-        const called = vi.fn();
-        leaf.onDelete(called);
+      it("should call the bound onDelete handler", () => {
         leaf.delete(["test"]);
-        expect(called).toHaveBeenCalled();
+        expect(leaf.deletef).toHaveBeenCalledTimes(1);
       });
     });
   });
-  describe("BobComposite", () => {
+  describe("AetherComposite", () => {
     describe("setState", () => {
       it("should set the state of the composite's leaf if the path has one element", () => {
         const composite = new AetherComposite(

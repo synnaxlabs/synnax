@@ -30,8 +30,10 @@ type Service interface {
 	// Observable is used by the ontology to subscribe to changes in the entities.
 	// This functionality is primarily used for search indexing. If the service's entities
 	// are static, use observe.Noop.
-	observe.Observable[iter.Next[schema.Change]]
-	OpenNext() iter.NextCloser[Resource]
+	observe.Observable[iter.Nexter[schema.Change]]
+	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
+	// all resources held by the Service.
+	OpenNexter() iter.NexterCloser[Resource]
 }
 
 type serviceRegistrar map[Type]Service
