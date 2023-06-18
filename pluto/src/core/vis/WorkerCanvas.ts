@@ -11,7 +11,7 @@ import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
-import { LineGLProgramContext } from "@/core/vis/Line";
+import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
 import { RenderContext } from "@/core/vis/render";
 
 export const canvasState = z.object({

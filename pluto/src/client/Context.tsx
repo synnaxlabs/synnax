@@ -28,20 +28,20 @@ const ClientContext = createContext<ClientContextValue>({ client: null });
 export const useClient = (): Synnax | null => useContext(ClientContext).client;
 
 export interface ClientProviderProps extends PropsWithChildren {
-  params?: SynnaxProps;
+  connParams?: SynnaxProps;
 }
 
 export const ClientProvider = ({
-  params,
+  connParams,
   children,
 }: ClientProviderProps): ReactElement => {
   const [state, setState] = useState<{ client: Synnax | null }>({ client: null });
 
   useAsyncEffect(async () => {
-    if (params == null) return;
+    if (connParams == null) return;
 
     const client = new Synnax({
-      ...params,
+      ...connParams,
       connectivityPollFrequency: TimeSpan.seconds(5),
     });
     await client.connectivity.check();
@@ -52,7 +52,7 @@ export const ClientProvider = ({
       client.close();
       setState({ client: null });
     };
-  }, [params]);
+  }, [connParams]);
 
   return <ClientContext.Provider value={state}>{children}</ClientContext.Provider>;
 };

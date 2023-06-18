@@ -99,9 +99,10 @@ export const AetherProvider = ({
   children,
 }: AetherProviderProps): JSX.Element => {
   const worker = useTypedWorker<WorkerMessage>(workerKey);
+
   const setState = useCallback(
     (path: string[], type: string, state: any, transfer: Transferable[] = []): void =>
-      worker.send({ variant: "setState", path, type, state }, transfer),
+      worker.send({ variant: "update", path, type, state }, transfer),
     [worker]
   );
 

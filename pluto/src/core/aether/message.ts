@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface SetStateMesage {
-  variant: "setState";
+export interface UpdateMessage {
+  variant: "update";
   path: string[];
   type: string;
   state: any;
@@ -19,4 +19,4 @@ export interface DeleteMessage {
   path: string[];
 }
 
-export type WorkerMessage = SetStateMesage | DeleteMessage;
+export type WorkerMessage = UpdateMessage | DeleteMessage;
