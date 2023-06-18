@@ -105,7 +105,15 @@ export class AetherComposite<
       // Check if super altered the context. If so, we need to re-render children.
       change.ctx = change.ctx.child();
       super.update(change);
-      if (change.ctx.changed) this.children.forEach((c) => c.update(change));
+      if (change.ctx.changed)
+        this.children.forEach((c) =>
+          c.update({
+            ctx: change.ctx,
+            path: [],
+            type,
+            state: null,
+          })
+        );
     }
 
     const childKey = subPath[0];
@@ -183,13 +191,13 @@ export class AetherContext {
     return this.providers.get(key);
   }
 
-  create<C extends AetherComponent>(update: Update): C {
-    return this.registry[update.type](update) as C;
-  }
-
   set<P>(key: string, value: P): void {
     this.providers.set(key, value);
     this.changed = true;
+  }
+
+  create<C extends AetherComponent>(update: Update): C {
+    return this.registry[update.type](update) as C;
   }
 
   getOptional<P>(key: string): P {
@@ -219,7 +227,7 @@ class AetherRoot {
     this.ctx = new AetherContext(registry);
     this.wrap = wrap;
     this.root = null;
-    this.wrap.handle((msg) => this.handle(msg));
+    this.wrap.handle(this.handle.bind(this));
   }
 
   handle(msg: WorkerMessage): void {
@@ -240,6 +248,8 @@ class AetherRoot {
     const change: Update = { ...msg, ctx: this.ctx.child() };
     if (this.root == null) this.root = this.ctx.create(change);
     else this.root.update(change);
+
+    console.log(this.root);
   }
 }
 

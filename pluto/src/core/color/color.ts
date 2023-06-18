@@ -128,6 +128,7 @@ export class Color {
     return new Color([r, g, b, alpha]);
   }
 
+  /** A totally zero color with no alpha. */
   static ZERO = new Color([0, 0, 0, 0]);
 
   static readonly z = z

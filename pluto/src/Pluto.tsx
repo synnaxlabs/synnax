@@ -25,7 +25,7 @@ const WORKER_URL = new URL("./worker.ts", import.meta.url);
 
 export const Pluto = ({
   children,
-  params: connParams,
+  connParams,
   workerEnabled = true,
   workerURL = WORKER_URL,
   theme,
@@ -37,7 +37,7 @@ export const Pluto = ({
       <Haul.Provider>
         <Worker.Provider url={workerURL} enabled={workerEnabled}>
           <Aether.Provider workerKey="vis">
-            <Client.Provider params={connParams}>
+            <Client.Provider connParams={connParams}>
               <TelemProvider>{children}</TelemProvider>
             </Client.Provider>
           </Aether.Provider>

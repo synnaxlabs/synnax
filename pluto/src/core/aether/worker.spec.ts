@@ -110,6 +110,7 @@ describe("Aether Worker", () => {
       });
     });
   });
+
   describe("AetherComposite", () => {
     let composite: ExampleComposite;
     beforeEach(() => {
