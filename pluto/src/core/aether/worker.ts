@@ -32,11 +32,11 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
   readonly schema: S;
   state: z.output<S>;
 
-  constructor(change: Update, schema: S) {
-    this.type = change.type;
-    this.key = change.path[0];
+  constructor(update: Update, schema: S) {
+    this.type = update.type;
+    this.key = update.path[0];
     this.schema = schema;
-    this.state = this.update(change);
+    this.state = this.schema.parse(update.state);
   }
 
   update({ path, ctx, state }: Update): z.output<S> {
@@ -62,8 +62,8 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
       throw new Error(
         `[Leaf.setState] - ${this.type}:${this.key} received an empty path`
       );
-    const key = path.pop() as string;
-    if (path.length !== 0)
+    const key = path[path.length - 1];
+    if (path.length > 1)
       throw new Error(
         `[Leaf.setState] - ${this.type}:${this.key} received a subPath ${path.join(
           "."
@@ -115,7 +115,7 @@ export class AetherComposite<
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${key}:${type}`
       );
-    this.children.push(change.ctx.create(change));
+    this.children.push(change.ctx.create({ ...change, path: subPath }));
   }
 
   delete(path: string[]): void {
@@ -183,8 +183,8 @@ export class AetherContext {
     return this.providers.get(key);
   }
 
-  create<C extends AetherComponent>(change: Update): C {
-    return this.registry[change.type](change) as C;
+  create<C extends AetherComponent>(update: Update): C {
+    return this.registry[update.type](update) as C;
   }
 
   set<P>(key: string, value: P): void {
