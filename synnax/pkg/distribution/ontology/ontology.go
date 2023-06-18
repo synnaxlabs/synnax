@@ -136,13 +136,17 @@ type Writer interface {
 	NewRetrieve() Retrieve
 }
 
-func (o *Ontology) Search(ctx context.Context, query string) ([]Resource, error) {
-	ids, err := o.search.Index.Search(query)
+func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, error) {
+	ids, err := o.search.Index.Search(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	var resources []Resource
 	return resources, o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
+}
+
+func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, error) {
+	return o.search.Index.Search(ctx, req)
 }
 
 // OpenWriter opens a new Writer using the provided transaction.

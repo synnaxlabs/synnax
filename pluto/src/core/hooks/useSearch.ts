@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnknownRecord } from "@synnaxlabs/x";
+import { UnknownRecord, ArrayTransform } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 
 import { proxyMemo } from "@/core/memo";
-import { ArrayTransform } from "@/util/transform";
 
 /** Props for the {@link createSearchTransform} hook. */
 export interface UseSearchTransformProps<E extends UnknownRecord<E>> {

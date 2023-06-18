@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  LinePlotFactory,
-  LinePlot,
-  linePlotState,
-} from "@/core/vis/LinePlot/worker/LinePlot";
+export { LinePlot, linePlotState } from "@/core/vis/LinePlot/worker/LinePlot";
 export type { LinePlotState } from "@/core/vis/LinePlot/worker/LinePlot";
-export { XAxisFactory, XAxis, xAxisState } from "@/core/vis/LinePlot/worker/XAxis";
+export { XAxis, xAxisState } from "@/core/vis/LinePlot/worker/XAxis";
 export type { XAxisState } from "@/core/vis/LinePlot/worker/XAxis";
-export { YAxisFactory, YAxis } from "@/core/vis/LinePlot/worker/YAxis";
+export { YAxis } from "@/core/vis/LinePlot/worker/YAxis";
 export type { YAxisState } from "@/core/vis/LinePlot/worker/YAxis";

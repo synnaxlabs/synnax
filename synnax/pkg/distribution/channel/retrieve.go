@@ -12,6 +12,8 @@ package channel
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/query"
 
 	"github.com/samber/lo"
@@ -22,14 +24,18 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	tx   gorp.Tx
-	gorp gorp.Retrieve[Key, Channel]
-	keys Keys
+	tx         gorp.Tx
+	gorp       gorp.Retrieve[Key, Channel]
+	otg        ontology.Ontology
+	keys       Keys
+	searchTerm string
 }
 
 func newRetrieve(tx gorp.Tx) Retrieve {
 	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx}
 }
+
+func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
 // interface to gorp.Retrieve.
@@ -62,6 +68,20 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	if r.searchTerm != "" {
+		ids, err := r.otg.SearchIDs(ctx, search.Request{
+			Type: ontologyType,
+			Term: r.searchTerm,
+		})
+		if err != nil {
+			return err
+		}
+		keys, err := KeysFromOntologyIDs(ids)
+		if err != nil {
+			return err
+		}
+		r = r.WhereKeys(keys...)
+	}
 	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
 }
 

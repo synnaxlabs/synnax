@@ -32,13 +32,13 @@ type builtinService struct {
 
 var _ Service = (*builtinService)(nil)
 
-// Schema implements Service.
-func (b *builtinService) Schema() *Schema {
-	return &Schema{
-		Type:   BuiltIn,
-		Fields: map[string]schema.Field{},
-	}
+var builtinSchema = &Schema{
+	Type:   BuiltIn,
+	Fields: map[string]schema.Field{},
 }
+
+// Schema implements Service.
+func (b *builtinService) Schema() *Schema { return builtinSchema }
 
 // RetrieveResource implements Service.
 func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resource, error) {
@@ -50,7 +50,7 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resour
 	}
 }
 
-// Iterate implements Service.
+// OpenNexter implements Service.
 func (b *builtinService) OpenNexter() iter.NexterCloser[Resource] {
 	return iter.NexterNopCloser[Resource]{Wrap: iter.All([]Resource{rootResource})}
 }
