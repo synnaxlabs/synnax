@@ -25,6 +25,27 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
   updatef = vi.fn();
   deletef = vi.fn();
 
+  constructor(update: Update) {
+    super(update, exampleProps);
+  }
+
+  handleUpdate(ctx: AetherContext): void {
+    this.updatef(ctx);
+  }
+
+  handleDelete(): void {
+    this.deletef();
+  }
+}
+
+class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf> {
+  updatef = vi.fn();
+  deletef = vi.fn();
+
+  constructor(update: Update) {
+    super(update, exampleProps);
+  }
+
   handleUpdate(ctx: AetherContext): void {
     this.updatef(ctx);
   }
@@ -35,12 +56,20 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
 }
 
 const ctx = new AetherContext({
-  example: (update: Update) => new ExampleLeaf(update, exampleProps),
+  leaf: (update: Update) => new ExampleLeaf(update),
+  composite: (update: Update) => new ExampleComposite(update),
 });
 
-const update: Update = {
+const leafUpdate: Update = {
   ctx,
-  type: "example",
+  type: "leaf",
+  path: ["test"],
+  state: { x: 1 },
+};
+
+const compositeUpdate: Update = {
+  ctx,
+  type: "composite",
   path: ["test"],
   state: { x: 1 },
 };
@@ -49,24 +78,28 @@ describe("Aether Worker", () => {
   describe("AetherLeaf", () => {
     let leaf: ExampleLeaf;
     beforeEach(() => {
-      leaf = ctx.create(update);
+      leaf = ctx.create(leafUpdate);
     });
     describe("update", () => {
       it("should throw an error if the path is empty", () => {
-        expect(() => leaf.update({ ...update, path: [] })).toThrowError();
+        expect(() => leaf.update({ ...leafUpdate, path: [] })).toThrowError(
+          /empty path/
+        );
       });
       it("should throw an error if the path has a subpath", () => {
-        expect(() => leaf.update({ ...update, path: ["test", "dog"] })).toThrowError();
+        expect(() =>
+          leaf.update({ ...leafUpdate, path: ["test", "dog"] })
+        ).toThrowError(/subPath/);
       });
       it("should throw an error if the path does not have the correct key", () => {
-        expect(() => leaf.update({ ...update, path: ["dog"] })).toThrowError();
+        expect(() => leaf.update({ ...leafUpdate, path: ["dog"] })).toThrowError(/key/);
       });
       it("should correctly update the state", () => {
-        leaf.update({ ...update, state: { x: 2 } });
+        leaf.update({ ...leafUpdate, state: { x: 2 } });
         expect(leaf.state).toEqual({ x: 2 });
       });
       it("should call the handleUpdate", () => {
-        leaf.update({ ...update, state: { x: 2 } });
+        leaf.update({ ...leafUpdate, state: { x: 2 } });
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
     });
@@ -78,80 +111,56 @@ describe("Aether Worker", () => {
     });
   });
   describe("AetherComposite", () => {
+    let composite: ExampleComposite;
+    beforeEach(() => {
+      composite = ctx.create(compositeUpdate);
+    });
     describe("setState", () => {
       it("should set the state of the composite's leaf if the path has one element", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
-        composite.update(["test"], "test", { x: 2 });
+        composite.update({ ...compositeUpdate, state: { x: 2 } });
       });
       it("should create a new leaf if the path has more than one element and the leaf does not exist", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
-        composite.update(["test", "dog"], "test", { x: 2 });
+        composite.update({
+          ...leafUpdate,
+          path: ["test", "dog"],
+          state: { x: 2 },
+        });
         expect(composite.children).toHaveLength(1);
+        const c = composite.children[0];
+        expect(c.key).toEqual("dog");
+        expect(c.state).toEqual({ x: 2 });
       });
       it("should set the state of the composite's leaf if the path has more than one element and the leaf exists", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
-        composite.update(["test", "dog"], "test", { x: 2 });
-        composite.update(["test", "dog"], "test", { x: 3 });
+        composite.update({
+          ...leafUpdate,
+          path: ["test", "dog"],
+          state: { x: 2 },
+        });
+        composite.update({
+          ...leafUpdate,
+          path: ["test", "dog"],
+          state: { x: 3 },
+        });
         expect(composite.children).toHaveLength(1);
         expect(composite.children[0].state).toEqual({ x: 3 });
       });
       it("should throw an error if the path is too deep and the child does not exist", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
         expect(() =>
-          composite.update(["test", "dog", "cat"], "test", { x: 2 })
+          composite.update({ ...compositeUpdate, path: ["test", "dog", "cat"] })
         ).toThrowError();
       });
     });
     describe("delete", () => {
       it("should remove a child from the list of children", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
-        composite.update(["test", "dog"], "test", { x: 2 });
+        composite.update({ ...compositeUpdate, path: ["test", "dog"] });
         composite.delete(["test", "dog"]);
         expect(composite.children).toHaveLength(0);
       });
       it("should call the deletion hook on the child of a composite", () => {
-        const composite = new AetherComposite(
-          "test",
-          "test",
-          new ExampleFactory(),
-          exampleProps,
-          { x: 1 }
-        );
-        composite.update(["test", "dog"], "test", { x: 2 });
-        const called = vi.fn();
-        composite.children[0].setDeleteHook(called);
+        composite.update({ ...leafUpdate, path: ["test", "dog"] });
+        const c = composite.children[0];
         composite.delete(["test", "dog"]);
-        expect(called).toHaveBeenCalled();
+        expect(c.deletef).toHaveBeenCalled();
       });
     });
   });
