@@ -9,11 +9,10 @@
 
 import { useCallback, useRef } from "react";
 
-import { Key, KeyedRecord, unique } from "@synnaxlabs/x";
+import { Key, KeyedRecord, unique, ArrayTransform } from "@synnaxlabs/x";
 
 import { InputControl } from "@/core/std/Input";
 import { Triggers } from "@/core/triggers";
-import { ArrayTransform } from "@/util/transform";
 
 export type SelectedRecord<
   K extends Key,

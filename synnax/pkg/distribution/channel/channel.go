@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
@@ -85,11 +86,11 @@ type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
 func KeysFromChannels(channels []Channel) (keys Keys) {
-	nKeys := make(Keys, len(channels))
+	keys = make(Keys, len(channels))
 	for i, channel := range channels {
-		nKeys[i] = channel.Key()
+		keys[i] = channel.Key()
 	}
-	return nKeys
+	return keys
 }
 
 func KeysFromUint32(keys []uint32) Keys {
@@ -98,6 +99,17 @@ func KeysFromUint32(keys []uint32) Keys {
 		nKeys[i] = Key(key)
 	}
 	return nKeys
+}
+
+func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
+	keys = make(Keys, len(ids))
+	for i, id := range ids {
+		keys[i], err = ParseKey(id.Key)
+		if err != nil {
+			return keys, err
+		}
+	}
+	return keys, err
 }
 
 // Storage calls Key.StorageKey() on each key and returns a slice with the results.

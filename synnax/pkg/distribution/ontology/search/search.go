@@ -112,13 +112,13 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
 
-type SearchRequest struct {
+type Request struct {
 	Term string
 	Type schema.Type
 }
 
-func (s *Index) Search(req SearchRequest) ([]schema.ID, error) {
-	ctx, span := s.T.Prod(context.Background(), "search")
+func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
+	ctx, span := s.T.Prod(ctx, "search")
 	q := bleve.NewQueryStringQuery(req.Term)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
@@ -128,9 +128,7 @@ func (s *Index) Search(req SearchRequest) ([]schema.ID, error) {
 	}
 	ids, err := schema.ParseIDs(lo.Map(
 		searchResults.Hits,
-		func(hit *search.DocumentMatch, _ int) string {
-			return hit.ID
-		},
+		func(hit *search.DocumentMatch, _ int) string { return hit.ID },
 	))
 	return ids, span.EndWith(err)
 }

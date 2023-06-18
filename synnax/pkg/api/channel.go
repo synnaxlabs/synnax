@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -95,12 +94,6 @@ type ChannelRetrieveRequest struct {
 type ChannelRetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
 	Channels []Channel `json:"channels" msgpack:"channels"`
-	// NamesNotFound is a slice of strings matching the keys or names of Channels that
-	// were not found.
-	NamesNotFound []string `json:"not_found" msgpack:"not_found"`
-	// KeysNotFound is a slice of strings matching the keys or names of Channels that
-	// were not found.
-	KeysNotFound []channel.Key `json:"keys_not_found" msgpack:"keys_not_found"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -110,12 +103,10 @@ func (s *ChannelService) Retrieve(
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var (
-		resChannels   []channel.Channel
-		namesNotFound []string
-		keysNotFound  []channel.Key
-		q             = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames      = len(req.Names) > 0
-		hasKeys       = len(req.Keys) > 0
+		resChannels []channel.Channel
+		q           = s.internal.NewRetrieve().Entries(&resChannels)
+		hasNames    = len(req.Names) > 0
+		hasKeys     = len(req.Keys) > 0
 	)
 
 	if hasKeys {
@@ -132,25 +123,23 @@ func (s *ChannelService) Retrieve(
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))
 
-	if hasKeys {
-		keysNotFound, _ = lo.Difference(
-			req.Keys,
-			channel.KeysFromChannels(resChannels),
-		)
-	}
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
+}
 
-	if hasNames {
-		namesNotFound, _ = lo.Difference(
-			req.Names,
-			lo.Map(resChannels, func(ch channel.Channel, _ int) string { return ch.Name }),
-		)
-	}
+type ChannelSearchRequest struct {
+	Term string
+}
 
-	return ChannelRetrieveResponse{
-		Channels:      translateChannelsForward(resChannels),
-		NamesNotFound: namesNotFound,
-		KeysNotFound:  keysNotFound,
-	}, err
+func (s *ChannelService) Search(
+	ctx context.Context,
+	req ChannelSearchRequest,
+) (ChannelRetrieveResponse, errors.Typed) {
+	var (
+		resChannels []channel.Channel
+		q           = s.internal.NewRetrieve().Search(req.Term).Entries(&resChannels)
+		err         = errors.MaybeQuery(q.Exec(ctx, nil))
+	)
+	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

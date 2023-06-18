@@ -9,9 +9,7 @@
 
 import { useCallback, useState } from "react";
 
-import { UnknownRecord } from "@synnaxlabs/x";
-
-import { ArrayTransform } from "@/util/transform";
+import { UnknownRecord, ArrayTransform } from "@synnaxlabs/x";
 
 export interface ArrayTransformEntry<E extends UnknownRecord = UnknownRecord> {
   transform: ArrayTransform<E>;

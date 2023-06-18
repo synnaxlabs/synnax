@@ -16,6 +16,7 @@ import {
   Key,
   KeyedRenderableRecord,
   RenderableRecord,
+  ArrayTransform,
 } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
@@ -25,7 +26,6 @@ import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/core/std/Menu/ContextMenu";
 import { Space } from "@/core/std/Space";
 import { Text } from "@/core/std/Typography";
 import { Theming } from "@/core/theming";
-import { ArrayTransform } from "@/util/transform";
 
 import "@/core/std/List/ListColumn.css";
 
