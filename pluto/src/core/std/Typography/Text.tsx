@@ -9,6 +9,7 @@
 
 import { ForwardedRef, forwardRef, ReactElement } from "react";
 
+import { Color, ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Generic, GenericProps } from "@/core/std/Generic";
 import { TypographyLevel } from "@/core/std/Typography/types";
@@ -19,12 +20,15 @@ export interface CoreTextProps<L extends TypographyLevel = "h1"> {
   /* The text to display */
   children?: string | number;
   /* The color of the text */
-  color?: string;
+  color?: ColorT;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
 }
 
-export type TextProps<L extends TypographyLevel = "h1"> = Omit<GenericProps<L>, "el"> &
+export type TextProps<L extends TypographyLevel = "h1"> = Omit<
+  GenericProps<L>,
+  "el" | "color"
+> &
   CoreTextProps<L>;
 
 const CoreText = <L extends TypographyLevel = "h1">(
@@ -43,7 +47,7 @@ const CoreText = <L extends TypographyLevel = "h1">(
   <Generic<L>
     el={level}
     ref={ref}
-    style={{ color, ...style }}
+    style={{ color: color != null ? new Color(color).hex : undefined, ...style }}
     className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
     {...props}
   >

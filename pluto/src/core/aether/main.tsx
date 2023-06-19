@@ -13,6 +13,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -62,6 +63,8 @@ export const useAether = <S extends unknown>(
 
   const transferred = useRef<Transferable[]>([]);
 
+  const initialStateSet = useRef(false);
+
   const setState = useCallback(
     (next: PsuedoSetStateArg<S>, transfer: Transferable[] = []): void => {
       const untransferred = transfer.filter((t) => !transferred.current.includes(t));
@@ -80,12 +83,10 @@ export const useAether = <S extends unknown>(
     [ctx, path, type]
   );
 
-  useEffect(
-    () => setState(initialState, initialTransfer),
-    [setState, initialState, initialState]
-  );
-
-  useEffect(() => () => ctx.delete(path), [path]);
+  if (!initialStateSet.current) {
+    setState(initialState, initialTransfer);
+    initialStateSet.current = true;
+  }
 
   return { key: oKey, path, state: [internalState, setState] };
 };

@@ -57,5 +57,25 @@ export const Nested: StoryFn<typeof Pack> = (args) => (
   </Pack>
 );
 
+export const NestedX: StoryFn<typeof Pack> = (args) => (
+  <Pack direction="x">
+    <Pack {...args} direction="y">
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+    </Pack>
+    <Pack direction="y">
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+    </Pack>
+    <Pack direction="y">
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+      <Button variant="text">Button</Button>
+    </Pack>
+  </Pack>
+);
+
 // eslint-disable-next-line import/no-default-export
 export default story;

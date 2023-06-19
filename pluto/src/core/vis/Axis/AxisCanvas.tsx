@@ -114,7 +114,7 @@ export class AxisCanvas {
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
-    const p = this.state.position.translateX(X_AXIS_SIZE);
+    const p = this.state.position.translateX(Y_AXIS_SIZE);
     this.drawLine(p, p.translateY(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.drawTicks(ticks, (d, tick) => {

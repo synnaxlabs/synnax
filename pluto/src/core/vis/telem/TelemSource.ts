@@ -89,3 +89,15 @@ export interface XYTelemSource extends TelemSourceMeta {
    */
   release: (gl: GLBufferController) => void;
 }
+
+export const pointTelemSourceMeta = telemSourceMeta.extend({
+  variant: z.literal("point"),
+});
+
+export type PointTelemSourceMeta = z.infer<typeof pointTelemSourceMeta>;
+
+export interface PointTelemSource extends TelemSourceMeta {
+  value: number;
+  onChange: (f: () => void) => void;
+  release: (gl: GLBufferController) => void;
+}

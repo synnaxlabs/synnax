@@ -38,6 +38,8 @@ export class Canvas extends AetherComposite<typeof canvasState> {
       if (glCanvas == null || canvasCanvas == null) throw new Error("unexpected");
       renderCtx = RenderContext.create(ctx, glCanvas, canvasCanvas);
       LineGLProgramContext.create(ctx);
+    } else {
+      renderCtx.update(ctx);
     }
     renderCtx.resize(new Box(this.state.region), this.state.dpr);
   }

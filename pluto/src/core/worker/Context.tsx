@@ -11,6 +11,7 @@ import {
   PropsWithChildren,
   ReactElement,
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -18,6 +19,9 @@ import {
 } from "react";
 
 import { TypedWorker, RoutedWorker } from "@synnaxlabs/x";
+
+import { useUniqueKey } from "../hooks/useUniqueKey";
+import { useMemoCompare } from "../memo";
 
 export interface WorkerContextValue {
   route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
@@ -39,38 +43,37 @@ interface WorkerState {
   router: RoutedWorker;
 }
 
-export const WorkerProvider = ({
-  children,
-  url,
-  enabled = true,
-}: WorkerProviderProps): ReactElement | null => {
-  const [state, setState] = useState<WorkerState | null>(null);
+export const WorkerProvider = memo(
+  ({ children, url, enabled = true }: WorkerProviderProps): ReactElement | null => {
+    const [state, setState] = useState<WorkerState | null>(null);
 
-  useEffect(() => {
-    if (!enabled) return;
-    const worker = new Worker(new URL(url), { type: "module" });
-    const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
-    worker.onmessage = (e) => router.handle(e);
-    setState({ worker, router });
-    return () => worker.terminate();
-  }, [url]);
+    useEffect(() => {
+      if (!enabled) return;
+      const worker = new Worker(new URL(url), { type: "module" });
+      const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
+      worker.onmessage = (e) => router.handle(e);
+      setState({ worker, router });
+      return () => worker.terminate();
+    }, [url]);
 
-  const route = useCallback(
-    <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
-      if (state == null) throw new Error("Worker is not initialized");
-      return state.router.route(type);
-    },
-    [state]
-  );
+    const route = useCallback(
+      <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
+        if (state == null) throw new Error("Worker is not initialized");
+        return state.router.route(type);
+      },
+      [state]
+    );
 
-  if (state == null) return null;
+    if (state == null) return null;
 
-  return (
-    <WorkerContext.Provider value={{ route }}>
-      {state != null && children}
-    </WorkerContext.Provider>
-  );
-};
+    return (
+      <WorkerContext.Provider value={{ route }}>
+        {state != null && children}
+      </WorkerContext.Provider>
+    );
+  }
+);
+WorkerProvider.displayName = "WorkerProvider";
 
 export const useTypedWorker = <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
   const { route } = useContext(WorkerContext);

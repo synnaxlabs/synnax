@@ -18,11 +18,14 @@ import {
 import { Box } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
+import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import {
   Canvas as WorkerCanvas,
   CanvasState as WorkerCanvasProps,
 } from "@/core/vis/WorkerCanvas";
+
+import "@/core/vis/Canvas.css";
 
 type HTMLCanvasProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLCanvasElement>,
@@ -36,6 +39,7 @@ const ZERO_PROPS = { region: Box.ZERO, dpr: 1 };
 interface Canvases {
   gl: HTMLCanvasElement | null;
   canvas: HTMLCanvasElement | null;
+  bootstrapped: boolean;
 }
 
 const bootstrapped = ({ gl, canvas }: Canvases): boolean =>
@@ -47,7 +51,7 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
     state: [, setState],
   } = Aether.use<WorkerCanvasProps>(WorkerCanvas.TYPE, ZERO_PROPS);
 
-  const canvases = useRef<Canvases>({ gl: null, canvas: null });
+  const canvases = useRef<Canvases>({ gl: null, canvas: null, bootstrapped: false });
 
   const handleResize = useCallback(
     (region: Box) =>
@@ -60,11 +64,13 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
 
   const refCallback = useCallback((el: HTMLCanvasElement | null) => {
     resizeRef(el);
-    if (canvases.current.gl == null) canvases.current.gl = el;
-    else if (canvases.current.canvas == null) canvases.current.canvas = el;
-    const { gl, canvas } = canvases.current;
-    if (gl == null || canvas == null) return;
-    const glOffscreen = canvas.transferControlToOffscreen();
+    if (el == null) return;
+    if (el.className.includes("gl")) canvases.current.gl = el;
+    else canvases.current.canvas = el;
+    const { gl, canvas, bootstrapped } = canvases.current;
+    if (gl == null || canvas == null || bootstrapped) return;
+    canvases.current.bootstrapped = true;
+    const glOffscreen = gl.transferControlToOffscreen();
     const canvasOffscreen = canvas.transferControlToOffscreen();
     const region = new Box(canvas.getBoundingClientRect());
     setState(
@@ -80,8 +86,8 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
 
   return (
     <>
-      <canvas ref={refCallback} {...props} />
-      <canvas ref={refCallback} {...props} />
+      <canvas ref={refCallback} className={CSS.BM("canvas", "gl")} {...props} />
+      <canvas ref={refCallback} className={CSS.BM("canvas", "2d")} {...props} />
       <Aether.Composite path={path}>
         {bootstrapped(canvases.current) && children}
       </Aether.Composite>

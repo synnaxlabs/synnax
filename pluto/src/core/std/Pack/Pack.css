@@ -31,12 +31,24 @@
     --pluto-pack--last: var(--r);
     --pluto-pack--only: var(--all);
     --pluto-pack--x-margin: 0 0 0 -1px !important;
+    --pluto-pack--x-first-y-first: var(--tl);
+    --pluto-pack--x-first-y-last: var(--bl);
+    --pluto-pack--x-first-y-only: var(--l);
+    --pluto-pack--x-last-y-first: var(--tr);
+    --pluto-pack--x-last-y-last: var(--br);
+    --pluto-pack--x-last-y-only: var(--r);
 }
 
 .pluto-pack.pluto--x.pluto-pack--reverse {
     --pluto-pack--first: var(--r);
     --pluto-pack--last: var(--l);
     --pluto-pack--x-margin: 0 -1px 0 0 !important;
+    --pluto-pack--x-first-y-first: var(--tr);
+    --pluto-pack--x-first-y-last: var(--br);
+    --pluto-pack--x-first-y-only: var(--r);
+    --pluto-pack--x-last-y-first: var(--tl);
+    --pluto-pack--x-last-y-last: var(--bl);
+    --pluto-pack--x-last-y-only: var(--l);
 }
 
 .pluto-pack.pluto--y {
@@ -88,10 +100,13 @@
     margin: var(--pluto-pack--y-margin);
 }
 
+.pluto-pack > .pluto-pack {
+    border: none;
+}
+
 .pluto-pack.pluto--y
     > .pluto-pack.pluto--x:first-child:not(:only-child):not(:has(+ .pluto--hidden))
     > *:first-child:not(:only-child) {
-    flex-grow: 1;
     border-radius: var(--pluto-pack--y-first-x-first);
 }
 
@@ -127,21 +142,51 @@
     border-radius: var(--pluto-pack--y-last-x-only);
 }
 
-.pluto-pack.pluto--x.pluto-pack--small > * {
+.pluto-pack.pluto--x.pluto-pack--small > *:not(.pluto-pack) {
     height: var(--pluto-height-small);
     line-height: var(--pluto-height-small);
 }
 
-.pluto-pack.pluto--x.pluto-pack--medium > * {
+.pluto-pack.pluto--x.pluto-pack--medium > *:not(.pluto-pack) {
     height: var(--pluto-height-medium);
     line-height: var(--pluto-height-medium);
 }
 
-.pluto-pack.pluto--x.pluto-pack--large > * {
+.pluto-pack.pluto--x.pluto-pack--large > *:not(.pluto-pack) {
     height: var(--pluto-height-large);
     line-height: var(--pluto-height-large);
 }
 
-.pluto-pack.pluto--y > .pluto-pack.pluto--x {
-    border: none;
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--y:first-child:not(:only-child):not(:has(+ .pluto--hidden))
+    > *:first-child:not(:only-child) {
+    border-radius: var(--pluto-pack--x-first-y-first);
+}
+
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--y:first-child:not(:only-child):not(:has(+ .pluto--hidden))
+    > *:last-child:not(:only-child) {
+    border-radius: var(--pluto-pack--x-first-y-last);
+}
+
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--y:first-child:not(:only-child)
+    > *:only-child {
+    border-radius: var(--pluto-pack--x-first-y-only);
+}
+
+.pluto-pack.pluto--x > .pluto-pack.pluto--y:not(:last-child):not(:first-child) > * {
+    border-radius: 0 !important;
+}
+
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--y:last-child:not(:only-child)
+    > *:first-child:not(:only-child) {
+    border-radius: var(--pluto-pack--x-last-y-first);
+}
+
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--y:last-child:not(:only-child)
+    > *:last-child:not(:only-child) {
+    border-radius: var(--pluto-pack--x-last-y-last);
 }

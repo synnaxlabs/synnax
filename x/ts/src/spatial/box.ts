@@ -16,13 +16,13 @@ import {
   XY,
   SignedDimensions,
   Bounds,
-  CrudeOuterLocation,
   Location,
   CrudeXLocation,
   CrudeXY,
   LooseDirectionT,
   Direction,
   CrudeDimensions,
+  CrudeLocation,
 } from "@/spatial/core";
 
 const cssBox = z.object({
@@ -223,7 +223,7 @@ export class Box implements Stringer {
    * side of the box i.e. the x coordinate of the left side, the y coordinate of the
    * top side, etc.
    */
-  loc(loc: CrudeOuterLocation): number {
+  loc(loc: CrudeLocation): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
     return Location.X_LOCATIONS.includes(loc as CrudeXLocation)
       ? f(this.one.x, this.two.x)
@@ -280,6 +280,13 @@ export class Box implements Stringer {
 
   get top(): number {
     return this.loc("top");
+  }
+
+  get center(): XY {
+    return this.topLeft.translate({
+      x: this.signedWidth / 2,
+      y: this.signedHeight / 2,
+    });
   }
 
   get x(): number {

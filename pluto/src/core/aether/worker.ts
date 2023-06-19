@@ -103,17 +103,22 @@ export class AetherComposite<
     const [key, subPath] = this.getRequiredKey(path);
     if (subPath.length === 0) {
       // Check if super altered the context. If so, we need to re-render children.
+      if (key !== this.key)
+        throw new Error(
+          `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
+        );
       change.ctx = change.ctx.child();
       super.update(change);
       if (change.ctx.changed)
-        this.children.forEach((c) =>
+        this.children.forEach((c) => {
           c.update({
             ctx: change.ctx,
             path: [],
             type,
             state: null,
-          })
-        );
+          });
+        });
+      return;
     }
 
     const childKey = subPath[0];
@@ -121,7 +126,7 @@ export class AetherComposite<
     if (child != null) return child?.update({ ...change, path: subPath });
     if (subPath.length > 1)
       throw new Error(
-        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${key}:${type}`
+        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${type}:${childKey}`
       );
     this.children.push(change.ctx.create({ ...change, path: subPath }));
   }
@@ -187,8 +192,8 @@ export class AetherContext {
     return new AetherContext(this.registry, this.providers);
   }
 
-  get<P>(key: string): P {
-    return this.providers.get(key);
+  getOptional<P>(key: string): P | null {
+    return this.providers.get(key) ?? null;
   }
 
   set<P>(key: string, value: P): void {
@@ -197,10 +202,13 @@ export class AetherContext {
   }
 
   create<C extends AetherComponent>(update: Update): C {
-    return this.registry[update.type](update) as C;
+    const factory = this.registry[update.type];
+    if (factory == null)
+      throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
+    return factory(update) as C;
   }
 
-  getOptional<P>(key: string): P {
+  get<P>(key: string): P {
     const value = this.providers.get(key);
     if (value == null)
       throw new Error(`[AetherRoot.get] - could not find provider ${key}`);
@@ -248,8 +256,6 @@ class AetherRoot {
     const change: Update = { ...msg, ctx: this.ctx.child() };
     if (this.root == null) this.root = this.ctx.create(change);
     else this.root.update(change);
-
-    console.log(this.root);
   }
 }
 

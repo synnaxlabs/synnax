@@ -51,7 +51,7 @@ export const useResize = <E extends HTMLElement>(
       if (obs.current != null) obs.current.disconnect();
       if (prev.current == null) prev.current = Box.ZERO;
       const deb = debounceF(() => {
-        const next = new Box(el.getBoundingClientRect());
+        const next = new Box(el);
         if (shouldResize(triggers, prev.current, next)) {
           prev.current = next;
           onResize(next, ref.current as E);

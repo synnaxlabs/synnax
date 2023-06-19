@@ -14,7 +14,6 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { VisCanvas } from "@/core/vis/Canvas";
 import { Line } from "@/core/vis/Line/Line";
 import { LinePlot } from "@/core/vis/LinePlot";
-import { Pluto } from "@/Pluto";
 import { StaticTelem } from "@/telem/static/main";
 
 const story: Meta<typeof LinePlot> = {
@@ -37,7 +36,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot style={{ padding: 10 }}>
+      <LinePlot>
         <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
             <Line telem={telem} color="#F733FF" strokeWidth={10} />
@@ -48,11 +47,7 @@ const Example = (): ReactElement => {
   );
 };
 
-export const Primary: StoryFn<typeof LinePlot> = () => (
-  <Pluto>
-    <Example />
-  </Pluto>
-);
+export const Primary: StoryFn<typeof LinePlot> = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;
