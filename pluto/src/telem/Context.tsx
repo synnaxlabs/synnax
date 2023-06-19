@@ -17,7 +17,7 @@ import {
   useId,
 } from "react";
 
-import { Telem, TelemState } from "./worker";
+import { Telem, telemState, TelemState } from "./worker";
 
 import { useClient } from "@/client/Context";
 import { Aether } from "@/core/aether/main";
@@ -56,13 +56,13 @@ export const TelemProvider = ({ children }: TelemProviderProps): ReactElement =>
   const {
     path,
     state: [, setState],
-  } = Aether.use<TelemState>(Telem.TYPE, undefined);
+  } = Aether.use(Telem.TYPE, undefined, telemState);
 
   const client = useClient();
 
   useEffect(() => {
     if (client == null) return;
-    client != null && setState({ variant: "connect", props: client?.props });
+    setState({ variant: "connect", props: client?.props });
   }, [client]);
 
   const set = useCallback(

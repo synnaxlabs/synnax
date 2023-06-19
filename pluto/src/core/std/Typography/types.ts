@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import { ComponentSize } from "@/util/component";
 
 export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
 
 /* Level of typography i.e paragraph and heading */
-export type TypographyLevel = typeof TypographyLevels[number];
+export type TypographyLevel = (typeof TypographyLevels)[number];
+
+export const typographySpec = z.object({
+  size: z.number(),
+  weight: z.union([z.number(), z.string()]),
+  lineHeight: z.number(),
+  textTransform: z.string().optional(),
+});
 
 /* Defines a particular typography style */
-export interface TypographySpec {
-  size: number;
-  weight: number | string;
-  lineHeight: number;
-  textTransform?: string;
-}
+export type TypographySpec = z.infer<typeof typographySpec>;
 
 /* Standardizes the typography levels for components of different sizes */
 export const ComponentSizeTypographyLevels: Record<ComponentSize, TypographyLevel> = {

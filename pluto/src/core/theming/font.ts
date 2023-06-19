@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { TypographyLevel, Typography } from "@/core/std";
-import { Theme } from "@/core/theming/theme";
+import { ThemeSpec } from "@/core/theming/theme";
 import { useThemeContext } from "@/core/theming/ThemeContext";
 import { ComponentSize, isComponentSize } from "@/util/component";
 
 const { ComponentSizeLevels } = Typography;
 
-export const font = (theme: Theme, level: TypographyLevel | ComponentSize): string => {
+export const font = (
+  theme: ThemeSpec,
+  level: TypographyLevel | ComponentSize
+): string => {
   const {
     typography,
     sizes: { base },

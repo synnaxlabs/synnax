@@ -19,6 +19,7 @@ import { Theming } from "@/core/theming";
 import {
   XAxisState as WorkerXAxisState,
   XAxis as WorkerXAxis,
+  xAxisState,
 } from "@/core/vis/LinePlot/worker";
 
 export interface XAxisCProps
@@ -32,14 +33,18 @@ export const XAxis = memo(
       key,
       path,
       state: [, setState],
-    } = Aether.use<WorkerXAxisState>(WorkerXAxis.TYPE, {
-      color: theme.colors.gray.p2,
-      gridColor: theme.colors.gray.m1,
-      position: XY.ZERO,
-      font: Theming.font(theme, "small"),
-      location,
-      ...props,
-    });
+    } = Aether.use<typeof xAxisState>(
+      WorkerXAxis.TYPE,
+      {
+        color: theme.colors.gray.p2,
+        gridColor: theme.colors.gray.m1,
+        position: XY.ZERO,
+        font: Theming.font(theme, "small"),
+        location,
+        ...props,
+      },
+      xAxisState
+    );
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,

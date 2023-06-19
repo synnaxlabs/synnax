@@ -1,0 +1,61 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-valve {
+    cursor: pointer;
+    background: none;
+    border: none;
+    --pluto-base-color: var(--pluto-text-color-rgb);
+}
+
+.pluto-valve svg {
+    width: 80px;
+    stroke: rgba(var(--pluto-base-color), 1);
+    stroke-width: 2px;
+    transition: stroke 0.15s ease-in-out;
+}
+
+.pluto-valve:focus {
+    outline: none;
+}
+
+.pluto-valve:hover svg {
+    stroke: rgba(var(--pluto-base-color), 0.8);
+}
+
+.pluto-valve:active svg {
+    stroke: rgba(var(--pluto-base-color), 0.9);
+}
+
+.pluto-valve--active svg {
+    fill: rgba(var(--pluto-base-color), 1);
+}
+
+.pluto-valve--triggered svg {
+    fill: rgba(var(--pluto-base-color), 0.2) !important;
+    /* animate the stroke clockwise */
+    animation: pluto-valve--triggered 10s linear;
+    stroke: rgba(var(--pluto-base-color), 0.8);
+    stroke-dasharray: 10;
+}
+
+@keyframes pluto-valve--triggered {
+    0% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 1000;
+    }
+}
+
+.pluto-valve--active:hover svg {
+    fill: rgba(var(--pluto-base-color), 0.8);
+}

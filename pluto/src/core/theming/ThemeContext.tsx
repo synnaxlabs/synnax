@@ -21,7 +21,7 @@ import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
 import { convertThemeToCSSVars } from "@/core/theming/css";
-import { Theme, themes } from "@/core/theming/theme";
+import { themeZ, Theme, ThemeSpec, themes } from "@/core/theming/theme";
 
 import "@/core/theming/theme.css";
 
@@ -32,13 +32,13 @@ export interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: themes.synnaxLight,
+  theme: themeZ.parse(themes.synnaxLight),
   toggleTheme: () => undefined,
   setTheme: () => undefined,
 });
 
 export interface UseThemeProviderProps {
-  themes: Record<string, Theme>;
+  themes: Record<string, ThemeSpec>;
   defaultTheme?: string;
 }
 
@@ -52,6 +52,15 @@ export const useThemeProvider = ({
     defaultTheme ?? Object.keys(themes)[0]
   );
 
+  const parsedThemes = useMemo(
+    () =>
+      Object.entries(themes).reduce<Record<string, Theme>>(
+        (acc, [key, value]) => ({ ...acc, [key]: themeZ.parse(value) }),
+        {}
+      ),
+    [themes]
+  );
+
   const toggleTheme = (): void => {
     const keys = Object.keys(themes);
     const index = keys.indexOf(selected);
@@ -59,7 +68,7 @@ export const useThemeProvider = ({
     setSelected(keys[nextIndex]);
   };
 
-  const theme = useMemo(() => themes[selected], [selected]);
+  const theme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
 
   return {
     theme,
@@ -93,10 +102,9 @@ export const ThemeProvider = ({
       setTheme,
     };
   }
-  useLayoutEffect(
-    () => CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme)),
-    [ret.theme]
-  );
+  useLayoutEffect(() => {
+    CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme));
+  }, [ret.theme]);
   return <ThemeContext.Provider value={ret}>{children}</ThemeContext.Provider>;
 };
 

@@ -8,73 +8,74 @@
 // included in the file licenses/APL.txt.
 
 import "@fontsource/inter";
+import { z } from "zod";
 
 import { Color } from "@/core/color";
-import { TypographySpec } from "@/core/std/Typography";
+import { Typography } from "@/core/std";
 
-export interface Theme {
-  name: string;
-  key: string;
-  colors: {
-    border: string;
-    primary: {
-      m1: string;
-      z: string;
-      p1: string;
-    };
-    gray: {
-      m3: string;
-      m2: string;
-      m1: string;
-      m0: string;
-      p0: string;
-      p1: string;
-      p2: string;
-      p3: string;
-    };
-    error: {
-      m1: string;
-      z: string;
-      p1: string;
-    };
-    visualization: {
-      palettes: {
-        default: string[];
-        [key: string]: string[];
-      };
-    };
-    white: string;
-    black: string;
-    background: string;
-    text: string;
-    logo: string;
-  };
-  sizes: {
-    base: number;
-    border: {
-      radius: number;
-      width: number;
-    };
-  };
-  typography: {
-    family: string;
-    h1: TypographySpec;
-    h2: TypographySpec;
-    h3: TypographySpec;
-    h4: TypographySpec;
-    h5: TypographySpec;
-    p: TypographySpec;
-    small: TypographySpec;
-    tiny: TypographySpec;
-  };
-}
+export const themeZ = z.object({
+  name: z.string(),
+  key: z.string(),
+  colors: z.object({
+    border: Color.z,
+    primary: z.object({
+      m1: Color.z,
+      z: Color.z,
+      p1: Color.z,
+    }),
+    gray: z.object({
+      m3: Color.z,
+      m2: Color.z,
+      m1: Color.z,
+      m0: Color.z,
+      p0: Color.z,
+      p1: Color.z,
+      p2: Color.z,
+      p3: Color.z,
+    }),
+    error: z.object({
+      m1: Color.z,
+      z: Color.z,
+      p1: Color.z,
+    }),
+    visualization: z.object({
+      palettes: z.record(z.array(Color.z)),
+    }),
+    white: Color.z,
+    black: Color.z,
+    background: Color.z,
+    text: Color.z,
+    logo: z.string(),
+  }),
+  sizes: z.object({
+    base: z.number(),
+    border: z.object({
+      radius: z.number(),
+      width: z.number(),
+    }),
+  }),
+  typography: z.object({
+    family: z.string(),
+    h1: Typography.spec,
+    h2: Typography.spec,
+    h3: Typography.spec,
+    h4: Typography.spec,
+    h5: Typography.spec,
+    p: Typography.spec,
+    small: Typography.spec,
+    tiny: Typography.spec,
+  }),
+});
+
+export type ThemeSpec = z.input<typeof themeZ>;
+export type Theme = z.output<typeof themeZ>;
 
 const white: string = "#FFFFFF";
 const black: string = "#171716";
 const fontFamily = "Inter, sans-serif";
 const baseSize: number = 6;
 
-const synnaxBase: Theme = {
+const synnaxBase: ThemeSpec = {
   key: "synnax-base",
   name: "Synnax Base",
   colors: {
@@ -178,13 +179,13 @@ const synnaxBase: Theme = {
   },
 };
 
-export const synnaxLight: Theme = {
+export const synnaxLight: ThemeSpec = {
   ...synnaxBase,
   key: "synnax-light",
   name: "Synnax Light",
 };
 
-export const synnaxDark: Theme = {
+export const synnaxDark: ThemeSpec = {
   ...synnaxBase,
   key: "synnax-dark",
   name: "Synnax Dark",

@@ -12,13 +12,13 @@ import { ReactElement, memo } from "react";
 import { Optional } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
-import { LineState } from "@/core/vis/Line/core";
+import { lineState, LineState } from "@/core/vis/Line/core";
 import { LineGL } from "@/core/vis/Line/LineGL";
 
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
 export const Line = memo((props: LineProps): ReactElement | null => {
-  Aether.use<LineState>(LineGL.TYPE, props);
+  Aether.use(LineGL.TYPE, props, lineState);
   return null;
 });
 Line.displayName = "Line";

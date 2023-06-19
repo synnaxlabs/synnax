@@ -12,9 +12,11 @@ import { MutableRefObject, useCallback, useRef } from "react";
 import { Primitive } from "@synnaxlabs/x";
 
 /** A function that mimics the behavior of a setState function from a usetState hook. */
-export type PsuedoSetStateArg<S> = S | ((prev: S) => S);
-export type PseudoSetState<S> = (value: PsuedoSetStateArg<S>) => void;
-export type PseudoInitialState<S> = S | (() => S);
+export type PsuedoSetStateArg<S extends Primitive | object> = S | ((prev: S) => S);
+export type PseudoSetState<S extends Primitive | object> = (
+  value: PsuedoSetStateArg<S>
+) => void;
+export type PseudoInitialState<S extends Primitive | object> = S | (() => S);
 
 /**
  * A hook that returns a ref and a pseudo-setState function to mimic the

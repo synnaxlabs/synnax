@@ -11,11 +11,10 @@ import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { VisCanvas } from "../../Canvas";
+import { VisCanvas } from "../Canvas";
 
 import { Value } from "./main";
 
-import { Pack } from "@/core/std";
 import { StaticTelem } from "@/telem/static/main";
 
 const story: Meta<typeof Value> = {
@@ -24,7 +23,7 @@ const story: Meta<typeof Value> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = StaticTelem.usePoint(1);
+  const telem = StaticTelem.usePoint(5000);
 
   return (
     <VisCanvas
@@ -36,7 +35,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Value telem={telem} label="Regen PT" />
+      <Value telem={telem} label="Regen PT" style={{ width: 100 }} units="psi" />
     </VisCanvas>
   );
 };

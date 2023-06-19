@@ -13,6 +13,7 @@ import {
   Bounds,
   Dimensions,
   Direction,
+  Location,
   LooseBoundT,
   LooseDimensionsT,
   LooseDirectionT,
@@ -208,6 +209,21 @@ describe("Spatial Core", () => {
       it("should return true if both bounds are finite", () => {
         const bound = new Bounds([1, 2]);
         expect(bound.isFinite).toEqual(true);
+      });
+    });
+  });
+
+  describe("Location", () => {
+    describe("construction", () => {
+      [
+        ["from valueOf", String("left")],
+        ["from string", "left"],
+        ["from direction", "x"],
+      ].forEach(([name, arg]) => {
+        test(name, () => {
+          const location = new Location(arg);
+          expect(location.crude).toEqual("left");
+        });
       });
     });
   });

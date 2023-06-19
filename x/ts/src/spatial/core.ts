@@ -26,6 +26,7 @@ const CENTER_LOCATION = "center";
 const OUTER_LOCATIONS = [...Y_LOCATIONS, ...X_LOCATIONS] as const;
 const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
 
+const stringValueOf = z.instanceof(String);
 const numberCouple = z.tuple([z.number(), z.number()]);
 const direction = z.enum(["x", "y"]);
 const yDirection = z.literal("y");
@@ -49,7 +50,7 @@ export const xyTransform = z.object({ offset: xy, scale: xy });
 const boundsZ = z.object({ lower: z.number(), upper: z.number() });
 const dimension = z.enum(["width", "height"]);
 
-const looseDirection = z.union([direction, location]);
+const looseDirection = z.union([direction, location, stringValueOf]);
 const looseYLocation = z.union([yLocation, yDirection]);
 const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
@@ -165,7 +166,8 @@ export class Direction extends String {
  */
 export class Location extends String {
   constructor(location: LooseLocationT) {
-    if (!Direction.DIRECTIONS.includes(location as CrudeDirection)) super(location);
+    if (!Direction.DIRECTIONS.includes(location as CrudeDirection))
+      super(location.valueOf());
     else if (location === "x") super("left");
     else super("top");
   }
@@ -276,27 +278,35 @@ export class Location extends String {
    */
   static readonly strictCornerZ = corner;
 
+  private static readonly locationOrValue = z.union([
+    z.instanceof(Location),
+    stringValueOf,
+  ]);
+
   /**
    * A zod schema to parse an X location i.e. one of "left" or "right".
    */
   static readonly strictXZ = xLocation
-    .or(z.instanceof(Location).refine((l) => l.isX))
-    .transform((v) => new Location(v));
+    .or(Location.locationOrValue)
+    .transform((v) => new Location(v))
+    .refine((l) => l.isX);
 
   /**
    * A zod schema to parse a Y location i.e. one of "top" or "bottom".
    */
   static readonly strictYZ = yLocation
-    .or(z.instanceof(Location).refine((l) => l.isY))
-    .transform((v) => new Location(v));
+    .or(Location.locationOrValue)
+    .transform((v) => new Location(v))
+    .refine((l) => l.isY);
 
   /**
    * A zod schema to parse an outer location i.e. one of "top", "bottom", "left",
    * "right".
    */
   static readonly strictOuterZ = outerLocation
-    .or(z.instanceof(Location).refine((v) => v.isOuter))
-    .transform((v) => new Location(v));
+    .or(Location.locationOrValue)
+    .transform((v) => new Location(v))
+    .refine((l) => l.isOuter);
 
   private static readonly SWAPPED: Record<CrudeLocation, CrudeLocation> = {
     top: "bottom",

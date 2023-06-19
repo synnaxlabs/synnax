@@ -20,10 +20,7 @@ import { Box } from "@synnaxlabs/x";
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
-import {
-  Canvas as WorkerCanvas,
-  CanvasState as WorkerCanvasProps,
-} from "@/core/vis/WorkerCanvas";
+import { Canvas as WorkerCanvas, canvasState } from "@/core/vis/WorkerCanvas";
 
 import "@/core/vis/Canvas.css";
 
@@ -49,7 +46,7 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
   const {
     path,
     state: [, setState],
-  } = Aether.use<WorkerCanvasProps>(WorkerCanvas.TYPE, ZERO_PROPS);
+  } = Aether.use(WorkerCanvas.TYPE, ZERO_PROPS, canvasState);
 
   const canvases = useRef<Canvases>({ gl: null, canvas: null, bootstrapped: false });
 

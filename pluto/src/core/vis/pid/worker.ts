@@ -10,10 +10,9 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { VFactory, VComposite } from "@/core/virtual/worker";
-import { Value } from "@/core/vis/pid/Value/worker";
-import { RenderContext, RenderQueue } from "@/core/vis/render";
-import { TelemProvider } from "@/core/vis/telem/TelemService";
+import { AetherComponent, AetherComposite, Update } from "@/core/aether/worker";
+import { CSS } from "@/core/css";
+import { RenderContext, RenderController } from "@/core/vis/render";
 
 export const pidState = z.object({
   position: XY.z,
@@ -23,71 +22,36 @@ export const pidState = z.object({
 export type PIDState = z.input<typeof pidState>;
 export type ParsedPIDState = z.output<typeof pidState>;
 
-export class PIDFactory implements VFactory<PID> {
-  ctx: RenderContext;
-  telem: TelemProvider;
-  renderQueue: RenderQueue;
-
-  constructor(ctx: RenderContext, telem: TelemProvider, renderQueue: RenderQueue) {
-    this.ctx = ctx;
-    this.telem = telem;
-    this.renderQueue = renderQueue;
-  }
-
-  create(type: string, key: string, state: any): PID {
-    return new PID(key, this.ctx, this.telem, this.renderQueue, state);
-  }
+interface PIDRenderProps {
+  position: XY;
 }
 
-export type PIDItem = Value;
-
-export class PIDItemFactory implements VFactory<PIDItem> {
-  ctx: RenderContext;
-  telem: TelemProvider;
-  requestRender: () => void;
-
-  constructor(ctx: RenderContext, telem: TelemProvider, requestRender: () => void) {
-    this.requestRender = requestRender;
-    this.ctx = ctx;
-    this.telem = telem;
-  }
-
-  create(type: string, key: string, state: any): PIDItem {
-    switch (type) {
-      case "value":
-        return new Value(key, this.ctx, state, this.telem, this.requestRender);
-      default:
-        throw new Error(`Unknown PID item type: ${type}`);
-    }
-  }
+export interface PIDItem extends AetherComponent {
+  render: (props: PIDRenderProps) => void;
 }
 
-export class PID extends VComposite<PIDState, ParsedPIDState, PIDItem> {
-  static readonly TYPE = "pid";
+export class PID extends AetherComposite<typeof pidState, PIDItem> {
+  static readonly TYPE = CSS.B("pid");
 
   ctx: RenderContext;
-  renderQueue: RenderQueue;
 
-  constructor(
-    key: string,
-    ctx: RenderContext,
-    telem: TelemProvider,
-    renderQueue: RenderQueue,
-    state: any
-  ) {
-    const factory = new PIDItemFactory(ctx, telem, () => this.requestRender());
-    super(PID.TYPE, key, factory, pidState, state);
-    this.ctx = ctx;
-    this.renderQueue = renderQueue;
-    this.bindStateHook(() => this.requestRender());
+  constructor(update: Update) {
+    super(update, pidState);
+    this.ctx = RenderContext.use(update.ctx);
+    RenderController.control(update.ctx, () => this.requestRender());
+    this.requestRender();
+  }
+
+  handleUpdate(): void {
+    this.requestRender();
   }
 
   async render(): Promise<void> {
-    this.ctx.erase(new Box(this.state.region));
+    this.ctx.eraseCanvas(new Box(this.state.region));
     this.children.forEach((child) => child.render({ position: this.state.position }));
   }
 
   private requestRender(): void {
-    this.renderQueue.push(this.key, async () => await this.render());
+    this.ctx.queue.push(this.key, async () => await this.render());
   }
 }

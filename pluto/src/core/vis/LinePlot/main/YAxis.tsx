@@ -19,6 +19,7 @@ import {
   YAxisState as WorkerYAxisState,
   YAxis as WorkerYAxis,
 } from "@/core/vis/LinePlot/worker";
+import { yAxisState } from "@/core/vis/LinePlot/worker/YAxis";
 
 export interface YAxisProps
   extends PropsWithChildren,
@@ -44,7 +45,7 @@ export const YAxis = memo(
       key,
       path,
       state: [, setState],
-    } = Aether.use<WorkerYAxisState>(WorkerYAxis.TYPE, memoProps);
+    } = Aether.use<typeof yAxisState>(WorkerYAxis.TYPE, memoProps, yAxisState);
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
