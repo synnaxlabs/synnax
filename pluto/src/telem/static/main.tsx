@@ -7,22 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemo } from "react";
+
 import { Rate } from "@synnaxlabs/x";
 
 import { XYTelemSourceMeta } from "@/core/vis/telem";
+import { PointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import { useTelemSourceControl } from "@/telem/Context";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
+  StaticPointTelem,
+  StaticPointTelemProps,
   StaticXYTelem,
   StaticXYTelemProps,
 } from "@/telem/static/worker";
 
 const useStaticXYTelem = (props: StaticXYTelemProps): XYTelemSourceMeta => {
-  const key = useTelemSourceControl(StaticXYTelem.TYPE, props, [
-    ...props.x.map((x) => x.buffer),
-    ...props.y.map((y) => y.buffer),
-  ]);
+  const transfer = useMemo(
+    () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
+    [props]
+  );
+  const key = useTelemSourceControl(StaticXYTelem.TYPE, props, transfer);
   return {
     variant: "xy",
     key,
@@ -44,7 +50,19 @@ const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceMeta =>
   };
 };
 
+const usePointTelem = (value: number): PointTelemSourceMeta => {
+  const key = useTelemSourceControl<StaticPointTelemProps>(
+    StaticPointTelem.TYPE,
+    value
+  );
+  return {
+    variant: "point",
+    key,
+  };
+};
+
 export const StaticTelem = {
   useXY: useStaticXYTelem,
   useIterativeXY: useIterativeXYTelem,
+  usePoint: usePointTelem,
 };

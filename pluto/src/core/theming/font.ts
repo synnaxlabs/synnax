@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TypographyLevel } from "@/core/std";
+import { TypographyLevel, Typography } from "@/core/std";
 import { Theme } from "@/core/theming/theme";
 import { useThemeContext } from "@/core/theming/ThemeContext";
+import { ComponentSize, isComponentSize } from "@/util/component";
 
-export const font = (theme: Theme, level: TypographyLevel): string => {
+const { ComponentSizeLevels } = Typography;
+
+export const font = (theme: Theme, level: TypographyLevel | ComponentSize): string => {
   const {
     typography,
     sizes: { base },
   } = theme;
-  const size = typography[level].size as number;
+  const size = typography[isComponentSize(level) ? ComponentSizeLevels[level] : level]
+    .size as number;
   return ` ${base * size}px ${typography.family}`;
 };
 

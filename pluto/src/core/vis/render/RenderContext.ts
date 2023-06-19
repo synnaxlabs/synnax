@@ -11,6 +11,7 @@ import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
 import { AetherContext } from "@/core/aether/worker";
 import { Color } from "@/core/color";
+import { CSS } from "@/core/css";
 import { RenderQueue } from "@/core/vis/render/RenderQueue";
 
 /**
@@ -41,7 +42,7 @@ export class RenderContext {
   /** queue render transitions onto the stack */
   readonly queue: RenderQueue;
 
-  private static readonly CONTEXT_KEY = "pluto-render";
+  private static readonly CONTEXT_KEY = CSS.B("render-context");
 
   static create(
     ctx: AetherContext,
@@ -49,7 +50,7 @@ export class RenderContext {
     canvasCanvas: OffscreenCanvas
   ): RenderContext {
     const render = new RenderContext(glCanvas, canvasCanvas);
-    ctx.set("render", render);
+    ctx.set(RenderContext.CONTEXT_KEY, render);
     return render;
   }
 
@@ -78,15 +79,20 @@ export class RenderContext {
     return ctx.get<RenderContext>(RenderContext.CONTEXT_KEY);
   }
 
+  update(ctx: AetherContext): void {
+    ctx.set(RenderContext.CONTEXT_KEY, this);
+  }
+
   /**
    * Resizes the canvas to the given region and device pixel ratio. Ensuring
    * that all drawing operations and viewports are scaled correctly.
    */
   resize(region: Box, dpr: number): void {
+    if (this.region.equals(region) && this.dpr === dpr) return;
     this.region = region;
     this.dpr = dpr;
-    this.glCanvas.width = region.width * this.dpr;
-    this.glCanvas.height = region.height * this.dpr;
+    this.glCanvas.width = region.width * dpr;
+    this.glCanvas.height = region.height * dpr;
     this.canvasCanvas.width = region.width * this.dpr;
     this.canvasCanvas.height = region.height * this.dpr;
     this.canvas.scale(this.dpr, this.dpr);

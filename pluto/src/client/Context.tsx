@@ -12,6 +12,7 @@ import {
   ReactElement,
   createContext,
   useContext,
+  useRef,
   useState,
 } from "react";
 
@@ -46,7 +47,10 @@ export const ClientProvider = ({
     });
     await client.connectivity.check();
     if (client.connectivity.status() !== "connected") return;
-    setState({ client });
+    setState((c) => {
+      if (c.client != null) c.client.close();
+      return { client };
+    });
 
     return () => {
       client.close();

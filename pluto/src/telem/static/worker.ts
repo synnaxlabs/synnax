@@ -19,6 +19,7 @@ import {
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
+import { PointTelemSource } from "@/core/vis/telem/TelemSource";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 
@@ -31,6 +32,8 @@ export class StaticTelemFactory implements TelemFactory {
         return new StaticXYTelem(key, props);
       case IterativeXYTelem.TYPE:
         return new IterativeXYTelem(key, props);
+      case StaticPointTelem.TYPE:
+        return new StaticPointTelem(key, props);
       default:
         return null;
     }
@@ -93,7 +96,7 @@ class StaticXYTelemCore {
 }
 
 export class StaticXYTelem extends StaticXYTelemCore implements XYTelemSource {
-  static readonly TYPE = "static";
+  static readonly TYPE = "static-xy";
 
   variant = "xy";
 
@@ -147,7 +150,7 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
   position: number;
   interval?: number;
 
-  static readonly TYPE = "iterative";
+  static readonly TYPE = "iterative-xy";
 
   variant = "xy";
 
@@ -198,4 +201,34 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
     clearInterval(this.interval);
     this.interval = undefined;
   }
+}
+
+export const staticPointTelemProps = z.number();
+
+export type StaticPointTelemProps = z.infer<typeof staticPointTelemProps>;
+
+export class StaticPointTelem implements PointTelemSource {
+  static readonly TYPE = "static-point";
+
+  variant = "point";
+
+  key: string;
+  value: number;
+
+  constructor(key: string, props_: any) {
+    this.key = key;
+    this.value = staticPointTelemProps.parse(props_);
+  }
+
+  setProps(props_: any): void {
+    this.value = staticPointTelemProps.parse(props_);
+  }
+
+  onChange(): void {}
+
+  release(): void {}
+
+  cleanup(): void {}
+
+  invalidate(): void {}
 }

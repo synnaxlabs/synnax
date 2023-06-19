@@ -11,9 +11,11 @@ package api
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 )
 
 type OntologyService struct {
@@ -82,7 +84,9 @@ func (o *OntologyService) Search(
 	if err = o.Validate(req); err.Occurred() {
 		return res, err
 	}
-	resources, err_ := o.Ontology.Search(ctx, req.Query)
+	resources, err_ := o.Ontology.Search(ctx, search.Request{
+		Term: req.Query,
+	})
 	res.Resources = resources
 	return res, errors.MaybeQuery(err_)
 }

@@ -17,11 +17,10 @@ import ReactFlow, {
   useOnViewportChange,
 } from "reactflow";
 
-import { Virtual } from "@/core/virtual/main";
+import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Value } from "@/core/vis/pid/Value/main";
 import { PID as WorkerPID, PIDState as WorkerPIDState } from "@/core/vis/pid/worker";
-import { usePointTelem } from "@/telem/useStaticTelem";
 
 const ValueNode = (props: NodeProps): ReactElement => {
   const telem = usePointTelem(12000);
@@ -37,7 +36,7 @@ const PIDInternal = (): ReactElement => {
   const {
     path,
     state: [, setState],
-  } = Virtual.useComponent<WorkerPIDState>(WorkerPID.TYPE, {
+  } = Aether.use<WorkerPIDState>(WorkerPID.TYPE, {
     position: XY.ZERO,
     region: Box.ZERO,
   });
@@ -56,7 +55,7 @@ const PIDInternal = (): ReactElement => {
   });
 
   return (
-    <Virtual.Composite path={path}>
+    <Aether.Composite path={path}>
       <ReactFlow
         nodeTypes={nodeType}
         nodes={nodes}
@@ -64,8 +63,7 @@ const PIDInternal = (): ReactElement => {
         minZoom={1}
         maxZoom={1}
       />
-      ;
-    </Virtual.Composite>
+    </Aether.Composite>
   );
 };
 

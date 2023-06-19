@@ -14,13 +14,11 @@ export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as 
 /* Level of typography i.e paragraph and heading */
 export type TypographyLevel = typeof TypographyLevels[number];
 
-export type Size = number | string;
-
 /* Defines a particular typography style */
 export interface TypographySpec {
-  size: Size;
-  weight: Size;
-  lineHeight: Size;
+  size: number;
+  weight: number | string;
+  lineHeight: number;
   textTransform?: string;
 }
 

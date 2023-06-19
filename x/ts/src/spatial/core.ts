@@ -345,6 +345,11 @@ export class XY {
   }
 
   /** @returns the XY in its crude form i.e {x: number, y: number} */
+  get isZero(): boolean {
+    return this.equals(XY.ZERO);
+  }
+
+  /** @returns the XY in its crude form i.e {x: number, y: number} */
   get crude(): CrudeXY {
     return { x: this.x, y: this.y };
   }

@@ -12,8 +12,6 @@ import "@fontsource/inter";
 import { Color } from "@/core/color";
 import { TypographySpec } from "@/core/std/Typography";
 
-export type Size = number | string;
-
 export interface Theme {
   name: string;
   key: string;
@@ -54,8 +52,8 @@ export interface Theme {
   sizes: {
     base: number;
     border: {
-      radius: Size;
-      width: Size;
+      radius: number;
+      width: number;
     };
   };
   typography: {
@@ -74,7 +72,7 @@ export interface Theme {
 const white: string = "#FFFFFF";
 const black: string = "#171716";
 const fontFamily = "Inter, sans-serif";
-const baseSize: Size = 6;
+const baseSize: number = 6;
 
 const synnaxBase: Theme = {
   key: "synnax-base",

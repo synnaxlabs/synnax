@@ -55,6 +55,24 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
   }
 }
 
+class ContextSetterComposite extends AetherComposite<typeof exampleProps, ExampleLeaf> {
+  updatef = vi.fn();
+  deletef = vi.fn();
+
+  constructor(update: Update) {
+    super(update, exampleProps);
+  }
+
+  handleUpdate(ctx: AetherContext): void {
+    this.updatef(ctx);
+    ctx.set("key", "value");
+  }
+
+  handleDelete(): void {
+    this.deletef();
+  }
+}
+
 const ctx = new AetherContext({
   leaf: (update: Update) => new ExampleLeaf(update),
   composite: (update: Update) => new ExampleComposite(update),
@@ -72,6 +90,13 @@ const compositeUpdate: Update = {
   type: "composite",
   path: ["test"],
   state: { x: 1 },
+};
+
+const contextUpdate: Update = {
+  ctx,
+  type: "context",
+  path: [],
+  state: null,
 };
 
 describe("Aether Worker", () => {
@@ -162,6 +187,24 @@ describe("Aether Worker", () => {
         const c = composite.children[0];
         composite.delete(["test", "dog"]);
         expect(c.deletef).toHaveBeenCalled();
+      });
+    });
+
+    describe("context propagation", () => {
+      it("should properly propagate an existing context change to its children", () => {
+        composite.update({ ...leafUpdate, path: ["test", "dog"] });
+        composite.update({ ...leafUpdate, path: ["test", "cat"] });
+        expect(composite.children).toHaveLength(2);
+        composite.update({ ...contextUpdate });
+        expect(composite.updatef).toHaveBeenCalledTimes(1);
+        composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
+      });
+      it("should progate a new context change to its children", () => {
+        const c = new ContextSetterComposite({ ...compositeUpdate });
+        c.update({ ...leafUpdate, path: ["test", "dog"] });
+        c.update({ ...compositeUpdate });
+        expect(c.children).toHaveLength(1);
+        c.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
       });
     });
   });

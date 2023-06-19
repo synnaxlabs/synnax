@@ -46,7 +46,7 @@ export const useTelemSourceControl = <P extends any>(
   const { set } = useTelemContext();
   useEffect(() => {
     set(key, type, props, transferral);
-  }, [key, set, type, props, transferral]);
+  }, [key]);
   return key;
 };
 
