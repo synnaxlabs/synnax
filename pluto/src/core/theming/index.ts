@@ -9,14 +9,14 @@
 
 import { convertThemeToCSSVars } from "@/core/theming/css";
 import { font, useFont } from "@/core/theming/font";
-import { Theme, themes } from "@/core/theming/theme";
+import { ThemeSpec, themes } from "@/core/theming/theme";
 import {
   ThemeProvider,
   ThemeSwitch,
   useThemeContext,
   useThemeProvider,
 } from "@/core/theming/ThemeContext";
-export type { Theme } from "@/core/theming/theme";
+export type { ThemeSpec as Theme } from "@/core/theming/theme";
 export type { ThemeProviderProps } from "@/core/theming/ThemeContext";
 
 export const Theming = {
@@ -24,7 +24,7 @@ export const Theming = {
   Switch: ThemeSwitch,
   useContext: useThemeContext,
   useProvider: useThemeProvider,
-  use: (): Theme => useThemeContext().theme,
+  use: (): ThemeSpec => useThemeContext().theme,
   themes,
   toCSSVars: convertThemeToCSSVars,
   font,

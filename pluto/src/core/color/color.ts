@@ -11,21 +11,29 @@ import { z } from "zod";
 
 const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 const hex = z.string().regex(hexRegex);
-const rgba = z.array(z.number()).length(4).min(0).max(255);
-const rgb = z.array(z.number()).length(3).min(0).max(255);
+const rgbValue = z.number().min(0).max(255);
+const alpha = z.number().min(0).max(1);
+const rgba = z.tuple([rgbValue, rgbValue, rgbValue, alpha]);
+const rgb = z.tuple([rgbValue, rgbValue, rgbValue]);
 
 export type RGBA = [number, number, number, number];
 export type RGB = [number, number, number];
 export type Hex = z.infer<typeof hex>;
+const crudeColor = z.object({ rgba255: rgba });
+type CrudeColor = z.infer<typeof crudeColor>;
 
-export type ColorT = Hex | RGBA | Color | string | RGB;
+export type ColorT = Hex | RGBA | Color | string | RGB | CrudeColor;
 
 /**
  * A color with an alpha channel. It can be used to easily transform
  * color values from one format to another, as well as make modifications to the color.
  */
 export class Color {
-  private readonly internal: RGBA;
+  /**
+   * @property the color as an RGBA tuple, with each color value between 0 and 255,
+   * and the alpha value between 0 and 1.
+   */
+  readonly rgba255: RGBA;
 
   /**
    * @constructor Creates a new color from the given color value. The color value can be
@@ -42,15 +50,13 @@ export class Color {
    * alpha value, this value will be ignored. Defaults to 1.
    */
   constructor(color: ColorT, alpha: number = 1) {
-    if (color instanceof Color) {
-      this.internal = color.internal;
-    } else if (typeof color === "string") {
-      this.internal = Color.fromHex(color, alpha);
-    } else {
+    if (typeof color === "string") {
+      this.rgba255 = Color.fromHex(color, alpha);
+    } else if (Array.isArray(color)) {
       if (color.length < 3 || color.length > 4)
         throw new Error(`Invalid color: [${color.join(", ")}]`);
-      this.internal = color.length === 3 ? [...color, alpha ?? 1] : color;
-    }
+      this.rgba255 = color.length === 3 ? [...color, alpha ?? 1] : color;
+    } else this.rgba255 = color.rgba255;
   }
 
   /**
@@ -59,7 +65,7 @@ export class Color {
    */
   equals(other: ColorT): boolean {
     const other_ = new Color(other);
-    return this.internal.every((v, i) => v === other_.internal[i]);
+    return this.rgba255.every((v, i) => v === other_.rgba255[i]);
   }
 
   /**
@@ -68,16 +74,32 @@ export class Color {
    * long.
    */
   get hex(): string {
-    const [r, g, b, a] = this.internal;
+    const [r, g, b, a] = this.rgba255;
     return `#${toHex(r)}${toHex(g)}${toHex(b)}${a === 1 ? "" : toHex(a * 255)}`;
   }
 
   /**
-   * @returns the color as an RGBA tuple, with each color value between 0 and 255,
-   * and the alpha value between 0 and 1.
+   * @returns the color as a CSS RGBA string.
    */
-  get rgba255(): RGBA {
-    return this.internal;
+  get rgbaCSS(): string {
+    const [r, g, b, a] = this.rgba255;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  /**
+   * @returns the color as a CSS RGB string with no alpha value.
+   */
+  get rgbCSS(): string {
+    return `rgb(${this.rgbString})`;
+  }
+
+  /**
+   * @returns the color as an RGB string, with each color value between 0 and 255.
+   * @example "255, 255, 255"
+   */
+  get rgbString(): string {
+    const [r, g, b] = this.rgba255;
+    return `${r}, ${g}, ${b}`;
   }
 
   /**
@@ -86,31 +108,31 @@ export class Color {
    */
   get rgba1(): RGBA {
     return [
-      this.internal[0] / 255,
-      this.internal[1] / 255,
-      this.internal[2] / 255,
-      this.internal[3],
+      this.rgba255[0] / 255,
+      this.rgba255[1] / 255,
+      this.rgba255[2] / 255,
+      this.rgba255[3],
     ];
   }
 
   /** @returns the red value of the color, between 0 and 255. */
   get r(): number {
-    return this.internal[0];
+    return this.rgba255[0];
   }
 
   /** @returns the green value of the color, between 0 and 255. */
   get g(): number {
-    return this.internal[1];
+    return this.rgba255[1];
   }
 
   /** @returns the blue value of the color, between 0 and 255. */
   get b(): number {
-    return this.internal[2];
+    return this.rgba255[2];
   }
 
   /** @returns the alpha value of the color, between 0 and 1. */
   get a(): number {
-    return this.internal[3];
+    return this.rgba255[3];
   }
 
   /**
@@ -121,7 +143,7 @@ export class Color {
    * @returns A new color with the given alpha.
    */
   setAlpha(alpha: number): Color {
-    const [r, g, b] = this.internal;
+    const [r, g, b] = this.rgba255;
     if (alpha > 100)
       throw new Error(`Color opacity must be between 0 and 100, got ${alpha}`);
     if (alpha > 1) alpha = alpha / 100;
@@ -132,7 +154,7 @@ export class Color {
   static ZERO = new Color([0, 0, 0, 0]);
 
   static readonly z = z
-    .union([hex, rgba, rgb, z.instanceof(Color)])
+    .union([hex, rgba, rgb, z.instanceof(Color), crudeColor])
     .transform((v) => new Color(v as string));
 
   private static fromHex(hex_: string, alpha: number = 1): RGBA {

@@ -19,4 +19,10 @@ export interface DeleteMessage {
   path: string[];
 }
 
-export type WorkerMessage = UpdateMessage | DeleteMessage;
+export interface BackwardUpate {
+  variant: "backward";
+  key: string;
+  state: any;
+}
+
+export type WorkerMessage = UpdateMessage | DeleteMessage | BackwardUpate;

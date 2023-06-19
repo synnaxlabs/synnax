@@ -17,16 +17,13 @@ import {
   ComponentSizeTypographyLevels,
   TypographyLevelComponentSizes,
   TypographyLevels,
+  typographySpec,
 } from "@/core/std/Typography/types";
 
 import "@/core/std/Typography/Typography.css";
 
 export type { CoreTextProps, TextProps } from "@/core/std/Typography/Text";
-export type {
-  Size,
-  TypographySpec,
-  TypographyLevel,
-} from "@/core/std/Typography/types";
+export type { TypographySpec, TypographyLevel } from "@/core/std/Typography/types";
 export type { TextWithIconProps } from "@/core/std/Typography/TextWithIcon";
 export type { TextLinkProps } from "@/core/std/Typography/TextLink";
 
@@ -58,4 +55,6 @@ export const Typography = {
   Levels: TypographyLevels,
   /** Renders text of a given typography level. */
   Text,
+  /**  */
+  spec: typographySpec,
 };

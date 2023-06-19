@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSSProperties } from "react";
+
 import clsx, { ClassValue } from "clsx";
 
 const CoreBEM = clsx;
@@ -21,6 +23,7 @@ export interface BEM extends CoreBEMType {
   BM: (block: string, modifier: string) => string;
   BEM: (block: string, element: string, modifier: string) => string;
   extend: (prefix: string) => BEM;
+  var: (variable: string) => string;
 }
 
 const BLOCK = "-";
@@ -39,5 +42,7 @@ export const newBEM = (prefix: string): BEM => {
   BEM_.BEM = (block, element, modifier) =>
     BEM_.BE(block, element) + MODIFIER + modifier;
   BEM_.extend = (prefix_) => newBEM(BEM_.B(prefix_));
+  BEM_.var = (variable) =>
+    (MODIFIER + prefix + BLOCK + variable) as keyof CSSProperties;
   return BEM_;
 };

@@ -170,7 +170,7 @@ export class RenderContext {
     this.eraseCanvas(region, overscan);
   }
 
-  private eraseGL(box: Box, overscan: XY = XY.ZERO): void {
+  eraseGL(box: Box, overscan: XY = XY.ZERO): void {
     const { gl } = this;
     const os = new Box(
       (box.left - overscan.x) * this.dpr,
@@ -184,7 +184,7 @@ export class RenderContext {
     removeScissor();
   }
 
-  private eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
+  eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
     const { canvas } = this;
     const os = new Box(
       box.left - overscan.x,
@@ -213,6 +213,10 @@ export class RenderController {
 
   static useRequest(ctx: AetherContext): () => void {
     return ctx.get<RenderController>(RenderController.CONTEXT_KEY).f;
+  }
+
+  static useOptionalRequest(ctx: AetherContext): (() => void) | null {
+    return ctx.getOptional<RenderController>(RenderController.CONTEXT_KEY)?.f ?? null;
   }
 
   static requestRender(ctx: AetherContext): void {

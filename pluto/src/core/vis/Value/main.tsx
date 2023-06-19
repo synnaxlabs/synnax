@@ -7,40 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, memo, useCallback, useState } from "react";
+import { ReactElement, memo, useCallback, useLayoutEffect, useState } from "react";
 
-import { Box, XY } from "@synnaxlabs/x";
+import { Box } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { ColorT } from "@/core/color";
+import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { Pack, PackProps, Typography } from "@/core/std";
 import { Theming } from "@/core/theming";
 import {
   Value as WorkerValue,
   ValueState as WorkerValueState,
-} from "@/core/vis/pid/Value/worker";
+  valueState,
+} from "@/core/vis/Value/worker";
 import { ComponentSize } from "@/util/component";
+
+import "@/core/vis/Value/Value.css";
 
 export interface ValueProps
   extends Omit<WorkerValueState, "font" | "color" | "box">,
     Omit<PackProps, "color"> {
   color?: ColorT;
   size?: ComponentSize;
+  label?: string;
+  selected?: boolean;
 }
 
 export const Value = memo(
-  ({ label, color, size = "medium", ...props }: ValueProps): ReactElement => {
+  ({
+    label,
+    color,
+    position,
+    size = "medium",
+    selected = false,
+    className,
+    ...props
+  }: ValueProps): ReactElement => {
     const theme = Theming.use();
     const {
       state: [, setState],
-    } = Aether.use<WorkerValueState>(WorkerValue.TYPE, {
-      font: Theming.font(theme, "p"),
-      color: color ?? theme.colors.text,
-      box: Box.ZERO,
-      label,
-      ...props,
-    });
+    } = Aether.use(
+      WorkerValue.TYPE,
+      {
+        font: Theming.font(theme, "p"),
+        color: color ?? theme.colors.text,
+        box: Box.ZERO,
+        position,
+        ...props,
+      },
+      valueState
+    );
+
+    useLayoutEffect(() => {
+      setState((prev) => ({ ...prev, position }));
+    }, [position, setState]);
 
     const handleResize = useCallback(
       (box: Box) => {
@@ -49,12 +71,19 @@ export const Value = memo(
       [setState]
     );
 
-    const resizeRef = useResize(handleResize, {});
+    const resizeRef = useResize(handleResize, {
+      triggers: position != null ? ["resizeX", "resizeY"] : undefined,
+    });
 
     const [labelState, setLabelState] = useState(label);
 
     return (
-      <Pack {...props} size={size} direction="y">
+      <Pack
+        {...props}
+        size={size}
+        direction="y"
+        className={CSS(className, selected && CSS.BM("value", "selected"))}
+      >
         {label != null && (
           <Typography.Text.Editable
             level="p"
@@ -67,8 +96,7 @@ export const Value = memo(
         <div
           ref={resizeRef}
           style={{
-            height: (theme.typography.p.lineHeight + 1) * theme.sizes.base,
-            padding: "1rem",
+            height: (theme.typography.p.lineHeight + 2) * theme.sizes.base,
           }}
         ></div>
       </Pack>

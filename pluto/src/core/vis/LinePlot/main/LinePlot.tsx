@@ -28,6 +28,7 @@ import { useResize } from "@/core/hooks";
 import { X_AXIS_SIZE, Y_AXIS_SIZE } from "@/core/vis/Axis/core";
 import {
   LinePlot as WorkerLinePlot,
+  linePlotState,
   LinePlotState as WorkerLinePlotState,
 } from "@/core/vis/LinePlot/worker";
 import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
@@ -83,13 +84,17 @@ export const LinePlot = ({
   const {
     path,
     state: [, setState],
-  } = Aether.use<WorkerLinePlotState>(WorkerLinePlot.TYPE, {
-    plot: Box.ZERO,
-    container: Box.ZERO,
-    viewport: Box.DECIMAL,
-    clearOverscan: { x: 10, y: 10 },
-    ...props,
-  });
+  } = Aether.use<typeof linePlotState>(
+    WorkerLinePlot.TYPE,
+    {
+      plot: Box.ZERO,
+      container: Box.ZERO,
+      viewport: Box.DECIMAL,
+      clearOverscan: { x: 10, y: 10 },
+      ...props,
+    },
+    linePlotState
+  );
 
   const onViewportChange = useCallback<UseViewportHandler>(
     ({ box }) => setState((prev) => ({ ...prev, viewport: box })),

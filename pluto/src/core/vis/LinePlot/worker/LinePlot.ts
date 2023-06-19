@@ -24,13 +24,13 @@ export const linePlotState = z.object({
 export type LinePlotState = z.input<typeof linePlotState>;
 
 export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
-  ctx: RenderContext;
+  renderCtx: RenderContext;
 
   static readonly TYPE: string = "linePlot";
 
   constructor(update: Update) {
     super(update, linePlotState);
-    this.ctx = RenderContext.use(update.ctx);
+    this.renderCtx = RenderContext.use(update.ctx);
     RenderController.control(update.ctx, () => this.requestRender());
   }
 
@@ -59,12 +59,12 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   }
 
   private erase(): void {
-    this.ctx.erase(this.region, this.clearOverScan);
+    this.renderCtx.erase(this.region, this.clearOverScan);
   }
 
   private async render(): Promise<void> {
     this.erase();
-    const removeScissor = this.ctx.scissorGL(this.plottingRegion);
+    const removeScissor = this.renderCtx.scissorGL(this.plottingRegion);
     await Promise.all(
       this.children.map(
         async (xAxis) =>
@@ -78,6 +78,6 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   }
 
   requestRender(): void {
-    this.ctx.queue.push(this.key, async () => await this.render());
+    this.renderCtx.queue.push(this.key, async () => await this.render());
   }
 }

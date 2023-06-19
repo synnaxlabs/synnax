@@ -12,11 +12,13 @@ import { RoutedWorker } from "@synnaxlabs/x";
 import { AetherComponentConstructor, render } from "@/core/aether/worker";
 import { LineGL } from "@/core/vis/Line/LineGL";
 import { LinePlot, XAxis, YAxis } from "@/core/vis/LinePlot/worker";
-import { Value } from "@/core/vis/pid/Value/worker";
+import { PID } from "@/core/vis/pid/worker";
+import { Value } from "@/core/vis/Value/worker";
+import { Valve } from "@/core/vis/Valve/worker";
 import { Canvas } from "@/core/vis/WorkerCanvas";
 import { Telem } from "@/telem/worker";
 
-const w = new RoutedWorker((data, transfer) => postMessage(data, "/", transfer));
+const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
 onmessage = (e) => w.handle(e);
 
 const REGISTRY: Record<string, AetherComponentConstructor> = {
@@ -27,6 +29,8 @@ const REGISTRY: Record<string, AetherComponentConstructor> = {
   [LineGL.TYPE]: (u) => new LineGL(u),
   [Canvas.TYPE]: (u) => new Canvas(u),
   [Value.TYPE]: (u) => new Value(u),
+  [Valve.TYPE]: (u) => new Valve(u),
+  [PID.TYPE]: (u) => new PID(u),
 };
 
 render(w.route("vis"), REGISTRY);

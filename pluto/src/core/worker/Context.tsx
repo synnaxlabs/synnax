@@ -15,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -64,10 +65,12 @@ export const WorkerProvider = memo(
       [state]
     );
 
+    const value = useMemo(() => ({ route }), [route]);
+
     if (state == null) return null;
 
     return (
-      <WorkerContext.Provider value={{ route }}>
+      <WorkerContext.Provider value={value}>
         {state != null && children}
       </WorkerContext.Provider>
     );

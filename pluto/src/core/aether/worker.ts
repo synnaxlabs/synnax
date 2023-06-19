@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { TypedWorker } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -27,25 +28,37 @@ export interface AetherComponent {
 }
 
 export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
+  private _ctx: AetherContext;
   readonly type: string;
   readonly key: string;
   readonly schema: S;
-  state: z.output<S>;
+  _state: z.output<S>;
 
   constructor(update: Update, schema: S) {
     this.type = update.type;
     this.key = update.path[0];
     this.schema = schema;
-    this.state = this.schema.parse(update.state);
+    this._state = this.schema.parse(update.state);
+    this._ctx = update.ctx;
+  }
+
+  setState(state: z.input<S>): void {
+    this._state = this.schema.parse(state);
+    this._ctx.setState(this.key, this._state);
+  }
+
+  get state(): z.output<S> {
+    return this._state;
   }
 
   update({ path, ctx, state }: Update): z.output<S> {
+    this._ctx = ctx;
     if (state != null) {
       this.validatePath(path);
-      this.state = this.schema.parse(state);
+      this._state = this.schema.parse(state);
     }
     this.handleUpdate(ctx);
-    return this.state;
+    return this._state;
   }
 
   handleUpdate(ctx: AetherContext): void {}
@@ -146,10 +159,10 @@ export class AetherComposite<
       throw new Error(
         `[Composite.delete] - ${this.type}:${this.key} could not find child with key ${key}`
       );
-    } else if (subPath.length > 1) child.delete(subPath.slice(1));
+    } else if (subPath.length > 1) child.delete(subPath);
     else {
-      child.delete(subPath);
       this.children.splice(this.children.indexOf(child), 1);
+      child.delete(subPath);
     }
   }
 
@@ -177,19 +190,26 @@ export type AetherComponentConstructor = (update: Update) => AetherComponent;
 export class AetherContext {
   private readonly providers: Map<string, any>;
   private readonly registry: Record<string, AetherComponentConstructor>;
+  private readonly worker: TypedWorker<WorkerMessage>;
   changed: boolean;
 
   constructor(
+    worker: TypedWorker<WorkerMessage>,
     registry: Record<string, AetherComponentConstructor>,
     providers: Map<string, any> = new Map()
   ) {
     this.providers = providers;
     this.registry = registry;
     this.changed = false;
+    this.worker = worker;
+  }
+
+  setState(key: string, state: any, transfer: Transferable[] = []): void {
+    this.worker.send({ variant: "backward", key, state }, transfer);
   }
 
   child(): AetherContext {
-    return new AetherContext(this.registry, this.providers);
+    return new AetherContext(this.worker, this.registry, this.providers);
   }
 
   getOptional<P>(key: string): P | null {
@@ -232,13 +252,17 @@ class AetherRoot {
     wrap: TypedWorker<WorkerMessage>,
     registry: Record<string, AetherComponentConstructor>
   ) {
-    this.ctx = new AetherContext(registry);
+    this.ctx = new AetherContext(wrap, registry);
     this.wrap = wrap;
     this.root = null;
     this.wrap.handle(this.handle.bind(this));
   }
 
   handle(msg: WorkerMessage): void {
+    if (msg.variant === "backward")
+      throw new UnexpectedError(
+        `[AetherRoot.handle] - received a backward update in worker`
+      );
     if (msg.variant === "delete") {
       if (this.root == null)
         throw new Error(
