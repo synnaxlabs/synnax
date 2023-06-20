@@ -42,10 +42,10 @@ message RelayResponse {
 
 message Frame {
   repeated uint32 keys = 1;
-  repeated Array arrays = 2;
+  repeated Series series = 2;
 }
 
-message Array {
+message Series {
   TimeRange range = 1;
   string data_type = 2;
   bytes data = 3;

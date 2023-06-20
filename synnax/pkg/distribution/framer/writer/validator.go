@@ -109,7 +109,7 @@ func (v *validator) validate(req Request) error {
 			)
 		}
 		if !req.Frame.Even() {
-			return errors.Wrapf(validate.Error, "invalid frame: arrays have different lengths")
+			return errors.Wrapf(validate.Error, "invalid frame: series have different lengths")
 		}
 	}
 	return nil

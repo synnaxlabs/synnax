@@ -17,11 +17,11 @@ import (
 )
 
 type Frame struct {
-	Keys   channel.Keys  `json:"keys" msgpack:"keys"`
-	Arrays []telem.Array `json:"arrays" msgpack:"arrays"`
+	Keys   channel.Keys   `json:"keys" msgpack:"keys"`
+	Series []telem.Series `json:"series" msgpack:"series"`
 }
 
-func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Arrays) }
+func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Series) }
 
 func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
 	frames := make(map[core.NodeKey]Frame)
@@ -31,11 +31,11 @@ func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
 		if !ok {
 			frames[nodeKey] = Frame{
 				Keys:   channel.Keys{key},
-				Arrays: []telem.Array{f.Arrays[i]},
+				Series: []telem.Series{f.Series[i]},
 			}
 		} else {
 			nf.Keys = append(nf.Keys, key)
-			nf.Arrays = append(nf.Arrays, f.Arrays[i])
+			nf.Series = append(nf.Series, f.Series[i])
 			frames[nodeKey] = nf
 		}
 	}
@@ -46,21 +46,21 @@ func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
 	for i, key := range f.Keys {
 		if key.Leaseholder() == host {
 			local.Keys = append(local.Keys, key)
-			local.Arrays = append(local.Arrays, f.Arrays[i])
+			local.Series = append(local.Series, f.Series[i])
 		} else {
 			remote.Keys = append(remote.Keys, key)
-			remote.Arrays = append(remote.Arrays, f.Arrays[i])
+			remote.Series = append(remote.Series, f.Series[i])
 		}
 	}
 	return local, remote
 }
 
 func (f Frame) Even() bool {
-	for i := 1; i < len(f.Arrays); i++ {
-		if f.Arrays[i].Len() != f.Arrays[0].Len() {
+	for i := 1; i < len(f.Series); i++ {
+		if f.Series[i].Len() != f.Series[0].Len() {
 			return false
 		}
-		if f.Arrays[i].TimeRange != f.Arrays[0].TimeRange {
+		if f.Series[i].TimeRange != f.Series[0].TimeRange {
 			return false
 		}
 	}
@@ -68,7 +68,7 @@ func (f Frame) Even() bool {
 }
 
 func (f Frame) ToStorage() (fr ts.Frame) {
-	fr.Arrays = f.Arrays
+	fr.Series = f.Series
 	fr.Keys = f.Keys.Storage()
 	return fr
 }
@@ -76,15 +76,15 @@ func (f Frame) ToStorage() (fr ts.Frame) {
 func (f Frame) FilterKeys(keys channel.Keys) Frame {
 	var (
 		fKeys   = make(channel.Keys, 0, len(keys))
-		fArrays = make([]telem.Array, 0, len(keys))
+		fArrays = make([]telem.Series, 0, len(keys))
 	)
 	for i, key := range f.Keys {
 		if keys.Contains(key) {
 			fKeys = append(fKeys, key)
-			fArrays = append(fArrays, f.Arrays[i])
+			fArrays = append(fArrays, f.Series[i])
 		}
 	}
-	return Frame{Keys: fKeys, Arrays: fArrays}
+	return Frame{Keys: fKeys, Series: fArrays}
 }
 
 func MergeFrames(frames []Frame) (f Frame) {
@@ -96,15 +96,15 @@ func MergeFrames(frames []Frame) (f Frame) {
 	}
 	for _, frame := range frames {
 		f.Keys = append(f.Keys, frame.Keys...)
-		f.Arrays = append(f.Arrays, frame.Arrays...)
+		f.Series = append(f.Series, frame.Series...)
 	}
 	return f
 }
 
 func NewFrameFromStorage(frame ts.Frame) Frame {
-	keys := make(channel.Keys, len(frame.Arrays))
-	for i := range frame.Arrays {
+	keys := make(channel.Keys, len(frame.Series))
+	for i := range frame.Series {
 		keys[i] = channel.Key(frame.Keys[i])
 	}
-	return Frame{Keys: keys, Arrays: frame.Arrays}
+	return Frame{Keys: keys, Series: frame.Series}
 }
