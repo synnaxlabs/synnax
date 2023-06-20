@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"

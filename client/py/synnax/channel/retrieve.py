@@ -21,7 +21,9 @@ from synnax.channel.payload import (
     ChannelPayload,
     ChannelKeys,
     ChannelNames,
-    ChannelParams, ChannelKey, ChannelName
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
 )
 from synnax.util.normalize import normalize
 

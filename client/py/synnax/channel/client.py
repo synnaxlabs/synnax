@@ -30,7 +30,8 @@ from synnax.telem import (
     UnparsedDataType,
     UnparsedRate,
     UnparsedTimeStamp,
-    DataType, Series,
+    DataType,
+    Series,
 )
 
 
@@ -85,21 +86,37 @@ class Channel(ChannelPayload):
         )
         self.__frame_client = _frame_client
 
+    @overload
     def read(
         self,
-        start: UnparsedTimeStamp,
+        start_or_range: TimeRange,
+    ) -> Series:
+        ...
+
+    @overload
+    def read(
+        self,
+        start_or_range: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
+    ) -> Series:
+        ...
+
+    def read(
+        self,
+        start_or_range: UnparsedTimeStamp | TimeRange,
+        end: UnparsedTimeStamp | None = None,
     ) -> Series:
         """Reads telemetry from the channel between the two timestamps.
 
-        :param start: The starting timestamp of the range to read from.
+        :param start_or_range: The starting timestamp of the range to read from.
         :param end: The ending timestamp of the range to read from.
         :returns: A tuple containing a numpy array of the telemetry and a TimeRange
         representing the range of telemetry. The start of the time range represents
         the timestamp of the first sample in the array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self._frame_client.read(start, end, self.key)
+        tr = TimeRange(start_or_range, end)
+        return self._frame_client.read(tr, self.key)
 
     def write(self, start: UnparsedTimeStamp, data: ndarray | Series):
         """Writes telemetry to the channel starting at the given timestamp.

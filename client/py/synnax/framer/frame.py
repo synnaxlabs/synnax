@@ -22,7 +22,7 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelKey,
     ChannelName,
-    ChannelParams
+    ChannelParams,
 )
 from synnax.util.normalize import normalize
 from synnax.exceptions import ValidationError
@@ -69,7 +69,12 @@ class Frame:
 
     def __init__(
         self,
-        keys: ChannelKeys | ChannelNames | DataFrame | Frame | FramePayload | None = None,
+        keys: ChannelKeys
+        | ChannelNames
+        | DataFrame
+        | Frame
+        | FramePayload
+        | None = None,
         series: list[Series] | None = None,
     ):
         if isinstance(keys, Frame):
@@ -131,13 +136,18 @@ class Frame:
     def append(self, frame: Frame) -> None:
         ...
 
-    def append(self, key_or_frame: ChannelKey | ChannelName | Frame,
-               array: Series | None = None) -> None:
+    def append(
+        self,
+        key_or_frame: ChannelKey | ChannelName | Frame,
+        array: Series | None = None,
+    ) -> None:
         if isinstance(key_or_frame, Frame):
             if not labeled_by_equal(self.labeled_by, key_or_frame.labeled_by):
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                     Cannot append frame with different label type {self.labeled_by} != {key_or_frame.labeled_by}
-                """)
+                """
+                )
             self.series.extend(key_or_frame.series)
             self.labels.extend(key_or_frame.labels)
         else:
@@ -148,15 +158,17 @@ class Frame:
             self.series.append(array)
             self.labels.append(key_or_frame)
 
-    def items(self) -> list[tuple[ChannelKey, Series]] | list[
-        tuple[ChannelName, Series]]:
+    def items(
+        self,
+    ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
         return zip(self.labels, self.series)
 
     def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
         return self.series[self.labels.index(key)]
 
-    def get(self, key: ChannelKey | ChannelName,
-            default: Series | None = None) -> Series | None:
+    def get(
+        self, key: ChannelKey | ChannelName, default: Series | None = None
+    ) -> Series | None:
         try:
             return self[key]
         except ValueError:
@@ -165,5 +177,6 @@ class Frame:
     def to_payload(self):
         if self.labeled_by == "names":
             raise ValidationError(
-                "Cannot convert a frame labeled by names to a payload")
+                "Cannot convert a frame labeled by names to a payload"
+            )
         return FramePayload(keys=self.labels, series=self.series)

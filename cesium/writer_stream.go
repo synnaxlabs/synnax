@@ -166,7 +166,7 @@ func (w *streamWriter) write(req WriterRequest) error {
 
 	w.relay.Inlet() <- req.Frame
 
-	for i, arr := range req.Frame.Arrays {
+	for i, series := range req.Frame.Series {
 		key := req.Frame.Key(i)
 		_chW, ok := w.internal[req.Frame.Keys[i]]
 		if !ok {
@@ -180,12 +180,12 @@ func (w *streamWriter) write(req WriterRequest) error {
 		chW := &_chW
 
 		if w.writingToIdx && w.idx.key == key {
-			if err := w.updateHighWater(arr); err != nil {
+			if err := w.updateHighWater(series); err != nil {
 				return err
 			}
 		}
 
-		if err := chW.Write(arr); err != nil {
+		if err := chW.Write(series); err != nil {
 			return err
 		}
 	}
@@ -208,7 +208,7 @@ func (w *streamWriter) commit(ctx context.Context) (err error) {
 	return
 }
 
-func (w *streamWriter) updateHighWater(col telem.Array) error {
+func (w *streamWriter) updateHighWater(col telem.Series) error {
 	if col.DataType != telem.TimeStampT {
 		return errors.Wrapf(
 			validate.Error,

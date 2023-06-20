@@ -43,7 +43,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				By("Writing data to the channel")
 				Expect(w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{basic1Index, basic1},
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12, 13),
 						telem.NewArrayV[int64](1, 2, 3, 4),
 					}),
@@ -53,9 +53,9 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 
 				By("Reading the data back")
 				frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
-				Expect(frame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+				Expect(frame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 				tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
-				Expect(tsFrame.Arrays[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+				Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 			})
 		})
 	})
@@ -151,7 +151,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			)
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1, frameErr2},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3),
 				}),
@@ -170,7 +170,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				}))
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
 			))).To(BeTrue())
@@ -188,7 +188,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				}))
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1, frameErr1},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
@@ -207,7 +207,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				}))
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1, 223},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3, 4),
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
@@ -243,7 +243,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				By("Writing data to the index correctly")
 				Expect(w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{disc1Index},
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12, 13),
 					}),
 				)).To(BeTrue())
@@ -259,7 +259,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					}))
 				Expect(w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{disc1},
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
 				))).To(BeTrue())
@@ -281,7 +281,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					}))
 				Expect(w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{disc2},
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
 				))).To(BeTrue())
@@ -291,7 +291,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 		})
 	})
 	Describe("Data Type Errors", func() {
-		Specify("Invalid Data Type for Array", func() {
+		Specify("Invalid Data Type for Series", func() {
 			var dtErr cesium.ChannelKey = 18
 			Expect(db.CreateChannel(
 				ctx,
@@ -314,7 +314,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				}))
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{dtErr},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[float64](1, 2, 3, 4, 5),
 				},
 			))).To(BeTrue())
@@ -340,7 +340,7 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 				}))
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{dtErrIndex},
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3, 4, 5),
 				},
 			))).To(BeTrue())

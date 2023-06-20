@@ -27,23 +27,26 @@ data_ch = client.channels.create(
 
 N_SAMPLES = int(5e6)
 start = sy.TimeStamp.now()
-stamps = np.linspace(int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLES, dtype=np.int64)
-data = np.sin(np.linspace(0, 20 * 2 * np.pi, N_SAMPLES), dtype=np.float32) * 20 + np.random.randint(0, 2, N_SAMPLES).astype(np.float32)
+stamps = np.linspace(
+    int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLES, dtype=np.int64
+)
+data = np.sin(
+    np.linspace(0, 20 * 2 * np.pi, N_SAMPLES), dtype=np.float32
+) * 20 + np.random.randint(0, 2, N_SAMPLES).astype(np.float32)
 
 r = sy.TimeRange.MAX
 time_ch.write(start, stamps)
 data_ch.write(start, data)
 
-print(f"""
-    Time channel: {time_ch.key}
-    Data channel: {data_ch.key}
-""")
+print(
+    f"""
+Time channel: {time_ch.key}
+Data channel: {data_ch.key}
+"""
+)
 
-
-res_stamps = time_ch.read(r.start, r.end)
-res_data = data_ch.read(r.start, r.end)
+res_stamps = time_ch.read(r)
+res_data = data_ch.read(r)
 
 plt.plot(res_stamps, res_data)
 plt.show()
-
-

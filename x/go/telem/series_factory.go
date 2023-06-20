@@ -14,26 +14,26 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-func NewArray[T types.Numeric](data []T) (arr Array) {
+func NewSeries[T types.Numeric](data []T) (series Series) {
 	if len(data) == 0 {
 		panic("cannot infer data type from empty array")
 	}
-	arr.DataType = NewDataType[T](data[0])
-	arr.Data = MarshalSlice(data, arr.DataType)
-	return arr
+	series.DataType = NewDataType[T](data[0])
+	series.Data = MarshalSlice(data, series.DataType)
+	return series
 }
 
-func NewArrayV[T types.Numeric](data ...T) (arr Array) {
-	return NewArray[T](data)
+func NewArrayV[T types.Numeric](data ...T) (series Series) {
+	return NewSeries[T](data)
 }
 
-func NewSecondsTSV(data ...TimeStamp) (arr Array) {
+func NewSecondsTSV(data ...TimeStamp) (series Series) {
 	for i := range data {
 		data[i] *= SecondTS
 	}
-	arr.DataType = TimeStampT
-	arr.Data = MarshalSlice(data, arr.DataType)
-	return arr
+	series.DataType = TimeStampT
+	series.Data = MarshalSlice(data, series.DataType)
+	return series
 }
 
 func MarshalSlice[T types.Numeric](data []T, dt DataType) []byte {
@@ -56,8 +56,8 @@ func UnmarshalSlice[T types.Numeric](b []byte, dt DataType) (data []T) {
 	return data
 }
 
-func Unmarshal[T types.Numeric](arr Array) []T {
-	return UnmarshalSlice[T](arr.Data, arr.DataType)
+func Unmarshal[T types.Numeric](series Series) []T {
+	return UnmarshalSlice[T](series.Data, series.DataType)
 }
 
 func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {

@@ -13,8 +13,8 @@ from pydantic import BaseModel
 
 
 class InstrumentationMeta(BaseModel):
-    """The metadata for instrumentation.
-    """
+    """The metadata for instrumentation."""
+
     key: str
     """The key of the instrumentation. ex. "api"""
     path: str
@@ -24,9 +24,7 @@ class InstrumentationMeta(BaseModel):
 
     def child_(self, key: str) -> InstrumentationMeta:
         return InstrumentationMeta(
-            key=key,
-            path=self.extend_path_(key),
-            service_name=self.service_name
+            key=key, path=self.extend_path_(key), service_name=self.service_name
         )
 
     def extend_path_(self, key: str) -> str:

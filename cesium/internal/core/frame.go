@@ -17,14 +17,14 @@ import (
 
 type Frame struct {
 	Keys   []ChannelKey
-	Arrays []telem.Array
+	Series []telem.Series
 }
 
-func NewFrame(keys []ChannelKey, arrays []telem.Array) Frame {
-	if len(keys) != len(arrays) {
-		panic("[cesium] - Keys and telemetry arrays in a frame must be of the same length")
+func NewFrame(keys []ChannelKey, series []telem.Series) Frame {
+	if len(keys) != len(series) {
+		panic("[cesium] - Keys and telemetry series in a frame must be of the same length")
 	}
-	kf := Frame{Keys: keys, Arrays: arrays}
+	kf := Frame{Keys: keys, Series: series}
 	return kf
 }
 
@@ -32,29 +32,29 @@ func (f Frame) UniqueKeys() []ChannelKey { return lo.Uniq(f.Keys) }
 
 func (f Frame) Key(i int) ChannelKey { return f.Keys[i] }
 
-func (f Frame) Append(key ChannelKey, arr telem.Array) Frame {
-	return NewFrame(append(f.Keys, key), append(f.Arrays, arr))
+func (f Frame) Append(key ChannelKey, series telem.Series) Frame {
+	return NewFrame(append(f.Keys, key), append(f.Series, series))
 }
 
-func (f Frame) Get(key ChannelKey) []telem.Array {
-	return lo.Filter(f.Arrays, func(_ telem.Array, i int) bool {
+func (f Frame) Get(key ChannelKey) []telem.Series {
+	return lo.Filter(f.Series, func(_ telem.Series, i int) bool {
 		return f.Keys[i] == key
 	})
 }
 
-func (f Frame) Prepend(key ChannelKey, arr telem.Array) Frame {
-	return NewFrame(append([]uint32{key}, f.Keys...), append([]telem.Array{arr}, f.Arrays...))
+func (f Frame) Prepend(key ChannelKey, series telem.Series) Frame {
+	return NewFrame(append([]uint32{key}, f.Keys...), append([]telem.Series{series}, f.Series...))
 }
 
-func (f Frame) AppendMany(keys []ChannelKey, arrays []telem.Array) Frame {
-	return NewFrame(append(f.Keys, keys...), append(f.Arrays, arrays...))
+func (f Frame) AppendMany(keys []ChannelKey, series []telem.Series) Frame {
+	return NewFrame(append(f.Keys, keys...), append(f.Series, series...))
 }
 
-func (f Frame) PrependMany(keys []ChannelKey, arrays []telem.Array) Frame {
-	return NewFrame(append(keys, f.Keys...), append(arrays, f.Arrays...))
+func (f Frame) PrependMany(keys []ChannelKey, series []telem.Series) Frame {
+	return NewFrame(append(keys, f.Keys...), append(series, f.Series...))
 }
 
-func (f Frame) AppendFrame(frame Frame) Frame { return f.AppendMany(frame.Keys, frame.Arrays) }
+func (f Frame) AppendFrame(frame Frame) Frame { return f.AppendMany(frame.Keys, frame.Series) }
 
 func (f Frame) FilterKeys(keys []ChannelKey) Frame {
 	if slices.Equal(keys, f.Keys) {
@@ -62,12 +62,12 @@ func (f Frame) FilterKeys(keys []ChannelKey) Frame {
 	}
 	var (
 		filteredKeys   = make([]ChannelKey, 0, len(keys))
-		filteredArrays = make([]telem.Array, 0, len(keys))
+		filteredArrays = make([]telem.Series, 0, len(keys))
 	)
 	for i, key := range f.Keys {
 		if lo.Contains(keys, key) {
 			filteredKeys = append(filteredKeys, key)
-			filteredArrays = append(filteredArrays, f.Arrays[i])
+			filteredArrays = append(filteredArrays, f.Series[i])
 		}
 	}
 	return NewFrame(filteredKeys, filteredArrays)
@@ -76,11 +76,11 @@ func (f Frame) FilterKeys(keys []ChannelKey) Frame {
 func (f Frame) Unary() bool { return len(f.Keys) == len(f.UniqueKeys()) }
 
 func (f Frame) Even() bool {
-	for i := 1; i < len(f.Arrays); i++ {
-		if f.Arrays[i].Len() != f.Arrays[0].Len() {
+	for i := 1; i < len(f.Series); i++ {
+		if f.Series[i].Len() != f.Series[0].Len() {
 			return false
 		}
-		if f.Arrays[i].TimeRange != f.Arrays[0].TimeRange {
+		if f.Series[i].TimeRange != f.Series[0].TimeRange {
 			return false
 		}
 	}
@@ -89,7 +89,10 @@ func (f Frame) Even() bool {
 
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
-	return f.Arrays[0].Len()
+	if len(f.Series) == 0 {
+		return 0
+	}
+	return f.Series[0].Len()
 }
 
 func (f Frame) assertEven(method string) {

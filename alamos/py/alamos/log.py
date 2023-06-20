@@ -19,6 +19,7 @@ class Logger:
     """Logger wraps Python's logging implementation to provide an opinionated formatter
     and no-op logging functionality.
     """
+
     noop: bool = True
     base: BaseLogger
     meta: InstrumentationMeta

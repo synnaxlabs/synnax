@@ -125,19 +125,19 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-		arr, n, err := i.read(
+		series, n, err := i.read(
 			ctx,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
 		nRead := i.Channel.DataType.Density().SampleCount(telem.Size(n))
-		nRemaining -= arr.Len()
+		nRemaining -= series.Len()
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
 
-		i.insert(arr)
+		i.insert(series)
 
 		if nRead >= nRemaining || !i.internal.Next() {
 			break
@@ -176,8 +176,8 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 }
 
 func (i *Iterator) Len() (l int64) {
-	for _, arr := range i.frame.Arrays {
-		l += arr.Len()
+	for _, series := range i.frame.Series {
+		l += series.Len()
 	}
 	return
 }
@@ -199,40 +199,40 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 		i.err = err
 		return false
 	}
-	arr, _, err := i.read(ctx, start, size)
+	series, _, err := i.read(ctx, start, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
 	}
-	i.insert(arr)
+	i.insert(series)
 	return true
 }
 
-func (i *Iterator) insert(arr telem.Array) {
-	if arr.Len() == 0 {
+func (i *Iterator) insert(series telem.Series) {
+	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Arrays) == 0 || i.frame.Arrays[len(i.frame.Arrays)-1].TimeRange.End.Before(arr.TimeRange.Start) {
-		i.frame = i.frame.Append(i.Channel.Key, arr)
+	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.Before(series.TimeRange.Start) {
+		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
-		i.frame = i.frame.Prepend(i.Channel.Key, arr)
+		i.frame = i.frame.Prepend(i.Channel.Key, series)
 	}
 }
 
-func (i *Iterator) read(ctx context.Context, start telem.Offset, size telem.Size) (arr telem.Array, n int, err error) {
-	arr.DataType = i.Channel.DataType
-	arr.TimeRange = i.internal.Range().BoundBy(i.view)
-	arr.Data = make([]byte, size)
+func (i *Iterator) read(ctx context.Context, start telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
+	series.DataType = i.Channel.DataType
+	series.TimeRange = i.internal.Range().BoundBy(i.view)
+	series.Data = make([]byte, size)
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return
 	}
-	n, err = r.ReadAt(arr.Data, int64(start))
+	n, err = r.ReadAt(series.Data, int64(start))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
-	if n < len(arr.Data) {
-		arr.Data = arr.Data[:n]
+	if n < len(series.Data) {
+		series.Data = series.Data[:n]
 	}
 	return
 }
@@ -279,12 +279,12 @@ func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false
 	}
-	start := i.frame.Arrays[0].TimeRange.Start
-	end := i.frame.Arrays[len(i.frame.Arrays)-1].TimeRange.End
+	start := i.frame.Series[0].TimeRange.Start
+	end := i.frame.Series[len(i.frame.Series)-1].TimeRange.End
 	return i.view == start.Range(end)
 }
 
-func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Arrays) > 0 }
+func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	i.frame = core.Frame{}
