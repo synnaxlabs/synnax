@@ -201,42 +201,42 @@ func (w relayResponseTranslator) Forward(
 
 func tranFrameFwd(frame *tsv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
-	arrays := tranArrayFwd(frame.Arrays)
-	return framer.Frame{Keys: keys, Arrays: arrays}
+	series := tranArrayFwd(frame.Series)
+	return framer.Frame{Keys: keys, Series: series}
 }
 
 func tranFrmBwd(frame framer.Frame) *tsv1.Frame {
 	return &tsv1.Frame{
 		Keys:   frame.Keys.Uint32(),
-		Arrays: tranArrBwd(frame.Arrays),
+		Series: tranArrBwd(frame.Series),
 	}
 }
 
-func tranArrayFwd(arrays []*tsv1.Array) []telem.Array {
-	LazyArrays := make([]telem.Array, len(arrays))
-	for i, arr := range arrays {
-		LazyArrays[i] = telem.Array{
-			DataType: telem.DataType(arr.DataType),
+func tranArrayFwd(series []*tsv1.Series) []telem.Series {
+	LazyArrays := make([]telem.Series, len(series))
+	for i, series := range series {
+		LazyArrays[i] = telem.Series{
+			DataType: telem.DataType(series.DataType),
 			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(arr.Range.Start),
-				End:   telem.TimeStamp(arr.Range.End),
+				Start: telem.TimeStamp(series.Range.Start),
+				End:   telem.TimeStamp(series.Range.End),
 			},
-			Data: arr.Data,
+			Data: series.Data,
 		}
 	}
 	return LazyArrays
 }
 
-func tranArrBwd(arrays []telem.Array) []*tsv1.Array {
-	LazyArrays := make([]*tsv1.Array, len(arrays))
-	for i, arr := range arrays {
-		LazyArrays[i] = &tsv1.Array{
-			DataType: string(arr.DataType),
+func tranArrBwd(series []telem.Series) []*tsv1.Series {
+	LazyArrays := make([]*tsv1.Series, len(series))
+	for i, series := range series {
+		LazyArrays[i] = &tsv1.Series{
+			DataType: string(series.DataType),
 			Range: &tsv1.TimeRange{
-				Start: int64(arr.TimeRange.Start),
-				End:   int64(arr.TimeRange.End),
+				Start: int64(series.TimeRange.Start),
+				End:   int64(series.TimeRange.End),
 			},
-			Data: arr.Data,
+			Data: series.Data,
 		}
 	}
 	return LazyArrays

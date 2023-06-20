@@ -40,7 +40,7 @@ import (
 type Config struct {
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
-	// have an array specified for each key, and all arrays must be the same length (i.e.
+	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`

@@ -43,7 +43,7 @@ var _ = Describe("TypedWriter", func() {
 				}))
 				Expect(writer.Write(core.NewFrame(
 					s.keys,
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
@@ -53,7 +53,7 @@ var _ = Describe("TypedWriter", func() {
 				Expect(writer.Error()).To(Succeed())
 				Expect(writer.Write(core.NewFrame(
 					s.keys,
-					[]telem.Array{
+					[]telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
@@ -131,7 +131,7 @@ var _ = Describe("TypedWriter", func() {
 			}))
 			Expect(writer.Write(core.NewFrame(
 				append(s.keys, channel.NewKey(12, 22)),
-				[]telem.Array{
+				[]telem.Series{
 					telem.NewArrayV[int64](1, 2, 3),
 					telem.NewArrayV[int64](3, 4, 5),
 					telem.NewArrayV[int64](5, 6, 7),

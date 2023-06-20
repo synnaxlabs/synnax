@@ -165,7 +165,7 @@ func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, othe
 // Linux box. The temperature sensor is a Channel that writes to Node residing on the
 // Linux box.
 //
-// Array for a channel can only be written through the leaseholder. This helps solve a lot
+// Series for a channel can only be written through the leaseholder. This helps solve a lot
 // of consistency and atomicity issues.
 type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
