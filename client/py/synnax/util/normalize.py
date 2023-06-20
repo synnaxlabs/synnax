@@ -12,7 +12,7 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-def flatten(*args: T | tuple[T] | list[T]) -> list[T]:
+def normalize(*args: T | tuple[T] | list[T]) -> list[T]:
     """Flatten a list of lists into a single list.
 
     Args:

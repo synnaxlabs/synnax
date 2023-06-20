@@ -13,10 +13,9 @@ import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import { NativeTypedArray, Series, TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ForwardFrameAdapter } from "./adapter";
-
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
 import { ChannelRetriever } from "@/channel/retriever";
+import { ForwardFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
