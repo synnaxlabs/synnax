@@ -31,12 +31,8 @@ stamps = np.linspace(int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLE
 data = np.sin(np.linspace(0, 20 * 2 * np.pi, N_SAMPLES), dtype=np.float32) * 20 + np.random.randint(0, 2, N_SAMPLES).astype(np.float32)
 
 r = sy.TimeRange.MAX
-#
 time_ch.write(start, stamps)
 data_ch.write(start, data)
-
-# time_ch = client.channels.retrieve("Time")
-# data_ch = client.channels.retrieve("Data")
 
 print(f"""
     Time channel: {time_ch.key}
@@ -44,8 +40,8 @@ print(f"""
 """)
 
 
-res_stamps, _ = time_ch.read(r.start, r.end)
-res_data, _ = data_ch.read(r.start, r.end)
+res_stamps = time_ch.read(r.start, r.end)
+res_data = data_ch.read(r.start, r.end)
 
 plt.plot(res_stamps, res_data)
 plt.show()

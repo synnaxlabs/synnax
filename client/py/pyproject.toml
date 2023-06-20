@@ -56,6 +56,7 @@ markers = [
     "writer: mark test as a writer test",
     "iterator: mark test as a reader test",
     "streamer: mark test as a streamer test",
+    "focus: focus on a set of tests",
     "cli"
 ]
 

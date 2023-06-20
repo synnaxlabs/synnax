@@ -19,7 +19,7 @@ from rich.progress import (
 )
 
 from synnax import Channel, Synnax
-from synnax.framer import DataFrameWriter
+from synnax.framer import Writer
 from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
@@ -30,7 +30,7 @@ class RowIngestionEngine:
     """
 
     client: Synnax
-    writer: DataFrameWriter
+    writer: Writer
     reader: RowFileReader
     channels: list[Channel]
     idx_grouped: dict[Channel, list[Channel]]

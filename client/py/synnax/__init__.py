@@ -37,14 +37,13 @@ from .telem import (
     UnparsedRate,
     UnparsedTimeSpan,
     UnparsedTimeStamp,
-    NumpyArray,
-    BinaryArray,
+    Series,
     convert_time_units,
 )
 from .framer import (
-    BinaryFrame,
-    NumpyFrame,
-    BufferedDataFrameWriter,
-    DataFrameWriter,
-    FrameWriter,
+    Frame,
+    BufferedWriter,
+    Writer,
+    Iterator,
+    Streamer,
 )

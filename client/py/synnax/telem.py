@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args
+from typing import TypeAlias, Union, get_args, Sized
 from numpy.typing import DTypeLike
 
 import numpy as np
@@ -349,7 +349,7 @@ TimeSpan.UNITS = {
     TimeSpan.HOUR_UNITS: TimeSpan.HOUR,
 }
 TimeStamp.MIN = TimeStamp(0)
-TimeStamp.MAX = TimeStamp(2**63 - 1)
+TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
 
 
 def convert_time_units(data: np.ndarray, _from: str, to: str):
@@ -544,6 +544,9 @@ class Density(int):
     def validate(cls, v):
         return cls(v)
 
+    def sample_count(self, byte_length: int) -> int:
+        return int(byte_length / self)
+
     def __repr__(self):
         return f"Density({super().__repr__()})"
 
@@ -721,32 +724,46 @@ DataType._DENSITIES = {
 }
 
 
-class ArrayHeader(Payload):
+class Series(Payload):
     time_range: TimeRange | None = None
     data_type: DataType
+    data: bytes
 
+    def __len__(self) -> int:
+        return self.data_type.density.sample_count(len(self.data))
 
-class BinaryArray(ArrayHeader):
-    data: bytes = b""
-
-
-class NumpyArray(ArrayHeader):
-    data: np.ndarray
+    def __init__(
+        self,
+        data: bytes | pd.Series | np.ndarray | Series,
+        data_type: UnparsedDataType | None = None,
+        time_range: TimeRange | None = None,
+    ):
+        if isinstance(data, Series):
+            data_type = data.data_type if data_type is None else data_type
+            data_ = data.data
+            time_range = data.time_range if time_range is None else time_range
+        elif isinstance(data, pd.Series):
+            data_type = DataType(data.dtype if data_type is None else data_type)
+            data_ = data.to_numpy(dtype=data_type.np).tobytes()
+        elif isinstance(data, np.ndarray):
+            data_type = DataType(data.dtype if data_type is None else data_type)
+            data_ = data.tobytes()
+        else:
+            if data_type is None:
+                raise ValueError("data_type must be specified if a buffer is given")
+            data_type = DataType(data_type)
+            data_ = data
+        super().__init__(data_type=data_type, data=data_, time_range=time_range)
 
     class Config:
         arbitrary_types_allowed = True
 
-    @classmethod
-    def from_binary(cls, arr: BinaryArray) -> NumpyArray:
-        return NumpyArray(
-            data_type=arr.data_type,
-            time_range=arr.time_range,
-            data=np.frombuffer(arr.data, dtype=arr.data_type.np),
-        )
+    def __array__(self) -> np.ndarray:
+        return np.frombuffer(self.data, dtype=self.data_type.np)
 
-    def to_binary(self) -> BinaryArray:
-        return BinaryArray(
-            data_type=self.data_type,
-            time_range=self.time_range,
-            data=self.data.tobytes(),
-        )
+    def __getitem__(self, index: int) -> float:
+        return self.__array__()[index]
+
+    def astype(self, data_type: DataType) -> Series:
+        return Series(data=self.__array__().astype(data_type.np), data_type=data_type,
+                      time_range=self.time_range)

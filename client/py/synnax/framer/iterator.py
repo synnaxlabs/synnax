@@ -12,12 +12,11 @@ from enum import Enum
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
 from alamos import trace, Instrumentation, NOOP
-from synnax.channel.payload import ChannelKeys, ChannelParams
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
-from synnax.framer.payload import BinaryFrame, NumpyFrame
+from synnax.framer.adapter import BackwardFrameAdapter
+from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
-from synnax.util.flatten import flatten
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -53,10 +52,10 @@ class _Response(Payload):
     command: _Command
     ack: bool
     error: ExceptionPayload | None
-    frame: BinaryFrame
+    frame: FramePayload
 
 
-class FrameIterator:
+class Iterator:
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
 
@@ -67,28 +66,24 @@ class FrameIterator:
 
     _ENDPOINT = "/frame/iterate"
 
-    aggregate: bool
     open: bool
     tr: TimeRange
-    keys: ChannelKeys
     instrumentation: Instrumentation
-    _client: StreamClient
-    _stream: Stream[_Request, _Response]
-    _value: BinaryFrame
+    __stream: Stream[_Request, _Response]
+    value: Frame
+    __adapter: BackwardFrameAdapter
 
     def __init__(
         self,
-        client: StreamClient,
         tr: TimeRange,
-        keys: ChannelKeys,
-        aggregate: bool = False,
+        client: StreamClient,
+        adapter: BackwardFrameAdapter,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self._client = client
-        self.aggregate = aggregate
-        self.keys = keys
         self.tr = tr
         self.instrumentation = instrumentation
+        self.__adapter = adapter
+        self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
         self._open()
 
     @trace("debug", "open")
@@ -99,9 +94,8 @@ class FrameIterator:
         :param keys: The keys of the channels to iterate over.
         :param tr: The time range to iterate over.
         """
-        self._stream = self._client.stream(self._ENDPOINT, _Request, _Response)
-        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.keys)
-        self._value = BinaryFrame()
+        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.__adapter.keys)
+        self.value = Frame()
 
     @trace("debug")
     def next(self, span: TimeSpan) -> bool:
@@ -189,10 +183,10 @@ class FrameIterator:
         should probably be placed in a 'finally' block. If the iterator is not closed, it make
         leak resources and threads.
         """
-        exc = self._stream.close_send()
+        exc = self.__stream.close_send()
         if exc is not None:
             raise exc
-        _, exc = self._stream.receive()
+        r, exc = self.__stream.receive()
         if exc is None:
             raise UnexpectedError(
                 """Unexpected missing close acknowledgement from server.
@@ -217,69 +211,17 @@ class FrameIterator:
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    @property
-    def value(self) -> BinaryFrame:
-        return self._value.compact()
-
     def _exec(self, **kwargs) -> bool:
-        exc = self._stream.send(_Request(**kwargs))
+        exc = self.__stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
-        if not self.aggregate:
-            self._value = BinaryFrame()
+        self.value = Frame()
         while True:
-            r, exc = self._stream.receive()
+            r, exc = self.__stream.receive()
             if exc is not None:
                 raise exc
             assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
-            self._value.append_frame(r.frame)
-
-
-class NumpyIterator(FrameIterator):
-    """Used to iterate over a databases telemetry in time-order. It should not be
-    instantiated directly, and should instead be instantiated using the segment Client.
-
-    Using an iterator is ideal when querying/processing large ranges of data, but is
-    relatively complex and difficult to use. If you're looking to retrieve telemetry
-    between two timestamps, see the segment Client read method instead.
-    """
-
-    _channels: ChannelRetriever
-    _keys_or_names: list[str]
-
-    def __init__(
-        self,
-        transport: StreamClient,
-        channels: ChannelRetriever,
-        tr: TimeRange,
-        params: ChannelParams,
-        aggregate: bool = False,
-    ):
-        self._channels = channels
-        self._keys_or_names = flatten(params)
-        channels_ = self._channels.retrieve(params)
-        super().__init__(transport, tr, [ch.key for ch in channels_], aggregate)
-
-    @property
-    def value(self) -> NumpyFrame:
-        """
-        :returns: The current iterator value as a dictionary whose keys are channels
-        and values are segments containing telemetry at the current iterator position.
-        """
-        v = super().value
-        v.keys = self._value_keys(v.keys)
-        return NumpyFrame.from_binary(v)
-
-    def _value_keys(self, keys: ChannelKeys) -> ChannelParams:
-        # We can safely ignore the none case here because we've already
-        # checked that all channels can be retrieved.
-        channels = self._channels.retrieve(keys)
-        keys_or_names = []
-        for ch in channels:
-            v = [k for k in self._keys_or_names if k == ch.key or k == ch.name]
-            if len(v) == 0:
-                raise ValueError(f"Unexpected channel key {ch.key}")
-            keys_or_names.append(v[0])
-        return keys_or_names
+            fr = Frame(keys=r.frame.keys, series=r.frame.series)
+            self.value.append(self.__adapter.adapt(fr))
