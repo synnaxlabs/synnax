@@ -29,26 +29,37 @@ type HTMLCanvasProps = DetailedHTMLProps<
   HTMLCanvasElement
 >;
 
-export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {}
+export interface VisCanvasProps extends Omit<HTMLCanvasProps, "ref"> {
+  resizeDebounce?: number;
+}
 
 const ZERO_PROPS = { region: Box.ZERO, dpr: 1 };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
-  canvas: HTMLCanvasElement | null;
+  lower2d: HTMLCanvasElement | null;
+  upper2d: HTMLCanvasElement | null;
   bootstrapped: boolean;
 }
 
-const bootstrapped = ({ gl, canvas }: Canvases): boolean =>
-  canvas != null && gl != null;
+const ZERO_CANVASES: Canvases = {
+  gl: null,
+  lower2d: null,
+  upper2d: null,
+  bootstrapped: false,
+};
 
-export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement => {
-  const {
-    path,
-    state: [, setState],
-  } = Aether.use(WorkerCanvas.TYPE, ZERO_PROPS, canvasState);
+const bootstrapped = ({ gl, lower2d, upper2d }: Canvases): boolean =>
+  [gl, lower2d, upper2d].every((c) => c != null);
 
-  const canvases = useRef<Canvases>({ gl: null, canvas: null, bootstrapped: false });
+export const VisCanvas = ({
+  children,
+  resizeDebounce: debounce = 100,
+  ...props
+}: VisCanvasProps): ReactElement => {
+  const [{ path }, , setState] = Aether.use(WorkerCanvas.TYPE, canvasState, ZERO_PROPS);
+
+  const canvases = useRef<Canvases>(ZERO_CANVASES);
 
   const handleResize = useCallback(
     (region: Box) =>
@@ -57,34 +68,42 @@ export const VisCanvas = ({ children, ...props }: VisCanvasProps): ReactElement 
     []
   );
 
-  const resizeRef = useResize(handleResize, { debounce: 100 });
+  const resizeRef = useResize(handleResize, { debounce });
 
   const refCallback = useCallback((el: HTMLCanvasElement | null) => {
     resizeRef(el);
     if (el == null) return;
+
+    // Store the canvas
     if (el.className.includes("gl")) canvases.current.gl = el;
-    else canvases.current.canvas = el;
-    const { gl, canvas, bootstrapped } = canvases.current;
-    if (gl == null || canvas == null || bootstrapped) return;
+    else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
+    else canvases.current.lower2d = el;
+    const { gl, lower2d, upper2d, bootstrapped } = canvases.current;
+
+    if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
+
+    // Bootstrap the canvas
     canvases.current.bootstrapped = true;
-    const glOffscreen = gl.transferControlToOffscreen();
-    const canvasOffscreen = canvas.transferControlToOffscreen();
-    const region = new Box(canvas.getBoundingClientRect());
+    const glCanvas = gl.transferControlToOffscreen();
+    const upper2dCanvas = upper2d.transferControlToOffscreen();
+    const lower2dCanvas = lower2d.transferControlToOffscreen();
     setState(
       {
-        glCanvas: glOffscreen,
-        canvasCanvas: canvasOffscreen,
-        region,
+        glCanvas,
+        upper2dCanvas,
+        lower2dCanvas,
+        region: new Box(gl),
         dpr: window.devicePixelRatio,
       },
-      [glOffscreen, canvasOffscreen]
+      [glCanvas, upper2dCanvas, lower2dCanvas]
     );
   }, []);
 
   return (
     <>
+      <canvas ref={refCallback} className={CSS.BM("canvas", "lower2d")} {...props} />
       <canvas ref={refCallback} className={CSS.BM("canvas", "gl")} {...props} />
-      <canvas ref={refCallback} className={CSS.BM("canvas", "2d")} {...props} />
+      <canvas ref={refCallback} className={CSS.BM("canvas", "upper2d")} {...props} />
       <Aether.Composite path={path}>
         {bootstrapped(canvases.current) && children}
       </Aether.Composite>

@@ -30,8 +30,11 @@ export class RenderContext {
   /** The WebGL rendering context.  */
   readonly gl: WebGL2RenderingContext;
 
-  /** The 2D canvas rendering context. */
-  readonly canvas: OffscreenCanvasRenderingContext2D;
+  /** A 2D canvas that sits below the WebGL canvas. */
+  readonly lower2d: OffscreenCanvasRenderingContext2D;
+
+  /** A 2D canvas that sits above the WebGL canvas. */
+  readonly upper2d: OffscreenCanvasRenderingContext2D;
 
   /** The region the canvas occupies in pixel space */
   region: Box;
@@ -47,23 +50,35 @@ export class RenderContext {
   static create(
     ctx: AetherContext,
     glCanvas: OffscreenCanvas,
-    canvasCanvas: OffscreenCanvas
+    lower2dCanvas: OffscreenCanvas,
+    upper2dCanvas: OffscreenCanvas
   ): RenderContext {
-    const render = new RenderContext(glCanvas, canvasCanvas);
+    const render = new RenderContext(glCanvas, lower2dCanvas, upper2dCanvas);
     ctx.set(RenderContext.CONTEXT_KEY, render);
     return render;
   }
 
-  private constructor(glCanvas: OffscreenCanvas, canvasCanvas: OffscreenCanvas) {
-    this.canvasCanvas = canvasCanvas;
+  private constructor(
+    glCanvas: OffscreenCanvas,
+    lower2dCanvas: OffscreenCanvas,
+    upper2dCanvas: OffscreenCanvas
+  ) {
+    this.canvasCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.queue = new RenderQueue();
 
-    const ctx = canvasCanvas.getContext("2d");
+    const ctx = lower2dCanvas.getContext("2d");
     if (ctx == null) throw new Error("Could not get 2D context");
-    this.canvas = ctx;
+    this.lower2d = ctx;
 
-    const gl = glCanvas.getContext("webgl2", { preserveDrawingBuffer: true });
+    const upperCtx = upper2dCanvas.getContext("2d");
+    if (upperCtx == null) throw new Error("Could not get 2D context");
+    this.upper2d = upperCtx;
+
+    const gl = glCanvas.getContext("webgl2", {
+      preserveDrawingBuffer: true,
+      antialias: true,
+    });
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
 
@@ -95,7 +110,7 @@ export class RenderContext {
     this.glCanvas.height = region.height * dpr;
     this.canvasCanvas.width = region.width * this.dpr;
     this.canvasCanvas.height = region.height * this.dpr;
-    this.canvas.scale(this.dpr, this.dpr);
+    this.lower2d.scale(this.dpr, this.dpr);
     this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
   }
 
@@ -185,7 +200,7 @@ export class RenderContext {
   }
 
   eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
-    const { canvas } = this;
+    const { lower2d: canvas } = this;
     const os = new Box(
       box.left - overscan.x,
       box.top - overscan.y,

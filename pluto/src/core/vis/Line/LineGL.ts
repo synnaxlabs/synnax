@@ -151,9 +151,10 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
 }
 
 /** Just makes sure that the lines we draw to make stuff thick are really close together. */
-const THICKNESS_DIVISOR = 12000;
+const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
+  strokeWidth *= 2;
   if (strokeWidth <= 1) return new Float32Array([0, 0]);
   return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v

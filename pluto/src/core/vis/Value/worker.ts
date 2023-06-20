@@ -67,11 +67,11 @@ export class Value extends AetherLeaf<typeof valueState> {
   render(props: ValueProps = { position: XY.ZERO }): void {
     const box = new Box(this.state.box);
     if (box.isZero) return;
-    const { canvas } = this.renderCtx;
+    const { d: canvas } = this.renderCtx;
     const value = `${this.telem.value} ${this.state.units}`;
     const statePos = this.state.position ?? XY.ZERO;
     canvas.font = this.state.font;
-    const dims = textDimensions(value, this.state.font, this.renderCtx.canvas);
+    const dims = textDimensions(value, this.state.font, this.renderCtx.d);
     this.renderCtx.erase(box);
 
     canvas.fillStyle = new Color("#fc3d03").setAlpha(1).hex;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -18,7 +19,8 @@ export const canvasState = z.object({
   dpr: z.number(),
   region: Box.z,
   glCanvas: z.instanceof(OffscreenCanvas).optional(),
-  canvasCanvas: z.instanceof(OffscreenCanvas).optional(),
+  upper2dCanvas: z.instanceof(OffscreenCanvas).optional(),
+  lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
 });
 
 export type CanvasState = z.input<typeof canvasState>;
@@ -34,9 +36,12 @@ export class Canvas extends AetherComposite<typeof canvasState> {
   handleUpdate(ctx: AetherContext): void {
     let renderCtx = RenderContext.useOptional(ctx);
     if (renderCtx == null) {
-      const { glCanvas, canvasCanvas } = this.state;
-      if (glCanvas == null || canvasCanvas == null) throw new Error("unexpected");
-      renderCtx = RenderContext.create(ctx, glCanvas, canvasCanvas);
+      const { glCanvas, lower2dCanvas, upper2dCanvas } = this.state;
+      if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
+        throw new UnexpectedError(
+          "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
+        );
+      renderCtx = RenderContext.create(ctx, glCanvas, lower2dCanvas, upper2dCanvas);
       LineGLProgramContext.create(ctx);
     } else {
       renderCtx.update(ctx);

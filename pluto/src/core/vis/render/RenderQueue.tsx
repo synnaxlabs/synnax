@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Rate } from "@synnaxlabs/x";
+
 export type RenderFunction = () => Promise<void>;
 
 export class RenderQueue {
@@ -18,7 +20,7 @@ export class RenderQueue {
     setInterval(() => {
       if (Object.keys(this.queue).length === 0) return;
       void this.render();
-    }, 1000 / 60);
+    }, Rate.hz(45).period.milliseconds);
   }
 
   push(key: string, render: RenderFunction): void {

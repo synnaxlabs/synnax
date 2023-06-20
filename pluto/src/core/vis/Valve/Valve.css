@@ -21,6 +21,7 @@
     stroke: rgba(var(--pluto-base-color), 1);
     stroke-width: 2px;
     transition: stroke 0.15s ease-in-out;
+    fill: none;
 }
 
 .pluto-valve:focus {

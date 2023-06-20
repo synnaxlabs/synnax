@@ -13,6 +13,10 @@
     z-index: -1;
 }
 
-.pluto-canvas--2d {
+.pluto-canvas--lower2d {
     z-index: -2;
+}
+
+.pluto-canvas--upper2d {
+    z-index: 1;
 }
