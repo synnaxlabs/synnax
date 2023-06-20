@@ -18,7 +18,7 @@ export const linePlotState = z.object({
   plot: Box.z,
   container: Box.z,
   viewport: Box.z,
-  clearOverscan: z.union([z.number(), XY.z]).optional().default(0),
+  clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
 });
 
 export type LinePlotState = z.input<typeof linePlotState>;

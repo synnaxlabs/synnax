@@ -17,7 +17,7 @@ import {
   useId,
 } from "react";
 
-import { Telem, telemState, TelemState } from "./worker";
+import { Telem, telemState } from "./worker";
 
 import { useClient } from "@/client/Context";
 import { Aether } from "@/core/aether/main";
@@ -53,27 +53,19 @@ export const useTelemSourceControl = <P extends any>(
 export interface TelemProviderProps extends PropsWithChildren<any> {}
 
 export const TelemProvider = ({ children }: TelemProviderProps): ReactElement => {
-  const {
-    path,
-    state: [, setState],
-  } = Aether.use(Telem.TYPE, undefined, telemState);
-
+  const [{ path }, , send] = Aether.use(Telem.TYPE, telemState, undefined);
   const client = useClient();
 
   useEffect(() => {
-    if (client == null) return;
-    setState({ variant: "connect", props: client?.props });
+    if (client != null) send({ variant: "connect", props: client?.props });
   }, [client]);
 
   const set = useCallback(
     <P extends any>(key: string, type: string, props: P, transfer?: Transferable[]) =>
-      setState({ variant: "set", key, type, props }, transfer),
-    [setState]
+      send({ variant: "set", key, type, props }, transfer),
+    [send]
   );
-  const remove = useCallback(
-    (key: string) => setState({ variant: "remove", key }),
-    [setState]
-  );
+  const remove = useCallback((key: string) => send({ variant: "remove", key }), [send]);
 
   return (
     <Aether.Composite path={path}>

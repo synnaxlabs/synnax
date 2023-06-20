@@ -15,7 +15,6 @@ import {
   axisState,
   AxisState,
   ParsedAxisState,
-  X_AXIS_SIZE,
   Y_AXIS_SIZE,
 } from "@/core/vis/Axis/core";
 import { Tick, TickFactory, newTickFactory } from "@/core/vis/Axis/TickFactory";
@@ -40,7 +39,7 @@ export class AxisCanvas {
   }
 
   render(ctx: AxisContext): void {
-    const { canvas } = this.ctx;
+    const { lower2d: canvas } = this.ctx;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
     canvas.strokeStyle = this.state.color.hex;
@@ -62,7 +61,7 @@ export class AxisCanvas {
   }
 
   drawBottom(ctx: AxisContext): void {
-    const { canvas } = this.ctx;
+    const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
@@ -86,7 +85,7 @@ export class AxisCanvas {
   }
 
   drawTop(ctx: AxisContext): void {
-    const { canvas } = this.ctx;
+    const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
@@ -110,7 +109,7 @@ export class AxisCanvas {
   }
 
   drawLeft(ctx: AxisContext): void {
-    const { canvas } = this.ctx;
+    const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
@@ -134,7 +133,7 @@ export class AxisCanvas {
   }
 
   drawRight(ctx: AxisContext): void {
-    const { canvas } = this.ctx;
+    const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
@@ -157,10 +156,11 @@ export class AxisCanvas {
   }
 
   private drawLine(start: XY, end: XY): void {
-    this.ctx.canvas.beginPath();
-    this.ctx.canvas.moveTo(...start.couple);
-    this.ctx.canvas.lineTo(...end.couple);
-    this.ctx.canvas.stroke();
+    const { lower2d: canvas } = this.ctx;
+    canvas.beginPath();
+    canvas.moveTo(...start.couple);
+    canvas.lineTo(...end.couple);
+    canvas.stroke();
   }
 
   private drawTicks(
@@ -168,7 +168,7 @@ export class AxisCanvas {
     f: (textDimensions: Dimensions, tick: Tick) => void
   ): void {
     ticks.forEach((tick) =>
-      f(textDimensions(tick.label, this.state.font, this.ctx.canvas), tick)
+      f(textDimensions(tick.label, this.state.font, this.ctx.lower2d), tick)
     );
   }
 
@@ -179,7 +179,7 @@ export class AxisCanvas {
   ): void {
     const { showGrid, gridColor } = this.state;
     if (showGrid) {
-      this.ctx.canvas.strokeStyle = gridColor.hex;
+      this.ctx.lower2d.strokeStyle = gridColor.hex;
       ticks
         .filter((tick) => tick.position !== 0 && tick.position !== size)
         .forEach((tick) => this.drawLine(...f(tick)));

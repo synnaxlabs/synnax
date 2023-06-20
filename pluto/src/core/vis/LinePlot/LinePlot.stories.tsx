@@ -21,10 +21,37 @@ const story: Meta<typeof LinePlot> = {
   component: LinePlot,
 };
 
+const LENGTH = 5000;
+const DIV = 100;
+
+const xData = Float32Array.from({ length: LENGTH }, (_, i) => i);
+const yData = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * 20 + Math.random()
+);
+const yData2 = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * 20 - 2 + Math.random()
+);
+const yData3 = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * 20 - 4 + Math.random()
+);
+const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i);
+const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i);
+
 const Example = (): ReactElement => {
   const telem = StaticTelem.useXY({
-    x: [new Float32Array([1, 2, 3])],
-    y: [new Float32Array([1, 2, 3])],
+    x: [xData],
+    y: [yData],
+  });
+  const telem2 = StaticTelem.useXY({
+    x: [xData2],
+    y: [yData2],
+  });
+  const telem3 = StaticTelem.useXY({
+    x: [xData3],
+    y: [yData3],
   });
   return (
     <VisCanvas
@@ -39,7 +66,9 @@ const Example = (): ReactElement => {
       <LinePlot>
         <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
-            <Line telem={telem} color="#F733FF" strokeWidth={10} />
+            <Line telem={telem} color="#F733FF" strokeWidth={2} />
+            <Line telem={telem2} color="#fcba03" strokeWidth={2} />
+            <Line telem={telem3} color="#3ad6cc" strokeWidth={2} />
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>

@@ -11,6 +11,7 @@ import {
   PropsWithChildren,
   ReactElement,
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -19,10 +20,10 @@ import {
   useState,
 } from "react";
 
-import { UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { WorkerMessage } from "@/core/aether/message";
+import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { PsuedoSetStateArg } from "@/core/hooks/useStateRef";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useTypedWorker } from "@/core/worker/Context";
@@ -39,14 +40,14 @@ export interface AetherContextValue {
 
 export const AetherContext = createContext<AetherContextValue | null>(null);
 
-export interface UseAetherReturn<S extends z.ZodTypeAny> {
-  key: string;
-  path: string[];
-  state: [
-    z.output<S>,
-    (state: PsuedoSetStateArg<z.output<S>>, transfer?: Transferable[]) => void
-  ];
-}
+export type UseAetherReturn<S extends z.ZodTypeAny> = [
+  {
+    key: string;
+    path: string[];
+  },
+  z.output<S>,
+  (state: PsuedoSetStateArg<z.output<S>>, transfer?: Transferable[]) => void
+];
 
 export const useAetherContext = (): AetherContextValue => {
   const ctx = useContext(AetherContext);
@@ -56,8 +57,8 @@ export const useAetherContext = (): AetherContextValue => {
 
 export const useAether = <S extends z.ZodTypeAny>(
   type: string,
-  initialState: z.input<S>,
   schema: S,
+  initialState: z.input<S>,
   key?: string,
   initialTransfer: Transferable[] = []
 ): UseAetherReturn<S> => {
@@ -113,7 +114,7 @@ export const useAether = <S extends z.ZodTypeAny>(
     };
   }, []);
 
-  return { key: oKey, path, state: [internalState, setState] };
+  return [{ key: oKey, path }, internalState, setState];
 };
 
 export interface AetherProviderProps extends PropsWithChildren {
@@ -131,12 +132,22 @@ export const AetherProvider = ({
   workerKey,
   children,
 }: AetherProviderProps): ReactElement => {
-  const worker = useTypedWorker<WorkerMessage>(workerKey);
+  const worker = useTypedWorker<MainMessage, WorkerMessage>(workerKey);
   const registry = useRef<Map<string, RegisteredComponent>>(new Map());
 
   const register: AetherContextValue["register"] = useCallback(
     (type, path, handler) => {
-      const key = path[path.length - 1];
+      const key = path.at(-1);
+      if (key == null)
+        throw new ValidationError(
+          `[Aether.Provider] - received zero length path when registering component of type ${type}`
+        );
+      if (type.length === 0)
+        console.warn(
+          `[Aether.Provider] - received zero length type when registering component at ${path.join(
+            "."
+          )} This is probably a bad idea.`
+        );
       registry.current.set(key, { path, handler });
       return {
         setState: (state, transfer) =>
@@ -147,15 +158,19 @@ export const AetherProvider = ({
     [worker, registry]
   );
 
-  useEffect(() => {
-    worker.handle((msg) => {
-      if (msg.variant !== "backward") throw new UnexpectedError("Unexpected message");
-      const { key, state } = msg;
-      const component = registry.current.get(key);
-      if (component == null) throw new UnexpectedError("Unexpected message");
-      component.handler(state);
-    });
-  }, [worker]);
+  useEffect(
+    () =>
+      worker.handle((msg) => {
+        const { key, state } = msg;
+        const component = registry.current.get(key);
+        if (component == null)
+          throw new UnexpectedError(
+            `[Aether.Provider] - received worker update message for unregistered component with key ${key}`
+          );
+        component.handler(state);
+      }),
+    [worker]
+  );
 
   const value = useMemo<AetherContextValue>(() => ({ register, path: [] }), [register]);
 
@@ -166,14 +181,14 @@ export interface AetherCompositeProps extends PropsWithChildren {
   path: string[];
 }
 
-export const AetherComposite = ({
-  children,
-  path,
-}: AetherCompositeProps): JSX.Element => {
-  const ctx = useAetherContext();
-  const value = useMemo<AetherContextValue>(() => ({ ...ctx, path }), [ctx, path]);
-  return <AetherContext.Provider value={value}>{children}</AetherContext.Provider>;
-};
+export const AetherComposite = memo(
+  ({ children, path }: AetherCompositeProps): JSX.Element => {
+    const ctx = useAetherContext();
+    const value = useMemo<AetherContextValue>(() => ({ ...ctx, path }), [ctx, path]);
+    return <AetherContext.Provider value={value}>{children}</AetherContext.Provider>;
+  }
+);
+AetherComposite.displayName = "AetherComposite";
 
 export const Aether = {
   Provider: AetherProvider,

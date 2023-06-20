@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, memo, useMemo } from "react";
 
-import { Optional, CrudeOuterLocation, XY, Location } from "@synnaxlabs/x";
+import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
@@ -41,11 +41,11 @@ export const YAxis = memo(
       [theme, props]
     );
 
-    const {
-      key,
-      path,
-      state: [, setState],
-    } = Aether.use<typeof yAxisState>(WorkerYAxis.TYPE, memoProps, yAxisState);
+    const [{ key, path }, , setState] = Aether.use(
+      WorkerYAxis.TYPE,
+      yAxisState,
+      memoProps
+    );
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
@@ -64,10 +64,10 @@ export const YAxis = memo(
     );
 
     return (
-      <Aether.Composite path={path}>
+      <>
         <div className="y-axis" style={gridStyle} ref={resizeRef}></div>
-        {children}
-      </Aether.Composite>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </>
     );
   }
 );

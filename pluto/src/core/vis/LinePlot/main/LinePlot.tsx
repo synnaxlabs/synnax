@@ -14,9 +14,11 @@ import {
   PropsWithChildren,
   ReactElement,
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -36,11 +38,6 @@ import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
 import "@/core/vis/LinePlot/main/LinePlot.css";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
-
-export interface LinePlotProps
-  extends PropsWithChildren,
-    Pick<WorkerLinePlotState, "clearOverscan">,
-    HTMLDivProps {}
 
 export interface LinePlotContextValue {
   setAxis: (loc: CrudeOuterLocation, key: string) => void;
@@ -63,6 +60,7 @@ export const useAxisPosition = (
 ): CSSProperties => {
   const { setAxis, deleteAxis } = useLinePlotContext(component);
   useEffect(() => {
+    Location.strictOuterZ.parse(loc);
     setAxis(loc, key);
     return () => deleteAxis(key);
   }, [setAxis, deleteAxis, loc]);
@@ -75,92 +73,103 @@ export const useAxisPosition = (
 
 type AxisState = Array<[CrudeOuterLocation, string]>;
 
-export const LinePlot = ({
-  children,
-  style,
-  ...props
-}: LinePlotProps): ReactElement => {
-  const [axes, setAxes] = useState<AxisState>([]);
-  const {
-    path,
-    state: [, setState],
-  } = Aether.use<typeof linePlotState>(
-    WorkerLinePlot.TYPE,
-    {
-      plot: Box.ZERO,
-      container: Box.ZERO,
-      viewport: Box.DECIMAL,
-      clearOverscan: { x: 10, y: 10 },
-      ...props,
-    },
-    linePlotState
-  );
+export interface LinePlotProps
+  extends PropsWithChildren,
+    Pick<WorkerLinePlotState, "clearOverscan">,
+    HTMLDivProps {
+  resizeDebounce?: number;
+}
 
-  const onViewportChange = useCallback<UseViewportHandler>(
-    ({ box }) => setState((prev) => ({ ...prev, viewport: box })),
-    []
-  );
+export const LinePlot = memo(
+  ({
+    children,
+    style,
+    resizeDebounce: debounce = 100,
+    ...props
+  }: LinePlotProps): ReactElement => {
+    const [axes, setAxes] = useState<AxisState>([]);
+    const [{ path }, , setState] = Aether.use<typeof linePlotState>(
+      WorkerLinePlot.TYPE,
+      linePlotState,
+      {
+        plot: Box.ZERO,
+        container: Box.ZERO,
+        viewport: Box.DECIMAL,
+        ...props,
+      }
+    );
 
-  const { ref: viewportRef, ...viewportProps } = Viewport.use({
-    onChange: onViewportChange,
-  });
+    const onViewportChange = useCallback<UseViewportHandler>(
+      ({ box }) => setState((prev) => ({ ...prev, viewport: box })),
+      []
+    );
 
-  const handlePlottingRegionResize = useCallback((box: Box) => {
-    setState((prev) => ({ ...prev, plot: box }));
-  }, []);
+    const { ref: viewportRef, ...viewportProps } = Viewport.use({
+      onChange: onViewportChange,
+    });
 
-  const handleContainerResize = useCallback(
-    (box: Box) => setState((prev) => ({ ...prev, container: box })),
-    []
-  );
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  const containerResizeRef = useResize(handleContainerResize, { debounce: 100 });
+    // We use a single resize handler for both the container and plotting region because
+    // the container is guaranteed to only resize if the plotting region does. This allows
+    // us to save a window observer.
+    const handleResize = useCallback(
+      (box: Box) =>
+        setState((prev) => {
+          const { current: container } = containerRef;
+          if (container == null) return prev;
+          return {
+            ...prev,
+            plot: box,
+            container: new Box(container),
+          };
+        }),
+      []
+    );
 
-  const plottingRegionResizeRef = useResize(handlePlottingRegionResize, {
-    debounce: 100,
-  });
+    const resizeRef = useResize(handleResize, { debounce });
 
-  const setAxis = useCallback(
-    (loc: CrudeOuterLocation, key: string) =>
-      setAxes((prev) => [...prev.filter(([, k]) => k !== key), [loc, key]]),
-    []
-  );
+    const setAxis = useCallback(
+      (loc: CrudeOuterLocation, key: string) =>
+        setAxes((prev) => [...prev.filter(([, k]) => k !== key), [loc, key]]),
+      []
+    );
 
-  const deleteAxis = useCallback(
-    (key: string) => setAxes((prev) => prev.filter(([, k]) => k !== key)),
-    []
-  );
+    const deleteAxis = useCallback(
+      (key: string) => setAxes((prev) => prev.filter(([, k]) => k !== key)),
+      []
+    );
 
-  const grid = buildPlotGrid(axes);
+    const grid = buildPlotGrid(axes);
 
-  const viewportRefCallback = useCallback(
-    (el: HTMLDivElement | null) => {
-      viewportRef.current = el;
-      plottingRegionResizeRef(el);
-    },
-    [viewportRef, plottingRegionResizeRef]
-  );
+    const viewportRefCallback = useCallback(
+      (el: HTMLDivElement | null) => {
+        viewportRef.current = el;
+        resizeRef(el);
+      },
+      [viewportRef, resizeRef]
+    );
 
-  return (
-    <div
-      className={CSS.B("line-plot")}
-      style={{ ...style, ...grid }}
-      ref={containerResizeRef}
-      {...props}
-    >
-      <Aether.Composite path={path}>
+    return (
+      <div
+        className={CSS.B("line-plot")}
+        style={{ ...style, ...grid }}
+        ref={containerRef}
+        {...props}
+      >
         <LinePlotContext.Provider value={{ setAxis, deleteAxis }}>
-          {children}
-          <Viewport.Mask
-            className={CSS.BE("line-plot", "viewport")}
-            {...viewportProps}
-            ref={viewportRefCallback}
-          />
+          <Aether.Composite path={path}>{children}</Aether.Composite>
         </LinePlotContext.Provider>
-      </Aether.Composite>
-    </div>
-  );
-};
+        <Viewport.Mask
+          className={CSS.BE("line-plot", "viewport")}
+          {...viewportProps}
+          ref={viewportRefCallback}
+        />
+      </div>
+    );
+  }
+);
+LinePlot.displayName = "LinePlot";
 
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
   const builder = CSS.newGridBuilder();

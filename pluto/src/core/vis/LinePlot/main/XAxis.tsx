@@ -9,42 +9,40 @@
 
 import { PropsWithChildren, ReactElement, memo } from "react";
 
-import { Optional, CrudeOuterLocation, XY, Location } from "@synnaxlabs/x";
-
-import { useAxisPosition } from "./LinePlot";
+import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
+import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
 import {
   XAxisState as WorkerXAxisState,
   XAxis as WorkerXAxis,
   xAxisState,
 } from "@/core/vis/LinePlot/worker";
 
-export interface XAxisCProps
+export interface XAxisProps
   extends PropsWithChildren,
-    Optional<Omit<WorkerXAxisState, "position">, "color" | "font" | "gridColor"> {}
+    Optional<Omit<WorkerXAxisState, "position">, "color" | "font" | "gridColor"> {
+  resizeDebounce?: number;
+}
 
 export const XAxis = memo(
-  ({ children, location = "bottom", ...props }: XAxisCProps): ReactElement => {
+  ({
+    children,
+    resizeDebounce: debounce = 100,
+    location = "bottom",
+    ...props
+  }: XAxisProps): ReactElement => {
     const theme = Theming.use();
-    const {
-      key,
-      path,
-      state: [, setState],
-    } = Aether.use<typeof xAxisState>(
-      WorkerXAxis.TYPE,
-      {
-        color: theme.colors.gray.p2,
-        gridColor: theme.colors.gray.m1,
-        position: XY.ZERO,
-        font: Theming.font(theme, "small"),
-        location,
-        ...props,
-      },
-      xAxisState
-    );
+    const [{ key, path }, , setState] = Aether.use(WorkerXAxis.TYPE, xAxisState, {
+      color: theme.colors.gray.p2,
+      gridColor: theme.colors.gray.m1,
+      position: XY.ZERO,
+      font: Theming.font(theme, "small"),
+      location,
+      ...props,
+    });
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
@@ -53,25 +51,16 @@ export const XAxis = memo(
     );
 
     const resizeRef = useResize(
-      (box) => {
-        setState((state) => ({
-          ...state,
-          position: box.topLeft,
-        }));
-      },
-      { debounce: 100 }
+      (box) => setState((p) => ({ ...p, position: box.topLeft })),
+      { debounce }
     );
 
     return (
-      <Aether.Composite path={path}>
-        <div
-          className="x-axis"
-          style={{ ...gridStyle, backgroundColor: "var(--pluto-gray-z)" }}
-          ref={resizeRef}
-        />
-        {children}
-      </Aether.Composite>
+      <>
+        <div className="x-axis" style={gridStyle} ref={resizeRef} />
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </>
     );
   }
 );
-XAxis.displayName = "XAxisC";
+XAxis.displayName = "XAxis";

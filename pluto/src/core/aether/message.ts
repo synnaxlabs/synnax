@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface UpdateMessage {
+export interface MainUpdate {
   variant: "update";
   path: string[];
   type: string;
   state: any;
 }
 
-export interface DeleteMessage {
+export interface MainDelete {
   variant: "delete";
   path: string[];
 }
 
-export interface BackwardUpate {
+export interface WorkerUpdate {
   variant: "backward";
   key: string;
   state: any;
 }
 
-export type WorkerMessage = UpdateMessage | DeleteMessage | BackwardUpate;
+export type WorkerMessage = WorkerUpdate;
+export type MainMessage = MainUpdate | MainDelete;
