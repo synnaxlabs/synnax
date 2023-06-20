@@ -82,7 +82,7 @@ const validateMatchedLabelsAndArrays = (
  */
 export class Frame {
   readonly labels: ChannelKeys | ChannelNames = [];
-  readonly arrays: Series[] = [];
+  readonly series: Series[] = [];
 
   constructor(
     labelsOrData:
@@ -102,9 +102,9 @@ export class Frame {
 
     // Construction from a payload.
     if (isObject) {
-      if ("keys" in labelsOrData && "arrays" in labelsOrData) {
+      if ("keys" in labelsOrData && "series" in labelsOrData) {
         const data_ = labelsOrData as FramePayload;
-        const arrays = data_.arrays.map((a) => arrayFromPayload(a));
+        const arrays = data_.series.map((a) => arrayFromPayload(a));
         validateMatchedLabelsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
@@ -184,7 +184,7 @@ export class Frame {
 
   toPayload(): FramePayload {
     return {
-      arrays: this.arrays.map((a) => arrayToPayload(a)),
+      series: this.series.map((a) => arrayToPayload(a)),
       keys: this.keys,
     };
   }
@@ -231,8 +231,8 @@ export class Frame {
   timeRange(label?: ChannelKeyOrName): TimeRange {
     if (label == null) {
       if (this.labels.length === 0) return TimeRange.ZERO;
-      const start = Math.min(...this.arrays.map((a) => a.timeRange.start.valueOf()));
-      const end = Math.max(...this.arrays.map((a) => a.timeRange.end.valueOf()));
+      const start = Math.min(...this.series.map((a) => a.timeRange.start.valueOf()));
+      const end = Math.max(...this.series.map((a) => a.timeRange.end.valueOf()));
       return new TimeRange(start, end);
     }
     const group = this.get(label);
@@ -262,7 +262,7 @@ export class Frame {
   get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): Series[] | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as ChannelKeys).includes(k as ChannelKey));
-    return this.arrays.filter((_, i) => this.labels[i] === key);
+    return this.series.filter((_, i) => this.labels[i] === key);
   }
 
   /**
@@ -284,10 +284,10 @@ export class Frame {
     if (keyOrFrame instanceof Frame) {
       if (this.labeledBy !== null && keyOrFrame.labeledBy !== this.labeledBy)
         throw new ValidationError("keyVariant must match");
-      this.arrays.push(...keyOrFrame.arrays);
+      this.series.push(...keyOrFrame.series);
       (this.labels as ChannelKeys).push(...(keyOrFrame.labels as ChannelKeys));
     } else {
-      this.arrays.push(...v);
+      this.series.push(...v);
       if (typeof keyOrFrame === "string" && this.labeledBy === "key")
         throw new ValidationError("keyVariant must match");
       else if (typeof keyOrFrame !== "string" && this.labeledBy === "name")
@@ -304,8 +304,8 @@ export class Frame {
    */
   concat(frame: Frame): Frame {
     return new Frame([...this.labels, ...frame.labels] as ChannelKeys, [
-      ...this.arrays,
-      ...frame.arrays,
+      ...this.series,
+      ...frame.series,
     ]);
   }
 
@@ -339,7 +339,7 @@ export class Frame {
    */
   forEach(fn: (k: ChannelKeyOrName, arr: Series, i: number) => void): void {
     this.labels.forEach((k, i) => {
-      const a = this.arrays[i];
+      const a = this.series[i];
       fn(k, a, i);
     });
   }
@@ -352,7 +352,7 @@ export class Frame {
   filter(fn: (k: ChannelKeyOrName, arr: Series, i: number) => boolean): Frame {
     const frame = new Frame();
     this.labels.forEach((k, i) => {
-      const a = this.arrays[i];
+      const a = this.series[i];
       if (fn(k, a, i)) frame.push(k, a);
     });
     return frame;
@@ -360,12 +360,12 @@ export class Frame {
 
   /** @returns the total number of bytes in the frame. */
   get byteLength(): Size {
-    return new Size(this.arrays.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
+    return new Size(this.series.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
   }
 
   /** @returns the total number of samples in the frame. */
   get length(): number {
-    return this.arrays.reduce((acc, v) => acc + v.length, 0);
+    return this.series.reduce((acc, v) => acc + v.length, 0);
   }
 }
 
@@ -389,7 +389,7 @@ export const frameZ = z.object({
     z.null().transform(() => [] as number[]),
     z.number().array().optional().default([]),
   ]),
-  arrays: z.union([
+  series: z.union([
     z.null().transform(() => [] as Array<z.infer<typeof array>>),
     array.array().optional().default([]),
   ]),

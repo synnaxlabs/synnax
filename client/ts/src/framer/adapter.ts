@@ -46,7 +46,7 @@ export class BackwardFrameAdapter {
       // @ts-expect-error;
       this.adapter.set(channel.key, channel.name);
     });
-    this.keys = fetched.map((c) => c.key);
+    this.keys = Array.from(this.adapter.keys());
   }
 
   adapt(fr: Frame): Frame {

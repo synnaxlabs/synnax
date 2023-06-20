@@ -68,7 +68,7 @@ describe("Frame", () => {
       test("from payload", () => {
         const f = new Frame({
           keys: [12],
-          arrays: [
+          series: [
             {
               dataType: new DataType("float32"),
               data: new SharedArrayBuffer(12),
@@ -77,7 +77,7 @@ describe("Frame", () => {
         });
         expect(f.length.valueOf()).toEqual(3);
         expect(f.labels.length).toEqual(1);
-        expect(f.arrays.length).toEqual(1);
+        expect(f.series.length).toEqual(1);
       });
 
       test("from record", () => {
@@ -86,14 +86,14 @@ describe("Frame", () => {
         });
         expect(f.length.valueOf()).toEqual(3);
         expect(f.labels.length).toEqual(1);
-        expect(f.arrays.length).toEqual(1);
+        expect(f.series.length).toEqual(1);
       });
 
       test("from map", () => {
         const f = new Frame(new Map([[12, new Series(new Float32Array([1, 2, 3]))]]));
         expect(f.length).toEqual(3);
         expect(f.labels.length).toEqual(1);
-        expect(f.arrays.length).toEqual(1);
+        expect(f.series.length).toEqual(1);
       });
     });
 
@@ -309,7 +309,7 @@ describe("Frame", () => {
       );
       const pld = f.toPayload();
       expect(pld.keys).toEqual([12, 13]);
-      expect(pld.arrays?.[0].data.byteLength).toEqual(12);
+      expect(pld.series?.[0].data.byteLength).toEqual(12);
     });
   });
 });

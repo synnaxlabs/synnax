@@ -96,7 +96,7 @@ export class FrameClient {
   async read(tr: TimeRange, channels: ChannelParams): Promise<Series | Frame> {
     const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
-    if (single) return fr.arrays[0];
+    if (single) return fr.series[0];
     return fr;
   }
 
