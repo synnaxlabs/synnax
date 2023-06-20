@@ -47,13 +47,13 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			d := telem.NewArrayV[int64](1, 2, 3)
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{basic1},
-				[]telem.Array{d},
+				[]telem.Series{d},
 			))).To(BeTrue())
 
 			f := <-o.Outlet()
 			Expect(f.Frame.Keys).To(HaveLen(1))
-			Expect(f.Frame.Arrays).To(HaveLen(1))
-			Expect(f.Frame.Arrays[0]).To(Equal(d))
+			Expect(f.Frame.Series).To(HaveLen(1))
+			Expect(f.Frame.Series[0]).To(Equal(d))
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 		})

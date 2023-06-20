@@ -32,5 +32,5 @@ def instrumentation() -> Instrumentation:
         tracer=Tracer(
             otel_provider=get_tracer_provider(),
             otel_propagator=get_global_textmap(),
-        )
+        ),
     )

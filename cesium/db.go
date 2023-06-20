@@ -34,7 +34,9 @@ type (
 	Frame      = core.Frame
 )
 
-func NewFrame(keys []core.ChannelKey, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
+func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
+	return core.NewFrame(keys, series)
+}
 
 type DB struct {
 	*options
@@ -57,8 +59,8 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteArray implements DB.
-func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, arr telem.Array) error {
-	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Array{arr}))
+func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
 }
 
 // Read implements DB.

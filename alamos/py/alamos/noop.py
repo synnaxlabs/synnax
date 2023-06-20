@@ -7,23 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import (
-    Protocol,
-    ParamSpec,
-    Concatenate,
-    Callable,
-    TypeVar
-)
+from typing import Protocol, ParamSpec, Concatenate, Callable, TypeVar
 
 
 class Noop(Protocol):
-    """A protocol for a class that can be marked as noop based on a boolean
-    """
+    """A protocol for a class that can be marked as noop based on a boolean"""
+
     noop: bool
 
 
-P = ParamSpec('P')
-T = TypeVar('T', bound = Noop)
+P = ParamSpec("P")
+T = TypeVar("T", bound=Noop)
 
 
 def noop(

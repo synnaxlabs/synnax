@@ -32,7 +32,6 @@ class TestChannelClient:
             ]
         )
 
-
     @pytest.mark.channel
     def test_create_list(self, two_channels: list[sy.Channel]):
         """Should create a list of valid channels"""

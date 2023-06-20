@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args, Sized
+from typing import TypeAlias, Union, get_args
 from numpy.typing import DTypeLike
 
 import numpy as np
@@ -349,7 +349,7 @@ TimeSpan.UNITS = {
     TimeSpan.HOUR_UNITS: TimeSpan.HOUR,
 }
 TimeStamp.MIN = TimeStamp(0)
-TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 
 def convert_time_units(data: np.ndarray, _from: str, to: str):
@@ -453,8 +453,12 @@ class TimeRange(BaseModel):
     start: TimeStamp
     end: TimeStamp
 
-    def __init__(self, start: UnparsedTimeStamp, end: UnparsedTimeStamp):
-        super().__init__(start=TimeStamp(start), end=TimeStamp(end))
+    def __init__(
+        self, start: UnparsedTimeStamp | TimeRange, end: UnparsedTimeStamp | None = None
+    ):
+        if isinstance(start, TimeRange):
+            start, end = start.start, start.end
+        super().__init__(start=TimeStamp(start), end=TimeStamp(end or start))
 
     @classmethod
     def __get_validators__(cls):
@@ -765,5 +769,8 @@ class Series(Payload):
         return self.__array__()[index]
 
     def astype(self, data_type: DataType) -> Series:
-        return Series(data=self.__array__().astype(data_type.np), data_type=data_type,
-                      time_range=self.time_range)
+        return Series(
+            data=self.__array__().astype(data_type.np),
+            data_type=data_type,
+            time_range=self.time_range,
+        )

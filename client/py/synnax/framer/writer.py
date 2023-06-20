@@ -15,7 +15,8 @@ from freighter import (
     ExceptionPayload,
     Payload,
     Stream,
-    decode_exception, StreamClient,
+    decode_exception,
+    StreamClient,
 )
 from numpy import can_cast as np_can_cast
 from pandas import DataFrame, concat as pd_concat
@@ -145,7 +146,8 @@ class Writer:
         self._prep_data_types(frame)
 
         err = self.__stream.send(
-            _Request(command=_Command.WRITE, frame=frame.to_payload()))
+            _Request(command=_Command.WRITE, frame=frame.to_payload())
+        )
         if err is not None:
             raise err
         return True
@@ -226,8 +228,10 @@ class Writer:
         for i, (label, series) in enumerate(frame.items()):
             ch = self.__adapter.retriever.retrieve(label)[0]
             if series.data_type != ch.data_type:
-                if not np_can_cast(series.data_type.np,
-                                   ch.data_type.np) or self.__strict:
+                if (
+                    not np_can_cast(series.data_type.np, ch.data_type.np)
+                    or self.__strict
+                ):
                     raise ValidationError(
                         Field(
                             str(label),
@@ -236,7 +240,8 @@ class Writer:
                         )
                     )
                 elif not self.__suppress_warnings and not (
-                    ch.data_type == DataType.TIMESTAMP and series.data_type == DataType.INT64
+                    ch.data_type == DataType.TIMESTAMP
+                    and series.data_type == DataType.INT64
                 ):
                     warn(
                         f"""Series for channel {ch.name} has type {series.data_type} but channel

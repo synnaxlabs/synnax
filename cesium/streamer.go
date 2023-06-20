@@ -29,7 +29,7 @@ type StreamerConfig struct {
 	Channels []core.ChannelKey
 }
 
-// StreamerResponse contains a frame representing the arrays of all subscribed channels.
+// StreamerResponse contains a frame representing the series of all subscribed channels.
 // This Frame is guaranteed to only contain data for the channels that are currently
 // subscribed to.
 type StreamerResponse struct {
@@ -39,7 +39,7 @@ type StreamerResponse struct {
 
 // Streamer allows the caller to tap into the DB's write pipeline using a confluence
 // Segment based interface. To use a Streamer, call DB.NewStreamer with a list
-// of channels whose arrays you'd like to receive. Then, call Streamer.Flow to start
+// of channels whose series you'd like to receive. Then, call Streamer.Flow to start
 // receiving frames.
 //
 // Streamer must be used carefully, as it can clog the write pipeline if the caller

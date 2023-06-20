@@ -43,6 +43,7 @@ class Instrumentation:
     instrumentation that tracks api requests could be created with the key child("api").
     See the child method for more details.
     """
+
     Meta: InstrumentationMeta
     """Metadata bout the instrumentation."""
     L: Logger
@@ -97,14 +98,14 @@ class Traceable(Protocol):
 
     instrumentation: Instrumentation
 
+
 P = ParamSpec("P")
 R = TypeVar("R")
-T = TypeVar("T", bound = Traceable)
+T = TypeVar("T", bound=Traceable)
 
 
 def trace(
-    env: Environment,
-    key: str | None = None
+    env: Environment, key: str | None = None
 ) -> Callable[[Callable[Concatenate[T, P], R]], Callable[Concatenate[T, P], R]]:
     """Trace the given method on the class. This method can only be used on a class that
     implements the Traceable protocol.

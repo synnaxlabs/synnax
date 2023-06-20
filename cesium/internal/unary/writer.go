@@ -28,12 +28,12 @@ type Writer struct {
 	numWritten int64
 }
 
-func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) error {
+func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Series) error {
 	w, err := db.NewWriter(ctx, domain.WriterConfig{Start: start})
 	if err != nil {
 		return err
 	}
-	if err = w.Write(arr); err != nil {
+	if err = w.Write(series); err != nil {
 		return err
 	}
 	_, err = w.Commit(ctx)
@@ -41,26 +41,26 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, arr telem.Array) 
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(arr telem.Array) error {
-	if err := w.validate(arr); err != nil {
+func (w *Writer) Write(series telem.Series) error {
+	if err := w.validate(series); err != nil {
 		return err
 	}
-	w.numWritten += arr.Len()
+	w.numWritten += series.Len()
 	if w.Channel.IsIndex {
-		w.updateHwm(arr)
+		w.updateHwm(series)
 	}
-	_, err := w.internal.Write(arr.Data)
+	_, err := w.internal.Write(series.Data)
 	return err
 }
 
-func (w *Writer) updateHwm(arr telem.Array) {
-	if arr.Len() == 0 {
+func (w *Writer) updateHwm(series telem.Series) {
+	if series.Len() == 0 {
 		return
 	}
-	w.hwm = telem.ValueAt[telem.TimeStamp](arr, arr.Len()-1)
+	w.hwm = telem.ValueAt[telem.TimeStamp](series, series.Len()-1)
 }
 
-// Commit commits the written Array to the database.
+// Commit commits the written Series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)
@@ -92,14 +92,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 func (w *Writer) Close() error { return w.internal.Close() }
 
-func (w *Writer) validate(arr telem.Array) error {
-	if arr.DataType != w.Channel.DataType {
+func (w *Writer) validate(series telem.Series) error {
+	if series.DataType != w.Channel.DataType {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid array data type for channel %s, expected %s, got %s",
 			w.Channel.Key,
 			w.Channel.DataType,
-			arr.DataType,
+			series.DataType,
 		)
 	}
 	return nil

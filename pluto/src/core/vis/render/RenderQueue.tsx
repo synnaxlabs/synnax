@@ -20,7 +20,7 @@ export class RenderQueue {
     setInterval(() => {
       if (Object.keys(this.queue).length === 0) return;
       void this.render();
-    }, Rate.hz(45).period.milliseconds);
+    }, Rate.hz(60).period.milliseconds);
   }
 
   push(key: string, render: RenderFunction): void {

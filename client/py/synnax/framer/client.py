@@ -23,7 +23,7 @@ from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelKeys,
-    ChannelNames
+    ChannelNames,
 )
 from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
 from synnax.framer.streamer import Streamer
@@ -116,8 +116,7 @@ class FrameClient:
     @overload
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
+        tr: TimeRange,
         params: ChannelKeys | ChannelNames,
     ) -> Frame:
         ...
@@ -125,16 +124,14 @@ class FrameClient:
     @overload
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
+        tr: TimeRange,
         key_or_name: ChannelKey | ChannelName,
     ) -> Series:
         ...
 
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
+        tr: TimeRange,
         params: ChannelParams,
     ) -> Series | Frame:
         """Reads telemetry from the channel between the two timestamps.
@@ -147,31 +144,21 @@ class FrameClient:
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         normal = normalize_channel_params(params)
-        frame = self.read_frame(start, end, params)
+        frame = self._read_frame(tr, params)
         if len(normal.params) > 1:
             return frame
         series = frame.get(normal.params[0], None)
         if series is None:
-            tr = TimeRange(start, end)
             raise QueryError(
-                f"""No data found for channel {normal.params[0]} between {tr}""")
+                f"""No data found for channel {normal.params[0]} between {tr}"""
+            )
         return series
 
-    def read_frame(
+    def _read_frame(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
+        tr: TimeRange,
         params: ChannelParams,
     ) -> Frame:
-        """Reads a Segment from the given channel between the two timestamps.
-
-        :param start: The starting timestamp of the range to read from.
-        :param end: The ending timestamp of the range to read from.
-        :param key_or_name: The key or name of the channel to read from.
-        :returns: A NumpySegment containing the read telemetry.
-        :raises ContiguityError: If the telemetry between start and end is non-contiguous.
-        """
-        tr = TimeRange(start, end)
         fr = Frame()
         with self.new_iterator(tr, params) as i:
             for frame in i:

@@ -10,7 +10,7 @@ from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelParams,
-    ChannelPayload
+    ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
 from synnax.framer.frame import Frame
@@ -46,8 +46,9 @@ class BackwardFrameAdapter:
     def adapt(self, fr: Frame):
         if self.__adapter is None:
             return fr
-        keys = [self.__adapter[k] if isinstance(k, ChannelKey) else k for k in
-                fr.labels]
+        keys = [
+            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.labels
+        ]
         return Frame(keys=keys, series=fr.series)
 
 
@@ -85,7 +86,8 @@ class ForwardFrameAdapter:
     def adapt(self, fr: Frame):
         if self.__adapter is None:
             return fr
-        keys = [self.__adapter[k] if isinstance(k, ChannelName) else k for k in
-                fr.labels]
+        keys = [
+            self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.labels
+        ]
 
         return Frame(keys=keys, series=fr.series)

@@ -63,7 +63,7 @@ package cesium_test
 //		log.Fatal(err)
 //	}
 //
-//	// Get the sensor and time arrays from the returned frame.
+//	// Get the sensor and time series from the returned frame.
 //	fetchedSensorData := frame.Get(sensorChannel.Key)
 //	fetchedTimeData := frame.Get(timeChannel.Key)
 //	log.Println(fetchedTimeData)
