@@ -23,7 +23,7 @@ from synnax.channel.payload import (
     ChannelNames,
     ChannelParams, ChannelKey, ChannelName
 )
-from synnax.util.flatten import flatten
+from synnax.util.normalize import normalize
 
 
 class _Request(Payload):
@@ -67,7 +67,6 @@ class ClusterChannelRetriever:
         include_not_found: bool = False,
     ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
-        print(normal.variant, normal.params)
         req = _Request(**{normal.variant: normal.params})
         res, exc = self.client.send(self._ENDPOINT, req, _Response)
         if exc is not None:
@@ -127,7 +126,7 @@ def normalize_channel_params(
     params: ChannelParams,
 ) -> NormalizedChannelParams:
     """Determine if a list of keys or names is a single key or name."""
-    normalized = flatten(params)
+    normalized = normalize(params)
     if len(normalized) == 0:
         raise ValueError("no keys or names provided")
     return NormalizedChannelParams(

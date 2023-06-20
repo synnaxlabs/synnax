@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Literal, overload
 
+from pandas import DataFrame
+
 from freighter import Payload
 from pydantic import Field
 
@@ -42,7 +44,7 @@ class FramePayload(Payload):
             series = list()
         if keys is None:
             keys = list()
-        super().__init__(arrays=series, keys=keys)
+        super().__init__(series=series, keys=keys)
 
 
 LabeledBy = Literal["keys", "names", None]
@@ -67,11 +69,21 @@ class Frame:
 
     def __init__(
         self,
-        keys: ChannelKeys | ChannelNames | None = None,
+        keys: ChannelKeys | ChannelNames | DataFrame | Frame | FramePayload | None = None,
         series: list[Series] | None = None,
     ):
-        self.series = series or list()
-        self.labels = keys or list()
+        if isinstance(keys, Frame):
+            self.labels = keys.labels
+            self.series = keys.series
+        elif isinstance(keys, FramePayload):
+            self.labels = keys.keys
+            self.series = keys.series
+        elif isinstance(keys, DataFrame):
+            self.labels = keys.columns.to_list()
+            self.series = [Series(data=keys[k]) for k in self.labels]
+        else:
+            self.series = series or list()
+            self.labels = keys or list()
 
     def compact(self) -> Frame:
         # compact together arrays that have the same key
@@ -122,8 +134,10 @@ class Frame:
     def append(self, key_or_frame: ChannelKey | ChannelName | Frame,
                array: Series | None = None) -> None:
         if isinstance(key_or_frame, Frame):
-            if not labeled_by_equal(self.labels, key_or_frame.labels):
-                raise ValidationError("Cannot append frame with different labels")
+            if not labeled_by_equal(self.labeled_by, key_or_frame.labeled_by):
+                raise ValidationError(f"""
+                    Cannot append frame with different label type {self.labeled_by} != {key_or_frame.labeled_by}
+                """)
             self.series.extend(key_or_frame.series)
             self.labels.extend(key_or_frame.labels)
         else:
@@ -133,3 +147,23 @@ class Frame:
                 raise ValidationError("Cannot append array with different label type")
             self.series.append(array)
             self.labels.append(key_or_frame)
+
+    def items(self) -> list[tuple[ChannelKey, Series]] | list[
+        tuple[ChannelName, Series]]:
+        return zip(self.labels, self.series)
+
+    def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
+        return self.series[self.labels.index(key)]
+
+    def get(self, key: ChannelKey | ChannelName,
+            default: Series | None = None) -> Series | None:
+        try:
+            return self[key]
+        except ValueError:
+            return default
+
+    def to_payload(self):
+        if self.labeled_by == "names":
+            raise ValidationError(
+                "Cannot convert a frame labeled by names to a payload")
+        return FramePayload(keys=self.labels, series=self.series)

@@ -9,18 +9,25 @@
 
 from typing import overload
 
-import pandas as pd
 from numpy import ndarray
 from freighter import StreamClient
 
 from alamos import trace, Instrumentation, NOOP
-from synnax.channel.payload import ChannelParams, ChannelKey, ChannelName
-from synnax.channel.retrieve import ChannelRetriever
-from synnax.framer.iterator import NumpyIterator
-from synnax.framer.payload import NumpyFrame
-from synnax.framer.streamer import NumpyStreamer
-from synnax.framer.writer import DataFrameWriter
-from synnax.telem import TimeRange, UnparsedTimeStamp
+from synnax.exceptions import QueryError
+from synnax.framer.frame import Frame
+from synnax.framer.adapter import ForwardFrameAdapter, BackwardFrameAdapter
+from synnax.framer.writer import Writer
+from synnax.framer.iterator import Iterator
+from synnax.channel.payload import (
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
+    ChannelKeys,
+    ChannelNames
+)
+from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
+from synnax.framer.streamer import Streamer
+from synnax.telem import TimeRange, UnparsedTimeStamp, Series
 
 
 class FrameClient:
@@ -36,11 +43,11 @@ class FrameClient:
     def __init__(
         self,
         client: StreamClient,
-        registry: ChannelRetriever,
+        retriever: ChannelRetriever,
         instrumentation: Instrumentation = NOOP,
     ):
         self.__client = client
-        self.__channels = registry
+        self.__channels = retriever
         self.instrumentation = instrumentation
 
     def new_writer(
@@ -49,7 +56,7 @@ class FrameClient:
         params: ChannelParams,
         strict: bool = False,
         suppress_warnings: bool = False,
-    ) -> DataFrameWriter:
+    ) -> Writer:
         """Opens a new writer on the given channels.
 
         :param keys: A list of channel keys that the writer will write to. A writer
@@ -57,11 +64,12 @@ class FrameClient:
         for more.
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
-        return DataFrameWriter(
-            self.__client,
-            self.__channels,
-            start,
-            params,
+        adapter = ForwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Writer(
+            start=start,
+            adapter=adapter,
+            client=self.__client,
             strict=strict,
             suppress_warnings=suppress_warnings,
         )
@@ -70,29 +78,27 @@ class FrameClient:
         self,
         tr: TimeRange,
         params: ChannelParams,
-        aggregate: bool = False,
-    ) -> NumpyIterator:
+    ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
-        :param keys: A list of channel keys to iterator over.
+        :param params: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
-        :param aggregate:  Whether to accumulate iteration results or reset them on every
-        iterator method call.
-        :returns: A NumpyIterator over the given channels within the provided time
-        range. See the NumpyIterator documentation for more.
+        :returns: An Iterator over the given channels within the provided time
+        range. See the Iterator documentation for more.
         """
-        return NumpyIterator(
-            self.__client,
-            self.__channels,
-            tr,
-            params,
-            aggregate=aggregate,
+        adapter = BackwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Iterator(
+            tr=tr,
+            adapter=adapter,
+            client=self.__client,
+            instrumentation=self.instrumentation,
         )
 
     def write(
         self,
         start: UnparsedTimeStamp,
-        data: ndarray,
+        data: ndarray | Series,
         to: ChannelKey | ChannelName,
         strict: bool = False,
     ):
@@ -104,7 +110,7 @@ class FrameClient:
         :returns: None.
         """
         with self.new_writer(start, to, strict=strict) as w:
-            w.write(pd.DataFrame({to: data}))
+            w.write(Frame(keys=[to], series=[Series(data)]))
             w.commit()
 
     @overload
@@ -112,9 +118,8 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        key_or_name: str,
-        *keys_or_name: str,
-    ) -> NumpyFrame:
+        params: ChannelKeys | ChannelNames,
+    ) -> Frame:
         ...
 
     @overload
@@ -122,8 +127,8 @@ class FrameClient:
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-        key_or_name: str,
-    ) -> tuple[ndarray, TimeRange]:
+        key_or_name: ChannelKey | ChannelName,
+    ) -> Series:
         ...
 
     def read(
@@ -131,7 +136,7 @@ class FrameClient:
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         params: ChannelParams,
-    ) -> tuple[ndarray, TimeRange] | NumpyFrame:
+    ) -> Series | Frame:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -141,20 +146,23 @@ class FrameClient:
         and the second item is the time range occupied by that array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
+        normal = normalize_channel_params(params)
         frame = self.read_frame(start, end, params)
-        if len(params) > 1:
+        if len(normal.params) > 1:
             return frame
-        arr = frame[params]
-        assert arr.time_range is not None
-        return arr.data, arr.time_range
+        series = frame.get(normal.params[0], None)
+        if series is None:
+            tr = TimeRange(start, end)
+            raise QueryError(
+                f"""No data found for channel {normal.params[0]} between {tr}""")
+        return series
 
-    @trace("prod")
     def read_frame(
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
         params: ChannelParams,
-    ) -> NumpyFrame:
+    ) -> Frame:
         """Reads a Segment from the given channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -164,19 +172,21 @@ class FrameClient:
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start, end)
-        with self.new_iterator(tr, params, aggregate=True) as i:
-            # exhaust the iterator
-            _ = [value for value in i]
-            return i.value
+        fr = Frame()
+        with self.new_iterator(tr, params) as i:
+            for frame in i:
+                fr.append(frame)
+        return fr
 
     def stream(
         self,
         start: UnparsedTimeStamp,
-        *keys_or_names: ChannelParams,
-    ) -> NumpyStreamer:
-        return NumpyStreamer(
-            self.__client,
-            self.__channels,
-            start,
-            keys_or_names,
+        params: ChannelParams,
+    ) -> Streamer:
+        adapter = BackwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Streamer(
+            start=start,
+            adapter=adapter,
+            client=self.__client,
         )

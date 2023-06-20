@@ -30,7 +30,7 @@ from synnax.telem import (
     UnparsedDataType,
     UnparsedRate,
     UnparsedTimeStamp,
-    DataType,
+    DataType, Series,
 )
 
 
@@ -89,7 +89,7 @@ class Channel(ChannelPayload):
         self,
         start: UnparsedTimeStamp,
         end: UnparsedTimeStamp,
-    ) -> tuple[ndarray, TimeRange]:
+    ) -> Series:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
@@ -101,7 +101,7 @@ class Channel(ChannelPayload):
         """
         return self._frame_client.read(start, end, self.key)
 
-    def write(self, start: UnparsedTimeStamp, data: ndarray):
+    def write(self, start: UnparsedTimeStamp, data: ndarray | Series):
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
@@ -114,7 +114,7 @@ class Channel(ChannelPayload):
     def _frame_client(self) -> FrameClient:
         if self.__frame_client is None:
             raise ValidationError(
-                "Cannot read from a channel that has not been created."
+                "Cannot read from or write to channel that has not been created."
             )
         return self.__frame_client
 
