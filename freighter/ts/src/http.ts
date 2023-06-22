@@ -34,6 +34,13 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
+
+    return new Proxy(this, {
+      get: (target, prop, receiver) => {
+        if (prop === "endpoint") return this.endpoint;
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 
   get headers(): RawAxiosRequestHeaders {
