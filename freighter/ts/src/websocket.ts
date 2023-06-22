@@ -93,11 +93,8 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   }
 
   private async receiveMsg(): Promise<Message> {
-    if (this.receiveDataQueue.length > 0) {
-      const msg = this.receiveDataQueue.shift();
-      if (msg != null) return msg;
-      throw new Error("unexpected undefined message");
-    }
+    const msg = this.receiveDataQueue.shift();
+    if (msg != null) return msg;
     return await new Promise((resolve, reject) =>
       this.receiveCallbacksQueue.push({ resolve, reject })
     );
@@ -106,12 +103,9 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private listenForMessages(): void {
     this.ws.onmessage = (ev: MessageEvent<Uint8Array>) => {
       const msg = this.encoder.decode(ev.data, MessageSchema);
-
-      if (this.receiveCallbacksQueue.length > 0) {
-        const callback = this.receiveCallbacksQueue.shift();
-        if (callback != null) callback.resolve(msg);
-        else throw new Error("unexpected empty callback queue");
-      } else this.receiveDataQueue.push(msg);
+      const callback = this.receiveCallbacksQueue.shift();
+      if (callback != null) callback.resolve(msg);
+      else this.receiveDataQueue.push(msg);
     };
 
     this.ws.onclose = (ev: CloseEvent) => {
