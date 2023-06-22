@@ -56,8 +56,7 @@ class TimeStamp(int):
         elif isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
-            # Assume the datetime64 is in UTC
-            value = int(pd.Timestamp(value).asm8.view(np.int64))
+            value = int(pd.Timestamp(value).value)
         elif isinstance(value, np.int64) or isinstance(value, np.float64):
             value = int(value)
         elif isinstance(value, int):
@@ -458,7 +457,8 @@ class TimeRange(BaseModel):
     ):
         if isinstance(start, TimeRange):
             start, end = start.start, start.end
-        super().__init__(start=TimeStamp(start), end=TimeStamp(end or start))
+        end = start if end is None else end
+        super().__init__(start=TimeStamp(start), end=TimeStamp(end))
 
     @classmethod
     def __get_validators__(cls):
