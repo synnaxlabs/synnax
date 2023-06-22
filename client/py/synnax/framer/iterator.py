@@ -64,14 +64,14 @@ class Iterator:
     between two timestamps, see the segment Client read method instead.
     """
 
-    _ENDPOINT = "/frame/iterate"
+    __ENDPOINT = "/frame/iterate"
+    __stream: Stream[_Request, _Response]
+    __adapter: BackwardFrameAdapter
 
     open: bool
     tr: TimeRange
     instrumentation: Instrumentation
-    __stream: Stream[_Request, _Response]
     value: Frame
-    __adapter: BackwardFrameAdapter
 
     def __init__(
         self,
@@ -83,11 +83,11 @@ class Iterator:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
-        self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
-        self._open()
+        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self.__open()
 
     @trace("debug", "open")
-    def _open(self):
+    def __open(self):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 

@@ -28,11 +28,9 @@ class _Response(Payload):
 
 
 class Streamer:
-    _ENDPOINT = "/frame/stream"
-
+    __ENDPOINT = "/frame/stream"
     __stream: Stream[_Request, _Response]
     __adapter: BackwardFrameAdapter
-
     from_: UnparsedTimeStamp
 
     def __init__(
@@ -42,11 +40,11 @@ class Streamer:
         from_: UnparsedTimeStamp | None = None,
     ) -> None:
         self.from_ = from_ or TimeStamp.now()
-        self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
+        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
         self.__adapter = adapter
-        self._open()
+        self.__open()
 
-    def _open(self):
+    def __open(self):
         self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
 
     def read(self) -> Frame:

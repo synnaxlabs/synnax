@@ -38,7 +38,7 @@ from synnax.telem import (
 class Channel(ChannelPayload):
     """Represents a Channel in a Synnax database."""
 
-    __frame_client: FrameClient | None = PrivateAttr(None)
+    ___frame_client: FrameClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -84,7 +84,7 @@ class Channel(ChannelPayload):
             is_index=is_index,
             index=index,
         )
-        self.__frame_client = _frame_client
+        self.___frame_client = _frame_client
 
     @overload
     def read(
@@ -116,7 +116,7 @@ class Channel(ChannelPayload):
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start_or_range, end)
-        return self._frame_client.read(tr, self.key)
+        return self.__frame_client.read(tr, self.key)
 
     def write(self, start: UnparsedTimeStamp, data: ndarray | Series):
         """Writes telemetry to the channel starting at the given timestamp.
@@ -125,15 +125,15 @@ class Channel(ChannelPayload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._frame_client.write(start, data, self.key)
+        self.__frame_client.write(start, data, self.key)
 
     @property
-    def _frame_client(self) -> FrameClient:
-        if self.__frame_client is None:
+    def __frame_client(self) -> FrameClient:
+        if self.___frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
             )
-        return self.__frame_client
+        return self.___frame_client
 
     def __hash__(self):
         return hash(self.key)
@@ -147,7 +147,7 @@ class Channel(ChannelPayload):
             base += f" @ {self.rate}Hz"
         return base
 
-    def _payload(self) -> ChannelPayload:
+    def to_payload(self) -> ChannelPayload:
         return ChannelPayload(
             data_type=self.data_type,
             rate=self.rate,
@@ -247,9 +247,9 @@ class ChannelClient:
                 )
             ]
         elif isinstance(channels, Channel):
-            _channels = [channels._payload()]
+            _channels = [channels.to_payload()]
         else:
-            _channels = [c._payload() for c in channels]
+            _channels = [c.to_payload() for c in channels]
         created = self._sugar(self._creator.create(_channels))
         return created if isinstance(channels, list) else created[0]
 

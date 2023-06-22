@@ -49,6 +49,7 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
             accumulated_data.extend(frame[data_ch.key].to_list())
             plt.plot(accumulated_time, accumulated_data, "r-")
             plt.pause(0.1)
+    writer.commit()
 
 plt.ioff()
 plt.close()
