@@ -777,3 +777,9 @@ class Series(Payload):
 
     def to_numpy(self) -> np.ndarray:
         return self.__array__()
+
+    def to_list(self) -> list:
+        return self.__array__().tolist()
+
+    def to_datetime(self) -> list[datetime]:
+        return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]

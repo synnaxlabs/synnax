@@ -24,7 +24,6 @@ def client() -> synnax.Synnax:
     )
 
 
-
 @pytest.fixture
 def channel(client: synnax.Synnax) -> Channel:
     return client.channels.create(
