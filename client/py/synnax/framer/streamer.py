@@ -33,27 +33,27 @@ class Streamer:
     __stream: Stream[_Request, _Response]
     __adapter: BackwardFrameAdapter
 
-    start: UnparsedTimeStamp
+    from_: UnparsedTimeStamp
 
     def __init__(
         self,
-        start: UnparsedTimeStamp,
         client: StreamClient,
         adapter: BackwardFrameAdapter,
+        from_: UnparsedTimeStamp | None = None,
     ) -> None:
-        self.start = start
+        self.from_ = from_ or TimeStamp.now()
         self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
         self.__adapter = adapter
         self._open()
 
     def _open(self):
-        self.__stream.send(_Request(keys=self.__adapter.keys, start=self.start))
+        self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
 
     def read(self) -> Frame:
         res, err = self.__stream.receive()
         if err is not None:
             raise err
-        return res.frame
+        return self.__adapter.adapt(Frame(res.frame))
 
     def close(self):
         exc = self.__stream.close_send()

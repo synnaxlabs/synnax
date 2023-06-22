@@ -165,15 +165,15 @@ class FrameClient:
                 fr.append(frame)
         return fr
 
-    def stream(
+    def new_streamer(
         self,
-        start: UnparsedTimeStamp,
         params: ChannelParams,
+        from_: UnparsedTimeStamp | None = None,
     ) -> Streamer:
         adapter = BackwardFrameAdapter(self.__channels)
         adapter.update(params)
         return Streamer(
-            start=start,
+            from_=from_,
             adapter=adapter,
             client=self.__client,
         )

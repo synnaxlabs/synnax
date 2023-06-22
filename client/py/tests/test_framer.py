@@ -17,7 +17,6 @@ import synnax as sy
 
 @pytest.mark.framer
 class TestChannelWriteRead:
-    @pytest.mark.focus
     def test_write_read(self, client: sy.Synnax):
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
@@ -34,7 +33,7 @@ class TestChannelWriteRead:
         assert data.time_range.start == start
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
-        assert d[0] == data[0]
+        assert all(data.to_numpy() == d)
 
 
 @pytest.mark.framer
@@ -46,3 +45,20 @@ class TestWriter:
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
+
+    def test_write_by_name(self, channel: sy.Channel, client: sy.Synnax):
+        with client.new_writer(0, channel.name) as w:
+            data = np.random.rand(10).astype(np.float64)
+            w.write(pd.DataFrame({channel.key: data}))
+            w.commit()
+
+
+@pytest.mark.framer
+class TestStreamer:
+    def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
+        with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
+            with client.new_streamer(channel.key) as s:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = s.read()
+                all(frame[channel.key] == data)

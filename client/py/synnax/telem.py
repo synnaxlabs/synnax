@@ -774,3 +774,6 @@ class Series(Payload):
             data_type=data_type,
             time_range=self.time_range,
         )
+
+    def to_numpy(self) -> np.ndarray:
+        return self.__array__()

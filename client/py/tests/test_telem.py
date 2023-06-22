@@ -39,38 +39,37 @@ class TestTimeStamp:
         now = TimeStamp.now() + TimeSpan.SECOND
         assert now.datetime() > datetime.now().astimezone()
 
-    @pytest.mark.focus
     @pytest.mark.parametrize(
         "unparsed, expected",
         [
-            # (1000, 1000),
-            # (TimeSpan.MILLISECOND * 2500, 2500000000),
-            # (105 * TimeSpan.MILLISECOND, 105 * TimeSpan.MILLISECOND),
-            # (
-            #     datetime.utcfromtimestamp(105).replace(tzinfo=timezone.utc),
-            #     TimeStamp(105 * TimeSpan.SECOND),
-            # ),
-            # (_now, _now),
-            # (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
+            (1000, 1000),
+            (TimeSpan.MILLISECOND * 2500, 2500000000),
+            (105 * TimeSpan.MILLISECOND, 105 * TimeSpan.MILLISECOND),
+            (
+                datetime.utcfromtimestamp(105).replace(tzinfo=timezone.utc),
+                TimeStamp(105 * TimeSpan.SECOND),
+            ),
+            (_now, _now),
+            (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
             (np.datetime64(1000, "ms"), TimeStamp(1000 * TimeSpan.MILLISECOND)),
-            # (
-            #     datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST")),
-            #     TimeStamp(1645562510000000000),
-            # ),
-            # (
-            #     datetime(2022, 2, 22, 15, 41, 50, tzinfo=timezone.utc),
-            #     TimeStamp(1645544510000000000),
-            # ),
-            # (
-            #     datetime(2022, 2, 22, 10, 41, 50, tzinfo=pytz_timezone("EST")),
-            #     TimeStamp(1645544510000000000),
-            # ),
-            # (
-            #     pd.Timestamp(
-            #         datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST"))
-            #     ),
-            #     TimeStamp(1645562510000000000),
-            # ),
+            (
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST")),
+                TimeStamp(1645562510000000000),
+            ),
+            (
+                datetime(2022, 2, 22, 15, 41, 50, tzinfo=timezone.utc),
+                TimeStamp(1645544510000000000),
+            ),
+            (
+                datetime(2022, 2, 22, 10, 41, 50, tzinfo=pytz_timezone("EST")),
+                TimeStamp(1645544510000000000),
+            ),
+            (
+                pd.Timestamp(
+                    datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST"))
+                ),
+                TimeStamp(1645562510000000000),
+            ),
         ],
     )
     def test_init(self, unparsed: UnparsedTimeStamp, expected: TimeStamp):
@@ -253,7 +252,6 @@ class TestTimeRange:
         tr = TimeRange(1000, 0)
         assert not tr.is_valid()
 
-    @pytest.mark.focus
     def test_range_swap(self):
         """Should swap the start and end times"""
         tr = TimeRange(1000, 0)

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+import random
 
 import synnax
 from synnax import Channel, telem
@@ -23,10 +24,11 @@ def client() -> synnax.Synnax:
     )
 
 
+
 @pytest.fixture
 def channel(client: synnax.Synnax) -> Channel:
     return client.channels.create(
-        name="test",
+        name=f"test-{random.randint(0, 100000)}",
         leaseholder=1,
         rate=25 * telem.Rate.HZ,
         data_type=telem.DataType.FLOAT64,

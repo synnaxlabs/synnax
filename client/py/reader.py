@@ -22,7 +22,7 @@ channels = [f"my_chan_{i}" for i in range(N_CHANNELS)]
 
 times = []
 
-with client.stream(sy.TimeStamp.now(), channels) as r:
+with client.new_streamer(sy.TimeStamp.now(), channels) as r:
     i = 0
     start = datetime.now()
     for v in r:

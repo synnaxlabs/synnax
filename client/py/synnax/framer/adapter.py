@@ -36,10 +36,9 @@ class BackwardFrameAdapter:
         fetched = self.retriever.retrieve(normal.params)
         self.__adapter = dict()
         for name in normal.params:
-            ch = [c for c in fetched if c.name == name]
-            if len(ch) == 0:
+            ch = next((c for c in fetched if c.name == name), None)
+            if ch is None:
                 raise KeyError(f"Channel {name} not found.")
-
             self.__adapter[ch[0].key] = name
         self.keys = list(self.__adapter.keys())
 
@@ -72,11 +71,11 @@ class ForwardFrameAdapter:
             return
         fetched = self.retriever.retrieve(normal.params)
         self.__adapter = dict()
-        for key in normal.params:
-            ch = [c for c in fetched if c.key == key]
-            if len(ch) == 0:
-                raise KeyError(f"Channel {key} not found.")
-            self.__adapter[ch[0].name] = key
+        for name in normal.params:
+            ch = next((c for c in fetched if c.name == name), None)
+            if ch is None:
+                raise KeyError(f"Channel {name} not found.")
+            self.__adapter[name] = ch.key
         self.channels = fetched
 
     @property
