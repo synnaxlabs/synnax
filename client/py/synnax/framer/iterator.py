@@ -196,8 +196,7 @@ class Iterator:
             raise exc
 
     def __iter__(self):
-        if not self.seek_first():
-            raise StopIteration
+        self.seek_first()
         return self
 
     def __next__(self):
