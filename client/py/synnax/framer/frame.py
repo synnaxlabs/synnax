@@ -90,6 +90,9 @@ class Frame:
             self.series = series or list()
             self.labels = keys or list()
 
+    def __str__(self) -> str:
+        return self.to_df().__str__()
+
     def compact(self) -> Frame:
         # compact together arrays that have the same key
 
@@ -109,7 +112,7 @@ class Frame:
 
             first = self.series[indices[0]]
             rest = [self.series[i] for i in indices[1:]]
-            rest.sort(key=lambda x: x.time_range.start)
+            rest.sort(key=lambda x: x.time_range.from_)
             combined = Series(
                 time_range=TimeRange(
                     start=first.time_range.start,
@@ -180,3 +183,6 @@ class Frame:
                 "Cannot convert a frame labeled by names to a payload"
             )
         return FramePayload(keys=self.labels, series=self.series)
+
+    def to_df(self) -> DataFrame:
+        return DataFrame({k: s for k, s in self.items()})
