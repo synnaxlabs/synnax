@@ -144,7 +144,7 @@ class FrameClient:
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         normal = normalize_channel_params(params)
-        frame = self._read_frame(tr, params)
+        frame = self.__read_frame(tr, params)
         if len(normal.params) > 1:
             return frame
         series = frame.get(normal.params[0], None)
@@ -153,17 +153,6 @@ class FrameClient:
                 f"""No data found for channel {normal.params[0]} between {tr}"""
             )
         return series
-
-    def _read_frame(
-        self,
-        tr: TimeRange,
-        params: ChannelParams,
-    ) -> Frame:
-        fr = Frame()
-        with self.new_iterator(tr, params) as i:
-            for frame in i:
-                fr.append(frame)
-        return fr
 
     def new_streamer(
         self,
@@ -177,3 +166,14 @@ class FrameClient:
             adapter=adapter,
             client=self.__client,
         )
+
+    def __read_frame(
+        self,
+        tr: TimeRange,
+        params: ChannelParams,
+    ) -> Frame:
+        fr = Frame()
+        with self.new_iterator(tr, params) as i:
+            for frame in i:
+                fr.append(frame)
+        return fr

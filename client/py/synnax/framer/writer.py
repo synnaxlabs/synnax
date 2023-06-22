@@ -92,8 +92,7 @@ class Writer:
     error, close will raise the accumulated error.
     """
 
-    _ENDPOINT = "/frame/write"
-
+    __ENDPOINT = "/frame/write"
     __stream: Stream[_Request, _Response]
     __adapter: ForwardFrameAdapter
     __suppress_warnings: bool = False
@@ -113,10 +112,10 @@ class Writer:
         self.__adapter = adapter
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
-        self.__stream = client.stream(self._ENDPOINT, _Request, _Response)
-        self._open()
+        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self.__open()
 
-    def _open(self):
+    def __open(self):
         config = _Config(keys=self.__adapter.keys, start=TimeStamp(self.start))
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
@@ -142,8 +141,8 @@ class Writer:
             return False
 
         frame = self.__adapter.adapt(Frame(frame))
-        self._check_keys(frame)
-        self._prep_data_types(frame)
+        self.__check_keys(frame)
+        self.__prep_data_types(frame)
 
         err = self.__stream.send(
             _Request(command=_Command.WRITE, frame=frame.to_payload())
@@ -209,7 +208,7 @@ class Writer:
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    def _check_keys(self, frame: Frame):
+    def __check_keys(self, frame: Frame):
         missing = set(self.__adapter.keys) - set(frame.labels)
         extra = set(frame.labels) - set(self.__adapter.keys)
         if missing and extra:
@@ -224,7 +223,7 @@ class Writer:
         elif extra:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
-    def _prep_data_types(self, frame: Frame):
+    def __prep_data_types(self, frame: Frame):
         for i, (label, series) in enumerate(frame.items()):
             ch = self.__adapter.retriever.retrieve(label)[0]
             if series.data_type != ch.data_type:
@@ -284,10 +283,10 @@ class BufferedWriter(io.DataFrameWriter):
     def write(self, frame: DataFrame):
         self._buf = pd_concat([self._buf, frame], ignore_index=True)
         if self._exceeds_any:
-            self._flush()
+            self.__flush()
 
     def close(self):
-        self._flush()
+        self.__flush()
         self._wrapped.close()
 
     @property
@@ -297,7 +296,7 @@ class BufferedWriter(io.DataFrameWriter):
             or TimeStamp.since(self.last_flush) >= self.time_threshold
         )
 
-    def _flush(self):
+    def __flush(self):
         self._wrapped.write(self._buf)
         self._wrapped.commit()
         self.last_flush = TimeStamp.now()

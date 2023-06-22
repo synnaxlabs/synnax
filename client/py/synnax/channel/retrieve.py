@@ -66,7 +66,6 @@ class ClusterChannelRetriever:
     def retrieve(
         self,
         params: ChannelKey | ChannelName,
-        include_not_found: bool = False,
     ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
         req = _Request(**{normal.variant: normal.params})
@@ -77,9 +76,9 @@ class ClusterChannelRetriever:
 
 
 class CacheChannelRetriever:
-    _retriever: ChannelRetriever
-    channels: dict[int, ChannelPayload]
-    names_to_keys: dict[str, int]
+    __retriever: ChannelRetriever
+    __channels: dict[ChannelKey, ChannelPayload]
+    __names_to_keys: dict[ChannelName, ChannelKey]
     instrumentation: Instrumentation
 
     def __init__(
@@ -87,18 +86,23 @@ class CacheChannelRetriever:
         retriever: ChannelRetriever,
         instrumentation: Instrumentation,
     ) -> None:
-        self.channels = dict()
-        self.names_to_keys = dict()
+        self.__channels = dict()
+        self.__names_to_keys = dict()
         self.instrumentation = instrumentation
-        self._retriever = retriever
+        self.__retriever = retriever
 
     def _(self) -> ChannelRetriever:
         return self
 
-    def _get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+    def __get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
         if isinstance(param, int):
-            return self.channels.get(param)
-        return self.channels.get(self.names_to_keys.get(param))
+            return self.__channels.get(param)
+        return self.__channels.get(self.__names_to_keys.get(param))
+
+    def __set(self, channels: list[ChannelPayload]) -> None:
+        for channel in channels:
+            self.__channels[channel.key] = channel
+            self.__names_to_keys[channel.name] = channel.key
 
     @trace("debug")
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
@@ -106,7 +110,7 @@ class CacheChannelRetriever:
         results = list()
         to_retrieve = list()
         for p in normal.params:
-            ch = self._get(p)
+            ch = self.__get(p)
             if ch is None:
                 to_retrieve.append(p)
             else:
@@ -115,12 +119,9 @@ class CacheChannelRetriever:
         if len(to_retrieve) == 0:
             return results
 
-        retrieved = self._retriever.retrieve(to_retrieve)
-        for ch in retrieved:
-            self.channels[ch.key] = ch
-            self.names_to_keys[ch.name] = ch.key
-            results.append(ch)
-
+        retrieved = self.__retriever.retrieve(to_retrieve)
+        self.__set(retrieved)
+        results.extend(retrieved)
         return results
 
 
