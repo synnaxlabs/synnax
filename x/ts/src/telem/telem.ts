@@ -552,8 +552,8 @@ export class TimeSpan extends Number implements Stringer {
 
   /** A zod schema for validating and transforming timespans */
   static readonly z = z.union([
-    z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(Number).transform((n) => new TimeSpan(n)),
+    z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
   ]);
 }

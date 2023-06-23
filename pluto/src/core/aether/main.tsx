@@ -46,7 +46,7 @@ export type UseAetherReturn<S extends z.ZodTypeAny> = [
     path: string[];
   },
   z.output<S>,
-  (state: PsuedoSetStateArg<z.output<S>>, transfer?: Transferable[]) => void
+  (state: PsuedoSetStateArg<z.input<S>>, transfer?: Transferable[]) => void
 ];
 
 export const useAetherContext = (): AetherContextValue => {
@@ -72,23 +72,22 @@ export const useAether = <S extends z.ZodTypeAny>(
 
   const transferred = useRef<Transferable[]>([]);
 
-  const comms = useRef<AetherCreateReturn | null>(null);
+  const commsRef = useRef<AetherCreateReturn | null>(null);
 
   const setState = useCallback(
-    (next: PsuedoSetStateArg<z.output<S>>, transfer: Transferable[] = []): void => {
-      if (comms.current == null) throw new UnexpectedError("Unexpected message");
+    (next: PsuedoSetStateArg<z.input<S>>, transfer: Transferable[] = []): void => {
       const untransferred = transfer.filter((t) => !transferred.current.includes(t));
-      const { setState } = comms.current;
+      const comms = commsRef.current as AetherCreateReturn;
       transferred.current = transferred.current.concat(untransferred);
       if (typeof next === "function")
         setInternalState((prev) => {
-          const nextS = (next as (prev: z.output<S>) => z.output<S>)(prev);
-          setState(nextS, untransferred);
+          const nextS = schema.parse((next as (prev: z.output<S>) => z.input<S>)(prev));
+          comms.setState(schema.parse(nextS), untransferred);
           return nextS;
         });
       else {
         setInternalState(next);
-        setState(next, untransferred);
+        comms.setState(next, untransferred);
       }
     },
     [path, type]
@@ -102,15 +101,15 @@ export const useAether = <S extends z.ZodTypeAny>(
     [schema]
   );
 
-  if (comms.current == null) {
-    comms.current = register(type, path, handleReceive);
-    comms.current.setState(initialState, initialTransfer);
+  if (commsRef.current == null) {
+    commsRef.current = register(type, path, handleReceive);
+    commsRef.current.setState(initialState, initialTransfer);
   }
 
   useEffect(() => {
     return () => {
-      if (comms.current == null) throw new UnexpectedError("Unexpected message");
-      comms.current.delete();
+      if (commsRef.current == null) throw new UnexpectedError("Unexpected message");
+      commsRef.current.delete();
     };
   }, []);
 

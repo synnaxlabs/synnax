@@ -9,7 +9,7 @@
 
 import { ReactElement, memo, useCallback, useLayoutEffect, useState } from "react";
 
-import { Box } from "@synnaxlabs/x";
+import { Box, XY } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { ColorT } from "@/core/color";
@@ -39,26 +39,20 @@ export const Value = memo(
   ({
     label,
     color,
-    position,
+    position = XY.ZERO,
     size = "medium",
     selected = false,
     className,
     ...props
   }: ValueProps): ReactElement => {
     const theme = Theming.use();
-    const {
-      state: [, setState],
-    } = Aether.use(
-      WorkerValue.TYPE,
-      {
-        font: Theming.font(theme, "p"),
-        color: color ?? theme.colors.text,
-        box: Box.ZERO,
-        position,
-        ...props,
-      },
-      valueState
-    );
+    const [, , setState] = Aether.use(WorkerValue.TYPE, valueState, {
+      font: Theming.font(theme, "p"),
+      color: color ?? theme.colors.text,
+      box: Box.ZERO,
+      position,
+      ...props,
+    });
 
     useLayoutEffect(() => {
       setState((prev) => ({ ...prev, position }));

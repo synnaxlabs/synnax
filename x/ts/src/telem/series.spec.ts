@@ -134,6 +134,26 @@ describe("Series", () => {
       expect(arr.max).toEqual(3);
       expect(arr.min).toEqual(2);
     });
+    it("should correctly adjust the sample offset of a written array", () => {
+      // [1] -3 [1] -1
+      // [-2] [0]
+      // [1, 3] [-3]
+      // [-2, 0]
+      // [other - same]
+      const arr = Series.alloc(2, DataType.FLOAT32, TimeRange.ZERO, -3);
+      const writeOne = new Series(new Float32Array([-2]));
+      expect(arr.write(writeOne)).toEqual(1);
+      expect(arr.min).toEqual(-2);
+      const writeTwo = new Series(
+        new Float32Array([1]),
+        DataType.FLOAT32,
+        TimeRange.ZERO,
+        -1
+      );
+      expect(arr.write(writeTwo)).toEqual(1);
+      expect(arr.min).toEqual(-2);
+      expect(arr.max).toEqual(0);
+    });
   });
 
   describe("generateTimeStamps", () => {

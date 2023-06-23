@@ -71,18 +71,17 @@ class StaticXYTelemCore {
     return this._y;
   }
 
-  async xBounds(): Promise<Bounds> {
-    return Bounds.max(this._x.map((x) => x.bounds));
-  }
-
   async yBounds(): Promise<Bounds> {
-    return Bounds.max(this._y.map((y) => y.bounds));
+    const y = await this.y();
+    return Bounds.max(y.map((x) => x.bounds));
   }
 
-  release(gl: GLBufferController): void {
-    this._x.map((x) => x.release(gl));
-    this._y.map((y) => y.release(gl));
+  async xBounds(): Promise<Bounds> {
+    const x = await this.x();
+    return Bounds.max(x.map((x) => x.bounds));
   }
+
+  release(gl: GLBufferController): void {}
 
   onChange(f: () => void): void {
     this.onChangeHandler = f;
@@ -144,7 +143,7 @@ export const iterativeXYTelemProps = staticXYTelemProps.extend({
   yOffset: z.number().optional().default(0),
 });
 
-export type IterativeXYTelemProps = z.infer<typeof iterativeXYTelemProps>;
+export type IterativeXYTelemProps = z.input<typeof iterativeXYTelemProps>;
 
 export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource {
   position: number;

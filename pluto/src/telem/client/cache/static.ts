@@ -9,6 +9,8 @@
 
 import { TimeRange, Series } from "@synnaxlabs/x";
 
+import { convertSeriesFloat32 } from "@/telem/convertSeries";
+
 /**
  * A cache for channel data that only accepts pre-written arrays i.e. it performs
  * no allocatio, buffering, or modification of new arrays.
@@ -37,8 +39,9 @@ export class StaticCache {
     return this.entries.map((r) => r.gap);
   }
 
-  write(tr: TimeRange, entries: Series[]): void {
-    const read = new CachedRead(tr, entries);
+  write(tr: TimeRange, series: Series[]): void {
+    series = series.map((s) => convertSeriesFloat32(s));
+    const read = new CachedRead(tr, series);
     const i = this.getInsertionIndex(tr);
     if (i !== this.entries.length) {
       read.gap = new TimeRange(this.entries[i].timeRange.end, tr.end);
@@ -47,7 +50,7 @@ export class StaticCache {
       const prev = this.entries[i - 1];
       prev.gap = new TimeRange(prev.timeRange.end, tr.start);
     }
-    this.entries.splice(i, 0, new CachedRead(tr, entries));
+    this.entries.splice(i, 0, new CachedRead(tr, series));
   }
 
   private getInsertionIndex(tr: TimeRange): number {
