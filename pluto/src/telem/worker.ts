@@ -13,7 +13,7 @@ import { z } from "zod";
 import { Client } from "./client/client";
 import { RangeTelemFactory } from "./range/worker";
 
-import { AetherComposite, Update } from "@/core/aether/worker";
+import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
 import { TelemContext, TelemProvider } from "@/core/vis/telem/TelemService";
 import { TelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import { CompoundTelemFactory } from "@/telem/factory";
@@ -72,7 +72,7 @@ export class Telem extends AetherComposite<typeof telemState> {
     TelemContext.set(update.ctx, this.prov);
   }
 
-  handleUpdate(): void {
+  handleUpdate(ctx: AetherContext): void {
     const msg = this.state;
     if (msg == null) return;
 
@@ -80,7 +80,8 @@ export class Telem extends AetherComposite<typeof telemState> {
       if (this.client != null) this.client.close();
       this.client = new Client(new Synnax(msg.props));
       this.factory.change(new RangeTelemFactory(this.client));
-      return this.prov.telem.forEach((t) => t.invalidate());
+      this.prov.telem.forEach((t) => t.invalidate());
+      return TelemContext.set(ctx, this.prov);
     }
 
     const source = this.prov.telem.get(msg.key);

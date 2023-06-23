@@ -55,10 +55,6 @@ export class FrameClient {
     return await Writer._open(start, channels, this.retriever, this.stream);
   }
 
-  async newStreamer(params: ChannelParams): Promise<Streamer>;
-
-  async newStreamer(params: ChannelParams, from: TimeStamp): Promise<Streamer>;
-
   async newStreamer(
     params: ChannelParams,
     from: TimeStamp = TimeStamp.now()

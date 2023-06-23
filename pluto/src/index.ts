@@ -11,6 +11,6 @@ export * from "@/util/component";
 export * from "@/core/hooks/useDebouncedCallback";
 export * from "@/util/renderProp";
 export * from "@/core";
-export * from "@/Pluto";
+export * from "@/main";
 export * from "@/client";
 export * from "@/vis/LinePlot";

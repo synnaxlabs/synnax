@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { TypedWorker } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { WorkerMessage } from "@/core/aether/message";
+import { MainMessage, WorkerMessage } from "@/core/aether/message";
 
 export interface Update {
   ctx: AetherContext;
@@ -190,11 +189,11 @@ export type AetherComponentConstructor = (update: Update) => AetherComponent;
 export class AetherContext {
   private readonly providers: Map<string, any>;
   private readonly registry: Record<string, AetherComponentConstructor>;
-  private readonly worker: TypedWorker<WorkerMessage>;
+  private readonly worker: TypedWorker<WorkerMessage, MainMessage>;
   changed: boolean;
 
   constructor(
-    worker: TypedWorker<WorkerMessage>,
+    worker: TypedWorker<WorkerMessage, MainMessage>,
     registry: Record<string, AetherComponentConstructor>,
     providers: Map<string, any> = new Map()
   ) {
@@ -236,20 +235,22 @@ export class AetherContext {
   }
 }
 
+export type AetherComponentRegistry = Record<string, AetherComponentConstructor>;
+
 class AetherRoot {
-  wrap: TypedWorker<WorkerMessage>;
+  wrap: TypedWorker<WorkerMessage, MainMessage>;
   root: AetherComponent | null;
   ctx: AetherContext;
 
   static render(
-    wrap: TypedWorker<WorkerMessage>,
-    registry: Record<string, AetherComponentConstructor>
+    wrap: TypedWorker<WorkerMessage, MainMessage>,
+    registry: AetherComponentRegistry
   ): AetherRoot {
     return new AetherRoot(wrap, registry);
   }
 
   private constructor(
-    wrap: TypedWorker<WorkerMessage>,
+    wrap: TypedWorker<WorkerMessage, MainMessage>,
     registry: Record<string, AetherComponentConstructor>
   ) {
     this.ctx = new AetherContext(wrap, registry);
@@ -258,11 +259,7 @@ class AetherRoot {
     this.wrap.handle(this.handle.bind(this));
   }
 
-  handle(msg: WorkerMessage): void {
-    if (msg.variant === "backward")
-      throw new UnexpectedError(
-        `[AetherRoot.handle] - received a backward update in worker`
-      );
+  handle(msg: MainMessage): void {
     if (msg.variant === "delete") {
       if (this.root == null)
         throw new Error(

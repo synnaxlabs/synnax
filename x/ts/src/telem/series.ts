@@ -70,12 +70,20 @@ export class Series {
   static alloc(
     length: number,
     dataType: UnparsedDataType,
-    timeRange?: TimeRange
+    timeRange?: TimeRange,
+    sampleOffset?: SampleValue,
+    glBufferUsage: GLBufferUsage = "static"
   ): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
-    const arr = new Series(data.buffer, dataType, timeRange);
+    const arr = new Series(
+      data.buffer,
+      dataType,
+      timeRange,
+      sampleOffset,
+      glBufferUsage
+    );
     arr.pos = 0;
     return arr;
   }
@@ -204,37 +212,43 @@ export class Series {
     return new Series(data.buffer, target, this._timeRange, sampleOffset);
   }
 
+  private calcRawMax(): SampleValue {
+    if (this.dataType.equals(DataType.TIMESTAMP)) {
+      this._max = this.data[this.data.length - 1];
+    } else if (this.dataType.usesBigInt) {
+      const d = this.data as BigInt64Array;
+      this._max = d.reduce((a, b) => (a > b ? a : b));
+    } else {
+      const d = this.data as Float64Array;
+      this._max = d.reduce((a, b) => (a > b ? a : b));
+    }
+    return this._max;
+  }
+
   /** @returns the maximum value in the array */
   get max(): SampleValue {
     if (this.pos === 0) return addSamples(0, this.sampleOffset);
-    else if (this._max == null) {
-      if (this.dataType.equals(DataType.TIMESTAMP)) {
-        this._max = this.data[this.data.length - 1];
-      } else if (this.dataType.usesBigInt) {
-        const d = this.data as BigInt64Array;
-        this._max = d.reduce((a, b) => (a > b ? a : b));
-      } else {
-        const d = this.data as Float64Array;
-        this._max = d.reduce((a, b) => (a > b ? a : b));
-      }
-    }
+    else if (this._max == null) this._max = this.calcRawMax();
     return addSamples(this._max, this.sampleOffset);
+  }
+
+  private calcRawMin(): SampleValue {
+    if (this.dataType.equals(DataType.TIMESTAMP)) {
+      this._min = this.data[0];
+    } else if (this.dataType.usesBigInt) {
+      const d = this.data as BigInt64Array;
+      this._min = d.reduce((a, b) => (a < b ? a : b));
+    } else {
+      const d = this.data as Float64Array;
+      this._min = d.reduce((a, b) => (a < b ? a : b));
+    }
+    return this._min;
   }
 
   /** @returns the minimum value in the array */
   get min(): SampleValue {
     if (this.pos === 0) return addSamples(0, this.sampleOffset);
-    else if (this._min == null) {
-      if (this.dataType.equals(DataType.TIMESTAMP)) {
-        this._min = this.data[0];
-      } else if (this.dataType.usesBigInt) {
-        const d = this.data as BigInt64Array;
-        this._min = d.reduce((a, b) => (a < b ? a : b));
-      } else {
-        const d = this.data as Float64Array;
-        this._min = d.reduce((a, b) => (a < b ? a : b));
-      }
-    }
+    else if (this._min == null) this._min = this.calcRawMin();
     return addSamples(this._min, this.sampleOffset);
   }
 
@@ -244,8 +258,14 @@ export class Series {
   }
 
   private maybeRecomputeMinMax(update: Series): void {
-    if (this._min != null && update.min < this._min) this._min = update.min;
-    if (this._max != null && update.max > this._max) this._max = update.max;
+    if (this._min != null) {
+      const min = update._min ?? update.calcRawMin();
+      if (min < this._min) this._min = min;
+    }
+    if (this._max != null) {
+      const max = update._max ?? update.calcRawMax();
+      if (max > this._max) this._max = max;
+    }
   }
 
   enrich(): void {

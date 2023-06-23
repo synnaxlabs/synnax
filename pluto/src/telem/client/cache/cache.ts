@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, DataType, TimeRange } from "@synnaxlabs/client";
+import { Channel, TimeRange } from "@synnaxlabs/client";
 import { Series } from "@synnaxlabs/x";
 
 import { DynamicCache } from "@/telem/client/cache/dynamic";
@@ -20,7 +20,7 @@ export class ChannelCache {
 
   constructor(dynamicCap: number, channel: Channel) {
     this.static = new StaticCache();
-    this.dynamic = new DynamicCache(dynamicCap, DataType.FLOAT32);
+    this.dynamic = new DynamicCache(dynamicCap, channel.dataType);
     this.channel = channel;
   }
 
@@ -34,7 +34,7 @@ export class ChannelCache {
         ),
         flushed
       );
-    return [...flushed, this.dynamic.buffer];
+    return flushed;
   }
 
   writeStatic(tr: TimeRange, series: Series[]): void {

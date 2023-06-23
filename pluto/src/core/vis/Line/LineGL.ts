@@ -106,6 +106,7 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
     this.prog = LineGLProgramContext.use(change.ctx);
     this.telem = TelemContext.use<XYTelemSource>(change.ctx, this.state.telem.key);
     this.requestRender = RenderController.useRequest(change.ctx);
+    this.telem.onChange(() => this.requestRender());
   }
 
   handleUpdate(ctx: AetherContext): void {

@@ -10,15 +10,14 @@
 import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/client";
 import { Series, TimeRange } from "@synnaxlabs/x";
 
-import { Cache } from "@/telem/client/cache";
-import { convertArrays } from "@/telem/convertArrays";
+import { ChannelCache } from "@/telem/client/cache";
 
-export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
+export type StreamHandler = (data: Map<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
   core: Synnax;
   private _streamer: Streamer | null;
-  private readonly cache: Map<ChannelKey, Cache>;
+  private readonly cache: Map<ChannelKey, ChannelCache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
 
   constructor(wrap: Synnax) {
@@ -70,7 +69,7 @@ export class Client {
       const frame = await this.core.telem.read(range, keys);
       for (const key of keys) {
         const cache = await this.getCache(key);
-        cache.writeStatic(range, convertArrays(frame.get(key)));
+        cache.writeStatic(range, frame.get(key));
       }
     }
 
@@ -94,11 +93,11 @@ export class Client {
     void this.updateStreamer();
   }
 
-  private async getCache(key: ChannelKey): Promise<Cache> {
+  private async getCache(key: ChannelKey): Promise<ChannelCache> {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache = new Cache(1000, channel);
+    const cache = new ChannelCache(10000, channel);
     this.cache.set(key, cache);
     return cache;
   }
@@ -126,21 +125,23 @@ export class Client {
     for await (const frame of streamer) {
       const changed = new Map<ChannelKey, [Channel, Series[]]>();
       for (const k of frame.keys) {
-        const arrays = frame.get(k);
+        const series = frame.get(k);
         const cache = await this.getCache(k);
-        const out = cache.writeDynamic(convertArrays(arrays));
-        if (out.length > 0) changed.set(k, [cache.channel, out]);
+        const out = cache.writeDynamic(series);
+        changed.set(k, [cache.channel, out]);
       }
-      this.listeners.forEach((v, k) => {
-        const notify = v
-          .map((c) => {
-            const change = changed.get(c);
+      this.listeners.forEach((keys, handler) => {
+        const notify = keys
+          .map((key) => {
+            const change = changed.get(key);
             if (change == null) return null;
             const [ch, arrays] = change;
             return new ReadResponse(ch, arrays);
           })
           .filter((e) => e != null) as ReadResponse[];
-        if (notify.length > 0) k(notify);
+        if (notify.length === 0) return;
+        const d = new Map(notify.map((n) => [n.channel.key, n]));
+        handler(d);
       });
     }
   }

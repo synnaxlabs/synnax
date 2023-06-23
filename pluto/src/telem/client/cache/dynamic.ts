@@ -9,13 +9,16 @@
 
 import { DataType, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
+import { convertSeriesFloat32 } from "@/telem/convertSeries";
+
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
  */
 export class DynamicCache {
-  buffer: Series;
+  buffer: Series | null;
   private readonly cap: number;
+  private readonly dataType: DataType;
 
   /**
    * @constructor
@@ -24,13 +27,14 @@ export class DynamicCache {
    * @param dataType - The data type of the channel.
    */
   constructor(cap: number, dataType: DataType) {
-    this.buffer = this.allocate(cap);
     this.cap = cap;
+    this.dataType = dataType;
+    this.buffer = null;
   }
 
   /** @returns the number of samples currenly held in the cache. */
   get length(): number {
-    return this.buffer.length;
+    return this.buffer?.length ?? 0;
   }
 
   /**
@@ -39,8 +43,8 @@ export class DynamicCache {
    * @returns a list of buffers that were filled by the cache during the write. If
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
-  write(arrays: Series[]): Series[] {
-    return arrays.flatMap((arr) => this._write(arr));
+  write(series: Series[]): Series[] {
+    return series.flatMap((arr) => this._write(arr));
   }
 
   /**
@@ -51,20 +55,27 @@ export class DynamicCache {
    * @returns the buffer if it overlaps with the given time range, null otherwise.
    */
   dirtyRead(tr: TimeRange): Series | null {
-    if (this.buffer.timeRange.overlapsWith(tr) && this.buffer.length > 0)
-      return this.buffer;
-    return null;
+    if (this.buffer == null || !this.buffer.timeRange.overlapsWith(tr)) return null;
+    return this.buffer;
   }
 
   private allocate(length: number): Series {
-    return Series.alloc(length, DataType.FLOAT32, TimeStamp.now().spanRange(0));
+    const start = TimeStamp.now();
+    return Series.alloc(
+      length,
+      DataType.FLOAT32,
+      start.spanRange(0),
+      this.dataType.equals(DataType.TIMESTAMP) ? -start.valueOf() : 0
+    );
   }
 
-  private _write(arr: Series): Series[] {
-    const amountWritten = this.buffer.write(arr);
-    if (amountWritten === arr.length) return [];
+  private _write(series: Series): Series[] {
+    if (this.buffer == null) this.buffer = this.allocate(this.cap);
+    const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
+    const amountWritten = this.buffer.write(converted);
+    if (amountWritten === series.length) return [];
     const out = this.buffer;
     this.buffer = this.allocate(this.cap);
-    return [out, ...this._write(arr.slice(amountWritten))];
+    return [out, ...this._write(series.slice(amountWritten))];
   }
 }

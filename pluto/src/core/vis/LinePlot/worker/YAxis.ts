@@ -20,7 +20,7 @@ import { RenderContext, RenderController } from "@/core/vis/render";
 export const yAxisState = axisState.extend({
   location: Location.strictXZ.optional().default("left"),
   bound: Bounds.looseZ.optional(),
-  autoBoundPadding: z.number().optional().default(0.1),
+  autoBoundPadding: z.number().optional().default(0.05),
 });
 
 export type YAxisState = z.input<typeof yAxisState>;

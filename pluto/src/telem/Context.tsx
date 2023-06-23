@@ -14,13 +14,14 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useId,
+  useLayoutEffect,
 } from "react";
 
 import { Telem, telemState } from "./worker";
 
 import { useClient } from "@/client/Context";
 import { Aether } from "@/core/aether/main";
+import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 
 export interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;
@@ -42,7 +43,7 @@ export const useTelemSourceControl = <P extends any>(
   props: P,
   transferral?: Transferable[]
 ): string => {
-  const key = useId();
+  const key = useUniqueKey();
   const { set } = useTelemContext();
   useEffect(() => {
     set(key, type, props, transferral);
@@ -52,11 +53,13 @@ export const useTelemSourceControl = <P extends any>(
 
 export interface TelemProviderProps extends PropsWithChildren<any> {}
 
-export const TelemProvider = ({ children }: TelemProviderProps): ReactElement => {
+export const TelemProvider = ({
+  children,
+}: TelemProviderProps): ReactElement | null => {
   const [{ path }, , send] = Aether.use(Telem.TYPE, telemState, undefined);
   const client = useClient();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (client != null) send({ variant: "connect", props: client?.props });
   }, [client]);
 
@@ -66,6 +69,8 @@ export const TelemProvider = ({ children }: TelemProviderProps): ReactElement =>
     [send]
   );
   const remove = useCallback((key: string) => send({ variant: "remove", key }), [send]);
+
+  if (client == null) return null;
 
   return (
     <Aether.Composite path={path}>

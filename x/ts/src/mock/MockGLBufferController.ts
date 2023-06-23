@@ -25,6 +25,11 @@ export class MockGLBufferController implements GLBufferController {
   bufferSubDataMock = vi.fn();
   bindBufferMock = vi.fn();
 
+  deleteBuffer(buffer: WebGLBuffer | null): void {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    if (buffer != null) delete this.buffers[buffer as number];
+  }
+
   createBuffer(): WebGLBuffer | null {
     this.createBufferMock();
     const v = ++this.counter;

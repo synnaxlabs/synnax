@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import pandas as pd
 import numpy as np
 import synnax as sy
-import matplotlib.pyplot as plt
+import time
+import random
 
 client = sy.Synnax()
 
@@ -25,28 +27,25 @@ data_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-N_SAMPLES = int(1e5)
-start = sy.TimeStamp.now()
-stamps = np.linspace(
-    int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLES, dtype=np.int64
-)
-data = np.sin(
-    np.linspace(0, 20 * 2 * np.pi, N_SAMPLES), dtype=np.float32
-) * 20 + np.random.randint(0, 2, N_SAMPLES).astype(np.float32)
+print(f"""
+    Time Channel Key: {time_ch.key}
+    Data Channel Key: {data_ch.key}
+""")
 
-r = sy.TimeRange.MAX
-time_ch.write(start, stamps)
-data_ch.write(start, data)
 
-print(
-    f"""
-Time channel: {time_ch.key}
-Data channel: {data_ch.key}
-"""
-)
-
-res_stamps = time_ch.read(r)
-res_data = data_ch.read(r)
-
-plt.plot(res_stamps, res_data)
-plt.show()
+with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer:
+    i = 0
+    while True:
+        t = np.int64(sy.TimeStamp.now())
+        d = np.float32(np.sin(i / 100) * 10 + random.random())
+        writer.write(
+            pd.DataFrame(
+                {
+                    time_ch.key: [t],
+                    data_ch.key: [d],
+                }
+            )
+        )
+        time.sleep(0.02)
+        print("Wrote", t, d)
+        i+=1

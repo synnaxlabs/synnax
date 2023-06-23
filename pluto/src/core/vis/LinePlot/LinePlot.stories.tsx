@@ -10,10 +10,12 @@
 import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
+import { Rate, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { VisCanvas } from "@/core/vis/Canvas";
 import { Line } from "@/core/vis/Line/Line";
 import { LinePlot } from "@/core/vis/LinePlot";
+import { RangeTelem } from "@/telem/range/main";
 import { StaticTelem } from "@/telem/static/main";
 
 const story: Meta<typeof LinePlot> = {
@@ -41,18 +43,21 @@ const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i);
 const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i);
 
 const Example = (): ReactElement => {
-  const telem = StaticTelem.useXY({
-    x: [xData],
-    y: [yData],
+  const telem = RangeTelem.useDynamicXY({
+    x: 65537,
+    y: 65538,
+    span: TimeSpan.minutes(15),
   });
-  const telem2 = StaticTelem.useXY({
-    x: [xData2],
-    y: [yData2],
-  });
-  const telem3 = StaticTelem.useXY({
-    x: [xData3],
-    y: [yData3],
-  });
+  // const telem2 = StaticTelem.useIterativeXY
+  //   x: [xData2],
+  //   y: [yData2],
+  //   rate: Rate.hz(25),
+  // });
+  // const telem3 = StaticTelem.useIterativeXY({
+  //   x: [xData3],
+  //   y: [yData3],
+  //   rate: Rate.hz(30),
+  // });
   return (
     <VisCanvas
       style={{
@@ -64,11 +69,11 @@ const Example = (): ReactElement => {
       }}
     >
       <LinePlot>
-        <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
+        <LinePlot.XAxis type="time" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
             <Line telem={telem} color="#F733FF" strokeWidth={2} />
-            <Line telem={telem2} color="#fcba03" strokeWidth={2} />
-            <Line telem={telem3} color="#3ad6cc" strokeWidth={2} />
+            {/* <Line telem={telem2} color="#fcba03" strokeWidth={2} />
+            <Line telem={telem3} color="#3ad6cc" strokeWidth={2} /> */}
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>
@@ -76,7 +81,6 @@ const Example = (): ReactElement => {
   );
 };
 
-export const Primary: StoryFn<typeof LinePlot> = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

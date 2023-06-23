@@ -9,9 +9,15 @@
 
 import { DataType, Series, SampleValue } from "@synnaxlabs/x";
 
-export const convertArrays = (arrs: Series[]): Series[] =>
-  arrs.map((a) => {
-    let offset: SampleValue = 0;
-    if (a.dataType.equals(DataType.TIMESTAMP)) offset = BigInt(-a.data[0]);
-    return a.convert(DataType.FLOAT32, offset);
-  });
+/**
+ * Converts the given serie
+ *
+ * @param series
+ * @param offset
+ * @returns
+ */
+export const convertSeriesFloat32 = (series: Series, offset?: SampleValue): Series => {
+  if (offset == null && series.dataType.equals(DataType.TIMESTAMP))
+    offset = BigInt(-series.data[0]);
+  return series.convert(DataType.FLOAT32, offset);
+};

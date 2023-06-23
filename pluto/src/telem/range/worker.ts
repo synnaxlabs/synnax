@@ -166,12 +166,12 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
 
   async y(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
-    return await super.y();
+    return await super.y(gl);
   }
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
-    return await super.x();
+    return await super.x(gl);
   }
 
   setProps(props: any): void {
@@ -200,19 +200,19 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
 
   static readonly TYPE = "dynamic-range-xy";
 
-  constructor(key: string, props_: any, client: Client) {
+  constructor(key: string, client: Client, props_: any) {
     super(key, client);
     this.props = dynamicRangeXYTelemProps.parse(props_);
     this.key = key;
   }
 
   async x(gl?: GLBufferController): Promise<Series[]> {
-    if (this._x == null) await this.read(gl);
+    if (!this.valid) await this.read(gl);
     return await super.x(gl);
   }
 
   async y(gl?: GLBufferController): Promise<Series[]> {
-    if (this._y == null) await this.read(gl);
+    if (!this.valid) await this.read(gl);
     return await super.y(gl);
   }
 
@@ -223,6 +223,7 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     await this.readFixed(tr, y, x);
     this.acquire(gl);
     await this.udpateStreamHandler();
+    this.valid = true;
   }
 
   private async udpateStreamHandler(): Promise<void> {
@@ -230,20 +231,21 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     this.streamHandler = (data) => {
       if (data != null) {
-        if (!(y.key in data)) return;
-        const yd = data[y.key].data;
-        yd.forEach((arr) => arr.acquire());
-        this._y?.push(...yd);
+        const yd = data.get(y.key);
+        if (yd == null) return;
+        yd.data.forEach((arr) => arr.acquire());
+        this._y?.push(...yd.data);
         if (x != null) {
-          const xd = data[x.key].data;
-          xd.forEach((arr) => arr.acquire());
-          if (x.key in data) this._x?.push(...xd);
+          const xd = data.get(x.key);
+          if (xd == null) return;
+          xd.data.forEach((arr) => arr.acquire());
+          this._x?.push(...xd.data);
         } else {
-          this._x?.push(
-            ...yd.map((arr) =>
-              Series.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
-            )
-          );
+          // this._x?.push(
+          //   ...yd.map((arr) =>
+          //     Series.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
+          //   )
+          // );
         }
       }
       this.handler?.();
