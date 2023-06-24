@@ -11,14 +11,14 @@ import { ReactElement } from "react";
 
 import { useState } from "@storybook/addons";
 import type { Meta, StoryFn } from "@storybook/react";
-import { KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Select, SelectMultipleProps } from ".";
 
 import { ListColumn } from "@/core/std/List";
 
 const story: Meta<typeof Select.Multiple> = {
-  title: "Core/Select",
+  title: "Core/Standard/Select",
   component: Select.Multiple,
 };
 
@@ -36,7 +36,7 @@ interface SampleRecord {
   dataType: string;
 }
 
-const sampleColumns: Array<ListColumn<SampleRecord>> = [
+const sampleColumns: Array<ListColumn<string, SampleRecord>> = [
   {
     key: "name",
     name: "Name",
@@ -54,14 +54,14 @@ const sampleColumns: Array<ListColumn<SampleRecord>> = [
   },
 ];
 
-const MultipleTemplate = <E extends KeyedRenderableRecord<E>>(
-  args: Omit<SelectMultipleProps<E>, "value" | "onChange">
+const MultipleTemplate = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
+  args: Omit<SelectMultipleProps<K, E>, "value" | "onChange">
 ): ReactElement => {
-  const [value, setValue] = useState<readonly string[]>([]);
+  const [value, setValue] = useState<readonly K[]>([]);
   return <Select.Multiple {...args} value={value} onChange={setValue} />;
 };
 
-export const Multiple: StoryFn<typeof Select.Multiple<SampleRecord>> =
+export const Multiple: StoryFn<typeof Select.Multiple<string, SampleRecord>> =
   MultipleTemplate.bind({});
 
 Multiple.args = {
@@ -72,7 +72,7 @@ Multiple.args = {
 };
 
 const Template = (
-  props: Omit<SelectMultipleProps<SampleRecord>, "value" | "onChange">
+  props: Omit<SelectMultipleProps<string, SampleRecord>, "value" | "onChange">
 ): ReactElement => {
   const [value, setValue] = useState<string>("");
   return <Select {...props} value={value} onChange={setValue} />;

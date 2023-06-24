@@ -28,7 +28,6 @@ export type AxisProps = z.input<typeof axisProps>;
 export type ParsedAxisProps = z.output<typeof axisProps>;
 
 export const coreLineProps = z.object({
-  timeRange: TimeRange.z,
   axes: z.object({
     x: z.string(),
     y: z.string(),
@@ -97,7 +96,7 @@ interface XAxisProps extends ParsedAxisProps {
 
 const XAxis = ({ yAxes, lines, ...props }: XAxisProps): ReactElement => {
   return (
-    <CoreLinePlot.XAxis type="linear" {...props}>
+    <CoreLinePlot.XAxis type="time" {...props}>
       {yAxes.map((a) => (
         <YAxis key={a.id} {...a} lines={lines.filter((l) => l.axes.y === a.id)}></YAxis>
       ))}
@@ -135,10 +134,11 @@ const DynamicLine = ({
 };
 
 const StaticLine = ({
-  timeRange,
+  range,
   channels: { x, y },
   ...props
 }: ParsedStaticLineProps): ReactElement => {
-  const telem = RangeTelem.useXY({ timeRange, x, y });
+  const telem = RangeTelem.useXY({ timeRange: range, x, y });
+  console.log(telem);
   return <CoreLinePlot.Line telem={telem} {...props} />;
 };

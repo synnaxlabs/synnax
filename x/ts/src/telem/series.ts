@@ -213,6 +213,7 @@ export class Series {
   }
 
   private calcRawMax(): SampleValue {
+    if (this.length === 0) return -Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._max = this.data[this.data.length - 1];
     } else if (this.dataType.usesBigInt) {
@@ -227,12 +228,13 @@ export class Series {
 
   /** @returns the maximum value in the array */
   get max(): SampleValue {
-    if (this.pos === 0) return addSamples(0, this.sampleOffset);
+    if (this.pos === 0) return -Infinity;
     else if (this._max == null) this._max = this.calcRawMax();
     return addSamples(this._max, this.sampleOffset);
   }
 
   private calcRawMin(): SampleValue {
+    if (this.length === 0) return Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._min = this.data[0];
     } else if (this.dataType.usesBigInt) {
@@ -247,7 +249,7 @@ export class Series {
 
   /** @returns the minimum value in the array */
   get min(): SampleValue {
-    if (this.pos === 0) return addSamples(0, this.sampleOffset);
+    if (this.pos === 0) return Infinity;
     else if (this._min == null) this._min = this.calcRawMin();
     return addSamples(this._min, this.sampleOffset);
   }

@@ -9,8 +9,8 @@
 
 import { PropsWithChildren, ReactElement } from "react";
 
-import { VisCanvas as PVisCanvas } from "@synnaxlabs/pluto";
+import { Canvas } from "@synnaxlabs/pluto";
 
 export const VisCanvas = ({ children }: PropsWithChildren): ReactElement => (
-  <PVisCanvas className="delta-vis__canvas">{children}</PVisCanvas>
+  <Canvas className="delta-vis__canvas">{children}</Canvas>
 );

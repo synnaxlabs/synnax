@@ -14,7 +14,6 @@ import { YAxis } from "@/core/vis/LinePlot/main/YAxis";
 type CoreLinePlotType = typeof CoreLinePlot;
 
 interface LinePlotType extends CoreLinePlotType {
-  TYPE: "LinePlot";
   YAxis: typeof YAxis;
   XAxis: typeof XAxis;
   Line: typeof Line;
@@ -22,7 +21,6 @@ interface LinePlotType extends CoreLinePlotType {
 
 export const LinePlot = CoreLinePlot as LinePlotType;
 
-LinePlot.TYPE = "LinePlot";
 LinePlot.YAxis = YAxis;
 LinePlot.XAxis = XAxis;
 LinePlot.Line = Line;

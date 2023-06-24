@@ -97,7 +97,7 @@ export const pointTelemSourceMeta = telemSourceMeta.extend({
 export type PointTelemSourceMeta = z.infer<typeof pointTelemSourceMeta>;
 
 export interface PointTelemSource extends TelemSourceMeta {
-  value: number;
+  value: () => Promise<number>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
 }

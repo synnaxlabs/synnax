@@ -14,10 +14,10 @@ import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { RenderContext, RenderController } from "@/core/vis/render";
-import { TelemContext } from "@/core/vis/telem/TelemService";
+import { TelemContext } from "@/core/vis/telem/TelemContext";
 import { PointTelemSource, pointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 
-export const valueState = z.object({
+const valueState = z.object({
   box: Box.z,
   telem: pointTelemSourceMeta,
   units: z.string(),
@@ -26,25 +26,24 @@ export const valueState = z.object({
   position: XY.z.optional(),
 });
 
-export type ValueState = z.input<typeof valueState>;
-
 export interface ValueProps {
   position: XY;
 }
 
-export class Value extends AetherLeaf<typeof valueState> {
+export class AetherValue extends AetherLeaf<typeof valueState> {
   private renderCtx: RenderContext;
   private telem: PointTelemSource;
   private _requestRender: (() => void) | null;
 
   static readonly TYPE = "value";
+  static readonly stateZ = valueState;
 
   constructor(update: Update) {
     super(update, valueState);
     this.telem = TelemContext.use(update.ctx, this.state.telem.key);
     this.renderCtx = RenderContext.use(update.ctx);
     this._requestRender = RenderController.useOptionalRequest(update.ctx);
-    this.telem.onChange(() => this.render());
+    this.telem.onChange(async () => await this.render());
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -52,7 +51,7 @@ export class Value extends AetherLeaf<typeof valueState> {
     this.renderCtx = RenderContext.use(ctx);
     this._requestRender = RenderController.useOptionalRequest(ctx);
     this.requestRender();
-    this.telem.onChange(() => this.render());
+    this.telem.onChange(() => void this.render());
   }
 
   handleDelete(): void {
@@ -61,17 +60,17 @@ export class Value extends AetherLeaf<typeof valueState> {
 
   private requestRender(): void {
     if (this._requestRender != null) this._requestRender();
-    else this.render();
+    else void this.render();
   }
 
-  render(props: ValueProps = { position: XY.ZERO }): void {
+  async render(props: ValueProps = { position: XY.ZERO }): Promise<void> {
     const box = new Box(this.state.box);
     if (box.isZero) return;
-    const { d: canvas } = this.renderCtx;
-    const value = `${this.telem.value} ${this.state.units}`;
+    const { upper2d: canvas } = this.renderCtx;
+    const value = `${(await this.telem.value()).toFixed(2)} ${this.state.units}`;
     const statePos = this.state.position ?? XY.ZERO;
     canvas.font = this.state.font;
-    const dims = textDimensions(value, this.state.font, this.renderCtx.d);
+    const dims = textDimensions(value, this.state.font, canvas);
     this.renderCtx.erase(box);
 
     canvas.fillStyle = new Color("#fc3d03").setAlpha(1).hex;

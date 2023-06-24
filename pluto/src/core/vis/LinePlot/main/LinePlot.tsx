@@ -23,16 +23,13 @@ import {
 } from "react";
 
 import { Box, CrudeOuterLocation, Location } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { X_AXIS_SIZE, Y_AXIS_SIZE } from "@/core/vis/Axis/core";
-import {
-  LinePlot as WorkerLinePlot,
-  linePlotState,
-  LinePlotState as WorkerLinePlotState,
-} from "@/core/vis/LinePlot/worker";
+import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
@@ -75,7 +72,7 @@ type AxisState = Array<[CrudeOuterLocation, string]>;
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<WorkerLinePlotState, "clearOverscan">,
+    Pick<z.input<typeof AetherLinePlot.stateZ>, "clearOverscan">,
     HTMLDivProps {
   resizeDebounce?: number;
 }
@@ -88,9 +85,9 @@ export const LinePlot = memo(
     ...props
   }: LinePlotProps): ReactElement => {
     const [axes, setAxes] = useState<AxisState>([]);
-    const [{ path }, , setState] = Aether.use<typeof linePlotState>(
-      WorkerLinePlot.TYPE,
-      linePlotState,
+    const [{ path }, , setState] = Aether.use(
+      AetherLinePlot.TYPE,
+      AetherLinePlot.stateZ,
       {
         plot: Box.ZERO,
         container: Box.ZERO,

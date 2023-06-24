@@ -10,15 +10,14 @@
 import { QueryError, Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { Client } from "./client/client";
-import { RangeTelemFactory } from "./range/worker";
-
 import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
-import { TelemContext, TelemProvider } from "@/core/vis/telem/TelemService";
+import { TelemContext, TelemProvider } from "@/core/vis/telem/TelemContext";
 import { TelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import { Client } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
-import { StaticTelemFactory } from "@/telem/static/worker";
+import { RangeTelemFactory } from "@/telem/range/aether";
+import { StaticTelemFactory } from "@/telem/static/aether";
 
 export const removeMessage = z.object({
   variant: z.literal("remove"),

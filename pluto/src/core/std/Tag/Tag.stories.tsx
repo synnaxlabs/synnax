@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Tag } from "@/core/std/Tag";
 
 const story: Meta<typeof Tag> = {
-  title: "Core/Tag",
+  title: "Core/Standard/Tag",
   component: Tag,
 };
 

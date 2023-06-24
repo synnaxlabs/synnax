@@ -11,7 +11,7 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Client, ClientProviderProps } from "@/client";
 import { Aether, Haul, ThemeProviderProps, Theming, Triggers, Worker } from "@/core";
-import { TelemProvider } from "@/telem/Context";
+import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
 export interface PlutoProps
   extends PropsWithChildren,

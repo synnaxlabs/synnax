@@ -19,7 +19,7 @@ import { useSelectMultiple } from "@/core/hooks/useSelectMultiple";
 import { Triggers } from "@/core/triggers";
 
 const story: Meta<typeof Tree> = {
-  title: "Core/Tree",
+  title: "Core/Standard/Tree",
   component: Tree,
 };
 

@@ -14,7 +14,7 @@ import { Menu } from "@/core/std/Menu";
 import { Nav } from "@/core/std/Nav";
 
 const story: Meta<typeof Nav.Bar> = {
-  title: "Core/Nav",
+  title: "Core/Standard/Nav",
   component: Nav.Bar,
 };
 

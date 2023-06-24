@@ -11,19 +11,18 @@ import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
+import { CSS } from "@/core/css";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineProps } from "@/core/vis/Line/core";
-import { autoBounds } from "@/core/vis/LinePlot/worker/axis";
+import { autoBounds } from "@/core/vis/LinePlot/aether/axis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
-export const yAxisState = axisState.extend({
+const yAxisState = axisState.extend({
   location: Location.strictXZ.optional().default("left"),
   bound: Bounds.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.05),
 });
-
-export type YAxisState = z.input<typeof yAxisState>;
 
 export interface YAxisProps {
   plottingRegion: Box;
@@ -35,7 +34,8 @@ export class YAxis extends AetherComposite<typeof yAxisState, LineComponent> {
   ctx: RenderContext;
   core: Axis;
 
-  static readonly TYPE = "y-axis";
+  static readonly TYPE = CSS.BE("line-plot", "y-axis");
+  static readonly stateZ = yAxisState;
 
   constructor(update: Update) {
     super(update, yAxisState);

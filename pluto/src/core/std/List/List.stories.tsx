@@ -16,7 +16,7 @@ import { List } from ".";
 import { componentRenderProp } from "@/util/renderProp";
 
 const story: Meta<typeof List> = {
-  title: "Core/List",
+  title: "Core/Standard/List",
   component: List,
 };
 

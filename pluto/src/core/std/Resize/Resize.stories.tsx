@@ -14,7 +14,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Resize, ResizeProps } from "@/core/std/Resize";
 
 const story: Meta<typeof Resize> = {
-  title: "Core/Resize",
+  title: "Core/Standard/Resize",
   component: Resize,
 };
 

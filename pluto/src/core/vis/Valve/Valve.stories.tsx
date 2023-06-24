@@ -11,14 +11,14 @@ import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { VisCanvas } from "../Canvas";
+import { Canvas } from "../Canvas/Canvas";
 
 import { Valve } from "./main";
 
 import { StaticTelem } from "@/telem/static/main";
 
 const story: Meta<typeof Valve> = {
-  title: "Vis/Valve",
+  title: "Core/Vis/Valve",
   component: Valve,
 };
 
@@ -26,7 +26,7 @@ const Example = (): ReactElement => {
   const telem = StaticTelem.usePoint(1);
 
   return (
-    <VisCanvas
+    <Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -36,7 +36,7 @@ const Example = (): ReactElement => {
       }}
     >
       <Valve color="#fc3d03" />
-    </VisCanvas>
+    </Canvas>
   );
 };
 

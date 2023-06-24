@@ -12,7 +12,7 @@ import { Series, TimeRange } from "@synnaxlabs/x";
 
 import { ChannelCache } from "@/telem/client/cache";
 
-export type StreamHandler = (data: Map<ChannelKey, ReadResponse> | null) => void;
+export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
 export class Client {
   core: Synnax;
@@ -123,24 +123,17 @@ export class Client {
 
   private async start(streamer: Streamer): Promise<void> {
     for await (const frame of streamer) {
-      const changed = new Map<ChannelKey, [Channel, Series[]]>();
+      const changed: ReadResponse[] = [];
       for (const k of frame.keys) {
         const series = frame.get(k);
         const cache = await this.getCache(k);
         const out = cache.writeDynamic(series);
-        changed.set(k, [cache.channel, out]);
+        changed.push(new ReadResponse(cache.channel, out));
       }
       this.listeners.forEach((keys, handler) => {
-        const notify = keys
-          .map((key) => {
-            const change = changed.get(key);
-            if (change == null) return null;
-            const [ch, arrays] = change;
-            return new ReadResponse(ch, arrays);
-          })
-          .filter((e) => e != null) as ReadResponse[];
+        const notify = changed.filter((r) => keys.includes(r.channel.key));
         if (notify.length === 0) return;
-        const d = new Map(notify.map((n) => [n.channel.key, n]));
+        const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
         handler(d);
       });
     }

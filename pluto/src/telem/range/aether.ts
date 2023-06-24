@@ -15,10 +15,12 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  addSamples,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
+import { PointTelemSource } from "@/core/vis/telem/TelemSource";
 import { Client, StreamHandler } from "@/telem/client/client";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
@@ -37,6 +39,8 @@ export class RangeTelemFactory implements TelemFactory {
         return new RangeXYTelem(key, this.client, props);
       case DynamicRangeXYTelem.TYPE:
         return new DynamicRangeXYTelem(key, this.client, props);
+      case RangePointTelem.TYPE:
+        return new RangePointTelem(key, this.client, props);
       default:
         return null;
     }
@@ -219,7 +223,7 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
   async read(gl?: GLBufferController): Promise<void> {
     this.release(gl);
     const { x, y, span } = this.props;
-    const tr = TimeStamp.now().spanRange(span);
+    const tr = TimeStamp.now().spanRange(-span);
     await this.readFixed(tr, y, x);
     this.acquire(gl);
     await this.udpateStreamHandler();
@@ -231,12 +235,12 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     this.streamHandler = (data) => {
       if (data != null) {
-        const yd = data.get(y.key);
+        const yd = data[y.key];
         if (yd == null) return;
         yd.data.forEach((arr) => arr.acquire());
         this._y?.push(...yd.data);
         if (x != null) {
-          const xd = data.get(x.key);
+          const xd = data[x.key];
           if (xd == null) return;
           xd.data.forEach((arr) => arr.acquire());
           this._x?.push(...xd.data);
@@ -266,5 +270,81 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     this.streamHandler = null;
     this.handler = null;
     super.cleanup();
+  }
+}
+
+export const rangePointTelemProps = z.object({
+  channel: z.number(),
+});
+
+export type RangePointTelemProps = z.infer<typeof rangePointTelemProps>;
+
+export class RangePointTelem implements PointTelemSource, ModifiableTelemSourceMeta {
+  variant = "point";
+  key: string;
+
+  streamHandler: StreamHandler | null = null;
+
+  static readonly TYPE = "range-point";
+
+  private handler: (() => void) | null = null;
+  private valid = false;
+  private values: Series | null;
+  private readonly client: Client;
+  private props: z.infer<typeof rangePointTelemProps>;
+
+  constructor(key: string, client: Client, props: any) {
+    this.client = client;
+    this.key = key;
+    this.values = null;
+    this.props = rangePointTelemProps.parse(props);
+  }
+
+  cleanup(): void {}
+  invalidate(): void {
+    this.valid = false;
+  }
+
+  release(gl: GLBufferController): void {}
+
+  async value(): Promise<number> {
+    if (!this.valid) await this.read();
+    if (this.values == null || this.values.length === 0) return 0;
+    const v = this.values.data[this.values.length - 1];
+    return Number(addSamples(v, this.values.sampleOffset));
+  }
+
+  async read(): Promise<void> {
+    const { channel } = this.props;
+    const now = TimeStamp.now()
+      .add(TimeSpan.seconds(10))
+      .spanRange(-TimeSpan.seconds(5));
+    const d = await this.client.read(now, [channel]);
+    this.values = d[channel].data[0];
+    await this.updateStreamHandler();
+    this.valid = true;
+  }
+
+  async updateStreamHandler(): Promise<void> {
+    if (this.streamHandler != null) this.client.removeStreamHandler(this.streamHandler);
+    const { channel } = this.props;
+    this.streamHandler = (data) => {
+      if (data != null) {
+        const d = data[channel];
+        if (d.data.length > 0) this.values = d.data[0];
+      }
+      this.handler?.();
+    };
+    this.client.setStreamhandler(this.streamHandler, [channel]);
+  }
+
+  onChange(f: () => void): void {
+    this.handler = f;
+  }
+
+  setProps(props: any): void {
+    this.props = rangePointTelemProps.parse(props);
+    this.valid = false;
+    this.handler?.();
   }
 }

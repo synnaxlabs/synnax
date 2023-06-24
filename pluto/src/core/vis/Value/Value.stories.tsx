@@ -11,22 +11,22 @@ import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { VisCanvas } from "../Canvas";
+import { Canvas } from "../Canvas/Canvas";
 
-import { Value } from "./main";
+import { Value } from "./Value";
 
-import { StaticTelem } from "@/telem/static/main";
+import { Telem } from "@/telem";
 
 const story: Meta<typeof Value> = {
-  title: "Vis/Value",
+  title: "Core/Vis/Value",
   component: Value,
 };
 
 const Example = (): ReactElement => {
-  const telem = StaticTelem.usePoint(5000);
+  const telem = Telem.Range.usePoint({ channel: 65538 });
 
   return (
-    <VisCanvas
+    <Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -36,7 +36,7 @@ const Example = (): ReactElement => {
       }}
     >
       <Value telem={telem} label="Regen PT" style={{ width: 100 }} units="psi" />
-    </VisCanvas>
+    </Canvas>
   );
 };
 

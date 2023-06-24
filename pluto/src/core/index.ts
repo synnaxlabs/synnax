@@ -16,6 +16,6 @@ export * from "@/core/memo";
 export * from "@/core/std";
 export * from "@/core/theming";
 export * from "@/core/triggers";
-export * from "@/core/vis";
+export * from "@/core/vis/Canvas";
 export * from "@/core/worker";
 export * from "@/core/os";

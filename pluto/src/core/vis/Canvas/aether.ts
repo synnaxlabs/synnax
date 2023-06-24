@@ -11,11 +11,16 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
+import {
+  AetherComponentRegistry,
+  AetherComposite,
+  AetherContext,
+  Update,
+} from "@/core/aether/worker";
 import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
 import { RenderContext } from "@/core/vis/render";
 
-export const canvasState = z.object({
+const canvasState = z.object({
   dpr: z.number(),
   region: Box.z,
   glCanvas: z.instanceof(OffscreenCanvas).optional(),
@@ -23,11 +28,12 @@ export const canvasState = z.object({
   lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
 });
 
-export type CanvasState = z.input<typeof canvasState>;
-export type ParsedCanvasState = z.output<typeof canvasState>;
-
-export class Canvas extends AetherComposite<typeof canvasState> {
+export class AetherCanvas extends AetherComposite<typeof canvasState> {
   static readonly TYPE = "canvas";
+  static readonly stateZ = canvasState;
+  static readonly REGISTRY: AetherComponentRegistry = {
+    [AetherCanvas.TYPE]: (u) => new AetherCanvas(u),
+  };
 
   constructor(update: Update) {
     super(update, canvasState);

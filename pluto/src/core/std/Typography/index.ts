@@ -45,8 +45,16 @@ Text.DateTime = TextDateTime;
 Text.Link = TextLink;
 Text.dimensions = textDimensions;
 
+export interface TypographyType {
+  ComponentSizeLevels: typeof ComponentSizeTypographyLevels;
+  LevelComponentSizes: typeof TypographyLevelComponentSizes;
+  Levels: typeof TypographyLevels;
+  Text: TextType;
+  spec: typeof typographySpec;
+}
+
 /** Holds typography related components and constants. */
-export const Typography = {
+export const Typography: TypographyType = {
   /** A map of component sizes to typography levels that are similar in size. */
   ComponentSizeLevels: ComponentSizeTypographyLevels,
   /** A map of typography levels to component sizes that are similar in size. */

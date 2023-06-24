@@ -15,14 +15,14 @@ import {
   useRef,
 } from "react";
 
-import { Box } from "@synnaxlabs/x";
+import { Box, Deep } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
-import { Canvas as WorkerCanvas, canvasState } from "@/core/vis/WorkerCanvas";
+import { AetherCanvas } from "@/core/vis/Canvas/aether";
 
-import "@/core/vis/Canvas.css";
+import "@/core/vis/Canvas/Canvas.css";
 
 type HTMLCanvasProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLCanvasElement>,
@@ -49,21 +49,22 @@ const ZERO_CANVASES: Canvases = {
   bootstrapped: false,
 };
 
-const bootstrapped = ({ gl, lower2d, upper2d }: Canvases): boolean =>
-  [gl, lower2d, upper2d].every((c) => c != null);
-
-export const VisCanvas = ({
+export const Canvas = ({
   children,
   resizeDebounce: debounce = 100,
   ...props
 }: VisCanvasProps): ReactElement => {
-  const [{ path }, , setState] = Aether.use(WorkerCanvas.TYPE, canvasState, ZERO_PROPS);
+  const [{ path }, , setState] = Aether.use(
+    AetherCanvas.TYPE,
+    AetherCanvas.stateZ,
+    ZERO_PROPS
+  );
 
-  const canvases = useRef<Canvases>(ZERO_CANVASES);
+  const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
 
   const handleResize = useCallback(
     (region: Box) =>
-      bootstrapped(canvases.current) &&
+      canvases.current.bootstrapped &&
       setState({ region, dpr: window.devicePixelRatio }),
     []
   );
@@ -105,7 +106,7 @@ export const VisCanvas = ({
       <canvas ref={refCallback} className={CSS.BM("canvas", "gl")} {...props} />
       <canvas ref={refCallback} className={CSS.BM("canvas", "upper2d")} {...props} />
       <Aether.Composite path={path}>
-        {bootstrapped(canvases.current) && children}
+        {canvases.current.bootstrapped && children}
       </Aether.Composite>
     </>
   );

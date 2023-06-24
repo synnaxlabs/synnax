@@ -13,7 +13,6 @@ import { Rate } from "@synnaxlabs/x";
 
 import { XYTelemSourceMeta } from "@/core/vis/telem";
 import { PointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
-import { useTelemSourceControl } from "@/telem/Context";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
@@ -21,7 +20,8 @@ import {
   StaticPointTelemProps,
   StaticXYTelem,
   StaticXYTelemProps,
-} from "@/telem/static/worker";
+} from "@/telem/static/aether";
+import { useTelemSourceControl } from "@/telem/TelemProvider/TelemProvider";
 
 const useStaticXYTelem = (props: StaticXYTelemProps): XYTelemSourceMeta => {
   const transfer = useMemo(

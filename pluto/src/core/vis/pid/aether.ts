@@ -14,13 +14,10 @@ import { AetherComponent, AetherComposite, Update } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
-export const pidState = z.object({
+const pidState = z.object({
   position: XY.z,
   region: Box.z,
 });
-
-export type PIDState = z.input<typeof pidState>;
-export type ParsedPIDState = z.output<typeof pidState>;
 
 interface PIDRenderProps {
   position: XY;
@@ -30,14 +27,15 @@ export interface PIDItem extends AetherComponent {
   render: (props: PIDRenderProps) => void;
 }
 
-export class PID extends AetherComposite<typeof pidState, PIDItem> {
+export class AetherPID extends AetherComposite<typeof pidState, PIDItem> {
   static readonly TYPE = CSS.B("pid");
+  static readonly stateZ = pidState;
 
-  ctx: RenderContext;
+  renderCtx: RenderContext;
 
   constructor(update: Update) {
     super(update, pidState);
-    this.ctx = RenderContext.use(update.ctx);
+    this.renderCtx = RenderContext.use(update.ctx);
     RenderController.control(update.ctx, () => this.requestRender());
     this.requestRender();
   }
@@ -47,11 +45,11 @@ export class PID extends AetherComposite<typeof pidState, PIDItem> {
   }
 
   async render(): Promise<void> {
-    this.ctx.eraseCanvas(new Box(this.state.region));
+    this.renderCtx.eraseCanvas(new Box(this.state.region));
     this.children.forEach((child) => child.render({ position: this.state.position }));
   }
 
   private requestRender(): void {
-    this.ctx.queue.push(this.key, async () => await this.render());
+    this.renderCtx.queue.push(this.key, this.render.bind(this));
   }
 }

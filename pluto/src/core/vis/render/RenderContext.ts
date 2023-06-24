@@ -24,8 +24,10 @@ export class RenderContext {
   readonly glCanvas: OffscreenCanvas;
 
   /** The canvas element used by the 2D canvas. */
-  readonly canvasCanvas: OffscreenCanvas;
-  /** The webgl rendering context extracted from the canvas */
+  readonly upper2dCanvas: OffscreenCanvas;
+
+  /** The canvas element used by the 2D canvas. */
+  readonly lower2dCanvas: OffscreenCanvas;
 
   /** The WebGL rendering context.  */
   readonly gl: WebGL2RenderingContext;
@@ -63,19 +65,20 @@ export class RenderContext {
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas
   ) {
-    this.canvasCanvas = lower2dCanvas;
+    this.upper2dCanvas = upper2dCanvas;
+    this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.queue = new RenderQueue();
 
-    const ctx = lower2dCanvas.getContext("2d");
+    const ctx = this.lower2dCanvas.getContext("2d");
     if (ctx == null) throw new Error("Could not get 2D context");
     this.lower2d = ctx;
 
-    const upperCtx = upper2dCanvas.getContext("2d");
+    const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
     this.upper2d = upperCtx;
 
-    const gl = glCanvas.getContext("webgl2", {
+    const gl = this.glCanvas.getContext("webgl2", {
       preserveDrawingBuffer: true,
       antialias: true,
     });
@@ -108,9 +111,12 @@ export class RenderContext {
     this.dpr = dpr;
     this.glCanvas.width = region.width * dpr;
     this.glCanvas.height = region.height * dpr;
-    this.canvasCanvas.width = region.width * this.dpr;
-    this.canvasCanvas.height = region.height * this.dpr;
+    this.upper2dCanvas.width = region.width * this.dpr;
+    this.upper2dCanvas.height = region.height * this.dpr;
+    this.lower2dCanvas.width = region.width * this.dpr;
+    this.lower2dCanvas.height = region.height * this.dpr;
     this.lower2d.scale(this.dpr, this.dpr);
+    this.upper2d.scale(this.dpr, this.dpr);
     this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
   }
 
@@ -200,14 +206,22 @@ export class RenderContext {
   }
 
   eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
-    const { lower2d: canvas } = this;
+    this._eraseCanvas(this.lower2d, box, overscan);
+    this._eraseCanvas(this.upper2d, box, overscan);
+  }
+
+  private _eraseCanvas(
+    c: OffscreenCanvasRenderingContext2D,
+    box: Box,
+    overscan: XY = XY.ZERO
+  ): void {
     const os = new Box(
       box.left - overscan.x,
       box.top - overscan.y,
       box.width + overscan.x * 2,
       box.height + overscan.y * 2
     );
-    canvas.clearRect(os.left, os.top, os.width, os.height);
+    c.clearRect(os.left, os.top, os.width, os.height);
   }
 }
 
