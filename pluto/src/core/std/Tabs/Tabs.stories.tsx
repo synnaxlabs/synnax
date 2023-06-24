@@ -14,7 +14,7 @@ import { useStaticTabs } from "./Tabs";
 import { Tabs } from ".";
 
 const story: Meta<typeof Tabs> = {
-  title: "Core/Tabs",
+  title: "Core/Standard/Tabs",
   component: Tabs,
 };
 

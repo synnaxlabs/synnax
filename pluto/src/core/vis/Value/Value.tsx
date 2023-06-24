@@ -10,6 +10,7 @@
 import { ReactElement, memo, useCallback, useLayoutEffect, useState } from "react";
 
 import { Box, XY } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
 import { ColorT } from "@/core/color";
@@ -17,17 +18,13 @@ import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { Pack, PackProps, Typography } from "@/core/std";
 import { Theming } from "@/core/theming";
-import {
-  Value as WorkerValue,
-  ValueState as WorkerValueState,
-  valueState,
-} from "@/core/vis/Value/worker";
+import { AetherValue } from "@/core/vis/Value/aether";
 import { ComponentSize } from "@/util/component";
 
 import "@/core/vis/Value/Value.css";
 
 export interface ValueProps
-  extends Omit<WorkerValueState, "font" | "color" | "box">,
+  extends Omit<z.input<typeof AetherValue.stateZ>, "font" | "color" | "box">,
     Omit<PackProps, "color"> {
   color?: ColorT;
   size?: ComponentSize;
@@ -46,7 +43,7 @@ export const Value = memo(
     ...props
   }: ValueProps): ReactElement => {
     const theme = Theming.use();
-    const [, , setState] = Aether.use(WorkerValue.TYPE, valueState, {
+    const [, , setState] = Aether.use(AetherValue.TYPE, AetherValue.stateZ, {
       font: Theming.font(theme, "p"),
       color: color ?? theme.colors.text,
       box: Box.ZERO,

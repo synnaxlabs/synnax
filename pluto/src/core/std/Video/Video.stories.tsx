@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Video, VideoProps } from "@/core/std/Video";
 
 const story: Meta<typeof Video> = {
-  title: "Core/Video",
+  title: "Core/Standard/Video",
   component: Video,
   argTypes: {},
 };

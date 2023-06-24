@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Mosaic, MosaicNode } from "@/core/std/Mosaic";
 
 const story: Meta<typeof Mosaic> = {
-  title: "Core/Mosaic",
+  title: "Core/Standard/Mosaic",
   component: Mosaic,
 };
 

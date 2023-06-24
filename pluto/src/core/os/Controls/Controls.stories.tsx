@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Controls } from ".";
 
 const story: Meta<typeof Controls> = {
-  title: "OS/Controls",
+  title: "Core/OS/Controls",
   component: Controls,
   argTypes: {},
 };

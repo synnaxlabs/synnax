@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { XYTelemSourceMeta } from "@/core/vis/telem";
-import { useTelemSourceControl } from "@/telem/Context";
+import { PointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import {
   DynamicRangeXYTelem,
   DynamicRangeXYTelemProps,
+  RangePointTelem,
+  RangePointTelemProps,
   RangeXYTelem,
   RangeXYTelemProps,
-} from "@/telem/range/worker";
+} from "@/telem/range/aether";
+import { useTelemSourceControl } from "@/telem/TelemProvider/TelemProvider";
 
 export const useRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceMeta => {
   return {
@@ -32,7 +35,17 @@ export const useDynamicRangeXYTelem = (
   };
 };
 
+export const usePointRangeTelem = (
+  props: RangePointTelemProps
+): PointTelemSourceMeta => {
+  return {
+    key: useTelemSourceControl(RangePointTelem.TYPE, props),
+    variant: "point",
+  };
+};
+
 export const RangeTelem = {
   useXY: useRangeXYTelem,
   useDynamicXY: useDynamicRangeXYTelem,
+  usePoint: usePointRangeTelem,
 };

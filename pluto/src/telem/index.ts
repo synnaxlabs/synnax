@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Meta } from "@storybook/react";
+import { RangeTelem } from "@/telem/range/main";
+import { StaticTelem } from "@/telem/static/main";
+import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
-import { Header } from "@/core/std/Header";
-
-const story: Meta<typeof Header> = {
-  title: "Core/Standard/Header",
-  component: Header,
+export const Telem = {
+  Static: StaticTelem,
+  Range: RangeTelem,
+  Provider: TelemProvider,
 };
-
-// eslint-disable-next-line import/no-default-export
-export default story;

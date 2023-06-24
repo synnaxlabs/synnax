@@ -14,7 +14,7 @@ import { Pack } from ".";
 import { Button } from "@/core/std/Button";
 
 const story: Meta<typeof Pack> = {
-  title: "Core/Pack",
+  title: "Core/Standard/Pack",
   component: Pack,
   argTypes: {
     direction: {

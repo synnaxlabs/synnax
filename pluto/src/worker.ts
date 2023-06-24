@@ -10,27 +10,26 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { AetherComponentRegistry, render } from "@/core/aether/worker";
+import { AetherCanvas } from "@/core/vis/Canvas/aether";
 import { LineGL } from "@/core/vis/Line/LineGL";
-import { LinePlot, XAxis, YAxis } from "@/core/vis/LinePlot/worker";
-import { PID } from "@/core/vis/pid/worker";
-import { Value } from "@/core/vis/Value/worker";
+import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
+import { AetherPID } from "@/core/vis/pid/aether";
+import { AetherValue } from "@/core/vis/Value/aether";
 import { Valve } from "@/core/vis/Valve/worker";
-import { Canvas } from "@/core/vis/WorkerCanvas";
-import { Telem } from "@/telem/worker";
+import { Telem } from "@/telem/TelemProvider/aether";
 
-const w = new RoutedWorker((data, transfer) => postMessage(data, "/", transfer));
+// @ts-expect-error
+const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
 onmessage = (e) => w.handle(e);
 
 const REGISTRY: AetherComponentRegistry = {
+  ...AetherLinePlot.REGISTRY,
+  ...AetherCanvas.REGISTRY,
   [Telem.TYPE]: (u) => new Telem(u),
-  [LinePlot.TYPE]: (u) => new LinePlot(u),
-  [XAxis.TYPE]: (u) => new XAxis(u),
-  [YAxis.TYPE]: (u) => new YAxis(u),
   [LineGL.TYPE]: (u) => new LineGL(u),
-  [Canvas.TYPE]: (u) => new Canvas(u),
-  [Value.TYPE]: (u) => new Value(u),
+  [AetherValue.TYPE]: (u) => new AetherValue(u),
   [Valve.TYPE]: (u) => new Valve(u),
-  [PID.TYPE]: (u) => new PID(u),
+  [AetherPID.TYPE]: (u) => new AetherPID(u),
 };
 
 render(w.route("vis"), REGISTRY);

@@ -29,12 +29,13 @@ import { Valve } from "../Valve/main";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
-import { PID as WorkerPID, pidState } from "@/core/vis/pid/worker";
-import { Value } from "@/core/vis/Value/main";
+import { AetherPID } from "@/core/vis/pid/aether";
+import { Value } from "@/core/vis/Value/Value";
+import { Telem } from "@/telem";
 import { StaticTelem } from "@/telem/static/main";
 
 const ValueNode = (props: NodeProps): ReactElement => {
-  const telem = StaticTelem.usePoint(12000);
+  const telem = Telem.Range.usePoint({ channel: 65538 });
   return (
     <>
       <Handle type="target" position={Position.Left} />
@@ -69,17 +70,10 @@ const n = [
 const PIDInternal = (): ReactElement => {
   const nodeType = useMemo(() => ({ value: ValueNode, valve: ValveNode }), []);
   const edgeType = useMemo(() => ({ default: SmoothStepEdge }), []);
-  const {
-    path,
-    state: [, setState],
-  } = Aether.use(
-    WorkerPID.TYPE,
-    {
-      position: XY.ZERO,
-      region: Box.ZERO,
-    },
-    pidState
-  );
+  const [{ path }, , setState] = Aether.use(AetherPID.TYPE, AetherPID.stateZ, {
+    position: XY.ZERO,
+    region: Box.ZERO,
+  });
 
   const [nodes, setNodes] = useState(n);
   const [edges, setEdges] = useState([]);

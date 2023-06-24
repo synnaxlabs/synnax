@@ -15,7 +15,7 @@ import { Button } from "@/core/std/Button";
 import { ComponentSizes } from "@/util/component";
 
 const story: Meta<typeof Space> = {
-  title: "Core/Space",
+  title: "Core/Standard/Space",
   component: Space,
   argTypes: {
     direction: {

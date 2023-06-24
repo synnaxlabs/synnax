@@ -10,20 +10,20 @@
 import { PropsWithChildren, ReactElement, memo } from "react";
 
 import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
+import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
-import {
-  XAxisState as WorkerXAxisState,
-  XAxis as WorkerXAxis,
-  xAxisState,
-} from "@/core/vis/LinePlot/worker";
 
 export interface XAxisProps
   extends PropsWithChildren,
-    Optional<Omit<WorkerXAxisState, "position">, "color" | "font" | "gridColor"> {
+    Optional<
+      Omit<z.input<typeof AetherLinePlot.XAxis.stateZ>, "position">,
+      "color" | "font" | "gridColor"
+    > {
   resizeDebounce?: number;
 }
 
@@ -35,14 +35,18 @@ export const XAxis = memo(
     ...props
   }: XAxisProps): ReactElement => {
     const theme = Theming.use();
-    const [{ key, path }, , setState] = Aether.use(WorkerXAxis.TYPE, xAxisState, {
-      color: theme.colors.gray.p2,
-      gridColor: theme.colors.gray.m1,
-      position: XY.ZERO,
-      font: Theming.font(theme, "small"),
-      location,
-      ...props,
-    });
+    const [{ key, path }, , setState] = Aether.use(
+      AetherLinePlot.XAxis.TYPE,
+      AetherLinePlot.XAxis.stateZ,
+      {
+        color: theme.colors.gray.p2,
+        gridColor: theme.colors.gray.m1,
+        position: XY.ZERO,
+        font: Theming.font(theme, "small"),
+        location,
+        ...props,
+      }
+    );
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,

@@ -10,20 +10,20 @@
 import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
-import { Rate, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { Rate } from "@synnaxlabs/x";
 
-import { VisCanvas } from "@/core/vis/Canvas";
+import { Canvas } from "../Canvas";
+
 import { Line } from "@/core/vis/Line/Line";
 import { LinePlot } from "@/core/vis/LinePlot";
-import { RangeTelem } from "@/telem/range/main";
-import { StaticTelem } from "@/telem/static/main";
+import { Telem } from "@/telem";
 
 const story: Meta<typeof LinePlot> = {
-  title: "Vis/LinePlot",
+  title: "Core/Vis/LinePlot",
   component: LinePlot,
 };
 
-const LENGTH = 5000;
+const LENGTH = 50000;
 const DIV = 100;
 
 const xData = Float32Array.from({ length: LENGTH }, (_, i) => i);
@@ -31,35 +31,14 @@ const yData = Float32Array.from(
   { length: LENGTH },
   (_, i) => Math.sin(i / DIV) * 20 + Math.random()
 );
-const yData2 = Float32Array.from(
-  { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * 20 - 2 + Math.random()
-);
-const yData3 = Float32Array.from(
-  { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * 20 - 4 + Math.random()
-);
-const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i);
-const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i);
-
 const Example = (): ReactElement => {
-  const telem = RangeTelem.useDynamicXY({
-    x: 65537,
-    y: 65538,
-    span: TimeSpan.minutes(15),
+  const telem2 = Telem.Static.useIterativeXY({
+    x: [xData],
+    y: [yData],
+    rate: Rate.hz(500),
   });
-  // const telem2 = StaticTelem.useIterativeXY
-  //   x: [xData2],
-  //   y: [yData2],
-  //   rate: Rate.hz(25),
-  // });
-  // const telem3 = StaticTelem.useIterativeXY({
-  //   x: [xData3],
-  //   y: [yData3],
-  //   rate: Rate.hz(30),
-  // });
   return (
-    <VisCanvas
+    <Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -69,18 +48,19 @@ const Example = (): ReactElement => {
       }}
     >
       <LinePlot>
-        <LinePlot.XAxis type="time" label="Time" location="bottom" showGrid>
+        <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
-            <Line telem={telem} color="#F733FF" strokeWidth={2} />
+            <Line telem={telem2} color="#F733FF" strokeWidth={2} />
             {/* <Line telem={telem2} color="#fcba03" strokeWidth={2} />
             <Line telem={telem3} color="#3ad6cc" strokeWidth={2} /> */}
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>
-    </VisCanvas>
+    </Canvas>
   );
 };
 
+export const Default: StoryFn = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

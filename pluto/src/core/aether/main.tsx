@@ -15,6 +15,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -101,17 +102,21 @@ export const useAether = <S extends z.ZodTypeAny>(
     [schema]
   );
 
-  if (commsRef.current == null) {
-    commsRef.current = register(type, path, handleReceive);
-    commsRef.current.setState(initialState, initialTransfer);
-  }
-
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (commsRef.current != null) {
+      commsRef.current = register(type, path, handleReceive);
+      commsRef.current.setState(initialState, initialTransfer);
+    }
     return () => {
       if (commsRef.current == null) throw new UnexpectedError("Unexpected message");
       commsRef.current.delete();
     };
-  }, []);
+  }, [path, register]);
+
+  if (commsRef.current == null) {
+    commsRef.current = register(type, path, handleReceive);
+    commsRef.current.setState(initialState, initialTransfer);
+  }
 
   return [{ key: oKey, path }, internalState, setState];
 };

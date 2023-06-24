@@ -11,6 +11,7 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
+import { ColorT } from "@/core/color";
 import { Space } from "@/core/std/Space";
 import { StatusVariant } from "@/core/std/Status/types";
 import { Text, TextProps, TypographyLevel } from "@/core/std/Typography";
@@ -30,7 +31,7 @@ const statusVariantIcons: Record<StatusVariant, ReactElement> = {
   disabled: <Icon.Warning />,
 };
 
-const statusVariantColors: Record<StatusVariant, string> = {
+const statusVariantColors: Record<StatusVariant, ColorT> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",
   warning: "var(--pluto-text-color)",

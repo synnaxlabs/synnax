@@ -13,16 +13,16 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { PID } from "./PID";
 
-import { VisCanvas } from "@/core/vis/Canvas";
+import { Canvas } from "@/core/vis/Canvas/Canvas";
 
 const story: Meta<typeof PID> = {
-  title: "Vis/PID",
+  title: "Core/Vis/PID",
   component: PID,
 };
 
 const Example = (): ReactElement => {
   return (
-    <VisCanvas
+    <Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -30,7 +30,7 @@ const Example = (): ReactElement => {
       }}
     >
       <PID />
-    </VisCanvas>
+    </Canvas>
   );
 };
 

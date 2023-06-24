@@ -14,7 +14,7 @@ import { Meta } from "@storybook/react";
 import { Triggers } from "@/core/triggers";
 
 const story: Meta<typeof Triggers.Provider> = {
-  title: "Triggers/Triggers",
+  title: "Core/Triggers",
   component: Triggers.Provider,
 };
 
@@ -36,7 +36,6 @@ const Child = (): ReactElement => {
       ["Shift"],
       ["MouseLeft", "MouseLeft"],
     ],
-    loose: true,
   });
   return (
     <div>

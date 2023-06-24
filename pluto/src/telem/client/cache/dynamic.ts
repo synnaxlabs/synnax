@@ -16,7 +16,7 @@ import { convertSeriesFloat32 } from "@/telem/convertSeries";
  * for channel data.
  */
 export class DynamicCache {
-  buffer: Series | null;
+  buffer: Series;
   private readonly cap: number;
   private readonly dataType: DataType;
 
@@ -29,7 +29,7 @@ export class DynamicCache {
   constructor(cap: number, dataType: DataType) {
     this.cap = cap;
     this.dataType = dataType;
-    this.buffer = null;
+    this.buffer = this.allocate(cap);
   }
 
   /** @returns the number of samples currenly held in the cache. */
@@ -55,8 +55,9 @@ export class DynamicCache {
    * @returns the buffer if it overlaps with the given time range, null otherwise.
    */
   dirtyRead(tr: TimeRange): Series | null {
-    if (this.buffer == null || !this.buffer.timeRange.overlapsWith(tr)) return null;
-    return this.buffer;
+    // if (!this.buffer.timeRange.overlapsWith(tr)) return null;
+    // return this.buffer;
+    return null;
   }
 
   private allocate(length: number): Series {
@@ -64,13 +65,12 @@ export class DynamicCache {
     return Series.alloc(
       length,
       DataType.FLOAT32,
-      start.spanRange(0),
+      start.spanRange(TimeStamp.MAX),
       this.dataType.equals(DataType.TIMESTAMP) ? -start.valueOf() : 0
     );
   }
 
   private _write(series: Series): Series[] {
-    if (this.buffer == null) this.buffer = this.allocate(this.cap);
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
     if (amountWritten === series.length) return [];

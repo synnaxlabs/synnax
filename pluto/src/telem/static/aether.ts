@@ -212,15 +212,19 @@ export class StaticPointTelem implements PointTelemSource {
   variant = "point";
 
   key: string;
-  value: number;
+  _value: number;
 
   constructor(key: string, props_: any) {
     this.key = key;
-    this.value = staticPointTelemProps.parse(props_);
+    this._value = staticPointTelemProps.parse(props_);
   }
 
   setProps(props_: any): void {
-    this.value = staticPointTelemProps.parse(props_);
+    this._value = staticPointTelemProps.parse(props_);
+  }
+
+  async value(): Promise<number> {
+    return this._value;
   }
 
   onChange(): void {}

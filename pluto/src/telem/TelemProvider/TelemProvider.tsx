@@ -15,22 +15,23 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useRef,
+  useState,
 } from "react";
-
-import { Telem, telemState } from "./worker";
 
 import { useClient } from "@/client/Context";
 import { Aether } from "@/core/aether/main";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
+import { Telem, telemState } from "@/telem/TelemProvider/aether";
 
-export interface TelemContextValue {
+interface TelemContextValue {
   set: <P>(key: string, type: string, props: P, transfer?: Transferable[]) => void;
   remove: (key: string) => void;
 }
 
-export const TelemContext = createContext<TelemContextValue | null>(null);
+const TelemContext = createContext<TelemContextValue | null>(null);
 
-export const useTelemContext = (): TelemContextValue => {
+const useTelemContext = (): TelemContextValue => {
   const ctx = useContext(TelemContext);
   if (ctx === null) {
     throw new Error("No telem context found");
@@ -45,9 +46,17 @@ export const useTelemSourceControl = <P extends any>(
 ): string => {
   const key = useUniqueKey();
   const { set } = useTelemContext();
-  useEffect(() => {
+  const set_ = useRef(false);
+  if (!set_.current) {
     set(key, type, props, transferral);
-  }, [key]);
+    set_.current = true;
+  }
+  // useLayoutEffect(() => {
+  //   set(key, type, props, transferral);
+  // }, []);
+  // useEffect(() => {
+  //   set(key, type, props, transferral);
+  // }, [key]);
   return key;
 };
 
@@ -58,9 +67,13 @@ export const TelemProvider = ({
 }: TelemProviderProps): ReactElement | null => {
   const [{ path }, , send] = Aether.use(Telem.TYPE, telemState, undefined);
   const client = useClient();
+  const [connected, setConnected] = useState(false);
 
   useLayoutEffect(() => {
-    if (client != null) send({ variant: "connect", props: client?.props });
+    if (client != null) {
+      send({ variant: "connect", props: client?.props });
+      setConnected(true);
+    }
   }, [client]);
 
   const set = useCallback(
@@ -70,7 +83,7 @@ export const TelemProvider = ({
   );
   const remove = useCallback((key: string) => send({ variant: "remove", key }), [send]);
 
-  if (client == null) return null;
+  if (client == null || !connected) return null;
 
   return (
     <Aether.Composite path={path}>

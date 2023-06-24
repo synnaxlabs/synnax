@@ -9,6 +9,7 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
+import { ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Divider } from "@/core/std/Divider";
 import { Space, SpaceProps, SpaceElementType } from "@/core/std/Space";
@@ -20,7 +21,7 @@ import "@/core/std/Typography/TextWithIcon.css";
 export type TextWithIconProps<
   E extends SpaceElementType = "div",
   L extends TypographyLevel = "h1"
-> = Omit<SpaceProps<E>, "children"> &
+> = Omit<SpaceProps<E>, "children" | "color"> &
   CoreTextProps<L> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
@@ -75,7 +76,7 @@ export const TextWithIcon = <
 
 const formatIcons = (
   icon: false | ReactElement | ReactElement[],
-  color?: string
+  color?: ColorT
 ): ReactElement[] => {
   if (icon === false) return [];
   return (Children.toArray(icon) as ReactElement[]).map((icon) =>

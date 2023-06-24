@@ -16,7 +16,7 @@ import { Input } from "@/core/std/Input";
 import { Text } from "@/core/std/Typography";
 
 const story: Meta<typeof Input> = {
-  title: "Core/Input",
+  title: "Core/Standard/Input",
   component: Input,
 };
 

@@ -25,7 +25,7 @@ import {
   RenderContext,
 } from "@/core/vis/render";
 import { XYTelemSource } from "@/core/vis/telem";
-import { TelemContext } from "@/core/vis/telem/TelemService";
+import { TelemContext } from "@/core/vis/telem/TelemContext";
 
 export class LineGLProgramContext extends GLProgram {
   translationBuffer: WebGLBuffer;

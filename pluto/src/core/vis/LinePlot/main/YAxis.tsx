@@ -10,20 +10,20 @@
 import { PropsWithChildren, ReactElement, memo, useMemo } from "react";
 
 import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
+import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
-import {
-  YAxisState as WorkerYAxisState,
-  YAxis as WorkerYAxis,
-} from "@/core/vis/LinePlot/worker";
-import { yAxisState } from "@/core/vis/LinePlot/worker/YAxis";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Optional<Omit<WorkerYAxisState, "position">, "color" | "font" | "gridColor"> {}
+    Optional<
+      Omit<z.input<typeof AetherLinePlot.YAxis.stateZ>, "position">,
+      "color" | "font" | "gridColor"
+    > {}
 
 export const YAxis = memo(
   ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
@@ -42,8 +42,8 @@ export const YAxis = memo(
     );
 
     const [{ key, path }, , setState] = Aether.use(
-      WorkerYAxis.TYPE,
-      yAxisState,
+      AetherLinePlot.YAxis.TYPE,
+      AetherLinePlot.YAxis.stateZ,
       memoProps
     );
 

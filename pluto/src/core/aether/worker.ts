@@ -277,6 +277,7 @@ class AetherRoot {
     const change: Update = { ...msg, ctx: this.ctx.child() };
     if (this.root == null) this.root = this.ctx.create(change);
     else this.root.update(change);
+    console.log(this.root);
   }
 }
 

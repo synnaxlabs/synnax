@@ -11,22 +11,22 @@ import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherComposite, Update } from "@/core/aether/worker";
-import { XAxis } from "@/core/vis/LinePlot/worker/XAxis";
+import { CSS } from "@/core/css";
+import { XAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { RenderController, RenderContext } from "@/core/vis/render";
 
-export const linePlotState = z.object({
+const linePlotState = z.object({
   plot: Box.z,
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
 });
 
-export type LinePlotState = z.input<typeof linePlotState>;
-
 export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   renderCtx: RenderContext;
 
-  static readonly TYPE: string = "linePlot";
+  static readonly TYPE: string = CSS.B("line-plot");
+  static readonly stateZ = linePlotState;
 
   constructor(update: Update) {
     super(update, linePlotState);
