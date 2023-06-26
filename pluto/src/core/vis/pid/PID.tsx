@@ -25,7 +25,7 @@ import ReactFlow, {
   Controls,
 } from "reactflow";
 
-import { Valve } from "../Valve/main";
+import { Valve } from "../Valve/Valve";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
@@ -70,9 +70,13 @@ const n = [
 const PIDInternal = (): ReactElement => {
   const nodeType = useMemo(() => ({ value: ValueNode, valve: ValveNode }), []);
   const edgeType = useMemo(() => ({ default: SmoothStepEdge }), []);
-  const [{ path }, , setState] = Aether.use(AetherPID.TYPE, AetherPID.stateZ, {
-    position: XY.ZERO,
-    region: Box.ZERO,
+  const [{ path }, , setState] = Aether.useStateful({
+    type: AetherPID.TYPE,
+    schema: AetherPID.stateZ,
+    initialState: {
+      position: XY.ZERO,
+      region: Box.ZERO,
+    },
   });
 
   const [nodes, setNodes] = useState(n);

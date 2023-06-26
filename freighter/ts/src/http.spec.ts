@@ -47,7 +47,7 @@ describe("http", () => {
       {},
       messageZ
     );
-    expect(error?.message).toEqual("Cannot POST /unary/not-found");
+    expect(error?.message).toEqual("Not Found");
     expect(response).toBeNull();
   });
 

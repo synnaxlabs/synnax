@@ -11,7 +11,7 @@ import { ReactElement, useEffect } from "react";
 
 import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, Space, useOS, CSS } from "@synnaxlabs/pluto";
+import { Nav, Space, useOS, CSS as PCSS } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
@@ -20,6 +20,7 @@ import { useSelectLayout } from "../store";
 import { LayoutContent } from "./LayoutContent";
 
 import { Controls } from "@/components";
+import { CSS } from "@/css";
 
 import "@/layout/components/LayoutWindow.css";
 
@@ -50,6 +51,7 @@ export const LayoutWindow = (): ReactElement | null => {
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
+  console.log(layout);
   if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
   return (
@@ -66,7 +68,7 @@ export const LayoutWindow = (): ReactElement | null => {
 const applyWindowsBorders = (): void => {
   window.document.documentElement.style.boxSizing = "border-box";
   window.document.documentElement.style.border = "var(--pluto-border)";
-  CSS.applyVars(window.document.documentElement, {
+  PCSS.applyVars(window.document.documentElement, {
     "--os-border-offset": "2px",
   });
 };

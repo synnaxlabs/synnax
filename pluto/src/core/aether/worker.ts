@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { TypedWorker } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { PsuedoSetStateArg } from "../hooks/useStateRef";
 
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 
@@ -41,9 +44,11 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
     this._ctx = update.ctx;
   }
 
-  setState(state: z.input<S>): void {
-    this._state = this.schema.parse(state);
-    this._ctx.setState(this.key, this._state);
+  setState(state: PsuedoSetStateArg<z.input<S>>): void {
+    const nextState: z.input<S> =
+      typeof state === "function" ? (state as any)(this._state) : state;
+    this._state = this.schema.parse(nextState);
+    this._ctx.setState(this.key, nextState);
   }
 
   get state(): z.output<S> {
@@ -71,18 +76,18 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
-      throw new Error(
+      throw new UnexpectedError(
         `[Leaf.setState] - ${this.type}:${this.key} received an empty path`
       );
     const key = path[path.length - 1];
     if (path.length > 1)
-      throw new Error(
+      throw new UnexpectedError(
         `[Leaf.setState] - ${this.type}:${this.key} received a subPath ${path.join(
           "."
         )} but is a leaf`
       );
     if (key !== this.key)
-      throw new Error(
+      throw new UnexpectedError(
         `[Leaf.setState] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
       );
   }
@@ -116,7 +121,7 @@ export class AetherComposite<
     if (subPath.length === 0) {
       // Check if super altered the context. If so, we need to re-render children.
       if (key !== this.key)
-        throw new Error(
+        throw new UnexpectedError(
           `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
         );
       change.ctx = change.ctx.child();
@@ -262,7 +267,7 @@ class AetherRoot {
   handle(msg: MainMessage): void {
     if (msg.variant === "delete") {
       if (this.root == null)
-        throw new Error(
+        throw new UnexpectedError(
           `[AetherRoot.handle] - received a delete message but no root is set`
         );
       return this.root.delete(msg.path);
@@ -277,7 +282,6 @@ class AetherRoot {
     const change: Update = { ...msg, ctx: this.ctx.child() };
     if (this.root == null) this.root = this.ctx.create(change);
     else this.root.update(change);
-    console.log(this.root);
   }
 }
 

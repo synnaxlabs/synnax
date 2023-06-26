@@ -9,7 +9,7 @@
 
 import { convertThemeToCSSVars } from "@/core/theming/css";
 import { font, useFont } from "@/core/theming/font";
-import { ThemeSpec, themes } from "@/core/theming/theme";
+import { ThemeSpec, themeZ, themes } from "@/core/theming/theme";
 import {
   ThemeProvider,
   ThemeSwitch,
@@ -19,7 +19,20 @@ import {
 export type { ThemeSpec as Theme } from "@/core/theming/theme";
 export type { ThemeProviderProps } from "@/core/theming/ThemeContext";
 
-export const Theming = {
+export interface ThemingType {
+  Provider: typeof ThemeProvider;
+  Switch: typeof ThemeSwitch;
+  useContext: typeof useThemeContext;
+  useProvider: typeof useThemeProvider;
+  use: () => ThemeSpec;
+  themes: typeof themes;
+  toCSSVars: typeof convertThemeToCSSVars;
+  font: typeof font;
+  useFont: typeof useFont;
+  schema: typeof themeZ;
+}
+
+export const Theming: ThemingType = {
   Provider: ThemeProvider,
   Switch: ThemeSwitch,
   useContext: useThemeContext,
@@ -29,4 +42,5 @@ export const Theming = {
   toCSSVars: convertThemeToCSSVars,
   font,
   useFont,
+  schema: themeZ,
 };

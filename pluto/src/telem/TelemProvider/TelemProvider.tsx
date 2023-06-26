@@ -13,11 +13,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
+
+import { isObject } from "@synnaxlabs/x";
 
 import { useClient } from "@/client/Context";
 import { Aether } from "@/core/aether/main";
@@ -42,21 +42,15 @@ const useTelemContext = (): TelemContextValue => {
 export const useTelemSourceControl = <P extends any>(
   type: string,
   props: P,
-  transferral?: Transferable[]
+  transferral: Transferable[] = []
 ): string => {
   const key = useUniqueKey();
   const { set } = useTelemContext();
-  const set_ = useRef(false);
-  if (!set_.current) {
+  const setRef = useRef(false);
+  if (!setRef.current) {
     set(key, type, props, transferral);
-    set_.current = true;
+    setRef.current = true;
   }
-  // useLayoutEffect(() => {
-  //   set(key, type, props, transferral);
-  // }, []);
-  // useEffect(() => {
-  //   set(key, type, props, transferral);
-  // }, [key]);
   return key;
 };
 
@@ -65,15 +59,11 @@ export interface TelemProviderProps extends PropsWithChildren<any> {}
 export const TelemProvider = ({
   children,
 }: TelemProviderProps): ReactElement | null => {
-  const [{ path }, , send] = Aether.use(Telem.TYPE, telemState, undefined);
+  const { path, setState: send } = Aether.use({ type: Telem.TYPE, schema: telemState });
   const client = useClient();
-  const [connected, setConnected] = useState(false);
 
   useLayoutEffect(() => {
-    if (client != null) {
-      send({ variant: "connect", props: client?.props });
-      setConnected(true);
-    }
+    if (client != null) send({ variant: "connect", props: client.props });
   }, [client]);
 
   const set = useCallback(
@@ -82,8 +72,6 @@ export const TelemProvider = ({
     [send]
   );
   const remove = useCallback((key: string) => send({ variant: "remove", key }), [send]);
-
-  if (client == null || !connected) return null;
 
   return (
     <Aether.Composite path={path}>

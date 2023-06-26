@@ -139,6 +139,5 @@ const StaticLine = ({
   ...props
 }: ParsedStaticLineProps): ReactElement => {
   const telem = RangeTelem.useXY({ timeRange: range, x, y });
-  console.log(telem);
   return <CoreLinePlot.Line telem={telem} {...props} />;
 };

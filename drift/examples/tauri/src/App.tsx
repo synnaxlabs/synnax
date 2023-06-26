@@ -21,6 +21,7 @@ function App() {
   const numOpen = Object.values(windows).filter(
     ({stage}) => stage === 'created'
   ).length;
+  console.log(windows)
   return (
     <div className="App">
       <div>

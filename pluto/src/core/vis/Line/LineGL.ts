@@ -132,6 +132,7 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
     const yData = await this.telem.y(this.prog.ctx.gl);
     xData.forEach((x, i) => {
       const y = yData[i];
+      if (x.length === 0 || y.length === 0) return;
       const count = this.prog.bindPropsAndContext(
         {
           ...props,

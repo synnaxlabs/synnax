@@ -11,7 +11,7 @@ import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import {
-  AxisContext,
+  AxisContext as AxisProps,
   axisState,
   AxisState,
   ParsedAxisState,
@@ -38,7 +38,7 @@ export class AxisCanvas {
     this.tickFactory = newTickFactory(state);
   }
 
-  render(ctx: AxisContext): void {
+  render(props: AxisProps): void {
     const { lower2d: canvas } = this.ctx;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
@@ -46,21 +46,21 @@ export class AxisCanvas {
 
     switch (this.state.location.crude) {
       case "left":
-        this.drawLeft(ctx);
+        this.drawLeft(props);
         break;
       case "right":
-        this.drawRight(ctx);
+        this.drawRight(props);
         break;
       case "top":
-        this.drawTop(ctx);
+        this.drawTop(props);
         break;
       case "bottom":
-        this.drawBottom(ctx);
+        this.drawBottom(props);
         break;
     }
   }
 
-  drawBottom(ctx: AxisContext): void {
+  drawBottom(ctx: AxisProps): void {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
@@ -84,7 +84,7 @@ export class AxisCanvas {
     ]);
   }
 
-  drawTop(ctx: AxisContext): void {
+  drawTop(ctx: AxisProps): void {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
@@ -108,7 +108,7 @@ export class AxisCanvas {
     ]);
   }
 
-  drawLeft(ctx: AxisContext): void {
+  drawLeft(ctx: AxisProps): void {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
@@ -132,7 +132,7 @@ export class AxisCanvas {
     ]);
   }
 
-  drawRight(ctx: AxisContext): void {
+  drawRight(ctx: AxisProps): void {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;

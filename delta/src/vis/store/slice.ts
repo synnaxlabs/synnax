@@ -67,5 +67,5 @@ export const { actions, reducer: visReducer } = createSlice({
 
 export const { setVis, updateVis, removeVis, purgeRanges } = actions;
 
-export type VisAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type VisAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type VisPayload = VisAction["payload"];

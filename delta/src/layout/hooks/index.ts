@@ -19,6 +19,7 @@ import {
   useOS,
   Theming,
   useAsyncEffect,
+  AsyncDestructor,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -120,7 +121,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   }, []);
 
   return {
-    theme: theme as Theme,
+    theme: Theming.schema.parse(theme),
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleActiveTheme()),
   };
@@ -133,7 +134,7 @@ export const useErrorThemeProvider = (): ThemeProviderProps => {
     setTheme(Theming.themes[theme]);
   }, []);
   return {
-    theme: theme as Theme,
+    theme: Theming.schema.parse(theme),
     setTheme: (key: string) =>
       setTheme(Theming.themes[key as keyof typeof Theming.themes]),
     toggleTheme: () =>

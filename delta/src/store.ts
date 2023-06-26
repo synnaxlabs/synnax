@@ -96,7 +96,7 @@ const newStore = async (): Promise<RootStore> => {
   });
   return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
-    preloadedState,
+    preloadedState: undefined,
     middleware: (def) => [
       ...def(),
       effectMiddleware([removeLayout.type], [dispatchEffect(removeVis)]),
@@ -104,7 +104,7 @@ const newStore = async (): Promise<RootStore> => {
       persistMiddleware,
     ],
     reducer,
-    enablePrerender: true,
+    enablePrerender: false,
   })) as RootStore;
 };
 

@@ -11,11 +11,10 @@ Usable, high performance data visualization is at the core of what Synnax is off
 The implementation of [telemetry streaming](./0012-230501-telemetry-streaming.md)
 demands a significant change to how we approach the data fetching and rendering process.
 The current design is also highly monolithic and tightly coupled. In this RFC I propose
-a new architecture for Synnax's visualization system, that implements a modular
+a new architecture for Synnax's visualization system, implementing a modular
 component based framework that shifts the responsibility of data fetching and rendering
 completely off of the main thread. The goal is to keep the user facing API 'reacty'
-while leveraging all the benefits of shifting the fetching and rendering process out of
-React's control.
+while leveraging all the benefits of shifting the heavy lifting to a worker thread.
 
 # 1 - Vocabulary
 
@@ -42,7 +41,7 @@ us to make incremental improvements to each area without affecting others.
 
 # 3 - Philosophy
 
-# Let React define the visualization structure and lifecycle
+## 3.0 - React Remains in Control
 
 Pluto is a React component library, and maintaining a react-focused API lifts the burden
 of implementing custom logic to decide the structure and lifecycle of visualization
@@ -50,7 +49,7 @@ components. A React-focused API is also more familiar to our users, allowing the
 use high-powered multithreaded visualizations as if they were working with simple
 components.
 
-# Move expensive fetching and rendering operations off of the main thread
+## 3.1 - Offload the Heavy Lifting to a Worker Thread
 
 The bulk of Pluto's memory usage and computation comes from fetching and rendering
 buffers of telemetry. Common operations include counting minimums and maximums,
@@ -62,34 +61,155 @@ these expensive operations to a worker process, we can drastically reduce
 the compute load on the main thread, leading to a much smoother experience for our
 users even when working with large, real-time data sets.
 
-# Maintain a service oriented architecture
+## 3.2 - The Visualization Core Remains Generic
+
+Pluto is a component library, and as such, the core visualization logic should remain
+independent of any Synnax specific interfaces/telemetry systems. This provides us with
+a clear separation of concerns that guarantees that as the Synnax Data API inevitably
+changes, the way we visualize that data remains the same (and vice versa). A consequent
+benefit is that we can easily test the visualization core in isolation, without needing
+to have a database spun up.
 
 # 5 - Detailed Design
 
-## 5.0 - Line Plot Component Structure
+## 5.0 - The Aether Component Framework
 
-The line plot component is designed as a tree of subcomponents that allows the user
-to customize its structure. The idea here is that we let React and the DOM define both
-the structure and the layout of the plot. We then mirror this DOM structure on the
-worker thread, and, when our React components update, we send messages to the worker
-thread to re-render. Ideally the worker thread would not send any messages back to
-the main thread in order to reduce data transfer. The worker thread can also
-independently re-render the plot on receiving updates from arbitrary telemetry sources.
+The central pattern for implementing Pluto's visualization system is the Aether
+component framework. Aether implements a composite component tree on a worker thread
+that mirrors the React tree on the main thread. Using the `Aether.use` hook, a React
+component can create a new component on the worker thread and share state with it. The
+worker component can also modify the shared state, allowing it to communicate back to
+the main thread.
 
-The structure of a simple line plot would resemble the following:
+### 5.0.0 - The Aether Component Tree
+
+On the worker thread, Aether maintains a composite tree of components whose implementation
+feels similar to a Class-based React component. To fork a new component, we use the
+`render` function, which takes in a registry of component factories. The `render` function
+then receives messages from the main thread to update the component tree, creating and
+destroying components as necessary.
+
+```typescript
+// worker.ts
+
+import { Aether, AetherComponentRegistry } from '@synnaxlabs/pluto';
+import { MyWorkerButton } from './MyWorkerButton';
+import { MyWorkerLinePlot } from './MyWorkerLinePlot';
+
+const REGISTRY: AetherComponentRegistry = {
+    [MyWorkerButton.TYPE]: (initialState) => new MyWorkerButton(initialState),
+    [MyWorkerLinePlot.TYPE]: (initialState) => new MyWorkerLinePlot(initialState),
+};
+
+Aether.render(REGISTRY)
+```
+
+There are two types of component that can be created in the Aether component tree:
+`Composite` and `Leaf`. A `Composite` component can have children, while a `Leaf`
+component cannot. To create a `Composite` component, we extend the `AetherComposite`
+class, and, likewise, to create a `Leaf` component, we extend the `AetherLeaf` class:
+
+```typescript
+// MyWorkerButton.ts
+
+import { AetherLeaf } from '@synnaxlabs/pluto';
+
+export class MyWorkerButton extends AetherLeaf {
+    static TYPE = 'MyWorkerButton';
+
+    constructor(initialState) {
+        super(initialState);
+    }
+
+    handleUpdate() {
+        console.log("I'm doing something with state", this.state)
+    }
+}
+```
+
+It's important to note that the subclass we implement for an `AetherComposite` does
+__not__ have control over the lifecycle of its children (can't create, delete, or set
+the state). This is intentional, as the aether component tree is driven by React on
+the main thread. The worker component tree does, however, have access to its children,
+and can execute methods on them.
+
+**Aether does not implement any rendering patterns**. All aether does is maintain a tree
+of stateful components and allow the user to respond to state changes. In some cases,
+a component may want to render something to the screen, but, in other cases, the
+component may only be used for computation or data fetching.
+
+### 5.0.1 - The Need for Context
+
+Pluto makes extensive use of React's context API to provide components with access
+to important tooling. The most notable example here is the visualization canvas, which
+provides a WebGL rendering context to all components that need it.
+
+## 5.0 - Visualization Component Structure
+
+The most challenging roadblock with the previous visualization architecture was the
+large, tightly coupled, and very complex functions and classes that handled the assembly
+and drawing process. The separation of concerns was remarkably unclear, and refactoring
+and adding features was remarkably challenging.
+
+The new architecture separates these concerns by leveraging composition using React's
+context API. The gist is to present a category of visualization as a container component
+(i.e. `LinePlot`, `Valve`, or `Table`) and then allow the user to customize its layout
+using children.
+
+### 5.0.0 - The Line Plot Component
+
+To demonstrate the flexibility of this approach, we'll use the line plot component
+as an example. The code for a plot a single line is as follows:
 
 ```typescript jsx
 <LinePlot>
-    <LinePlot.Title>My Line Plot</LinePlot.Title>
-    <LinePlot.XAxis name="x1" label="Time" location="bottom">
-        <LinePlot.YAxis name="y1" label="Value" location="left">
-            <LinePlot.Line name="line1" telem={someTelemSource}/>
-        </LinePlot.Line>
+    <LinePlot.XAxis label="Time" variant="time" location="bottom">
+        <LinePlot.YAxis label="Pressure" variant="pressure" location="left">
+            <LinePlot.Line telem={pressureTelemetry}/>
+        </LinePlot.YAxis>
     </LinePlot.XAxis>
 </LinePlot>
 ```
 
-## 5.1 - Defining the Worker Component Tree - Composite
+The structure here is self-explanatory. Just by looking, we know we have a single line
+whose data comes from the source `pressureTelemetry` and is scaled to the Y and X axes
+that are its parents. Adding another line is simple:
+
+```typescript jsx
+<LinePlot>
+    <LinePlot.XAxis label="Time" variant="time" location="bottom">
+        <LinePlot.YAxis label="Pressure" variant="pressure" location="left">
+            <LinePlot.Line telem={pressureTelemetry}/>
+        </LinePlot.YAxis>
+        <LinePlot.YAxis label="Temperature" variant="temperature" location="right">
+            <LinePlot.Line telem={temperatureTelemetry}/>
+        </LinePlot.YAxis>
+    </LinePlot.XAxis>
+</LinePlot>
+```
+
+Now we've added another Y axis to hold our line for temperature data. Both of these
+lines share the same X axis. We can also introduce a title to the plot as follows:
+
+```typescript jsx
+<LinePlot>
+    <LinePlot.Title>My Line Plot</LinePlot.Title>
+    <LinePlot.XAxis label="Time" variant="time" location="bottom">
+        <LinePlot.YAxis label="Pressure" variant="pressure" location="left">
+            <LinePlot.Line telem={pressureTelemetry}/>
+        </LinePlot.YAxis>
+        <LinePlot.YAxis label="Temperature" variant="temperature" location="right">
+            <LinePlot.Line telem={temperatureTelemetry}/>
+        </LinePlot.YAxis>
+    </LinePlot.XAxis>
+</LinePlot>
+```
+
+It's easy to imagine how this pattern can be extended to add annotations, tooltips,
+additional axes, and more. This approach is extremely intuitive from a user perspective,
+but it also gives us a clear method for separating concerns within the implementation.
+
+## 5.1 - Integrating Telemetry Sources
 
 ## Defining Data Sources
 

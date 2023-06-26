@@ -43,7 +43,9 @@ export class AetherValue extends AetherLeaf<typeof valueState> {
     this.telem = TelemContext.use(update.ctx, this.state.telem.key);
     this.renderCtx = RenderContext.use(update.ctx);
     this._requestRender = RenderController.useOptionalRequest(update.ctx);
-    this.telem.onChange(async () => await this.render());
+    this.telem.onChange(() => {
+      void this.render();
+    });
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -51,7 +53,9 @@ export class AetherValue extends AetherLeaf<typeof valueState> {
     this.renderCtx = RenderContext.use(ctx);
     this._requestRender = RenderController.useOptionalRequest(ctx);
     this.requestRender();
-    this.telem.onChange(() => void this.render());
+    this.telem.onChange(() => {
+      void this.render();
+    });
   }
 
   handleDelete(): void {
@@ -63,10 +67,10 @@ export class AetherValue extends AetherLeaf<typeof valueState> {
     else void this.render();
   }
 
-  async render(props: ValueProps = { position: XY.ZERO }): Promise<void> {
+  async render(props: ValueProps = {}): Promise<void> {
     const box = new Box(this.state.box);
     if (box.isZero) return;
-    const { upper2d: canvas } = this.renderCtx;
+    const { lower2d: canvas } = this.renderCtx;
     const value = `${(await this.telem.value()).toFixed(2)} ${this.state.units}`;
     const statePos = this.state.position ?? XY.ZERO;
     canvas.font = this.state.font;
@@ -75,7 +79,10 @@ export class AetherValue extends AetherLeaf<typeof valueState> {
 
     canvas.fillStyle = new Color("#fc3d03").setAlpha(1).hex;
     canvas.beginPath();
-    const startPos = statePos.translate(props.position).translateY(28);
+    let startPos = statePos;
+    if (props.position != null)
+      startPos = statePos.translate(props.position).translateY(28);
+    else startPos = statePos.translate(box.topLeft);
     canvas.roundRect(...startPos.couple, box.width, box.height, 2);
     canvas.fill();
 

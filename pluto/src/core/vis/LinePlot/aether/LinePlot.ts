@@ -20,6 +20,7 @@ const linePlotState = z.object({
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
+  error: z.string().optional(),
 });
 
 export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
@@ -63,18 +64,22 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   }
 
   private async render(): Promise<void> {
-    this.erase();
-    const removeScissor = this.renderCtx.scissorGL(this.plottingRegion);
-    await Promise.all(
-      this.children.map(
-        async (xAxis) =>
-          await xAxis.render({
-            plottingRegion: this.plottingRegion,
-            viewport: this.viewport,
-          })
-      )
-    );
-    removeScissor();
+    try {
+      this.erase();
+      const removeScissor = this.renderCtx.scissorGL(this.plottingRegion);
+      await Promise.all(
+        this.children.map(
+          async (xAxis) =>
+            await xAxis.render({
+              plottingRegion: this.plottingRegion,
+              viewport: this.viewport,
+            })
+        )
+      );
+      removeScissor();
+    } catch (e) {
+      this.setState((p) => ({ ...p, error: (e as Error).message }));
+    }
   }
 
   requestRender(): void {

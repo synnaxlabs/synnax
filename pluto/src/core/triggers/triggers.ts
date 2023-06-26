@@ -11,7 +11,7 @@ import { Compare, CompareF, XY } from "@synnaxlabs/x";
 
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
 
-export type MouseKey = typeof MOUSE_KEYS[number];
+export type MouseKey = (typeof MOUSE_KEYS)[number];
 
 export const KEYS = [
   ...MOUSE_KEYS,
@@ -129,7 +129,7 @@ export const KEYS = [
   "Eject",
 ] as const;
 
-export type Key = typeof KEYS[number];
+export type Key = (typeof KEYS)[number];
 
 export type Trigger = Key[];
 
@@ -145,10 +145,14 @@ export interface TriggerEvent {
 export type TriggerCallback = (e: TriggerEvent) => void;
 
 export const parseEventKey = (e: KeyboardEvent | MouseEvent): Key =>
-  e instanceof KeyboardEvent ? keyboardToKey(e.key) : mouseButtonToKey(e.button);
+  e instanceof KeyboardEvent ? keyboardToKey(e) : mouseButtonToKey(e.button);
 
-export const keyboardToKey = (key: string): Key =>
-  (key[0].toUpperCase() + key.slice(1)) as Key;
+export const keyboardToKey = (e: KeyboardEvent): Key => {
+  if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
+    return e.code.slice(-1) as Key;
+  if (e.code.includes("Shift")) return "Shift";
+  return e.code as Key;
+};
 
 export const mouseButtonToKey = (button: number): Key => {
   if (button === 1) return "MouseMiddle";

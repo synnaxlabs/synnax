@@ -13,7 +13,7 @@ import { Meta, StoryFn } from "@storybook/react";
 
 import { Canvas } from "../Canvas/Canvas";
 
-import { Valve } from "./main";
+import { Valve } from "./Valve";
 
 import { StaticTelem } from "@/telem/static/main";
 

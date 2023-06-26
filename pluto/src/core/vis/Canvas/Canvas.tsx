@@ -15,7 +15,7 @@ import {
   useRef,
 } from "react";
 
-import { Box, Deep } from "@synnaxlabs/x";
+import { Box } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
@@ -52,13 +52,14 @@ const ZERO_CANVASES: Canvases = {
 export const Canvas = ({
   children,
   resizeDebounce: debounce = 100,
+  className,
   ...props
 }: VisCanvasProps): ReactElement => {
-  const [{ path }, , setState] = Aether.use(
-    AetherCanvas.TYPE,
-    AetherCanvas.stateZ,
-    ZERO_PROPS
-  );
+  const [{ path }, , setState] = Aether.useStateful({
+    type: AetherCanvas.TYPE,
+    schema: AetherCanvas.stateZ,
+    initialState: ZERO_PROPS,
+  });
 
   const canvases = useRef<Canvases>({ ...ZERO_CANVASES });
 
@@ -102,9 +103,21 @@ export const Canvas = ({
 
   return (
     <>
-      <canvas ref={refCallback} className={CSS.BM("canvas", "lower2d")} {...props} />
-      <canvas ref={refCallback} className={CSS.BM("canvas", "gl")} {...props} />
-      <canvas ref={refCallback} className={CSS.BM("canvas", "upper2d")} {...props} />
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.BM("canvas", "lower2d"), className)}
+        {...props}
+      />
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.BM("canvas", "gl"), className)}
+        {...props}
+      />
+      <canvas
+        ref={refCallback}
+        className={CSS(CSS.BM("canvas", "upper2d"), className)}
+        {...props}
+      />
       <Aether.Composite path={path}>
         {canvases.current.bootstrapped && children}
       </Aether.Composite>
