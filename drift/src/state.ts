@@ -381,6 +381,6 @@ const maybePositionInCenter = (
     pld.position = positionInCenter(
       new Box(XY.ZERO, pld.size ?? XY.ZERO),
       new Box(mainWin.position, mainWin.size)
-    ).topLeft;
+    ).topLeft.crude;
   return pld;
 };

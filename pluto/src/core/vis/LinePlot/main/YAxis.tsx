@@ -41,11 +41,11 @@ export const YAxis = memo(
       [theme, props]
     );
 
-    const [{ key, path }, , setState] = Aether.use(
-      AetherLinePlot.YAxis.TYPE,
-      AetherLinePlot.YAxis.stateZ,
-      memoProps
-    );
+    const [{ key, path }, , setState] = Aether.useStateful({
+      type: AetherLinePlot.YAxis.TYPE,
+      schema: AetherLinePlot.YAxis.stateZ,
+      initialState: memoProps,
+    });
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,

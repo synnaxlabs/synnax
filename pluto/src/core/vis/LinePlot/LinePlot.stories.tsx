@@ -51,8 +51,6 @@ const Example = (): ReactElement => {
         <LinePlot.XAxis type="linear" label="Time" location="bottom" showGrid>
           <LinePlot.YAxis type="linear" label="Value" location="left" showGrid>
             <Line telem={telem2} color="#F733FF" strokeWidth={2} />
-            {/* <Line telem={telem2} color="#fcba03" strokeWidth={2} />
-            <Line telem={telem3} color="#3ad6cc" strokeWidth={2} /> */}
           </LinePlot.YAxis>
         </LinePlot.XAxis>
       </LinePlot>

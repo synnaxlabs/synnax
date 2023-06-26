@@ -336,6 +336,8 @@ export class Series {
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
     if (this.gl.buffer == null) return;
     gl.deleteBuffer(this.gl.buffer);
+    this.gl.buffer = null;
+    this.gl.prevBuffer = 0;
   }
 
   get glBuffer(): WebGLBuffer {

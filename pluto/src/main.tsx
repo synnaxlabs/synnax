@@ -21,28 +21,29 @@ export interface PlutoProps
   workerURL?: URL;
 }
 
-const WORKER_URL = new URL("./worker.ts", import.meta.url);
-
 export const Pluto = ({
   children,
   connParams,
   workerEnabled = true,
-  workerURL = WORKER_URL,
+  workerURL,
   theme,
   toggleTheme,
   setTheme,
-}: PlutoProps): ReactElement => (
-  <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
-    <Triggers.Provider>
-      <Haul.Provider>
-        <Worker.Provider url={workerURL} enabled={workerEnabled}>
-          <Aether.Provider workerKey="vis">
-            <Client.Provider connParams={connParams}>
-              <TelemProvider>{children}</TelemProvider>
-            </Client.Provider>
-          </Aether.Provider>
-        </Worker.Provider>
-      </Haul.Provider>
-    </Triggers.Provider>
-  </Theming.Provider>
-);
+}: PlutoProps): ReactElement => {
+  workerURL = workerURL ?? new URL("./worker.ts", import.meta.url);
+  return (
+    <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
+      <Triggers.Provider>
+        <Haul.Provider>
+          <Worker.Provider url={workerURL} enabled={workerEnabled}>
+            <Aether.Provider workerKey="vis">
+              <Client.Provider connParams={connParams}>
+                <TelemProvider>{children}</TelemProvider>
+              </Client.Provider>
+            </Aether.Provider>
+          </Worker.Provider>
+        </Haul.Provider>
+      </Triggers.Provider>
+    </Theming.Provider>
+  );
+};

@@ -157,7 +157,7 @@ const synnaxBase: ThemeSpec = {
     },
     h5: {
       size: 2.25,
-      weight: 900,
+      weight: "medium",
       lineHeight: 2.5,
       textTransform: "uppercase",
     },

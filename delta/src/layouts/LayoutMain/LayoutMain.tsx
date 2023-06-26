@@ -22,6 +22,8 @@ import {
 } from "@/layouts/LayoutMain/Nav";
 import { VisCanvas } from "@/vis";
 
+import "@/layouts/LayoutMain/LayoutMain.css";
+
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this
  * component as simple, presentational, and navigatable as possible.

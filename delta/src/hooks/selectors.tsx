@@ -26,7 +26,7 @@ import { useSelector } from "react-redux";
 export const useMemoSelect = <S extends object, R>(
   selector: (state: S) => R,
   deps: unknown[]
-): R => useSelector(useCallback(memoize(selector), deps));
+): R => useSelector(useCallback(memoize<S, R>(selector), deps));
 
 export const selectByKeys = <K extends Key, S extends KeyedRecord<K, S>>(
   state: S[] | Record<K, S>,

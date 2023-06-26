@@ -153,7 +153,7 @@ const theme = create({
   appBorderRadius: t.sizes.border.radius as number,
   fontBase: t.typography.family,
   brandImage:
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/docs/media/logo/title-white.png",
+    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/x/media/static/logo/title-white.png",
   brandUrl: "https://docs.synnaxlabs.com",
 });
 

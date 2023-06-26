@@ -19,15 +19,14 @@ import {
 
 import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
+import { useStateRef } from "@/core/hooks/useStateRef";
 import {
   MouseKey,
   MOUSE_KEYS,
   parseEventKey,
   Trigger,
   TriggerCallback,
-} from "./triggers";
-
-import { useStateRef } from "@/core/hooks/useStateRef";
+} from "@/core/triggers/triggers";
 
 type TriggerListen = (callback: TriggerCallback) => Destructor;
 

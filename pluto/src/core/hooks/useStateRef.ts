@@ -9,13 +9,18 @@
 
 import { MutableRefObject, useCallback, useRef } from "react";
 
-import { Primitive } from "@synnaxlabs/x";
+import { Primitive, UnknownRecord } from "@synnaxlabs/x";
+
+type State = Primitive | UnknownRecord;
+export type StateSetter<S> = (prev: S) => S;
+
+export const isStateSetter = <S extends State>(
+  arg: PsuedoSetStateArg<S>
+): arg is StateSetter<S> => typeof arg === "function";
 
 /** A function that mimics the behavior of a setState function from a usetState hook. */
-export type PsuedoSetStateArg<S extends Primitive | object> = S | ((prev: S) => S);
-export type PseudoSetState<S extends Primitive | object> = (
-  value: PsuedoSetStateArg<S>
-) => void;
+export type PsuedoSetStateArg<S extends State> = S | StateSetter<S>;
+export type PseudoSetState<S extends State> = (value: PsuedoSetStateArg<S>) => void;
 export type PseudoInitialState<S extends Primitive | object> = S | (() => S);
 
 /**
@@ -30,8 +35,7 @@ export const useStateRef = <T extends Primitive | object>(
 ): [MutableRefObject<T>, PseudoSetState<T>] => {
   const ref = useRef<T>(initialValue);
   const setValue: PseudoSetState<T> = useCallback((value) => {
-    if (typeof value === "function") ref.current = value(ref.current);
-    else ref.current = value;
+    ref.current = isStateSetter(value) ? value(ref.current) : value;
   }, []);
   return [ref, setValue];
 };

@@ -35,18 +35,18 @@ export const XAxis = memo(
     ...props
   }: XAxisProps): ReactElement => {
     const theme = Theming.use();
-    const [{ key, path }, , setState] = Aether.use(
-      AetherLinePlot.XAxis.TYPE,
-      AetherLinePlot.XAxis.stateZ,
-      {
+    const [{ key, path }, , setState] = Aether.useStateful({
+      type: AetherLinePlot.XAxis.TYPE,
+      schema: AetherLinePlot.XAxis.stateZ,
+      initialState: {
         color: theme.colors.gray.p2,
         gridColor: theme.colors.gray.m1,
         position: XY.ZERO,
         font: Theming.font(theme, "small"),
         location,
         ...props,
-      }
-    );
+      },
+    });
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,

@@ -43,12 +43,16 @@ export const Value = memo(
     ...props
   }: ValueProps): ReactElement => {
     const theme = Theming.use();
-    const [, , setState] = Aether.use(AetherValue.TYPE, AetherValue.stateZ, {
-      font: Theming.font(theme, "p"),
-      color: color ?? theme.colors.text,
-      box: Box.ZERO,
-      position,
-      ...props,
+    const [, , setState] = Aether.useStateful({
+      type: AetherValue.TYPE,
+      schema: AetherValue.stateZ,
+      initialState: {
+        font: Theming.font(theme, "p"),
+        color: color ?? theme.colors.text,
+        box: Box.ZERO,
+        position,
+        ...props,
+      },
     });
 
     useLayoutEffect(() => {

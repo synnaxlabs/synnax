@@ -7,14 +7,73 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, ChannelKey, ChannelKeys, Streamer, Synnax } from "@synnaxlabs/client";
+import {
+  Channel,
+  ChannelKey,
+  ChannelKeys,
+  QueryError,
+  Streamer,
+  Synnax,
+} from "@synnaxlabs/client";
 import { Series, TimeRange } from "@synnaxlabs/x";
 
 import { ChannelCache } from "@/telem/client/cache";
 
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
 
-export class Client {
+export interface Client {
+  readonly core: Synnax;
+  read: (
+    tr: TimeRange,
+    channels: ChannelKeys
+  ) => Promise<Record<ChannelKey, ReadResponse>>;
+  setStreamHandler: (handler: StreamHandler, keys: ChannelKeys) => void;
+  removeStreamHandler: (handler: StreamHandler) => void;
+  close: () => void;
+}
+
+export class ClientProxy implements Client {
+  private _client: Client | null;
+
+  constructor() {
+    this._client = null;
+  }
+
+  swap(client: Client): void {
+    this._client?.close();
+    this._client = client;
+  }
+
+  get core(): Synnax {
+    return this.client.core;
+  }
+
+  private get client(): Client {
+    if (this._client == null) throw new QueryError("Client is not initialized");
+    return this._client;
+  }
+
+  async read(
+    tr: TimeRange,
+    channels: ChannelKeys
+  ): Promise<Record<ChannelKey, ReadResponse>> {
+    return await this.client.read(tr, channels);
+  }
+
+  setStreamHandler(handler: StreamHandler, keys: ChannelKeys): void {
+    this.client.setStreamHandler(handler, keys);
+  }
+
+  removeStreamHandler(handler: StreamHandler): void {
+    this.client.removeStreamHandler(handler);
+  }
+
+  close(): void {
+    this.client.close();
+  }
+}
+
+export class BaseClient implements Client {
   core: Synnax;
   private _streamer: Streamer | null;
   private readonly cache: Map<ChannelKey, ChannelCache>;
@@ -83,7 +142,7 @@ export class Client {
     return responses;
   }
 
-  setStreamhandler(handler: StreamHandler, keys: ChannelKeys): void {
+  setStreamHandler(handler: StreamHandler, keys: ChannelKeys): void {
     this.listeners.set(handler, keys);
     void this.updateStreamer();
   }

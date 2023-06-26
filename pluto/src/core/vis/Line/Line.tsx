@@ -18,7 +18,11 @@ import { LineGL } from "@/core/vis/Line/LineGL";
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
 export const Line = memo((props: LineProps): ReactElement | null => {
-  const [, , setState] = Aether.use(LineGL.TYPE, lineState, props);
+  const { setState } = Aether.use({
+    type: LineGL.TYPE,
+    schema: lineState,
+    initialState: props,
+  });
   useEffect(() => setState(props), [props]);
   return null;
 });

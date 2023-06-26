@@ -77,8 +77,8 @@ class RangeXYTelemCore {
   }
 
   release(gl?: GLBufferController): void {
-    this._x?.forEach((x) => x.release(gl));
-    this._y?.forEach((y) => y.release(gl));
+    // this._x?.forEach((x) => x.release(gl));
+    // this._y?.forEach((y) => y.release(gl));
   }
 
   async x(gl?: GLBufferController): Promise<Series[]> {
@@ -256,7 +256,7 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     };
     const toStream = [y.key];
     if (x != null) toStream.push(x.key);
-    this.client.setStreamhandler(this.streamHandler, toStream);
+    this.client.setStreamHandler(this.streamHandler, toStream);
   }
 
   setProps(props: any): void {
@@ -335,7 +335,7 @@ export class RangePointTelem implements PointTelemSource, ModifiableTelemSourceM
       }
       this.handler?.();
     };
-    this.client.setStreamhandler(this.streamHandler, [channel]);
+    this.client.setStreamHandler(this.streamHandler, [channel]);
   }
 
   onChange(f: () => void): void {

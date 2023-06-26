@@ -42,18 +42,27 @@ const CoreText = <L extends TypographyLevel = "h1">(
     ...props
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
-): ReactElement => (
-  // @ts-expect-error
-  <Generic<L>
-    el={level}
-    ref={ref}
-    style={{ color: color != null ? new Color(color).hex : undefined, ...style }}
-    className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
-    {...props}
-  >
-    {children}
-  </Generic>
-);
+): ReactElement => {
+  const res = Color.z.safeParse(color);
+  if (res.success) color = res.data;
+  return (
+    // @ts-expect-error
+    <Generic<L>
+      el={level}
+      ref={ref}
+      style={{ color, ...style }}
+      className={CSS(
+        CSS.B("text"),
+        CSS.BM("text", level),
+        CSS.noWrap(noWrap),
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </Generic>
+  );
+};
 
 export const Text = forwardRef(CoreText) as <L extends TypographyLevel = "h1">(
   props: TextProps<L> & { ref?: ForwardedRef<JSX.IntrinsicElements[L]> }

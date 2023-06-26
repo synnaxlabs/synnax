@@ -22,9 +22,13 @@ export interface ValveProps extends Omit<ComponentPropsWithoutRef<"button">, "co
 }
 
 export const Valve = ({ color, style = {}, ...props }: ValveProps): ReactElement => {
-  const [, { triggered, active }, setState] = Aether.use(WorkerValve.TYPE, valveState, {
-    triggered: false,
-    active: false,
+  const [, { triggered, active }, setState] = Aether.useStateful({
+    type: WorkerValve.TYPE,
+    schema: valveState,
+    initialState: {
+      triggered: false,
+      active: false,
+    },
   });
 
   const onClick = (): void =>

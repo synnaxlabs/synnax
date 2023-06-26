@@ -10,6 +10,7 @@
  */
 
 .pluto-space--centered {
+    position: absolute;
     height: 100%;
     width: 100%;
 }

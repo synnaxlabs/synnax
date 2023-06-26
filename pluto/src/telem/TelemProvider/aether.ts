@@ -13,7 +13,7 @@ import { z } from "zod";
 import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
 import { TelemContext, TelemProvider } from "@/core/vis/telem/TelemContext";
 import { TelemSourceMeta } from "@/core/vis/telem/TelemSource";
-import { Client } from "@/telem/client";
+import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 import { RangeTelemFactory } from "@/telem/range/aether";
@@ -59,16 +59,20 @@ class TelemProviderImpl implements TelemProvider {
 
 export class Telem extends AetherComposite<typeof telemState> {
   factory: CompoundTelemFactory;
-  client: Client | null = null;
+  client: ClientProxy;
   prov: TelemProviderImpl;
 
   static readonly TYPE = "telem";
 
   constructor(update: Update) {
     super(update, telemState);
-    this.factory = new CompoundTelemFactory([new StaticTelemFactory()]);
     this.prov = new TelemProviderImpl();
     TelemContext.set(update.ctx, this.prov);
+    this.client = new ClientProxy();
+    this.factory = new CompoundTelemFactory([
+      new StaticTelemFactory(),
+      new RangeTelemFactory(this.client),
+    ]);
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -76,9 +80,7 @@ export class Telem extends AetherComposite<typeof telemState> {
     if (msg == null) return;
 
     if (msg.variant === "connect") {
-      if (this.client != null) this.client.close();
-      this.client = new Client(new Synnax(msg.props));
-      this.factory.change(new RangeTelemFactory(this.client));
+      this.client.swap(new BaseClient(new Synnax(msg.props)));
       this.prov.telem.forEach((t) => t.invalidate());
       return TelemContext.set(ctx, this.prov);
     }

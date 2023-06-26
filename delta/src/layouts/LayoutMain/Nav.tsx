@@ -60,8 +60,9 @@ const SearchBox = (): ReactElement => {
         centerPlaceholder: true,
         placeholder: "Search Synnax",
         style: {
-          backgroundColor: "var(--pluto-primary-z-40)",
-          borderColor: "var(--pluto-primary-z-60)",
+          position: "relative",
+          // backgroundColor: "var(--pluto-primary-z-40)",
+          // borderColor: "var(--pluto-primary-z-60)",
         },
       }}
     />

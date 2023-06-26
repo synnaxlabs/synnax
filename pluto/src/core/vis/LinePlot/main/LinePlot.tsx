@@ -28,6 +28,7 @@ import { z } from "zod";
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
+import { Status } from "@/core/std";
 import { X_AXIS_SIZE, Y_AXIS_SIZE } from "@/core/vis/Axis/core";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
@@ -85,19 +86,24 @@ export const LinePlot = memo(
     ...props
   }: LinePlotProps): ReactElement => {
     const [axes, setAxes] = useState<AxisState>([]);
-    const [{ path }, , setState] = Aether.use(
-      AetherLinePlot.TYPE,
-      AetherLinePlot.stateZ,
-      {
+    const [{ path }, { error }, setState] = Aether.useStateful({
+      type: AetherLinePlot.TYPE,
+      schema: AetherLinePlot.stateZ,
+      initialState: {
         plot: Box.ZERO,
         container: Box.ZERO,
         viewport: Box.DECIMAL,
         ...props,
-      }
-    );
+      },
+    });
 
     const onViewportChange = useCallback<UseViewportHandler>(
-      ({ box }) => setState((prev) => ({ ...prev, viewport: box })),
+      ({ mode, box }) =>
+        setState((prev) => {
+          if (["pan", "zoom", "zoomReset"].includes(mode as string))
+            return { ...prev, viewport: box };
+          return prev;
+        }),
       []
     );
 
@@ -154,6 +160,11 @@ export const LinePlot = memo(
         ref={containerRef}
         {...props}
       >
+        {error != null && (
+          <Status.Text.Centered variant="error" style={{ position: "absolute" }}>
+            {error}
+          </Status.Text.Centered>
+        )}
         <LinePlotContext.Provider value={{ setAxis, deleteAxis }}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </LinePlotContext.Provider>
