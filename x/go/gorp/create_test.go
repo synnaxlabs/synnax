@@ -26,6 +26,15 @@ func (m entry) GorpKey() int { return m.ID }
 
 func (m entry) SetOptions() []interface{} { return nil }
 
+type entryTwo struct {
+	ID   int
+	Data string
+}
+
+func (m entryTwo) GorpKey() int { return m.ID }
+
+func (m entryTwo) SetOptions() []interface{} { return nil }
+
 var _ = Describe("Create", Ordered, func() {
 	var (
 		db   *gorp.DB

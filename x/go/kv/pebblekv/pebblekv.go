@@ -126,7 +126,7 @@ func (txn tx) Commit(ctx context.Context, opts ...interface{}) error {
 }
 
 // NewReader implements kv.Writer.
-func (txn tx) NewReader() kv.TxReader { return txReader{BatchReader: txn.Batch.Reader()} }
+func (txn tx) NewReader() kv.TxReader { return &txReader{BatchReader: txn.Batch.Reader()} }
 
 var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
 	pebble.InternalKeyKindSet:    change.Set,
@@ -150,10 +150,10 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 type txReader struct{ pebble.BatchReader }
 
-var _ kv.TxReader = txReader{}
+var _ kv.TxReader = (*txReader)(nil)
 
 // Next implements kv.TxReader.
-func (r txReader) Next(_ context.Context) (kv.Change, bool, error) {
+func (r *txReader) Next(_ context.Context) (kv.Change, bool, error) {
 	kind, k, v, ok := r.BatchReader.Next()
 	variant, ok := kindsToVariant[kind]
 	if !ok {

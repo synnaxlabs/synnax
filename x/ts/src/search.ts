@@ -30,3 +30,7 @@ export const Search = {
 export interface TermSearcher<T, E extends UnknownRecord<E>> {
   search: (term: T) => E[];
 }
+
+export interface AsyncTermSearcher<T, E extends UnknownRecord<E>> {
+  search: (term: T) => Promise<E[]>;
+}
