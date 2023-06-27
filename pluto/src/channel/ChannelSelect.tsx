@@ -13,7 +13,7 @@ import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 
 import { Client } from "..";
 
-import { ListColumn, Select, SelectMultipleSearchProps, Status } from "@/core";
+import { ListColumn, Select, SelectMultipleProps, SelectProps, Status } from "@/core";
 
 const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
@@ -44,7 +44,7 @@ const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
 
 export interface ChannelSelectMultipleProps
   extends Omit<
-    SelectMultipleSearchProps<ChannelKey, ChannelPayload>,
+    SelectMultipleProps<ChannelKey, ChannelPayload>,
     "columns" | "searcher"
   > {
   columns?: string[];
@@ -68,7 +68,40 @@ export const ChannelSelectMultiple = ({
     );
 
   return (
-    <Select.SearchMultiple
+    <Select.Multiple
+      searcher={client?.channels}
+      columns={columns}
+      emptyContent={emptyContent}
+      tagKey={"name"}
+      {...props}
+    />
+  );
+};
+
+export interface ChannelSelectProps
+  extends Omit<SelectProps<ChannelKey, ChannelPayload>, "columns"> {
+  columns?: string[];
+}
+
+export const ChannelSelect = ({
+  columns: filter = [],
+  ...props
+}: ChannelSelectProps): ReactElement => {
+  const client = Client.use();
+  const columns = useMemo(() => {
+    if (filter.length === 0) return channelColumns;
+    return channelColumns.filter((column) => filter.includes(column.key));
+  }, [filter]);
+
+  const emptyContent =
+    client != null ? undefined : (
+      <Status.Text.Centered variant="error" level="h4">
+        No client available
+      </Status.Text.Centered>
+    );
+
+  return (
+    <Select
       searcher={client?.channels}
       columns={columns}
       emptyContent={emptyContent}

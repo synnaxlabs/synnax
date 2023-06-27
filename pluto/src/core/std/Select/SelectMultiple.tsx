@@ -17,12 +17,8 @@ import {
   AsyncTermSearcher,
 } from "@synnaxlabs/x";
 
-import { Status } from "../Status";
-import { StatusTextDigest } from "../Status/StatusText";
-
 import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
-import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
 import { Button } from "@/core/std/Button";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/std/Input";
@@ -42,19 +38,28 @@ export interface SelectMultipleProps<
     InputControl<readonly K[]>,
     Omit<ListProps<K, E>, "children"> {
   columns?: Array<ListColumn<K, E>>;
+  searcher?: AsyncTermSearcher<string, E>;
   tagKey?: keyof E;
 }
 
-interface UseSelectedCacheReturn<K extends Key, E extends KeyedRenderableRecord<K, E>> {
-  selected: readonly E[];
-  handleChange: (v: readonly K[]) => void;
-}
+export const SelectMultiple = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>({
+  onChange,
+  value,
+  location,
+  data = [],
+  columns = [],
+  tagKey = "key",
+  emptyContent,
+  searcher,
+  ...props
+}: SelectMultipleProps<K, E>): ReactElement => {
+  const { ref, visible, open } = Dropdown.use();
+  const [stateData, setStateData] = useState<E[]>(data);
+  data = searcher != null ? stateData : data;
 
-const useSelectedCache = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
-  value: readonly K[] | undefined,
-  data: readonly E[],
-  onChange: (v: readonly K[]) => void
-): UseSelectedCacheReturn<K, E> => {
   const [selected, setSelected] = useState<readonly E[]>(() => {
     if (value == null) return [];
     return data.filter((e) => value.includes(e.key));
@@ -73,39 +78,29 @@ const useSelectedCache = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
     [data, onChange]
   );
 
-  return { selected, handleChange };
-};
+  const input = ({ onChange }: InputControl<string>): ReactElement => (
+    <SelectMultipleInput<K, E>
+      onChange={onChange}
+      selected={selected}
+      onFocus={open}
+      tagKey={tagKey}
+      visible={visible}
+    />
+  );
 
-export const SelectMultiple = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
->({
-  onChange,
-  value,
-  location,
-  data = [],
-  columns = [],
-  tagKey = "key",
-  emptyContent,
-  ...props
-}: SelectMultipleProps<K, E>): ReactElement => {
-  const { ref, visible, open } = Dropdown.use();
-  const { selected, handleChange } = useSelectedCache(value, data, onChange);
+  const filterOrSearch =
+    searcher != null ? (
+      <List.Search searcher={searcher} onChange={setStateData}>
+        {input}
+      </List.Search>
+    ) : (
+      <List.Filter>{input}</List.Filter>
+    );
 
   return (
     <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} location={location} {...props}>
-        <List.Filter>
-          {({ onChange }) => (
-            <SelectMultipleInput<K, E>
-              onChange={onChange}
-              selected={selected}
-              onFocus={open}
-              tagKey={tagKey}
-              visible={visible}
-            />
-          )}
-        </List.Filter>
+        {filterOrSearch}
         <SelectList
           value={value}
           onChange={handleChange}
@@ -194,80 +189,5 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
         <Icon.Close aria-label="clear" />
       </Button.Icon>
     </Pack>
-  );
-};
-
-export interface SelectMultipleSearchProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Omit<SelectMultipleProps<K, E>, "data"> {
-  searcher?: AsyncTermSearcher<string, E>;
-}
-
-export const SelectMultipleSearch = <
-  K extends Key,
-  E extends KeyedRenderableRecord<K, E>
->({
-  searcher,
-  tagKey = "key",
-  value,
-  onChange,
-  emptyContent,
-  columns = [],
-  ...props
-}: SelectMultipleSearchProps<K, E>): ReactElement => {
-  const { ref, visible, open } = Dropdown.use();
-  const [data, setData] = useState<E[]>([]);
-  const [status, setStatus] = useState<StatusTextDigest>({
-    variant: "info",
-    children: "Type to search",
-  });
-
-  const { selected, handleChange } = useSelectedCache(value, data, onChange);
-
-  const handleSearch = useDebouncedCallback(
-    (v: string) => {
-      searcher
-        ?.search(v)
-        .then((data) => {
-          if (data.length === 0) setStatus({ variant: "info", children: "No results" });
-          setData(data);
-        })
-        .catch((e) => {
-          setStatus({
-            variant: "error",
-            children: e.message,
-          });
-          setData([]);
-        });
-    },
-    100,
-    [searcher]
-  );
-
-  emptyContent = emptyContent ?? (
-    <Status.Text.Centered level="h4" style={{ height: 150 }} hideIcon {...status} />
-  );
-
-  console.log(selected);
-
-  return (
-    <List data={data} emptyContent={emptyContent}>
-      <Dropdown ref={ref} visible={visible} location={props.location} {...props}>
-        <SelectMultipleInput<K, E>
-          onChange={handleSearch}
-          selected={selected}
-          onFocus={open}
-          tagKey={tagKey}
-          visible={visible}
-        />
-        <SelectList
-          value={value}
-          onChange={handleChange}
-          columns={columns}
-          allowMultiple
-        />
-      </Dropdown>
-    </List>
   );
 };

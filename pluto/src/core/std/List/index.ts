@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ListSearch } from "./ListSearch";
+
 import { List as CoreList } from "@/core/std/List/List";
 import { ListColumn } from "@/core/std/List/ListColumn";
 import { useListContext } from "@/core/std/List/ListContext";
@@ -59,6 +61,7 @@ interface ListType extends CoreListType {
    * list component.
    */
   useContext: typeof useListContext;
+  Search: typeof ListSearch;
 }
 
 /**
@@ -80,3 +83,4 @@ List.Filter = ListFilter;
 List.Core = ListCore;
 List.useContext = useListContext;
 List.Selector = ListSelector;
+List.Search = ListSearch;

@@ -26,6 +26,7 @@ export interface ListContextProps<
   };
   data: E[];
   sourceData: E[];
+  setSourceData: (data: E[]) => void;
   select: {
     onSelect?: (key: K) => void;
     clear?: () => void;
@@ -33,6 +34,7 @@ export interface ListContextProps<
     setClear: (cbk: () => void) => void;
   };
   emptyContent?: ReactElement;
+  setEmptyContent: (content: ReactElement) => void;
 }
 
 export const ListContext = createContext<ListContextProps>({
@@ -44,6 +46,7 @@ export const ListContext = createContext<ListContextProps>({
   data: [],
   setTransform: () => undefined,
   deleteTransform: () => undefined,
+  setSourceData: () => undefined,
   select: {
     onSelect: undefined,
     setOnSelect: () => undefined,
@@ -51,6 +54,7 @@ export const ListContext = createContext<ListContextProps>({
     setClear: () => undefined,
   },
   emptyContent: undefined,
+  setEmptyContent: () => undefined,
 });
 
 export const useListContext = <
