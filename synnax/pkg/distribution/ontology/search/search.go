@@ -119,7 +119,7 @@ type Request struct {
 
 func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
-	q := bleve.NewQueryStringQuery(req.Term)
+	q := bleve.NewFuzzyQuery(req.Term)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
 	searchResults, err := s.idx.SearchInContext(ctx, search_)
@@ -130,7 +130,11 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 		searchResults.Hits,
 		func(hit *search.DocumentMatch, _ int) string { return hit.ID },
 	))
-	return ids, span.EndWith(err)
+	if len(req.Type) == 0 {
+		return ids, span.EndWith(err)
+	}
+	return lo.Filter(ids, func(id schema.ID, _ int) bool { return id.Type == req.Type }), span.EndWith(err)
+
 }
 
 var fieldMappings = map[schema.FieldType]func() *mapping.FieldMapping{

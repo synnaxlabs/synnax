@@ -12,35 +12,37 @@ import { ReactElement, useCallback } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { LinePlotChannelControls } from "@/vis/line/controls/LinePlotChannelControls";
+import { PIDElements } from "./PIDElements";
 
-export interface LinePlotToolbarProps {
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+
+export interface PIDToolbar {
   layoutKey: string;
 }
 
 const TABS = [
   {
-    tabKey: "channels",
-    name: "Channels",
+    tabKey: "elements",
+    name: "Elements",
   },
 ];
 
-export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
+export const PIDToolbar = ({ layoutKey }: PIDToolbar): ReactElement => {
   const content = useCallback(
-    ({ tabKey }: Tab): ReactElement => (
-      <LinePlotChannelControls layoutKey={layoutKey} />
-    ),
+    ({ tabKey }: Tab): ReactElement => <PIDElements layoutKey={layoutKey} />,
     [layoutKey]
   );
 
-  const tabProps = Tabs.useStatic({ tabs: TABS, content });
+  const tabsProps = Tabs.useStatic({
+    tabs: TABS,
+    content,
+  });
 
   return (
     <Space empty>
-      <Tabs.Provider value={tabProps}>
+      <Tabs.Provider value={tabsProps}>
         <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Visualize />}>LinePlot</ToolbarTitle>
+          <ToolbarTitle icon={<Icon.Control />}>PID</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />

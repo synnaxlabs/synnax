@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Select as CoreSelect } from "./Select";
-import { SelectMultiple } from "./SelectMultiple";
+import { Select as CoreSelect } from "@/core/std/Select/Select";
+import { SelectMultiple, SelectMultipleSearch } from "@/core/std/Select/SelectMultiple";
 
-export type { SelectMultipleProps } from "./SelectMultiple";
-export type { SelectProps } from "./Select";
+export type {
+  SelectMultipleProps,
+  SelectMultipleSearchProps,
+} from "@/core/std/Select/SelectMultiple";
+export type { SelectProps } from "@/core/std/Select/Select";
 
 type CoreSelectType = typeof CoreSelect;
 
@@ -36,6 +39,7 @@ interface SelectType extends CoreSelectType {
    * @param props.value - The currently selected value.
    */
   Multiple: typeof SelectMultiple;
+  SearchMultiple: typeof SelectMultipleSearch;
 }
 
 /**
@@ -58,3 +62,4 @@ interface SelectType extends CoreSelectType {
 export const Select = CoreSelect as SelectType;
 
 Select.Multiple = SelectMultiple;
+Select.SearchMultiple = SelectMultipleSearch;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useState } from "react";
+import { FC, ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Box, XY } from "@synnaxlabs/x";
 import ReactFlow, {
@@ -32,7 +32,13 @@ import { useResize } from "@/core/hooks";
 import { AetherPID } from "@/core/vis/pid/aether";
 import { Value } from "@/core/vis/Value/Value";
 import { Telem } from "@/telem";
-import { StaticTelem } from "@/telem/static/main";
+
+interface PIDElement {
+  title: string;
+  form: FC;
+  element: FC;
+  preview: FC;
+}
 
 const ValueNode = (props: NodeProps): ReactElement => {
   const telem = Telem.Range.usePoint({ channel: 65538 });
@@ -70,6 +76,7 @@ const n = [
 const PIDInternal = (): ReactElement => {
   const nodeType = useMemo(() => ({ value: ValueNode, valve: ValveNode }), []);
   const edgeType = useMemo(() => ({ default: SmoothStepEdge }), []);
+
   const [{ path }, , setState] = Aether.useStateful({
     type: AetherPID.TYPE,
     schema: AetherPID.stateZ,
@@ -121,8 +128,6 @@ const PIDInternal = (): ReactElement => {
         onEdgesChange={onEdgesChange}
         ref={resizeRef}
         edgeTypes={edgeType}
-        // panOnDrag={false}
-        panOnScroll={false}
         minZoom={1}
         maxZoom={1}
       >

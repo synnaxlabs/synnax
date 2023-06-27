@@ -15,12 +15,12 @@ import {
   createSearchTransform as newSearchTransform,
   UseSearchTransformProps,
 } from "@/core/hooks";
+import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
 import { Input as DefaultInput, InputControl } from "@/core/std/Input";
 import { useListContext } from "@/core/std/List/ListContext";
-import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
 import { RenderProp } from "@/util/renderProp";
 
-export interface ListSearchProps<
+export interface ListFilterProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Omit<UseSearchTransformProps<E>, "term"> {
@@ -28,14 +28,14 @@ export interface ListSearchProps<
   debounce?: number;
 }
 
-export const ListSearch = <
+export const ListFilter = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
   children = (props) => <DefaultInput {...props} />,
   debounce = 250,
   searcher,
-}: ListSearchProps<K, E>): ReactElement | null => {
+}: ListFilterProps<K, E>): ReactElement | null => {
   const [value, setValue] = useState("");
   const { setTransform, deleteTransform } = useListContext<K, E>();
 
@@ -44,8 +44,8 @@ export const ListSearch = <
   const onChange = useCallback(
     (v: any) => {
       setValue(v);
-      if (v.length === 0) deleteTransform("search");
-      else debounced("search", newSearchTransform({ term: v, searcher }));
+      if (v.length === 0) deleteTransform("filter");
+      else debounced("filter", newSearchTransform({ term: v, searcher }));
     },
     [searcher, setValue]
   );

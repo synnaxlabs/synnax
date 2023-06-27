@@ -155,6 +155,9 @@ var _ kv.TxReader = (*txReader)(nil)
 // Next implements kv.TxReader.
 func (r *txReader) Next(_ context.Context) (kv.Change, bool, error) {
 	kind, k, v, ok := r.BatchReader.Next()
+	if !ok {
+		return kv.Change{}, false, nil
+	}
 	variant, ok := kindsToVariant[kind]
 	if !ok {
 		return kv.Change{}, false, nil

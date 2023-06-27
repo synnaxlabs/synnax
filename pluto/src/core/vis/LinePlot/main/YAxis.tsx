@@ -35,7 +35,7 @@ export const YAxis = memo(
         color: theme.colors.gray.p2,
         gridColor: theme.colors.gray.m1,
         location,
-        font: Theming.font(theme, "small"),
+        font: Theming.fontString(theme, "small"),
         ...props,
       }),
       [theme, props]

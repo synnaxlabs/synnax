@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { Rate } from "@synnaxlabs/x";
 
 import { XYTelemSourceMeta } from "@/core/vis/telem";
-import { PointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import { NumericTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
@@ -50,7 +50,7 @@ const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceMeta =>
   };
 };
 
-const usePointTelem = (value: number): PointTelemSourceMeta => {
+const usePointTelem = (value: number): NumericTelemSourceMeta => {
   const key = useTelemSourceControl<StaticPointTelemProps>(
     StaticPointTelem.TYPE,
     value

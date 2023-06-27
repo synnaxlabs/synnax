@@ -11,7 +11,7 @@ import { List as CoreList } from "@/core/std/List/List";
 import { ListColumn } from "@/core/std/List/ListColumn";
 import { useListContext } from "@/core/std/List/ListContext";
 import { ListCore } from "@/core/std/List/ListCore";
-import { ListSearch } from "@/core/std/List/ListSearch";
+import { ListFilter } from "@/core/std/List/ListFilter";
 import { ListSelector } from "@/core/std/List/ListSelector";
 
 export type { ListSelectorProps } from "@/core/std/List/ListSelector";
@@ -39,7 +39,7 @@ interface ListType extends CoreListType {
    * @param opts - Custom options for the search functionality. See the {@link fuse.IFuseOptions}
    * interface for more details.
    */
-  Search: typeof ListSearch;
+  Filter: typeof ListFilter;
   /**
    * Categorizes the core components for a list.
    *
@@ -76,7 +76,7 @@ interface ListType extends CoreListType {
 export const List = CoreList as ListType;
 
 List.Column = ListColumn;
-List.Search = ListSearch;
+List.Filter = ListFilter;
 List.Core = ListCore;
 List.useContext = useListContext;
 List.Selector = ListSelector;

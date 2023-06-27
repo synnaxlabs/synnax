@@ -10,11 +10,12 @@
 import { Text as CoreText } from "@/core/std/Typography/Text";
 import { TextDateTime } from "@/core/std/Typography/TextDateTime";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
-import { TextEditable } from "@/core/std/Typography/TextEditable";
+import { TextMaybeEditable, TextEditable } from "@/core/std/Typography/TextEditable";
 import { TextLink } from "@/core/std/Typography/TextLink";
 import { TextWithIcon } from "@/core/std/Typography/TextWithIcon";
 import {
   ComponentSizeTypographyLevels,
+  typographyLevel,
   TypographyLevelComponentSizes,
   TypographyLevels,
   typographySpec,
@@ -26,12 +27,17 @@ export type { CoreTextProps, TextProps } from "@/core/std/Typography/Text";
 export type { TypographySpec, TypographyLevel } from "@/core/std/Typography/types";
 export type { TextWithIconProps } from "@/core/std/Typography/TextWithIcon";
 export type { TextLinkProps } from "@/core/std/Typography/TextLink";
+export type {
+  TextEditableProps,
+  TextMaybeEditableProps,
+} from "@/core/std/Typography/TextEditable";
 
 type CoreTextType = typeof CoreText;
 
 interface TextType extends CoreTextType {
   WithIcon: typeof TextWithIcon;
   Editable: typeof TextEditable;
+  MaybeEditable: typeof TextMaybeEditable;
   DateTime: typeof TextDateTime;
   Link: typeof TextLink;
   dimensions: typeof textDimensions;
@@ -41,6 +47,7 @@ export const Text = CoreText as TextType;
 
 Text.WithIcon = TextWithIcon;
 Text.Editable = TextEditable;
+Text.MaybeEditable = TextMaybeEditable;
 Text.DateTime = TextDateTime;
 Text.Link = TextLink;
 Text.dimensions = textDimensions;
@@ -51,6 +58,7 @@ export interface TypographyType {
   Levels: typeof TypographyLevels;
   Text: TextType;
   spec: typeof typographySpec;
+  levelZ: typeof typographyLevel;
 }
 
 /** Holds typography related components and constants. */
@@ -65,4 +73,5 @@ export const Typography: TypographyType = {
   Text,
   /**  */
   spec: typographySpec,
+  levelZ: typographyLevel,
 };

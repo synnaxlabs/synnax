@@ -7,94 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, memo, useCallback, useLayoutEffect, useState } from "react";
+import { ComponentPropsWithoutRef, ReactElement, memo, useState } from "react";
 
-import { Box, XY } from "@synnaxlabs/x";
-import { z } from "zod";
+import { Box } from "@synnaxlabs/x";
 
-import { Aether } from "@/core/aether/main";
-import { ColorT } from "@/core/color";
-import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
-import { Pack, PackProps, Typography } from "@/core/std";
 import { Theming } from "@/core/theming";
-import { AetherValue } from "@/core/vis/Value/aether";
-import { ComponentSize } from "@/util/component";
+import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
 
 import "@/core/vis/Value/Value.css";
 
 export interface ValueProps
-  extends Omit<z.input<typeof AetherValue.stateZ>, "font" | "color" | "box">,
-    Omit<PackProps, "color"> {
-  color?: ColorT;
-  size?: ComponentSize;
-  label?: string;
-  selected?: boolean;
-}
+  extends Omit<ValueCoreProps, "box">,
+    Omit<ComponentPropsWithoutRef<"span">, "color"> {}
 
 export const Value = memo(
-  ({
-    label,
-    color,
-    position = XY.ZERO,
-    size = "medium",
-    selected = false,
-    className,
-    ...props
-  }: ValueProps): ReactElement => {
-    const theme = Theming.use();
-    const [, , setState] = Aether.useStateful({
-      type: AetherValue.TYPE,
-      schema: AetherValue.stateZ,
-      initialState: {
-        font: Theming.font(theme, "p"),
-        color: color ?? theme.colors.text,
-        box: Box.ZERO,
-        position,
-        ...props,
-      },
-    });
-
-    useLayoutEffect(() => {
-      setState((prev) => ({ ...prev, position }));
-    }, [position, setState]);
-
-    const handleResize = useCallback(
-      (box: Box) => {
-        setState((prev) => ({ ...prev, box }));
-      },
-      [setState]
-    );
-
-    const resizeRef = useResize(handleResize, {
-      triggers: position != null ? ["resizeX", "resizeY"] : undefined,
-    });
-
-    const [labelState, setLabelState] = useState(label);
-
+  ({ style, color, level = "p", ...props }: ValueProps): ReactElement => {
+    const [box, setBox] = useState(Box.ZERO);
+    const ref = useResize(setBox);
+    const font = Theming.useTypography(level ?? "p");
     return (
-      <Pack
+      <span
+        ref={ref}
+        style={{
+          height: (font.lineHeight + 2) * font.base,
+          ...style,
+        }}
         {...props}
-        size={size}
-        direction="y"
-        className={CSS(className, selected && CSS.BM("value", "selected"))}
       >
-        {label != null && (
-          <Typography.Text.Editable
-            level="p"
-            color={color}
-            style={{ padding: "1rem", textAlign: "center" }}
-            value={labelState}
-            onChange={setLabelState}
-          />
-        )}
-        <div
-          ref={resizeRef}
-          style={{
-            height: (theme.typography.p.lineHeight + 2) * theme.sizes.base,
-          }}
-        ></div>
-      </Pack>
+        <ValueCore box={box} color={color} level={level} {...props} />
+      </span>
     );
   }
 );

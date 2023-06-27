@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useMemo } from "react";
 
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 
-import { ListColumn, SelectMultipleProps } from "@/core";
+import { Client } from "..";
+
+import { ListColumn, Select, SelectMultipleSearchProps, Status } from "@/core";
 
 const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
@@ -27,10 +29,6 @@ const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
     name: "Data Type",
   },
   {
-    key: "rate",
-    name: "Rate",
-  },
-  {
     key: "index",
     name: "Index",
   },
@@ -44,8 +42,38 @@ const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   },
 ];
 
-export interface ChannelSelectMultipleProps extends Omit<SelectMultipleProps<ChannelKey, ChannelPayload>, "columns"> {
-    columns: string[];
+export interface ChannelSelectMultipleProps
+  extends Omit<
+    SelectMultipleSearchProps<ChannelKey, ChannelPayload>,
+    "columns" | "searcher"
+  > {
+  columns?: string[];
 }
 
-export const ChannelsSelectMultiple = (props: ChannelSelectMultipleProps): ReactElement => (
+export const ChannelSelectMultiple = ({
+  columns: filter = [],
+  ...props
+}: ChannelSelectMultipleProps): ReactElement => {
+  const client = Client.use();
+  const columns = useMemo(() => {
+    if (filter.length === 0) return channelColumns;
+    return channelColumns.filter((column) => filter.includes(column.key));
+  }, [filter]);
+
+  const emptyContent =
+    client != null ? undefined : (
+      <Status.Text.Centered variant="error" level="h4">
+        No client available
+      </Status.Text.Centered>
+    );
+
+  return (
+    <Select.SearchMultiple
+      searcher={client?.channels}
+      columns={columns}
+      emptyContent={emptyContent}
+      tagKey={"name"}
+      {...props}
+    />
+  );
+};

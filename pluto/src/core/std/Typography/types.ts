@@ -12,9 +12,10 @@ import { z } from "zod";
 import { ComponentSize } from "@/util/component";
 
 export const TypographyLevels = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
+export const typographyLevel = z.enum(TypographyLevels);
 
 /* Level of typography i.e paragraph and heading */
-export type TypographyLevel = (typeof TypographyLevels)[number];
+export type TypographyLevel = z.infer<typeof typographyLevel>;
 
 export const typographySpec = z.object({
   size: z.number(),

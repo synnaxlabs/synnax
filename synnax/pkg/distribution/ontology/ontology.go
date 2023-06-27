@@ -137,7 +137,7 @@ type Writer interface {
 }
 
 func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, error) {
-	ids, err := o.search.Index.Search(ctx, req)
+	ids, err := o.SearchIDs(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +146,9 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 }
 
 func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, error) {
+	if !*o.Config.EnableSearch {
+		return nil, errors.New("[ontology] - search is not enabled")
+	}
 	return o.search.Index.Search(ctx, req)
 }
 
@@ -171,7 +174,7 @@ func (o *Ontology) RegisterService(s Service) {
 		n := s.OpenNexter()
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			r, ok, err := n.Next(ctx)
-			for ; ok && err != nil; r, ok, err = n.Next(ctx) {
+			for ; ok && err == nil; r, ok, err = n.Next(ctx) {
 				if err = tx.Index(r); err != nil {
 					return err
 				}
@@ -185,7 +188,8 @@ func (o *Ontology) RegisterService(s Service) {
 	s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			ch, ok, err := i.Next(ctx)
-			for ; ok && err != nil; ch, ok, err = i.Next(ctx) {
+			for ; ok && err == nil; ch, ok, err = i.Next(ctx) {
+				o.L.Info("indexing resource", zap.String("type", string(s.Schema().Type)))
 				if err = tx.Apply(ch); err != nil {
 					break
 				}

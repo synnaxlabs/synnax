@@ -24,7 +24,7 @@ interface PIDRenderProps {
 }
 
 export interface PIDItem extends AetherComponent {
-  render: (props: PIDRenderProps) => void;
+  render: (props: PIDRenderProps) => Promise<void>;
 }
 
 export class AetherPID extends AetherComposite<typeof pidState, PIDItem> {
@@ -46,7 +46,11 @@ export class AetherPID extends AetherComposite<typeof pidState, PIDItem> {
 
   async render(): Promise<void> {
     this.renderCtx.eraseCanvas(new Box(this.state.region));
-    this.children.forEach((child) => child.render({ position: this.state.position }));
+    await Promise.all(
+      this.children.map(
+        async (child) => await child.render({ position: this.state.position })
+      )
+    );
   }
 
   private requestRender(): void {

@@ -19,7 +19,7 @@ import {
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
-import { PointTelemSource } from "@/core/vis/telem/TelemSource";
+import { NumericTelemSource } from "@/core/vis/telem/TelemSource";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 
@@ -206,7 +206,7 @@ export const staticPointTelemProps = z.number();
 
 export type StaticPointTelemProps = z.infer<typeof staticPointTelemProps>;
 
-export class StaticPointTelem implements PointTelemSource {
+export class StaticPointTelem implements NumericTelemSource {
   static readonly TYPE = "static-point";
 
   variant = "point";

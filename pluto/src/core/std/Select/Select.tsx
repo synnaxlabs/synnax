@@ -50,7 +50,7 @@ export const Select = <
   return (
     <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} {...props}>
-        <List.Search>
+        <List.Filter>
           {({ onChange }: InputProps) => (
             <SelectInput<K, E>
               data={data}
@@ -62,7 +62,7 @@ export const Select = <
               {...inputProps}
             />
           )}
-        </List.Search>
+        </List.Filter>
         <SelectList<K, E>
           value={[value]}
           onChange={handleChange}

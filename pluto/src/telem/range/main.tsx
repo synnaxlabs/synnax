@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { XYTelemSourceMeta } from "@/core/vis/telem";
-import { PointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import { NumericTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import {
   DynamicRangeXYTelem,
   DynamicRangeXYTelemProps,
@@ -37,7 +37,7 @@ export const useDynamicRangeXYTelem = (
 
 export const usePointRangeTelem = (
   props: RangePointTelemProps
-): PointTelemSourceMeta => {
+): NumericTelemSourceMeta => {
   return {
     key: useTelemSourceControl(RangePointTelem.TYPE, props),
     variant: "point",

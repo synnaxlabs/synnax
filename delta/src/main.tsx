@@ -55,11 +55,7 @@ const MainUnderContext = (): ReactElement => {
   useLoadTauriVersion();
   const cluster = useSelectCluster();
   return (
-    <Pluto
-      {...theme}
-      workerEnabled={appWindow.label === "main"}
-      params={cluster?.props}
-    >
+    <Pluto {...theme} workerEnabled params={cluster?.props}>
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <LayoutWindow />
       </PMenu.ContextMenu>
