@@ -38,7 +38,6 @@ const resZ = z.object({
 
 export interface ChannelRetriever extends AsyncTermSearcher<string, ChannelPayload> {
   retrieve: (channels: ChannelParams) => Promise<ChannelPayload[]>;
-  retrieveAll: () => Promise<ChannelPayload[]>;
 }
 
 export class ClusterChannelRetriever implements ChannelRetriever {
@@ -56,10 +55,6 @@ export class ClusterChannelRetriever implements ChannelRetriever {
   async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
     const { variant, normalized } = analyzeChannelParams(channels);
     return await this.execute({ [variant]: normalized });
-  }
-
-  async retrieveAll(): Promise<ChannelPayload[]> {
-    return await this.execute({});
   }
 
   private async execute(request: Request): Promise<ChannelPayload[]> {
@@ -101,10 +96,6 @@ export class CacheChannelRetriever implements ChannelRetriever {
     const fetched = await this.wrapped.retrieve(toFetch);
     this.updateCache(fetched);
     return results.concat(fetched);
-  }
-
-  async retrieveAll(): Promise<ChannelPayload[]> {
-    return await this.wrapped.retrieveAll();
   }
 
   private updateCache(channels: ChannelPayload[]): void {
