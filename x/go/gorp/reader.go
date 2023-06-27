@@ -168,7 +168,7 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	var kvOp kv.Change
 	kvOp, ok, err = t.TxReader.Next(ctx)
 	if !ok || err != nil || !t.prefixMatcher(ctx, kvOp.Key) {
-		return
+		return op, false, err
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {
@@ -186,7 +186,7 @@ type next[E any] struct{ *Iterator[E] }
 var _ iter.NexterCloser[any] = (*next[any])(nil)
 
 // Next implements iter.Nexter.
-func (n next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
+func (n *next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
 	ok = n.Iterator.Next()
 	if !ok {
 		return e, ok, n.Iterator.Error()

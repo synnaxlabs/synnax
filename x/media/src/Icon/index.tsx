@@ -27,13 +27,14 @@ import { BsStack, BsLightbulbFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
+  FaDiceD20,
   FaDocker,
   FaLinux,
   FaStream,
   FaWindows,
 } from "react-icons/fa";
 import { FiMenu } from "react-icons/fi";
-import { HiChartBar, HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
 import {
@@ -42,6 +43,7 @@ import {
   MdQuestionMark,
   MdSensors,
   MdWorkspacesFilled,
+  MdAreaChart,
 } from "react-icons/md";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 
@@ -52,7 +54,7 @@ const IconOS: Record<OS, React.ComponentType> = {
   Docker: FaDocker,
 };
 
-export const Icon = {
+export const Icon: IconType = {
   Edit: MdEdit,
   Add: HiOutlinePlus,
   Subtract: AiOutlineMinus,
@@ -67,8 +69,9 @@ export const Icon = {
   Acquire: FaStream,
   Analyze: FaBezierCurve,
   Concepts: BsLightbulbFill,
-  Visualize: HiChartBar,
+  Visualize: MdAreaChart,
   Cluster: BsStack,
+  Control: FaDiceD20,
   Caret: {
     Right: AiFillCaretRight,
     Left: AiFillCaretLeft,
@@ -93,3 +96,47 @@ export const Icon = {
   QuestionMark: MdQuestionMark,
   Menu: FiMenu,
 };
+
+export interface IconType {
+  Edit: React.ComponentType;
+  Add: React.ComponentType;
+  Subtract: React.ComponentType;
+  Copy: React.ComponentType;
+  Close: React.ComponentType;
+  Info: React.ComponentType;
+  Warning: React.ComponentType;
+  Check: React.ComponentType;
+  Refresh: React.ComponentType;
+  Delete: React.ComponentType;
+  Time: React.ComponentType;
+  Acquire: React.ComponentType;
+  Analyze: React.ComponentType;
+  Concepts: React.ComponentType;
+
+  Visualize: React.ComponentType;
+  Cluster: React.ComponentType;
+  Control: React.ComponentType;
+  Caret: {
+    Right: React.ComponentType;
+    Left: React.ComponentType;
+    Up: React.ComponentType;
+    Down: React.ComponentType;
+  };
+  Reference: React.ComponentType;
+  Bolt: React.ComponentType;
+  Download: React.ComponentType;
+  Range: React.ComponentType;
+  Node: React.ComponentType;
+  Channel: React.ComponentType;
+  Resources: React.ComponentType;
+  Workspace: React.ComponentType;
+  OS: Record<OS, React.ComponentType>;
+  Box: React.ComponentType;
+  Python: React.ComponentType;
+  Typescript: React.ComponentType;
+  NPM: React.ComponentType;
+  PNPM: React.ComponentType;
+  Yarn: React.ComponentType;
+  QuestionMark: React.ComponentType;
+  Menu: React.ComponentType;
+}

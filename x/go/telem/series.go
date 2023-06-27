@@ -12,13 +12,18 @@ package telem
 import "github.com/synnaxlabs/x/types"
 
 type Series struct {
+	// TimeRange represents the time range occupied by the series' data.
 	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
-	DataType  DataType  `json:"data_type" msgpack:"data_type"`
-	Data      []byte    `json:"data" msgpack:"data"`
+	// DataType is the data type of the series.
+	DataType DataType `json:"data_type" msgpack:"data_type"`
+	// Data is the underlying binary buffer.
+	Data []byte `json:"data" msgpack:"data"`
 }
 
+// Len returns the the number of samples currently in the Series.
 func (s Series) Len() int64 { return s.DataType.Density().SampleCount(s.Size()) }
 
+// Size returns the number of bytes in the Series.
 func (s Series) Size() Size { return Size(len(s.Data)) }
 
 func ValueAt[T types.Numeric](a Series, i int64) T {
