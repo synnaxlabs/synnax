@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useMemo, useState } from "react";
+import {
+  PropsWithChildren,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
@@ -19,7 +26,7 @@ export interface ListProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends PropsWithChildren<unknown> {
-  data: E[];
+  data?: E[];
   emptyContent?: ReactElement;
 }
 
@@ -28,22 +35,30 @@ export const List = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
   children,
-  data,
+  data: propsData = [],
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
   const [columns, setColumns] = useState<Array<ListColumn<K, E>>>([]);
   const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
   const [clear, setClear] = useState<(() => void) | undefined>(undefined);
   const { transform, setTransform, deleteTransform } = useTransforms<E>({});
+  const [data, setData] = useState<E[]>(propsData);
+  useEffect(() => setData(propsData), [propsData]);
   const transformedData = useMemo(() => transform(data), [data, transform]);
+  const setSourceData = useCallback((data: E[]) => setData(data), [setData]);
+  const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(
+    emptyContent
+  );
   return (
     <ListContextProvider<K, E>
       value={{
+        setEmptyContent,
         sourceData: data,
         data: transformedData,
+        setSourceData,
         deleteTransform,
         setTransform,
-        emptyContent,
+        emptyContent: emptyContent ?? emptyContent_,
         columnar: {
           columns,
           setColumns,

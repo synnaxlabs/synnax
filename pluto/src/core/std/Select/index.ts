@@ -8,12 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Select as CoreSelect } from "@/core/std/Select/Select";
-import { SelectMultiple, SelectMultipleSearch } from "@/core/std/Select/SelectMultiple";
+import { SelectMultiple } from "@/core/std/Select/SelectMultiple";
 
-export type {
-  SelectMultipleProps,
-  SelectMultipleSearchProps,
-} from "@/core/std/Select/SelectMultiple";
+export type { SelectMultipleProps } from "@/core/std/Select/SelectMultiple";
 export type { SelectProps } from "@/core/std/Select/Select";
 
 type CoreSelectType = typeof CoreSelect;
@@ -39,7 +36,6 @@ interface SelectType extends CoreSelectType {
    * @param props.value - The currently selected value.
    */
   Multiple: typeof SelectMultiple;
-  SearchMultiple: typeof SelectMultipleSearch;
 }
 
 /**
@@ -62,4 +58,3 @@ interface SelectType extends CoreSelectType {
 export const Select = CoreSelect as SelectType;
 
 Select.Multiple = SelectMultiple;
-Select.SearchMultiple = SelectMultipleSearch;

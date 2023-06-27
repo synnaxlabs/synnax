@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FocusEventHandler, ReactElement, useEffect, useState } from "react";
+import {
+  FocusEventHandler,
+  ReactElement,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/std/Input";
@@ -25,6 +31,7 @@ export interface SelectProps<
   tagKey?: keyof E;
   columns?: Array<ListColumn<K, E>>;
   inputProps?: Omit<InputProps, "onChange">;
+  searcher?: AsyncTermSearcher<string, E>;
 }
 
 export const Select = <
@@ -38,31 +45,52 @@ export const Select = <
   data = [],
   emptyContent,
   inputProps,
+  searcher,
   ...props
 }: SelectProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
+  const [stateData, setStateData] = useState<E[]>(data);
+  data = searcher != null ? stateData : data;
 
-  const handleChange = ([key]: readonly K[]): void => {
-    onChange(key);
-    close();
-  };
+  const [selected, setSelected] = useState<E | undefined>(() => {
+    if (value == null) return undefined;
+    return data.find((e) => e.key === value);
+  });
+
+  const handleChange = useCallback(
+    ([v]: readonly K[]): void => {
+      const e = data.find((e) => e.key === v);
+      if (e == null) return;
+      setSelected(e);
+      onChange(v);
+      close();
+    },
+    [data, onChange]
+  );
+
+  const input = ({ onChange }: InputControl<string>): ReactElement => (
+    <SelectInput
+      onChange={onChange}
+      onFocus={open}
+      selected={selected}
+      tagKey={tagKey}
+      visible={visible}
+    />
+  );
+
+  const filterOrSearch =
+    searcher != null ? (
+      <List.Search searcher={searcher} onChange={setStateData}>
+        {input}
+      </List.Search>
+    ) : (
+      <List.Filter>{input}</List.Filter>
+    );
 
   return (
     <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} {...props}>
-        <List.Filter>
-          {({ onChange }: InputProps) => (
-            <SelectInput<K, E>
-              data={data}
-              selected={value}
-              tagKey={tagKey}
-              onFocus={open}
-              visible={visible}
-              onChange={onChange}
-              {...inputProps}
-            />
-          )}
-        </List.Filter>
+        {filterOrSearch}
         <SelectList<K, E>
           value={[value]}
           onChange={handleChange}
@@ -77,14 +105,12 @@ export const Select = <
 export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<InputProps, "value"> {
   tagKey: keyof E;
-  selected: K;
+  selected?: E;
   visible: boolean;
-  data: E[];
   debounceSearch?: number;
 }
 
 const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
-  data,
   tagKey,
   selected,
   visible,
@@ -105,15 +131,15 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
+    const key = selected?.key;
     const isZero =
-      selected === null ||
-      (typeof selected === "number" && selected === 0) ||
-      (typeof selected === "string" && selected.length === 0);
+      selected == null ||
+      (typeof key === "number" && key === 0) ||
+      (typeof key === "string" && key.length === 0);
     if (isZero) return setValue("");
-    const e = data.find(({ key }) => key === selected);
-    const v = e?.[tagKey] ?? selected;
+    const v = selected?.[tagKey] as string | number;
     setValue?.(v.toString());
-  }, [selected, data, visible, tagKey]);
+  }, [selected, visible, tagKey]);
 
   const handleChange = (v: string): void => {
     onChange(v);

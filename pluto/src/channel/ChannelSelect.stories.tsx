@@ -9,19 +9,24 @@
 
 import { ReactElement, useState } from "react";
 
-import type { Meta, StoryFn } from "@storybook/react";
+import type { Meta } from "@storybook/react";
 import { ChannelKey } from "@synnaxlabs/client";
 
-import { ChannelSelectMultiple } from "./ChannelSelect";
+import { ChannelSelect, ChannelSelectMultiple } from "./ChannelSelect";
 
 const story: Meta<typeof ChannelSelectMultiple> = {
   title: "Channel/Select",
   component: ChannelSelectMultiple,
 };
 
-export const Primary = (): ReactElement => {
+export const Multiple = (): ReactElement => {
   const [value, setValue] = useState<readonly ChannelKey[]>([]);
   return <ChannelSelectMultiple value={value} onChange={setValue} />;
+};
+
+export const Default = (): ReactElement => {
+  const [value, setValue] = useState<ChannelKey>(0);
+  return <ChannelSelect value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export
