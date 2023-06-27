@@ -168,7 +168,10 @@ export const useStatefulAether = <S extends z.ZodTypeAny>({
   });
 
   const setState = useCallback(
-    (next: PsuedoSetStateArg<z.input<S>>, transfer: Transferable[] = []): void => {
+    (
+      next: PsuedoSetStateArg<z.input<S> | z.output<S>>,
+      transfer: Transferable[] = []
+    ): void => {
       if (isStateSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
@@ -222,8 +225,8 @@ export const AetherProvider = ({
       registry.current.set(key, { path, handler });
       return {
         setState: (state: any, transfer: Transferable[] = []): void =>
-          worker.send({ variant: "update", path, state, type }, transfer),
-        delete: () => worker.send({ variant: "delete", path }),
+          worker?.send({ variant: "update", path, state, type }, transfer),
+        delete: () => worker?.send({ variant: "delete", path }),
       };
     },
     [worker, registry]
@@ -231,7 +234,7 @@ export const AetherProvider = ({
 
   useEffect(
     () =>
-      worker.handle((msg) => {
+      worker?.handle((msg) => {
         const { key, state } = msg;
         const component = registry.current.get(key);
         if (component == null)

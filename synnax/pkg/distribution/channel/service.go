@@ -24,6 +24,7 @@ import (
 type service struct {
 	*gorp.DB
 	proxy *leaseProxy
+	otg   *ontology.Ontology
 }
 
 type Service interface {
@@ -79,11 +80,11 @@ func New(configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &service{DB: cfg.ClusterDB, proxy: proxy}, nil
+	return &service{DB: cfg.ClusterDB, proxy: proxy, otg: cfg.Ontology}, nil
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB) }
+func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }

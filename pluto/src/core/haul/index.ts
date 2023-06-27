@@ -7,14 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HaulProvider, useHaulRef, useHaulState } from "@/core/haul/HaulContext";
+import {
+  HaulProvider,
+  useHaulDropRegion,
+  useHaulRef,
+  useHaulState,
+} from "@/core/haul/HaulContext";
 export type {
   UseHaulStateReturn as UseHaulReturn,
   Hauled,
 } from "@/core/haul/HaulContext";
 
+/**
+ * Haul implements drag and drop functionality.
+ *
+ */
 export const Haul = {
+  /**
+   * Provides drag and drop functionality to all of its children, and should typically
+   * be placed as a top level component in the application.
+   */
   Provider: HaulProvider,
+  /**
+   *
+   */
   useState: useHaulState,
   useRef: useHaulRef,
+  useDropRegion: useHaulDropRegion,
 };

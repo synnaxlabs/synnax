@@ -10,6 +10,8 @@
 import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Color } from "@/core/color";
+
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer
  * to the underlying telemetry source, and is intended for use as a main thread proxy
@@ -90,14 +92,26 @@ export interface XYTelemSource extends TelemSourceMeta {
   release: (gl: GLBufferController) => void;
 }
 
-export const pointTelemSourceMeta = telemSourceMeta.extend({
-  variant: z.literal("point"),
+export const numericTelemSourceMeta = telemSourceMeta.extend({
+  variant: z.literal("numberic"),
 });
 
-export type PointTelemSourceMeta = z.infer<typeof pointTelemSourceMeta>;
+export type NumericTelemSourceMeta = z.infer<typeof numericTelemSourceMeta>;
 
-export interface PointTelemSource extends TelemSourceMeta {
+export interface NumericTelemSource extends TelemSourceMeta {
   value: () => Promise<number>;
+  onChange: (f: () => void) => void;
+  release: (gl: GLBufferController) => void;
+}
+
+export const colorTelemSourceMeta = telemSourceMeta.extend({
+  variant: z.literal("color"),
+});
+
+export type ColorTelemSourceMeta = z.infer<typeof colorTelemSourceMeta>;
+
+export interface ColorTelemSource extends TelemSourceMeta {
+  value: () => Promise<Color>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
 }

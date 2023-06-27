@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { convertThemeToCSSVars } from "@/core/theming/css";
-import { font, useFont } from "@/core/theming/font";
+import { fontString, useTypography } from "@/core/theming/font";
 import { ThemeSpec, themeZ, themes } from "@/core/theming/theme";
 import {
   ThemeProvider,
@@ -27,8 +27,8 @@ export interface ThemingType {
   use: () => ThemeSpec;
   themes: typeof themes;
   toCSSVars: typeof convertThemeToCSSVars;
-  font: typeof font;
-  useFont: typeof useFont;
+  fontString: typeof fontString;
+  useTypography: typeof useTypography;
   schema: typeof themeZ;
 }
 
@@ -40,7 +40,7 @@ export const Theming: ThemingType = {
   use: (): ThemeSpec => useThemeContext().theme,
   themes,
   toCSSVars: convertThemeToCSSVars,
-  font,
-  useFont,
+  fontString,
+  useTypography,
   schema: themeZ,
 };

@@ -11,14 +11,14 @@ import { ComponentPropsWithoutRef } from "react";
 
 import { ComponentSize } from "@/util/component";
 
-export type InputValue =
-  | boolean
-  | string
-  | number
-  | readonly string[]
-  | readonly number[]
-  | ReadonlyArray<string | number>
-  | null;
+export type InputValue = unknown;
+// | boolean
+// | string
+// | number
+// | readonly string[]
+// | readonly number[]
+// | ReadonlyArray<string | number>
+// | null;
 
 export interface InputControl<
   I extends InputValue = InputValue,

@@ -49,7 +49,7 @@ export const GetStarted = (): ReactElement => {
         <Button startIcon={<Icon.Cluster />} onClick={handleCluster} size="large">
           Connect a Cluster
         </Button>
-        <Button startIcon={<Icon.Visualize />} onClick={handleVisualize} size="large">
+        <Button startIcon={<Icon.Control />} onClick={handleVisualize} size="large">
           Create a Visualization
         </Button>
       </Space>

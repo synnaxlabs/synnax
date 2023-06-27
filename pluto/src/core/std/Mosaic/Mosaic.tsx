@@ -98,7 +98,7 @@ const MosaicTabLeaf = memo(
       setDragMask(null);
       if (!validDrop(tabs, dragging)) return;
       const tabKey = dragging.map(({ key }) => key)[0];
-      onDrop(key, tabKey, insertLocation(getDragLocationPercents(e)));
+      onDrop(key, tabKey as string, insertLocation(getDragLocationPercents(e)));
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {

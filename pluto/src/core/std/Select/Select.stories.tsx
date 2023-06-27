@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 
-import { useState } from "@storybook/addons";
 import type { Meta, StoryFn } from "@storybook/react";
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
-
-import { Select, SelectMultipleProps } from ".";
 
 import { ListColumn } from "@/core/std/List";
+import { Select, SelectMultipleProps } from "@/core/std/Select";
+import { Space } from "@/core/std/Space";
 
 const story: Meta<typeof Select.Multiple> = {
   title: "Core/Standard/Select",
@@ -54,21 +52,26 @@ const sampleColumns: Array<ListColumn<string, SampleRecord>> = [
   },
 ];
 
-const MultipleTemplate = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
-  args: Omit<SelectMultipleProps<K, E>, "value" | "onChange">
-): ReactElement => {
-  const [value, setValue] = useState<readonly K[]>([]);
-  return <Select.Multiple {...args} value={value} onChange={setValue} />;
-};
+export const Multiple = (): ReactElement => {
+  const [value, setValue] = useState<readonly string[]>([]);
+  const [valueTwo, setValueTwo] = useState<readonly string[]>([]);
 
-export const Multiple: StoryFn<typeof Select.Multiple<string, SampleRecord>> =
-  MultipleTemplate.bind({});
-
-Multiple.args = {
-  value: [],
-  columns: sampleColumns,
-  location: "bottom",
-  data: sampleData,
+  return (
+    <Space>
+      <Select.Multiple
+        value={value}
+        onChange={setValue}
+        data={sampleData}
+        columns={sampleColumns}
+      />
+      <Select.Multiple
+        value={valueTwo}
+        onChange={setValueTwo}
+        data={sampleData}
+        columns={sampleColumns}
+      />
+    </Space>
+  );
 };
 
 const Template = (

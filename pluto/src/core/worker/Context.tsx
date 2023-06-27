@@ -21,9 +21,6 @@ import {
 
 import { TypedWorker, RoutedWorker } from "@synnaxlabs/x";
 
-import { useUniqueKey } from "../hooks/useUniqueKey";
-import { useMemoCompare } from "../memo";
-
 export interface WorkerContextValue {
   route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
 }
@@ -67,18 +64,17 @@ export const WorkerProvider = memo(
 
     const value = useMemo(() => ({ route }), [route]);
 
-    if (state == null) return null;
+    if (state == null && enabled) return null;
 
-    return (
-      <WorkerContext.Provider value={value}>
-        {state != null && children}
-      </WorkerContext.Provider>
-    );
+    return <WorkerContext.Provider value={value}>{children}</WorkerContext.Provider>;
   }
 );
 WorkerProvider.displayName = "WorkerProvider";
 
-export const useTypedWorker = <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
-  const { route } = useContext(WorkerContext);
-  return route(type);
+export const useTypedWorker = <RQ, RS = RQ>(
+  type: string
+): TypedWorker<RQ, RS> | null => {
+  const ctx = useContext(WorkerContext);
+  if (ctx == null) return null;
+  return ctx.route(type);
 };

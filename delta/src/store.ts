@@ -73,7 +73,7 @@ export interface RootState {
   [DRIFT_SLICE_NAME]: DriftState;
   [CLUSTER_SLICE_NAME]: ClusterState;
   [LAYOUT_SLICE_NAME]: LayoutState;
-  [VIS_SLICE_NAME]: VisState;
+  // [VIS_SLICE_NAME]: VisState;
   [WORKSPACE_SLICE_NAME]: WorkspaceState;
   [VERSION_SLICE_NAME]: VersionState;
   [DOCS_SLICE_NAME]: DocsState;
@@ -104,7 +104,7 @@ const newStore = async (): Promise<RootStore> => {
       persistMiddleware,
     ],
     reducer,
-    enablePrerender: false,
+    enablePrerender: true,
   })) as RootStore;
 };
 

@@ -10,6 +10,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactElement } from "react";
 
+import { Optional } from "@synnaxlabs/x";
+
 import { CSS } from "@/core/css";
 import { InputControl } from "@/core/std/Input";
 import { Text, TextProps } from "@/core/std/Typography/Text";
@@ -71,4 +73,20 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
       {value}
     </Text>
   );
+};
+
+export type TextMaybeEditableProps<L extends TypographyLevel = "h1"> = Optional<
+  TextEditableProps<L>,
+  "onChange"
+>;
+
+export const TextMaybeEditable = <L extends TypographyLevel = "h1">({
+  onChange,
+  value,
+  ...props
+}: TextMaybeEditableProps<L>): ReactElement => {
+  // @ts-expect-error
+  if (onChange == null) return <Text<L> {...props}>{value}</Text>;
+  // @ts-expect-error
+  return <TextEditable<L> onChange={onChange} value={value} {...props} />;
 };

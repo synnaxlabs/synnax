@@ -27,7 +27,7 @@ export interface CoreTextProps<L extends TypographyLevel = "h1"> {
 
 export type TextProps<L extends TypographyLevel = "h1"> = Omit<
   GenericProps<L>,
-  "el" | "color"
+  "el" | "color" | "children"
 > &
   CoreTextProps<L>;
 

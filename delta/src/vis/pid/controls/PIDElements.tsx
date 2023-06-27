@@ -9,10 +9,10 @@
 
 import { ReactElement } from "react";
 
-import { Icon } from "@synnaxlabs/media";
+export interface PIDElementsProps {
+  layoutKey: string;
+}
 
-import { ToolbarTitle } from "@/components";
-
-export const VisToolbarTitle = (): ReactElement => (
-  <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
-);
+export const PIDElements = ({ layoutKey }: PIDElementsProps): ReactElement => {
+  return <div>Elements</div>;
+};

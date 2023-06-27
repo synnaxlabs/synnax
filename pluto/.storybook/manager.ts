@@ -142,7 +142,7 @@ export const synnaxDark = {
     text: synnaxBase.colors.white,
   },
 };
-const t = synnaxLight;
+const t = synnaxDark;
 
 const theme = create({
   ...t,

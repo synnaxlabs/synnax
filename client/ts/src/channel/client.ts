@@ -9,7 +9,6 @@
 
 import {
   DataType,
-  Density,
   Rate,
   NativeTypedArray,
   UnparsedDensity,
@@ -39,7 +38,13 @@ import { FrameClient } from "@/framer";
  */
 export class Channel {
   private readonly _frameClient: FrameClient | null;
-  payload: ChannelPayload;
+  key: ChannelKey;
+  name: string;
+  rate: Rate;
+  dataType: DataType;
+  leaseholder: number;
+  index: ChannelKey;
+  isIndex: boolean;
 
   constructor({
     dataType,
@@ -55,16 +60,13 @@ export class Channel {
     segmentClient?: FrameClient;
     density?: UnparsedDensity;
   }) {
-    this.payload = channelPayload.parse({
-      dataType: new DataType(dataType).valueOf(),
-      rate: new Rate(rate ?? 0).valueOf(),
-      name,
-      leaseholder,
-      key,
-      density: new Density(density).valueOf(),
-      isIndex,
-      index,
-    });
+    this.key = key;
+    this.name = name;
+    this.rate = new Rate(rate ?? 0);
+    this.dataType = new DataType(dataType);
+    this.leaseholder = leaseholder;
+    this.index = index;
+    this.isIndex = isIndex;
     this._frameClient = segmentClient ?? null;
   }
 
@@ -74,39 +76,16 @@ export class Channel {
     return this._frameClient;
   }
 
-  get key(): number {
-    if (this.payload.key == null) throw new Error("channel key is not set");
-    return this.payload.key;
-  }
-
-  get name(): string {
-    if (this.payload.name == null) throw new Error("channel name is not set");
-    return this.payload.name;
-  }
-
-  get leaseholder(): number {
-    if (this.payload.leaseholder == null) throw new Error("chanel nodeKey is not set");
-    return this.payload.leaseholder;
-  }
-
-  get rate(): Rate {
-    return this.payload.rate;
-  }
-
-  get isIndexed(): boolean {
-    return this.index !== 0;
-  }
-
-  get index(): ChannelKey {
-    return this.payload.index ?? 0;
-  }
-
-  get isIndex(): boolean {
-    return this.payload.isIndex ?? false;
-  }
-
-  get dataType(): DataType {
-    return this.payload.dataType;
+  get payload(): ChannelPayload {
+    return channelPayload.parse({
+      key: this.key,
+      name: this.name,
+      rate: this.rate.valueOf(),
+      dataType: this.dataType.valueOf(),
+      leaseholder: this.leaseholder,
+      index: this.index,
+      isIndex: this.isIndex,
+    });
   }
 
   /**
@@ -194,6 +173,10 @@ export class ChannelClient {
         throw new QueryError(`multiple channels matching ${actual} found`);
     }
     return single ? res[0] : res;
+  }
+
+  async search(term: string): Promise<Channel[]> {
+    return this.sugar(await this.retriever.search(term));
   }
 
   async retrieveAll(): Promise<Channel[]> {

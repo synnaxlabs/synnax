@@ -71,7 +71,7 @@ export const Column: StoryFn<typeof List> = () => (
 
 export const Search: StoryFn<typeof List> = () => (
   <List data={data}>
-    <List.Search />
+    <List.Filter />
     <List.Column.Header columns={columns} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
       {componentRenderProp(List.Column.Item)}

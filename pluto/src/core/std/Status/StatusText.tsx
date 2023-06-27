@@ -16,10 +16,16 @@ import { Space } from "@/core/std/Space";
 import { StatusVariant } from "@/core/std/Status/types";
 import { Text, TextProps, TypographyLevel } from "@/core/std/Typography";
 
-export interface StatusTextProps extends Omit<TextProps, "level" | "wrap"> {
+export interface StatusTextDigest {
+  variant: StatusVariant;
+  children?: string | number;
+}
+
+export interface StatusTextProps
+  extends Omit<TextProps, "level" | "wrap">,
+    StatusTextDigest {
   level?: TypographyLevel;
   hideIcon?: boolean;
-  variant?: StatusVariant;
 }
 
 const statusVariantIcons: Record<StatusVariant, ReactElement> = {

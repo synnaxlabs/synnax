@@ -13,26 +13,31 @@ import { z } from "zod";
 import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
+import { PIDItem } from "@/core/vis/pid/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
-import { PointTelemSource, pointTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import {
+  NumericTelemSource,
+  numericTelemSourceMeta,
+} from "@/core/vis/telem/TelemSource";
 
 const valueState = z.object({
   box: Box.z,
-  telem: pointTelemSourceMeta,
+  telem: numericTelemSourceMeta,
   units: z.string(),
   font: z.string(),
   color: Color.z,
-  position: XY.z.optional(),
+  precision: z.number().optional().default(2),
+  width: z.number().optional().default(100),
 });
 
 export interface ValueProps {
   position: XY;
 }
 
-export class AetherValue extends AetherLeaf<typeof valueState> {
+export class AetherValue extends AetherLeaf<typeof valueState> implements PIDItem {
   private renderCtx: RenderContext;
-  private telem: PointTelemSource;
+  private telem: NumericTelemSource;
   private _requestRender: (() => void) | null;
 
   static readonly TYPE = "value";
@@ -67,32 +72,30 @@ export class AetherValue extends AetherLeaf<typeof valueState> {
     else void this.render();
   }
 
-  async render(props: ValueProps = {}): Promise<void> {
+  async render(props?: ValueProps): Promise<void> {
     const box = new Box(this.state.box);
     if (box.isZero) return;
     const { lower2d: canvas } = this.renderCtx;
-    const value = `${(await this.telem.value()).toFixed(2)} ${this.state.units}`;
-    const statePos = this.state.position ?? XY.ZERO;
+
+    const value = (await this.telem.value()).toFixed(this.state.precision);
+    const valueStr = `${value} ${this.state.units}`;
+
     canvas.font = this.state.font;
     const dims = textDimensions(value, this.state.font, canvas);
     this.renderCtx.erase(box);
 
-    canvas.fillStyle = new Color("#fc3d03").setAlpha(1).hex;
-    canvas.beginPath();
-    let startPos = statePos;
-    if (props.position != null)
-      startPos = statePos.translate(props.position).translateY(28);
-    else startPos = statePos.translate(box.topLeft);
-    canvas.roundRect(...startPos.couple, box.width, box.height, 2);
-    canvas.fill();
+    if (this.state.width < dims.width)
+      this.setState((p) => ({ ...p, width: dims.width }));
 
-    const pos = startPos
+    const labelPosition = box.topLeft
+      .translate(props?.position ?? XY.ZERO)
       .translate({
         x: box.width / 2,
         y: box.height / 2,
       })
       .translate({ y: dims.height / 2, x: -dims.width / 2 });
+
     canvas.fillStyle = this.state.color.hex;
-    canvas.fillText(value.toString(), ...pos.couple);
+    canvas.fillText(valueStr, ...labelPosition.couple);
   }
 }

@@ -35,7 +35,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Value telem={telem} label="Regen PT" style={{ width: 100 }} units="psi" />
+      <Value telem={telem} style={{ width: 100 }} units="psi" />
     </Canvas>
   );
 };

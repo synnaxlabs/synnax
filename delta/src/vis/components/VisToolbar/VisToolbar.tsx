@@ -9,13 +9,15 @@
 
 import { ReactElement } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { Space, Status } from "@synnaxlabs/pluto";
 
-import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
+import { VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem } from "@/layout";
 import { LinePlotToolBar } from "@/vis/line/controls/LinePlotToolbar";
+import { PIDToolbar } from "@/vis/pid/controls/PIDToolBar";
 import { useSelectVisMeta } from "@/vis/store";
 
 const NoVisContent = (): ReactElement => (
@@ -31,18 +33,20 @@ const NoVisContent = (): ReactElement => (
 
 const Content = (): ReactElement => {
   const vis = useSelectVisMeta();
-  if (vis == null) return <NoVisContent />;
-  const { key, variant } = vis;
-  switch (variant) {
+  switch (vis?.variant) {
     default:
-      return <LinePlotToolBar layoutKey={key} />;
+      return <PIDToolbar layoutKey={vis?.key} />;
+    // case "line":
+    //   return <LinePlotToolBar layoutKey={vis?.key} />;
+    // default:
+    //   return <NoVisContent />;
   }
 };
 
 export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
-  icon: <VisIcon />,
+  icon: <Icon.Visualize />,
   minSize: 125,
   maxSize: 250,
 };

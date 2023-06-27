@@ -17,11 +17,15 @@ import { compareArrayDeps, useMemoCompare } from "@/core/hooks";
 export type DirectionTrigger = "moveX" | "moveY" | "resizeX" | "resizeY";
 
 export interface UseResizeOpts {
-  /** A list of triggers that should cause the callback to be called. */
+  /**
+   * A list of triggers that should cause the callback to be called.
+   */
   triggers?: Array<DirectionTrigger | Direction>;
   /**  Debounce the resize event by this many milliseconds.
   Useful for preventing expensive renders until rezizing has stopped. */
   debounce?: number;
+  /** If false, the hook wont observe the element. Defaults to true. */
+  enabled?: boolean;
 }
 
 /**
@@ -35,8 +39,9 @@ export interface UseResizeOpts {
  */
 export const useResize = <E extends HTMLElement>(
   onResize: (box: Box, el: E) => void,
-  { triggers: _triggers = [], debounce = 0 }: UseResizeOpts
+  opts: UseResizeOpts = {}
 ): RefCallback<E> => {
+  const { triggers: _triggers = [], debounce = 0, enabled = true } = opts;
   const prev = useRef<Box>(Box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
@@ -64,14 +69,14 @@ export const useResize = <E extends HTMLElement>(
   );
 
   useEffect(() => {
-    if (ref.current != null) startObserving(ref.current);
+    if (ref.current != null && enabled) startObserving(ref.current);
     return () => obs.current?.disconnect();
   }, [startObserving]);
 
   return useCallback(
     (el: E | null) => {
       ref.current = el;
-      if (el != null) startObserving(el);
+      if (el != null && enabled) startObserving(el);
     },
     [startObserving]
   );

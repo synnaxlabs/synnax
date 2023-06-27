@@ -88,6 +88,8 @@ type ChannelRetrieveRequest struct {
 	Keys channel.Keys `query:"keys"`
 	// Optional parameter that queries a Channel by its name.
 	Names []string `query:"names"`
+	// Optional search parameters that fuzzy match a Channel's properties.
+	Search string `query:"search"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -107,6 +109,7 @@ func (s *ChannelService) Retrieve(
 		q           = s.internal.NewRetrieve().Entries(&resChannels)
 		hasNames    = len(req.Names) > 0
 		hasKeys     = len(req.Keys) > 0
+		hasSearch   = len(req.Search) > 0
 	)
 
 	if hasKeys {
@@ -117,28 +120,16 @@ func (s *ChannelService) Retrieve(
 		q = q.WhereNames(req.Names...)
 	}
 
+	if hasSearch {
+		q = q.Search(req.Search)
+	}
+
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))
 
-	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
-}
-
-type ChannelSearchRequest struct {
-	Term string
-}
-
-func (s *ChannelService) Search(
-	ctx context.Context,
-	req ChannelSearchRequest,
-) (ChannelRetrieveResponse, errors.Typed) {
-	var (
-		resChannels []channel.Channel
-		q           = s.internal.NewRetrieve().Search(req.Term).Entries(&resChannels)
-		err         = errors.MaybeQuery(q.Exec(ctx, nil))
-	)
 	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 

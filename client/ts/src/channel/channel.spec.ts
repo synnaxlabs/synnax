@@ -79,4 +79,16 @@ describe("Channel", () => {
     expect(retrieved.length).toBeGreaterThan(0);
     retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
   });
+  test.only("retrieve by search term", async () => {
+    const term = "bobbyAteMyLunch";
+    await client.channels.create({
+      name: term,
+      rate: Rate.hz(1),
+      dataType: DataType.FLOAT32,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const retrieved = await client.channels.search(term);
+    expect(retrieved.length).toBeGreaterThan(0);
+    expect(retrieved[0].name).toEqual(term);
+  });
 });

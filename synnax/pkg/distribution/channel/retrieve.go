@@ -26,13 +26,13 @@ import (
 type Retrieve struct {
 	tx         gorp.Tx
 	gorp       gorp.Retrieve[Key, Channel]
-	otg        ontology.Ontology
+	otg        *ontology.Ontology
 	keys       Keys
 	searchTerm string
 }
 
-func newRetrieve(tx gorp.Tx) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx}
+func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx, otg: otg}
 }
 
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }

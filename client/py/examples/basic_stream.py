@@ -52,8 +52,8 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
             frame = streamer.read()
             accumulated_time.extend(frame[time_ch.key].to_datetime())
             accumulated_data.extend(frame[data_ch.key].to_list())
-            # plt.plot(accumulated_time, accumulated_data, "r-")
-            # plt.pause(0.1)
+            plt.plot(accumulated_time, accumulated_data, "r-")
+            plt.pause(0.1)
     writer.commit()
 
 plt.ioff()

@@ -9,6 +9,7 @@
 
 import {
   createContext,
+  DragEventHandler,
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
@@ -19,12 +20,12 @@ import {
   useState,
 } from "react";
 
-import { Deep } from "@synnaxlabs/x";
+import { Deep, Key } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 
 export interface Hauled {
-  key: string;
+  key: Key;
   type: string;
 }
 
@@ -105,4 +106,58 @@ export const useHaulRef = (): UseHaulRefReturn => {
     }),
     [ref, startDrag, endDrag]
   );
+};
+
+export interface UseHaulDropRegionProps {
+  canDrop: (entities: Hauled[]) => boolean;
+  onDrop: (entities: Hauled[]) => void;
+}
+
+export interface UseHaulDropRegionReturn {
+  isOver: boolean;
+  onDragOver: DragEventHandler;
+  onDragLeave: DragEventHandler;
+  onDrop: DragEventHandler;
+}
+
+export const useHaulDropRegion = ({
+  canDrop,
+  onDrop,
+}: UseHaulDropRegionProps): UseHaulDropRegionReturn => {
+  const hauled = useHaulRef();
+  const [isOver, setIsOver] = useState(false);
+
+  const handleDragOver: DragEventHandler = useCallback(
+    (e) => {
+      if (hauled.dragging.current.length === 0) return;
+      const canDrop_ = canDrop(hauled.dragging.current);
+      if (canDrop_) {
+        e.preventDefault();
+        setIsOver(true);
+      }
+    },
+    [canDrop]
+  );
+
+  const handleDrop: DragEventHandler = useCallback(
+    (e) => {
+      e.preventDefault();
+      if (hauled.dragging.current.length === 0) return;
+      const canDrop_ = canDrop(hauled.dragging.current);
+      if (canDrop_) onDrop(hauled.dragging.current);
+      setIsOver(false);
+    },
+    [canDrop]
+  );
+
+  const handleDragLeave: DragEventHandler = useCallback(() => {
+    setIsOver(false);
+  }, []);
+
+  return {
+    isOver,
+    onDragOver: handleDragOver,
+    onDrop: handleDrop,
+    onDragLeave: handleDragLeave,
+  };
 };

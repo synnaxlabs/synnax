@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { toArray, AsyncTermSearcher } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -27,6 +27,7 @@ const requestSchema = z.object({
   leaseholder: z.number().optional(),
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
+  search: z.string().optional(),
 });
 
 type Request = z.infer<typeof requestSchema>;
@@ -35,7 +36,7 @@ const resZ = z.object({
   channels: channelPayload.array(),
 });
 
-export interface ChannelRetriever {
+export interface ChannelRetriever extends AsyncTermSearcher<string, ChannelPayload> {
   retrieve: (channels: ChannelParams) => Promise<ChannelPayload[]>;
   retrieveAll: () => Promise<ChannelPayload[]>;
 }
@@ -46,6 +47,10 @@ export class ClusterChannelRetriever implements ChannelRetriever {
 
   constructor(client: UnaryClient) {
     this.client = client;
+  }
+
+  async search(term: string): Promise<ChannelPayload[]> {
+    return await this.execute({ search: term });
   }
 
   async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
@@ -77,6 +82,10 @@ export class CacheChannelRetriever implements ChannelRetriever {
     this.cache = new Map();
     this.namesToKeys = new Map();
     this.wrapped = wrapped;
+  }
+
+  async search(term: string): Promise<ChannelPayload[]> {
+    return await this.wrapped.search(term);
   }
 
   async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {

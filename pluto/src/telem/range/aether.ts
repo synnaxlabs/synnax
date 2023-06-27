@@ -20,7 +20,7 @@ import {
 import { z } from "zod";
 
 import { XYTelemSource } from "@/core/vis/telem";
-import { PointTelemSource } from "@/core/vis/telem/TelemSource";
+import { NumericTelemSource } from "@/core/vis/telem/TelemSource";
 import { Client, StreamHandler } from "@/telem/client/client";
 import { TelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
@@ -279,7 +279,7 @@ export const rangePointTelemProps = z.object({
 
 export type RangePointTelemProps = z.infer<typeof rangePointTelemProps>;
 
-export class RangePointTelem implements PointTelemSource, ModifiableTelemSourceMeta {
+export class RangePointTelem implements NumericTelemSource, ModifiableTelemSourceMeta {
   variant = "point";
   key: string;
 

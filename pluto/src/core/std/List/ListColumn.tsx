@@ -50,7 +50,7 @@ const ListColumnHeader = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
     deleteTransform,
   } = useListContext<K, E>();
 
-  const font = Theming.useFont("p");
+  const font = Theming.useTypography("p").toString();
   const [sort, setSort] = useState<SortState<E>>([null, false]);
 
   const onSort = (k: keyof E): void => {
