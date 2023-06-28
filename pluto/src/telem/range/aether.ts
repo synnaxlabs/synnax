@@ -10,6 +10,7 @@
 import { Channel } from "@synnaxlabs/client";
 import {
   Bounds,
+  Deep,
   GLBufferController,
   Series,
   TimeRange,
@@ -39,8 +40,8 @@ export class RangeTelemFactory implements TelemFactory {
         return new RangeXYTelem(key, this.client, props);
       case DynamicRangeXYTelem.TYPE:
         return new DynamicRangeXYTelem(key, this.client, props);
-      case RangePointTelem.TYPE:
-        return new RangePointTelem(key, this.client, props);
+      case RangeNumericTelem.TYPE:
+        return new RangeNumericTelem(key, this.client, props);
       default:
         return null;
     }
@@ -273,14 +274,16 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
   }
 }
 
-export const rangePointTelemProps = z.object({
+export const RangeNumericTelemProps = z.object({
   channel: z.number(),
 });
 
-export type RangePointTelemProps = z.infer<typeof rangePointTelemProps>;
+export type RangeNumerictelemProps = z.infer<typeof RangeNumericTelemProps>;
 
-export class RangePointTelem implements NumericTelemSource, ModifiableTelemSourceMeta {
-  variant = "point";
+export class RangeNumericTelem
+  implements NumericTelemSource, ModifiableTelemSourceMeta
+{
+  variant = "numeric";
   key: string;
 
   streamHandler: StreamHandler | null = null;
@@ -291,13 +294,15 @@ export class RangePointTelem implements NumericTelemSource, ModifiableTelemSourc
   private valid = false;
   private values: Series | null;
   private readonly client: Client;
-  private props: z.infer<typeof rangePointTelemProps>;
+  private props: z.infer<typeof RangeNumericTelemProps>;
+  private prevProps: z.infer<typeof RangeNumericTelemProps>;
 
   constructor(key: string, client: Client, props: any) {
     this.client = client;
     this.key = key;
     this.values = null;
-    this.props = rangePointTelemProps.parse(props);
+    this.props = RangeNumericTelemProps.parse(props);
+    this.prevProps = props;
   }
 
   cleanup(): void {}
@@ -308,6 +313,7 @@ export class RangePointTelem implements NumericTelemSource, ModifiableTelemSourc
   release(gl: GLBufferController): void {}
 
   async value(): Promise<number> {
+    if (this.props.channel === 0) return 0;
     if (!this.valid) await this.read();
     if (this.values == null || this.values.length === 0) return 0;
     const v = this.values.data[this.values.length - 1];
@@ -343,7 +349,9 @@ export class RangePointTelem implements NumericTelemSource, ModifiableTelemSourc
   }
 
   setProps(props: any): void {
-    this.props = rangePointTelemProps.parse(props);
+    this.prevProps = this.props;
+    if (Deep.equal(props, this.prevProps)) return;
+    this.props = RangeNumericTelemProps.parse(props);
     this.valid = false;
     this.handler?.();
   }

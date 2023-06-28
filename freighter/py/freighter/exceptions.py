@@ -12,8 +12,8 @@ from typing import Callable
 
 from freighter.transport import Payload
 
-TYPE_UNKNOWN = "unknown"
-TYPE_NONE = "nil"
+_TYPE_UNKNOWN = "unknown"
+_TYPE_NONE = "nil"
 
 
 class ExceptionPayload(Payload):
@@ -52,7 +52,7 @@ class _Registry:
 
     def decode(self, encoded: ExceptionPayload) -> Exception | None:
         assert isinstance(encoded, ExceptionPayload)
-        if encoded.type == TYPE_NONE:
+        if encoded.type == _TYPE_NONE:
             return None
         if encoded.type in self.providers:
             if encoded.data is None:

@@ -35,6 +35,7 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
   readonly key: string;
   readonly schema: S;
   _state: z.output<S>;
+  _prevState: z.output<S>;
 
   constructor(update: Update, schema: S) {
     this.type = update.type;
@@ -42,6 +43,7 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
     this.schema = schema;
     this._state = this.schema.parse(update.state);
     this._ctx = update.ctx;
+    this._prevState = this._state;
   }
 
   setState(state: PsuedoSetStateArg<z.input<S>>): void {
@@ -59,10 +61,15 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
     this._ctx = ctx;
     if (state != null) {
       this.validatePath(path);
+      this._prevState = this._state;
       this._state = this.schema.parse(state);
     }
     this.handleUpdate(ctx);
     return this._state;
+  }
+
+  get prevState(): z.output<S> {
+    return this._prevState;
   }
 
   handleUpdate(ctx: AetherContext): void {}

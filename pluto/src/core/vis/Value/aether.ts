@@ -81,8 +81,8 @@ export class AetherValue extends AetherLeaf<typeof valueState> implements PIDIte
     const valueStr = `${value} ${this.state.units}`;
 
     canvas.font = this.state.font;
-    const dims = textDimensions(value, this.state.font, canvas);
-    this.renderCtx.erase(box);
+    const dims = textDimensions(valueStr, this.state.font, canvas);
+    this.renderCtx.erase(new Box(this.prevState.box));
 
     if (this.state.width < dims.width)
       this.setState((p) => ({ ...p, width: dims.width }));

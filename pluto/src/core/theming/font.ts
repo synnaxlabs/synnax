@@ -29,7 +29,9 @@ export const fontString = (
 
 export interface UseTypographyReturn extends TypographySpec {
   toString: () => string;
-  base: number;
+  baseSize: number;
+  lineHeightPx: number;
+  sizePx: number;
 }
 
 export const useTypography = (level: TypographyLevel): UseTypographyReturn => {
@@ -38,6 +40,8 @@ export const useTypography = (level: TypographyLevel): UseTypographyReturn => {
   return {
     ...t,
     toString: () => fontString(theme, level),
-    base: theme.sizes.base,
+    baseSize: theme.sizes.base,
+    lineHeightPx: t.lineHeight * theme.sizes.base,
+    sizePx: t.size * theme.sizes.base,
   };
 };

@@ -209,7 +209,7 @@ export type StaticPointTelemProps = z.infer<typeof staticPointTelemProps>;
 export class StaticPointTelem implements NumericTelemSource {
   static readonly TYPE = "static-point";
 
-  variant = "point";
+  variant = "numeric";
 
   key: string;
   _value: number;

@@ -97,7 +97,7 @@ class _SenderCloser(StreamSender[RQ]):
         if not self._exc.received():
             block = True
             self._requests.sync_q.put((None, True))
-        return self._gate_stream_closed(self._exc.read(block))
+        return self.__gate_stream_closed(self._exc.read(block))
 
     async def run(self) -> None:
         while True:
@@ -117,7 +117,7 @@ class _SenderCloser(StreamSender[RQ]):
                     return self._exc.notify(exc)
 
     @staticmethod
-    def _gate_stream_closed(exc: Exception | None) -> None | Exception:
+    def __gate_stream_closed(exc: Exception | None) -> None | Exception:
         return exc if not isinstance(exc, StreamClosed) else None
 
 
@@ -152,11 +152,11 @@ class SyncStream(Thread, Stream[RQ, RS]):
         self._request_type = req_t
         self._open_exception = Notification()
         self._collector = collector
-        self._client.use(self._mw)
+        self._client.use(self.__mw)
         self.start()
-        self._ack_open()
+        self.__ack_open()
 
-    async def _mw(self, ctx: Context, _next: AsyncNext):
+    async def __mw(self, ctx: Context, _next: AsyncNext):
         ctx.params.update(self._ctx.params)
         return await _next(ctx)
 
@@ -166,14 +166,14 @@ class SyncStream(Thread, Stream[RQ, RS]):
             events.set_event_loop(loop)
 
             def finalizer(_: Context) -> tuple[Context, Exception | None]:
-                return loop.run_until_complete(self._connect())
+                return loop.run_until_complete(self.__connect())
 
             self._ctx = Context("sync_stream", self._target, "client")
             _, exc = self._collector.exec(self._ctx, finalizer)
             if exc is not None:
                 self._open_exception.notify(exc)
                 return
-            loop.run_until_complete(self._run())
+            loop.run_until_complete(self.__run())
         finally:
             try:
                 cancel_all_tasks(loop)
@@ -202,7 +202,7 @@ class SyncStream(Thread, Stream[RQ, RS]):
         """Implement the Stream protocol."""
         return self._sender.close_send()
 
-    async def _connect(self) -> tuple[Context, Exception | None]:
+    async def __connect(self) -> tuple[Context, Exception | None]:
         ctx = Context("sync_stream", self._target, "client")
         try:
             self._internal = await self._client.stream(
@@ -214,14 +214,14 @@ class SyncStream(Thread, Stream[RQ, RS]):
         except Exception as e:
             return ctx, e
 
-    async def _run(self):
+    async def __run(self):
         assert self._internal is not None
         self._receiver = _Receiver(self._internal)
         self._sender = _SenderCloser(self._internal, self._request_type)
         self._open_exception.notify(None)
         await asyncio.gather(self._receiver.run(), self._sender.run())
 
-    def _ack_open(self):
+    def __ack_open(self):
         exc = self._open_exception.read(block=True)
         if exc is not None:
             raise exc

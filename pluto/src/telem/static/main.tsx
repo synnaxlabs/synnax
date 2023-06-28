@@ -56,7 +56,7 @@ const usePointTelem = (value: number): NumericTelemSourceMeta => {
     value
   );
   return {
-    variant: "point",
+    variant: "numeric",
     key,
   };
 };
@@ -64,5 +64,5 @@ const usePointTelem = (value: number): NumericTelemSourceMeta => {
 export const StaticTelem = {
   useXY: useStaticXYTelem,
   useIterativeXY: useIterativeXYTelem,
-  usePoint: usePointTelem,
+  useNumeric: usePointTelem,
 };

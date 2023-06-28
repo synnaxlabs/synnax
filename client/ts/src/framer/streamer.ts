@@ -11,7 +11,7 @@ import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
 import { TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelParams } from "@/channel/payload";
+import { ChannelKey, ChannelParams } from "@/channel/payload";
 import { ChannelRetriever } from "@/channel/retriever";
 import { BackwardFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
@@ -38,6 +38,10 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
+  }
+
+  get keys(): ChannelKey[] {
+    return this.adapter.keys;
   }
 
   static async _open(

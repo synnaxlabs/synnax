@@ -95,6 +95,7 @@ export class Telem extends AetherComposite<typeof telemState> {
       return source.cleanup();
     }
 
+    console.log(msg.key, msg.props);
     if (source == null) this.newSource(msg.key, msg.type, msg.props);
     else source.setProps(msg.props);
   }

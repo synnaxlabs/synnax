@@ -93,7 +93,7 @@ export interface XYTelemSource extends TelemSourceMeta {
 }
 
 export const numericTelemSourceMeta = telemSourceMeta.extend({
-  variant: z.literal("numberic"),
+  variant: z.literal("numeric"),
 });
 
 export type NumericTelemSourceMeta = z.infer<typeof numericTelemSourceMeta>;
@@ -114,4 +114,26 @@ export interface ColorTelemSource extends TelemSourceMeta {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
+}
+
+export const booleanTelemSourceMeta = telemSourceMeta.extend({
+  variant: z.literal("boolean"),
+});
+
+export type BooleanTelemSourceMeta = z.infer<typeof booleanTelemSourceMeta>;
+
+export interface BooleanTelemSource extends TelemSourceMeta {
+  value: () => Promise<boolean>;
+  onChange: (f: () => void) => void;
+  release: (gl: GLBufferController) => void;
+}
+
+export const booleanTelemSinkMeta = telemSourceMeta.extend({
+  variant: z.literal("boolean"),
+});
+
+export type BooleanTelemSinkMeta = z.infer<typeof booleanTelemSinkMeta>;
+
+export interface BooleanTelemSink extends TelemSourceMeta {
+  set: (value: boolean) => void;
 }

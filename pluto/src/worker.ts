@@ -15,7 +15,7 @@ import { LineGL } from "@/core/vis/Line/LineGL";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { AetherPID } from "@/core/vis/pid/aether";
 import { AetherValue } from "@/core/vis/Value/aether";
-import { Valve } from "@/core/vis/Valve/worker";
+import { Valve } from "@/core/vis/Valve/aether";
 import { Telem } from "@/telem/TelemProvider/aether";
 
 // @ts-expect-error

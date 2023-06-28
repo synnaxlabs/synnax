@@ -29,14 +29,13 @@ class HTTPClient(MiddlewareCollector):
     the UnaryClient protocol.
     """
 
-    _ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
-    _ERROR_ENCODING_HEADER_VALUE = "freighter"
-    _CONTENT_TYPE_HEADER_KEY = "Content-Type"
-
-    pool: PoolManager
-    endpoint: URL
-    encoder_decoder: EncoderDecoder
-    secure: bool
+    __ERROR_ENCODING_HEADER_KEY = "Error-Encoding"
+    __ERROR_ENCODING_HEADER_VALUE = "freighter"
+    __CONTENT_TYPE_HEADER_KEY = "Content-Type"
+    __pool: PoolManager
+    __endpoint: URL
+    __encoder_decoder: EncoderDecoder
+    __secure: bool
 
     def __init__(
         self, url: URL, encoder_decoder: EncoderDecoder, secure: bool = False, **kwargs
@@ -47,14 +46,14 @@ class HTTPClient(MiddlewareCollector):
         :param secure: Whether to use HTTPS.
         """
         super().__init__()
-        self.endpoint = url
-        self.endpoint.protocol = "https" if secure else "http"
-        self.encoder_decoder = encoder_decoder
-        self.secure = secure
-        self.pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
+        self.__endpoint = url
+        self.__endpoint.protocol = "https" if secure else "http"
+        self.__encoder_decoder = encoder_decoder
+        self.__secure = secure
+        self.__pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
-    def _(self) -> UnaryClient:
+    def __(self) -> UnaryClient:
         return self
 
     def send(
@@ -63,17 +62,17 @@ class HTTPClient(MiddlewareCollector):
         """Implements the UnaryClient protocol."""
         return self.request(
             "POST",
-            self.endpoint.child(target).stringify(),
+            self.__endpoint.child(target).stringify(),
             "client",
             req,
             res_t,
         )
 
     @property
-    def headers(self) -> dict[str, str]:
+    def __headers(self) -> dict[str, str]:
         return {
-            self._CONTENT_TYPE_HEADER_KEY: self.encoder_decoder.content_type(),
-            self._ERROR_ENCODING_HEADER_KEY: self._ERROR_ENCODING_HEADER_VALUE,
+            self.__CONTENT_TYPE_HEADER_KEY: self.__encoder_decoder.content_type(),
+            self.__ERROR_ENCODING_HEADER_KEY: self.__ERROR_ENCODING_HEADER_VALUE,
         }
 
     def request(
@@ -84,22 +83,22 @@ class HTTPClient(MiddlewareCollector):
         request: RQ | None = None,
         res_t: Type[RS] | None = None,
     ) -> tuple[RS, None] | tuple[None, Exception]:
-        in_ctx = Context(url, self.endpoint.protocol, role)
+        in_ctx = Context(url, self.__endpoint.protocol, role)
 
         res: RS | None = None
 
         def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal res
-            out_meta_data = Context(url, self.endpoint.protocol, role)
+            out_meta_data = Context(url, self.__endpoint.protocol, role)
             data = None
             if request is not None:
-                data = self.encoder_decoder.encode(request)
+                data = self.__encoder_decoder.encode(request)
 
-            head = {**self.headers, **ctx.params}
+            head = {**self.__headers, **ctx.params}
 
             http_res: BaseHTTPResponse
             try:
-                http_res = self.pool.request(
+                http_res = self.__pool.request(
                     method=method, url=url, headers=head, body=data
                 )
             except MaxRetryError as e:
@@ -107,16 +106,16 @@ class HTTPClient(MiddlewareCollector):
             except HTTPError as e:
                 return out_meta_data, e
 
-            out_meta_data.params = http_res.headers
+            out_meta_data.params = http_res.__headers
 
             if http_res.status < 200 or http_res.status >= 300:
-                err = self.encoder_decoder.decode(http_res.data, ExceptionPayload)
+                err = self.__encoder_decoder.decode(http_res.data, ExceptionPayload)
                 return out_meta_data, decode_exception(err)
 
             if http_res.data is None:
                 return out_meta_data, None
 
-            res = self.encoder_decoder.decode(http_res.data, res_t)
+            res = self.__encoder_decoder.decode(http_res.data, res_t)
             return out_meta_data, None
 
         _, exc = self.exec(in_ctx, finalizer)

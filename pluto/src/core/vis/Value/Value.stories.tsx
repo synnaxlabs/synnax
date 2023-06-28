@@ -23,7 +23,7 @@ const story: Meta<typeof Value> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = Telem.Range.usePoint({ channel: 65538 });
+  const telem = Telem.Range.useNumeric({ channel: 65538 });
 
   return (
     <Canvas

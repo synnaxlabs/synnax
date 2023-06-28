@@ -15,7 +15,7 @@ import {
   Streamer,
   Synnax,
 } from "@synnaxlabs/client";
-import { Series, TimeRange } from "@synnaxlabs/x";
+import { Compare, Series, TimeRange } from "@synnaxlabs/x";
 
 import { ChannelCache } from "@/telem/client/cache";
 
@@ -81,6 +81,7 @@ export class BaseClient implements Client {
 
   constructor(wrap: Synnax) {
     this.core = wrap;
+    console.log("Creating client");
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
@@ -142,8 +143,14 @@ export class BaseClient implements Client {
     return responses;
   }
 
-  setStreamHandler(handler: StreamHandler, keys: ChannelKeys): void {
+  async setStreamHandler(handler: StreamHandler, keys: ChannelKeys): Promise<void> {
     this.listeners.set(handler, keys);
+    const dynamicBuffs = {};
+    for (const key of keys) {
+      const c = await this.getCache(key);
+      dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
+    }
+    handler(dynamicBuffs);
     void this.updateStreamer();
   }
 
@@ -168,14 +175,17 @@ export class BaseClient implements Client {
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
-      this._streamer?.close();
       this._streamer = null;
     }
 
-    // Update or create the streamer.
     const arrKeys = Array.from(keys);
+    console.log(arrKeys, this._streamer, this._streamer?.keys);
+    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === 0) return;
+
+    // Update or create the streamer.
     if (this._streamer != null) return await this._streamer.update(arrKeys);
     this._streamer = await this.core.telem.newStreamer(arrKeys);
+    console.log("creating streamer", this._streamer);
 
     void this.start(this._streamer);
   }

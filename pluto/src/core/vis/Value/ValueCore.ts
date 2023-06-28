@@ -23,25 +23,22 @@ export const valueCoreProps = AetherValue.stateZ
 
 export type ValueCoreProps = z.input<typeof valueCoreProps>;
 
-export const ValueCore = memo(
-  ({ color, level = "p", ...props }: ValueCoreProps): ReactElement | null => {
-    const theme = Theming.use();
-    const font = Theming.useTypography(level);
-    const memoProps = useMemo(
-      () => ({
-        font: font.toString(),
-        color: color ?? theme.colors.text,
-        ...props,
-      }),
-      [props, color, theme]
-    );
-    const [, , setState] = Aether.useStateful({
-      type: AetherValue.TYPE,
-      schema: AetherValue.stateZ,
-      initialState: memoProps,
-    });
-    useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-    return null;
-  }
-);
+export const ValueCore = memo((props: ValueCoreProps): ReactElement | null => {
+  const theme = Theming.use();
+  const font = Theming.useTypography(props.level);
+  const memoProps = useMemo(() => {
+    return {
+      font: font.toString(),
+      ...props,
+      color: theme.colors.text,
+    };
+  }, [props, theme]);
+  const [, , setState] = Aether.useStateful({
+    type: AetherValue.TYPE,
+    schema: AetherValue.stateZ,
+    initialState: memoProps,
+  });
+  useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
+  return null;
+});
 ValueCore.displayName = "ValueCore";

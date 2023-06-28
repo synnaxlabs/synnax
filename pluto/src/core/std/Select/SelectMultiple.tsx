@@ -9,7 +9,6 @@
 
 import { ReactElement, useCallback, useLayoutEffect, useRef, useState } from "react";
 
-import { Icon } from "@synnaxlabs/media";
 import {
   convertRenderV,
   Key,
@@ -19,11 +18,11 @@ import {
 
 import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
-import { Button } from "@/core/std/Button";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/std/Input";
 import { ListColumn, List, ListProps } from "@/core/std/List";
 import { Pack } from "@/core/std/Pack";
+import { SelectClearButton } from "@/core/std/Select/Select";
 import { SelectList } from "@/core/std/Select/SelectList";
 import { Space } from "@/core/std/Space";
 import { Tag } from "@/core/std/Tag";
@@ -181,13 +180,7 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
           );
         })}
       </Space>
-      <Button.Icon
-        className={CSS.BE("select-multiple", "clear")}
-        variant="outlined"
-        onClick={clear}
-      >
-        <Icon.Close aria-label="clear" />
-      </Button.Icon>
+      <SelectClearButton onClick={clear} />
     </Pack>
   );
 };

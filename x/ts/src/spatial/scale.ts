@@ -233,6 +233,14 @@ export class BoxScale {
     return new BoxScale().translate(xy);
   }
 
+  static translateX(x: number): BoxScale {
+    return new BoxScale().translateX(x);
+  }
+
+  static translateY(y: number): BoxScale {
+    return new BoxScale().translateY(y);
+  }
+
   static clamp(box: Box): BoxScale {
     return new BoxScale().clamp(box);
   }
@@ -250,6 +258,18 @@ export class BoxScale {
     const next = this.new();
     next.x = this.x.translate(_xy.x);
     next.y = this.y.translate(_xy.y);
+    return next;
+  }
+
+  translateX(x: number): BoxScale {
+    const next = this.new();
+    next.x = this.x.translate(x);
+    return next;
+  }
+
+  translateY(y: number): BoxScale {
+    const next = this.new();
+    next.y = this.y.translate(y);
     return next;
   }
 
