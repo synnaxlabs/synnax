@@ -9,23 +9,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 
 from typing import Protocol
 
-from typing_extensions import Literal
 
 from alamos import Instrumentation, trace, NOOP
 from freighter import Payload, UnaryClient
+
 from synnax.channel.payload import (
+    normalize_channel_params,
     ChannelPayload,
-    ChannelKeys,
-    ChannelNames,
     ChannelParams,
     ChannelKey,
     ChannelName,
 )
-from synnax.util.normalize import normalize
 
 
 class _Request(Payload):
@@ -47,8 +44,8 @@ class ChannelRetriever(Protocol):
 
 
 class ClusterChannelRetriever:
-    _ENDPOINT = "/channel/retrieve"
-    client: UnaryClient
+    __ENDPOINT = "/channel/retrieve"
+    __client: UnaryClient
     instrumentation: Instrumentation
 
     def __init__(
@@ -56,7 +53,7 @@ class ClusterChannelRetriever:
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self.client = client
+        self.__client = client
         self.instrumentation = instrumentation
 
     def _(self) -> ChannelRetriever:
@@ -68,8 +65,13 @@ class ClusterChannelRetriever:
         params: ChannelKey | ChannelName,
     ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
-        req = _Request(**{normal.variant: normal.params})
-        res, exc = self.client.send(self._ENDPOINT, req, _Response)
+        return self.__execute(_Request(**{normal.variant: normal.params}))
+
+    def __execute(
+        self,
+        req: _Request,
+    ) -> list[ChannelPayload]:
+        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         return res.channels
@@ -123,24 +125,3 @@ class CacheChannelRetriever:
         self.__set(retrieved)
         results.extend(retrieved)
         return results
-
-
-def normalize_channel_params(
-    params: ChannelParams,
-) -> NormalizedChannelParams:
-    """Determine if a list of keys or names is a single key or name."""
-    normalized = normalize(params)
-    if len(normalized) == 0:
-        raise ValueError("no keys or names provided")
-    return NormalizedChannelParams(
-        single=isinstance(params, (str, int)),
-        variant="keys" if isinstance(normalized[0], int) else "names",
-        params=normalized,
-    )
-
-
-@dataclass
-class NormalizedChannelParams:
-    single: bool
-    variant: Literal["keys", "names"]
-    params: ChannelNames | ChannelKeys

@@ -12,7 +12,7 @@ from freighter import URL
 from freighter.alamos import instrumentation_middleware
 
 from synnax.auth import AuthenticationClient
-from synnax.channel import ChannelClient
+from synnax.channel import ChannelClient, ChannelRetriever
 from synnax.channel.create import ChannelCreator
 from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
@@ -20,6 +20,7 @@ from synnax.framer import FrameClient
 from synnax.options import SynnaxOptions
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from synnax.ranger import RangeClient, RangeRetriever, RangeCreator
 
 
 class Synnax(FrameClient):
@@ -45,6 +46,7 @@ class Synnax(FrameClient):
     """
 
     channels: ChannelClient
+    ranges: RangeClient
 
     __client: Transport
 
@@ -77,7 +79,7 @@ class Synnax(FrameClient):
         :param secure: Whether to use TLS when connecting to the cluster.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
-        self._transport = _configure_transport(
+        self._transport = __configure_transport(
             opts=opts,
             open_timeout=open_timeout,
             read_timeout=read_timeout,
@@ -91,6 +93,9 @@ class Synnax(FrameClient):
         ch_creator = ChannelCreator(self._transport.unary)
         super().__init__(self._transport.stream, ch_retriever)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
+        range_retriever = RangeRetriever(self._transport.unary)
+        range_creator = RangeCreator(self._transport.unary)
+        self.ranges = RangeClient(self, range_creator, range_retriever)
 
     def close(self):
         """Shuts down the py and closes all connections. All open iterators or
@@ -101,7 +106,7 @@ class Synnax(FrameClient):
         ...
 
 
-def _configure_transport(
+def __configure_transport(
     opts: SynnaxOptions,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,

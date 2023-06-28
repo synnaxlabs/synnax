@@ -9,7 +9,7 @@
 
 import fnmatch
 
-from synnax import Channel
+from synnax.channel import Channel
 from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
 

@@ -27,10 +27,12 @@ data_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-print(f"""
+print(
+    f"""
     Time Channel Key: {time_ch.key}
     Data Channel Key: {data_ch.key}
-""")
+"""
+)
 
 
 with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer:
@@ -48,4 +50,4 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
         )
         time.sleep(0.1)
         print("Wrote", t, d)
-        i+=1
+        i += 1

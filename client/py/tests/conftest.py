@@ -11,7 +11,8 @@ import pytest
 import random
 
 import synnax
-from synnax import Channel, telem
+from synnax import telem
+from synnax.channel import Channel
 
 
 @pytest.fixture(scope="session")

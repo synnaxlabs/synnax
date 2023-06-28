@@ -18,7 +18,8 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from synnax import Channel, Synnax
+from synnax import Synnax
+from synnax.channel import Channel
 from synnax.framer import Writer
 from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp

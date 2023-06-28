@@ -7,10 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from freighter import Payload
 
+from synnax.channel.retrieve import NormalizedChannelParams
 from synnax.telem import DataType, Rate
-
+from synnax.util.normalize import normalize
 
 ChannelKey = int
 ChannelName = str
@@ -31,3 +38,24 @@ class ChannelPayload(Payload):
     leaseholder: int = 0
     is_index: bool = False
     index: ChannelKey = 0
+
+
+@dataclass
+class NormalizedChannelParams:
+    single: bool
+    variant: Literal["keys", "names"]
+    params: ChannelNames | ChannelKeys
+
+
+def normalize_channel_params(
+    params: ChannelParams,
+) -> NormalizedChannelParams:
+    """Determine if a list of keys or names is a single key or name."""
+    normalized = normalize(params)
+    if len(normalized) == 0:
+        raise ValueError("no keys or names provided")
+    return NormalizedChannelParams(
+        single=isinstance(params, (str, int)),
+        variant="keys" if isinstance(normalized[0], int) else "names",
+        params=normalized,
+    )

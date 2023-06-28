@@ -11,20 +11,21 @@ import numpy as np
 import pytest
 
 import synnax as sy
+import synnax.channel.channel
 
 
 class TestChannelClient:
     @pytest.fixture(scope="class")
     @pytest.mark.channel
-    def two_channels(self, client: sy.Synnax) -> list[sy.Channel]:
+    def two_channels(self, client: sy.Synnax) -> list[synnax.channel.channel.Channel]:
         return client.channels.create(
             [
-                sy.Channel(
+                synnax.channel.channel.Channel(
                     name="test",
                     rate=1 * sy.Rate.HZ,
                     data_type=sy.DataType.FLOAT64,
                 ),
-                sy.Channel(
+                synnax.channel.channel.Channel(
                     name="test2",
                     rate=1 * sy.Rate.HZ,
                     data_type=sy.DataType.FLOAT64,
@@ -33,7 +34,7 @@ class TestChannelClient:
         )
 
     @pytest.mark.channel
-    def test_create_list(self, two_channels: list[sy.Channel]):
+    def test_create_list(self, two_channels: list[synnax.channel.channel.Channel]):
         """Should create a list of valid channels"""
         assert len(two_channels) == 2
         for channel in two_channels:
@@ -44,7 +45,7 @@ class TestChannelClient:
     def test_create_single(self, client: sy.Synnax):
         """Should create a single valid channel"""
         channel = client.channels.create(
-            sy.Channel(
+            synnax.channel.channel.Channel(
                 name="test",
                 rate=1 * sy.Rate.HZ,
                 data_type=sy.DataType.FLOAT64,
@@ -76,7 +77,7 @@ class TestChannelClient:
 
     @pytest.mark.channel
     def test_retrieve_by_key(
-        self, two_channels: list[sy.Channel], client: sy.Synnax
+        self, two_channels: list[synnax.channel.channel.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using a list of keys"""
         res_channels = client.channels.retrieve(
@@ -95,7 +96,7 @@ class TestChannelClient:
 
     @pytest.mark.channel
     def test_retrieve_by_list_of_names(
-        self, two_channels: list[sy.Channel], client: sy.Synnax
+        self, two_channels: list[synnax.channel.channel.Channel], client: sy.Synnax
     ) -> None:
         """Should retrieve channels using list of names"""
         res_channels = client.channels.retrieve(["test", "test2"])
