@@ -27,10 +27,12 @@ data_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-print(f"""
+print(
+    f"""
     Time Channel: {time_ch}
     Data Channel: {data_ch}
-""")
+"""
+)
 
 # plt.ion()
 plt.title("Streaming")

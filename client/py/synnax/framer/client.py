@@ -25,7 +25,8 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,
 )
-from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
+from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel import normalize_channel_params
 from synnax.framer.streamer import Streamer
 from synnax.telem import TimeRange, UnparsedTimeStamp, Series
 
@@ -125,7 +126,7 @@ class FrameClient:
     def read(
         self,
         tr: TimeRange,
-        key_or_name: ChannelKey | ChannelName,
+        params: ChannelKey | ChannelName,
     ) -> Series:
         ...
 

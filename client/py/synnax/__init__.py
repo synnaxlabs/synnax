@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from .channel import Channel
+from . import Channel
 from .exceptions import (
     AuthError,
     ContiguityError,

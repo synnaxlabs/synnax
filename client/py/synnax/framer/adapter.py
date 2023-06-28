@@ -12,7 +12,8 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever, normalize_channel_params
+from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel import normalize_channel_params
 from synnax.framer.frame import Frame
 
 
