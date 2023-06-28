@@ -85,14 +85,14 @@ It is used to finalize the request and return the response."""
 class MiddlewareCollector:
     """MiddlewareCollector collects and executes middleware in order."""
 
-    _middleware: list[Middleware]
+    __middleware: list[Middleware]
 
     def __init__(self):
-        self._middleware = []
+        self.__middleware = []
 
     def use(self, *args: Middleware) -> None:
         """Use implements the Transport protocol."""
-        self._middleware.extend(args)
+        self.__middleware.extend(args)
 
     def exec(
         self,
@@ -106,27 +106,27 @@ class MiddlewareCollector:
         :param ctx: the context to pass to the middleware.
         :param finalizer: the finalizer to call at the end of the chain.
         """
-        middleware = self._middleware.copy()
+        middleware = self.__middleware.copy()
 
-        def _next(ctx_: Context) -> tuple[Context, Exception | None]:
+        def __next(ctx_: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
                 return finalizer(ctx_)
-            return middleware.pop()(ctx_, _next)
+            return middleware.pop()(ctx_, __next)
 
-        return _next(ctx)
+        return __next(ctx)
 
 
 class AsyncMiddlewareCollector:
     """AsyncMiddlewareCollector collects and executes middleware in order."""
 
-    _middleware: list[AsyncMiddleware]
+    __middleware: list[AsyncMiddleware]
 
     def __init__(self):
-        self._middleware = []
+        self.__middleware = []
 
     def use(self, *args: AsyncMiddleware) -> None:
         """Use implements the Transport protocol."""
-        self._middleware.extend(args)
+        self.__middleware.extend(args)
 
     async def exec(
         self,
@@ -140,11 +140,11 @@ class AsyncMiddlewareCollector:
         :param md: the metadata to pass to the middleware
         :param finalizer: the finalizer to call at the end of the chain
         """
-        middleware = self._middleware.copy()
+        middleware = self.__middleware.copy()
 
-        async def _next(_md: Context) -> tuple[Context, Exception | None]:
+        async def __next(_md: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
                 return await finalizer(_md)
-            return await middleware.pop()(_md, _next)
+            return await middleware.pop()(_md, __next)
 
-        return await _next(md)
+        return await __next(md)

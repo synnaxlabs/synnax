@@ -13,6 +13,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -51,6 +52,12 @@ export const useTelemSourceControl = <P extends any>(
     set(key, type, props, transferral);
     setRef.current = true;
   }
+
+  useEffect(() => {
+    console.log("setting", key, type, props, transferral);
+    set(key, type, props, transferral);
+  }, [props, transferral]);
+
   return key;
 };
 

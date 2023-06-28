@@ -12,8 +12,8 @@ import { NumericTelemSourceMeta } from "@/core/vis/telem/TelemSource";
 import {
   DynamicRangeXYTelem,
   DynamicRangeXYTelemProps,
-  RangePointTelem,
-  RangePointTelemProps,
+  RangeNumericTelem,
+  RangeNumerictelemProps,
   RangeXYTelem,
   RangeXYTelemProps,
 } from "@/telem/range/aether";
@@ -36,16 +36,16 @@ export const useDynamicRangeXYTelem = (
 };
 
 export const usePointRangeTelem = (
-  props: RangePointTelemProps
+  props: RangeNumerictelemProps
 ): NumericTelemSourceMeta => {
   return {
-    key: useTelemSourceControl(RangePointTelem.TYPE, props),
-    variant: "point",
+    key: useTelemSourceControl(RangeNumericTelem.TYPE, props),
+    variant: "numeric",
   };
 };
 
 export const RangeTelem = {
   useXY: useRangeXYTelem,
   useDynamicXY: useDynamicRangeXYTelem,
-  usePoint: usePointRangeTelem,
+  useNumeric: usePointRangeTelem,
 };

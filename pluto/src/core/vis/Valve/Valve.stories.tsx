@@ -23,7 +23,7 @@ const story: Meta<typeof Valve> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = StaticTelem.usePoint(1);
+  const telem = StaticTelem.useNumeric(1);
 
   return (
     <Canvas

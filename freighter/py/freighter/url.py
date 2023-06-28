@@ -52,13 +52,13 @@ class URL:
 
     def child(self, path: str) -> URL:
         """Creates a new URL with the given path appended to the current path."""
-        return URL(self.host, self.port, self._child_prefix(path), self.protocol)
+        return URL(self.host, self.port, self.__child_prefix(path), self.protocol)
 
     def stringify(self) -> str:
         """Returns the URL as a string."""
         return f"{self.protocol}://{self.host}:{self.port}/{self.path}"
 
-    def _child_prefix(self, path: str):
+    def __child_prefix(self, path: str):
         return reduce(urljoin, [self.path, format_path(path)])
 
     def __str__(self) -> str:

@@ -23,13 +23,7 @@ export class Valve extends AetherLeaf<typeof valveState> {
     super(update, valveState);
   }
 
-  handleUpdate(ctx: AetherContext): void {
-    if (this.state.triggered) {
-      setTimeout(() => {
-        this.setState({ triggered: false, active: !this.state.active });
-      }, 1000);
-    }
-  }
+  handleUpdate(ctx: AetherContext): void {}
 
   render(): void {}
 }

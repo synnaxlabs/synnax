@@ -12,7 +12,7 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 import { Aether } from "@/core/aether/main";
 import { Color, ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
-import { Valve as WorkerValve, valveState } from "@/core/vis/Valve/worker";
+import { Valve as WorkerValve, valveState } from "@/core/vis/Valve/aether";
 
 import "@/core/vis/Valve/Valve.css";
 

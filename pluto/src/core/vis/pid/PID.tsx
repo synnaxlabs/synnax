@@ -23,55 +23,32 @@ import ReactFlow, {
   Background,
   SmoothStepEdge,
   Controls,
+  Edge,
 } from "reactflow";
-
-import { Valve } from "../Valve/Valve";
 
 import { Aether } from "@/core/aether/main";
 import { useResize } from "@/core/hooks";
 import { AetherPID } from "@/core/vis/pid/aether";
-import { Value } from "@/core/vis/Value/Value";
-import { Telem } from "@/telem";
 
-interface PIDElement {
-  title: string;
-  form: FC;
-  element: FC;
-  preview: FC;
+/** The props for an element in the PID. */
+export type PIDElementProps<P extends unknown = unknown> = P & {
+  id: string;
+  position: XY;
+  selected: boolean;
+  editable: boolean;
+};
+
+/** An element in the PID that accepts PIDElementProps */
+export type PIDElement<P extends unknown = unknown> = FC<PIDElementProps<P>>;
+
+/** A registry containng all PID element types. */
+export type PIDElementRegistry = Record<string, PIDElement>;
+
+export interface UsePIDReturn {
+  elements: PIDElementProps[];
+  reigstry: PIDElementRegistry;
+  onConnect: (params: Edge) => void;
 }
-
-const ValueNode = (props: NodeProps): ReactElement => {
-  const telem = Telem.Range.usePoint({ channel: 65538 });
-  return (
-    <>
-      <Handle type="target" position={Position.Left} />
-      <Value
-        label="Regen PT"
-        telem={telem}
-        units="psi"
-        position={{ x: props.xPos, y: props.yPos }}
-        selected={props.selected}
-      />
-      <Handle type="source" position={Position.Right} />
-    </>
-  );
-};
-
-const ValveNode = (props: NodeProps): ReactElement => {
-  return (
-    <>
-      <Handle type="target" position={Position.Left} />
-      <Valve />
-      <Handle type="source" position={Position.Right} />
-    </>
-  );
-};
-
-const n = [
-  { id: "node-1", type: "value", position: { x: 250, y: 250 }, data: {} },
-  { id: "node-2", type: "value", position: { x: 400, y: 500 }, data: {} },
-  { id: "node-3", type: "valve", position: { x: 800, y: 500 }, data: {} },
-];
 
 const PIDInternal = (): ReactElement => {
   const nodeType = useMemo(() => ({ value: ValueNode, valve: ValveNode }), []);

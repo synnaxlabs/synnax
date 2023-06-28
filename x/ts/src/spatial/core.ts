@@ -364,6 +364,11 @@ export class XY {
     return { x: this.x, y: this.y };
   }
 
+  /** scale */
+  scale(scale: number): XY {
+    return new XY(this.x * scale, this.y * scale);
+  }
+
   /** @returns an XY coordinate translated by the given x value */
   translateX(x: number): XY {
     return new XY(this.x + x, this.y);

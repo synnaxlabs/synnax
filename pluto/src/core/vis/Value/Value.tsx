@@ -30,7 +30,7 @@ export const Value = memo(
       <span
         ref={ref}
         style={{
-          height: (font.lineHeight + 2) * font.base,
+          height: (font.lineHeight + 2) * font.baseSize,
           ...style,
         }}
         {...props}
