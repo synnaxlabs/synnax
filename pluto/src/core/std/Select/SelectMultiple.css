@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-select-multiple {
+    width: 100%;
+}
+
 .pluto-select-multiple__input {
     width: 20%;
     flex-shrink: 0;

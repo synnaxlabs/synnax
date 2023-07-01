@@ -13,5 +13,4 @@ export * from "@/util/renderProp";
 export * from "@/core";
 export * from "@/main";
 export * from "@/client";
-export * from "@/vis/LinePlot";
-export * from "@/vis/LinePlot";
+export * from "@/vis";

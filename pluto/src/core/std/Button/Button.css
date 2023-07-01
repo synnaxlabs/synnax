@@ -39,12 +39,11 @@
 
 .pluto-btn--filled {
     background-color: var(--pluto-primary-z);
-    border: var(--pluto-border-width) solid var(--pluto-primary-z);
+    border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
 }
 
 .pluto-btn--filled * {
     color: var(--pluto-white);
-    fill: var(--pluto-white);
 }
 
 .pluto-btn--filled:hover {
@@ -111,7 +110,7 @@
 }
 
 .pluto--medium > svg {
-    font-size: 3.25rem;
+    font-size: 3rem;
 }
 
 .pluto--small > svg {

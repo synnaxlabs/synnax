@@ -20,7 +20,7 @@ from synnax.util import normalize
 
 
 class RangePayload(Payload):
-    key: UUID = UUID()
+    key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
 

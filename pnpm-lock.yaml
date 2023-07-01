@@ -209,8 +209,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       proxy-memoize:
-        specifier: ^2.0.4
-        version: 2.0.4
+        specifier: ^1.2.0
+        version: 1.2.0
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -361,8 +361,8 @@ importers:
         specifier: workspace:*
         version: link:../configs/eslint
       proxy-memoize:
-        specifier: ^2.0.4
-        version: 2.0.4
+        specifier: ^1.2.0
+        version: 1.2.0
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -547,8 +547,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       proxy-memoize:
-        specifier: ^2.0.4
-        version: 2.0.4
+        specifier: ^1.2.0
+        version: 1.2.0
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -13041,17 +13041,17 @@ packages:
       ipaddr.js: 1.9.1
     dev: true
 
-  /proxy-compare@2.5.1:
-    resolution: {integrity: sha512-oyfc0Tx87Cpwva5ZXezSp5V9vht1c7dZBhvuV/y3ctkgMVUmiAGDVeeB0dKhGSyT0v1ZTEQYpe/RXlBVBNuCLA==}
+  /proxy-compare@2.3.0:
+    resolution: {integrity: sha512-c3L2CcAi7f7pvlD0D7xsF+2CQIW8C3HaYx2Pfgq8eA4HAl3GAH6/dVYsyBbYF/0XJs2ziGLrzmz5fmzPm6A0pQ==}
 
   /proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
     dev: true
 
-  /proxy-memoize@2.0.4:
-    resolution: {integrity: sha512-sBANT5Xlw+g+G8hnTFSFITLdEMmohKp8mDslp381W+LK3yFeQrczPo5/E5cz3r1npUCYKfd4xuQj/239ggdKkw==}
+  /proxy-memoize@1.2.0:
+    resolution: {integrity: sha512-0heYEZb4yMfhdduz8T+BPJOCKGukc81WRJaYF0k6ZsJz/NkPLhGFqe6OLdiZURr5kC1byps5wdqLN6DC2tYAFw==}
     dependencies:
-      proxy-compare: 2.5.1
+      proxy-compare: 2.3.0
 
   /psl@1.9.0:
     resolution: {integrity: sha512-E/ZsdU4HLs/68gYzgGTkMicWTLPdAftJLfJFlLUAAKZGkStNU72sZjT66SnMDVOfOWY/YAoiD7Jxa9iHvngcag==}

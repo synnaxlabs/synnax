@@ -9,8 +9,8 @@
 
 __version__ = "0.3.0"
 
-from . import Channel
-from .exceptions import (
+from synnax.channel import Channel
+from synnax.exceptions import (
     AuthError,
     ContiguityError,
     Field,
@@ -22,9 +22,9 @@ from .exceptions import (
     ValidationError,
 )
 from freighter.exceptions import Unreachable
-from .options import SynnaxOptions
-from .synnax import Synnax
-from .telem import (
+from synnax.options import SynnaxOptions
+from synnax.synnax import Synnax
+from synnax.telem import (
     DataType,
     Density,
     Rate,
@@ -40,7 +40,7 @@ from .telem import (
     Series,
     convert_time_units,
 )
-from .framer import (
+from synnax.framer import (
     Frame,
     BufferedWriter,
     Writer,

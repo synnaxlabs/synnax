@@ -12,14 +12,21 @@ import { z } from "zod";
 
 import { Color } from "@/core/color";
 
+const transferrable = z.union([
+  z.instanceof(ArrayBuffer),
+  z.instanceof(OffscreenCanvas),
+]);
+
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer
  * to the underlying telemetry source, and is intended for use as a main thread proxy
  * to the telemetry source on the worker thread.
  */
-export const telemSourceMeta = z.object({
-  key: z.string(),
+export const telemSourceProps = z.object({
   variant: z.string(),
+  type: z.string(),
+  props: z.any(),
+  transfer: z.array(transferrable).optional(),
 });
 
 /**
@@ -27,24 +34,24 @@ export const telemSourceMeta = z.object({
  * to the underlying telemetry source, and is intended for use as a main thread proxy
  * to the telemetry source on the worker thread.
  */
-export type TelemSourceMeta = z.infer<typeof telemSourceMeta>;
+export type TelemSourceProps = z.infer<typeof telemSourceProps>;
 
 /**
  * Meta data for telemetry source that provides X and Y correlated data.
  */
-export const xyTelemSourceMeta = telemSourceMeta.extend({
+export const xyTelemSourceProps = telemSourceProps.extend({
   variant: z.literal("xy"),
 });
 
 /**
  * Meta data for telemetry source that provides X and Y correlated data.
  */
-export type XYTelemSourceMeta = z.infer<typeof xyTelemSourceMeta>;
+export type XYTelemSourceProps = z.infer<typeof xyTelemSourceProps>;
 
 /**
  * A telemetry source that provides X and Y correlated data.
  */
-export interface XYTelemSource extends TelemSourceMeta {
+export interface XYTelemSource {
   /**
    * Resolves data for the X axis.
    *
@@ -92,48 +99,48 @@ export interface XYTelemSource extends TelemSourceMeta {
   release: (gl: GLBufferController) => void;
 }
 
-export const numericTelemSourceMeta = telemSourceMeta.extend({
+export const numericTelemSourceProps = telemSourceProps.extend({
   variant: z.literal("numeric"),
 });
 
-export type NumericTelemSourceMeta = z.infer<typeof numericTelemSourceMeta>;
+export type NumericTelemSourceProps = z.infer<typeof numericTelemSourceProps>;
 
-export interface NumericTelemSource extends TelemSourceMeta {
+export interface NumericTelemSource {
   value: () => Promise<number>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
 }
 
-export const colorTelemSourceMeta = telemSourceMeta.extend({
+export const colorTelemSourceProps = telemSourceProps.extend({
   variant: z.literal("color"),
 });
 
-export type ColorTelemSourceMeta = z.infer<typeof colorTelemSourceMeta>;
+export type ColorTelemSourceProps = z.infer<typeof colorTelemSourceProps>;
 
-export interface ColorTelemSource extends TelemSourceMeta {
+export interface ColorTelemSource {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
 }
 
-export const booleanTelemSourceMeta = telemSourceMeta.extend({
+export const booleanTelemSourceProps = telemSourceProps.extend({
   variant: z.literal("boolean"),
 });
 
-export type BooleanTelemSourceMeta = z.infer<typeof booleanTelemSourceMeta>;
+export type BooleanTelemSinkMeta = z.infer<typeof booleanTelemSourceProps>;
 
-export interface BooleanTelemSource extends TelemSourceMeta {
+export interface BooleanTelemSource {
   value: () => Promise<boolean>;
   onChange: (f: () => void) => void;
   release: (gl: GLBufferController) => void;
 }
 
-export const booleanTelemSinkMeta = telemSourceMeta.extend({
+export const booleanTelemSinkProps = telemSourceProps.extend({
   variant: z.literal("boolean"),
 });
 
-export type BooleanTelemSinkMeta = z.infer<typeof booleanTelemSinkMeta>;
+export type BooleanTelemSinkProps = z.infer<typeof booleanTelemSinkProps>;
 
-export interface BooleanTelemSink extends TelemSourceMeta {
+export interface BooleanTelemSink {
   set: (value: boolean) => void;
 }

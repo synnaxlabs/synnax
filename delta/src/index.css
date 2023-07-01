@@ -12,3 +12,8 @@
 .delta-form {
     padding: 1rem 3rem;
 }
+
+* {
+    user-select: none;
+    -webkit-user-select: none;
+}

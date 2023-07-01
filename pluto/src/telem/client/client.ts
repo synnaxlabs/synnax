@@ -81,7 +81,6 @@ export class BaseClient implements Client {
 
   constructor(wrap: Synnax) {
     this.core = wrap;
-    console.log("Creating client");
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
@@ -145,7 +144,7 @@ export class BaseClient implements Client {
 
   async setStreamHandler(handler: StreamHandler, keys: ChannelKeys): Promise<void> {
     this.listeners.set(handler, keys);
-    const dynamicBuffs = {};
+    const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
     for (const key of keys) {
       const c = await this.getCache(key);
       dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
@@ -179,13 +178,11 @@ export class BaseClient implements Client {
     }
 
     const arrKeys = Array.from(keys);
-    console.log(arrKeys, this._streamer, this._streamer?.keys);
     if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === 0) return;
 
     // Update or create the streamer.
     if (this._streamer != null) return await this._streamer.update(arrKeys);
     this._streamer = await this.core.telem.newStreamer(arrKeys);
-    console.log("creating streamer", this._streamer);
 
     void this.start(this._streamer);
   }

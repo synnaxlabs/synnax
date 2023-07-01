@@ -107,7 +107,7 @@ export class AetherComposite<
   extends AetherLeaf<S>
   implements AetherComponent
 {
-  readonly children: C[];
+  children: C[];
 
   constructor(change: Update, schema: S) {
     super(change, schema);
@@ -150,7 +150,7 @@ export class AetherComposite<
     if (child != null) return child?.update({ ...change, path: subPath });
     if (subPath.length > 1)
       throw new Error(
-        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${type}:${childKey}`
+        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `
       );
     this.children.push(change.ctx.create({ ...change, path: subPath }));
   }
@@ -163,14 +163,15 @@ export class AetherComposite<
           `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
         );
       }
+      const c = this.children;
+      this.children = [];
+      c.forEach((c) => c.delete([c.key]));
+      super.delete([this.key]);
       return;
     }
     const child = this.findChild(subPath[0]);
-    if (child == null) {
-      throw new Error(
-        `[Composite.delete] - ${this.type}:${this.key} could not find child with key ${key}`
-      );
-    } else if (subPath.length > 1) child.delete(subPath);
+    if (child == null) return;
+    if (subPath.length > 1) child.delete(subPath);
     else {
       this.children.splice(this.children.indexOf(child), 1);
       child.delete(subPath);
@@ -249,9 +250,10 @@ export class AetherContext {
 
 export type AetherComponentRegistry = Record<string, AetherComponentConstructor>;
 
-class AetherRoot {
+const aetherRootState = z.object({});
+
+class AetherRoot extends AetherComposite<typeof aetherRootState> {
   wrap: TypedWorker<WorkerMessage, MainMessage>;
-  root: AetherComponent | null;
   ctx: AetherContext;
 
   static render(
@@ -265,30 +267,29 @@ class AetherRoot {
     wrap: TypedWorker<WorkerMessage, MainMessage>,
     registry: Record<string, AetherComponentConstructor>
   ) {
-    this.ctx = new AetherContext(wrap, registry);
+    const ctx = new AetherContext(wrap, registry);
+    super(
+      {
+        ctx,
+        path: ["root"],
+        type: "root",
+        state: { ready: false },
+      },
+      aetherRootState
+    );
+    this.ctx = ctx;
     this.wrap = wrap;
-    this.root = null;
     this.wrap.handle(this.handle.bind(this));
   }
 
   handle(msg: MainMessage): void {
     if (msg.variant === "delete") {
-      if (this.root == null)
-        throw new UnexpectedError(
-          `[AetherRoot.handle] - received a delete message but no root is set`
-        );
-      return this.root.delete(msg.path);
+      this.delete(msg.path);
+    } else {
+      const change: Update = { ...msg, ctx: this.ctx.child() };
+      this.update(change);
     }
-
-    if (this.root == null && msg.path.length > 1) {
-      console.warn(
-        `[AetherRoot.handle] - received a path ${msg.path.join(".")} but no root is set`
-      );
-      return;
-    }
-    const change: Update = { ...msg, ctx: this.ctx.child() };
-    if (this.root == null) this.root = this.ctx.create(change);
-    else this.root.update(change);
+    console.log(msg, this.children);
   }
 }
 

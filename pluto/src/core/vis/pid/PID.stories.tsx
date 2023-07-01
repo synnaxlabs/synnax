@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { PID } from "./PID";
-
+import { Text } from "@/core/std";
 import { Canvas } from "@/core/vis/Canvas/Canvas";
+import { PID } from "@/core/vis/PID";
 
 const story: Meta<typeof PID> = {
   title: "Core/Vis/PID",
@@ -21,6 +21,26 @@ const story: Meta<typeof PID> = {
 };
 
 const Example = (): ReactElement => {
+  const props = PID.use({
+    initialNodes: [
+      {
+        key: "1",
+        position: {
+          x: 100,
+          y: 100,
+        },
+      },
+      {
+        key: "2",
+        position: {
+          x: 200,
+          y: 200,
+        },
+      },
+    ],
+    initialEdges: [],
+  });
+  const [v, setV] = useState("dog");
   return (
     <Canvas
       style={{
@@ -29,7 +49,11 @@ const Example = (): ReactElement => {
         position: "fixed",
       }}
     >
-      <PID />
+      <PID {...props}>
+        {({ elementKey: key, selected }) => {
+          return <Text.Editable value={v} onChange={setV} level="h4" />;
+        }}
+      </PID>
     </Canvas>
   );
 };

@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/vis/LinePlot";
+export * from "@/vis/pid/ValuePIDElement";
+export * from "@/vis/pid/PIDElement";

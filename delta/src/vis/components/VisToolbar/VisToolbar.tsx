@@ -10,36 +10,32 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Status } from "@synnaxlabs/pluto";
+import { Space } from "@synnaxlabs/pluto";
+
+import { VisLayoutSelector } from "../VisLayoutSelector";
 
 import { VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
-import { NavDrawerItem } from "@/layout";
-import { LinePlotToolBar } from "@/vis/line/controls/LinePlotToolbar";
-import { PIDToolbar } from "@/vis/pid/controls/PIDToolBar";
-import { useSelectVisMeta } from "@/vis/store";
+import { NavDrawerItem, useSelectActiveMosaicLayout } from "@/layout";
+import { PIDToolbar } from "@/pid/controls/PIDToolBar";
 
-const NoVisContent = (): ReactElement => (
+const NoVisContent = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-      No active visualization. Select a tab or create a new one.
-    </Status.Text.Centered>
+    <VisLayoutSelector layoutKey={layoutKey} />;
   </Space>
 );
 
 const Content = (): ReactElement => {
-  const vis = useSelectVisMeta();
-  switch (vis?.variant) {
+  const layout = useSelectActiveMosaicLayout();
+  switch (layout?.type) {
+    case "pid":
+      return <PIDToolbar layoutKey={layout?.key} />;
     default:
-      return <PIDToolbar layoutKey={vis?.key} />;
-    // case "line":
-    //   return <LinePlotToolBar layoutKey={vis?.key} />;
-    // default:
-    //   return <NoVisContent />;
+      return <NoVisContent layoutKey={layout?.key} />;
   }
 };
 

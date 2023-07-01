@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { XYTelemSourceMeta } from "@/core/vis/telem";
-import { NumericTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import { XYTelemSourceProps } from "@/core/vis/telem";
+import { NumericTelemSourceProps } from "@/core/vis/telem/TelemSource";
 import {
   DynamicRangeXYTelem,
   DynamicRangeXYTelemProps,
@@ -17,30 +17,32 @@ import {
   RangeXYTelem,
   RangeXYTelemProps,
 } from "@/telem/range/aether";
-import { useTelemSourceControl } from "@/telem/TelemProvider/TelemProvider";
 
-export const useRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceMeta => {
+export const useRangeXYTelem = (props: RangeXYTelemProps): XYTelemSourceProps => {
   return {
-    key: useTelemSourceControl(RangeXYTelem.TYPE, props),
     variant: "xy",
+    type: RangeXYTelem.TYPE,
+    props,
   };
 };
 
 export const useDynamicRangeXYTelem = (
   props: DynamicRangeXYTelemProps
-): XYTelemSourceMeta => {
+): XYTelemSourceProps => {
   return {
-    key: useTelemSourceControl(DynamicRangeXYTelem.TYPE, props),
+    type: DynamicRangeXYTelem.TYPE,
     variant: "xy",
+    props,
   };
 };
 
 export const usePointRangeTelem = (
   props: RangeNumerictelemProps
-): NumericTelemSourceMeta => {
+): NumericTelemSourceProps => {
   return {
-    key: useTelemSourceControl(RangeNumericTelem.TYPE, props),
+    type: RangeNumericTelem.TYPE,
     variant: "numeric",
+    props,
   };
 };
 

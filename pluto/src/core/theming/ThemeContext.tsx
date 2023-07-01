@@ -93,7 +93,7 @@ export const ThemeProvider = ({
   if (theme == null || toggleTheme == null || setTheme == null) {
     ret = useThemeProvider({
       themes,
-      defaultTheme: "synnaxDark",
+      defaultTheme: "synnaxLight",
     });
   } else {
     ret = {

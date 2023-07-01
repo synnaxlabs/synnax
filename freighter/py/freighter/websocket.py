@@ -175,7 +175,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                     **self.__kwargs,
                 )
 
-                socket = WebsocketStream[RQ, RS](self.__encoder, ws, res_t).__e
+                socket = WebsocketStream[RQ, RS](self.__encoder, ws, res_t)
             except Exception as e:
                 return out_ctx, e
             return out_ctx, None

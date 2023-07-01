@@ -21,8 +21,7 @@ import { VisList } from "./VisList";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
-import { VisToolbar } from "@/vis";
-import { createLineVis } from "@/vis/line/LinePlot/core";
+import { VisToolbar, createVis } from "@/vis";
 
 const Content = (): ReactElement => {
   const newLayout = useLayoutPlacer();
@@ -46,7 +45,7 @@ const Content = (): ReactElement => {
   };
 
   const handleCreateVis = (): void => {
-    newLayout(createLineVis({}));
+    dispatch(createVis({}));
     dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 

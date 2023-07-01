@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TelemSourceMeta } from "./TelemSource";
+import { TelemSourceProps } from "./TelemSource";
 
 import { AetherContext } from "@/core/aether/worker";
 
 export interface TelemProvider {
-  get: <T extends TelemSourceMeta>(key: string) => T;
+  get: <T>(key: string, props: TelemSourceProps) => [T, () => void];
 }
 
 export class TelemContext {
@@ -29,7 +29,11 @@ export class TelemContext {
     ctx.set<TelemContext>(TelemContext.CONTEXT_KEY, telem);
   }
 
-  static use<T extends TelemSourceMeta>(ctx: AetherContext, key: string): T {
-    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.get<T>(key);
+  static use<T>(
+    ctx: AetherContext,
+    key: string,
+    props: TelemSourceProps
+  ): [T, () => void] {
+    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.get<T>(key, props);
   }
 }

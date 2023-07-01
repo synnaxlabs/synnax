@@ -4,7 +4,7 @@ import { XY } from "@synnaxlabs/x";
 
 import { InputControl } from "@/core";
 
-export type PIDElementProps<P extends unknown = unknown> = P & {
+export type StatefulPIDElementProps<P extends unknown = unknown> = P & {
   position: XY;
   selected: boolean;
   editable: boolean;
@@ -18,7 +18,7 @@ export interface PIDElementSpec<P extends unknown = unknown> {
   type: string;
   title: string;
   initialProps: P;
-  Element: FC<PIDElementProps<P>>;
+  Element: FC<StatefulPIDElementProps<P>>;
   Form: FC<PIDElementFormProps<P>>;
   Preview: FC<null>;
 }

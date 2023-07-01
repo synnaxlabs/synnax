@@ -11,14 +11,13 @@ import { ReactElement, useState } from "react";
 
 import { Box, BoxScale, XY } from "@synnaxlabs/x";
 
+import { CSS } from "@/core/css";
 import { DirectionTrigger, useResize } from "@/core/hooks";
 import { Pack, PackProps, Text } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
 
 import "@/core/vis/Value/ValueLabeled.css";
-
-import { CSS } from "@/core/css";
 
 export interface ValueLabeledProps
   extends Omit<ValueCoreProps, "box">,
@@ -33,7 +32,7 @@ export const ValueLabeled = ({
   onLabelChange,
   level = "p",
   color,
-  position = XY.ZERO,
+  position,
   className,
   ...props
 }: ValueLabeledProps): ReactElement => {
@@ -41,15 +40,17 @@ export const ValueLabeled = ({
 
   const font = Theming.useTypography(level);
 
-  const triggers: DirectionTrigger[] = position.isZero ? [] : ["resizeX", "resizeY"];
+  const triggers: DirectionTrigger[] = position != null ? [] : ["resizeX", "resizeY"];
   const resizeRef = useResize(setBox, { triggers });
 
   const height = (font.lineHeight + 2) * font.baseSize;
 
-  let scale = BoxScale.translate(position);
-  if (!position.isZero)
-    scale = scale.translate(box.topLeft.scale(-1)).translateY(height);
-  const adjustedBox = scale.box(box);
+  let adjustedBox = box;
+  if (position != null)
+    adjustedBox = BoxScale.translate(position)
+      .translate(box.topLeft.scale(-1))
+      .translateY(height)
+      .box(box);
 
   return (
     <Pack

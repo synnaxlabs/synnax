@@ -11,14 +11,15 @@ import { ReactElement, StrictMode } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
 import { Menu as PMenu, Pluto } from "@synnaxlabs/pluto";
-import { appWindow } from "@tauri-apps/api/window";
 import ReactDOM from "react-dom/client";
 
 import "./index.css";
+import { PID } from "./pid/PID/PID";
+import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";
 import { Menu } from "@/components";
-import { DocsLayoutRenderer } from "@/docs";
+import { Docs } from "@/docs";
 import {
   LayoutRendererProvider,
   LayoutWindow,
@@ -28,7 +29,6 @@ import {
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { store } from "@/store";
 import { useLoadTauriVersion } from "@/version";
-import { VisLayoutRenderer } from "@/vis";
 import { DefineRange } from "@/workspace";
 
 import "@synnaxlabs/media/dist/style.css";
@@ -37,10 +37,12 @@ import "@synnaxlabs/pluto/dist/style.css";
 const layoutRenderers = {
   main: LayoutMain,
   connectCluster: ConnectCluster,
-  visualization: VisLayoutRenderer,
+  visualization: VisLayoutSelectorRenderer,
   defineRange: DefineRange,
   getStarted: GetStarted,
-  docs: DocsLayoutRenderer,
+  docs: Docs,
+  pid: PID,
+  vis: VisLayoutSelectorRenderer,
 };
 
 export const DefaultContextMenu = (): ReactElement => (
@@ -55,7 +57,12 @@ const MainUnderContext = (): ReactElement => {
   useLoadTauriVersion();
   const cluster = useSelectCluster();
   return (
-    <Pluto {...theme} workerEnabled params={cluster?.props}>
+    <Pluto
+      {...theme}
+      workerEnabled
+      connParams={cluster?.props}
+      workerURL={new URL("./worker.ts", import.meta.url)}
+    >
       <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
         <LayoutWindow />
       </PMenu.ContextMenu>

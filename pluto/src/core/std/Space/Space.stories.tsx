@@ -47,7 +47,7 @@ const Template: StoryFn<typeof Space> = (args: SpaceProps) => (
 
 export const Basic = Template.bind({});
 Basic.args = {
-  direction: "x",
+  direction: "y",
   size: "medium",
   align: "center",
   justify: "start",

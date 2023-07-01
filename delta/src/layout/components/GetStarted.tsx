@@ -18,8 +18,7 @@ import { setNavdrawerVisible } from "../store";
 import { ClusterToolbar, connectClusterWindowLayout } from "@/cluster";
 import { createDocsLayout } from "@/docs";
 import { useLayoutPlacer } from "@/layout/hooks";
-import { VisToolbar } from "@/vis";
-import { createLineVis } from "@/vis/line/LinePlot/core";
+import { VisToolbar, createVis } from "@/vis";
 
 import "@/layout/components/GetStarted.css";
 
@@ -33,7 +32,7 @@ export const GetStarted = (): ReactElement => {
   };
 
   const handleVisualize = (): void => {
-    placer(createLineVis({}));
+    placer(createVis({}));
     dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 

@@ -168,11 +168,11 @@ export const InputItemControlled = <
   if (label == null) label = camelToTitle(name);
   return (
     // @ts-expect-error
-    <InputItem<I, P>
+    <InputItem<I, O>
       ref={field.ref}
       label={label}
       value={field.value}
-      onChange={field.onChange}
+      onChange={field.onChange as unknown as (value: O) => void}
       helpText={fieldState.error?.message}
       {...(props as unknown as Omit<InputItemProps<I, P>, "onChange" | "value">)}
     />

@@ -305,7 +305,10 @@ export class RangeNumericTelem
     this.prevProps = props;
   }
 
-  cleanup(): void {}
+  cleanup(): void {
+    if (this.streamHandler != null) this.client.removeStreamHandler(this.streamHandler);
+  }
+
   invalidate(): void {
     this.valid = false;
   }

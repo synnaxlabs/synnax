@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TelemSourceMeta } from "@/core/vis/telem";
-
-export interface ModifiableTelemSourceMeta extends TelemSourceMeta {
+export interface ModifiableTelemSourceMeta {
   setProps: (props: any) => void;
   cleanup: () => void;
   invalidate: () => void;

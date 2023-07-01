@@ -106,6 +106,7 @@ export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
  * Tab interface for the Tabs component. This does not apply to window layoputs.
  */
 export interface LayoutTabProps extends Pick<Tab, "closable" | "editable"> {
+  tab: Tab;
   location?: Location;
   mosaicKey?: number;
 }

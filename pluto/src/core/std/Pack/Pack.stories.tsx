@@ -35,7 +35,7 @@ export const Horizontal: StoryFn<typeof Pack> = (args) => (
 export const Vertical: StoryFn<typeof Pack> = (args) => (
   <Pack {...args} direction="y">
     <Button variant="text">Button 1</Button>
-    <Button variant="text">Button 2</Button>
+    <Button variant="text">Button 222</Button>
     <Button variant="text">Button 3</Button>
   </Pack>
 );

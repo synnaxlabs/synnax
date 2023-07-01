@@ -13,17 +13,17 @@ import { z } from "zod";
 import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
-import { PIDItem } from "@/core/vis/pid/aether";
+import { PIDElement } from "@/core/vis/PID/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
 import {
   NumericTelemSource,
-  numericTelemSourceMeta,
+  numericTelemSourceProps,
 } from "@/core/vis/telem/TelemSource";
 
 const valueState = z.object({
   box: Box.z,
-  telem: numericTelemSourceMeta,
+  telem: numericTelemSourceProps,
   units: z.string(),
   font: z.string(),
   color: Color.z,
@@ -35,9 +35,10 @@ export interface ValueProps {
   position: XY;
 }
 
-export class AetherValue extends AetherLeaf<typeof valueState> implements PIDItem {
+export class AetherValue extends AetherLeaf<typeof valueState> implements PIDElement {
   private renderCtx: RenderContext;
   private telem: NumericTelemSource;
+  private releaseTelem?: () => void;
   private _requestRender: (() => void) | null;
 
   static readonly TYPE = "value";
@@ -45,26 +46,29 @@ export class AetherValue extends AetherLeaf<typeof valueState> implements PIDIte
 
   constructor(update: Update) {
     super(update, valueState);
-    this.telem = TelemContext.use(update.ctx, this.state.telem.key);
+    [this.telem, this.releaseTelem] = TelemContext.use(
+      update.ctx,
+      this.key,
+      this.state.telem
+    );
     this.renderCtx = RenderContext.use(update.ctx);
     this._requestRender = RenderController.useOptionalRequest(update.ctx);
-    this.telem.onChange(() => {
-      void this.render();
-    });
+    this.telem.onChange(() => this.requestRender());
+    this.requestRender();
   }
 
   handleUpdate(ctx: AetherContext): void {
-    this.telem = TelemContext.use(ctx, this.state.telem.key);
+    [this.telem, this.releaseTelem] = TelemContext.use(ctx, this.key, this.state.telem);
     this.renderCtx = RenderContext.use(ctx);
     this._requestRender = RenderController.useOptionalRequest(ctx);
+    this.telem.onChange(() => this.requestRender());
     this.requestRender();
-    this.telem.onChange(() => {
-      void this.render();
-    });
   }
 
   handleDelete(): void {
-    this.requestRender();
+    this.releaseTelem?.();
+    if (this._requestRender == null) this.renderCtx.erase(new Box(this.state.box));
+    else this._requestRender();
   }
 
   private requestRender(): void {

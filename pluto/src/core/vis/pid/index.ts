@@ -7,12 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { PID as CorePID, usePID } from "@/core/vis/PID/PID";
+export type {
+  PIDProps,
+  UsePIDProps,
+  UsePIDReturn,
+  PIDNode,
+  PIDEdge,
+  PIDElementProps,
+} from "@/core/vis/PID/PID";
 
-export interface PIDElementsProps {
-  layoutKey: string;
+type CorePIDType = typeof CorePID;
+
+interface PIDType extends CorePIDType {
+  use: typeof usePID;
 }
 
-export const PIDElements = ({ layoutKey }: PIDElementsProps): ReactElement => {
-  return <div>Elements</div>;
-};
+export const PID = CorePID as PIDType;
+
+PID.use = usePID;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useEffect, useState } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
@@ -24,7 +24,6 @@ const story: Meta<typeof Value> = {
 
 const Example = (): ReactElement => {
   const telem = Telem.Range.useNumeric({ channel: 65538 });
-
   return (
     <Canvas
       style={{
@@ -35,7 +34,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Value telem={telem} style={{ width: 100 }} units="psi" />
+      <Value telem={telem} style={{ width: 100 }} units="psi" level="h4" />
     </Canvas>
   );
 };

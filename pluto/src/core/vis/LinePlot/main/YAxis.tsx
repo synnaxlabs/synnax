@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, memo, useMemo } from "react";
+import { PropsWithChildren, ReactElement, useMemo } from "react";
 
 import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -25,8 +25,9 @@ export interface YAxisProps
       "color" | "font" | "gridColor"
     > {}
 
-export const YAxis = memo(
-  ({ children, location = "left", ...props }: YAxisProps): ReactElement => {
+export const YAxis = Aether.wrap<YAxisProps>(
+  "YAxis",
+  ({ aetherKey, children, location = "left", ...props }): ReactElement => {
     const theme = Theming.use();
 
     const memoProps = useMemo(
@@ -41,7 +42,8 @@ export const YAxis = memo(
       [theme, props]
     );
 
-    const [{ key, path }, , setState] = Aether.useStateful({
+    const [{ path }, , setState] = Aether.use({
+      aetherKey,
       type: AetherLinePlot.YAxis.TYPE,
       schema: AetherLinePlot.YAxis.stateZ,
       initialState: memoProps,
@@ -49,7 +51,7 @@ export const YAxis = memo(
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
-      key,
+      aetherKey,
       "YAxis"
     );
 
@@ -71,4 +73,3 @@ export const YAxis = memo(
     );
   }
 );
-YAxis.displayName = "YAxisC";

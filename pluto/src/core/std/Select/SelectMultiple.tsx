@@ -149,7 +149,7 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
   };
 
   return (
-    <Pack align="stretch" {...props} grow>
+    <Pack align="stretch" {...props} grow className={CSS.B("pluto-select-multiple")}>
       <Input
         ref={ref}
         className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}

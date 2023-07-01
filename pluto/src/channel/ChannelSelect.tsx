@@ -95,7 +95,7 @@ export const ChannelSelect = ({
 
   const emptyContent =
     client != null ? undefined : (
-      <Status.Text.Centered variant="error" level="h4">
+      <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
         No client available
       </Status.Text.Centered>
     );

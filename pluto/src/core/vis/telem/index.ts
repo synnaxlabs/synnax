@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export type {
-  TelemSourceMeta,
-  XYTelemSourceMeta,
+  TelemSourceProps,
+  XYTelemSourceProps,
   XYTelemSource,
 } from "@/core/vis/telem/TelemSource";
-export { xyTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+export { xyTelemSourceProps } from "@/core/vis/telem/TelemSource";

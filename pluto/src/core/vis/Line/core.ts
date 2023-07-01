@@ -12,10 +12,10 @@ import { z } from "zod";
 
 import { AetherComponent } from "@/core/aether/worker";
 import { Color } from "@/core/color";
-import { xyTelemSourceMeta } from "@/core/vis/telem";
+import { xyTelemSourceProps } from "@/core/vis/telem";
 
 export const lineState = z.object({
-  telem: xyTelemSourceMeta,
+  telem: xyTelemSourceProps,
   color: Color.z,
   strokeWidth: z.number().default(1),
 });

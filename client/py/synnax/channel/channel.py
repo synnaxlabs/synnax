@@ -12,7 +12,7 @@ from typing import overload
 from numpy import ndarray
 from pydantic import PrivateAttr
 
-from synnax import (
+from synnax.telem import (
     UnparsedDataType,
     UnparsedRate,
     DataType,
@@ -20,8 +20,8 @@ from synnax import (
     TimeRange,
     Series,
     UnparsedTimeStamp,
-    ValidationError,
 )
+from synnax.exceptions import ValidationError
 from synnax.channel.payload import ChannelPayload, ChannelKey
 from synnax.framer import FrameClient
 

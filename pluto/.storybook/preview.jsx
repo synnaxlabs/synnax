@@ -32,5 +32,8 @@ const CONN_PARAMS = {
 }
 
 export const decorators = [
-    (StoryFn) => <Pluto connParams={CONN_PARAMS}>{StoryFn()}</Pluto>
+    (StoryFn) => (
+            <Pluto connParams={CONN_PARAMS}>{StoryFn()}</Pluto>
+    )
+    
 ];

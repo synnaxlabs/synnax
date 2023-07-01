@@ -23,6 +23,7 @@ import { RenderContext } from "@/core/vis/render";
 const canvasState = z.object({
   dpr: z.number(),
   region: Box.z,
+  bootstrap: z.boolean().optional().default(false),
   glCanvas: z.instanceof(OffscreenCanvas).optional(),
   upper2dCanvas: z.instanceof(OffscreenCanvas).optional(),
   lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
@@ -42,11 +43,13 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
   handleUpdate(ctx: AetherContext): void {
     let renderCtx = RenderContext.useOptional(ctx);
     if (renderCtx == null) {
+      if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas } = this.state;
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
         );
+
       renderCtx = RenderContext.create(ctx, glCanvas, lower2dCanvas, upper2dCanvas);
       LineGLProgramContext.create(ctx);
     } else {

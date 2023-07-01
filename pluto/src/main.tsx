@@ -30,12 +30,12 @@ export const Pluto = ({
   toggleTheme,
   setTheme,
 }: PlutoProps): ReactElement => {
-  workerURL = workerURL ?? new URL("./worker.ts", import.meta.url);
+  const defaultWorkerURL = new URL("defaultWorker.ts", import.meta.url);
   return (
     <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
       <Triggers.Provider>
         <Haul.Provider>
-          <Worker.Provider url={workerURL} enabled={workerEnabled}>
+          <Worker.Provider url={workerURL ?? defaultWorkerURL} enabled={workerEnabled}>
             <Aether.Provider workerKey="vis">
               <Client.Provider connParams={connParams}>
                 <TelemProvider>{children}</TelemProvider>

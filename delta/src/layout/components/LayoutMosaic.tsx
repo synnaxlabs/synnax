@@ -26,7 +26,7 @@ import {
 
 import { LayoutContent } from "./LayoutContent";
 
-import { createLineVis } from "@/vis/line/LinePlot/core";
+import { createVis } from "@/vis";
 
 const emptyContent = <Logo.Watermark />;
 
@@ -74,7 +74,7 @@ export const LayoutMosaic = (): ReactElement => {
 
   const handleCreate = useCallback(
     (mosaicKey: number) => {
-      placer(createLineVis({ tab: { mosaicKey } }));
+      placer(createVis({ tab: { mosaicKey } }));
     },
     [placer]
   );
