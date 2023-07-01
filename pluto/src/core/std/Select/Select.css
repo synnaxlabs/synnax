@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-select {
+    width: 100%;
+}
+
 .pluto-select__clear {
     background: var(--pluto-background-color);
 }

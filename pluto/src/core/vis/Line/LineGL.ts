@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, xyScaleToTransform, Series, CrudeDirection } from "@synnaxlabs/x";
+import {
+  Bounds,
+  xyScaleToTransform,
+  Series,
+  CrudeDirection,
+  Destructor,
+} from "@synnaxlabs/x";
 
 import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
 import {
@@ -97,6 +103,7 @@ export class LineGLProgramContext extends GLProgram {
 export class LineGL extends AetherLeaf<typeof lineState> implements LineComponent {
   prog: LineGLProgramContext;
   telem: XYTelemSource;
+  telemD: Destructor;
   requestRender: RequestRender;
 
   static readonly TYPE = "line";
@@ -104,15 +111,22 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
   constructor(change: Update) {
     super(change, lineState);
     this.prog = LineGLProgramContext.use(change.ctx);
-    this.telem = TelemContext.use<XYTelemSource>(change.ctx, this.state.telem.key);
+    [this.telem, this.telemD] = TelemContext.use(
+      change.ctx,
+      this.key,
+      this.state.telem
+    );
     this.requestRender = RenderController.useRequest(change.ctx);
     this.telem.onChange(() => this.requestRender());
   }
 
   handleUpdate(ctx: AetherContext): void {
     this.prog = LineGLProgramContext.use(ctx);
-    this.telem.release(this.prog.ctx.gl);
-    this.telem = TelemContext.use<XYTelemSource>(ctx, this.state.telem.key);
+    [this.telem, this.telemD] = TelemContext.use<XYTelemSource>(
+      ctx,
+      this.key,
+      this.state.telem
+    );
     this.requestRender = RenderController.useRequest(ctx);
     this.telem.onChange(() => this.requestRender());
     this.requestRender();

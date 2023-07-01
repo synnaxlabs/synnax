@@ -27,7 +27,7 @@
     "fuse.js": "^6.6.2",
     "mathjs": "^11.8.2",
     "nanoid": "^4.0.2",
-    "proxy-memoize": "^2.0.4",
+    "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.45.0",
@@ -82,9 +82,20 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/pluto.cjs.js",
-  "module": "./dist/pluto.es.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./worker": {
+      "import": "./dist/worker.js",
+      "require": "./dist/worker.cjs"
+    },
+    "./dist/*": "./dist/*"
+  },
   "readme": "ERROR: No README data found!",
   "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {

@@ -175,6 +175,7 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const input = (
     <Input
+      className={CSS.BE("select", "input")}
       value={internalValue}
       onChange={handleChange}
       onFocus={handleFocus}
@@ -185,7 +186,7 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   if (allowClear) {
     return (
-      <Pack direction="x" className={CSS.BE("select", "input")}>
+      <Pack direction="x" className={CSS.B("select-input")}>
         {input}
         <SelectClearButton onClick={handleClear} />
       </Pack>

@@ -11,53 +11,49 @@ import { useMemo } from "react";
 
 import { Rate } from "@synnaxlabs/x";
 
-import { XYTelemSourceMeta } from "@/core/vis/telem";
-import { NumericTelemSourceMeta } from "@/core/vis/telem/TelemSource";
+import { XYTelemSourceProps } from "@/core/vis/telem";
+import { NumericTelemSourceProps } from "@/core/vis/telem/TelemSource";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
   StaticPointTelem,
-  StaticPointTelemProps,
   StaticXYTelem,
   StaticXYTelemProps,
 } from "@/telem/static/aether";
-import { useTelemSourceControl } from "@/telem/TelemProvider/TelemProvider";
 
-const useStaticXYTelem = (props: StaticXYTelemProps): XYTelemSourceMeta => {
+const useStaticXYTelem = (props: StaticXYTelemProps): XYTelemSourceProps => {
   const transfer = useMemo(
     () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
     [props]
   );
-  const key = useTelemSourceControl(StaticXYTelem.TYPE, props, transfer);
   return {
     variant: "xy",
-    key,
+    type: StaticXYTelem.TYPE,
+    props,
+    transfer,
   };
 };
 
-const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceMeta => {
-  const key = useTelemSourceControl(
-    IterativeXYTelem.TYPE,
-    {
-      ...props,
-      rate: new Rate(props.rate).valueOf(),
-    },
-    [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)]
+const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceProps => {
+  return useMemo(
+    () => ({
+      variant: "xy",
+      type: IterativeXYTelem.TYPE,
+      props: {
+        ...props,
+        rate: new Rate(props.rate).valueOf(),
+      },
+      transfer: [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
+    }),
+    []
   );
-  return {
-    variant: "xy",
-    key,
-  };
 };
 
-const usePointTelem = (value: number): NumericTelemSourceMeta => {
-  const key = useTelemSourceControl<StaticPointTelemProps>(
-    StaticPointTelem.TYPE,
-    value
-  );
+const usePointTelem = (value: number): NumericTelemSourceProps => {
   return {
+    type: StaticPointTelem.TYPE,
     variant: "numeric",
-    key,
+    props: value,
   };
 };
 

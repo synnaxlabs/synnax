@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ClientProvider, useClient } from "@/client/Context";
-export type { ClientProviderProps } from "@/client/Context";
+import { ClientProvider, useClient } from "@/client/ClientContext";
+export type { ClientProviderProps } from "@/client/ClientContext";
 
 export const Client = {
   Provider: ClientProvider,

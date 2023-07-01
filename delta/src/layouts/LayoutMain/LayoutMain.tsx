@@ -34,7 +34,7 @@ export const LayoutMain = (): ReactElement => {
     d(maybeCreateGetStartedTab());
   }, []);
   return (
-    <>
+    <VisCanvas>
       <NavTop />
       <Space className="delta-main-fixed--y" direction="x" empty>
         <NavLeft />
@@ -45,9 +45,7 @@ export const LayoutMain = (): ReactElement => {
           <Space className="delta-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="delta-main--driven" style={{ position: "relative" }}>
-              <VisCanvas>
-                <LayoutMosaic />
-              </VisCanvas>
+              <LayoutMosaic />
             </main>
             <NavDrawer location="right" />
           </Space>
@@ -56,6 +54,6 @@ export const LayoutMain = (): ReactElement => {
         <NavRight />
       </Space>
       <NavBottom />
-    </>
+    </VisCanvas>
   );
 };

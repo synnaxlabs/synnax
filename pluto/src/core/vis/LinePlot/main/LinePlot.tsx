@@ -14,7 +14,6 @@ import {
   PropsWithChildren,
   ReactElement,
   createContext,
-  memo,
   useCallback,
   useContext,
   useEffect,
@@ -78,15 +77,18 @@ export interface LinePlotProps
   resizeDebounce?: number;
 }
 
-export const LinePlot = memo(
+export const LinePlot = Aether.wrap<LinePlotProps>(
+  "LinePlot",
   ({
+    aetherKey,
     children,
     style,
     resizeDebounce: debounce = 100,
     ...props
-  }: LinePlotProps): ReactElement => {
+  }): ReactElement => {
     const [axes, setAxes] = useState<AxisState>([]);
-    const [{ path }, { error }, setState] = Aether.useStateful({
+    const [{ path }, { error }, setState] = Aether.use({
+      aetherKey,
       type: AetherLinePlot.TYPE,
       schema: AetherLinePlot.stateZ,
       initialState: {

@@ -20,6 +20,7 @@ import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { dispatchEffect, effectMiddleware } from "./middleware";
+import { PIDSliceState, PID_SLICE_NAME, pidReducer } from "./pid/store/slice";
 
 import {
   ClusterAction,
@@ -39,14 +40,6 @@ import {
 import { openPersist } from "@/persist";
 import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
 import {
-  VIS_SLICE_NAME,
-  visReducer,
-  removeVis,
-  purgeRanges,
-  VisAction,
-  VisState,
-} from "@/vis";
-import {
   removeRange,
   WorkspaceAction,
   workspaceReducer,
@@ -63,7 +56,7 @@ const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
   [CLUSTER_SLICE_NAME]: clusterReducer,
   [LAYOUT_SLICE_NAME]: layoutReducer,
-  [VIS_SLICE_NAME]: visReducer,
+  [PID_SLICE_NAME]: pidReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
   [DOCS_SLICE_NAME]: docsReducer,
@@ -73,18 +66,13 @@ export interface RootState {
   [DRIFT_SLICE_NAME]: DriftState;
   [CLUSTER_SLICE_NAME]: ClusterState;
   [LAYOUT_SLICE_NAME]: LayoutState;
-  // [VIS_SLICE_NAME]: VisState;
+  [PID_SLICE_NAME]: PIDSliceState;
   [WORKSPACE_SLICE_NAME]: WorkspaceState;
   [VERSION_SLICE_NAME]: VersionState;
   [DOCS_SLICE_NAME]: DocsState;
 }
 
-export type Action =
-  | VisAction
-  | LayoutAction
-  | WorkspaceAction
-  | DocsAction
-  | ClusterAction;
+export type Action = LayoutAction | WorkspaceAction | DocsAction | ClusterAction;
 
 export type Payload = Action["payload"];
 
@@ -96,13 +84,8 @@ const newStore = async (): Promise<RootStore> => {
   });
   return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
-    preloadedState: undefined,
-    middleware: (def) => [
-      ...def(),
-      effectMiddleware([removeLayout.type], [dispatchEffect(removeVis)]),
-      effectMiddleware([removeRange.type], [dispatchEffect(purgeRanges)]),
-      persistMiddleware,
-    ],
+    preloadedState,
+    middleware: (def) => [...def(), persistMiddleware],
     reducer,
     enablePrerender: true,
   })) as RootStore;

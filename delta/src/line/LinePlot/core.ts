@@ -23,8 +23,6 @@ import { useMemoSelect } from "@/hooks";
 import { Layout, LayoutCreator, LayoutStoreState } from "@/layout";
 import { AxisKey, MultiXAxisRecord, MultiYAxisRecord, XAxisRecord } from "@/vis/axis";
 import { VisMeta } from "@/vis/core";
-import { createVis } from "@/vis/layout";
-import { VisStoreState, selectRequiredVis } from "@/vis/store";
 import { Range, WorkspaceStoreState, selectRanges } from "@/workspace";
 
 export interface ViewportState {
@@ -56,6 +54,7 @@ export type RangesState = MultiXAxisRecord<string>;
 export type SugaredRangesState = MultiXAxisRecord<Range>;
 
 export interface LineVis extends VisMeta {
+  variant: "line";
   channels: ChannelsState;
   ranges: RangesState;
   viewport: ViewportState;
@@ -110,10 +109,7 @@ export const ZERO_LINE_VIS: Omit<LineVis, "key"> = {
 
 export const createLineVis = (
   initial: DeepPartial<LineVis> & Omit<Partial<Layout>, "type">
-): LayoutCreator =>
-  createVis<LineVis>(
-    Deep.merge(Deep.copy(ZERO_LINE_VIS), initial) as LineVis & Omit<Layout, "type">
-  );
+): LayoutCreator => createVis<LineVis>(Deep.merge(Deep.copy(ZERO_LINE_VIS), initial));
 
 export const useSelectLineVisRanges = (key: string): SugaredRangesState =>
   useMemoSelect(

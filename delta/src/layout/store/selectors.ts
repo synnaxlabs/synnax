@@ -39,7 +39,9 @@ export const selectLayoutState = (state: LayoutStoreState): LayoutState =>
 export const selectLayout = (
   state: LayoutStoreState,
   key: string
-): Layout | undefined => selectLayoutState(state).layouts[key];
+): Layout | undefined => {
+  return selectLayoutState(state).layouts[key];
+};
 
 /**
  * Selects a layout from the store by key.
@@ -135,3 +137,9 @@ export const selectActiveMosaicTabKey = (state: LayoutStoreState): string | null
 
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
+
+export const useSelectActiveMosaicLayout = (): Layout | undefined => {
+  const activeTabKey = useSelectActiveMosaicTabKey();
+  if (activeTabKey == null) return undefined;
+  return useSelectLayout(activeTabKey);
+};

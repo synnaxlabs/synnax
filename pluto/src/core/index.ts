@@ -19,3 +19,4 @@ export * from "@/core/triggers";
 export * from "@/core/vis/Canvas";
 export * from "@/core/worker";
 export * from "@/core/os";
+export * from "@/core/vis/PID";

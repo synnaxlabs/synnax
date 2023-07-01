@@ -17,17 +17,18 @@ import { RenderContext, RenderController } from "@/core/vis/render";
 const pidState = z.object({
   position: XY.z,
   region: Box.z,
+  error: z.string().optional(),
 });
 
-interface PIDRenderProps {
+interface PIDElementProps {
   position: XY;
 }
 
-export interface PIDItem extends AetherComponent {
-  render: (props: PIDRenderProps) => Promise<void>;
+export interface PIDElement extends AetherComponent {
+  render: (props: PIDElementProps) => Promise<void>;
 }
 
-export class AetherPID extends AetherComposite<typeof pidState, PIDItem> {
+export class AetherPID extends AetherComposite<typeof pidState, PIDElement> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidState;
 
@@ -44,13 +45,29 @@ export class AetherPID extends AetherComposite<typeof pidState, PIDItem> {
     this.requestRender();
   }
 
+  handleDelete(): void {
+    this.renderCtx.erase(new Box(this.prevState.region));
+  }
+
   async render(): Promise<void> {
-    this.renderCtx.eraseCanvas(new Box(this.state.region));
-    await Promise.all(
-      this.children.map(
-        async (child) => await child.render({ position: this.state.position })
-      )
-    );
+    const region = new Box(this.state.region);
+    const prevRegion = new Box(this.prevState.region);
+    this.renderCtx.eraseCanvas(prevRegion.isZero ? region : prevRegion);
+    const clearScissor = this.renderCtx.scissorCanvas(region);
+    try {
+      await Promise.all(
+        this.children.map(
+          async (child) =>
+            await child.render({
+              position: region.topLeft.translate(this.state.position),
+            })
+        )
+      );
+    } catch (e) {
+      this.setState((p) => ({ ...p, error: (e as Error).message }));
+    } finally {
+      clearScissor();
+    }
   }
 
   private requestRender(): void {

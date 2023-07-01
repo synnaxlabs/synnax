@@ -12,59 +12,59 @@ import {
   ReactElement,
   createContext,
   memo,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import { TypedWorker, RoutedWorker } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 
-export interface WorkerContextValue {
-  route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
-}
+import { useMemoCompare } from "../memo";
+
+export type WorkerContextValue =
+  | {
+      enabled: true;
+      route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
+    }
+  | {
+      enabled: false;
+      route: null;
+    };
 
 const WorkerContext = createContext<WorkerContextValue>({
-  route: () => {
-    throw new Error("Worker is not initialized");
-  },
+  enabled: false,
+  route: null,
 });
 
 export interface WorkerProviderProps extends PropsWithChildren<{}> {
-  url: URL;
+  url: string | URL;
   enabled?: boolean;
-}
-
-interface WorkerState {
-  worker: Worker;
-  router: RoutedWorker;
 }
 
 export const WorkerProvider = memo(
   ({ children, url, enabled = true }: WorkerProviderProps): ReactElement | null => {
-    const [state, setState] = useState<WorkerState | null>(null);
+    const [value, setState] = useState<WorkerContextValue>({
+      route: null,
+      enabled: false,
+    });
 
     useEffect(() => {
       if (!enabled) return;
-      const worker = new Worker(new URL(url), { type: "module" });
+      const worker = new Worker(url, { type: "module" });
       const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
       worker.onmessage = (e) => router.handle(e);
-      setState({ worker, router });
+      setState({
+        route: <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
+          if (value == null) throw new Error("Worker is not initialized");
+          return router.route(type);
+        },
+        enabled: true,
+      });
       return () => worker.terminate();
     }, [url]);
 
-    const route = useCallback(
-      <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
-        if (state == null) throw new Error("Worker is not initialized");
-        return state.router.route(type);
-      },
-      [state]
-    );
-
-    const value = useMemo(() => ({ route }), [route]);
-
-    if (state == null && enabled) return null;
+    if (enabled && value.route == null) return null;
 
     return <WorkerContext.Provider value={value}>{children}</WorkerContext.Provider>;
   }
@@ -75,6 +75,10 @@ export const useTypedWorker = <RQ, RS = RQ>(
   type: string
 ): TypedWorker<RQ, RS> | null => {
   const ctx = useContext(WorkerContext);
-  if (ctx == null) return null;
-  return ctx.route(type);
+  if (!ctx.enabled) return null;
+  return useMemoCompare(
+    () => ctx.route(type),
+    ([a], [b]) => a === b,
+    [ctx.route]
+  );
 };

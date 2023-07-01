@@ -205,6 +205,19 @@ export class RenderContext {
     removeScissor();
   }
 
+  scissorCanvas(region: Box): Destructor {
+    const p = new Path2D();
+    p.rect(...region.topLeft.couple, ...region.dims.couple);
+    this.upper2d.save();
+    this.lower2d.save();
+    this.lower2d.clip(p);
+    this.upper2d.clip(p);
+    return () => {
+      this.lower2d.restore();
+      this.upper2d.restore();
+    };
+  }
+
   eraseCanvas(box: Box, overscan: XY = XY.ZERO): void {
     this._eraseCanvas(this.lower2d, box, overscan);
     this._eraseCanvas(this.upper2d, box, overscan);

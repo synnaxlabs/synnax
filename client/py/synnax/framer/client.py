@@ -26,7 +26,7 @@ from synnax.channel.payload import (
     ChannelNames,
 )
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.channel import normalize_channel_params
+from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer
 from synnax.telem import TimeRange, UnparsedTimeStamp, Series
 

@@ -9,7 +9,7 @@
 
 import { ReactElement, useState } from "react";
 
-import { Meta, StoryFn } from "@storybook/react";
+import { Meta } from "@storybook/react";
 import { XY } from "@synnaxlabs/x";
 
 import { ValuePIDElementProps, ValuePIDElementSpec } from "./ValuePIDElement";

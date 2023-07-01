@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
-
 from __future__ import annotations
+
+from typing import Literal
 
 from dataclasses import dataclass
 
 from freighter import Payload
 
-from synnax.channel.retrieve import NormalizedChannelParams
 from synnax.telem import DataType, Rate
 from synnax.util.normalize import normalize
 

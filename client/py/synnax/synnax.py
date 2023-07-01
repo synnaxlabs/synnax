@@ -79,7 +79,7 @@ class Synnax(FrameClient):
         :param secure: Whether to use TLS when connecting to the cluster.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
-        self._transport = __configure_transport(
+        self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
             read_timeout=read_timeout,
@@ -106,7 +106,7 @@ class Synnax(FrameClient):
         ...
 
 
-def __configure_transport(
+def _configure_transport(
     opts: SynnaxOptions,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,

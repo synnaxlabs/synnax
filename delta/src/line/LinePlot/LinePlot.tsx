@@ -23,8 +23,8 @@ import "./LinePlot.css";
 import { AxisKey, axisLocation, X_AXIS_KEYS, XAxisKey } from "@/vis/axis";
 
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
-  // const vis = useSelectLinevis(layoutKey);
-  // const ranges = useSelectLineVisRanges(layoutKey);
+  const vis = useSelectLinevis(layoutKey);
+  const ranges = useSelectLineVisRanges(layoutKey);
 
   // return <PLinePlot lines={buildLines(vis, ranges)} axes={buildAxes(vis)} />;
   return null;

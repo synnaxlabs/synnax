@@ -2,13 +2,19 @@ import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
-import { PIDElementFormProps, PIDElementProps, PIDElementSpec } from "./PIDElement";
+import {
+  PIDElementFormProps,
+  StatefulPIDElementProps,
+  PIDElementSpec,
+} from "./PIDElement";
 
-import { Input } from "@/core";
+import { CSS, Input } from "@/core";
 import { ValueLabeled, ValueLabeledProps } from "@/core/vis/Value/ValueLabeled";
 import { Telem } from "@/telem";
 import { RangeNumerictelemProps as RangeNumericTelemProps } from "@/telem/range/aether";
 import { RangeNumericTelemForm } from "@/telem/range/forms";
+
+import "@/vis/pid/ValuePIDElement.css";
 
 export const ZERO_PROPS: ValuePIDElementProps = {
   label: "Value",
@@ -24,15 +30,13 @@ export interface ValuePIDElementProps extends Omit<ValueLabeledProps, "telem"> {
 }
 
 const ValuePIDElement = ({
-  position,
   selected,
   editable,
-  style = {},
   telem: pTelem,
   onChange,
+  className,
   ...props
-}: PIDElementProps<ValuePIDElementProps>): ReactElement => {
-  if (selected) style.borderColor = "var(--pluto-primary-z)";
+}: StatefulPIDElementProps<ValuePIDElementProps>): ReactElement => {
   const telem = Telem.Range.useNumeric(pTelem);
   const onLabelChange = (label: string): void => {
     onChange({ ...props, label, telem: pTelem });
@@ -45,12 +49,11 @@ const ValuePIDElement = ({
       {editable && <Handle position={Position.Left} type="source" />}
       {editable && <Handle position={Position.Right} type="target" />}
       <ValueLabeled
+        className={CSS(className, selected && CSS.BM("value-pid-element", "selected"))}
         {...props}
-        style={style}
         telem={telem}
         onLabelChange={onLabelChange}
       />
-      ;
     </>
   );
 };
@@ -60,7 +63,6 @@ const ValuePIDElementForm = ({
   onChange,
 }: PIDElementFormProps<ValuePIDElementProps>): ReactElement => {
   const handleTelemChange = (telem: RangeNumericTelemProps): void => {
-    console.log("HELLO");
     onChange({ ...value, telem });
   };
 

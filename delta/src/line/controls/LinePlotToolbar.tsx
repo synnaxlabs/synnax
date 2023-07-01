@@ -12,37 +12,35 @@ import { ReactElement, useCallback } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
-import { PIDElements } from "./PIDElements";
-
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { LinePlotChannelControls } from "@/line/controls/LinePlotChannelControls";
 
-export interface PIDToolbar {
+export interface LinePlotToolbarProps {
   layoutKey: string;
 }
 
 const TABS = [
   {
-    tabKey: "elements",
-    name: "Elements",
+    tabKey: "channels",
+    name: "Channels",
   },
 ];
 
-export const PIDToolbar = ({ layoutKey }: PIDToolbar): ReactElement => {
+export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
   const content = useCallback(
-    ({ tabKey }: Tab): ReactElement => <PIDElements layoutKey={layoutKey} />,
+    ({ tabKey }: Tab): ReactElement => (
+      <LinePlotChannelControls layoutKey={layoutKey} />
+    ),
     [layoutKey]
   );
 
-  const tabsProps = Tabs.useStatic({
-    tabs: TABS,
-    content,
-  });
+  const tabProps = Tabs.useStatic({ tabs: TABS, content });
 
   return (
     <Space empty>
-      <Tabs.Provider value={tabsProps}>
+      <Tabs.Provider value={tabProps}>
         <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Control />}>PID</ToolbarTitle>
+          <ToolbarTitle icon={<Icon.Visualize />}>LinePlot</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />

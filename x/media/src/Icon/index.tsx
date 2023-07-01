@@ -22,6 +22,7 @@ import {
   AiOutlineCheck,
   AiOutlineClose,
   AiOutlineMinus,
+  AiOutlineExpand,
 } from "react-icons/ai";
 import { BsStack, BsLightbulbFill } from "react-icons/bs";
 import {
@@ -44,6 +45,7 @@ import {
   MdSensors,
   MdWorkspacesFilled,
   MdAreaChart,
+  MdEditOff,
 } from "react-icons/md";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 
@@ -56,6 +58,7 @@ const IconOS: Record<OS, React.ComponentType> = {
 
 export const Icon: IconType = {
   Edit: MdEdit,
+  EditOff: MdEditOff,
   Add: HiOutlinePlus,
   Subtract: AiOutlineMinus,
   Copy: IoCopySharp,
@@ -70,6 +73,7 @@ export const Icon: IconType = {
   Analyze: FaBezierCurve,
   Concepts: BsLightbulbFill,
   Visualize: MdAreaChart,
+  Expand: AiOutlineExpand,
   Cluster: BsStack,
   Control: FaDiceD20,
   Caret: {
@@ -99,6 +103,7 @@ export const Icon: IconType = {
 
 export interface IconType {
   Edit: React.ComponentType;
+  EditOff: React.ComponentType;
   Add: React.ComponentType;
   Subtract: React.ComponentType;
   Copy: React.ComponentType;
@@ -112,7 +117,7 @@ export interface IconType {
   Acquire: React.ComponentType;
   Analyze: React.ComponentType;
   Concepts: React.ComponentType;
-
+  Expand: React.ComponentType;
   Visualize: React.ComponentType;
   Cluster: React.ComponentType;
   Control: React.ComponentType;

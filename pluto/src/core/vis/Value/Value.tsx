@@ -27,16 +27,17 @@ export const Value = memo(
     const ref = useResize(setBox);
     const font = Theming.useTypography(level ?? "p");
     return (
-      <span
+      <div
         ref={ref}
         style={{
           height: (font.lineHeight + 2) * font.baseSize,
+          border: "1px solid black",
           ...style,
         }}
         {...props}
       >
-        <ValueCore box={box} color={color} level={level} {...props} />
-      </span>
+        {!box.isZero && <ValueCore box={box} color={color} level={level} {...props} />}
+      </div>
     );
   }
 );

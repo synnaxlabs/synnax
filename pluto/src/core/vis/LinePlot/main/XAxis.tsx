@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, memo } from "react";
+import { PropsWithChildren, ReactElement } from "react";
 
 import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -27,15 +27,18 @@ export interface XAxisProps
   resizeDebounce?: number;
 }
 
-export const XAxis = memo(
+export const XAxis = Aether.wrap<XAxisProps>(
+  "XAxis",
   ({
+    aetherKey,
     children,
     resizeDebounce: debounce = 100,
     location = "bottom",
     ...props
-  }: XAxisProps): ReactElement => {
+  }): ReactElement => {
     const theme = Theming.use();
-    const [{ key, path }, , setState] = Aether.useStateful({
+    const [{ path }, , setState] = Aether.use({
+      aetherKey,
       type: AetherLinePlot.XAxis.TYPE,
       schema: AetherLinePlot.XAxis.stateZ,
       initialState: {
@@ -50,7 +53,7 @@ export const XAxis = memo(
 
     const gridStyle = useAxisPosition(
       new Location(location).crude as CrudeOuterLocation,
-      key,
+      aetherKey,
       "XAxis"
     );
 

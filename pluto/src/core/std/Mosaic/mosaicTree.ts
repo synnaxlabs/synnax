@@ -13,6 +13,7 @@ import {
   CrudeLocation,
   LooseLocationT,
   CrudeOrder,
+  Deep,
 } from "@synnaxlabs/x";
 
 import { MosaicNode } from "@/core/std/Mosaic/types";
@@ -241,4 +242,4 @@ const splitArrangement = (
   }
 };
 
-const shallowCopyNode = (node: MosaicNode): MosaicNode => ({ ...node });
+const shallowCopyNode = (node: MosaicNode): MosaicNode => Deep.copy(node);

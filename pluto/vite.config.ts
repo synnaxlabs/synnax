@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import path from "path";
 import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
@@ -15,6 +16,9 @@ export default defineConfig({
   build: {
     sourcemap: true,
     minify: false,
+    lib: {
+      entry: [path.resolve(".", "src/index.ts"), path.resolve (".", "src/worker.ts")]
+    },
     rollupOptions: {
       external: ["react", "react-dom", "react-hook-form"],
       output: {

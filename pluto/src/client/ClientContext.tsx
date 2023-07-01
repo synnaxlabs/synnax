@@ -12,13 +12,11 @@ import {
   ReactElement,
   createContext,
   useContext,
-  useRef,
+  useEffect,
   useState,
 } from "react";
 
 import { Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
-
-import { useAsyncEffect } from "@/core/hooks";
 
 interface ClientContextValue {
   client: Synnax | null;
@@ -38,19 +36,25 @@ export const ClientProvider = ({
 }: ClientProviderProps): ReactElement => {
   const [state, setState] = useState<{ client: Synnax | null }>({ client: null });
 
-  useAsyncEffect(async () => {
+  useEffect(() => {
     if (connParams == null) return;
+
+    if (state.client != null) state.client.close();
 
     const client = new Synnax({
       ...connParams,
       connectivityPollFrequency: TimeSpan.seconds(5),
     });
-    await client.connectivity.check();
-    if (client.connectivity.status() !== "connected") return;
-    setState((c) => {
-      if (c.client != null) c.client.close();
-      return { client };
-    });
+    client.connectivity
+      .check()
+      .then(() => {
+        if (client.connectivity.status() !== "connected") return;
+        setState((c) => {
+          if (c.client != null) c.client.close();
+          return { client };
+        });
+      })
+      .catch(console.error);
 
     return () => {
       client.close();

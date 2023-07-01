@@ -10,7 +10,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Tab, Theme } from "@synnaxlabs/pluto";
 import { DeepKey, Location } from "@synnaxlabs/x";
 
 import { Layout } from "../types";
@@ -163,17 +163,21 @@ export const { actions, reducer: layoutReducer } = createSlice({
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, key);
+        [state.mosaic.root] = Mosaic.removeTab(state.mosaic.root, key);
+
+      const mosaicTab = {
+        ...tab,
+        name,
+        tabKey: key,
+      };
+      delete mosaicTab.location;
+      delete mosaicTab.mosaicKey;
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
         state.mosaic.root = Mosaic.insertTab(
           state.mosaic.root,
-          {
-            tabKey: key,
-            name,
-            ...tab,
-          },
+          mosaicTab,
           tab?.location,
           tab?.mosaicKey
         );
@@ -312,5 +316,5 @@ export const {
   maybeCreateGetStartedTab,
 } = actions;
 
-export type LayoutAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type LayoutAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LayoutPayload = LayoutAction["payload"];
