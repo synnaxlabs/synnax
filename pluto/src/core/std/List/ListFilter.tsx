@@ -23,7 +23,7 @@ import { RenderProp } from "@/util/renderProp";
 export interface ListFilterProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Omit<UseSearchTransformProps<E>, "term"> {
+> extends Omit<UseSearchTransformProps<K, E>, "term"> {
   children?: RenderProp<InputControl<string>>;
   debounce?: number;
 }

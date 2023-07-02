@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComponent, AetherComposite, Update } from "@/core/aether/worker";
+import { AetherComponent, AetherComposite, AetherUpdate } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
@@ -34,7 +34,7 @@ export class AetherPID extends AetherComposite<typeof pidState, PIDElement> {
 
   renderCtx: RenderContext;
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, pidState);
     this.renderCtx = RenderContext.use(update.ctx);
     RenderController.control(update.ctx, () => this.requestRender());

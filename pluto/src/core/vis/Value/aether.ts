@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
+import { AetherContext, AetherLeaf, AetherUpdate } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { PIDElement } from "@/core/vis/PID/aether";
@@ -44,7 +44,7 @@ export class AetherValue extends AetherLeaf<typeof valueState> implements PIDEle
   static readonly TYPE = "value";
   static readonly stateZ = valueState;
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, valueState);
     [this.telem, this.releaseTelem] = TelemContext.use(
       update.ctx,

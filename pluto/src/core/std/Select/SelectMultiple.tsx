@@ -18,6 +18,7 @@ import {
 
 import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
+import { useMount } from "@/core/hooks/useMount";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/std/Input";
 import { ListColumn, List, ListProps } from "@/core/std/List";
@@ -37,7 +38,7 @@ export interface SelectMultipleProps<
     InputControl<readonly K[]>,
     Omit<ListProps<K, E>, "children"> {
   columns?: Array<ListColumn<K, E>>;
-  searcher?: AsyncTermSearcher<string, E>;
+  searcher?: AsyncTermSearcher<string, K, E>;
   tagKey?: keyof E;
 }
 
@@ -62,6 +63,14 @@ export const SelectMultiple = <
   const [selected, setSelected] = useState<readonly E[]>(() => {
     if (value == null) return [];
     return data.filter((e) => value.includes(e.key));
+  });
+
+  useMount(() => {
+    if (searcher == null) return;
+    searcher
+      .retrieve(value as K[])
+      .then((e) => setSelected(e))
+      .catch(console.error);
   });
 
   const handleChange = useCallback(

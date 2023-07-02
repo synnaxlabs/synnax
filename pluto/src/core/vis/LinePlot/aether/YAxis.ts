@@ -10,7 +10,7 @@
 import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
+import { AetherComposite, AetherContext, AetherUpdate } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
@@ -37,7 +37,7 @@ export class YAxis extends AetherComposite<typeof yAxisState, LineComponent> {
   static readonly TYPE = CSS.BE("line-plot", "y-axis");
   static readonly stateZ = yAxisState;
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, yAxisState);
     this.ctx = RenderContext.use(update.ctx);
     this.core = new AxisCanvas(this.ctx, this.state);

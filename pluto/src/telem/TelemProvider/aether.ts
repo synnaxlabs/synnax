@@ -10,7 +10,7 @@
 import { Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { AetherComposite, AetherContext, Update } from "@/core/aether/worker";
+import { AetherComposite, AetherContext, AetherUpdate } from "@/core/aether/worker";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
 import { TelemSourceProps } from "@/core/vis/telem/TelemSource";
 import { BaseClient, ClientProxy } from "@/telem/client";
@@ -32,7 +32,7 @@ export class Telem extends AetherComposite<typeof telemState> {
 
   static readonly TYPE = "telem";
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, telemState);
     TelemContext.set(update.ctx, this);
     this.client = new ClientProxy();

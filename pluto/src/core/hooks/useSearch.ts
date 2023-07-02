@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnknownRecord, ArrayTransform } from "@synnaxlabs/x";
+import {
+  UnknownRecord,
+  ArrayTransform,
+  KeyedRecord,
+  Key,
+  TermSearcher,
+} from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 
 import { proxyMemo } from "@/core/memo";
 
 /** Props for the {@link createSearchTransform} hook. */
-export interface UseSearchTransformProps<E extends UnknownRecord<E>> {
+export interface UseSearchTransformProps<K extends Key, E extends KeyedRecord<K, E>> {
   term: string;
-  searcher?: Searcher<E> | ((data: E[]) => Searcher<E>);
-}
-
-export interface Searcher<E extends UnknownRecord<E>> {
-  search: (term: string) => E[];
+  searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
 
 const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
@@ -28,7 +30,9 @@ const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
 
 export const fuseSearcher =
   (opts?: Fuse.IFuseOptions<UnknownRecord>) =>
-  <E extends UnknownRecord<E>>(data: E[]): Searcher<E> => {
+  <K extends Key, E extends KeyedRecord<K, E>>(
+    data: E[]
+  ): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
       keys: Object.keys(data[0]),
       ...defaultOpts,
@@ -36,6 +40,7 @@ export const fuseSearcher =
     });
     return {
       search: (term: string) => fuse.search(term).map(({ item }) => item),
+      retrieve: (keys: K[]) => data.filter((item) => keys.includes(item.key)),
     };
   };
 
@@ -54,10 +59,10 @@ const defaultSearcher = fuseSearcher();
  * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
  * documentation for more information on these options.
  */
-export const createSearchTransform = <E extends UnknownRecord<E>>({
+export const createSearchTransform = <K extends Key, E extends KeyedRecord<K, E>>({
   term,
-  searcher = defaultSearcher<E>,
-}: UseSearchTransformProps<E>): ArrayTransform<E> =>
+  searcher = defaultSearcher<K, E>,
+}: UseSearchTransformProps<K, E>): ArrayTransform<E> =>
   proxyMemo((data) => {
     if (typeof searcher === "function") {
       if (term.length === 0 || data?.length === 0) return data;

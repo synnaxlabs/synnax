@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { TypedWorker, RoutedWorker } from "@synnaxlabs/x";
+import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 import { useMemoCompare } from "../memo";
@@ -71,9 +71,7 @@ export const WorkerProvider = memo(
 );
 WorkerProvider.displayName = "WorkerProvider";
 
-export const useTypedWorker = <RQ, RS = RQ>(
-  type: string
-): TypedWorker<RQ, RS> | null => {
+export const useWorker = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => {
   const ctx = useContext(WorkerContext);
   if (!ctx.enabled) return null;
   return useMemoCompare(

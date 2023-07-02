@@ -16,6 +16,7 @@ import {
   toArray,
   Series,
   TimeRange,
+  AsyncTermSearcher,
 } from "@synnaxlabs/x";
 
 import { analyzeChannelParams, ChannelRetriever } from "./retriever";
@@ -114,7 +115,7 @@ export class Channel {
  * The core client class for executing channel operations against a Synnax
  * cluster.
  */
-export class ChannelClient {
+export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Channel> {
   private readonly segmentClient: FrameClient;
   private readonly retriever: ChannelRetriever;
   private readonly creator: ChannelCreator;

@@ -27,5 +27,5 @@ export * from "@/toArray";
 export * from "@/case";
 export * from "@/search";
 export * from "@/destructor";
-export * from "@/worker";
+export * from "@/worker/worker";
 export * from "@/transform";

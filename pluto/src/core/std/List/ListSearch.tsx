@@ -23,7 +23,7 @@ export interface ListSearchProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > {
-  searcher: AsyncTermSearcher<string, E>;
+  searcher: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   children?: RenderProp<InputControl<string>>;
   onChange?: (data: E[]) => void;
