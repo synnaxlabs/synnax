@@ -11,6 +11,8 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, AsyncTermSearcher } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { QueryError } from "..";
+
 import {
   ChannelKey,
   ChannelKeyOrName,
@@ -36,8 +38,9 @@ const resZ = z.object({
   channels: channelPayload.array(),
 });
 
-export interface ChannelRetriever extends AsyncTermSearcher<string, ChannelPayload> {
+export interface ChannelRetriever {
   retrieve: (channels: ChannelParams) => Promise<ChannelPayload[]>;
+  search: (term: string) => Promise<ChannelPayload[]>;
 }
 
 export class ClusterChannelRetriever implements ChannelRetriever {
@@ -88,7 +91,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
     const results: ChannelPayload[] = [];
     const toFetch: ChannelKeysOrNames = [];
     normalized.forEach((keyOrName) => {
-      const c = this.get(keyOrName);
+      const c = this.getFromCache(keyOrName);
       if (c != null) results.push(c);
       else toFetch.push(keyOrName as never);
     });
@@ -105,7 +108,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
     });
   }
 
-  private get(channel: ChannelKeyOrName): ChannelPayload | undefined {
+  private getFromCache(channel: ChannelKeyOrName): ChannelPayload | undefined {
     const key = typeof channel === "number" ? channel : this.namesToKeys.get(channel);
     if (key == null) return undefined;
     return this.cache.get(key);

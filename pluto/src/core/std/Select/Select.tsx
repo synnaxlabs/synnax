@@ -20,6 +20,7 @@ import { Icon } from "@synnaxlabs/media";
 import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
+import { useMount } from "@/core/hooks/useMount";
 import { Button, ButtonIconProps } from "@/core/std/Button";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/std/Input";
@@ -38,7 +39,7 @@ export interface SelectProps<
   tagKey?: keyof E;
   columns?: Array<ListColumn<K, E>>;
   inputProps?: Omit<InputProps, "onChange">;
-  searcher?: AsyncTermSearcher<string, E>;
+  searcher?: AsyncTermSearcher<string, K, E>;
   allowClear?: boolean;
 }
 
@@ -65,6 +66,14 @@ export const Select = <
 
   const [selected, setSelected] = useState<E | null>(() => {
     return data.find((e) => e.key === value) ?? null;
+  });
+
+  useMount(() => {
+    if (searcher == null) return;
+    searcher
+      .retrieve([value])
+      .then(([e]) => setSelected(e))
+      .catch(() => setSelected(null));
   });
 
   const handleChange = useCallback(

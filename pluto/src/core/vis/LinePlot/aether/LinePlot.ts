@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite, Update } from "@/core/aether/worker";
+import { AetherComposite, AetherUpdate } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { XAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { RenderController, RenderContext } from "@/core/vis/render";
@@ -29,7 +29,7 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
   static readonly TYPE: string = CSS.B("line-plot");
   static readonly stateZ = linePlotState;
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, linePlotState);
     this.renderCtx = RenderContext.use(update.ctx);
     RenderController.control(update.ctx, () => this.requestRender());

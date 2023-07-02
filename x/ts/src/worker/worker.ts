@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export interface Sender<T> {
-  send: (value: T, transfer: Transferable[]) => void;
+  send: (value: T, transfer?: Transferable[]) => void;
 }
 
 export interface Handler<T> {
@@ -27,7 +27,7 @@ type HandlerFunc = (value: any) => void;
 
 export class RoutedWorker {
   sender: SendFunc;
-  handlers: Map<string, Handler<any>>;
+  handlers: Map<string, TypedWorker<any>>;
 
   constructor(send: SendFunc) {
     this.sender = send;
@@ -35,7 +35,7 @@ export class RoutedWorker {
   }
 
   handle({ data }: { data: TypedWorkerMessage }): void {
-    const handler = this.handlers.get(data.type)?.handle;
+    const handler = this.handlers.get(data.type)?.handler;
     if (handler == null) console.warn(`No handler for ${data.type}`);
     else handler(data.payload);
   }
@@ -71,3 +71,16 @@ export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
     this.handler = handler;
   }
 }
+
+export const createMockWorkers = (): [RoutedWorker, RoutedWorker] => {
+  let a: RoutedWorker, b: RoutedWorker;
+  const aSend = (value: any, transfer?: Transferable[]): void => {
+    b.handle({ data: value });
+  };
+  const bSend = (value: any, transfer?: Transferable[]): void => {
+    a.handle({ data: value });
+  };
+  a = new RoutedWorker(aSend);
+  b = new RoutedWorker(bSend);
+  return [a, b];
+};

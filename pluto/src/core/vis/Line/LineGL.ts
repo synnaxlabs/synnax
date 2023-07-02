@@ -15,7 +15,7 @@ import {
   Destructor,
 } from "@synnaxlabs/x";
 
-import { AetherContext, AetherLeaf, Update } from "@/core/aether/worker";
+import { AetherContext, AetherLeaf, AetherUpdate } from "@/core/aether/worker";
 import {
   LineComponent,
   LineProps,
@@ -108,7 +108,7 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
 
   static readonly TYPE = "line";
 
-  constructor(change: Update) {
+  constructor(change: AetherUpdate) {
     super(change, lineState);
     this.prog = LineGLProgramContext.use(change.ctx);
     [this.telem, this.telemD] = TelemContext.use(

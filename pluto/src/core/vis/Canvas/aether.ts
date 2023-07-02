@@ -15,7 +15,7 @@ import {
   AetherComponentRegistry,
   AetherComposite,
   AetherContext,
-  Update,
+  AetherUpdate,
 } from "@/core/aether/worker";
 import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
 import { RenderContext } from "@/core/vis/render";
@@ -36,7 +36,7 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
     [AetherCanvas.TYPE]: (u) => new AetherCanvas(u),
   };
 
-  constructor(update: Update) {
+  constructor(update: AetherUpdate) {
     super(update, canvasState);
   }
 
