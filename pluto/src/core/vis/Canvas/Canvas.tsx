@@ -50,7 +50,7 @@ const ZERO_CANVASES: Canvases = {
 };
 
 export const Canvas = Aether.wrap<CanvasProps>(
-  "Canvas",
+  AetherCanvas.TYPE,
   ({
     children,
     resizeDebounce: debounce = 100,
@@ -69,9 +69,8 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const handleResize = useCallback(
       (region: Box) => {
-        if (canvases.current.bootstrapped) {
+        if (canvases.current.bootstrapped)
           setState({ region, dpr: window.devicePixelRatio });
-        }
       },
       [setState]
     );

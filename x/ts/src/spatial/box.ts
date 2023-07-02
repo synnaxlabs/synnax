@@ -326,7 +326,7 @@ export class Box implements Stringer {
    */
   static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
 
-  static readonly z = box;
+  static readonly z = box.transform((b) => new Box(b));
 }
 
 /**

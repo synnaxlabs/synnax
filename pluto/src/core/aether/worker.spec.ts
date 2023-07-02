@@ -15,6 +15,7 @@ import {
   AetherComposite,
   AetherContext,
   AetherLeaf,
+  AetherComponentRegistry,
 } from "@/core/aether/worker";
 
 export const exampleProps = z.object({
@@ -25,8 +26,8 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(update: Update) {
-    super(update, exampleProps);
+  constructor(internalUpdate: Update) {
+    super(internalUpdate, exampleProps);
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -42,8 +43,8 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(update: Update) {
-    super(update, exampleProps);
+  constructor(u: Update) {
+    super(u, exampleProps);
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -59,8 +60,8 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(update: Update) {
-    super(update, exampleProps);
+  constructor(u: Update) {
+    super(u, exampleProps);
   }
 
   handleUpdate(ctx: AetherContext): void {
@@ -73,13 +74,20 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
   }
 }
 
-const ctx = new AetherContext({
-  leaf: (update: Update) => new ExampleLeaf(update),
-  composite: (update: Update) => new ExampleComposite(update),
-});
+const REGISTRY: AetherComponentRegistry = {
+  leaf: (internalUpdate: Update) => new ExampleLeaf(internalUpdate),
+  composite: (internalUpdate: Update) => new ExampleComposite(internalUpdate),
+};
+
+const MockSender = {
+  send: vi.fn(),
+};
+
+const ctx = new AetherContext(MockSender, REGISTRY);
 
 const leafUpdate: Update = {
   ctx,
+  variant: "state",
   type: "leaf",
   path: ["test"],
   state: { x: 1 },
@@ -87,6 +95,7 @@ const leafUpdate: Update = {
 
 const compositeUpdate: Update = {
   ctx,
+  variant: "state",
   type: "composite",
   path: ["test"],
   state: { x: 1 },
@@ -94,6 +103,7 @@ const compositeUpdate: Update = {
 
 const contextUpdate: Update = {
   ctx,
+  variant: "context",
   type: "context",
   path: [],
   state: null,
@@ -105,32 +115,34 @@ describe("Aether Worker", () => {
     beforeEach(() => {
       leaf = ctx.create(leafUpdate);
     });
-    describe("update", () => {
+    describe("internalUpdate", () => {
       it("should throw an error if the path is empty", () => {
-        expect(() => leaf.update({ ...leafUpdate, path: [] })).toThrowError(
+        expect(() => leaf.internalUpdate({ ...leafUpdate, path: [] })).toThrowError(
           /empty path/
         );
       });
       it("should throw an error if the path has a subpath", () => {
         expect(() =>
-          leaf.update({ ...leafUpdate, path: ["test", "dog"] })
+          leaf.internalUpdate({ ...leafUpdate, path: ["test", "dog"] })
         ).toThrowError(/subPath/);
       });
       it("should throw an error if the path does not have the correct key", () => {
-        expect(() => leaf.update({ ...leafUpdate, path: ["dog"] })).toThrowError(/key/);
+        expect(() =>
+          leaf.internalUpdate({ ...leafUpdate, path: ["dog"] })
+        ).toThrowError(/key/);
       });
-      it("should correctly update the state", () => {
-        leaf.update({ ...leafUpdate, state: { x: 2 } });
+      it("should correctly internalUpdate the state", () => {
+        leaf.internalUpdate({ ...leafUpdate, state: { x: 2 } });
         expect(leaf.state).toEqual({ x: 2 });
       });
       it("should call the handleUpdate", () => {
-        leaf.update({ ...leafUpdate, state: { x: 2 } });
+        leaf.internalUpdate({ ...leafUpdate, state: { x: 2 } });
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
     });
-    describe("delete", () => {
+    describe("internalDelete", () => {
       it("should call the bound onDelete handler", () => {
-        leaf.delete(["test"]);
+        leaf.internalDelete(["test"]);
         expect(leaf.deletef).toHaveBeenCalledTimes(1);
       });
     });
@@ -143,10 +155,10 @@ describe("Aether Worker", () => {
     });
     describe("setState", () => {
       it("should set the state of the composite's leaf if the path has one element", () => {
-        composite.update({ ...compositeUpdate, state: { x: 2 } });
+        composite.internalUpdate({ ...compositeUpdate, state: { x: 2 } });
       });
       it("should create a new leaf if the path has more than one element and the leaf does not exist", () => {
-        composite.update({
+        composite.internalUpdate({
           ...leafUpdate,
           path: ["test", "dog"],
           state: { x: 2 },
@@ -157,12 +169,12 @@ describe("Aether Worker", () => {
         expect(c.state).toEqual({ x: 2 });
       });
       it("should set the state of the composite's leaf if the path has more than one element and the leaf exists", () => {
-        composite.update({
+        composite.internalUpdate({
           ...leafUpdate,
           path: ["test", "dog"],
           state: { x: 2 },
         });
-        composite.update({
+        composite.internalUpdate({
           ...leafUpdate,
           path: ["test", "dog"],
           state: { x: 3 },
@@ -172,37 +184,37 @@ describe("Aether Worker", () => {
       });
       it("should throw an error if the path is too deep and the child does not exist", () => {
         expect(() =>
-          composite.update({ ...compositeUpdate, path: ["test", "dog", "cat"] })
+          composite.internalUpdate({ ...compositeUpdate, path: ["test", "dog", "cat"] })
         ).toThrowError();
       });
     });
-    describe("delete", () => {
+    describe("internalDelete", () => {
       it("should remove a child from the list of children", () => {
-        composite.update({ ...compositeUpdate, path: ["test", "dog"] });
-        composite.delete(["test", "dog"]);
+        composite.internalUpdate({ ...compositeUpdate, path: ["test", "dog"] });
+        composite.internalDelete(["test", "dog"]);
         expect(composite.children).toHaveLength(0);
       });
       it("should call the deletion hook on the child of a composite", () => {
-        composite.update({ ...leafUpdate, path: ["test", "dog"] });
+        composite.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
         const c = composite.children[0];
-        composite.delete(["test", "dog"]);
+        composite.internalDelete(["test", "dog"]);
         expect(c.deletef).toHaveBeenCalled();
       });
     });
 
     describe("context propagation", () => {
       it("should properly propagate an existing context change to its children", () => {
-        composite.update({ ...leafUpdate, path: ["test", "dog"] });
-        composite.update({ ...leafUpdate, path: ["test", "cat"] });
+        composite.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
+        composite.internalUpdate({ ...leafUpdate, path: ["test", "cat"] });
         expect(composite.children).toHaveLength(2);
-        composite.update({ ...contextUpdate });
+        composite.internalUpdate({ ...contextUpdate });
         expect(composite.updatef).toHaveBeenCalledTimes(1);
         composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
       });
       it("should progate a new context change to its children", () => {
         const c = new ContextSetterComposite({ ...compositeUpdate });
-        c.update({ ...leafUpdate, path: ["test", "dog"] });
-        c.update({ ...compositeUpdate });
+        c.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
+        c.internalUpdate({ ...compositeUpdate });
         expect(c.children).toHaveLength(1);
         c.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
       });

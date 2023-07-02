@@ -26,8 +26,7 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { useMemoCompare } from "../memo";
-
+import { useMemoCompare } from "@/core/memo";
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { PsuedoSetStateArg, isStateSetter } from "@/core/hooks/useStateRef";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
@@ -176,7 +175,7 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
 };
 
 export interface UseAetherProps<S extends z.ZodTypeAny>
-  extends Omit<UseAetherLifecycleProps<S>, "onReceive"> {}
+  extends Omit<UseAetherLifecycleProps<S>, "onReceive"> { }
 
 export type UseAetherReturn<S extends z.ZodTypeAny> = [
   {

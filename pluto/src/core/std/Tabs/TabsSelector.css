@@ -37,4 +37,6 @@
     margin-left: auto;
 }
 
-
+.pluto-header .pluto-tabs-selector {
+    margin-top: 2px;
+}

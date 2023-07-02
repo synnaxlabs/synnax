@@ -31,7 +31,6 @@ export const RangeNumericTelemForm = ({
       label="Channel"
       value={value.channel}
       onChange={handleChannelChange}
-      location="top"
     >
       {componentRenderProp(ChannelSelect)}
     </Input.Item>

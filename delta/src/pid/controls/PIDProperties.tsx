@@ -35,7 +35,7 @@ export const PIDProperties = ({ layoutKey }: PIDPropertiesProps): ReactElement =
   if (elements.length === 0) {
     return (
       <Status.Text.Centered variant="disabled" hideIcon>
-        No PID Element Selected. Select an Element To Edit Its Properties.
+        Select a PID element to configure its properties.
       </Status.Text.Centered>
     );
   }

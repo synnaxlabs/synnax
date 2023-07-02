@@ -16,6 +16,7 @@ import { PIDElements } from "./PIDElements";
 import { PIDProperties } from "./PIDProperties";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { useSelectLayout, useSelectRequiredLayout } from "@/layout";
 
 export interface PIDToolbar {
   layoutKey: string;
@@ -33,6 +34,7 @@ const TABS = [
 ];
 
 export const PIDToolbar = ({ layoutKey }: PIDToolbar): ReactElement => {
+  const { name } = useSelectRequiredLayout(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tab): ReactElement => {
       switch (tabKey) {
@@ -54,7 +56,7 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbar): ReactElement => {
     <Space empty>
       <Tabs.Provider value={tabsProps}>
         <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Control />}>PID</ToolbarTitle>
+          <ToolbarTitle icon={<Icon.Control />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />
