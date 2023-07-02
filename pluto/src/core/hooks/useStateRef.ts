@@ -12,14 +12,14 @@ import { MutableRefObject, useCallback, useRef } from "react";
 import { Primitive, UnknownRecord } from "@synnaxlabs/x";
 
 type State = Primitive | UnknownRecord;
-export type StateSetter<S> = (prev: S) => S;
+export type StateSetter<S, PS = S> = (prev: PS) => S;
 
 export const isStateSetter = <S extends State>(
   arg: PsuedoSetStateArg<S>
 ): arg is StateSetter<S> => typeof arg === "function";
 
 /** A function that mimics the behavior of a setState function from a usetState hook. */
-export type PsuedoSetStateArg<S extends State> = S | StateSetter<S>;
+export type PsuedoSetStateArg<S extends State, PS = S> = S | StateSetter<S, PS>;
 export type PseudoSetState<S extends State> = (value: PsuedoSetStateArg<S>) => void;
 export type PseudoInitialState<S extends Primitive | object> = S | (() => S);
 

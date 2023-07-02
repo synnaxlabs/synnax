@@ -7,48 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export interface Sender<T> {
+  send: (value: T, transfer: Transferable[]) => void;
+}
+
+export interface Handler<T> {
+  handle: (handler: (value: T) => void) => void;
+}
+
+export interface SenderHandler<I, O> extends Sender<I>, Handler<O> {}
+
 interface TypedWorkerMessage {
   type: string;
   payload: any;
 }
 
-export class RoutedWorker {
-  send: Send;
-  children: Map<string, TypedWorker<any>>;
+type SendFunc = (value: any, transfer?: Transferable[]) => void;
+type HandlerFunc = (value: any) => void;
 
-  constructor(send: Send) {
-    this.send = send;
-    this.children = new Map();
+export class RoutedWorker {
+  sender: SendFunc;
+  handlers: Map<string, Handler<any>>;
+
+  constructor(send: SendFunc) {
+    this.sender = send;
+    this.handlers = new Map();
   }
 
   handle({ data }: { data: TypedWorkerMessage }): void {
-    const handler = this.children.get(data.type)?.handler;
+    const handler = this.handlers.get(data.type)?.handle;
     if (handler == null) console.warn(`No handler for ${data.type}`);
     else handler(data.payload);
   }
 
   route<RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> {
-    const send = typedSend(type, this.send);
+    const send = typedSend(type, this.sender);
     const t = new TypedWorker<RQ, RS>(send);
-    this.children.set(type, t);
+    this.handlers.set(type, t);
     return t;
   }
 }
 
-type Handler = (payload: any) => void;
-type Send = (payload: any, transfer?: Transferable[]) => void;
-
 const typedSend =
-  (type: string, send: Send): Send =>
+  (type: string, send: SendFunc): SendFunc =>
   (payload: any, transfer?: Transferable[]) => {
     return send({ type, payload }, transfer);
   };
 
-export class TypedWorker<RQ, RS = RQ> {
-  private readonly _send: Send;
-  handler: Handler | null;
+export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
+  private readonly _send: SendFunc;
+  handler: HandlerFunc | null;
 
-  constructor(send: Send) {
+  constructor(send: SendFunc) {
     this._send = send;
     this.handler = null;
   }
@@ -57,7 +67,7 @@ export class TypedWorker<RQ, RS = RQ> {
     this._send(payload, transfer);
   }
 
-  handle(callback: (payload: RS) => void): void {
-    this.handler = callback;
+  handle(handler: (payload: RS) => void): void {
+    this.handler = handler;
   }
 }

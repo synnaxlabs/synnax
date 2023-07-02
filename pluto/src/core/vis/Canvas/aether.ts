@@ -30,7 +30,7 @@ const canvasState = z.object({
 });
 
 export class AetherCanvas extends AetherComposite<typeof canvasState> {
-  static readonly TYPE = "canvas";
+  static readonly TYPE = "Canvas";
   static readonly stateZ = canvasState;
   static readonly REGISTRY: AetherComponentRegistry = {
     [AetherCanvas.TYPE]: (u) => new AetherCanvas(u),
@@ -49,12 +49,9 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
         );
-
       renderCtx = RenderContext.create(ctx, glCanvas, lower2dCanvas, upper2dCanvas);
       LineGLProgramContext.create(ctx);
-    } else {
-      renderCtx.update(ctx);
-    }
-    renderCtx.resize(new Box(this.state.region), this.state.dpr);
+    } else renderCtx.update(ctx);
+    renderCtx.resize(this.state.region, this.state.dpr);
   }
 }

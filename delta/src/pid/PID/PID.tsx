@@ -39,8 +39,6 @@ const PIDElementRenderer = ({
     [dispatch, elementKey, layoutKey]
   );
 
-  console.log(position);
-
   return (
     <ValuePIDElementSpec.Element
       {...(props as ValuePIDElementProps)}
