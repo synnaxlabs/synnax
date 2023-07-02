@@ -23,14 +23,14 @@ import {
 } from "react";
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Compare } from "@synnaxlabs/x";
+import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { useMemoCompare } from "@/core/memo";
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
-import { PsuedoSetStateArg, isStateSetter } from "@/core/hooks/useStateRef";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
+import { useMemoCompare } from "@/core/memo";
 import { Worker } from "@/core/worker";
+import { SetStateArg, isStateSetter } from "@/util/state";
 
 export interface AetherCreateReturn {
   setState: (state: any, transfer?: Transferable[]) => void;
@@ -48,13 +48,23 @@ export interface AetherContextValue {
 
 export const AetherContext = createContext<AetherContextValue | null>(null);
 
+export interface AetherProviderProps extends PropsWithChildren {
+  workerKey: string;
+  worker?: SenderHandler<MainMessage, WorkerMessage>;
+}
+
 export const AetherProvider = ({
   workerKey,
+  worker: propsWorker,
   children,
 }: AetherProviderProps): ReactElement => {
-  const worker = Worker.use<MainMessage, WorkerMessage>(workerKey);
+  const contextWorker = Worker.use<MainMessage, WorkerMessage>(workerKey);
   const registry = useRef<Map<string, RegisteredComponent>>(new Map());
   const [ready, setReady] = useState(false);
+  const worker = useMemo(
+    () => propsWorker ?? contextWorker,
+    [propsWorker, contextWorker]
+  );
 
   const create: AetherContextValue["create"] = useCallback(
     (type, path, handler) => {
@@ -175,14 +185,14 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
 };
 
 export interface UseAetherProps<S extends z.ZodTypeAny>
-  extends Omit<UseAetherLifecycleProps<S>, "onReceive"> { }
+  extends Omit<UseAetherLifecycleProps<S>, "onReceive"> {}
 
 export type UseAetherReturn<S extends z.ZodTypeAny> = [
   {
     path: string[];
   },
   z.output<S>,
-  (state: PsuedoSetStateArg<z.input<S>>, transfer?: Transferable[]) => void
+  (state: SetStateArg<z.input<S>>, transfer?: Transferable[]) => void
 ];
 
 const useAether = <S extends z.ZodTypeAny>(
@@ -208,7 +218,7 @@ const useAether = <S extends z.ZodTypeAny>(
 
   const setState = useCallback(
     (
-      next: PsuedoSetStateArg<z.input<S> | z.output<S>>,
+      next: SetStateArg<z.input<S> | z.output<S>>,
       transfer: Transferable[] = []
     ): void => {
       if (isStateSetter(next))
@@ -229,10 +239,6 @@ const useAether = <S extends z.ZodTypeAny>(
 
   return [{ path }, internalState, setState];
 };
-
-export interface AetherProviderProps extends PropsWithChildren {
-  workerKey: string;
-}
 
 type StateHandler = (state: any) => void;
 
