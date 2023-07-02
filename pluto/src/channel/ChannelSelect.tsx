@@ -11,8 +11,7 @@ import { ReactElement, useMemo } from "react";
 
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 
-import { Client } from "..";
-
+import { Client } from "@/client";
 import { ListColumn, Select, SelectMultipleProps, SelectProps, Status } from "@/core";
 
 const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [

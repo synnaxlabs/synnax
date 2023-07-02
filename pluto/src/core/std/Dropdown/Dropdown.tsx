@@ -16,10 +16,11 @@ import {
   useState,
 } from "react";
 
-import { CrudeYLocation } from "@synnaxlabs/x";
+import { Box, CrudeYLocation } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-import { useClickOutside } from "@/core/hooks";
+import { useClickOutside, useResize, UseResizeOpts } from "@/core/hooks";
+import { useCombinedRefs } from "@/core/hooks/useCombineRefs";
 import { Pack, PackProps } from "@/core/std/Pack";
 import { Space } from "@/core/std/Space";
 
@@ -56,37 +57,55 @@ export interface DropdownProps
   keepMounted?: boolean;
 }
 
+const USE_RESIZE_OPTS: UseResizeOpts = { triggers: ["moveY"] };
+
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
     {
       visible,
       children,
-      location = "bottom",
+      location,
       keepMounted = true,
+      className,
       ...props
     }: DropdownProps,
     ref
-  ): ReactElement => (
-    <Pack
-      {...props}
-      ref={ref}
-      className={CSS.B("dropdown")}
-      direction="y"
-      reverse={location === "top"}
-    >
-      {children[0]}
-      <Space
-        className={CSS(
-          CSS.BE("dropdown", "dialog"),
-          CSS.loc(location),
-          CSS.visible(visible)
-        )}
-        role="dialog"
-        empty
+  ): ReactElement => {
+    const [autoLocation, setAutoLocation] = useState(location ?? "bottom");
+    const handleResize = useCallback(
+      (box: Box) => {
+        if (location != null) return;
+        const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
+        const distanceToTop = Math.abs(box.center.y - windowBox.top);
+        const distanceToBottom = Math.abs(box.center.x - windowBox.bottom);
+        setAutoLocation(distanceToBottom > distanceToTop ? "bottom" : "top");
+      },
+      [location]
+    );
+    const resizeRef = useResize(handleResize, USE_RESIZE_OPTS);
+    const combinedRef = useCombinedRefs(ref, resizeRef);
+    return (
+      <Pack
+        {...props}
+        ref={combinedRef}
+        className={CSS(className, CSS.B("dropdown"))}
+        direction="y"
+        reverse={autoLocation === "top"}
       >
-        {children[1]}
-      </Space>
-    </Pack>
-  )
+        {children[0]}
+        <Space
+          className={CSS(
+            CSS.BE("dropdown", "dialog"),
+            CSS.loc(autoLocation),
+            CSS.visible(visible)
+          )}
+          role="dialog"
+          empty
+        >
+          {children[1]}
+        </Space>
+      </Pack>
+    );
+  }
 );
 Dropdown.displayName = "Dropdown";
