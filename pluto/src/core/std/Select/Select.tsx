@@ -27,6 +27,8 @@ import { List, ListColumn, ListProps } from "@/core/std/List";
 import { Pack } from "@/core/std/Pack";
 import { SelectList } from "@/core/std/Select/SelectList";
 
+import "@/core/std/Select/Select.css";
+
 export interface SelectProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
@@ -53,6 +55,7 @@ export const Select = <
   inputProps,
   allowClear = true,
   searcher,
+  className,
   ...props
 }: SelectProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -101,7 +104,12 @@ export const Select = <
 
   return (
     <List data={data} emptyContent={emptyContent}>
-      <Dropdown ref={ref} visible={visible} {...props}>
+      <Dropdown
+        ref={ref}
+        visible={visible}
+        className={CSS(className, CSS.B("select"))}
+        {...props}
+      >
         {filterOrSearch}
         <SelectList<K, E>
           value={[value]}

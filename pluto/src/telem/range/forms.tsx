@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 
 import { ChannelKey } from "@synnaxlabs/client";
 
-import { RangeNumerictelemProps } from "./aether";
-
-import { ChannelSelect } from "@/channel";
+import { ChannelSelect, ChannelSelectProps } from "@/channel";
 import { Input, InputControl } from "@/core";
+import { RangeNumerictelemProps } from "@/telem/range/aether";
 import { componentRenderProp } from "@/util/renderProp";
 
 export interface RangeNumericTelemFormProps
@@ -28,10 +27,11 @@ export const RangeNumericTelemForm = ({
     onChange({ ...value, channel });
 
   return (
-    <Input.Item<ChannelKey>
+    <Input.Item<ChannelKey, ChannelKey, ChannelSelectProps>
       label="Channel"
       value={value.channel}
       onChange={handleChannelChange}
+      location="top"
     >
       {componentRenderProp(ChannelSelect)}
     </Input.Item>

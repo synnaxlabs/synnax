@@ -85,7 +85,6 @@ export const Default: StoryFn<typeof Template> = Template.bind({});
 
 Default.args = {
   columns: sampleColumns,
-  location: "bottom",
   data: sampleData,
 };
 
