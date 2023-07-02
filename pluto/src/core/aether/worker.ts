@@ -11,14 +11,15 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { Sender, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { MainMessage, WorkerMessage } from "@/core/aether/message";
-import { PsuedoSetStateArg } from "@/core/hooks/useStateRef";
+import { SetStateArg, executeStateSetter } from "../../util/state";
 
-type UpdateVariant = "state" | "context";
+import { MainMessage, WorkerMessage } from "@/core/aether/message";
+
+type AetherUpdateVariant = "state" | "context";
 
 /** An update to an AetherComponent from the main React tree. */
-export interface Update {
-  variant: UpdateVariant;
+export interface AetherUpdate {
+  variant: AetherUpdateVariant;
   ctx: AetherContext;
   path: string[];
   type: string;
@@ -34,11 +35,11 @@ export interface Update {
 export interface AetherComponent {
   type: string;
   key: string;
-  internalUpdate: (update: Update) => void;
+  internalUpdate: (update: AetherUpdate) => void;
   internalDelete: (path: string[]) => void;
 }
 
-export type AetherComponentConstructor = (update: Update) => AetherComponent;
+export type AetherComponentConstructor = (update: AetherUpdate) => AetherComponent;
 
 export class AetherContext {
   private readonly providers: Map<string, any>;
@@ -74,7 +75,7 @@ export class AetherContext {
     this.changed = true;
   }
 
-  create<C extends AetherComponent>(update: Update): C {
+  create<C extends AetherComponent>(update: AetherUpdate): C {
     const factory = this.registry[update.type];
     if (factory == null)
       throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
@@ -111,17 +112,17 @@ export class AetherContext {
  *      // Do something else here!
  *  }
  * }
- *
  */
 export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
-  private _ctx: AetherContext;
   readonly type: string;
   readonly key: string;
   readonly schema: S;
+
+  private _ctx: AetherContext;
   private _state: z.output<S>;
   private _prevState: z.output<S>;
 
-  constructor(update: Update, schema: S) {
+  constructor(update: AetherUpdate, schema: S) {
     this.type = update.type;
     this.key = update.path[0];
     this.schema = schema;
@@ -137,9 +138,9 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
    * @param state - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(state: PsuedoSetStateArg<z.input<S> | z.output<S>>): void {
-    const nextState: z.input<S> =
-      typeof state === "function" ? (state as any)(this._state) : state;
+  setState(state: SetStateArg<z.input<S> | z.output<S>>): void {
+    const nextState: z.input<S> = executeStateSetter(state, this._state);
+    this._prevState = this._state;
     this._state = this.schema.parse(nextState);
     this._ctx.setState(this.key, nextState);
   }
@@ -155,7 +156,7 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
   }
 
   /** @implements AetherComponent */
-  internalUpdate({ variant, path, ctx, state }: Update): z.output<S> {
+  internalUpdate({ variant, path, ctx, state }: AetherUpdate): z.output<S> {
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
@@ -204,12 +205,12 @@ export class AetherComposite<
 {
   children: C[];
 
-  constructor(change: Update, schema: S) {
+  constructor(change: AetherUpdate, schema: S) {
     super(change, schema);
     this.children = [];
   }
 
-  internalUpdate(u: Update): void {
+  internalUpdate(u: AetherUpdate): void {
     const { variant, path } = u;
 
     // We're doing a context update.
@@ -220,12 +221,12 @@ export class AetherComposite<
     return this.updateChild(key, subPath, u);
   }
 
-  private updateContext(u: Update): void {
+  private updateContext(u: AetherUpdate): void {
     super.internalUpdate(u);
     this.children.forEach((c) => c.internalUpdate(u));
   }
 
-  private updateChild(key: string, subPath: string[], u: Update): void {
+  private updateChild(key: string, subPath: string[], u: AetherUpdate): void {
     const childKey = subPath[0];
     const child = this.findChild(childKey);
     if (child != null) return child.internalUpdate({ ...u, path: subPath });
@@ -236,7 +237,7 @@ export class AetherComposite<
     this.children.push(u.ctx.create({ ...u, path: subPath }));
   }
 
-  private updateThis(key: string, u: Update): void {
+  private updateThis(key: string, u: AetherUpdate): void {
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
@@ -293,15 +294,15 @@ export type AetherComponentRegistry = Record<string, AetherComponentConstructor>
 
 const aetherRootState = z.object({});
 
-class AetherRoot extends AetherComposite<typeof aetherRootState> {
+export class AetherRoot extends AetherComposite<typeof aetherRootState> {
   wrap: SenderHandler<WorkerMessage, MainMessage>;
   ctx: AetherContext;
 
-  private static readonly ZERO_UPDATE: Omit<Update, "ctx"> = {
+  private static readonly ZERO_UPDATE: Omit<AetherUpdate, "ctx"> = {
     path: ["root"],
     type: "root",
     variant: "state",
-    state: null,
+    state: {},
   };
 
   static render(
@@ -325,7 +326,7 @@ class AetherRoot extends AetherComposite<typeof aetherRootState> {
   handle(msg: MainMessage): void {
     if (msg.variant === "delete") this.internalDelete(msg.path);
     else {
-      const u: Update = {
+      const u: AetherUpdate = {
         ...msg,
         variant: "state",
         ctx: this.ctx.child(),
