@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Deep, Location } from "@synnaxlabs/x";
+import { Location } from "@synnaxlabs/x";
 
 import {
   moveMosaicTab,

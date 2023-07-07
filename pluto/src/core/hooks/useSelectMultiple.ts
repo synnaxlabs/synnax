@@ -11,7 +11,6 @@ import { useCallback, useRef } from "react";
 
 import { Key, KeyedRecord, unique, ArrayTransform } from "@synnaxlabs/x";
 
-import { InputControl } from "@/core/std/Input";
 import { Triggers } from "@/core/triggers";
 
 export type SelectedRecord<
@@ -25,9 +24,11 @@ export type SelectedRecord<
 export interface UseSelectMultipleProps<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>
-> extends InputControl<readonly K[]> {
+> {
   data: E[];
   allowMultiple?: boolean;
+  value: readonly K[];
+  onChange: (next: readonly K[], entries: E[]) => void;
 }
 
 /** Return value for the {@link useSelectMultiple} hook. */
@@ -101,12 +102,15 @@ export const useSelectMultiple = <
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
-      onChange(unique(nextSelected));
+      onChange(
+        unique(nextSelected),
+        data.filter(({ key }) => nextSelected.includes(key))
+      );
     },
     [onChange, value, data, allowMultiple]
   );
 
-  const clear = useCallback((): void => onChange([]), [onChange]);
+  const clear = useCallback((): void => onChange([], []), [onChange]);
 
   const transform = useCallback(
     (data: E[]): Array<SelectedRecord<K, E>> =>

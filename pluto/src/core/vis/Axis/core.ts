@@ -17,28 +17,33 @@ import {
   tickType,
 } from "@/core/vis/Axis/TickFactory";
 
+export interface AxisRenderResult {
+  size: number;
+}
+
 export const Y_AXIS_SIZE = 40;
 export const X_AXIS_SIZE = 20;
 
 export const axisState = tickFactoryProps.extend({
   color: Color.z,
-  position: XY.z,
   label: z.string().optional().default(""),
   type: tickType,
   font: z.string(),
   showGrid: z.boolean().optional().default(true),
   location: Location.strictOuterZ,
   gridColor: Color.z,
+  size: z.number().default(0),
 });
 
 export type AxisState = z.input<typeof axisState>;
 export type ParsedAxisState = z.output<typeof axisState>;
 
-export interface AxisContext extends Omit<TickFactoryContext, "size"> {
+export interface AxisProps extends Omit<TickFactoryContext, "size"> {
   plottingRegion: Box;
+  position: XY;
 }
 
 export interface Axis {
   setState: (state: AxisState) => void;
-  render: (ctx: AxisContext) => void;
+  render: (props: AxisProps) => AxisRenderResult;
 }

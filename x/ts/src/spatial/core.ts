@@ -47,7 +47,7 @@ const order = z.enum(ORDERS);
 const corner = z.enum(CORNERS);
 const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });
-const boundsZ = z.object({ lower: z.number(), upper: z.number() });
+const bounds = z.object({ lower: z.number(), upper: z.number() });
 const dimension = z.enum(["width", "height"]);
 
 const looseDirection = z.union([direction, location, stringValueOf]);
@@ -56,7 +56,7 @@ const looseXLocation = z.union([xLocation, xDirection]);
 const looseOuterLocation = z.union([outerLocation, direction]);
 const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, numberCouple]);
 const looseLocation = looseDirection;
-const looseBoundZ = z.union([boundsZ, numberCouple]);
+const looseBoundZ = z.union([bounds, numberCouple]);
 const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
 const looseDimensions = z.union([dimensions, signedDimensions, xy, numberCouple]);
 
@@ -70,7 +70,7 @@ export type CrudeDirection = z.infer<typeof direction>;
 export type CrudeXY = z.infer<typeof xy>;
 export type CrudeDimensions = z.infer<typeof dimensions>;
 export type SignedDimensions = z.infer<typeof signedDimensions>;
-export type CrudeBounds = z.input<typeof boundsZ>;
+export type CrudeBounds = z.input<typeof bounds>;
 export type CrudePosition = z.infer<typeof position>;
 export type CrudeOrder = z.infer<typeof order>;
 export type Corner = z.infer<typeof corner>;
@@ -132,7 +132,15 @@ export class Direction extends String {
   }
 
   get dimension(): Dimension {
-    return this.equals("x") ? "width" : "height";
+    return this.isX ? "width" : "height";
+  }
+
+  get isX(): boolean {
+    return this.equals("x");
+  }
+
+  get isY(): boolean {
+    return this.equals("y");
   }
 
   /** The "x" direction. */
@@ -400,6 +408,13 @@ export class XY {
     return [this.x, this.y];
   }
 
+  /**
+   * @returns the XY in css coordinate form i.e {left: number, top: number}.
+   */
+  get css(): { left: number; top: number } {
+    return { left: this.x, top: this.y };
+  }
+
   /** An x and y coordinate of zero */
   static readonly ZERO = new XY(0, 0);
 
@@ -470,6 +485,13 @@ export class Dimensions {
     if (other == null) return false;
     const o = new Dimensions(other);
     return this.width === o.width && this.height === o.height;
+  }
+
+  pickGreatest(other: Dimensions): Dimensions {
+    return new Dimensions({
+      width: other.width > this.width ? other.width : this.width,
+      height: other.height > this.height ? other.height : this.height,
+    });
   }
 
   /**
@@ -604,5 +626,5 @@ export class Bounds {
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
    * only accept a bound as an input.
    * */
-  static readonly strictZ = boundsZ.transform((v) => new Bounds(v));
+  static readonly strictZ = bounds.transform((v) => new Bounds(v));
 }

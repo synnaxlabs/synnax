@@ -33,7 +33,7 @@ export const useCursorDrag = ({
       e.preventDefault();
       const startLoc = new XY(e);
       const mouseKey = Triggers.mouseKey(e.button);
-      onStart?.(startLoc, mouseKey);
+      onStart?.(startLoc, mouseKey)
       const handleMove = (e: ClientXYT & { buttons: number }): void => {
         if (e.buttons === 0) return handleUp(e);
         const next = new XY(e);
@@ -42,7 +42,8 @@ export const useCursorDrag = ({
       window.addEventListener("mousemove", handleMove);
       const handleUp = (e: ClientXYT): void => {
         window.removeEventListener("mousemove", handleMove);
-        onEnd?.(new Box(startLoc, new XY(e)), mouseKey);
+        const next = new XY(e);
+        onEnd?.(new Box(startLoc, next), mouseKey);
       };
       window.addEventListener("mouseup", handleUp, { once: true });
     },

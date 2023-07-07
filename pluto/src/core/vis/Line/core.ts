@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, XYScale } from "@synnaxlabs/x";
+import { Bounds, Box, XY, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherComponent } from "@/core/aether/worker";
@@ -18,10 +18,16 @@ export const lineState = z.object({
   telem: xyTelemSourceProps,
   color: Color.z,
   strokeWidth: z.number().default(1),
+  downsample: z.number().min(1).max(50).optional().default(1),
 });
 
 export type LineState = z.input<typeof lineState>;
 export type ParsedLineState = z.output<typeof lineState>;
+
+export interface LookupResult {
+  position: XY;
+  value: number;
+}
 
 export interface LineProps {
   /**
@@ -41,4 +47,5 @@ export interface LineComponent extends AetherComponent {
   render: (props: LineProps) => void;
   xBounds: () => Promise<Bounds>;
   yBounds: () => Promise<Bounds>;
+  searchX: (props: LineProps, x: number) => Promise<LookupResult>;
 }

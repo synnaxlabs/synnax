@@ -8,26 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { AetherComponentRegistry } from "@/core/aether/worker";
-import { LinePlot as CoreLinePlot } from "@/core/vis/LinePlot/aether/LinePlot";
-import { XAxis } from "@/core/vis/LinePlot/aether/XAxis";
-import { YAxis } from "@/core/vis/LinePlot/aether/YAxis";
+import { AetherLinePlot as CoreLinePlot } from "@/core/vis/LinePlot/aether/LinePlot";
+import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
+import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";
 
 export const LinePlotRegistry: AetherComponentRegistry = {
   [CoreLinePlot.TYPE]: (u) => new CoreLinePlot(u),
-  [XAxis.TYPE]: (u) => new XAxis(u),
-  [YAxis.TYPE]: (u) => new YAxis(u),
+  [AetherXAxis.TYPE]: (u) => new AetherXAxis(u),
+  [AetherYAxis.TYPE]: (u) => new AetherYAxis(u),
 };
 
 type CoreLinePlotType = typeof CoreLinePlot;
 
 interface AetherLinePlotType extends CoreLinePlotType {
   REGISTRY: AetherComponentRegistry;
-  XAxis: typeof XAxis;
-  YAxis: typeof YAxis;
+  XAxis: typeof AetherXAxis;
+  YAxis: typeof AetherYAxis;
 }
 
 export const AetherLinePlot = CoreLinePlot as AetherLinePlotType;
 
 AetherLinePlot.REGISTRY = LinePlotRegistry;
-AetherLinePlot.XAxis = XAxis;
-AetherLinePlot.YAxis = YAxis;
+AetherLinePlot.XAxis = AetherXAxis;
+AetherLinePlot.YAxis = AetherYAxis;

@@ -37,17 +37,17 @@ import {
   useSelectNavDrawer,
   useSelectTheme,
 } from "../store";
-import { Layout } from "../types";
+import { LayoutState } from "../types";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
+export type LayoutCreator = (props: LayoutCreatorProps) => LayoutState;
 
 /** A function that places a layout using the given properties or creation func. */
-export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
+export type LayoutPlacer = (layout: LayoutState | LayoutCreator) => void;
 
 /** A function that removes a layout. */
 export type LayoutRemover = () => void;
@@ -66,7 +66,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
   const os = useOS();
   return useCallback(
-    (layout_: Layout | LayoutCreator) => {
+    (layout_: LayoutState | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
       const { key, location, window, name: title } = layout;
       dispatch(placeLayout(layout));

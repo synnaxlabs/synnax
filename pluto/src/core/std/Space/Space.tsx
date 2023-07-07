@@ -69,6 +69,8 @@ export interface SpaceExtensionProps {
   shrink?: boolean | number;
   wrap?: boolean;
   el?: SpaceElementType;
+  bordered?: boolean;
+  rounded?: boolean;
 }
 
 export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
@@ -90,6 +92,8 @@ const CoreSpace = <E extends SpaceElementType = "div">(
     reverse = false,
     direction: direction_ = "y",
     wrap = false,
+    bordered = false,
+    rounded = false,
     el = "div" as E,
     ...props
   }: SpaceProps<E>,
@@ -121,6 +125,8 @@ const CoreSpace = <E extends SpaceElementType = "div">(
       className={CSS(
         CSS.B("space"),
         CSS.dir(direction),
+        CSS.bordered(bordered),
+        CSS.rounded(rounded),
         typeof size === "string" && CSS.BM("space", size),
         className
       )}

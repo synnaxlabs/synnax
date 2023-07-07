@@ -7,27 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  ReactElement,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   convertRenderV,
   Key,
   KeyedRenderableRecord,
   AsyncTermSearcher,
+  Compare,
 } from "@synnaxlabs/x";
 
-import { Color } from "@/core/color";
+import { ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
-import { useMount } from "@/core/hooks/useMount";
+import { useAsyncEffect } from "@/core/hooks";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { Input, InputControl, InputProps } from "@/core/std/Input";
 import { ListColumn, List, ListProps } from "@/core/std/List";
 import { Pack } from "@/core/std/Pack";
-import { SelectClearButton } from "@/core/std/Select/Select";
+import { SelectClearButton } from "@/core/std/Select/SelectClearButton";
 import { SelectList } from "@/core/std/Select/SelectList";
 import { Space } from "@/core/std/Space";
 import { Tag } from "@/core/std/Tag";
 import { Theming } from "@/core/theming";
+import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/core/std/Select/SelectMultiple.css";
 
@@ -36,11 +45,15 @@ export interface SelectMultipleProps<
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Omit<DropdownProps, "visible" | "onChange" | "children">,
     InputControl<readonly K[]>,
-    Omit<ListProps<K, E>, "children"> {
+    Omit<ListProps<K, E>, "children">,
+    Pick<InputProps, "placeholder"> {
   columns?: Array<ListColumn<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
   tagKey?: keyof E;
+  renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
 }
+
+const { Filter, Search } = List;
 
 export const SelectMultiple = <
   K extends Key = Key,
@@ -54,61 +67,49 @@ export const SelectMultiple = <
   tagKey = "key",
   emptyContent,
   searcher,
+  renderTag,
+  placeholder,
   ...props
 }: SelectMultipleProps<K, E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
-  const [stateData, setStateData] = useState<E[]>(data);
-  data = searcher != null ? stateData : data;
+  const [selected, setSelected] = useState<readonly E[]>([]);
+  const searchMode = searcher != null;
 
-  const [selected, setSelected] = useState<readonly E[]>(() => {
-    if (value == null) return [];
-    return data.filter((e) => value.includes(e.key));
-  });
-
-  useMount(() => {
-    if (searcher == null) return;
-    searcher
-      .retrieve(value as K[])
-      .then((e) => setSelected(e))
-      .catch(console.error);
-  });
+  useAsyncEffect(async () => {
+    if (!searchMode) return;
+    const selectedKeys = selected.map((v) => v.key);
+    if (Compare.primitiveArrays(selectedKeys, value) === Compare.equal) return;
+    const entries = await searcher.retrieve(value as K[]);
+    setSelected(entries);
+  }, [searcher, searchMode, value, data]);
 
   const handleChange = useCallback(
-    (v: readonly K[]) => {
-      setSelected((p) =>
-        [
-          ...p.filter((e) => v.includes(e.key)),
-          ...data.filter((e) => v.includes(e.key)),
-        ].filter((e, i, a) => a.indexOf(e) === i)
-      );
+    (v: readonly K[], entries: E[]) => {
+      setSelected(entries);
       onChange(v);
     },
-    [data, onChange]
+    [onChange]
   );
 
-  const input = ({ onChange }: InputControl<string>): ReactElement => (
-    <SelectMultipleInput<K, E>
-      onChange={onChange}
-      selected={selected}
-      onFocus={open}
-      tagKey={tagKey}
-      visible={visible}
-    />
-  );
-
-  const filterOrSearch =
-    searcher != null ? (
-      <List.Search searcher={searcher} onChange={setStateData}>
-        {input}
-      </List.Search>
-    ) : (
-      <List.Filter>{input}</List.Filter>
-    );
+  const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
 
   return (
     <List data={data} emptyContent={emptyContent}>
       <Dropdown ref={ref} visible={visible} location={location} {...props}>
-        {filterOrSearch}
+        {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
+        <InputWrapper searcher={searcher}>
+          {({ onChange }) => (
+            <SelectMultipleInput<K, E>
+              onChange={onChange}
+              selected={selected}
+              onFocus={open}
+              tagKey={tagKey}
+              visible={visible}
+              renderTag={renderTag}
+              placeholder={placeholder}
+            />
+          )}
+        </InputWrapper>
         <SelectList
           value={value}
           onChange={handleChange}
@@ -121,10 +122,11 @@ export const SelectMultiple = <
 };
 
 interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Pick<InputProps, "onChange" | "onFocus"> {
+  extends Pick<InputProps, "onChange" | "onFocus" | "placeholder"> {
   selected: readonly E[];
   tagKey: keyof E;
   visible: boolean;
+  renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
 }
 
 const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -133,15 +135,15 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
   onFocus,
   visible,
   tagKey,
+  renderTag = componentRenderProp(SelectMultipleTag),
+  placeholder = "Search...",
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const {
     select: { onSelect, clear },
   } = List.useContext<K, E>();
   const [value, setValue] = useState("");
-
   const { theme } = Theming.useContext();
-
   const ref = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
@@ -157,12 +159,14 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
     onChange(v);
   };
 
+  const palette = theme.colors.visualization.palettes.default;
+
   return (
     <Pack align="stretch" {...props} grow className={CSS.B("pluto-select-multiple")}>
       <Input
         ref={ref}
         className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}
-        placeholder="Search"
+        placeholder={placeholder}
         value={value}
         onChange={handleChange}
         onFocus={onFocus}
@@ -173,23 +177,33 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
         align="center"
         grow
       >
-        {selected.map((e, i) => {
-          if (e == null) return null;
-          return (
-            <Tag
-              key={e.key}
-              color={new Color(theme.colors.visualization.palettes.default[i]).hex}
-              onClose={() => onSelect?.(e.key)}
-              size="small"
-              variant="outlined"
-              draggable
-            >
-              {convertRenderV(e[tagKey])}
-            </Tag>
-          );
-        })}
+        {selected.map((e, i) =>
+          renderTag({
+            tagKey,
+            entry: e,
+            color: palette[i % palette.length],
+            onClose: () => onSelect?.(e.key),
+          })
+        )}
       </Space>
       <SelectClearButton onClick={clear} />
     </Pack>
   );
 };
+
+interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+  tagKey: keyof E;
+  entry: E;
+  color: ColorT;
+  onClose?: () => void;
+}
+
+const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+  tagKey,
+  entry,
+  ...props
+}: SelectMultipleTagProps<K, E>): ReactElement => (
+  <Tag key={entry.key} size="small" variant="outlined" draggable {...props}>
+    {convertRenderV(entry[tagKey])}
+  </Tag>
+);

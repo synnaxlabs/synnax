@@ -35,15 +35,17 @@ export const List = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
   children,
-  data: propsData = [],
+  data: propsData,
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
   const [columns, setColumns] = useState<Array<ListColumn<K, E>>>([]);
   const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
   const [clear, setClear] = useState<(() => void) | undefined>(undefined);
   const { transform, setTransform, deleteTransform } = useTransforms<E>({});
-  const [data, setData] = useState<E[]>(propsData);
-  useEffect(() => setData(propsData), [propsData]);
+  const [data, setData] = useState<E[]>(() => propsData ?? []);
+  useEffect(() => {
+    if (propsData != null) setData(propsData);
+  }, [propsData]);
   const transformedData = useMemo(() => transform(data), [data, transform]);
   const setSourceData = useCallback((data: E[]) => setData(data), [setData]);
   const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(

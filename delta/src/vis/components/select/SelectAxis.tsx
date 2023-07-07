@@ -10,14 +10,16 @@
 import { ReactElement, useCallback } from "react";
 
 import { ChannelKey } from "@synnaxlabs/client";
-import { Input, InputItemProps } from "@synnaxlabs/pluto";
-
 import {
-  SelectChanel,
-  SelectChannelProps,
-  SelectMultipleChannels,
-  SelectMultipleChannelsProps,
-} from "@/components";
+  Input,
+  InputItemProps,
+  ChannelSelect,
+  ChannelSelectMultiple,
+  ChannelSelectMultipleProps,
+  ChannelSelectProps,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
+
 import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
@@ -25,9 +27,9 @@ export interface SelectMultipleAxesInputItemProps
     InputItemProps<
       readonly ChannelKey[],
       readonly ChannelKey[],
-      SelectMultipleChannelsProps
+      ChannelSelectMultipleProps
     >,
-    "onChange" | "label"
+    "onChange" | "label" | "data"
   > {
   axis: AxisKey;
   onChange: (key: AxisKey, v: readonly ChannelKey[]) => void;
@@ -38,21 +40,21 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], SelectMultipleChannelsProps>
+  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], ChannelSelectMultipleProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
     tagKey="name"
     {...props}
   >
-    {SelectMultipleChannels}
+    {componentRenderProp(ChannelSelectMultiple)}
   </Input.Item>
 );
 
 export interface SelectAxisInputItemProps
   extends Omit<
-    InputItemProps<ChannelKey, ChannelKey, SelectChannelProps>,
-    "onChange" | "label"
+    InputItemProps<ChannelKey, ChannelKey, ChannelSelectProps>,
+    "onChange" | "label" | "data"
   > {
   axis: AxisKey;
   onChange: (key: AxisKey, v: ChannelKey) => void;
@@ -63,13 +65,13 @@ export const SelectAxisInputItem = ({
   onChange,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item<ChannelKey, ChannelKey, SelectChannelProps>
+  <Input.Item<ChannelKey, ChannelKey, ChannelSelectProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
     tagKey="name"
     {...props}
   >
-    {SelectChanel}
+    {componentRenderProp(ChannelSelect)}
   </Input.Item>
 );

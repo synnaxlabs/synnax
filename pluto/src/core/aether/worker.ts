@@ -11,9 +11,8 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { Sender, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { SetStateArg, executeStateSetter } from "../../util/state";
-
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
+import { SetStateArg, executeStateSetter } from "@/util/state";
 
 type AetherUpdateVariant = "state" | "context";
 
@@ -42,7 +41,7 @@ export interface AetherComponent {
 export type AetherComponentConstructor = (update: AetherUpdate) => AetherComponent;
 
 export class AetherContext {
-  private readonly providers: Map<string, any>;
+  readonly providers: Map<string, any>;
   private readonly registry: Record<string, AetherComponentConstructor>;
   private readonly sender: Sender<WorkerMessage>;
   changed: boolean;
@@ -59,11 +58,16 @@ export class AetherContext {
   }
 
   setState(key: string, state: any, transfer: Transferable[] = []): void {
-    this.sender.send({ variant: "backward", key, state }, transfer);
+    this.sender.send({ key, state }, transfer);
   }
 
-  child(): AetherContext {
-    return new AetherContext(this.sender, this.registry, this.providers);
+  copy(): AetherContext {
+    const cpy = new AetherContext(this.sender, this.registry, new Map());
+    this.providers.forEach((value, key) => {
+      cpy.providers.set(key, value);
+    });
+    cpy.changed = false;
+    return cpy;
   }
 
   getOptional<P>(key: string): P | null {
@@ -79,7 +83,9 @@ export class AetherContext {
     const factory = this.registry[update.type];
     if (factory == null)
       throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
-    return factory(update) as C;
+    const c = factory(update) as C;
+    c.internalUpdate(update);
+    return c;
   }
 
   get<P>(key: string): P {
@@ -113,22 +119,21 @@ export class AetherContext {
  *  }
  * }
  */
-export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
+export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComponent {
   readonly type: string;
   readonly key: string;
-  readonly schema: S;
+  _derivedState: DS | undefined;
 
-  private _ctx: AetherContext;
-  private _state: z.output<S>;
-  private _prevState: z.output<S>;
+  _ctx: AetherContext;
+  private _state: z.output<S> | undefined;
+  private _prevState: z.output<S> | undefined;
 
-  constructor(update: AetherUpdate, schema: S) {
-    this.type = update.type;
-    this.key = update.path[0];
-    this.schema = schema;
-    this._state = this.schema.parse(update.state);
-    this._ctx = update.ctx;
-    this._prevState = this._state;
+  schema: S = undefined as any;
+
+  constructor(u: AetherUpdate) {
+    this.type = u.type;
+    this.key = u.path[0];
+    this._ctx = u.ctx;
   }
 
   /**
@@ -140,14 +145,24 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
    */
   setState(state: SetStateArg<z.input<S> | z.output<S>>): void {
     const nextState: z.input<S> = executeStateSetter(state, this._state);
-    this._prevState = this._state;
+    this._prevState = { ...this._state };
     this._state = this.schema.parse(nextState);
-    this._ctx.setState(this.key, nextState);
+    this.ctx.setState(this.key, nextState);
+  }
+
+  get ctx(): AetherContext {
+    if (this._ctx == null) throw new UnexpectedError("context not defined");
+    return this._ctx;
   }
 
   /** @returns the current state of the component. */
   get state(): z.output<S> {
+    if (this._state == null) throw new UnexpectedError("state not defined");
     return this._state;
+  }
+
+  get derived(): DS {
+    return this._derivedState as DS;
   }
 
   /** @returns the previous state of the component. */
@@ -156,15 +171,16 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
   }
 
   /** @implements AetherComponent */
-  internalUpdate({ variant, path, ctx, state }: AetherUpdate): z.output<S> {
+  internalUpdate({ variant, path, ctx, state }: AetherUpdate): void {
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
-      this._prevState = this._state;
-      this._state = this.schema.parse(state);
+      const state_ = this.schema.parse(state);
+      this._prevState = this._state ?? state_;
+      this._state = state_;
     }
-    this.handleUpdate(ctx);
-    return this._state;
+    this._derivedState = this.derive();
+    this.afterUpdate();
   }
 
   /** @implements AetherComponent */
@@ -173,7 +189,11 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
     this.handleDelete();
   }
 
-  handleUpdate(_: AetherContext): void {}
+  derive(): DS {
+    return undefined as DS;
+  }
+
+  afterUpdate(): void {}
 
   handleDelete(): void {}
 
@@ -198,15 +218,16 @@ export class AetherLeaf<S extends z.ZodTypeAny> implements AetherComponent {
 
 export class AetherComposite<
     S extends z.ZodTypeAny,
+    DS = void,
     C extends AetherComponent = AetherComponent
   >
-  extends AetherLeaf<S>
+  extends AetherLeaf<S, DS>
   implements AetherComponent
 {
   children: C[];
 
-  constructor(change: AetherUpdate, schema: S) {
-    super(change, schema);
+  constructor(u: AetherUpdate) {
+    super(u);
     this.children = [];
   }
 
@@ -214,11 +235,15 @@ export class AetherComposite<
     const { variant, path } = u;
 
     // We're doing a context update.
-    if (variant === "context") return this.updateContext(u);
+    if (variant === "context") {
+      this._ctx = u.ctx.copy();
+      this.updateContext({ ...u, ctx: this._ctx });
+      return;
+    }
 
     const [key, subPath] = this.getRequiredKey(path);
-    if (subPath.length === 0) return this.updateThis(key, u);
-    return this.updateChild(key, subPath, u);
+    if (subPath.length === 0) return this.updateThis(key, { ...u, ctx: this.ctx });
+    return this.updateChild(key, subPath, { ...u, ctx: this.ctx });
   }
 
   private updateContext(u: AetherUpdate): void {
@@ -234,18 +259,22 @@ export class AetherComposite<
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `
       );
-    this.children.push(u.ctx.create({ ...u, path: subPath }));
+    this.children.push(u.ctx.create({ ...u, ctx: u.ctx.copy(), path: subPath }));
   }
 
   private updateThis(key: string, u: AetherUpdate): void {
+    const ctx = u.ctx.copy();
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
       );
-    super.internalUpdate(u);
-    if (!u.ctx.changed) return;
-    this.children.forEach((c) => c.internalUpdate({ ...u, variant: "context" }));
+    super.internalUpdate({ ...u, ctx });
+    if (!ctx.changed) return;
+    this._ctx = ctx;
+    this.children.forEach((c) =>
+      c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" })
+    );
   }
 
   internalDelete(path: string[]): void {
@@ -285,7 +314,7 @@ export class AetherComposite<
     return (this.children.find((c) => c.key === key) ?? null) as T | null;
   }
 
-  findChildrenOfType<T extends C = C>(key: string): T[] {
+  childrenOfType<T extends C = C>(key: string): T[] {
     return this.children.filter((c) => c.type === key) as T[];
   }
 }
@@ -296,14 +325,19 @@ const aetherRootState = z.object({});
 
 export class AetherRoot extends AetherComposite<typeof aetherRootState> {
   wrap: SenderHandler<WorkerMessage, MainMessage>;
-  ctx: AetherContext;
+
+  private static readonly TYPE = "root";
+  private static readonly KEY = "root";
 
   private static readonly ZERO_UPDATE: Omit<AetherUpdate, "ctx"> = {
-    path: ["root"],
-    type: "root",
+    path: [AetherRoot.KEY],
+    type: AetherRoot.TYPE,
     variant: "state",
     state: {},
   };
+
+  static readonly schema = aetherRootState;
+  schema = AetherRoot.schema;
 
   static render(
     wrap: SenderHandler<WorkerMessage, MainMessage>,
@@ -316,9 +350,10 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
     wrap: SenderHandler<WorkerMessage, MainMessage>,
     registry: Record<string, AetherComponentConstructor>
   ) {
-    const ctx = new AetherContext(wrap, registry);
-    super({ ctx, ...AetherRoot.ZERO_UPDATE }, aetherRootState);
-    this.ctx = ctx;
+    const ctx = new AetherContext(wrap, registry, new Map());
+    const u = { ctx, ...AetherRoot.ZERO_UPDATE };
+    super(u);
+    this.internalUpdate(u);
     this.wrap = wrap;
     this.wrap.handle(this.handle.bind(this));
   }
@@ -329,7 +364,7 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
       const u: AetherUpdate = {
         ...msg,
         variant: "state",
-        ctx: this.ctx.child(),
+        ctx: this.ctx,
       };
       this.internalUpdate(u);
     }

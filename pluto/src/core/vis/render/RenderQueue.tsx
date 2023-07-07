@@ -11,30 +11,39 @@ import { Rate } from "@synnaxlabs/x";
 
 export type RenderFunction = () => Promise<void>;
 
+export type RenderPriority = "high" | "low";
+
+interface RenderEntry {
+  render: RenderFunction;
+  priority: RenderPriority;
+}
+
 export class RenderQueue {
-  queue: Record<string, RenderFunction>;
-  requested: boolean = false;
+  queue: Record<string, RenderEntry>;
 
   constructor() {
     this.queue = {};
-    setInterval(() => {
-      if (Object.keys(this.queue).length === 0) return;
+    requestAnimationFrame(() => {
       void this.render();
-    }, Rate.hz(60).period.milliseconds);
+    });
   }
 
-  push(key: string, render: RenderFunction): void {
-    this.queue[key] = render;
+  push(key: string, render: RenderFunction, priority: RenderPriority = "low"): void {
+    const existing = this.queue[key];
+    if (existing == null) {
+      this.queue[key] = { render, priority };
+      return;
+    }
+    if (existing.priority === "high" && priority !== "high") return;
+    this.queue[key] = { render, priority };
   }
 
   async render(): Promise<void> {
     const queue = this.queue;
     this.queue = {};
-    const keys = Object.keys(queue);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      await queue[key]();
-    }
-    this.requested = false;
+    for (const { render } of Object.values(queue)) await render();
+    requestAnimationFrame(() => {
+      void this.render();
+    });
   }
 }

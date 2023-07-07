@@ -24,7 +24,7 @@ import "@/core/std/Mosaic/Mosaic.css";
 export interface MosaicProps
   extends Omit<TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
   root: MosaicNode;
-  onDrop: (key: number, tabKey: string, loc: Location) => void;
+  onDrop: (key: number, tabKey: string, loc: CrudeLocation) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number) => void;
 }
@@ -98,7 +98,7 @@ const MosaicTabLeaf = memo(
       setDragMask(null);
       if (!validDrop(tabs, dragging)) return;
       const tabKey = dragging.map(({ key }) => key)[0];
-      onDrop(key, tabKey as string, insertLocation(getDragLocationPercents(e)));
+      onDrop(key, tabKey as string, insertLocation(getDragLocationPercents(e)).crude);
     };
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {

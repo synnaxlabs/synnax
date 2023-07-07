@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { memo, ReactElement, useLayoutEffect } from "react";
+import { ReactElement, useLayoutEffect } from "react";
 
 import { Deep, Optional } from "@synnaxlabs/x";
 
@@ -36,4 +36,3 @@ export const Line = Aether.wrap<LineProps>(
     return null;
   }
 );
-Line.displayName = "Line";

@@ -109,15 +109,17 @@ export class RenderContext {
     if (this.region.equals(region) && this.dpr === dpr) return;
     this.region = region;
     this.dpr = dpr;
-    this.glCanvas.width = region.width * dpr;
-    this.glCanvas.height = region.height * dpr;
-    this.upper2dCanvas.width = region.width * this.dpr;
-    this.upper2dCanvas.height = region.height * this.dpr;
-    this.lower2dCanvas.width = region.width * this.dpr;
-    this.lower2dCanvas.height = region.height * this.dpr;
+    this.resizeCanvas(this.glCanvas);
+    this.resizeCanvas(this.upper2dCanvas);
+    this.resizeCanvas(this.lower2dCanvas);
     this.lower2d.scale(this.dpr, this.dpr);
     this.upper2d.scale(this.dpr, this.dpr);
     this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
+  }
+
+  private resizeCanvas(canvas: OffscreenCanvas): void {
+    canvas.width = this.region.width * this.dpr;
+    canvas.height = this.region.height * this.dpr;
   }
 
   /** @returns the aspect ratio of the canvas. */
@@ -177,6 +179,15 @@ export class RenderContext {
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
+  scissor(region: Box): Destructor {
+    const lower = this.scissorGL(region);
+    const upper = this.scissorCanvas(region);
+    return () => {
+      lower();
+      upper();
+    };
+  }
+
   /**
    * Erases the given portion of both the 2D and the WebGL canvases.
    *
@@ -194,10 +205,10 @@ export class RenderContext {
   eraseGL(box: Box, overscan: XY = XY.ZERO): void {
     const { gl } = this;
     const os = new Box(
-      (box.left - overscan.x) * this.dpr,
-      (box.top - overscan.y) * this.dpr,
-      (box.width + overscan.x * 2) * this.dpr,
-      (box.height + overscan.y * 2) * this.dpr
+      box.left - overscan.x,
+      box.top - overscan.y,
+      box.width + overscan.x * 2,
+      box.height + overscan.y * 2
     );
     const removeScissor = this.scissorGL(os);
     gl.clearColor(...Color.ZERO.rgba1);

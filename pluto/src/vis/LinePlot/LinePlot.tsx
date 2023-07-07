@@ -13,7 +13,10 @@ import { Bounds, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Color } from "@/core/color";
-import { LinePlot as CoreLinePlot } from "@/core/vis/LinePlot";
+import {
+  LinePlot as CoreLinePlot,
+  LinePlotProps as CoreLinePlotProps,
+} from "@/core/vis/LinePlot";
 import { RangeTelem } from "@/telem/range/main";
 
 export const axisProps = z.object({
@@ -39,6 +42,7 @@ export const coreLineProps = z.object({
   color: Color.z,
   strokeWidth: z.number().optional(),
   label: z.string().optional(),
+  downsample: z.number().optional(),
 });
 
 export const staticLineProps = coreLineProps.extend({
@@ -67,7 +71,7 @@ export const linePlotProps = z.object({
   lines: z.array(lineProps),
 });
 
-export interface LinePlotProps {
+export interface LinePlotProps extends CoreLinePlotProps {
   axes: AxisProps[];
   lines: LineProps[];
 }
@@ -76,7 +80,7 @@ export const LinePlot = (props: LinePlotProps): ReactElement => {
   const { axes, lines } = linePlotProps.parse(props);
   const xAxes = axes.filter(({ location }) => location.isY);
   return (
-    <CoreLinePlot>
+    <CoreLinePlot {...props}>
       {xAxes.map((a) => (
         <XAxis
           key={a.id}
@@ -85,6 +89,7 @@ export const LinePlot = (props: LinePlotProps): ReactElement => {
           yAxes={axes.filter(({ location }) => location.isX)}
         />
       ))}
+      <CoreLinePlot.Legend />
     </CoreLinePlot>
   );
 };

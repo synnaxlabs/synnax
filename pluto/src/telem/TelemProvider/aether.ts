@@ -10,8 +10,8 @@
 import { Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { AetherComposite, AetherContext, AetherUpdate } from "@/core/aether/worker";
-import { TelemContext } from "@/core/vis/telem/TelemContext";
+import { AetherComposite, AetherUpdate } from "@/core/aether/worker";
+import { TelemContext, UseTelemResult } from "@/core/vis/telem/TelemContext";
 import { TelemSourceProps } from "@/core/vis/telem/TelemSource";
 import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
@@ -31,9 +31,11 @@ export class Telem extends AetherComposite<typeof telemState> {
   client: ClientProxy;
 
   static readonly TYPE = "telem";
+  static readonly z = telemState;
+  schema = Telem.z;
 
   constructor(update: AetherUpdate) {
-    super(update, telemState);
+    super(update);
     TelemContext.set(update.ctx, this);
     this.client = new ClientProxy();
     this.factory = new CompoundTelemFactory([
@@ -42,12 +44,12 @@ export class Telem extends AetherComposite<typeof telemState> {
     ]);
   }
 
-  get<T>(key: string, props: TelemSourceProps): [T, () => void] {
+  get<T>(key: string, props: TelemSourceProps): UseTelemResult<T> {
     // try to get the source
     let source = this.telem.get(key);
-    source?.setProps(props.props);
-    if (source == null) source = this.newSource(key, props.type, props.props);
-    return [source as T, () => this.remove(key)];
+    if (source != null) source?.setProps(props.props);
+    else source = this.newSource(key, props.type, props.props);
+    return { telem: source as T, cleanupTelem: () => this.remove(key) };
   }
 
   private remove(key: string): void {
@@ -55,11 +57,11 @@ export class Telem extends AetherComposite<typeof telemState> {
     source?.cleanup();
   }
 
-  handleUpdate(ctx: AetherContext): void {
+  afterUpdate(): void {
     if (this.state.props == null) return;
     this.client.swap(new BaseClient(new Synnax(this.state.props)));
     this.telem.forEach((t) => t.invalidate());
-    return TelemContext.set(ctx, this);
+    return TelemContext.set(this.ctx, this);
   }
 
   newSource<T>(key: string, type: string, props: any): T {

@@ -11,6 +11,7 @@ package ontology
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -26,12 +27,13 @@ type Retrieve struct {
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read resources
 // from the underlying ontology.
-func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar) }
+func (o *Ontology) NewRetrieve() Retrieve { return newRetrieve(o.registrar, o.DB) }
 
-func newRetrieve(registrar serviceRegistrar) Retrieve {
+func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
 	r := Retrieve{
 		query:     &gorp.CompoundRetrieve[ID, Resource]{},
 		registrar: registrar,
+		tx:        tx,
 	}
 	r.query.Next()
 	return r

@@ -9,14 +9,14 @@
 
 import { nanoid } from "nanoid";
 
-import { Layout } from "@/layout";
+import { LayoutState } from "@/layout";
 
 export interface VisMeta {
   variant: string;
   key: string;
 }
 
-export const createVis = (props: Omit<Partial<Layout>, "type">): Layout => {
+export const createVis = (props: Omit<Partial<LayoutState>, "type">): LayoutState => {
   const {
     location = "mosaic",
     name = "Visualizaton",

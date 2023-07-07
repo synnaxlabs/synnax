@@ -93,10 +93,6 @@ export interface XYTelemSource {
    * @param f - The callback to bind to the source.
    */
   onChange: (f: () => void) => void;
-  /**
-   *
-   */
-  release: (gl: GLBufferController) => void;
 }
 
 export const numericTelemSourceProps = telemSourceProps.extend({
@@ -108,7 +104,6 @@ export type NumericTelemSourceProps = z.infer<typeof numericTelemSourceProps>;
 export interface NumericTelemSource {
   value: () => Promise<number>;
   onChange: (f: () => void) => void;
-  release: (gl: GLBufferController) => void;
 }
 
 export const colorTelemSourceProps = telemSourceProps.extend({
@@ -120,7 +115,6 @@ export type ColorTelemSourceProps = z.infer<typeof colorTelemSourceProps>;
 export interface ColorTelemSource {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
-  release: (gl: GLBufferController) => void;
 }
 
 export const booleanTelemSourceProps = telemSourceProps.extend({
@@ -132,7 +126,6 @@ export type BooleanTelemSinkMeta = z.infer<typeof booleanTelemSourceProps>;
 export interface BooleanTelemSource {
   value: () => Promise<boolean>;
   onChange: (f: () => void) => void;
-  release: (gl: GLBufferController) => void;
 }
 
 export const booleanTelemSinkProps = telemSourceProps.extend({

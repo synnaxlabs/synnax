@@ -61,7 +61,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
     const [{ path }, , setState] = Aether.use({
       aetherKey,
       type: AetherCanvas.TYPE,
-      schema: AetherCanvas.stateZ,
+      schema: AetherCanvas.z,
       initialState: ZERO_PROPS,
     });
 

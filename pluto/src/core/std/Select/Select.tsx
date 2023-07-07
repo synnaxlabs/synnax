@@ -12,20 +12,20 @@ import {
   ReactElement,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
-import { Icon } from "@synnaxlabs/media";
 import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-import { useMount } from "@/core/hooks/useMount";
-import { Button, ButtonIconProps } from "@/core/std/Button";
+import { useAsyncEffect } from "@/core/hooks";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
 import { InputControl, Input, InputProps } from "@/core/std/Input";
 import { List, ListColumn, ListProps } from "@/core/std/List";
 import { Pack } from "@/core/std/Pack";
+import { SelectClearButton } from "@/core/std/Select/SelectClearButton";
 import { SelectList } from "@/core/std/Select/SelectList";
 
 import "@/core/std/Select/Select.css";
@@ -42,6 +42,8 @@ export interface SelectProps<
   searcher?: AsyncTermSearcher<string, K, E>;
   allowClear?: boolean;
 }
+
+const { Filter, Search } = List;
 
 export const Select = <
   K extends Key = Key,
@@ -60,56 +62,31 @@ export const Select = <
   ...props
 }: SelectProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
-  const [stateData, setStateData] = useState<E[]>(data);
-  data = searcher != null ? stateData : data;
   const initialValue = useRef<K>(value);
+  const [selected, setSelected] = useState<E | null>(null);
+  const searchMode = searcher != null;
 
-  const [selected, setSelected] = useState<E | null>(() => {
-    return data.find((e) => e.key === value) ?? null;
-  });
-
-  useMount(() => {
-    if (searcher == null) return;
-    searcher
-      .retrieve([value])
-      .then(([e]) => setSelected(e))
-      .catch(() => setSelected(null));
-  });
+  useAsyncEffect(async () => {
+    if (searcher == null || selected?.key === value) return;
+    const [e] = await searcher.retrieve([value]);
+    setSelected(e ?? null);
+  }, [searcher, value]);
 
   const handleChange = useCallback(
-    ([v]: readonly K[]): void => {
+    ([v]: readonly K[], [e]: E[]): void => {
       close();
       if (v == null) {
         if (!allowClear) return;
         setSelected(null);
         return onChange(initialValue.current);
       }
-      const e = data.find((e) => e.key === v) as E;
       setSelected(e);
       onChange(v);
     },
-    [data, onChange, allowClear]
+    [onChange, allowClear]
   );
 
-  const input = ({ onChange }: InputControl<string>): ReactElement => (
-    <SelectInput
-      onChange={onChange}
-      onFocus={open}
-      selected={selected}
-      tagKey={tagKey}
-      visible={visible}
-      allowClear={allowClear}
-    />
-  );
-
-  const filterOrSearch =
-    searcher != null ? (
-      <List.Search searcher={searcher} onChange={setStateData}>
-        {input}
-      </List.Search>
-    ) : (
-      <List.Filter>{input}</List.Filter>
-    );
+  const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
 
   return (
     <List data={data} emptyContent={emptyContent}>
@@ -119,7 +96,19 @@ export const Select = <
         className={CSS(className, CSS.B("select"))}
         {...props}
       >
-        {filterOrSearch}
+        {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
+        <InputWrapper searcher={searcher}>
+          {({ onChange }) => (
+            <SelectInput
+              onChange={onChange}
+              onFocus={open}
+              selected={selected}
+              tagKey={tagKey}
+              visible={visible}
+              allowClear={allowClear}
+            />
+          )}
+        </InputWrapper>
         <SelectList<K, E>
           value={[value]}
           onChange={handleChange}
@@ -212,11 +201,3 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   return input;
 };
-
-export const SelectClearButton = (
-  props: Omit<ButtonIconProps, "children">
-): ReactElement => (
-  <Button.Icon className={CSS.BE("select", "clear")} variant="outlined" {...props}>
-    <Icon.Close aria-label="clear" />
-  </Button.Icon>
-);

@@ -21,7 +21,6 @@ function App() {
     ({stage}) => stage === 'created'
   ).length;
   const w = useSelectWindow()
-  console.log(w)
   return (
     <div className="App">
       <div>

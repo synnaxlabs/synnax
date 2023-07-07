@@ -15,10 +15,11 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter/falamos"
-	"go/types"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 
@@ -62,7 +63,6 @@ type Transport struct {
 	FrameIterator      freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer      freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
-	OntologySearch     freighter.UnaryServer[OntologySearchRequest, OntologySearchResponse]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -108,7 +108,6 @@ func (a *API) BindTo(t Transport) {
 		t.FrameIterator,
 		t.ConnectivityCheck,
 		t.OntologyRetrieve,
-		t.OntologySearch,
 		t.FrameStreamer,
 	)
 
@@ -122,7 +121,6 @@ func (a *API) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(typedStreamWrapper(a.Telem.Write))
 	t.FrameIterator.BindHandler(typedStreamWrapper(a.Telem.Iterate))
 	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
-	t.OntologySearch.BindHandler(typedUnaryWrapper(a.Ontology.Search))
 	t.FrameStreamer.BindHandler(typedStreamWrapper(a.Telem.Stream))
 }
 

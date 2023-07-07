@@ -9,9 +9,8 @@
 
 import { PIDNode } from "@synnaxlabs/pluto";
 
-import { PIDSliceState, PIDState, PIDStoreState } from "./slice";
-
 import { useMemoSelect } from "@/hooks";
+import { PIDSliceState, PIDState, PIDStoreState } from "@/pid/store/slice";
 
 export const selectPIDState = (state: PIDStoreState): PIDSliceState => state.pid;
 

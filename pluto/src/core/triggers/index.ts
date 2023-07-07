@@ -24,6 +24,7 @@ import { useTriggerDrag } from "./useTriggerDrag";
 export type { TriggersProviderProps } from "./TriggersContext";
 export type { Trigger, Key, Stage, TriggerEvent, TriggerCallback } from "./triggers";
 export type { TriggerDragEvent, TriggerDragCallback } from "./useTriggerDrag";
+export type { UseTriggerEvent } from "./hooks";
 
 export const Triggers = {
   Provider: TriggersProvider,

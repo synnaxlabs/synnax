@@ -11,6 +11,7 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
+import { Color, ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Button } from "@/core/std/Button";
 import { Typography, Text, TextProps } from "@/core/std/Typography";
@@ -21,7 +22,7 @@ import "@/core/std/Tag/Tag.css";
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
   icon?: ReactElement;
   onClose?: () => void;
-  color?: string;
+  color?: ColorT;
   size?: ComponentSize;
   variant?: "filled" | "outlined";
 }
@@ -36,6 +37,7 @@ export const Tag = ({
   style,
   ...props
 }: TagProps): ReactElement => {
+  const cssColor = Color.cssString(color);
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Icon
@@ -57,8 +59,8 @@ export const Tag = ({
       level={Typography.ComponentSizeLevels[size]}
       noWrap
       style={{
-        border: `var(--pluto-border-width) solid ${color}`,
-        backgroundColor: variant === "filled" ? color : "transparent",
+        border: `var(--pluto-border-width) solid ${cssColor}`,
+        backgroundColor: variant === "filled" ? cssColor : "transparent",
         ...style,
       }}
       {...props}

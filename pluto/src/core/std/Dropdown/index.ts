@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dropdown as CoreDropdown, useDropdown } from "./Dropdown";
-export type { DropdownProps } from "./Dropdown";
+import { Dropdown as CoreDropdown, useDropdown } from "@/core/std/Dropdown/Dropdown";
+export type { DropdownProps, UseDropdownReturn } from "@/core/std/Dropdown/Dropdown";
 
 type CoreDropdownType = typeof CoreDropdown;
 
-interface DropdownType extends CoreDropdownType {
+export interface DropdownType extends CoreDropdownType {
   /**
-   * Implements basic dropdown behavior, and should be preferred when using the {@link Dropdown}
-   * component. Opens the dropdown whenever the 'open' function is called, and closes it whenever
-   * the 'close' function is called OR the user clicks outside of the dropdown parent wrapped,
-   * which includes the dropdown trigger (often a button or input).
+   * Implements basic dropdown behavior, and should be preferred when using
+   * the {@link Dropdown} component. Opens the dropdown whenever the 'open' function is
+   * called, and closes it whenever the 'close' function is called OR the user clicks
+   * outside of the dropdown parent wrapped,which includes the dropdown trigger (often
+   * a button or input).
    *
    * @param initialVisible - Whether the dropdown should be visible on mount.
    * @returns visible - Whether the dropdown is visible.
@@ -25,7 +26,6 @@ interface DropdownType extends CoreDropdownType {
    * @returns close - A function to close the dropdown.
    * @returns open - A function to open the dropdown.
    * @returns toggle - A function to toggle the dropdown.
-   *
    */
   use: typeof useDropdown;
 }

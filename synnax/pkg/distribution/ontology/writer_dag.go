@@ -76,7 +76,7 @@ func (d dagWriter) DeleteRelationship(ctx context.Context, from ID, t Relationsh
 }
 
 // NewRetrieve implements the Writer interface.
-func (d dagWriter) NewRetrieve() Retrieve { return newRetrieve(d.registrar) }
+func (d dagWriter) NewRetrieve() Retrieve { return newRetrieve(d.registrar, d.tx) }
 
 func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([]Resource, error) {
 	relationships, err := d.retrieveRelationships(ctx, func(rel *Relationship) bool {

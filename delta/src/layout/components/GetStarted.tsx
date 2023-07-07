@@ -26,17 +26,24 @@ export const GetStarted = (): ReactElement => {
   const placer = useLayoutPlacer();
   const dispatch = useDispatch();
 
-  const handleCluster = (): void => {
+  // As a note, we need to stop propagation on these events so that we don't
+  // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
+  // select the new layout when we create it.
+
+  const handleCluster = (e: Event): void => {
+    e.stopPropagation();
     placer(connectClusterWindowLayout);
     dispatch(setNavdrawerVisible({ key: ClusterToolbar.key, value: true }));
   };
 
-  const handleVisualize = (): void => {
+  const handleVisualize = (e: Event): void => {
+    e.stopPropagation();
     placer(createVis({}));
     dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 
-  const handleDocs = (): void => {
+  const handleDocs = (e: Event): void => {
+    e.stopPropagation();
     placer(createDocsLayout());
   };
 

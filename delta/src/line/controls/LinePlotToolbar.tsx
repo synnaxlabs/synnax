@@ -12,8 +12,15 @@ import { ReactElement, useCallback } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
+import { LinePlotAxesControls } from "./LinePlotAxesControls";
+import { LinePlotLinesControls } from "./LinePlotLineControls";
+
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { LinePlotChannelControls } from "@/line/controls/LinePlotChannelControls";
+import { CSS } from "@/css";
+import { useSelectRequiredLayout } from "@/layout";
+import { LinePlotDataControls } from "@/line/controls/LinePlotDataControls";
+
+import "@/line/controls/LinePlotToolbar.css";
 
 export interface LinePlotToolbarProps {
   layoutKey: string;
@@ -21,26 +28,50 @@ export interface LinePlotToolbarProps {
 
 const TABS = [
   {
-    tabKey: "channels",
-    name: "Channels",
+    tabKey: "data",
+    name: "Data",
+  },
+  {
+    tabKey: "lines",
+    name: "Lines",
+  },
+  {
+    tabKey: "axes",
+    name: "Axes",
+  },
+  {
+    tabKey: "annoations",
+    name: "Annotations",
+  },
+  {
+    tabKey: "properties",
+    name: "Properties",
   },
 ];
 
 export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
+  const { name } = useSelectRequiredLayout(layoutKey);
   const content = useCallback(
-    ({ tabKey }: Tab): ReactElement => (
-      <LinePlotChannelControls layoutKey={layoutKey} />
-    ),
+    ({ tabKey }: Tab): ReactElement => {
+      switch (tabKey) {
+        case "lines":
+          return <LinePlotLinesControls layoutKey={layoutKey} />;
+        case "axes":
+          return <LinePlotAxesControls layoutKey={layoutKey} />;
+        default:
+          return <LinePlotDataControls layoutKey={layoutKey} />;
+      }
+    },
     [layoutKey]
   );
 
   const tabProps = Tabs.useStatic({ tabs: TABS, content });
 
   return (
-    <Space empty>
+    <Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider value={tabProps}>
         <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Visualize />}>LinePlot</ToolbarTitle>
+          <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />

@@ -111,7 +111,7 @@ export const removeMosaicTab = (
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
   const gced = gc(root);
-  const selected = node.selected ?? findSelected(root);
+  const selected = node.selected ?? findSelected(gced);
   return [gced, selected];
 };
 

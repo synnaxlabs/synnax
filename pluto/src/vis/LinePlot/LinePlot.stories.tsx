@@ -61,7 +61,8 @@ export const Primary = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot axes={AXES} lines={LINES} />
+      <div style={{ height: "50%" }}></div>
+      <LinePlot axes={AXES} lines={LINES} style={{ height: "50%" }} />
     </Canvas>
   );
 };

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { AetherContext, AetherLeaf, AetherUpdate } from "@/core/aether/worker";
+import { AetherLeaf } from "@/core/aether/worker";
 
 export const valveState = z.object({
   triggered: z.boolean(),
@@ -17,13 +17,9 @@ export const valveState = z.object({
 });
 
 export class Valve extends AetherLeaf<typeof valveState> {
-  static readonly TYPE = "valve";
+  static readonly TYPE = "Valve";
 
-  constructor(update: AetherUpdate) {
-    super(update, valveState);
-  }
-
-  handleUpdate(ctx: AetherContext): void {}
+  schema = valveState;
 
   render(): void {}
 }

@@ -47,7 +47,7 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
     super(internalUpdate, exampleProps);
   }
 
-  handleUpdate(ctx: AetherContext): void {
+  derive(ctx: AetherContext): void {
     this.updatef(ctx);
   }
 
@@ -66,7 +66,7 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
     super(u, exampleProps);
   }
 
-  handleUpdate(ctx: AetherContext): void {
+  derive(ctx: AetherContext): void {
     this.updatef(ctx);
   }
 
@@ -83,7 +83,7 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
     super(u, exampleProps);
   }
 
-  handleUpdate(ctx: AetherContext): void {
+  derive(ctx: AetherContext): void {
     this.updatef(ctx);
     ctx.set("key", "value");
   }

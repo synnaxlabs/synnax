@@ -102,4 +102,7 @@ export const Compare = {
   reverseF,
   primitiveArrays,
   unorderedPrimitiveArrays,
+  equal: 0,
+  lessThan: -1,
+  greaterThan: 1,
 };

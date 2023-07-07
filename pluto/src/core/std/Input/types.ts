@@ -28,10 +28,17 @@ export interface InputControl<
   onChange: (value: O) => void;
 }
 
+export interface PartialInputControl<
+  I extends InputValue = InputValue,
+  O extends InputValue = I
+> extends Partial<InputControl<I, O>> {}
+
 type HTMLInputProps = Omit<
   ComponentPropsWithoutRef<"input">,
   "size" | "onChange" | "value" | "children"
 >;
+
+export type InputVariant = "outlined" | "shadow";
 
 export interface InputBaseProps<
   I extends InputValue = InputValue,
@@ -39,4 +46,5 @@ export interface InputBaseProps<
 > extends HTMLInputProps,
     InputControl<I, O> {
   size?: ComponentSize;
+  variant?: InputVariant;
 }

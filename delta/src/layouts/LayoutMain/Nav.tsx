@@ -9,6 +9,7 @@
 
 import { ReactElement, useState } from "react";
 
+import { Synnax } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Divider,
@@ -19,10 +20,12 @@ import {
   useOS,
   Select,
   Triggers,
+  Client,
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
+import { CLUSTER_COMMANDS } from "@/cluster/palette";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { createDocsLayout } from "@/docs";
@@ -34,10 +37,15 @@ import {
   useLayoutPlacer,
 } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
+import { LINE_COMMANDS } from "@/line/palette";
+import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
+import { PID_COMMANDS } from "@/pid/palette";
 import { ResourcesToolbar } from "@/resources";
+import { resourceTypes } from "@/resources/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
+import { WORKSPACE_COMMANDS } from "@/workspace/palettte";
 
 import "@/layouts/LayoutMain/Nav.css";
 
@@ -48,23 +56,27 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
   VisToolbar,
 ];
 
-const SearchBox = (): ReactElement => {
-  const [value, setValue] = useState<string>("");
+const DEFAULT_TRIGGER: PaletteTriggerConfig = {
+  resource: [["MetaLeft", "P"]],
+  command: [["MetaLeft", "Shift", "P"]],
+};
+
+const COMMANDS = [
+  ...LINE_COMMANDS,
+  ...CLUSTER_COMMANDS,
+  ...PID_COMMANDS,
+  ...WORKSPACE_COMMANDS,
+];
+
+const NavTopPalette = (): ReactElement => {
+  const client = Client.use() as Synnax;
   return (
-    <Select
-      value={value}
-      onChange={setValue}
-      data={[]}
-      style={{ width: "100%" }}
-      inputProps={{
-        centerPlaceholder: true,
-        placeholder: "Search Synnax",
-        style: {
-          position: "relative",
-          // backgroundColor: "var(--pluto-primary-z-40)",
-          // borderColor: "var(--pluto-primary-z-60)",
-        },
-      }}
+    <Palette
+      commands={COMMANDS}
+      searcher={client?.ontology}
+      triggers={DEFAULT_TRIGGER}
+      resourceTypes={resourceTypes}
+      commandSymbol=">"
     />
   );
 };
@@ -94,7 +106,7 @@ export const NavTop = (): ReactElement => {
           height: NAV_SIZES.top,
         }}
       >
-        <SearchBox />
+        <NavTopPalette />
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
         <Button.Icon size="small" onClick={handleDocs}>

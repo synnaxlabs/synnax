@@ -7,77 +7,132 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, Box, Direction, Location, Scale, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite, AetherContext, AetherUpdate } from "@/core/aether/worker";
+import { LineGL } from "../../Line/LineGL";
+import { AetherRule } from "../../Rule/aether";
+
+import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
-import { LineComponent, LineProps } from "@/core/vis/Line/core";
-import { autoBounds } from "@/core/vis/LinePlot/aether/axis";
+import { LineComponent, LineProps, LookupResult } from "@/core/vis/Line/core";
+import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
 const yAxisState = axisState.extend({
+  position: XY.z.optional(),
   location: Location.strictXZ.optional().default("left"),
-  bound: Bounds.looseZ.optional(),
+  bounds: Bounds.looseZ.optional(),
   autoBoundPadding: z.number().optional().default(0.05),
+  size: z.number().optional().default(0),
+  labelSize: z.number().optional().default(0),
 });
 
 export interface YAxisProps {
   plottingRegion: Box;
   viewport: Box;
-  xScale: Scale;
+  scale: Scale;
 }
 
-export class YAxis extends AetherComposite<typeof yAxisState, LineComponent> {
+interface Derived {
   ctx: RenderContext;
   core: Axis;
+}
 
+export class AetherYAxis extends AetherComposite<
+  typeof yAxisState,
+  Derived,
+  LineComponent | AetherRule
+> {
   static readonly TYPE = CSS.BE("line-plot", "y-axis");
-  static readonly stateZ = yAxisState;
+  static readonly z = yAxisState;
+  schema = AetherYAxis.z;
 
-  constructor(update: AetherUpdate) {
-    super(update, yAxisState);
-    this.ctx = RenderContext.use(update.ctx);
-    this.core = new AxisCanvas(this.ctx, this.state);
+  derive(): Derived {
+    const renderCtx = RenderContext.use(this.ctx);
+    return {
+      ctx: renderCtx,
+      core: new AxisCanvas(renderCtx, {
+        ...this.state,
+        size: this.state.size + this.state.labelSize,
+      }),
+    };
   }
 
-  handleUpdate(ctx: AetherContext): void {
-    this.core.setState(this.state);
-    RenderController.requestRender(ctx);
+  afterUpdate(): void {
+    RenderController.requestRender(this.ctx);
+  }
+
+  get lines(): LineComponent[] {
+    return this.childrenOfType(LineGL.TYPE);
+  }
+
+  get rules(): AetherRule[] {
+    return this.childrenOfType(AetherRule.TYPE);
   }
 
   async xBounds(): Promise<Bounds> {
     return Bounds.max(
-      await Promise.all(this.children.map(async (el) => await el.xBounds()))
+      await Promise.all(this.lines.map(async (el) => await el.xBounds()))
     );
   }
 
-  async render(ctx: YAxisProps): Promise<void> {
-    const [normal, offset] = await this.scales(ctx);
-    this.renderAxis(ctx, normal);
-    await this.renderLines(ctx, offset);
+  async render(props: YAxisProps): Promise<void> {
+    if (this.state.position == null) return;
+    const [normal, offset] = await this.scales(props);
+    this.renderAxis(props, this.state.position, normal);
+    await this.renderLines(props, offset);
+    await this.renderRules(props, normal);
   }
 
-  private renderAxis(ctx: YAxisProps, scale: Scale): void {
-    this.core.render({ ...ctx, scale });
+  private renderAxis(props: YAxisProps, position: XY, scale: Scale): void {
+    const { core } = this.derived;
+    const { size } = core.render({ ...props, position, scale });
+    if (!withinSizeThreshold(this.state.size, size))
+      this.setState((p) => ({ ...p, size }));
   }
 
   private async renderLines(ctx: YAxisProps, scale: Scale): Promise<void> {
     const lineCtx: LineProps = {
       region: ctx.plottingRegion,
-      scale: { x: ctx.xScale, y: scale },
+      scale: { x: ctx.scale, y: scale },
     };
-    await Promise.all(this.children.map(async (el) => el.render(lineCtx)));
+    await Promise.all(this.lines.map(async (el) => el.render(lineCtx)));
+  }
+
+  private async renderRules(ctx: YAxisProps, scale: Scale): Promise<void> {
+    await Promise.all(
+      this.rules.map(
+        async (el) =>
+          await el.render({
+            ...ctx,
+            scale,
+            direction: Direction.x,
+          })
+      )
+    );
   }
 
   private async yBounds(): Promise<[Bounds, number]> {
-    if (this.state.bound != null) return [this.state.bound, this.state.bound.lower];
-    const bounds = await Promise.all(
-      this.children.map(async (el) => await el.yBounds())
+    if (this.state.bounds != null && !this.state.bounds.isZero)
+      return [this.state.bounds, this.state.bounds.lower];
+    const bounds = await Promise.all(this.lines.map(async (el) => await el.yBounds()));
+    return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
+  }
+
+  async lookupX(props: YAxisProps, value: number): Promise<LookupResult[]> {
+    const [normal, offset] = await this.scales(props);
+    return await Promise.all(
+      this.lines.map(
+        async (el) =>
+          await el.searchX(
+            { region: props.plottingRegion, scale: { x: normal, y: offset } },
+            value
+          )
+      )
     );
-    return autoBounds(bounds, this.state.autoBoundPadding);
   }
 
   private async scales(ctx: YAxisProps): Promise<[Scale, Scale]> {
