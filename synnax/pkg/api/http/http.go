@@ -29,6 +29,5 @@ func New(router *fhttp.Router) (a api.Transport) {
 	a.FrameIterator = fhttp.StreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, "/api/v1/frame/iterate")
 	a.FrameStreamer = fhttp.StreamServer[api.FrameStreamerRequest, api.FrameStreamerResponse](router, "/api/v1/frame/stream")
 	a.OntologyRetrieve = fhttp.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse](router, "/api/v1/ontology/retrieve")
-	a.OntologySearch = fhttp.UnaryServer[api.OntologySearchRequest, api.OntologySearchResponse](router, "/api/v1/ontology/search")
 	return a
 }

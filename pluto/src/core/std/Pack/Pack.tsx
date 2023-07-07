@@ -18,12 +18,7 @@ import "@/core/std/Pack/Pack.css";
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
   "empty"
-> &
-  PackExtensionProps;
-
-export interface PackExtensionProps {
-  bordered?: boolean;
-}
+>;
 
 const CorePack = <E extends SpaceElementType = "div">(
   {

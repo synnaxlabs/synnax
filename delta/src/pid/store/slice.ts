@@ -9,11 +9,10 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { PIDEdge, PIDNode } from "@synnaxlabs/pluto";
-import { resetTabSelection } from "@synnaxlabs/pluto/dist/core/std/Tabs/Tabs";
 import { Deep, XY } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { Layout, LayoutCreator } from "@/layout";
+import { LayoutState, LayoutCreator } from "@/layout";
 
 export interface PIDState {
   editable: boolean;
@@ -39,7 +38,7 @@ export const ZERO_PID_STATE: PIDState = {
   editable: true,
 };
 
-export const initialState: PIDSliceState = {
+export const ZERO_PID_SLICE_STATE: PIDSliceState = {
   pids: {},
 };
 
@@ -66,7 +65,7 @@ export interface SetPIDEdgesPayload {
 }
 
 export interface CreatePIDPayload {
-  layoutKey: string;
+  key: string;
 }
 
 export interface DeletePIDPayload {
@@ -75,13 +74,13 @@ export interface DeletePIDPayload {
 
 export const { actions, reducer: pidReducer } = createSlice({
   name: PID_SLICE_NAME,
-  initialState,
+  initialState: ZERO_PID_SLICE_STATE,
   reducers: {
     createPID: (state, { payload }: PayloadAction<CreatePIDPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       state.pids[layoutKey] = ZERO_PID_STATE;
     },
-    deletePIDPayload: (state, { payload }: PayloadAction<DeletePIDPayload>) => {
+    deletePID: (state, { payload }: PayloadAction<DeletePIDPayload>) => {
       const { layoutKey } = payload;
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.pids[layoutKey];
@@ -120,13 +119,11 @@ export const { actions, reducer: pidReducer } = createSlice({
 export const { addPIDelement, setPIDEdges, setPIDNodes, setPIDElementProps } = actions;
 
 export const createPID =
-  (initial: Partial<PIDState> & Omit<Partial<Layout>, "type">): LayoutCreator =>
+  (initial: Partial<PIDState> & Omit<Partial<LayoutState>, "type">): LayoutCreator =>
   ({ dispatch }) => {
     const { name = "PID", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
-    dispatch(
-      actions.createPID({ ...Deep.copy(ZERO_PID_STATE), layoutKey: key, ...rest })
-    );
+    dispatch(actions.createPID({ ...Deep.copy(ZERO_PID_STATE), key, ...rest }));
     return {
       key,
       location,

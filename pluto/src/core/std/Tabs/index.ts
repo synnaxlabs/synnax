@@ -40,3 +40,4 @@ Tabs.rename = renameTab;
 Tabs.Provider = TabsContext.Provider;
 Tabs.Content = TabsContent;
 Tabs.Selector = TabsSelector;
+Tabs.useContext = useTabsContext;

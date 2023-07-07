@@ -15,7 +15,6 @@ import {
   AetherComponentRegistry,
   AetherComposite,
   AetherContext,
-  AetherUpdate,
 } from "@/core/aether/worker";
 import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
 import { RenderContext } from "@/core/vis/render";
@@ -31,17 +30,15 @@ const canvasState = z.object({
 
 export class AetherCanvas extends AetherComposite<typeof canvasState> {
   static readonly TYPE = "Canvas";
-  static readonly stateZ = canvasState;
+  static readonly z = canvasState;
   static readonly REGISTRY: AetherComponentRegistry = {
     [AetherCanvas.TYPE]: (u) => new AetherCanvas(u),
   };
 
-  constructor(update: AetherUpdate) {
-    super(update, canvasState);
-  }
+  schema = canvasState;
 
-  handleUpdate(ctx: AetherContext): void {
-    let renderCtx = RenderContext.useOptional(ctx);
+  derive(): void {
+    let renderCtx = RenderContext.useOptional(this.ctx);
     if (renderCtx == null) {
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas } = this.state;
@@ -49,9 +46,14 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
         );
-      renderCtx = RenderContext.create(ctx, glCanvas, lower2dCanvas, upper2dCanvas);
-      LineGLProgramContext.create(ctx);
-    } else renderCtx.update(ctx);
+      renderCtx = RenderContext.create(
+        this.ctx,
+        glCanvas,
+        lower2dCanvas,
+        upper2dCanvas
+      );
+      LineGLProgramContext.create(this.ctx);
+    } else renderCtx.update(this.ctx);
     renderCtx.resize(this.state.region, this.state.dpr);
   }
 }

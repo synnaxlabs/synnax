@@ -10,9 +10,12 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite, AetherUpdate } from "@/core/aether/worker";
+import { LookupResult } from "../../Line/core";
+import { RenderPriority } from "../../render/RenderQueue";
+
+import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
-import { XAxis } from "@/core/vis/LinePlot/aether/XAxis";
+import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { RenderController, RenderContext } from "@/core/vis/render";
 
 const linePlotState = z.object({
@@ -23,20 +26,32 @@ const linePlotState = z.object({
   error: z.string().optional(),
 });
 
-export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
-  renderCtx: RenderContext;
+interface Derived {
+  ctx: RenderContext;
+}
 
-  static readonly TYPE: string = CSS.B("line-plot");
-  static readonly stateZ = linePlotState;
+export class AetherLinePlot extends AetherComposite<
+  typeof linePlotState,
+  Derived,
+  AetherXAxis
+> {
+  static readonly TYPE: string = CSS.B("LinePlot");
 
-  constructor(update: AetherUpdate) {
-    super(update, linePlotState);
-    this.renderCtx = RenderContext.use(update.ctx);
-    RenderController.control(update.ctx, () => this.requestRender());
+  static readonly z = linePlotState;
+  schema = AetherLinePlot.z;
+
+  derive(): Derived {
+    return { ctx: RenderContext.use(this.ctx) };
   }
 
-  handleUpdate(): void {
-    this.requestRender();
+  afterUpdate(): void {
+    RenderController.control(this.ctx, () => this.requestRender(this.region, "low"));
+    this.requestRender(this.prevRegion, "high");
+  }
+
+  handleDelete(): void {
+    const { ctx } = this.derived;
+    ctx.erase(this.region, this.clearOverScan);
   }
 
   private get plottingRegion(): Box {
@@ -45,6 +60,10 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
 
   private get region(): Box {
     return new Box(this.state.container);
+  }
+
+  private get prevRegion(): Box {
+    return new Box(this.prevState.container);
   }
 
   private get viewport(): Box {
@@ -59,16 +78,31 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
     );
   }
 
-  private erase(): void {
-    this.renderCtx.erase(this.region, this.clearOverScan);
+  async lookupX(x: number): Promise<LookupResult[]> {
+    return (
+      await Promise.all(
+        this.childrenOfType(AetherXAxis.TYPE).flatMap(
+          async (xAxis) =>
+            await xAxis.lookupX(
+              {
+                plottingRegion: this.plottingRegion,
+                viewport: this.viewport,
+              },
+              x
+            )
+        )
+      )
+    ).flat();
   }
 
-  private async render(): Promise<void> {
+  private async render(box: Box): Promise<void> {
+    const { ctx } = this.derived;
+    ctx.erase(box, this.clearOverScan);
+    const removeGlScissor = ctx.scissorGL(this.plottingRegion);
+    const removeCanvasScissor = ctx.scissorCanvas(this.region);
     try {
-      this.erase();
-      const removeScissor = this.renderCtx.scissorGL(this.plottingRegion);
       await Promise.all(
-        this.children.map(
+        this.childrenOfType(AetherXAxis.TYPE).map(
           async (xAxis) =>
             await xAxis.render({
               plottingRegion: this.plottingRegion,
@@ -76,13 +110,16 @@ export class LinePlot extends AetherComposite<typeof linePlotState, XAxis> {
             })
         )
       );
-      removeScissor();
     } catch (e) {
       this.setState((p) => ({ ...p, error: (e as Error).message }));
+    } finally {
+      removeGlScissor();
+      removeCanvasScissor();
     }
   }
 
-  requestRender(): void {
-    this.renderCtx.queue.push(this.key, async () => await this.render());
+  requestRender(erase: Box, priority: RenderPriority): void {
+    const { ctx } = this.derived;
+    ctx.queue.push(this.key, async () => await this.render(erase), priority);
   }
 }

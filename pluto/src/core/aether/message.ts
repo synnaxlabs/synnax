@@ -20,7 +20,6 @@ export interface MainDelete {
 }
 
 export interface WorkerUpdate {
-  variant: "backward";
   key: string;
   state: any;
 }

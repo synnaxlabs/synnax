@@ -59,6 +59,13 @@ export class Color {
     } else this.rgba255 = color.rgba255;
   }
 
+  static cssString(color: ColorT): string {
+    const res = Color.z.safeParse(color);
+    if (res.success) return res.data.rgbaCSS;
+    if (typeof color === "string") return color;
+    throw res.error;
+  }
+
   /**
    * @returns true if the given color is semantically equal to this color. Different
    * representations of the same color are considered equal (e.g. hex and rgba).

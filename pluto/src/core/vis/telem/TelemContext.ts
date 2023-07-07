@@ -12,7 +12,12 @@ import { TelemSourceProps } from "./TelemSource";
 import { AetherContext } from "@/core/aether/worker";
 
 export interface TelemProvider {
-  get: <T>(key: string, props: TelemSourceProps) => [T, () => void];
+  get: <T>(key: string, props: TelemSourceProps) => UseTelemResult<T>;
+}
+
+export interface UseTelemResult<T> {
+  telem: T;
+  cleanupTelem: () => void;
 }
 
 export class TelemContext {
@@ -33,7 +38,7 @@ export class TelemContext {
     ctx: AetherContext,
     key: string,
     props: TelemSourceProps
-  ): [T, () => void] {
+  ): UseTelemResult<T> {
     return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.get<T>(key, props);
   }
 }

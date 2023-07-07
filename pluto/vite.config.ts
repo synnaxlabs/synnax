@@ -17,7 +17,7 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     lib: {
-      entry: [path.resolve(".", "src/index.ts"), path.resolve (".", "src/worker.ts")]
+      entry: [path.resolve(".", "src/index.ts"), path.resolve(".", "src/worker.ts")],
     },
     rollupOptions: {
       external: ["react", "react-dom", "react-hook-form"],

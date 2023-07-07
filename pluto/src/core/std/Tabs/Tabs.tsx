@@ -136,12 +136,21 @@ export const Tabs = ({
 );
 
 export const TabsContent = (): ReactElement | null => {
-  const { tabs, selected, content: renderProp, emptyContent } = useTabsContext();
+  const {
+    tabs,
+    selected,
+    content: renderProp,
+    emptyContent,
+    onSelect,
+  } = useTabsContext();
   let content: ReactElement | string | null = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
-  if (selectedTab != null) {
-    if (renderProp != null) content = renderProp(selectedTab);
-    else if (selectedTab.content != null) content = selectedTab.content;
-  } else if (emptyContent != null) content = emptyContent;
-  return content;
+  if (selected == null || selectedTab == null) return emptyContent ?? null;
+  if (renderProp != null) content = renderProp(selectedTab);
+  else if (selectedTab.content != null) content = selectedTab.content;
+  return (
+    <div onClick={() => onSelect?.(selected)} style={{ width: "100%", height: "100%" }}>
+      {content}
+    </div>
+  );
 };

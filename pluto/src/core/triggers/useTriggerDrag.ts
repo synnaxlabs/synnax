@@ -23,7 +23,7 @@ export interface TriggerDragEvent {
 
 export type TriggerDragCallback = (props: TriggerDragEvent) => void;
 
-export interface UseCursorDragProps {
+export interface UseTriggerDragProps {
   bound: RefObject<HTMLElement>;
   triggers?: Trigger[];
   onDrag: TriggerDragCallback;
@@ -33,7 +33,7 @@ export const useTriggerDrag = ({
   onDrag,
   triggers = [["MouseLeft"], ["MouseRight"]],
   bound,
-}: UseCursorDragProps): void => {
+}: UseTriggerDragProps): void => {
   const triggerRef = useRef<UseTriggerEvent | null>(null);
   const startLoc = useRef<XY>(XY.ZERO);
   const onMove = useCallback(

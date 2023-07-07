@@ -20,31 +20,48 @@ const ontologyResourceTypeSchema = z.union([
 
 export type OntologyResourceType = z.infer<typeof ontologyResourceTypeSchema>;
 
-export const ontologyIdSchema = z.object({
+export const ontologyID = z.object({
   type: ontologyResourceTypeSchema,
   key: z.string(),
 });
+
+export const crudeOntologyID = z.union([z.string(), ontologyID]);
 
 export class OntologyID {
   type: OntologyResourceType;
   key: string;
 
-  constructor(type: OntologyResourceType, key: string) {
-    this.type = type;
-    this.key = key;
+  constructor(args: z.input<typeof crudeOntologyID> | OntologyID) {
+    if (args instanceof OntologyID) {
+      this.type = args.type;
+      this.key = args.key;
+    } else if (typeof args === "string") {
+      const [type, key] = args.split(":");
+      this.type = type as OntologyResourceType;
+      this.key = key;
+    } else {
+      this.type = args.type;
+      this.key = args.key;
+    }
   }
 
   toString(): string {
     return `${this.type}:${this.key}`;
   }
 
-  static parseString(str: string): OntologyID {
-    const [type, key] = str.split(":");
-    return new OntologyID(type as OntologyResourceType, key);
+  get payload(): z.infer<typeof ontologyID> {
+    return {
+      type: this.type,
+      key: this.key,
+    };
   }
+
+  static readonly z = z
+    .union([crudeOntologyID, z.instanceof(OntologyID)])
+    .transform((v) => new OntologyID(v));
 }
 
-export const OntologyRoot = new OntologyID("builtin", "root");
+export const OntologyRoot = new OntologyID({ type: "builtin", key: "root" });
 
 export const ontologySchemaFieldSchema = z.object({
   type: z.number(),
@@ -59,11 +76,18 @@ export const ontologySchemaSchema = z.object({
 
 export type OntologySchema = z.infer<typeof ontologySchemaSchema>;
 
-export const ontologyResourceSchema = z.object({
-  id: ontologyIdSchema.transform((id) => new OntologyID(id.type, id.key)),
-  name: z.string(),
-  schema: ontologySchemaSchema.optional(),
-  data: z.record(z.unknown()).optional(),
-});
+export const ontologyResourceSchema = z
+  .object({
+    id: OntologyID.z,
+    name: z.string(),
+    schema: ontologySchemaSchema.optional(),
+    data: z.record(z.unknown()).optional(),
+  })
+  .transform((resource) => {
+    return {
+      key: resource.id.toString(),
+      ...resource,
+    };
+  });
 
 export type OntologyResource = z.infer<typeof ontologyResourceSchema>;

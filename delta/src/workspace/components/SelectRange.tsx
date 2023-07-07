@@ -58,10 +58,7 @@ const SelectRangesEmptyContent = (): ReactElement => {
       <Button
         variant="outlined"
         onClick={() => {
-          newLayout({
-            ...rangeWindowLayout,
-            key: rangeWindowLayout.key,
-          });
+          newLayout(rangeWindowLayout);
         }}
       >
         Define a Range

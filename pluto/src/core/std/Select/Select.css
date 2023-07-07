@@ -16,10 +16,6 @@
 .pluto-select__clear {
     background: var(--pluto-background-color);
 }
-/* 
-.pluto-select-input {
-    width: 100%;
-} */
 
 .pluto-select__input {
     flex-grow: 1;

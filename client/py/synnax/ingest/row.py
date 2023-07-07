@@ -47,7 +47,7 @@ class RowIngestionEngine:
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
         for ch in self.idx_grouped:
-            self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key[-1]]
+            self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key]
 
         self.mem_limit = soft_mem_limit
         self.reader = reader

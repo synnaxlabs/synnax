@@ -22,16 +22,18 @@ export const exampleProps = z.object({
   x: z.number(),
 });
 
-class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
+interface ExampleLeafDerived {
+  contextValue: number;
+}
+
+class ExampleLeaf extends AetherLeaf<typeof exampleProps, ExampleLeafDerived> {
   updatef = vi.fn();
   deletef = vi.fn();
+  schema = exampleProps;
 
-  constructor(internalUpdate: AetherUpdate) {
-    super(internalUpdate, exampleProps);
-  }
-
-  handleUpdate(ctx: AetherContext): void {
-    this.updatef(ctx);
+  derive(): ExampleLeafDerived {
+    this.updatef(this.ctx);
+    return { contextValue: this.ctx.getOptional("key") ?? 0 };
   }
 
   handleDelete(): void {
@@ -39,16 +41,18 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
   }
 }
 
-class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf> {
+class ExampleComposite extends AetherComposite<
+  typeof exampleProps,
+  void,
+  ExampleLeaf | ContextSetterComposite
+> {
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(u: AetherUpdate) {
-    super(u, exampleProps);
-  }
+  schema = exampleProps;
 
-  handleUpdate(ctx: AetherContext): void {
-    this.updatef(ctx);
+  derive(): void {
+    this.updatef(this.ctx);
   }
 
   handleDelete(): void {
@@ -56,17 +60,19 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
   }
 }
 
-class ContextSetterComposite extends AetherComposite<typeof exampleProps, ExampleLeaf> {
+class ContextSetterComposite extends AetherComposite<
+  typeof exampleProps,
+  void,
+  ExampleLeaf
+> {
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(u: AetherUpdate) {
-    super(u, exampleProps);
-  }
+  schema = exampleProps;
 
-  handleUpdate(ctx: AetherContext): void {
-    this.updatef(ctx);
-    ctx.set("key", "value");
+  derive(): void {
+    this.updatef(this.ctx);
+    this.ctx.set("key", this.state.x);
   }
 
   handleDelete(): void {
@@ -77,6 +83,7 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
 const REGISTRY: AetherComponentRegistry = {
   leaf: (internalUpdate: AetherUpdate) => new ExampleLeaf(internalUpdate),
   composite: (internalUpdate: AetherUpdate) => new ExampleComposite(internalUpdate),
+  context: (interalUpdate: AetherUpdate) => new ContextSetterComposite(interalUpdate),
 };
 
 const MockSender = {
@@ -137,7 +144,7 @@ describe("Aether Worker", () => {
       });
       it("should call the handleUpdate", () => {
         leaf.internalUpdate({ ...leafUpdate, state: { x: 2 } });
-        expect(leaf.updatef).toHaveBeenCalledTimes(1);
+        expect(leaf.updatef).toHaveBeenCalledTimes(2);
       });
     });
     describe("internalDelete", () => {
@@ -214,15 +221,53 @@ describe("Aether Worker", () => {
         composite.internalUpdate({ ...leafUpdate, path: ["test", "cat"] });
         expect(composite.children).toHaveLength(2);
         composite.internalUpdate({ ...contextUpdate });
-        expect(composite.updatef).toHaveBeenCalledTimes(1);
-        composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
+        expect(composite.updatef).toHaveBeenCalledTimes(2);
+        composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(2));
       });
-      it("should progate a new context change to its children", () => {
+      it.only("should progate a new context change to its children", () => {
         const c = new ContextSetterComposite({ ...compositeUpdate });
         c.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
         c.internalUpdate({ ...compositeUpdate });
         expect(c.children).toHaveLength(1);
-        c.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(1));
+        c.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(2));
+      });
+      it("should correctly separate individual contexts", () => {
+        composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "context",
+          path: ["test", "dog"],
+          state: { x: 1 },
+        });
+        composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "context",
+          path: ["test", "cat"],
+          state: { x: 2 },
+        });
+        expect(composite.children).toHaveLength(2);
+        composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "leaf",
+          path: ["test", "dog", "dogleaf"],
+          state: { x: 3 },
+        });
+        composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "leaf",
+          path: ["test", "cat", "catLeaf"],
+          state: { x: 4 },
+        });
+        composite.internalUpdate({
+          ctx,
+          variant: "state",
+          type: "context",
+          path: ["test", "dog"],
+          state: { x: 5 },
+        });
       });
     });
   });

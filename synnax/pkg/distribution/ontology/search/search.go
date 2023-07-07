@@ -120,8 +120,10 @@ type Request struct {
 func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
 	q := bleve.NewFuzzyQuery(req.Term)
+	q.SetFuzziness(2)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"*"}
+	search_.Size = 100
 	searchResults, err := s.idx.SearchInContext(ctx, search_)
 	if err != nil {
 		return nil, span.EndWith(err)

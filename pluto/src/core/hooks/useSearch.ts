@@ -18,7 +18,7 @@ import Fuse from "fuse.js";
 
 import { proxyMemo } from "@/core/memo";
 
-/** Props for the {@link createSearchTransform} hook. */
+/** Props for the {@link createFilterTransform} hook. */
 export interface UseSearchTransformProps<K extends Key, E extends KeyedRecord<K, E>> {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
@@ -59,7 +59,7 @@ const defaultSearcher = fuseSearcher();
  * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
  * documentation for more information on these options.
  */
-export const createSearchTransform = <K extends Key, E extends KeyedRecord<K, E>>({
+export const createFilterTransform = <K extends Key, E extends KeyedRecord<K, E>>({
   term,
   searcher = defaultSearcher<K, E>,
 }: UseSearchTransformProps<K, E>): ArrayTransform<E> =>

@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeYLocation } from "@synnaxlabs/x";
+import { Box, CrudeYLocation, Optional } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside, useResize, UseResizeOpts } from "@/core/hooks";

@@ -10,7 +10,7 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComponent, AetherComposite, AetherUpdate } from "@/core/aether/worker";
+import { AetherComponent, AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
@@ -28,32 +28,37 @@ export interface PIDElement extends AetherComponent {
   render: (props: PIDElementProps) => Promise<void>;
 }
 
-export class AetherPID extends AetherComposite<typeof pidState, PIDElement> {
+interface Derived {
+  renderCtx: RenderContext;
+}
+
+export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElement> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidState;
+  schema = AetherPID.stateZ;
 
-  renderCtx: RenderContext;
-
-  constructor(update: AetherUpdate) {
-    super(update, pidState);
-    this.renderCtx = RenderContext.use(update.ctx);
-    RenderController.control(update.ctx, () => this.requestRender());
-    this.requestRender();
+  derive(): Derived {
+    return {
+      renderCtx: RenderContext.use(this.ctx),
+    };
   }
 
-  handleUpdate(): void {
+  afterUpdate(): void {
+    RenderController.control(this.ctx, () => this.requestRender());
     this.requestRender();
   }
 
   handleDelete(): void {
-    this.renderCtx.erase(new Box(this.prevState.region));
+    const { renderCtx } = this.derived;
+    renderCtx.erase(new Box(this.prevState.region));
   }
 
   async render(): Promise<void> {
+    const { renderCtx } = this.derived;
     const region = new Box(this.state.region);
     const prevRegion = new Box(this.prevState.region);
-    this.renderCtx.eraseCanvas(prevRegion.isZero ? region : prevRegion);
-    const clearScissor = this.renderCtx.scissorCanvas(region);
+    renderCtx.eraseCanvas(prevRegion.isZero ? region : prevRegion);
+    const clearScissor = renderCtx.scissorCanvas(region);
     try {
       await Promise.all(
         this.children.map(
@@ -71,6 +76,7 @@ export class AetherPID extends AetherComposite<typeof pidState, PIDElement> {
   }
 
   private requestRender(): void {
-    this.renderCtx.queue.push(this.key, this.render.bind(this));
+    const { renderCtx } = this.derived;
+    renderCtx.queue.push(this.key, this.render.bind(this));
   }
 }

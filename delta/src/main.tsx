@@ -14,6 +14,7 @@ import { Menu as PMenu, Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import "./index.css";
+import { LinePlot } from "./line/LinePlot";
 import { PID } from "./pid/PID/PID";
 import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
 
@@ -43,6 +44,7 @@ const layoutRenderers = {
   docs: Docs,
   pid: PID,
   vis: VisLayoutSelectorRenderer,
+  line: LinePlot,
 };
 
 export const DefaultContextMenu = (): ReactElement => (
@@ -72,13 +74,11 @@ const MainUnderContext = (): ReactElement => {
 
 const Main = (): ReactElement | null => {
   return (
-    <StrictMode>
-      <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
-        <LayoutRendererProvider value={layoutRenderers}>
-          <MainUnderContext />
-        </LayoutRendererProvider>
-      </Provider>
-    </StrictMode>
+    <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
+      <LayoutRendererProvider value={layoutRenderers}>
+        <MainUnderContext />
+      </LayoutRendererProvider>
+    </Provider>
   );
 };
 

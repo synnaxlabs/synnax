@@ -12,10 +12,9 @@ import { ReactElement } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Space, SpaceProps, Text } from "@synnaxlabs/pluto";
 
-import { createLineVis } from "../../line/LinePlot/core";
-
 import { CSS } from "@/css";
 import { LayoutRenderer, useLayoutPlacer } from "@/layout";
+import { createLinePlot } from "@/line/store/slice";
 import { createPID } from "@/pid/store/slice";
 
 import "@/vis/components/VisLayoutSelector.css";
@@ -39,14 +38,14 @@ export const VisLayoutSelector = ({
       <Space direction={direction}>
         <Button
           variant="outlined"
-          onClick={() => place(createLineVis({}))}
+          onClick={() => place(createLinePlot({ key: layoutKey }))}
           startIcon={<Icon.Visualize />}
         >
           Line Plot
         </Button>
         <Button
           variant="outlined"
-          onClick={() => place(createPID({}))}
+          onClick={() => place(createPID({ key: layoutKey }))}
           startIcon={<Icon.Acquire />}
         >
           PID

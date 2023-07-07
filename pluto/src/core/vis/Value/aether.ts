@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY } from "@synnaxlabs/x";
+import { Box, Destructor, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherContext, AetherLeaf, AetherUpdate } from "@/core/aether/worker";
+import { AetherLeaf } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { PIDElement } from "@/core/vis/PID/aether";
@@ -35,58 +35,59 @@ export interface ValueProps {
   position: XY;
 }
 
-export class AetherValue extends AetherLeaf<typeof valueState> implements PIDElement {
-  private renderCtx: RenderContext;
-  private telem: NumericTelemSource;
-  private releaseTelem?: () => void;
-  private _requestRender: (() => void) | null;
+interface Derived {
+  renderCtx: RenderContext;
+  telem: NumericTelemSource;
+  cleanupTelem: Destructor;
+  requestRender: (() => void) | null;
+}
 
+export class AetherValue
+  extends AetherLeaf<typeof valueState, Derived>
+  implements PIDElement
+{
   static readonly TYPE = "value";
-  static readonly stateZ = valueState;
+  static readonly z = valueState;
+  schema = AetherValue.z;
 
-  constructor(update: AetherUpdate) {
-    super(update, valueState);
-    [this.telem, this.releaseTelem] = TelemContext.use(
-      update.ctx,
-      this.key,
-      this.state.telem
-    );
-    this.renderCtx = RenderContext.use(update.ctx);
-    this._requestRender = RenderController.useOptionalRequest(update.ctx);
-    this.telem.onChange(() => this.requestRender());
-    this.requestRender();
+  derive(): Derived {
+    return {
+      ...TelemContext.use(this.ctx, this.key, this.state.telem),
+      renderCtx: RenderContext.use(this.ctx),
+      requestRender: RenderController.useOptionalRequest(this.ctx),
+    };
   }
 
-  handleUpdate(ctx: AetherContext): void {
-    [this.telem, this.releaseTelem] = TelemContext.use(ctx, this.key, this.state.telem);
-    this.renderCtx = RenderContext.use(ctx);
-    this._requestRender = RenderController.useOptionalRequest(ctx);
-    this.telem.onChange(() => this.requestRender());
+  afterUpdate(): void {
+    this.derived.telem.onChange(() => this.requestRender());
     this.requestRender();
   }
 
   handleDelete(): void {
-    this.releaseTelem?.();
-    if (this._requestRender == null) this.renderCtx.erase(new Box(this.state.box));
-    else this._requestRender();
+    const { requestRender, cleanupTelem, renderCtx } = this.derived;
+    cleanupTelem();
+    if (requestRender == null) renderCtx.erase(new Box(this.state.box));
+    else requestRender();
   }
 
   private requestRender(): void {
-    if (this._requestRender != null) this._requestRender();
+    const { requestRender } = this.derived;
+    if (requestRender != null) requestRender();
     else void this.render();
   }
 
   async render(props?: ValueProps): Promise<void> {
+    const { renderCtx, telem } = this.derived;
     const box = new Box(this.state.box);
     if (box.isZero) return;
-    const { lower2d: canvas } = this.renderCtx;
+    const { lower2d: canvas } = renderCtx;
 
-    const value = (await this.telem.value()).toFixed(this.state.precision);
+    const value = (await telem.value()).toFixed(this.state.precision);
     const valueStr = `${value} ${this.state.units}`;
 
     canvas.font = this.state.font;
     const dims = textDimensions(valueStr, this.state.font, canvas);
-    this.renderCtx.erase(new Box(this.prevState.box));
+    renderCtx.erase(new Box(this.prevState.box));
 
     if (this.state.width < dims.width)
       this.setState((p) => ({ ...p, width: dims.width }));

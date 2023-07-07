@@ -7,51 +7,94 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useMemo } from "react";
+import { PropsWithChildren, ReactElement, useEffect, useMemo, useRef } from "react";
 
-import { Optional, XY, Location, CrudeOuterLocation } from "@synnaxlabs/x";
+import {
+  Optional,
+  Location,
+  CrudeOuterLocation,
+  CrudeDirection,
+  Direction,
+  Deep,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { withinSizeThreshold } from "../aether/axis";
+
 import { Aether } from "@/core/aether/main";
-import { useResize } from "@/core/hooks";
+import { CSS } from "@/core/css";
+import { useMemoCompare, useResize } from "@/core/hooks";
+import { Input, Space, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
 
+import "@/core/vis/LinePlot/main/YAxis.css";
+
 export interface YAxisProps
   extends PropsWithChildren,
     Optional<
-      Omit<z.input<typeof AetherLinePlot.YAxis.stateZ>, "position">,
+      Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position">,
       "color" | "font" | "gridColor"
-    > {}
+    > {
+  label?: string;
+  labelLevel?: TypographyLevel;
+  onLabelChange?: (label: string) => void;
+  labelDirection?: CrudeDirection;
+}
 
 export const YAxis = Aether.wrap<YAxisProps>(
   "YAxis",
-  ({ aetherKey, children, location = "left", ...props }): ReactElement => {
+  ({
+    aetherKey,
+    children,
+    location = "left",
+    label,
+    labelLevel = "small",
+    onLabelChange,
+    labelDirection = Direction.x,
+    ...props
+  }): ReactElement => {
     const theme = Theming.use();
 
-    const memoProps = useMemo(
+    const showLabel = (label?.length ?? 0) > 0;
+
+    const memoProps = useMemoCompare(
       () => ({
-        position: XY.ZERO,
         color: theme.colors.gray.p2,
-        gridColor: theme.colors.gray.m1,
+        gridColor: theme.colors.gray.m2,
         location,
         font: Theming.fontString(theme, "small"),
         ...props,
       }),
+      ([theme, props], [prevTheme, prevProps]) => {
+        return Deep.equal(props, prevProps);
+      },
       [theme, props]
     );
 
-    const [{ path }, , setState] = Aether.use({
+    const prevLabelSize = useRef(0);
+
+    const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
       type: AetherLinePlot.YAxis.TYPE,
-      schema: AetherLinePlot.YAxis.stateZ,
+      schema: AetherLinePlot.YAxis.z,
       initialState: memoProps,
     });
 
+    useEffect(() => {
+      setState((state) => ({
+        ...state,
+        ...memoProps,
+      }));
+    }, [memoProps]);
+
     const gridStyle = useAxisPosition(
-      new Location(location).crude as CrudeOuterLocation,
-      aetherKey,
+      {
+        loc: new Location(location).crude as CrudeOuterLocation,
+        key: aetherKey,
+        size: size + labelSize,
+      },
       "YAxis"
     );
 
@@ -65,9 +108,43 @@ export const YAxis = Aether.wrap<YAxisProps>(
       { debounce: 100 }
     );
 
+    const font = Theming.useTypography(labelLevel);
+
+    useEffect(() => {
+      if (label == null) return;
+      const dims = Text.dimensions(label, font.toString());
+      const labelSize = dims[new Direction(labelDirection).dimension];
+      const prevSize = prevLabelSize.current;
+      if (!withinSizeThreshold(prevSize, labelSize)) {
+        setState((state) => ({
+          ...state,
+          labelSize,
+        }));
+      }
+    }, [label]);
+
     return (
       <>
-        <div className="y-axis" style={gridStyle} ref={resizeRef}></div>
+        <Space
+          className="y-axis"
+          style={gridStyle}
+          ref={resizeRef}
+          align="start"
+          justify="center"
+        >
+          {showLabel && (
+            <Text.MaybeEditable
+              className={CSS(
+                CSS.BE("y-axis", "label"),
+                CSS.dir(labelDirection),
+                CSS.loc(location)
+              )}
+              value={label as string}
+              onChange={onLabelChange}
+              level={labelLevel}
+            />
+          )}
+        </Space>
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </>
     );

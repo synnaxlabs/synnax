@@ -12,7 +12,14 @@ import { ReactElement, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { SynnaxProps } from "@synnaxlabs/client";
-import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Header,
+  Input,
+  Nav,
+  Space,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
 import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
@@ -24,13 +31,13 @@ import type { ConnectionState } from "@/cluster/core";
 import { setActiveCluster, setCluster } from "@/cluster/store";
 import { testConnection } from "@/cluster/util/testConnection";
 import { CSS } from "@/css";
-import { Layout, LayoutRendererProps } from "@/layout";
+import { LayoutState, LayoutRendererProps } from "@/layout";
 
 import "@/cluster/components/ConnectCluster.css";
 
 const formSchema = synnaxPropsZ.extend({ name: z.string() });
 
-export const connectClusterWindowLayout: Layout = {
+export const connectClusterWindowLayout: LayoutState = {
   key: "connectCluster",
   type: "connectCluster",
   name: "Connect a Cluster",
@@ -122,7 +129,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
                 name="secure"
                 control={c}
               >
-                {Input.Switch}
+                {componentRenderProp(Input.Switch)}
               </Input.ItemC>
             </Space>
           </Space>

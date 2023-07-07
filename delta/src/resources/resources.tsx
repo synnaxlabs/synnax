@@ -10,26 +10,38 @@
 import { ReactElement } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
-import type { OntologyResourceType } from "@synnaxlabs/client";
+import type {
+  ChannelKey,
+  OntologyID,
+  OntologyResource,
+  OntologyResourceType,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Hauled } from "@synnaxlabs/pluto";
 
-import { LayoutPlacer } from "@/layout";
-import { WorkspaceState } from "@/workspace";
+import { LayoutPlacer, selectActiveMosaicLayout } from "@/layout";
+import {
+  ZERO_CHANNELS_STATE,
+  addLinePlotYChannel,
+  createLinePlot,
+  setLinePlotYChannels,
+} from "@/line/store/slice";
+import { RootStore } from "@/store";
 
-export interface ResourceContext {
-  client: Synnax;
-  placer: LayoutPlacer;
-  workspace: WorkspaceState;
+export interface ResourceSelectionContext {
+  resource: OntologyResource;
+  store: RootStore;
+  placeLayout: LayoutPlacer;
 }
 
 export interface ResourceType {
   type: OntologyResourceType;
   icon: ReactElement;
   hasChildren: boolean;
+  onSelect: (ctx: ResourceSelectionContext) => void;
   acceptsDrop: (hauled: Hauled[]) => boolean;
-  onDrop: (ctx: ResourceContext, hauled: Hauled[]) => void;
-  contextMenu: (ctx: ResourceContext, hauled: Hauled[]) => ReactElement;
+  onDrop: (ctx: ResourceSelectionContext, hauled: Hauled[]) => void;
+  contextMenu: (ctx: ResourceSelectionContext, hauled: Hauled[]) => ReactElement;
 }
 
 export const resourceTypes: Record<string, ResourceType> = {
@@ -60,6 +72,30 @@ export const resourceTypes: Record<string, ResourceType> = {
     hasChildren: false,
     acceptsDrop: () => false,
     onDrop: () => {},
+    onSelect: (ctx) => {
+      const s = ctx.store.getState();
+      const layout = selectActiveMosaicLayout(s);
+      if (layout == null) {
+        ctx.placeLayout(
+          createLinePlot({
+            channels: {
+              ...ZERO_CHANNELS_STATE,
+              y1: [ctx.resource.data.key as ChannelKey],
+            },
+          })
+        );
+      }
+      switch (layout?.type) {
+        case "line":
+          ctx.store.dispatch(
+            addLinePlotYChannel({
+              key: layout?.key,
+              axisKey: "y1",
+              channels: [ctx.resource.data.key as ChannelKey],
+            })
+          );
+      }
+    },
   },
   group: {
     type: "group",

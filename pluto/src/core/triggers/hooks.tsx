@@ -49,8 +49,9 @@ export const useTrigger = ({
       if (
         added.length > 0 &&
         (region == null ||
-          (region.current != null && new Box(region.current).contains(e.cursor)) ||
-          e.target === region.current)
+          (region.current != null &&
+            new Box(region.current).contains(e.cursor) &&
+            e.target === region.current))
       )
         f?.({ stage: "start", triggers: added, cursor: e.cursor });
       if (removed.length > 0)

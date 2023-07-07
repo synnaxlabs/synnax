@@ -18,7 +18,7 @@ import { Typography } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherValue } from "@/core/vis/Value/aether";
 
-export const valueCoreProps = AetherValue.stateZ
+export const valueCoreProps = AetherValue.z
   .omit({ font: true })
   .partial({ color: true })
   .extend({ level: Typography.levelZ });
@@ -44,7 +44,7 @@ export const ValueCore = Aether.wrap<ValueCoreProps>(
     const [, , setState] = Aether.use({
       aetherKey,
       type: AetherValue.TYPE,
-      schema: AetherValue.stateZ,
+      schema: AetherValue.z,
       initialState: memoProps,
     });
     useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);

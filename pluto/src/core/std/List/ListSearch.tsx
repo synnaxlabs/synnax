@@ -7,26 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useEffect, useState } from "react";
+import { ReactElement, useCallback, useEffect } from "react";
 
 import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { Input, InputControl } from "../Input";
-import { Status } from "../Status";
-
-import { useListContext } from "./ListContext";
-
 import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
+import { Input, InputControl, PartialInputControl } from "@/core/std/Input";
+import { List } from "@/core/std/List";
+import { Status } from "@/core/std/Status";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 export interface ListSearchProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> {
+> extends PartialInputControl<string> {
   searcher: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   children?: RenderProp<InputControl<string>>;
-  onChange?: (data: E[]) => void;
 }
 
 const STYLE = {
@@ -51,11 +48,16 @@ export const ListSearch = <
 >({
   debounce = 250,
   children = componentRenderProp(Input),
-  onChange,
   searcher,
+  value,
+  onChange,
 }: ListSearchProps<K, E>): ReactElement | null => {
-  const [value, setValue] = useState("");
-  const { setSourceData, setEmptyContent } = useListContext<K, E>();
+  const [internalValue, setInternvalValue] = Input.usePassthrough({
+    value,
+    onChange,
+    initialValue: "",
+  });
+  const { setSourceData, setEmptyContent } = List.useContext<K, E>();
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
 
   const debounced = useDebouncedCallback(
@@ -65,7 +67,6 @@ export const ListSearch = <
         .then((d) => {
           if (d.length === 0) setEmptyContent(NO_RESULTS);
           setSourceData(d);
-          onChange?.(d);
         })
         .catch((e) => {
           setEmptyContent(
@@ -73,21 +74,20 @@ export const ListSearch = <
               {e.message}
             </Status.Text.Centered>
           );
-          onChange?.([]);
         });
     },
     debounce,
-    [setSourceData, setEmptyContent, onChange]
+    [setSourceData, setEmptyContent]
   );
 
   const handleChange = useCallback(
     (term: string) => {
-      setValue(term);
+      setInternvalValue(term);
       if (term.length === 0) setEmptyContent(NO_TERM);
       else debounced(term);
     },
-    [setValue]
+    [setInternvalValue]
   );
 
-  return children({ value, onChange: handleChange });
+  return children({ value: internalValue, onChange: handleChange });
 };

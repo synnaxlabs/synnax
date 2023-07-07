@@ -77,7 +77,7 @@ const ResourcesTree = (): ReactElement => {
           const { onSelect } = resourceTypes[id.type];
           onSelect?.({
             id,
-            placer,
+            placeLayout: placer,
             workspace: (store.getState() as { workspace: WorkspaceState }).workspace,
           });
           setSelected([key]);

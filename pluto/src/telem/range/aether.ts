@@ -77,11 +77,6 @@ class RangeXYTelemCore {
     this._y?.forEach((y) => y.acquire(gl));
   }
 
-  release(gl?: GLBufferController): void {
-    // this._x?.forEach((x) => x.release(gl));
-    // this._y?.forEach((y) => y.release(gl));
-  }
-
   async x(gl?: GLBufferController): Promise<Series[]> {
     const x = this._x;
     if (gl != null) x.forEach((x) => x.updateGLBuffer(gl));
@@ -162,7 +157,6 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
   }
 
   async read(gl?: GLBufferController): Promise<void> {
-    this.release(gl);
     const { x, y, timeRange } = this.props;
     await this.readFixed(timeRange, y, x);
     this.acquire(gl);
@@ -200,6 +194,7 @@ export type DynamicRangeXYTelemProps = z.infer<typeof dynamicRangeXYTelemProps>;
 
 export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
   private props: DynamicRangeXYTelemProps;
+  private prevProps: DynamicRangeXYTelemProps | null = null;
 
   private streamHandler: StreamHandler | null = null;
 
@@ -222,7 +217,6 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
   }
 
   async read(gl?: GLBufferController): Promise<void> {
-    this.release(gl);
     const { x, y, span } = this.props;
     const tr = TimeStamp.now().spanRange(-span);
     await this.readFixed(tr, y, x);
@@ -261,7 +255,9 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
   }
 
   setProps(props: any): void {
+    this.prevProps = this.props;
     this.props = dynamicRangeXYTelemProps.parse(props);
+    if (Deep.equal(this.props, this.prevProps)) return;
     this.valid = false;
     this.handler?.();
   }
@@ -312,8 +308,6 @@ export class RangeNumericTelem
   invalidate(): void {
     this.valid = false;
   }
-
-  release(gl: GLBufferController): void {}
 
   async value(): Promise<number> {
     if (this.props.channel === 0) return 0;

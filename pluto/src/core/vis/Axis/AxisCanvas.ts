@@ -11,18 +11,19 @@ import { Dimensions, XY } from "@synnaxlabs/x";
 
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import {
-  AxisContext as AxisProps,
+  Axis,
+  AxisProps,
+  AxisRenderResult,
   axisState,
   AxisState,
   ParsedAxisState,
-  Y_AXIS_SIZE,
 } from "@/core/vis/Axis/core";
 import { Tick, TickFactory, newTickFactory } from "@/core/vis/Axis/TickFactory";
 import { RenderContext } from "@/core/vis/render";
 
 const TICK_LINE_SIZE = 4;
 
-export class AxisCanvas {
+export class AxisCanvas implements Axis {
   ctx: RenderContext;
   state: ParsedAxisState;
   tickFactory: TickFactory;
@@ -38,7 +39,7 @@ export class AxisCanvas {
     this.tickFactory = newTickFactory(state);
   }
 
-  render(props: AxisProps): void {
+  render(props: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
@@ -46,29 +47,25 @@ export class AxisCanvas {
 
     switch (this.state.location.crude) {
       case "left":
-        this.drawLeft(props);
-        break;
+        return this.drawLeft(props);
       case "right":
-        this.drawRight(props);
-        break;
+        return this.drawRight(props);
       case "top":
-        this.drawTop(props);
-        break;
-      case "bottom":
-        this.drawBottom(props);
-        break;
+        return this.drawTop(props);
+      default:
+        return this.drawBottom(props);
     }
   }
 
-  drawBottom(ctx: AxisProps): void {
+  drawBottom(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
-    const p = this.state.position;
+    const p = ctx.position;
     this.drawLine(p, p.translateX(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
-    this.drawTicks(ticks, (d, tick) => {
+    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
       canvas.lineTo(p.x + tick.position, p.y + TICK_LINE_SIZE);
       canvas.stroke();
@@ -82,17 +79,18 @@ export class AxisCanvas {
       p.translateX(tick.position),
       p.translate({ x: tick.position, y: -gridSize }),
     ]);
+    return { size: maxTickDims.height + TICK_LINE_SIZE };
   }
 
-  drawTop(ctx: AxisProps): void {
+  drawTop(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
-    const p = this.state.position.translateY(Y_AXIS_SIZE);
+    const p = ctx.position.translateY(this.state.size);
     this.drawLine(p, p.translateX(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
-    this.drawTicks(ticks, (d, tick) => {
+    const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
       canvas.lineTo(p.x + tick.position, p.y - TICK_LINE_SIZE);
       canvas.stroke();
@@ -106,17 +104,18 @@ export class AxisCanvas {
       p.translateX(tick.position),
       p.translate({ x: tick.position, y: gridSize }),
     ]);
+    return { size: maxTickDims.height + TICK_LINE_SIZE };
   }
 
-  drawLeft(ctx: AxisProps): void {
+  drawLeft(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
-    const p = this.state.position.translateX(Y_AXIS_SIZE);
+    const p = ctx.position.translateX(this.state.size);
     this.drawLine(p, p.translateY(size));
     const ticks = this.tickFactory.generate({ ...ctx, size });
-    this.drawTicks(ticks, (d, tick) => {
+    const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
       canvas.lineTo(p.x - TICK_LINE_SIZE, p.y + tick.position);
       canvas.stroke();
@@ -130,20 +129,21 @@ export class AxisCanvas {
       p.translateY(tick.position),
       p.translate({ x: gridSize, y: tick.position }),
     ]);
+    return { size: maxTickSize.width + TICK_LINE_SIZE };
   }
 
-  drawRight(ctx: AxisProps): void {
+  drawRight(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
-    const p = this.state.position;
+    const p = ctx.position;
     canvas.beginPath();
     canvas.moveTo(p.x, p.y);
     canvas.lineTo(p.x, p.y + size);
     canvas.stroke();
     const ticks = this.tickFactory.generate({ ...ctx, size });
-    this.drawTicks(ticks, (_, tick) => {
+    const maxTickSize = this.drawTicks(ticks, (_, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
       canvas.lineTo(p.x + 5, p.y + tick.position);
       canvas.stroke();
@@ -153,6 +153,7 @@ export class AxisCanvas {
       p.translateY(tick.position),
       p.translate({ x: -gridSize, y: tick.position }),
     ]);
+    return { size: maxTickSize.width + TICK_LINE_SIZE };
   }
 
   private drawLine(start: XY, end: XY): void {
@@ -166,10 +167,14 @@ export class AxisCanvas {
   private drawTicks(
     ticks: Tick[],
     f: (textDimensions: Dimensions, tick: Tick) => void
-  ): void {
-    ticks.forEach((tick) =>
-      f(textDimensions(tick.label, this.state.font, this.ctx.lower2d), tick)
-    );
+  ): Dimensions {
+    let maxDimensions = Dimensions.ZERO;
+    ticks.forEach((tick) => {
+      const d = textDimensions(tick.label, this.state.font, this.ctx.lower2d);
+      maxDimensions = maxDimensions.pickGreatest(d);
+      f(d, tick);
+    });
+    return maxDimensions;
   }
 
   private maybeDrawGrid(

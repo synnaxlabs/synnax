@@ -30,7 +30,7 @@ func OntologyID(k Key) ontology.ID {
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":       {Type: schema.String},
+		"key":       {Type: schema.Uint32},
 		"name":      {Type: schema.String},
 		"node_key":  {Type: schema.Uint32},
 		"rate":      {Type: schema.Float64},
@@ -42,7 +42,7 @@ var _schema = &ontology.Schema{
 
 func newResource(c Channel) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(c.Key()), c.Name)
-	schema.Set(e, "key", c.Key().String())
+	schema.Set(e, "key", uint32(c.Key()))
 	schema.Set(e, "name", c.Name)
 	schema.Set(e, "node_key", uint32(c.Leaseholder))
 	schema.Set(e, "rate", float64(c.Rate))
@@ -63,7 +63,8 @@ func (s *service) Schema() *schema.Schema { return _schema }
 func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
 	k := MustParseKey(key)
 	var ch Channel
-	return newResource(ch), s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
+	return newResource(ch), err
 }
 
 // OnChange implements ontology.Service.

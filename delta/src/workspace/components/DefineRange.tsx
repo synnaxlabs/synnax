@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -24,7 +26,7 @@ import { z } from "zod";
 import { useSelectRange } from "../store";
 import { addRange } from "../store/slice";
 
-import { LayoutRendererProps } from "@/layout";
+import { LayoutRendererProps, LayoutState } from "@/layout";
 
 const formSchema = z.object({
   name: z.string(),
@@ -34,7 +36,7 @@ const formSchema = z.object({
   endTime: z.number().int(),
 });
 
-export const rangeWindowLayout: Layout = {
+export const rangeWindowLayout: LayoutState = {
   key: "defineRange",
   type: "defineRange",
   name: "Define Range",

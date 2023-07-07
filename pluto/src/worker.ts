@@ -17,6 +17,7 @@ import { AetherPID } from "@/core/vis/PID/aether";
 import { AetherValue } from "@/core/vis/Value/aether";
 import { Valve } from "@/core/vis/Valve/aether";
 import { Telem } from "@/telem/TelemProvider/aether";
+import { AetherRule } from "./core/vis/Rule/aether";
 
 export const pluto = (): void => {
   // @ts-expect-error
@@ -31,6 +32,7 @@ export const pluto = (): void => {
     [AetherValue.TYPE]: (u) => new AetherValue(u),
     [Valve.TYPE]: (u) => new Valve(u),
     [AetherPID.TYPE]: (u) => new AetherPID(u),
+    [AetherRule.TYPE]: (u) => new AetherRule(u),
   };
 
   render(w.route("vis"), REGISTRY);

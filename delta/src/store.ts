@@ -19,7 +19,8 @@ import {
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { dispatchEffect, effectMiddleware } from "./middleware";
+import { lineMiddleware } from "./line/store/middleware";
+import { LINE_SLICE_NAME, LineSliceState, lineReducer } from "./line/store/slice";
 import { PIDSliceState, PID_SLICE_NAME, pidReducer } from "./pid/store/slice";
 
 import {
@@ -32,15 +33,13 @@ import { DocsAction, docsReducer, DocsState, DOCS_SLICE_NAME } from "@/docs";
 import {
   LayoutAction,
   layoutReducer,
-  LayoutState,
   LAYOUT_PERSIST_EXCLUDE,
   LAYOUT_SLICE_NAME,
-  removeLayout,
+  LayoutSliceState,
 } from "@/layout";
 import { openPersist } from "@/persist";
 import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
 import {
-  removeRange,
   WorkspaceAction,
   workspaceReducer,
   WorkspaceState,
@@ -60,16 +59,18 @@ const reducer = combineReducers({
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
   [DOCS_SLICE_NAME]: docsReducer,
+  [LINE_SLICE_NAME]: lineReducer,
 });
 
 export interface RootState {
   [DRIFT_SLICE_NAME]: DriftState;
   [CLUSTER_SLICE_NAME]: ClusterState;
-  [LAYOUT_SLICE_NAME]: LayoutState;
-  [PID_SLICE_NAME]: PIDSliceState;
+  [LAYOUT_SLICE_NAME]: LayoutSliceState;
   [WORKSPACE_SLICE_NAME]: WorkspaceState;
   [VERSION_SLICE_NAME]: VersionState;
   [DOCS_SLICE_NAME]: DocsState;
+  [PID_SLICE_NAME]: PIDSliceState;
+  [LINE_SLICE_NAME]: LineSliceState;
 }
 
 export type Action = LayoutAction | WorkspaceAction | DocsAction | ClusterAction;
@@ -85,7 +86,7 @@ const newStore = async (): Promise<RootStore> => {
   return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [...def(), persistMiddleware],
+    middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
     reducer,
     enablePrerender: true,
   })) as RootStore;

@@ -182,7 +182,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
-            raise exc
+            raise exc__e
 
         assert socket is not None
         return socket

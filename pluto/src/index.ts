@@ -14,3 +14,4 @@ export * from "@/core";
 export * from "@/main";
 export * from "@/client";
 export * from "@/vis";
+export * from "@/channel";

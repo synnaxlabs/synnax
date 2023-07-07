@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 )
 
@@ -31,11 +30,12 @@ func NewOntologyService(p Provider) *OntologyService {
 }
 
 type OntologyRetrieveRequest struct {
-	IDs              []string `json:"ids" msgpack:"ids" validate:"required"`
-	Children         bool     `json:"children" msgpack:"children"`
-	Parents          bool     `json:"parents" msgpack:"parents"`
-	IncludeSchema    bool     `json:"include_schema" msgpack:"include_schema" default:"true"`
-	IncludeFieldData bool     `json:"include_field_data" msgpack:"include_field_data" default:"true"`
+	IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
+	Children         bool          `json:"children" msgpack:"children"`
+	Parents          bool          `json:"parents" msgpack:"parents"`
+	IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema" default:"true"`
+	IncludeFieldData bool          `json:"include_field_data" msgpack:"include_field_data" default:"true"`
+	Term             string        `json:"term" msgpack:"term"`
 }
 
 type OntologyRetrieveResponse struct {
@@ -47,15 +47,19 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (res OntologyRetrieveResponse, err errors.Typed) {
 	res.Resources = []ontology.Resource{}
-	ids, _err := schema.ParseIDs(req.IDs)
-	if _err != nil {
-		return res, errors.Parse(_err)
+	if req.Term != "" {
+		var _err error
+		res.Resources, _err = o.Ontology.Search(ctx, search.Request{
+			Term: req.Term,
+		})
+		return res, errors.MaybeQuery(_err)
 	}
+
 	if err := o.Validate(req); err.Occurred() {
 		return OntologyRetrieveResponse{}, err
 	}
 	q := o.Ontology.NewRetrieve().
-		WhereIDs(ids...).
+		WhereIDs(req.IDs...).
 		IncludeSchema(req.IncludeSchema).
 		IncludeFieldData(req.IncludeFieldData)
 
@@ -67,26 +71,4 @@ func (o *OntologyService) Retrieve(
 	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
 
 	return res, errors.MaybeQuery(q.Entries(&res.Resources).Exec(ctx, nil))
-}
-
-type OntologySearchRequest struct {
-	Query string `json:"query" msgpack:"query" validate:"required"`
-}
-
-type OntologySearchResponse struct {
-	Resources []ontology.Resource `json:"resources" msgpack:"resources"`
-}
-
-func (o *OntologyService) Search(
-	ctx context.Context,
-	req OntologySearchRequest,
-) (res OntologySearchResponse, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
-		return res, err
-	}
-	resources, err_ := o.Ontology.Search(ctx, search.Request{
-		Term: req.Query,
-	})
-	res.Resources = resources
-	return res, errors.MaybeQuery(err_)
 }

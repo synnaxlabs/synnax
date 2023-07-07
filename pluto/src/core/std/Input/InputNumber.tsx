@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, forwardRef, useCallback } from "react";
+import {
+  ReactElement,
+  forwardRef,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from "react";
+
+import { Bounds, CrudeBounds } from "@synnaxlabs/x";
 
 import { Pack } from "../Pack";
 
@@ -23,7 +31,13 @@ export interface InputNumberProps
     InputDragButtonExtensionProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
+  bounds?: CrudeBounds;
 }
+
+const toNUmber = (v: string | number): [number, boolean] => {
+  const n = Number(v);
+  return [n, !isNaN(n)];
+};
 
 export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
   (
@@ -35,37 +49,64 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       showDragHandle = true,
       dragScale,
       selectOnFocus = true,
+      bounds = Bounds.INFINITE,
+      resetValue,
+      style,
       ...props
     },
     ref
   ): ReactElement => {
+    const [internalValue, setInternalValue] = useState(value.toString());
+
+    const handleChange = useCallback(
+      (v: string | number) => {
+        const [n, ok] = toNUmber(v);
+        if (ok) {
+          if (new Bounds(bounds).contains(n)) {
+            setInternalValue(v.toString());
+            onChange(n);
+          }
+        } else {
+          setInternalValue(v.toString());
+        }
+      },
+      [setInternalValue, onChange]
+    );
+
     const input = (
       <Input
         ref={ref}
         type="number"
-        value={String(value) ?? ""}
-        onChange={(v: string) => {
-          if (v === "") return onChange(NaN);
-          onChange(Number(v));
-        }}
+        value={internalValue}
+        onChange={handleChange}
+        style={showDragHandle ? undefined : style}
         selectOnFocus={selectOnFocus}
         {...props}
       />
     );
 
+    useLayoutEffect(() => {
+      const b = new Bounds(bounds);
+      if (value !== Number(internalValue)) handleChange(value.toString());
+      if (value > b.upper) handleChange(b.upper);
+      if (value < b.lower) handleChange(b.lower);
+    }, [value, bounds]);
+
     const onDragChange = useCallback(
-      (value: number) => onChange(Math.round(value)),
+      (value: number) => handleChange(Math.round(value)),
       [onChange]
     );
 
     if (!showDragHandle) return input;
     return (
-      <Pack {...props}>
+      <Pack {...props} style={style}>
         {input}
         <InputDragButton
           direction={dragDirection}
           value={value}
           onChange={onDragChange}
+          dragScale={dragScale}
+          resetValue={resetValue}
         />
       </Pack>
     );

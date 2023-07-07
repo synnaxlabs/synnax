@@ -10,13 +10,13 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicNode, Tab, Theme } from "@synnaxlabs/pluto";
+import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
 import { DeepKey, Location } from "@synnaxlabs/x";
 
-import { Layout } from "../types";
+import { LayoutState } from "../types";
 
 /** The state of the layout slice */
-export interface LayoutState {
+export interface LayoutSliceState {
   /** The current theme. */
   activeTheme: string;
   /**
@@ -27,7 +27,7 @@ export interface LayoutState {
    * A record of layout keys to layouts. These represent the properties of all layouts
    * currently rendered in the mosaic or in external windows.
    */
-  layouts: Record<string, Layout>;
+  layouts: Record<string, LayoutState>;
   mosaic: MosaicState;
   nav: NavState;
   alreadyCheckedGetStarted: boolean;
@@ -68,10 +68,10 @@ export const LAYOUT_SLICE_NAME = "layout";
  * need access to the layout slice.
  */
 export interface LayoutStoreState {
-  [LAYOUT_SLICE_NAME]: LayoutState;
+  [LAYOUT_SLICE_NAME]: LayoutSliceState;
 }
 
-export const MAIN_LAYOUT: Layout = {
+export const MAIN_LAYOUT: LayoutState = {
   name: "Main",
   key: "main",
   type: "main",
@@ -81,7 +81,7 @@ export const MAIN_LAYOUT: Layout = {
   },
 };
 
-const INITIAL_STATE: LayoutState = {
+const INITIAL_STATE: LayoutSliceState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
@@ -118,7 +118,7 @@ export const LAYOUT_PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 ) as Array<DeepKey<LayoutStoreState>>;
 
 /** Signature for the placeLayut action. */
-export type PlaceLayoutPayload = Layout;
+export type PlaceLayoutPayload = LayoutState;
 /** Signature for the removeLayout action. */
 export type RemoveLayoutPayload = string;
 /** Signature for the setTheme action. */

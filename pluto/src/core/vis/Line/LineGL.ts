@@ -13,25 +13,25 @@ import {
   Series,
   CrudeDirection,
   Destructor,
+  XY,
+  DataType,
 } from "@synnaxlabs/x";
 
-import { AetherContext, AetherLeaf, AetherUpdate } from "@/core/aether/worker";
+import { AetherContext, AetherLeaf } from "@/core/aether/worker";
 import {
   LineComponent,
   LineProps,
+  LookupResult,
   ParsedLineState,
   lineState,
 } from "@/core/vis/Line/core";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
-import {
-  RenderController,
-  RequestRender,
-  GLProgram,
-  RenderContext,
-} from "@/core/vis/render";
+import { RenderController, GLProgram, RenderContext } from "@/core/vis/render";
 import { XYTelemSource } from "@/core/vis/telem";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
+
+const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export class LineGLProgramContext extends GLProgram {
   translationBuffer: WebGLBuffer;
@@ -54,10 +54,15 @@ export class LineGLProgramContext extends GLProgram {
     return this.attrStrokeWidth(state.strokeWidth);
   }
 
-  draw(x: Series, y: Series, count: number): void {
-    this.bindAttrBuffer("x", x.glBuffer);
-    this.bindAttrBuffer("y", y.glBuffer);
-    this.ctx.gl.drawArraysInstanced(this.ctx.gl.LINE_STRIP, 0, x.length, count);
+  draw(x: Series, y: Series, count: number, downsample: number): void {
+    this.bindAttrBuffer("x", x.glBuffer, downsample);
+    this.bindAttrBuffer("y", y.glBuffer, downsample);
+    this.ctx.gl.drawArraysInstanced(
+      this.ctx.gl.LINE_STRIP,
+      0,
+      x.length / downsample,
+      count
+    );
   }
 
   static create(ctx: AetherContext): LineGLProgramContext {
@@ -71,11 +76,15 @@ export class LineGLProgramContext extends GLProgram {
     return ctx.get<LineGLProgramContext>(LineGLProgramContext.CONTEXT_KEY);
   }
 
-  private bindAttrBuffer(dir: CrudeDirection, buffer: WebGLBuffer): void {
+  private bindAttrBuffer(
+    dir: CrudeDirection,
+    buffer: WebGLBuffer,
+    downsample: number
+  ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const n = gl.getAttribLocation(this.prog, `a_${dir}`);
-    gl.vertexAttribPointer(n, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(n, 1, gl.FLOAT, false, FLOAT_32_DENSITY * downsample, 0);
     gl.enableVertexAttribArray(n);
   }
 
@@ -100,54 +109,83 @@ export class LineGLProgramContext extends GLProgram {
   }
 }
 
-export class LineGL extends AetherLeaf<typeof lineState> implements LineComponent {
+interface Derived {
   prog: LineGLProgramContext;
   telem: XYTelemSource;
-  telemD: Destructor;
-  requestRender: RequestRender;
+  cleanupTelem: Destructor;
+  requestRender: () => void;
+}
 
+export class LineGL
+  extends AetherLeaf<typeof lineState, Derived>
+  implements LineComponent
+{
   static readonly TYPE = "line";
+  schema: typeof lineState = lineState;
 
-  constructor(change: AetherUpdate) {
-    super(change, lineState);
-    this.prog = LineGLProgramContext.use(change.ctx);
-    [this.telem, this.telemD] = TelemContext.use(
-      change.ctx,
-      this.key,
-      this.state.telem
-    );
-    this.requestRender = RenderController.useRequest(change.ctx);
-    this.telem.onChange(() => this.requestRender());
+  derive(): Derived {
+    return {
+      prog: LineGLProgramContext.use(this.ctx),
+      requestRender: RenderController.useRequest(this.ctx),
+      ...TelemContext.use<XYTelemSource>(this.ctx, this.key, this.state.telem),
+    };
   }
 
-  handleUpdate(ctx: AetherContext): void {
-    this.prog = LineGLProgramContext.use(ctx);
-    [this.telem, this.telemD] = TelemContext.use<XYTelemSource>(
-      ctx,
-      this.key,
-      this.state.telem
-    );
-    this.requestRender = RenderController.useRequest(ctx);
-    this.telem.onChange(() => this.requestRender());
-    this.requestRender();
+  afterUpdate(): void {
+    this.derived.telem.onChange(() => this.derived.requestRender());
   }
 
   async xBounds(): Promise<Bounds> {
-    return await this.telem.xBounds();
+    const { telem } = this.derived;
+    return await telem.xBounds();
   }
 
   async yBounds(): Promise<Bounds> {
-    return await this.telem.yBounds();
+    const { telem } = this.derived;
+    return await telem.yBounds();
+  }
+
+  async searchX(props: LineProps, value: number): Promise<LookupResult> {
+    const xData = await this.derived.telem.x(this.derived.prog.ctx.gl);
+    let index: number = -1;
+    let arr: number = -1;
+    xData.forEach((x, i) => {
+      const v = x.binarySearch(value);
+      if (v !== -1 || v !== x.length) {
+        index = v;
+        arr = i;
+      }
+    });
+    const xValue = await this.xValue(arr, index);
+    const yValue = await this.yValue(arr, index);
+    return {
+      value: Number(yValue),
+      position: new XY(props.scale.x.pos(xValue), props.scale.y.pos(yValue)),
+    };
+  }
+
+  private async xValue(arr: number, index: number): Promise<number> {
+    const { telem, prog } = this.derived;
+    const xData = await telem.x(prog.ctx.gl);
+    return Number(xData[arr].data[index]);
+  }
+
+  private async yValue(arr: number, index: number): Promise<number> {
+    const { telem, prog } = this.derived;
+    const yData = await telem.y(prog.ctx.gl);
+    return Number(yData[arr].data[index]);
   }
 
   async render(props: LineProps): Promise<void> {
-    this.prog.setAsActive();
-    const xData = await this.telem.x(this.prog.ctx.gl);
-    const yData = await this.telem.y(this.prog.ctx.gl);
+    const { telem, prog } = this.derived;
+    prog.setAsActive();
+    const xData = await telem.x(prog.ctx.gl);
+    const yData = await telem.y(prog.ctx.gl);
     xData.forEach((x, i) => {
       const y = yData[i];
+      if (y === undefined) return;
       if (x.length === 0 || y.length === 0) return;
-      const count = this.prog.bindPropsAndContext(
+      const count = prog.bindPropsAndContext(
         {
           ...props,
           scale: {
@@ -157,12 +195,14 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
         },
         this.state
       );
-      this.prog.draw(x, y, count);
+      prog.draw(x, y, count, this.state.downsample);
     });
   }
 
-  cleanup(): void {
-    this.telem.release(this.prog.ctx.gl);
+  handleDelete(): void {
+    const { cleanupTelem } = this.derived;
+    cleanupTelem();
+    this.derived.requestRender();
   }
 }
 
@@ -170,7 +210,6 @@ export class LineGL extends AetherLeaf<typeof lineState> implements LineComponen
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  strokeWidth *= 2;
   if (strokeWidth <= 1) return new Float32Array([0, 0]);
   return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v

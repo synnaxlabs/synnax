@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useState } from "react";
+import { ReactElement, useCallback } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import {
-  createSearchTransform as newSearchTransform,
-  UseSearchTransformProps,
-} from "@/core/hooks";
+import { PartialInputControl } from "../Input/types";
+
+import { createFilterTransform } from "@/core/hooks";
 import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
 import { Input, InputControl } from "@/core/std/Input";
 import { useListContext } from "@/core/std/List/ListContext";
@@ -23,7 +22,7 @@ import { RenderProp } from "@/util/renderProp";
 export interface ListFilterProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Omit<UseSearchTransformProps<K, E>, "term"> {
+> extends PartialInputControl<string> {
   children?: RenderProp<InputControl<string>>;
   debounce?: number;
 }
@@ -34,22 +33,28 @@ export const ListFilter = <
 >({
   children = (props) => <Input {...props} />,
   debounce = 250,
+  onChange,
+  value,
 }: ListFilterProps<K, E>): ReactElement | null => {
-  const [value, setValue] = useState("");
+  const [internalValue, setInternalValue] = Input.usePassthrough<string>({
+    onChange,
+    value,
+    initialValue: "",
+  });
   const { setTransform, deleteTransform } = useListContext<K, E>();
 
   const debounced = useDebouncedCallback(setTransform, debounce, []);
 
-  const onChange = useCallback(
+  const handleChange = useCallback(
     (term: string) => {
-      setValue(term);
+      setInternalValue(term);
       if (term.length === 0) deleteTransform("filter");
-      else debounced("filter", newSearchTransform({ term }));
+      else debounced("filter", createFilterTransform({ term }));
     },
-    [setValue]
+    [setInternalValue]
   );
 
-  return children({ value, onChange });
+  return children({ value: internalValue, onChange: handleChange });
 };
 
 export interface Searcher<

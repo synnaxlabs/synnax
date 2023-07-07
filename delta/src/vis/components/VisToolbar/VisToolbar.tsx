@@ -18,6 +18,7 @@ import { VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem, useSelectActiveMosaicLayout } from "@/layout";
+import { LinePlotToolBar } from "@/line/controls/LinePlotToolbar";
 import { PIDToolbar } from "@/pid/controls/PIDToolBar";
 
 const NoVisContent = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
@@ -34,8 +35,12 @@ const Content = (): ReactElement => {
   switch (layout?.type) {
     case "pid":
       return <PIDToolbar layoutKey={layout?.key} />;
-    default:
+    case "line":
+      return <LinePlotToolBar layoutKey={layout?.key} />;
+    case "vis":
       return <NoVisContent layoutKey={layout?.key} />;
+    default:
+      <h1>Hello</h1>;
   }
 };
 

@@ -26,6 +26,8 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { useUnmount } from "../hooks/useMount";
+
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useMemoCompare } from "@/core/memo";
@@ -178,8 +180,16 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
     }
     comms.current = ctx.create(type, path, onReceive);
     setState(initialState, initialTransfer);
-    return () => comms.current?.delete();
+    return () => {
+      comms.current?.delete();
+      comms.current = null;
+    };
   }, [type, path, onReceive, setState]);
+
+  useUnmount(() => {
+    comms.current?.delete();
+    comms.current = null;
+  });
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };
@@ -263,11 +273,14 @@ AetherComposite.displayName = "AetherComposite";
 const wrap = <P extends {}>(
   displayName: string,
   Component: ComponentType<P & { aetherKey: string }>
-): FC<P> => {
+): FC<P & { aetherKey?: string }> => {
   Component.displayName = `Aether.wrap(${displayName})`;
-  const Wrapped = (props: P): JSX.Element => {
-    const key = useUniqueKey();
-    return <Component {...props} aetherKey={key} />;
+  const Wrapped = ({
+    aetherKey,
+    ...props
+  }: P & { aetherKey?: string }): JSX.Element => {
+    const key = useUniqueKey(aetherKey);
+    return <Component {...(props as unknown as P)} aetherKey={key} />;
   };
   Wrapped.displayName = displayName;
   return Wrapped;

@@ -24,6 +24,7 @@ export interface InputDragButtonExtensionProps {
   dragDirection?: CrudeDirection;
   dragScale?: LooseXYT | number;
   dragThreshold?: LooseXYT | number;
+  resetValue?: number;
 }
 
 export interface InputDragButtonProps
@@ -42,6 +43,7 @@ export const InputDragButton = ({
   dragDirection,
   onChange,
   value,
+  resetValue,
   ...props
 }: InputDragButtonProps): ReactElement => {
   const vRef = useRef({
@@ -90,12 +92,16 @@ export const InputDragButton = ({
     }, []),
   });
 
+  const handleDoubleClick = useCallback(() => {
+    onChange(resetValue ?? vRef.current.prev);
+  }, [onChange, resetValue]);
+
   return (
     <Button.Icon
       ref={elRef}
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}
-      onDoubleClick={() => onChange(vRef.current.prev)}
+      onDoubleClick={handleDoubleClick}
       onClick={(e) => e.preventDefault()}
       {...props}
     >
