@@ -10,7 +10,7 @@
 import { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { NewRangePayload, RangePayload, rangePayload } from "./payload";
+import { NewRangePayload, RangePayload, rangePayload } from "@/ranger/payload";
 
 const resZ = z.object({
   ranges: z.array(rangePayload),
