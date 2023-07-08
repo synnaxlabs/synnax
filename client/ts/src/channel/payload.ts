@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
+import { DataType, Rate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type ChannelKey = number;
@@ -19,34 +19,28 @@ export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
 export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
 
 export const channelPayload = z.object({
+  name: z.string(),
   key: z.number(),
   rate: Rate.z,
   dataType: DataType.z,
-  name: z.string(),
-  leaseholder: z.number().default(0).optional(),
-  index: z.number().default(0).optional(),
-  isIndex: z.boolean().default(false).optional(),
+  leaseholder: z.number(),
+  index: z.number(),
+  isIndex: z.boolean(),
 });
 
 export type ChannelPayload = z.infer<typeof channelPayload>;
 
-export const unkeyedChannelPayload = channelPayload.extend({
+export const newChannelPayload = channelPayload.extend({
   key: z.number().optional(),
+  leaseholder: z.number().optional(),
+  index: z.number().optional(),
+  rate: Rate.z.optional(),
+  isIndex: z.boolean().optional(),
 });
 
-export type UnkeyedChannelPayload = z.infer<typeof unkeyedChannelPayload>;
+export type NewChannelPayload = z.input<typeof newChannelPayload>;
 
-export interface UnparsedChannel {
-  key?: number;
-  name: string;
-  dataType: UnparsedDataType;
-  rate?: UnparsedRate;
-  leaseholder?: number;
-  index?: number;
-  isIndex?: boolean;
-}
-
-export const parseChannels = (channels: UnparsedChannel[]): UnkeyedChannelPayload[] =>
+export const parseChannels = (channels: NewChannelPayload[]): NewChannelPayload[] =>
   channels.map((channel) => ({
     name: channel.name,
     dataType: new DataType(channel.dataType),

@@ -9,10 +9,13 @@
 
 export { ChannelCreator } from "@/channel/creator";
 export { Channel, ChannelClient } from "@/channel/client";
-export { channelPayload, unkeyedChannelPayload } from "@/channel/payload";
+export {
+  channelPayload,
+  newChannelPayload as unkeyedChannelPayload,
+} from "@/channel/payload";
 export type {
   ChannelPayload,
-  UnkeyedChannelPayload,
+  NewChannelPayload as UnkeyedChannelPayload,
   ChannelName,
   ChannelKey,
   ChannelKeys,
@@ -21,3 +24,5 @@ export type {
   ChannelKeysOrNames,
   ChannelParams,
 } from "@/channel/payload";
+export type { ChannelRetriever } from "@/channel/retriever";
+export { ClusterChannelRetriever, CacheChannelRetriever } from "@/channel/retriever";

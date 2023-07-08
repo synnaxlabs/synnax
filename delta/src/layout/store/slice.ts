@@ -136,8 +136,8 @@ interface ResizeLayoutMosaicTabPayload {
 interface SelectLayoutMosaicTabPayload {
   tabKey: string;
 }
-interface RenameLayoutMosaicTabPayload {
-  tabKey: string;
+interface RenameLayoutPayload {
+  key: string;
   name: string;
 }
 
@@ -234,10 +234,11 @@ export const { actions, reducer: layoutReducer } = createSlice({
     ) => {
       state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
-    renameLayoutMosaicTab: (
+    renameLayout: (
       state,
-      { payload: { tabKey, name } }: PayloadAction<RenameLayoutMosaicTabPayload>
+      { payload: { key: tabKey, name } }: PayloadAction<RenameLayoutPayload>
     ) => {
+      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout != null) layout.name = name;
       state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
@@ -310,7 +311,7 @@ export const {
   moveLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
-  renameLayoutMosaicTab,
+  renameLayout,
   resizeNavdrawer,
   setNavdrawerVisible,
   maybeCreateGetStartedTab,

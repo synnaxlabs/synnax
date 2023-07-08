@@ -20,7 +20,14 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeOuterLocation, Deep, Location } from "@synnaxlabs/x";
+import {
+  Box,
+  Compare,
+  CrudeOrder,
+  CrudeOuterLocation,
+  Deep,
+  Location,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
@@ -37,7 +44,7 @@ import "@/core/vis/LinePlot/main/LinePlot.css";
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
 export interface LinePlotContextValue {
-  setAxis: (meta: AxisMeta) => void;
+  setAxis: (meta: GridPositionMeta) => void;
   removeAxis: (key: string) => void;
   setLine: (meta: LineMeta) => void;
   removeLine: (key: string) => void;
@@ -53,7 +60,10 @@ export const useLinePlotContext = (component: string): LinePlotContextValue => {
   return ctx;
 };
 
-export const useAxisPosition = (meta: AxisMeta, component: string): CSSProperties => {
+export const useGridPosition = (
+  meta: GridPositionMeta,
+  component: string
+): CSSProperties => {
   const { setAxis, removeAxis } = useLinePlotContext(component);
   const { key } = meta;
   useEffectCompare(
@@ -78,13 +88,14 @@ export interface LineMeta {
   label: string;
 }
 
-export interface AxisMeta {
+export interface GridPositionMeta {
   key: string;
   size: number;
+  order: CrudeOrder;
   loc: CrudeOuterLocation;
 }
 
-type AxisState = AxisMeta[];
+type AxisState = GridPositionMeta[];
 type LineState = LineMeta[];
 
 export interface LinePlotProps
@@ -155,7 +166,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const resizeRef = useResize(handleResize, { debounce });
 
     const setAxis: LinePlotContextValue["setAxis"] = useCallback(
-      (meta: AxisMeta) =>
+      (meta: GridPositionMeta) =>
         setAxes((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
       []
     );
@@ -216,18 +227,20 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
   const builder = CSS.newGridBuilder();
   const filterAxisLoc = (loc: CrudeOuterLocation): AxisState =>
-    axisCounts.filter(({ loc: l }) => l === loc);
+    axisCounts
+      .filter(({ loc: l }) => l === loc)
+      .sort((a, b) => Compare.order(a.order, b.order));
   filterAxisLoc("top").forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
-  builder.addRow("plot-start", "plot-end", "auto");
+  builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
   filterAxisLoc("bottom").forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   filterAxisLoc("left").forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
-  builder.addColumn("plot-start", "plot-end", "auto");
+  builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
   filterAxisLoc("right").forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );

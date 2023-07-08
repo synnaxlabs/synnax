@@ -100,7 +100,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 
 	err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB)
 	if errors.Is(err, query.NotFound) {
-		err = o.OpenWriter(cfg.DB).DefineResource(ctx, RootID)
+		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
 	} else if err != nil {
 		return nil, err
 	}
@@ -152,9 +152,9 @@ func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, err
 	return o.search.Index.Search(ctx, req)
 }
 
-// OpenWriter opens a new Writer using the provided transaction.
+// NewWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
-func (o *Ontology) OpenWriter(tx gorp.Tx) Writer {
+func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	return dagWriter{tx: o.DB.OverrideTx(tx)}
 }
 

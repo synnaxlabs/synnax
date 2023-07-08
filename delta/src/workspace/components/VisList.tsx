@@ -11,7 +11,7 @@ import { List, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import {
-  renameLayoutMosaicTab,
+  renameLayout,
   RenderableLayout,
   selectLayoutMosaicTab,
   useSelectActiveMosaicTabKey,
@@ -44,7 +44,7 @@ export const VisList = (): ReactElement => {
                 level="p"
                 style={style}
                 onChange={(name) => {
-                  d(renameLayoutMosaicTab({ tabKey: entry.key, name }));
+                  d(renameLayout({ tabKey: entry.key, name }));
                 }}
                 value={entry.name}
               />

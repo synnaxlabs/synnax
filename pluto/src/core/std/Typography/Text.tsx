@@ -65,5 +65,5 @@ const CoreText = <L extends TypographyLevel = "h1">(
 };
 
 export const Text = forwardRef(CoreText) as <L extends TypographyLevel = "h1">(
-  props: TextProps<L> & { ref?: ForwardedRef<JSX.IntrinsicElements[L]> }
+  props: TextProps<L>
 ) => ReactElement;

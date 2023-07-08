@@ -74,7 +74,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.OpenWriter(w.tx).
+	if err = w.Ontology.NewWriter(w.tx).
 		DefineResource(ctx, OntologyID(u.Key)); err != nil {
 		return err
 	}

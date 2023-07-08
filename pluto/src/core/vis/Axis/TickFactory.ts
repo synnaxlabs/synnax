@@ -25,7 +25,7 @@ export const tickType = z.enum(["linear", "time"]);
 export type TickType = z.infer<typeof tickType>;
 
 export const tickFactoryProps = z.object({
-  tickSpacing: z.number().default(50),
+  tickSpacing: z.number().default(75),
   type: tickType.optional().default("linear"),
 });
 

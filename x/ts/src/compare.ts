@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CrudeOrder } from "./spatial";
+
 import { Primitive, isStringer, PrimitiveRecord } from "@/primitive";
 
 export type CompareF<T> = (a: T, b: T) => number;
@@ -90,6 +92,12 @@ const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
+const order = (a: CrudeOrder, b: CrudeOrder): number => {
+  if (a === b) return 0;
+  if (a === "first" && b === "last") return 1;
+  return -1;
+};
+
 /** @returns the reverse of the given compare function. */
 const reverseF =
   <T>(f: CompareF<T>): CompareF<T> =>
@@ -102,6 +110,7 @@ export const Compare = {
   reverseF,
   primitiveArrays,
   unorderedPrimitiveArrays,
+  order,
   equal: 0,
   lessThan: -1,
   greaterThan: 1,

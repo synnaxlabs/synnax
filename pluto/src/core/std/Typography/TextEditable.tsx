@@ -41,7 +41,7 @@ export const TextEditable = <L extends TypographyLevel = "h1">({
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
     const el = ref.current;
     setEditable(false);
-    onChange?.(el.innerText);
+    onChange?.(el.innerText.trim());
     el.blur();
   };
 

@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-value-pid-element--selected * {
+.pluto-value-pid-element.pluto--selected * {
     border-color: var(--pluto-primary-z);
 }

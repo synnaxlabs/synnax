@@ -8,8 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { UnaryClient } from "@synnaxlabs/freighter";
+import { z } from "zod";
 
-import { RangeKey, RangeParams } from "./payload";
+import {
+  RangeParams,
+  RangePayload,
+  analyzeRangeParams,
+  rangeKey,
+  rangePayload,
+} from "./payload";
+
+const reqZ = z.object({
+  keys: z.array(rangeKey).optional(),
+  names: z.array(z.string()).optional(),
+  term: z.string().optional(),
+});
+
+type Request = z.infer<typeof reqZ>;
+
+const resZ = z.object({
+  ranges: z.array(rangePayload),
+});
 
 export class RangeRetriever {
   private readonly ENDPOINT = "/range/retrieve";
@@ -17,5 +36,21 @@ export class RangeRetriever {
 
   constructor(client: UnaryClient) {
     this.client = client;
+  }
+
+  async retrieve(params: RangeParams): Promise<RangePayload[]> {
+    const { normalized, variant } = analyzeRangeParams(params);
+    const res = await this.execute({ [variant]: normalized });
+    return res;
+  }
+
+  async search(term: string): Promise<RangePayload[]> {
+    return await this.execute({ term });
+  }
+
+  private async execute(request: Request): Promise<RangePayload[]> {
+    const [res, err] = await this.client.send(this.ENDPOINT, request, resZ);
+    if (err != null) throw err;
+    return res.ranges;
   }
 }

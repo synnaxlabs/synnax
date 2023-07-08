@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"os"
 	"os/signal"
 	"time"
@@ -113,6 +114,10 @@ func start(cmd *cobra.Command) {
 		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
+		rangeSvc, err := ranger.NewService(ranger.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil {
+			return err
+		}
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
@@ -120,11 +125,11 @@ func start(cmd *cobra.Command) {
 		}
 
 		// Configure the API core.
-		_api := api.New(api.Config{
+		_api, err := api.New(api.Config{
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
 			Enforcer:        access.AllowAll{},
-			Insecure:        insecure,
+			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,
 			Framer:          dist.Framer,
 			Storage:         dist.Storage,
@@ -132,7 +137,11 @@ func start(cmd *cobra.Command) {
 			Token:           tokenSvc,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
+			Ranger:          rangeSvc,
 		})
+		if err != nil {
+			return err
+		}
 
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})

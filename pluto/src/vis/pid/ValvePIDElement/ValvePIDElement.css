@@ -9,11 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.delta-form {
-    padding: 1rem 3rem;
-}
-
-* {
-    user-select: none !important;
-    -webkit-user-select: none !important;
+.pluto-valve-pid-element.pluto--selected * {
+    stroke: var(--pluto-primary-z);
 }

@@ -14,6 +14,7 @@ import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
 import { LinePlotAxesControls } from "./LinePlotAxesControls";
 import { LinePlotLinesControls } from "./LinePlotLineControls";
+import { LinePlotPropertiesControls } from "./LinePlotPropertiesControls";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
@@ -58,6 +59,8 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
           return <LinePlotLinesControls layoutKey={layoutKey} />;
         case "axes":
           return <LinePlotAxesControls layoutKey={layoutKey} />;
+        case "properties":
+          return <LinePlotPropertiesControls layoutKey={layoutKey} />;
         default:
           return <LinePlotDataControls layoutKey={layoutKey} />;
       }

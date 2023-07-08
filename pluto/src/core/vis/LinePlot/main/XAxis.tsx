@@ -20,7 +20,7 @@ import { useResize } from "@/core/hooks";
 import { Space, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
-import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
+import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
 
 export interface XAxisProps
   extends PropsWithChildren,
@@ -64,11 +64,12 @@ export const XAxis = Aether.wrap<XAxisProps>(
 
     const prevLabelSize = useRef(0);
 
-    const gridStyle = useAxisPosition(
+    const gridStyle = useGridPosition(
       {
         loc: new Location(location).crude as CrudeOuterLocation,
         key: aetherKey,
         size: size + labelSize,
+        order: "last",
       },
       "XAxis"
     );

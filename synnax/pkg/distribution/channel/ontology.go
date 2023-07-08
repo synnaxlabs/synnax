@@ -67,30 +67,29 @@ func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 	return newResource(ch), err
 }
 
-// OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
-	var (
-		translate = func(ch change) schema.Change {
-			return schema.Change{
-				Variant: ch.Variant,
-				Key:     OntologyID(ch.Key),
-				Value:   newResource(ch.Value),
-			}
-		}
-		onChange = func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
-			f(ctx, iter.NexterTranslator[change, schema.Change]{
-				Wrap:      reader,
-				Translate: translate,
-			})
-		}
-	)
-	gorp.Observe[Key, Channel](s.DB).OnChange(onChange)
+func translateChange(ch change) schema.Change {
+	return schema.Change{
+		Variant: ch.Variant,
+		Key:     OntologyID(ch.Key),
+		Value:   newResource(ch.Value),
+	}
 }
 
-// OpenNext implements ontology.service.
+// OnChange implements ontology.Service.
+func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
+		f(ctx, iter.NexterTranslator[change, schema.Change]{
+			Wrap:      reader,
+			Translate: translateChange,
+		})
+	}
+	gorp.Observe[Key, Channel](s.DB).OnChange(handleChange)
+}
+
+// OpenNexter implements ontology.Service.
 func (s *service) OpenNexter() iter.NexterCloser[schema.Resource] {
 	return iter.NexterCloserTranslator[Channel, schema.Resource]{
-		Wrap:      gorp.WrapReader[Key, Channel](s.DB).OpenNext(),
+		Wrap:      gorp.WrapReader[Key, Channel](s.DB).OpenNexter(),
 		Translate: newResource,
 	}
 }

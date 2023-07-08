@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, AsyncTermSearcher } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "..";
@@ -115,7 +115,7 @@ export class CacheChannelRetriever implements ChannelRetriever {
   }
 }
 
-export type ParamAnalysisResult =
+export type ChannelParamAnalysisResult =
   | {
       single: true;
       variant: "names";
@@ -141,12 +141,15 @@ export type ParamAnalysisResult =
       actual: ChannelNames;
     };
 
-export const analyzeChannelParams = (channels: ChannelParams): ParamAnalysisResult => {
-  const normalized = toArray(channels) as ChannelKeysOrNames;
+export const analyzeChannelParams = (
+  channels: ChannelParams
+): ChannelParamAnalysisResult => {
+  const normal = toArray(channels) as ChannelKeysOrNames;
+  if (normal.length === 0) throw new QueryError("No channels provided");
   return {
     single: !Array.isArray(channels),
-    variant: typeof normalized[0] === "number" ? "keys" : "names",
-    normalized,
+    variant: typeof normal[0] === "number" ? "keys" : "names",
+    normalized: normal,
     actual: channels,
-  } as const as ParamAnalysisResult;
+  } as const as ChannelParamAnalysisResult;
 };

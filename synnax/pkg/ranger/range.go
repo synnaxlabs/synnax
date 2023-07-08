@@ -16,10 +16,9 @@ import (
 )
 
 type Range struct {
-	Key       uuid.UUID
-	Name      string
-	TimeRange telem.TimeRange
-	Open      bool
+	Key       uuid.UUID       `json:"key" msgpack:"key"`
+	Name      string          `json:"name" msgpack:"name"`
+	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
