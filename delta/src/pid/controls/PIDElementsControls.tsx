@@ -10,42 +10,44 @@
 import {
   ComponentPropsWithoutRef,
   PropsWithChildren,
-  PropsWithoutRef,
   ReactElement,
   useCallback,
 } from "react";
 
-import { ValuePIDElementSpec, Space, Text } from "@synnaxlabs/pluto";
+import { Space, Text, PIDElementSpec } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
-import { useSelectPID } from "../store/selectors";
+import { ELEMENTS } from "../elements";
 import { addPIDelement } from "../store/slice";
 
 import { CSS } from "@/css";
 
-import "@/pid/controls/PIDElements.css";
+import "@/pid/controls/PIDElementsControls.css";
 
 export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const dispatch = useDispatch();
 
   const handleAddElement = useCallback(
-    () =>
+    (type: string) =>
       dispatch(
         addPIDelement({
           layoutKey,
           key: nanoid(),
-          props: ValuePIDElementSpec.initialProps,
+          props: {
+            type,
+            ...ELEMENTS[type].initialProps,
+          },
         })
       ),
     [dispatch, layoutKey]
   );
 
   return (
-    <Space className={CSS.B("pid-elements")}>
-      <PIDElementsButton title={ValuePIDElementSpec.title} onClick={handleAddElement}>
-        <ValuePIDElementSpec.Preview />
-      </PIDElementsButton>
+    <Space className={CSS.B("pid-elements")} direction="x" wrap>
+      {Object.entries(ELEMENTS).map(([type, el]) => (
+        <PIDElementsButton key={type} el={el} onClick={() => handleAddElement(type)} />
+      ))}
     </Space>
   );
 };
@@ -53,26 +55,29 @@ export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement 
 interface PIDElementsButtonProps
   extends PropsWithChildren,
     ComponentPropsWithoutRef<"button"> {
-  title: string;
+  el: PIDElementSpec;
 }
 
 const PIDElementsButton = ({
   children,
-  title,
+  el: { title, Preview },
   ...props
 }: PIDElementsButtonProps): ReactElement => {
   return (
-    <Space
-      el="button"
-      className={CSS.BE("pid-elements", "button")}
-      justify="center"
-      align="center"
-      {...props}
-    >
-      <Text level="p" color="var(--pluto-gray-p0)">
-        {title}
-      </Text>
-      {children}
-    </Space>
+    <>
+      {/* @ts-expect-error */}
+      <Space
+        el="button"
+        className={CSS.BE("pid-elements", "button")}
+        justify="center"
+        align="center"
+        {...props}
+      >
+        <Text level="p" color="var(--pluto-gray-p0)">
+          {title}
+        </Text>
+        <Preview />
+      </Space>
+    </>
   );
 };

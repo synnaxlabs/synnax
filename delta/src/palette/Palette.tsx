@@ -30,7 +30,7 @@ import {
   Button,
   UseDropdownReturn,
   useDebouncedCallback,
-  createSearchTransform,
+  createFilterTransform,
   Status,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
@@ -205,7 +205,7 @@ export const PaletteInput = ({
   const handleFilter = useCallback(
     (term: string) => {
       if (term.length === 0) deleteTransform("filter");
-      else debouncedSetTransform("filter", createSearchTransform({ term }));
+      else debouncedSetTransform("filter", createFilterTransform({ term }));
     },
     [debouncedSetTransform, deleteTransform]
   );

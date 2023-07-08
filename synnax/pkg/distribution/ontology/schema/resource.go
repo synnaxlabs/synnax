@@ -73,6 +73,8 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
+type Data = map[string]any
+
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
 	ID ID `json:"id" msgpack:"id"`
@@ -81,7 +83,7 @@ type Resource struct {
 	// Name is a human-readable name for the entity.
 	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
-	Data map[string]any `json:"data" msgpack:"data"`
+	Data Data `json:"data" msgpack:"data"`
 }
 
 type Change = change.Change[ID, Resource]
@@ -121,7 +123,7 @@ func Set[V Value](D Resource, k string, v V) {
 	if !ok {
 		panic("[Schema] - field not found")
 	}
-	if !f.Type.AssertValue(v) {
+	if !f.AssertValue(v) {
 		panic("[Schema] - invalid field type")
 	}
 	D.Data[k] = v

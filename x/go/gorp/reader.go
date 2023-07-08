@@ -88,9 +88,9 @@ func (r Reader[K, E]) OpenIterator() *Iterator[E] {
 	)
 }
 
-// OpenNext opens a new Nexter that can be used to iterate over
+// OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNext() iter.NexterCloser[E] {
+func (r Reader[K, E]) OpenNexter() iter.NexterCloser[E] {
 	return &next[E]{Iterator: r.OpenIterator()}
 }
 

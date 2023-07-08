@@ -13,13 +13,11 @@ import {
   NativeTypedArray,
   UnparsedDensity,
   UnparsedTimeStamp,
-  toArray,
   Series,
   TimeRange,
   AsyncTermSearcher,
+  toArray,
 } from "@synnaxlabs/x";
-
-import { analyzeChannelParams, ChannelRetriever } from "./retriever";
 
 import { ChannelCreator } from "@/channel/creator";
 import {
@@ -28,8 +26,9 @@ import {
   ChannelParams,
   ChannelPayload,
   channelPayload,
-  UnparsedChannel,
+  NewChannelPayload,
 } from "@/channel/payload";
+import { analyzeChannelParams, ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { FrameClient } from "@/framer";
 
@@ -50,15 +49,15 @@ export class Channel {
   constructor({
     dataType,
     rate,
-    name = "",
+    name,
     leaseholder = 0,
     key = 0,
     density = 0,
     isIndex = false,
     index = 0,
-    segmentClient,
-  }: UnparsedChannel & {
-    segmentClient?: FrameClient;
+    frameClient,
+  }: NewChannelPayload & {
+    frameClient?: FrameClient;
     density?: UnparsedDensity;
   }) {
     this.key = key;
@@ -68,7 +67,7 @@ export class Channel {
     this.leaseholder = leaseholder;
     this.index = index;
     this.isIndex = isIndex;
-    this._frameClient = segmentClient ?? null;
+    this._frameClient = frameClient ?? null;
   }
 
   private get framer(): FrameClient {
@@ -116,7 +115,7 @@ export class Channel {
  * cluster.
  */
 export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Channel> {
-  private readonly segmentClient: FrameClient;
+  private readonly frameClient: FrameClient;
   private readonly retriever: ChannelRetriever;
   private readonly creator: ChannelCreator;
 
@@ -125,14 +124,14 @@ export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Chan
     retriever: ChannelRetriever,
     creator: ChannelCreator
   ) {
-    this.segmentClient = segmentClient;
+    this.frameClient = segmentClient;
     this.retriever = retriever;
     this.creator = creator;
   }
 
-  async create(channel: UnparsedChannel): Promise<Channel>;
+  async create(channel: NewChannelPayload): Promise<Channel>;
 
-  async create(channels: UnparsedChannel[]): Promise<Channel[]>;
+  async create(channels: NewChannelPayload[]): Promise<Channel[]>;
 
   /**
    * Creates a new channel with the given properties.
@@ -145,10 +144,10 @@ export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Chan
    * @returns The created channel.
    */
   async create(
-    channels: UnparsedChannel | UnparsedChannel[]
+    channels: NewChannelPayload | NewChannelPayload[]
   ): Promise<Channel | Channel[]> {
     const single = !Array.isArray(channels);
-    const res = this.sugar(await this.creator.create(channels));
+    const res = this.sugar(await this.creator.create(toArray(channels)));
     return single ? res[0] : res;
   }
 
@@ -167,21 +166,19 @@ export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Chan
   async retrieve(channels: ChannelParams): Promise<Channel | Channel[]> {
     const { single, actual } = analyzeChannelParams(channels);
     const res = this.sugar(await this.retriever.retrieve(channels));
-    if (single) {
-      if (res.length === 0)
-        throw new QueryError(`channel matching ${actual} not found`);
-      if (res.length > 1)
-        throw new QueryError(`multiple channels matching ${actual} found`);
-    }
-    return single ? res[0] : res;
+    if (!single) return res;
+    if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
+    if (res.length > 1)
+      throw new QueryError(`multiple channels matching ${actual} found`);
+    return res[0];
   }
 
   async search(term: string): Promise<Channel[]> {
     return this.sugar(await this.retriever.search(term));
   }
 
-  private sugar(payloads: ChannelPayload | ChannelPayload[]): Channel[] {
-    const { segmentClient } = this;
-    return toArray(payloads).map((p) => new Channel({ ...p, segmentClient }));
+  private sugar(payloads: ChannelPayload[]): Channel[] {
+    const { frameClient } = this;
+    return payloads.map((p) => new Channel({ ...p, frameClient }));
   }
 }

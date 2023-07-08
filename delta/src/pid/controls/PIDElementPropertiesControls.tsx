@@ -17,18 +17,20 @@ import { setPIDElementProps } from "../store/slice";
 
 import { CSS } from "@/css";
 
-import "@/pid/controls/PIDProperties.css";
+import "@/pid/controls/PIDElementPropertiesControls.css";
 
 export interface PIDPropertiesProps {
   layoutKey: string;
 }
 
-export const PIDProperties = ({ layoutKey }: PIDPropertiesProps): ReactElement => {
+export const PIDElementPropertiesControls = ({
+  layoutKey,
+}: PIDPropertiesProps): ReactElement => {
   const elements = useSelectSelectedPIDElementsProps(layoutKey);
 
   const dispatch = useDispatch();
 
-  const handleChange = (props: any) => {
+  const handleChange = (props: any): void => {
     dispatch(setPIDElementProps({ layoutKey, key: elements[0].key, props }));
   };
 
@@ -42,7 +44,7 @@ export const PIDProperties = ({ layoutKey }: PIDPropertiesProps): ReactElement =
 
   return (
     <Space className={CSS.B("pid-properties")} size="small">
-      <ValuePIDElementSpec.Form value={elements[0].props} onChange={handleChange} />;
+      <ValuePIDElementSpec.Form value={elements[0].props} onChange={handleChange} />
     </Space>
   );
 };

@@ -18,8 +18,9 @@ export type KeyedRecord<
   key: K;
 } & Partial<Record<keyof E, unknown>>;
 
-export type UnknownRecord<E extends Record<string, unknown> = Record<string, unknown>> =
-  Partial<Record<keyof E, unknown>>;
+export type UnknownRecord<
+  E extends Record<string | number, unknown> = Record<string | number, unknown>
+> = Partial<Record<keyof E, unknown>>;
 
 export type RenderableRecord<
   E extends Record<string, RenderableValue> = Record<string, RenderableValue>

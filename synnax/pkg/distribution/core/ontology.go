@@ -95,7 +95,7 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 	s.Cluster.OnChange(onChange)
 }
 
-// OpenNext implements ontology.Service.
+// OpenNexter implements ontology.Service.
 func (s *NodeOntologyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
 	return iter.NexterNopCloser[ontology.Resource]{
 		Wrap: iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
@@ -105,7 +105,7 @@ func (s *NodeOntologyService) OpenNexter() iter.NexterCloser[ontology.Resource] 
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
 	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
-		w := s.Ontology.OpenWriter(txn)
+		w := s.Ontology.NewWriter(txn)
 		clusterID := ClusterOntologyID(s.Cluster.Key())
 		if err := w.DefineResource(ctx, clusterID); err != nil {
 			return err
@@ -175,7 +175,7 @@ func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (
 	return newClusterResource(s.Cluster.Key()), nil
 }
 
-// OpenNext implements ontology.Service.Relationship
+// OpenNexter implements ontology.Service.Relationship
 func (s *ClusterOntologyService) OpenNexter() iter.NexterCloser[schema.Resource] {
 	return iter.NexterNopCloser[ontology.Resource]{
 		Wrap: iter.All[schema.Resource]([]schema.Resource{

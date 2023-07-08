@@ -27,7 +27,7 @@ import { useMemoCompare, useResize } from "@/core/hooks";
 import { Input, Space, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
-import { useAxisPosition } from "@/core/vis/LinePlot/main/LinePlot";
+import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
 
 import "@/core/vis/LinePlot/main/YAxis.css";
 
@@ -89,11 +89,12 @@ export const YAxis = Aether.wrap<YAxisProps>(
       }));
     }, [memoProps]);
 
-    const gridStyle = useAxisPosition(
+    const gridStyle = useGridPosition(
       {
         loc: new Location(location).crude as CrudeOuterLocation,
         key: aetherKey,
         size: size + labelSize,
+        order: "last",
       },
       "YAxis"
     );

@@ -1,20 +1,28 @@
+// Copyrght 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
-
-import {
-  PIDElementFormProps,
-  StatefulPIDElementProps,
-  PIDElementSpec,
-} from "./PIDElement";
 
 import { CSS, Input } from "@/core";
 import { ValueLabeled, ValueLabeledProps } from "@/core/vis/Value/ValueLabeled";
 import { Telem } from "@/telem";
 import { RangeNumerictelemProps as RangeNumericTelemProps } from "@/telem/range/aether";
 import { RangeNumericTelemForm } from "@/telem/range/forms";
+import {
+  PIDElementFormProps,
+  StatefulPIDElementProps,
+  PIDElementSpec,
+} from "@/vis/pid/PIDElement";
 
-import "@/vis/pid/ValuePIDElement.css";
+import "@/vis/pid/ValuePIDElement/ValuePIDElement.css";
 
 export const ZERO_PROPS: ValuePIDElementProps = {
   label: "Value",
@@ -49,7 +57,7 @@ const ValuePIDElement = ({
       {editable && <Handle position={Position.Left} type="source" />}
       {editable && <Handle position={Position.Right} type="target" />}
       <ValueLabeled
-        className={CSS(className, selected && CSS.BM("value-pid-element", "selected"))}
+        className={CSS(className, CSS.B("value-pid-element"), CSS.selected(selected))}
         {...props}
         telem={telem}
         onLabelChange={onLabelChange}
@@ -86,7 +94,7 @@ const ValuePIDElementForm = ({
         value={value.units}
         onChange={handleUnitsChange}
       />
-      <RangeNumericTelemForm value={value.telem} onChange={handleTelemChange} />;
+      <RangeNumericTelemForm value={value.telem} onChange={handleTelemChange} />
     </>
   );
 };

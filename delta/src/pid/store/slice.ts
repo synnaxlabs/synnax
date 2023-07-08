@@ -14,11 +14,15 @@ import { nanoid } from "nanoid";
 
 import { LayoutState, LayoutCreator } from "@/layout";
 
+export type PIDNodeProps = object & {
+  type: string;
+};
+
 export interface PIDState {
   editable: boolean;
   nodes: PIDNode[];
   edges: PIDEdge[];
-  props: Record<string, unknown>;
+  props: Record<string, object>;
 }
 
 export interface PIDSliceState {
@@ -45,13 +49,13 @@ export const ZERO_PID_SLICE_STATE: PIDSliceState = {
 export interface AddPIDelementPayload {
   layoutKey: string;
   key: string;
-  props: unknown;
+  props: PIDNodeProps;
 }
 
 export interface SetPIDElementPropsPayload {
   layoutKey: string;
   key: string;
-  props: unknown;
+  props: PIDNodeProps;
 }
 
 export interface SetPIDNodesPayload {

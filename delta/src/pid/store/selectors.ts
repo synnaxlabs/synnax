@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PIDNode } from "@synnaxlabs/pluto";
-
 import { useMemoSelect } from "@/hooks";
-import { PIDSliceState, PIDState, PIDStoreState } from "@/pid/store/slice";
+import { PIDNode, PIDSliceState, PIDState, PIDStoreState } from "@/pid/store/slice";
 
 export const selectPIDState = (state: PIDStoreState): PIDSliceState => state.pid;
 
@@ -36,7 +34,7 @@ export const selectSelectedPIDElementsProps = (
 export interface PIDElementInfo {
   key: string;
   node: PIDNode;
-  props: unknown;
+  props: object;
 }
 
 export const useSelectSelectedPIDElementsProps = (
@@ -51,12 +49,20 @@ export const selectPIDElementProps = (
   state: PIDStoreState,
   layoutKey: string,
   key: string
-): unknown => {
+): PIDElementInfo => {
   const pid = selectPID(state, layoutKey);
-  return pid.props[key];
+  const node = pid.nodes.find((node) => node.key === key);
+  return {
+    key,
+    node: node as PIDNode,
+    props: pid.props[key],
+  };
 };
 
-export const useSelectPIDElementProps = (layoutKey: string, key: string): unknown =>
+export const useSelectPIDElementProps = (
+  layoutKey: string,
+  key: string
+): PIDElementInfo =>
   useMemoSelect(
     (state: PIDStoreState) => selectPIDElementProps(state, layoutKey, key),
     [layoutKey, key]

@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("retrieveResource", func() {
 	var w ontology.Writer
-	BeforeEach(func() { w = otg.OpenWriter(tx) })
+	BeforeEach(func() { w = otg.NewWriter(tx) })
 	Describe("Single Clause", func() {
 		It("Should retrieve a resource by its Key", func() {
 			id := newEmptyID("A")

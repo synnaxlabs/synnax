@@ -9,15 +9,10 @@
 
 import { ReactElement, useCallback, useState } from "react";
 
-import {
-  PID as PPID,
-  PIDProps,
-  PIDElementProps,
-  ValuePIDElementSpec,
-  ValuePIDElementProps,
-} from "@synnaxlabs/pluto";
+import { PID as PPID, PIDProps, PIDElementProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
+import { ELEMENTS } from "../elements";
 import { useSelectPID, useSelectPIDElementProps } from "../store/selectors";
 import { setPIDEdges, setPIDElementProps, setPIDNodes } from "../store/slice";
 
@@ -29,23 +24,29 @@ const PIDElementRenderer = ({
   selected,
   layoutKey,
 }: PIDElementProps & { layoutKey: string }): ReactElement => {
-  const props = useSelectPIDElementProps(layoutKey, elementKey);
+  const {
+    props: { type, ...props },
+  } = useSelectPIDElementProps(layoutKey, elementKey);
   const dispatch = useDispatch();
 
   const handleChange = useCallback(
-    (props: ValuePIDElementProps) => {
-      dispatch(setPIDElementProps({ layoutKey, key: elementKey, props }));
+    (props: object) => {
+      dispatch(
+        setPIDElementProps({ layoutKey, key: elementKey, props: { type, ...props } })
+      );
     },
-    [dispatch, elementKey, layoutKey]
+    [dispatch, elementKey, layoutKey, type]
   );
 
+  const C = ELEMENTS[type];
+
   return (
-    <ValuePIDElementSpec.Element
-      {...(props as ValuePIDElementProps)}
+    <C.Element
       position={position}
       selected={selected}
       onChange={handleChange}
       editable={true}
+      {...props}
     />
   );
 };

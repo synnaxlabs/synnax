@@ -9,6 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
+import { TypographyLevel } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -33,6 +34,28 @@ import {
   YAxisKey,
 } from "@/vis/axis";
 import { Range } from "@/workspace";
+
+// |||||| TITLE ||||||
+
+export interface TitleState {
+  level: TypographyLevel;
+  visible: boolean;
+}
+
+const ZERO_TITLE_STATE: TitleState = {
+  level: "h4",
+  visible: false,
+};
+
+// |||||| LEGEND ||||||
+
+export interface LegendState {
+  visible: boolean;
+}
+
+const ZERO_LEGEND_STATE = {
+  visible: false,
+};
 
 // |||||| VIEWPORT ||||||
 
@@ -60,17 +83,19 @@ export type AxesState = Record<AxisKey, AxisState>;
 
 export interface LineState {
   key: string;
+  label: string;
   color: string;
-  strokeWidth?: number;
-  label?: string;
-  downsample?: number;
+  strokeWidth: number;
+  downsample: number;
 }
 
 export type LinesState = LineState[];
 
 const ZERO_LINE_STATE: Omit<LineState, "key"> = {
   color: "",
+  label: "",
   strokeWidth: 2,
+  downsample: 1,
 };
 
 export const ZERO_LINES_STATE: LinesState = [];
@@ -110,6 +135,8 @@ export type SugaredRangesState = MultiXAxisRecord<Range>;
 
 export interface LinePlotState {
   key: string;
+  title: TitleState;
+  legend: LegendState;
   channels: ChannelsState;
   ranges: RangesState;
   viewport: ViewportState;
@@ -134,6 +161,8 @@ export const ZERO_AXES_STATE: AxesState = {
 
 export const ZERO_LINE_VIS: LinePlotState = {
   key: "",
+  title: ZERO_TITLE_STATE,
+  legend: ZERO_LEGEND_STATE,
   channels: ZERO_CHANNELS_STATE,
   ranges: ZERO_RANGES_STATE,
   viewport: ZERO_VIEWPORT_STATE,
@@ -194,6 +223,16 @@ export interface SetLinePlotLinePaylaod {
   line:
     | (Partial<LineState> & { key: string })
     | Array<Partial<LineState> & { key: string }>;
+}
+
+export interface SetLinePlotTitlePayload {
+  key: string;
+  title: Partial<TitleState>;
+}
+
+export interface SetLinePlotLegendPayload {
+  key: string;
+  legend: Partial<LegendState>;
 }
 
 export interface SetLinePlotAxisPayload {
@@ -272,6 +311,8 @@ export const {
     setLinePlotLine,
     setLinePlotAxis,
     addLinePlotYChannel,
+    setLinePlotTitle,
+    setLinePlotLegend,
     ...actions
   },
   reducer: lineReducer,
@@ -343,6 +384,19 @@ export const {
       const { key: layoutKey, axisKey, axis } = payload;
       const plot = state.plots[layoutKey];
       plot.axes[axisKey] = { ...plot.axes[axisKey], ...axis };
+    },
+    setLinePlotTitle: (state, { payload }: PayloadAction<SetLinePlotTitlePayload>) => {
+      const { key: layoutKey, title } = payload;
+      const plot = state.plots[layoutKey];
+      plot.title = { ...plot.title, ...title };
+    },
+    setLinePlotLegend: (
+      state,
+      { payload }: PayloadAction<SetLinePlotLegendPayload>
+    ) => {
+      const { key: layoutKey, legend } = payload;
+      const plot = state.plots[layoutKey];
+      plot.legend = { ...plot.legend, ...legend };
     },
   },
 });

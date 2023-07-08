@@ -21,5 +21,13 @@ export class Valve extends AetherLeaf<typeof valveState> {
 
   schema = valveState;
 
+  afterUpdate(): void {
+    if (this.state.triggered) {
+      setTimeout(() => {
+        this.setState({ triggered: false, active: !this.state.active });
+      }, 1000);
+    }
+  }
+
   render(): void {}
 }

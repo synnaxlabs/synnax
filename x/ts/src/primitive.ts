@@ -24,3 +24,21 @@ export const isStringer = (value: unknown): boolean =>
   value != null && typeof value === "object" && "toString" in value;
 
 export type PrimitiveRecord = Record<string, Primitive>;
+
+export const primitiveIsZero = (value: Primitive): boolean => {
+  if (isStringer(value)) return value?.toString().length === 0;
+  switch (typeof value) {
+    case "string":
+      return value.length === 0;
+    case "number":
+      return value === 0;
+    case "bigint":
+      return value === BigInt(0);
+    case "boolean":
+      return !value;
+    case "undefined":
+      return true;
+    case "object":
+      return value === null;
+  }
+};

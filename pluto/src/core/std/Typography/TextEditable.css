@@ -13,12 +13,12 @@
     cursor: pointer;
     user-select: text;
     -webkit-user-select: text;
+    padding: 0.25rem 0;
 }
 
 .pluto-text--editable:focus {
     border: var(--pluto-border-width) solid var(--pluto-primary-z);
     z-index: 2;
-    /* box-shadow: 0 0 0 var(--pluto-border-width) var(--pluto-primary-z); */
     border-radius: var(--pluto-border-radius);
     outline: none;
     display: inline-block;

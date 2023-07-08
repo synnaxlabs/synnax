@@ -23,7 +23,7 @@ export interface ValveProps extends Omit<ComponentPropsWithoutRef<"button">, "co
 
 export const Valve = Aether.wrap<ValveProps>(
   WorkerValve.TYPE,
-  ({ aetherKey, color, style = {}, ...props }): ReactElement => {
+  ({ aetherKey, color, style = {}, className, ...props }): ReactElement => {
     const [, { triggered, active }, setState] = Aether.use({
       aetherKey,
       type: WorkerValve.TYPE,
@@ -42,6 +42,7 @@ export const Valve = Aether.wrap<ValveProps>(
     return (
       <button
         className={CSS(
+          className,
           CSS.B("valve"),
           triggered && CSS.BM("valve", "triggered"),
           active && CSS.BM("valve", "active")

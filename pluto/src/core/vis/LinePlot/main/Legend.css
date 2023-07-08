@@ -16,6 +16,8 @@
     left: 15px;
     padding: 1rem;
     background-color: var(--pluto-background-color);
+    max-height: 50%;
+    overflow-y: auto;
 }
 
 .pluto-legend__color {

@@ -10,15 +10,15 @@
 import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Tab, Tabs, Client } from "@synnaxlabs/pluto";
+import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
 
-import { PIDElements } from "./PIDElements";
-import { PIDProperties } from "./PIDProperties";
+import { PIDElementPropertiesControls } from "./PIDElementPropertiesControls";
+import { PIDElements } from "./PIDElementsControls";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useSelectLayout, useSelectRequiredLayout } from "@/layout";
+import { useSelectRequiredLayout } from "@/layout";
 
-export interface PIDToolbar {
+export interface PIDToolbarProps {
   layoutKey: string;
 }
 
@@ -33,15 +33,15 @@ const TABS = [
   },
 ];
 
-export const PIDToolbar = ({ layoutKey }: PIDToolbar): ReactElement => {
+export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   const { name } = useSelectRequiredLayout(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tab): ReactElement => {
       switch (tabKey) {
-        case "properties":
-          return <PIDProperties layoutKey={layoutKey} />;
         case "elements":
           return <PIDElements layoutKey={layoutKey} />;
+        default:
+          return <PIDElementPropertiesControls layoutKey={layoutKey} />;
       }
     },
     [layoutKey]

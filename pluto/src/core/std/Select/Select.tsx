@@ -17,7 +17,12 @@ import {
   useState,
 } from "react";
 
-import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import {
+  AsyncTermSearcher,
+  Key,
+  KeyedRenderableRecord,
+  primitiveIsZero,
+} from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useAsyncEffect } from "@/core/hooks";
@@ -154,12 +159,7 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
     if (visible) return;
-    const key = selected?.key;
-    const isZero =
-      selected == null ||
-      (typeof key === "number" && key === 0) ||
-      (typeof key === "string" && key.length === 0);
-    if (isZero) return setInternalValue("");
+    if (primitiveIsZero(selected?.key)) return setInternalValue("");
     const v = selected?.[tagKey] as string | number;
     setInternalValue?.(v.toString());
   }, [selected, visible, tagKey]);

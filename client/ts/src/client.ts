@@ -10,13 +10,13 @@
 import { TimeSpan, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { CacheChannelRetriever, ClusterChannelRetriever } from "./channel/retriever";
-
 import { AuthenticationClient } from "@/auth";
 import { ChannelClient, ChannelCreator } from "@/channel";
+import { CacheChannelRetriever, ClusterChannelRetriever } from "@/channel/retriever";
 import { ConnectivityClient } from "@/connectivity";
 import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
+import { RangeClient, RangeCreator, RangeRetriever } from "@/ranger";
 import { Transport } from "@/transport";
 
 export const synnaxPropsZ = z.object({
@@ -43,6 +43,7 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
 export default class Synnax {
   private readonly transport: Transport;
   telem: FrameClient;
+  ranges: RangeClient;
   channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: ConnectivityClient;
@@ -76,17 +77,20 @@ export default class Synnax {
       });
       this.transport.use(this.auth.middleware());
     }
-    const retriever = new CacheChannelRetriever(
+    const chRetriever = new CacheChannelRetriever(
       new ClusterChannelRetriever(this.transport.unary)
     );
-    const creator = new ChannelCreator(this.transport.unary);
-    this.telem = new FrameClient(this.transport.stream, retriever);
-    this.channels = new ChannelClient(this.telem, retriever, creator);
+    const chCreator = new ChannelCreator(this.transport.unary);
+    this.telem = new FrameClient(this.transport.stream, chRetriever);
+    this.channels = new ChannelClient(this.telem, chRetriever, chCreator);
     this.connectivity = new ConnectivityClient(
       this.transport.unary,
       connectivityPollFrequency
     );
     this.ontology = new OntologyClient(this.transport.unary);
+    const rangeRetriever = new RangeRetriever(this.transport.unary);
+    const rangeCreator = new RangeCreator(this.transport.unary);
+    this.ranges = new RangeClient(this.telem, rangeRetriever, rangeCreator);
   }
 
   close(): void {

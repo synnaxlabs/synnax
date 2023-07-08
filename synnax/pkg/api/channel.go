@@ -34,7 +34,6 @@ type Channel struct {
 // ChannelService is the central API for all things Channel related.
 type ChannelService struct {
 	validationProvider
-	authProvider
 	dbProvider
 	internal channel.Service
 }
@@ -43,7 +42,6 @@ func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		internal:           p.Config.Channel,
 		validationProvider: p.Validation,
-		authProvider:       p.auth,
 		dbProvider:         p.db,
 	}
 }

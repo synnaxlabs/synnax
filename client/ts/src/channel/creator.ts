@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   ChannelPayload,
   channelPayload,
   parseChannels,
-  unkeyedChannelPayload,
-  UnparsedChannel,
+  newChannelPayload,
+  NewChannelPayload,
 } from "@/channel/payload";
 
-const reqZ = z.object({ channels: unkeyedChannelPayload.array() });
+const reqZ = z.object({ channels: newChannelPayload.array() });
 
 const resZ = z.object({ channels: channelPayload.array() });
 
@@ -31,10 +30,8 @@ export class ChannelCreator {
     this.client = client;
   }
 
-  async create(
-    channels: UnparsedChannel | UnparsedChannel[]
-  ): Promise<ChannelPayload[]> {
-    const req = { channels: parseChannels(toArray(channels)) };
+  async create(channels: NewChannelPayload[]): Promise<ChannelPayload[]> {
+    const req = { channels: parseChannels(channels) };
     const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
       ChannelCreator.ENDPOINT,
       req,

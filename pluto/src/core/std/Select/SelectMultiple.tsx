@@ -62,7 +62,7 @@ export const SelectMultiple = <
   onChange,
   value,
   location,
-  data = [],
+  data,
   columns = [],
   tagKey = "key",
   emptyContent,
@@ -76,11 +76,12 @@ export const SelectMultiple = <
   const searchMode = searcher != null;
 
   useAsyncEffect(async () => {
-    if (!searchMode) return;
     const selectedKeys = selected.map((v) => v.key);
     if (Compare.primitiveArrays(selectedKeys, value) === Compare.equal) return;
-    const entries = await searcher.retrieve(value as K[]);
-    setSelected(entries);
+    const e = searchMode
+      ? await searcher.retrieve(value as K[])
+      : data?.filter((v) => value.includes(v.key)) ?? [];
+    setSelected(e);
   }, [searcher, searchMode, value, data]);
 
   const handleChange = useCallback(
@@ -179,6 +180,7 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
       >
         {selected.map((e, i) =>
           renderTag({
+            key: e.key,
             tagKey,
             entry: e,
             color: palette[i % palette.length],
@@ -192,6 +194,7 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
 };
 
 interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+  key: K;
   tagKey: keyof E;
   entry: E;
   color: ColorT;
@@ -203,7 +206,7 @@ const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>
   entry,
   ...props
 }: SelectMultipleTagProps<K, E>): ReactElement => (
-  <Tag key={entry.key} size="small" variant="outlined" draggable {...props}>
+  <Tag size="small" variant="outlined" draggable {...props}>
     {convertRenderV(entry[tagKey])}
   </Tag>
 );

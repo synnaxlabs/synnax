@@ -22,8 +22,8 @@ type Field struct {
 type FieldType uint8
 
 // AssertValue asserts that the provided value is of the specified type.
-func (f FieldType) AssertValue(v any) bool {
-	switch f {
+func (f Field) AssertValue(v any) bool {
+	switch f.Type {
 	case String:
 		return assertValueType[string](v)
 	case Int:
@@ -52,8 +52,17 @@ func (f FieldType) AssertValue(v any) bool {
 		return assertValueType[bool](v)
 	case UUID:
 		return assertValueType[uuid.UUID](v)
-	case SchemaT:
-		return assertValueType[Schema](v)
+	case Nested:
+		data, ok := v.(Data)
+		if !ok {
+			return false
+		}
+		for key, field := range f.Schema.Fields {
+			if !field.AssertValue(data[key]) {
+				return false
+			}
+		}
+		return true
 	default:
 		panic("[FieldType]")
 	}
@@ -74,7 +83,7 @@ const (
 	Float64
 	Bool
 	UUID
-	SchemaT
+	Nested
 )
 
 type Value interface {
@@ -92,7 +101,7 @@ type Value interface {
 		float64 |
 		bool |
 		uuid.UUID |
-		Schema
+		map[string]interface{}
 }
 
 func assertValueType[V Value](v any) bool { _, ok := v.(V); return ok }

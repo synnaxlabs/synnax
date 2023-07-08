@@ -12,6 +12,7 @@ import { ReactElement } from "react";
 import { Bounds, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { TypographyLevel } from "@/core";
 import { Color } from "@/core/color";
 import {
   LinePlot as CoreLinePlot,
@@ -74,13 +75,27 @@ export const linePlotProps = z.object({
 export interface LinePlotProps extends CoreLinePlotProps {
   axes: AxisProps[];
   lines: LineProps[];
+  title?: string;
+  showTitle?: boolean;
+  onTitleChange?: (value: string) => void;
+  titleLevel?: TypographyLevel;
+  showLegend?: boolean;
 }
 
-export const LinePlot = (props: LinePlotProps): ReactElement => {
-  const { axes, lines } = linePlotProps.parse(props);
+export const LinePlot = ({
+  lines: pLines,
+  axes: pAxes,
+  showTitle = true,
+  title = "",
+  onTitleChange,
+  showLegend = true,
+  titleLevel = "h4",
+  ...restProps
+}: LinePlotProps): ReactElement => {
+  const { axes, lines } = linePlotProps.parse({ axes: pAxes, lines: pLines });
   const xAxes = axes.filter(({ location }) => location.isY);
   return (
-    <CoreLinePlot {...props}>
+    <CoreLinePlot {...restProps}>
       {xAxes.map((a) => (
         <XAxis
           key={a.id}
@@ -89,7 +104,10 @@ export const LinePlot = (props: LinePlotProps): ReactElement => {
           yAxes={axes.filter(({ location }) => location.isX)}
         />
       ))}
-      <CoreLinePlot.Legend />
+      {showLegend && <CoreLinePlot.Legend />}
+      {showTitle && (
+        <CoreLinePlot.Title value={title} onChange={onTitleChange} level={titleLevel} />
+      )}
     </CoreLinePlot>
   );
 };
