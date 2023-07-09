@@ -66,19 +66,21 @@ class RangeClient:
 
     def create(
         self,
-        ranges: Range | list[Range],
+        ranges: Range | list[Range] = None,
         *,
         name: str = "",
         time_range: TimeRange | None = None,
     ) -> Range | list[Range]:
+        is_single = True
         if ranges is None:
             _ranges = [RangePayload(name=name, time_range=time_range)]
         elif isinstance(ranges, Range):
             _ranges = [ranges.to_payload()]
         else:
+            is_single = False
             _ranges = [r.to_payload() for r in ranges]
-        _ranges = self.__creator.create(_ranges)
-        return self.__sugar(_ranges)
+        res = self.__sugar(self.__creator.create(_ranges))
+        return res if not is_single else res[0]
 
     @overload
     def retrieve(
@@ -99,7 +101,7 @@ class RangeClient:
         params: RangeParams,
     ) -> Range | list[Range]:
         normal = normalize_range_params(params)
-        _ranges = self.__retriever.retrieve(normal)
+        _ranges = self.__retriever.retrieve(normal.params)
         sug = self.__sugar(_ranges)
         if not normal.single:
             return sug
@@ -108,6 +110,13 @@ class RangeClient:
         elif len(sug) > 1:
             raise QueryError(f"Multiple ranges matching {normal} found")
         return sug[0]
+
+    def search(
+        self,
+        term: str,
+    ) -> list[Range]:
+        _ranges = self.__retriever.search(term)
+        return self.__sugar(_ranges)
 
     def __sugar(self, ranges: list[RangePayload]):
         return [Range(**r.dict(), frame_client=self.__frame_client) for r in ranges]

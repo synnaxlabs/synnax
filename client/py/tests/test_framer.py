@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 
 import synnax as sy
-import synnax.channel.channel
 
 
 @pytest.mark.framer
@@ -21,7 +20,7 @@ class TestChannelWriteRead:
     def test_write_read(self, client: sy.Synnax):
         """Should create a channel and write then read from it"""
         channel = client.channels.create(
-            synnax.channel.channel.Channel(
+            sy.Channel(
                 name="test",
                 rate=1 * sy.Rate.HZ,
                 data_type=sy.DataType.INT64,
@@ -40,18 +39,14 @@ class TestChannelWriteRead:
 @pytest.mark.framer
 @pytest.mark.writer
 class TestWriter:
-    def test_basic_write(
-        self, channel: synnax.channel.channel.Channel, client: sy.Synnax
-    ):
+    def test_basic_write(self, channel: sy.Channel, client: sy.Synnax):
         with client.new_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
-    def test_write_by_name(
-        self, channel: synnax.channel.channel.Channel, client: sy.Synnax
-    ):
+    def test_write_by_name(self, channel: sy.Channel, client: sy.Synnax):
         with client.new_writer(0, channel.name) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
@@ -60,9 +55,7 @@ class TestWriter:
 
 @pytest.mark.framer
 class TestStreamer:
-    def test_basic_stream(
-        self, channel: synnax.channel.channel.Channel, client: sy.Synnax
-    ):
+    def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
         with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
             with client.new_streamer(channel.key) as s:
                 data = np.random.rand(10).astype(np.float64)

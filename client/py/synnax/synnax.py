@@ -20,7 +20,8 @@ from synnax.framer import FrameClient
 from synnax.options import SynnaxOptions
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.ranger import RangeClient, RangeRetriever, RangeCreator
+from synnax.ranger import RangeRetriever, RangeCreator
+from synnax.ranger.client import RangeClient
 
 
 class Synnax(FrameClient):

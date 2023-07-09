@@ -9,6 +9,7 @@
 
 __version__ = "0.3.0"
 
+from synnax.ranger import Range
 from synnax.channel import Channel
 from synnax.exceptions import (
     AuthError,
@@ -21,7 +22,6 @@ from synnax.exceptions import (
     UnexpectedError,
     ValidationError,
 )
-from freighter.exceptions import Unreachable
 from synnax.options import SynnaxOptions
 from synnax.synnax import Synnax
 from synnax.telem import (
