@@ -21,6 +21,7 @@ import {
   componentRenderProp,
 } from "@synnaxlabs/pluto";
 import type { InputSwitchProps } from "@synnaxlabs/pluto";
+import { nanoid } from "nanoid";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
@@ -71,7 +72,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
     if (state.status !== "connected") return setConnState(state);
     dispatch(
       setCluster({
-        key: clusterKey as string,
+        key: nanoid(),
         name,
         state,
         props: data as SynnaxProps,

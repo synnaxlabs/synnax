@@ -194,11 +194,3 @@
     > *:last-child:not(:only-child) {
     border-radius: var(--pluto-pack--x-last-y-last);
 }
-
-/** X with X Child */
-
-.pluto-pack.pluto--x
-    > .pluto-pack.pluto--x:first-child:not(:only-child):not(:has(+ .pluto--hidden))
-    > *:first-child:not(:only-child) {
-    border-radius: var(--pluto-pack--x-first-x-first);
-}

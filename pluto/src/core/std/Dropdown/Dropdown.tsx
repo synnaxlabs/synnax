@@ -111,7 +111,11 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       >
         {children[0]}
         <Space
-          className={CSS(CSS.BE("dropdown", "dialog"), CSS.loc(loc))}
+          className={CSS(
+            CSS.BE("dropdown", "dialog"),
+            CSS.loc(loc),
+            CSS.visible(visible)
+          )}
           role="dialog"
           empty
           style={dialogStyle}
