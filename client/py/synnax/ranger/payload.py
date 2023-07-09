@@ -16,7 +16,7 @@ from uuid import UUID
 from freighter import Payload
 
 from synnax.telem import TimeRange
-from synnax.util import normalize
+from synnax.util.normalize import normalize
 
 
 class RangePayload(Payload):

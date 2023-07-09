@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
+from uuid import UUID
 
+from pydantic import PrivateAttr
 from synnax.channel import (
     ChannelKeys,
     ChannelNames,
@@ -22,13 +24,16 @@ from synnax.framer import FrameClient, Frame
 
 
 class Range(RangePayload):
-    __frame_client: FrameClient | None
+    __frame_client: FrameClient | None = PrivateAttr(None)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def __init__(
         self,
         name: str,
         time_range: TimeRange,
-        key: str = "",
+        key: UUID = UUID(int=0),
         frame_client: FrameClient = None,
     ):
         super().__init__(

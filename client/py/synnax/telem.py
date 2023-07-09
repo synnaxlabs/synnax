@@ -84,11 +84,11 @@ class TimeStamp(int):
 
     @classmethod
     def since(cls, ts: UnparsedTimeStamp) -> TimeSpan:
-        """: returns the amount of time elapsed since the given TimeStamp."""
+        """:returns the amount of time elapsed since the given TimeStamp."""
         return TimeStamp.now().span(ts)
 
     def span(self, other: UnparsedTimeStamp) -> TimeSpan:
-        """Returns the TimeSpan between two timestamps. This span is guaranteed to be
+        """:returns: the TimeSpan between two timestamps. This span is guaranteed to be
         positive.
         """
         return TimeRange(self, other).make_valid().span()
@@ -453,7 +453,10 @@ class TimeRange(BaseModel):
     end: TimeStamp
 
     def __init__(
-        self, start: UnparsedTimeStamp | TimeRange, end: UnparsedTimeStamp | None = None
+        self,
+        start: UnparsedTimeStamp | TimeRange,
+        end: UnparsedTimeStamp | None = None,
+        **kwargs,
     ):
         if isinstance(start, TimeRange):
             start, end = start.start, start.end

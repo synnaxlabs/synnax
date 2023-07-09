@@ -15,3 +15,7 @@
     left: 2rem;
     z-index: 5;
 }
+
+.react-flow__selection {
+    background-color: var(--pluto-primary);
+}
