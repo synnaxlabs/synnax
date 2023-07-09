@@ -26,6 +26,7 @@ package ontology
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"

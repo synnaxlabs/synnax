@@ -46,7 +46,12 @@ type Service struct{ Config }
 
 func NewService(cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
-	return &Service{Config: cfg}, err
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

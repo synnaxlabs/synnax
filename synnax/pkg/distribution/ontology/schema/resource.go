@@ -10,6 +10,7 @@
 package schema
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -124,7 +125,7 @@ func Set[V Value](D Resource, k string, v V) {
 		panic("[Schema] - field not found")
 	}
 	if !f.AssertValue(v) {
-		panic("[Schema] - invalid field type")
+		panic(fmt.Sprintf("[Schema] - invalid value %v for field %s", v, k))
 	}
 	D.Data[k] = v
 }
