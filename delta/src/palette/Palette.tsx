@@ -32,6 +32,7 @@ import {
   useDebouncedCallback,
   createFilterTransform,
   Status,
+  DropdownProps,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
@@ -59,7 +60,7 @@ export interface PaletteProps {
 const normalizeTriggers = (triggers: PaletteTriggerConfig): Trigger[] =>
   Object.values(triggers).flat();
 
-type PaletteMode = "command" | "resource" | "closed";
+type PaletteMode = "command" | "resource";
 
 export const Palette = ({
   commands,
@@ -70,7 +71,7 @@ export const Palette = ({
 }: PaletteProps): ReactElement => {
   const dropdown = Dropdown.use();
 
-  const [mode, setMode] = useState<PaletteMode>("closed");
+  const [mode, setMode] = useState<PaletteMode>("resource");
 
   const store = useStore() as RootStore;
   const placeLayout = useLayoutPlacer();
@@ -101,6 +102,7 @@ export const Palette = ({
         ref={dropdown.ref}
         visible={dropdown.visible}
         className={CSS.B("palette")}
+        matchTriggerWidth
       >
         <PaletteInput
           mode={mode}
@@ -116,6 +118,7 @@ export const Palette = ({
           mode={mode}
           resourceTypes={resourceTypes}
           onSelect={handleSelect}
+          visible={dropdown.visible}
         />
       </Dropdown>
     </List>
@@ -145,33 +148,49 @@ export const PaletteInput = ({
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { sourceData, setSourceData, setTransform, deleteTransform, setEmptyContent } =
+  const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
     List.useContext();
 
   useEffect(() => {
-    if (!visible) {
-      setValue("");
-      setMode("closed");
-    }
+    if (!visible) inputRef.current?.blur();
   }, [visible, setMode]);
+
+  const handleBlur = useCallback(() => setValue(""), []);
 
   const updateMode = useCallback(
     (nextMode: PaletteMode) => {
       setMode(nextMode);
       if (nextMode === "command") setSourceData(commands);
-      else setSourceData([]);
+      else {
+        setSourceData([]);
+        setEmptyContent(
+          <Status.Text.Centered
+            level="h4"
+            variant="disabled"
+            hideIcon
+            style={{ height: 150 }}
+          >
+            Type to search
+          </Status.Text.Centered>
+        );
+      }
     },
     [setMode, setSourceData, commands]
   );
 
-  const handleFocus = useCallback(() => {
-    open();
-    updateMode("resource");
-  }, [open, updateMode]);
-
   const handleSearch = useDebouncedCallback(
     (term: string) => {
-      if (term.length === 0) return;
+      if (term.length === 0)
+        return setEmptyContent(
+          <Status.Text.Centered
+            level="h4"
+            variant="disabled"
+            hideIcon
+            style={{ height: 150 }}
+          >
+            Type to search
+          </Status.Text.Centered>
+        );
       searcher
         .search(term)
         .then((d) => {
@@ -211,16 +230,21 @@ export const PaletteInput = ({
   );
 
   const handleTrigger = useCallback(
-    ({ triggers }: UseTriggerEvent) => {
+    ({ triggers, stage }: UseTriggerEvent) => {
+      if (stage !== "start" || visible) return;
       const mode = Triggers.match(triggers, triggerConfig.command)
         ? "command"
         : "resource";
-      if (mode === "command") handleChange(commandSymbol);
-      else handleChange("");
-      open();
+      if (mode === "command") {
+        handleChange(commandSymbol);
+        updateMode("command");
+      } else {
+        handleChange("");
+        updateMode("resource");
+      }
       inputRef.current?.focus();
     },
-    [open, triggerConfig.command, commandSymbol, updateMode]
+    [visible, triggerConfig.command, commandSymbol, updateMode]
   );
 
   const triggers = useMemo(() => normalizeTriggers(triggerConfig), [triggerConfig]);
@@ -243,14 +267,16 @@ export const PaletteInput = ({
       ref={inputRef}
       placeholder="Search Synnax"
       centerPlaceholder
-      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onFocus={open}
       onChange={handleChange}
       value={value}
+      autoComplete="off"
     />
   );
 };
 
-export interface PalleteListProps {
+export interface PalleteListProps extends Pick<DropdownProps, "visible"> {
   mode: PaletteMode;
   onSelect: (
     keys: readonly string[],
@@ -262,6 +288,7 @@ export interface PalleteListProps {
 export const PaletteList = ({
   mode,
   onSelect,
+  visible,
   resourceTypes,
 }: PalleteListProps): ReactElement => {
   const item = useMemo(() => {
@@ -273,6 +300,7 @@ export const PaletteList = ({
   return (
     <>
       <List.Selector value={[]} onChange={onSelect} allowMultiple={false} />
+      {visible && <List.Hover />}
       <List.Core.Virtual itemHeight={27}>{item}</List.Core.Virtual>
     </>
   );
@@ -280,6 +308,7 @@ export const PaletteList = ({
 
 export const CommandListItem = ({
   entry: { icon, name, key },
+  hovered,
   onSelect,
   ...props
 }: ListItemProps<string, Command>): ReactElement => {
@@ -292,7 +321,11 @@ export const CommandListItem = ({
       startIcon={icon}
       onClick={handleSelect}
       variant="text"
-      className={CSS(CSS.BE("palette", "item"), CSS.BEM("palette", "item", "command"))}
+      className={CSS(
+        CSS.BE("palette", "item"),
+        hovered && CSS.BEM("palette", "item", "hovered"),
+        CSS.BEM("palette", "item", "command")
+      )}
       {...props}
     >
       {name}
@@ -305,9 +338,10 @@ export const createResourceListItem = (
 ): FC<ListItemProps<string, OntologyResource>> => {
   const ResourceListItem = ({
     entry: { name, key, id },
+    hovered,
     onSelect,
     ...props
-  }: ListItemProps<string, OntologyResource>): ReactElement => {
+  }: ListItemProps<string, OntologyResource>): ReactElement | null => {
     if (id == null) return null;
     const handleSelect = (): void => onSelect?.(key);
     const resourceType = resourceTypes[id.type];
@@ -318,6 +352,7 @@ export const createResourceListItem = (
         variant="text"
         className={CSS(
           CSS.BE("palette", "item"),
+          hovered && CSS.BEM("palette", "item", "hovered"),
           CSS.BEM("palette", "item", "resource")
         )}
         {...props}

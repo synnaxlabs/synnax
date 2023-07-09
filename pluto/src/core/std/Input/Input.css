@@ -50,7 +50,6 @@
 .pluto-input:focus {
     outline: none;
     border-color: var(--pluto-primary-z);
-    z-index: 12;
 }
 
 input[type="number"]::-webkit-inner-spin-button {

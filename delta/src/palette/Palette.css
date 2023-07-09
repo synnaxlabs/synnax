@@ -17,3 +17,7 @@
     border-radius: 0;
     width: 100%;
 }
+
+.delta-palette__item--hovered {
+    background-color: var(--pluto-gray-m2) !important;
+}

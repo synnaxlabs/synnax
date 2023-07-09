@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ListHover } from "./ListKeyHover";
 import { ListSearch } from "./ListSearch";
 
 import { List as CoreList } from "@/core/std/List/List";
@@ -55,6 +56,7 @@ interface ListType extends CoreListType {
    * to the props for {@link useSelectMultiple} hook.
    */
   Selector: typeof ListSelector;
+  Hover: typeof ListHover;
   /**
    * A hook to access the context information for a list. This hook should only be used
    * when you know what you are doing, and are looking to extend the functionality of a
@@ -84,3 +86,4 @@ List.Core = ListCore;
 List.useContext = useListContext;
 List.Selector = ListSelector;
 List.Search = ListSearch;
+List.Hover = ListHover;

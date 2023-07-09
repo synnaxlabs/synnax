@@ -11,7 +11,7 @@ import { RUNTIME, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EncoderDecoder } from "@/encoder";
-import { errorZ, decodeError } from "@/errors";
+import { errorZ, decodeError, Unreachable } from "@/errors";
 import { Context, MiddlewareCollector } from "@/middleware";
 import { UnaryClient } from "@/unary";
 
@@ -74,20 +74,22 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         let httpRes: Response;
         try {
           httpRes = await fetch(ctx.target, request);
-        } catch (err) {
-          return [outCtx, err as Error];
+        } catch (err_) {
+          let err = err_ as Error;
+          if (err.message === "Load failed") err = new Unreachable();
+          return [outCtx, err];
         }
         const data = await httpRes.arrayBuffer();
-        if (httpRes.status < 200 || httpRes.status >= 300) {
-          try {
-            const err = this.encoder.decode(data, errorZ);
-            return [outCtx, decodeError(err)];
-          } catch {
-            return [outCtx, new Error(httpRes.statusText)];
-          }
+        if (httpRes?.ok) {
+          if (resSchema != null) rs = this.encoder.decode(data, resSchema);
+          return [outCtx, null];
         }
-        if (resSchema != null) rs = this.encoder.decode(data, resSchema);
-        return [outCtx, null];
+        try {
+          const err = this.encoder.decode(data, errorZ);
+          return [outCtx, decodeError(err)];
+        } catch {
+          return [outCtx, new Error(httpRes.statusText)];
+        }
       }
     );
 

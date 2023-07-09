@@ -17,7 +17,7 @@ import {
   ReactElement,
 } from "react";
 
-import { XY, TimeStamp, TimeSpan, Destructor, Box } from "@synnaxlabs/x";
+import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 import {
@@ -83,6 +83,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = parseEventKey(e);
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prev) => {
       const next: Trigger = [...prev.next, key];
@@ -105,6 +106,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = parseEventKey(e);
+    if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prevS) => {
       const next = prevS.next.filter(
@@ -126,9 +128,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
    * issues with the user holding down a key and then moving the mouse out of the
    * window.
    */
-  const handleMouseOut = useCallback((e: MouseEvent): void => {
-    const box = new Box(window.document.body);
-    if (box.contains(new XY(e))) return;
+  const handlePageVisbility = useCallback((event: Event): void => {
     setCurr((prevS) => {
       const prev = prevS.next;
       const nextS: TriggerRefState = {
@@ -136,7 +136,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
         next: [],
         prev,
       };
-      updateListeners(nextS, e.target as HTMLElement);
+      updateListeners(nextS, event.target as HTMLElement);
       return nextS;
     });
   }, []);
@@ -149,7 +149,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
     window.addEventListener("mouseup", handleKeyUp);
     window.addEventListener("dragend", handleKeyUp);
     window.addEventListener("drop", handleKeyUp);
-    window.addEventListener("mouseout", handleMouseOut);
+    window.addEventListener("blur", handlePageVisbility);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -158,7 +158,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
       window.removeEventListener("mouseup", handleKeyUp);
       window.removeEventListener("dragend", handleKeyUp);
       window.removeEventListener("drop", handleKeyUp);
-      window.removeEventListener("mouseout", handleMouseOut);
+      window.removeEventListener("blur", handlePageVisbility);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 

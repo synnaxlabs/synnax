@@ -17,6 +17,7 @@
     width: 20%;
     flex-shrink: 0;
     flex-grow: 0 !important;
+    z-index: 2;
 }
 
 .pluto-select-multiple__tags {

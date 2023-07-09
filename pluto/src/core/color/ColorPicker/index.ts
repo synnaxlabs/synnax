@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ClientProvider, useClient, useConnectionState } from "@/client/ClientContext";
-export type { ClientProviderProps } from "@/client/ClientContext";
-
-export const Client = {
-  Provider: ClientProvider,
-  use: useClient,
-  useConnectionState,
-};
+export * from "@/core/color/ColorPicker/ColorPicker";

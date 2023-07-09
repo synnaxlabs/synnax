@@ -11,7 +11,7 @@ import { ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsZ } from "@synnaxlabs/client";
-import type { SynnaxProps } from "@synnaxlabs/client";
+import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
 import {
   Button,
   Header,
@@ -27,7 +27,6 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { ConnectionStateBadge } from "@/cluster/components/ClusterBadges";
-import type { ConnectionState } from "@/cluster/core";
 import { setActiveCluster, setCluster } from "@/cluster/store";
 import { testConnection } from "@/cluster/util/testConnection";
 import { CSS } from "@/css";

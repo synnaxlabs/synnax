@@ -116,6 +116,7 @@ const ListColumnItem = <
   columns,
   onSelect,
   index,
+  hovered,
   ...props
 }: ListItemProps<K, E>): ReactElement => {
   const handleSelect = (): void => onSelect?.(entry.key);
@@ -126,6 +127,7 @@ const ListColumnItem = <
         CONTEXT_TARGET,
         CSS.BE("list-col-item", "container"),
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
+        hovered && CSS.BEM("list-col-item", "container", "hovered"),
         selected && CSS.BEM("list-col-item", "container", "selected"),
         selected && CONTEXT_SELECTED
       )}

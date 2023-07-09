@@ -16,7 +16,7 @@ import {
   Client,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { TimeRange, primitiveIsZero, unique } from "@synnaxlabs/x";
+import { TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { renameLayout, useSelectRequiredLayout } from "@/layout";
@@ -36,8 +36,6 @@ import {
 } from "@/vis/axis";
 import { Range } from "@/workspace";
 
-import "@/line/LinePlot/LinePlot.css";
-
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const { name } = useSelectRequiredLayout(layoutKey);
   const vis = useSelectLinePlot(layoutKey);
@@ -49,7 +47,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const toFetch = lines.filter((line) => primitiveIsZero(line.label));
+    const toFetch = lines.filter((line) => line.label == null);
+    if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
       unique(toFetch.map((line) => line.channels.y))
     );

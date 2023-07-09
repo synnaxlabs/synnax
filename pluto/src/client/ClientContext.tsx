@@ -16,15 +16,22 @@ import {
   useState,
 } from "react";
 
-import { Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
+import { ConnectionState, Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
 
 interface ClientContextValue {
   client: Synnax | null;
+  state: ConnectionState;
 }
 
-const ClientContext = createContext<ClientContextValue>({ client: null });
+const ClientContext = createContext<ClientContextValue>({
+  client: null,
+  state: Synnax.connectivity.DEFAULT,
+});
 
 export const useClient = (): Synnax | null => useContext(ClientContext).client;
+
+export const useConnectionState = (): ConnectionState =>
+  useContext(ClientContext).state;
 
 export interface ClientProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
@@ -34,11 +41,13 @@ export const ClientProvider = ({
   connParams,
   children,
 }: ClientProviderProps): ReactElement => {
-  const [state, setState] = useState<{ client: Synnax | null }>({ client: null });
+  const [state, setState] = useState<ClientContextValue>({
+    client: null,
+    state: Synnax.connectivity.DEFAULT,
+  });
 
   useEffect(() => {
     if (connParams == null) return;
-
     if (state.client != null) state.client.close();
 
     const client = new Synnax({
@@ -47,18 +56,20 @@ export const ClientProvider = ({
     });
     client.connectivity
       .check()
-      .then(() => {
-        if (client.connectivity.status() !== "connected") return;
+      .then((state) => {
+        if (state.status !== "connected") return;
         setState((c) => {
           if (c.client != null) c.client.close();
-          return { client };
+          return { client, state };
         });
       })
       .catch(console.error);
 
+    client.connectivity.onChange((s) => setState((c) => ({ ...c, state: s })));
+
     return () => {
       client.close();
-      setState({ client: null });
+      setState({ client: null, state: Synnax.connectivity.DEFAULT });
     };
   }, [connParams]);
 

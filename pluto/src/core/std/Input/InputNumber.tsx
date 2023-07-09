@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import { Bounds, CrudeBounds } from "@synnaxlabs/x";
+import { isNumber } from "mathjs";
 
 import { Pack } from "../Pack";
 
@@ -34,7 +35,8 @@ export interface InputNumberProps
   bounds?: CrudeBounds;
 }
 
-const toNUmber = (v: string | number): [number, boolean] => {
+const toNumber = (v: string | number): [number, boolean] => {
+  if (v.toString().length === 0) return [0, false];
   const n = Number(v);
   return [n, !isNaN(n)];
 };
@@ -57,40 +59,37 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
     ref
   ): ReactElement => {
     const [internalValue, setInternalValue] = useState(value.toString());
+    const [isValueValid, setIsValueValid] = useState(true);
 
     const handleChange = useCallback(
       (v: string | number) => {
-        const [n, ok] = toNUmber(v);
+        let [n, ok] = toNumber(v);
         if (ok) {
-          if (new Bounds(bounds).contains(n)) {
-            setInternalValue(v.toString());
-            onChange(n);
-          }
+          setIsValueValid(true);
+          n = new Bounds(bounds).clamp(n);
+          setInternalValue(v.toString());
+          onChange(n);
         } else {
           setInternalValue(v.toString());
+          setIsValueValid(false);
         }
       },
       [setInternalValue, onChange]
     );
 
+    const value_ = isValueValid ? value : internalValue;
+
     const input = (
       <Input
         ref={ref}
         type="number"
-        value={internalValue}
+        value={value_.toString()}
         onChange={handleChange}
         style={showDragHandle ? undefined : style}
         selectOnFocus={selectOnFocus}
         {...props}
       />
     );
-
-    useLayoutEffect(() => {
-      const b = new Bounds(bounds);
-      if (value !== Number(internalValue)) handleChange(value.toString());
-      if (value > b.upper) handleChange(b.upper);
-      if (value < b.lower) handleChange(b.lower);
-    }, [value, bounds]);
 
     const onDragChange = useCallback(
       (value: number) => handleChange(Math.round(value)),

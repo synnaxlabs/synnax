@@ -18,6 +18,8 @@ import {
   Status,
   Tabs,
   Text,
+  Color,
+  ColorSwatch,
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -72,11 +74,16 @@ export const LinePlotLinesControls = ({
           {
             key: "strokeWidth",
             name: "Line Width",
-            width: 140,
+            width: 150,
           },
           {
             key: "downsample",
             name: "Downsampling",
+            width: 110,
+          },
+          {
+            key: "color",
+            name: "Color",
             width: 100,
           },
         ]}
@@ -109,23 +116,26 @@ const LinePlotLineControls = ({
     onChange({ ...line, downsample: value });
   };
 
+  const handleColorChange: InputControl<Color>["onChange"] = (value: Color) => {
+    onChange({ ...line, color: value.hex });
+  };
+
   return (
     <Space style={{ padding: "0.5rem", width: "100%" }} direction="x">
       <Input
-        style={{ width: 300 }}
+        style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}
-        variant="shadow"
       />
       <Input.Number
-        value={line.strokeWidth ?? 1}
+        value={line.strokeWidth}
         onChange={handleWidthChange}
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
-        style={{ width: 140 }}
+        style={{ width: 140, marginRight: "2rem" }}
       />
       <Input.Number
-        style={{ width: 100 }}
+        style={{ width: 100, marginRight: "2rem" }}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
         dragScale={{
@@ -137,6 +147,7 @@ const LinePlotLineControls = ({
           upper: 51,
         }}
       />
+      <ColorSwatch value={new Color(line.color)} onChange={handleColorChange} />
     </Space>
   );
 };

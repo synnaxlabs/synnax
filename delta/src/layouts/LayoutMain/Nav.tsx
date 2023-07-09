@@ -36,6 +36,7 @@ import {
   NavMenuItem,
   useLayoutPlacer,
 } from "@/layout";
+import { LAYOUT_COMMANDS } from "@/layout/palette";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LINE_COMMANDS } from "@/line/palette";
 import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
@@ -66,6 +67,7 @@ const COMMANDS = [
   ...CLUSTER_COMMANDS,
   ...PID_COMMANDS,
   ...WORKSPACE_COMMANDS,
+  ...LAYOUT_COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

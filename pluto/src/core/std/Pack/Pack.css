@@ -104,6 +104,8 @@
     border: none;
 }
 
+/*  Y with X Child */
+
 .pluto-pack.pluto--y
     > .pluto-pack.pluto--x:first-child:not(:only-child):not(:has(+ .pluto--hidden))
     > *:first-child:not(:only-child) {
@@ -157,6 +159,8 @@
     line-height: var(--pluto-height-large);
 }
 
+/** X with Y Child */
+
 .pluto-pack.pluto--x
     > .pluto-pack.pluto--y:first-child:not(:only-child):not(:has(+ .pluto--hidden))
     > *:first-child:not(:only-child) {
@@ -189,4 +193,12 @@
     > .pluto-pack.pluto--y:last-child:not(:only-child)
     > *:last-child:not(:only-child) {
     border-radius: var(--pluto-pack--x-last-y-last);
+}
+
+/** X with X Child */
+
+.pluto-pack.pluto--x
+    > .pluto-pack.pluto--x:first-child:not(:only-child):not(:has(+ .pluto--hidden))
+    > *:first-child:not(:only-child) {
+    border-radius: var(--pluto-pack--x-first-x-first);
 }

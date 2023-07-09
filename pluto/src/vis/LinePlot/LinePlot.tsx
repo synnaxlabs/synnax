@@ -26,6 +26,7 @@ export const axisProps = z.object({
   label: z.string().optional(),
   bounds: Bounds.looseZ.optional(),
   color: Color.z.optional(),
+  showGrid: z.boolean().optional(),
 });
 
 export type AxisProps = z.input<typeof axisProps>;
@@ -96,10 +97,11 @@ export const LinePlot = ({
   const xAxes = axes.filter(({ location }) => location.isY);
   return (
     <CoreLinePlot {...restProps}>
-      {xAxes.map((a) => (
+      {xAxes.map((a, i) => (
         <XAxis
           key={a.id}
           {...a}
+          index={i}
           lines={lines.filter((l) => l.axes.x === a.id)}
           yAxes={axes.filter(({ location }) => location.isX)}
         />
@@ -115,13 +117,25 @@ export const LinePlot = ({
 interface XAxisProps extends ParsedAxisProps {
   lines: ParsedLineProps[];
   yAxes: ParsedAxisProps[];
+  index: number;
 }
 
-const XAxis = ({ yAxes, lines, ...props }: XAxisProps): ReactElement => {
+const XAxis = ({
+  yAxes,
+  lines,
+  showGrid,
+  index,
+  ...props
+}: XAxisProps): ReactElement => {
   return (
-    <CoreLinePlot.XAxis type="time" {...props}>
-      {yAxes.map((a) => (
-        <YAxis key={a.id} {...a} lines={lines.filter((l) => l.axes.y === a.id)}></YAxis>
+    <CoreLinePlot.XAxis type="time" {...props} showGrid={showGrid ?? index === 0}>
+      {yAxes.map((a, i) => (
+        <YAxis
+          key={a.id}
+          {...a}
+          lines={lines.filter((l) => l.axes.y === a.id)}
+          showGrid={showGrid ?? (index === 0 && i === 0)}
+        ></YAxis>
       ))}
     </CoreLinePlot.XAxis>
   );

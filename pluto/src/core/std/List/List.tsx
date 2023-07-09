@@ -39,6 +39,8 @@ export const List = <
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
   const [columns, setColumns] = useState<Array<ListColumn<K, E>>>([]);
+  const [selected, setSelected] = useState<readonly K[]>([]);
+  const [hover, setHover] = useState<number>(-1);
   const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
   const [clear, setClear] = useState<(() => void) | undefined>(undefined);
   const { transform, setTransform, deleteTransform } = useTransforms<E>({});
@@ -60,12 +62,18 @@ export const List = <
         setSourceData,
         deleteTransform,
         setTransform,
+        hover: {
+          value: hover,
+          onChange: setHover,
+        },
         emptyContent: emptyContent ?? emptyContent_,
         columnar: {
           columns,
           setColumns,
         },
         select: {
+          value: selected,
+          onChange: setSelected,
           setOnSelect,
           onSelect,
           clear,
