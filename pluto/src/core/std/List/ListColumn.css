@@ -27,12 +27,14 @@
     background-color: var(--pluto-primary-z-40);
 }
 
-.pluto-list-col-item__container--selectable:hover {
+.pluto-list-col-item__container--selectable:hover,
+.pluto-list-col-item__container--selectable.pluto-list-col-item__container--hovered {
     background-color: var(--pluto-gray-m2);
 }
 
-.pluto-list-col-item__container--selected:hover {
-    background-color: var(--pluto-primary-z-40);
+.pluto-list-col-item__container--selected:hover,
+.pluto-list-col-item__container--selected.pluto-list-col-item__container--hovered {
+    background-color: var(--pluto-primary-z-20);
 }
 
 .pluto-list-col-header__container {

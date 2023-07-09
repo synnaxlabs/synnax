@@ -41,22 +41,24 @@ export const LinePlotPropertiesControls = ({
   };
 
   return (
-    <Space direction="y">
+    <Space direction="y" style={{ padding: "2rem" }}>
       <Input.Item<string> label="Title" value={name} onChange={handleTitleRename} />
-      <Input.Item<boolean>
-        label="Show Title"
-        value={plot.title.visible}
-        onChange={handleTitleVisibilityChange}
-      >
-        {componentRenderProp(Input.Switch)}
-      </Input.Item>
-      <Input.Item<boolean>
-        label="Show Legend"
-        value={plot.legend.visible}
-        onChange={handleLegendVisibilityChange}
-      >
-        {componentRenderProp(Input.Switch)}
-      </Input.Item>
+      <Space direction="x" size="small">
+        <Input.Item<boolean>
+          label="Show Title"
+          value={plot.title.visible}
+          onChange={handleTitleVisibilityChange}
+        >
+          {componentRenderProp(Input.Switch)}
+        </Input.Item>
+        <Input.Item<boolean>
+          label="Show Legend"
+          value={plot.legend.visible}
+          onChange={handleLegendVisibilityChange}
+        >
+          {componentRenderProp(Input.Switch)}
+        </Input.Item>
+      </Space>
     </Space>
   );
 };

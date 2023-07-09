@@ -1,5 +1,4 @@
-{
-  "extends": "@synnaxlabs/tsconfig/base.json",
+{  "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "types": ["webgl2", "offscreencanvas"]

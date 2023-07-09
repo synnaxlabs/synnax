@@ -96,7 +96,13 @@ export const SelectMultiple = <
 
   return (
     <List data={data} emptyContent={emptyContent}>
-      <Dropdown ref={ref} visible={visible} location={location} {...props}>
+      <Dropdown
+        ref={ref}
+        visible={visible}
+        location={location}
+        {...props}
+        matchTriggerWidth
+      >
         {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
@@ -112,6 +118,7 @@ export const SelectMultiple = <
           )}
         </InputWrapper>
         <SelectList
+          visible={visible}
           value={value}
           onChange={handleChange}
           columns={columns}

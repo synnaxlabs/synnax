@@ -9,14 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-/* .pluto-select {
-    width: 100%;
-} */
-
 .pluto-select__clear {
     background: var(--pluto-background-color);
 }
 
 .pluto-select__input {
     flex-grow: 1;
+    z-index: 2;
 }

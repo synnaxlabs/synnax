@@ -21,16 +21,16 @@ export interface LineProps extends CoreLineProps {
 
 export const Line = Aether.wrap<LineProps>(
   "Line",
-  ({ aetherKey, label = "", ...props }): ReactElement => {
+  ({ aetherKey, color, label = "", ...props }): ReactElement => {
     const { setLine, removeLine } = useLinePlotContext("Line");
     useEffect(() => {
       setLine({
         key: aetherKey,
-        color: props.color,
+        color,
         label,
       });
       return () => removeLine(aetherKey);
-    }, [label]);
-    return <CoreLine aetherKey={aetherKey} {...props} />;
+    }, [label, color]);
+    return <CoreLine aetherKey={aetherKey} color={color} {...props} />;
   }
 );

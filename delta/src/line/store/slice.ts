@@ -83,7 +83,7 @@ export type AxesState = Record<AxisKey, AxisState>;
 
 export interface LineState {
   key: string;
-  label: string;
+  label?: string;
   color: string;
   strokeWidth: number;
   downsample: number;
@@ -93,7 +93,6 @@ export type LinesState = LineState[];
 
 const ZERO_LINE_STATE: Omit<LineState, "key"> = {
   color: "",
-  label: "",
   strokeWidth: 2,
   downsample: 1,
 };

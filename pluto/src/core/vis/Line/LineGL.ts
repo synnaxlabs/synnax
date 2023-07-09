@@ -133,6 +133,7 @@ export class LineGL
 
   afterUpdate(): void {
     this.derived.telem.onChange(() => this.derived.requestRender());
+    this.derived.requestRender();
   }
 
   async xBounds(): Promise<Bounds> {

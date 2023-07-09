@@ -9,16 +9,9 @@
 
 import { useCallback, useRef } from "react";
 
-import { Key, KeyedRecord, unique, ArrayTransform } from "@synnaxlabs/x";
+import { Key, KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { Triggers } from "@/core/triggers";
-
-export type SelectedRecord<
-  K extends Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>
-> = E & {
-  selected?: true;
-};
 
 /** Props for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleProps<
@@ -36,7 +29,6 @@ export interface UseSelectMultipleReturn<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>
 > {
-  transform: ArrayTransform<E, SelectedRecord<K, E>>;
   onSelect: (key: K) => void;
   clear: () => void;
 }
@@ -112,11 +104,5 @@ export const useSelectMultiple = <
 
   const clear = useCallback((): void => onChange([], []), [onChange]);
 
-  const transform = useCallback(
-    (data: E[]): Array<SelectedRecord<K, E>> =>
-      data.map((d) => (value.includes(d.key) ? { ...d, selected: true } : d)),
-    [value]
-  );
-
-  return { onSelect: handleSelect, clear, transform };
+  return { onSelect: handleSelect, clear };
 };

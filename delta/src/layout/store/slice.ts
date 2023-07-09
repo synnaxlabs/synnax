@@ -122,7 +122,7 @@ export type PlaceLayoutPayload = LayoutState;
 /** Signature for the removeLayout action. */
 export type RemoveLayoutPayload = string;
 /** Signature for the setTheme action. */
-export type SetActiveThemePayload = string;
+export type SetActiveThemePayload = string | undefined;
 
 interface MoveLayoutMosaicTabPayload {
   tabKey: string;
@@ -244,7 +244,13 @@ export const { actions, reducer: layoutReducer } = createSlice({
       state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
-      state.activeTheme = key;
+      if (key != null) state.activeTheme = key;
+      else {
+        const keys = Object.keys(state.themes).sort();
+        const index = keys.indexOf(state.activeTheme);
+        const next = keys[(index + 1) % keys.length];
+        state.activeTheme = next;
+      }
     },
     toggleActiveTheme: (state) => {
       const keys = Object.keys(state.themes);

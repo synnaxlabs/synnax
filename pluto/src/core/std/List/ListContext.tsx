@@ -13,6 +13,7 @@ import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { UseTransformsReturn } from "@/core/hooks/useTransforms";
 import { ListColumn } from "@/core/std/List/types";
+import { SetState } from "@/util/state";
 
 export interface ListContextProps<
   K extends Key = Key,
@@ -28,10 +29,16 @@ export interface ListContextProps<
   sourceData: E[];
   setSourceData: (data: E[]) => void;
   select: {
+    value: readonly K[];
+    onChange: (value: readonly K[]) => void;
     onSelect?: (key: K) => void;
     clear?: () => void;
     setOnSelect: (cbk: (key: K) => void) => void;
     setClear: (cbk: () => void) => void;
+  };
+  hover: {
+    value: number;
+    onChange: SetState<number>;
   };
   emptyContent?: ReactElement;
   setEmptyContent: (content: ReactElement) => void;
@@ -48,10 +55,16 @@ export const ListContext = createContext<ListContextProps>({
   deleteTransform: () => undefined,
   setSourceData: () => undefined,
   select: {
+    value: [],
+    onChange: () => undefined,
     onSelect: undefined,
     setOnSelect: () => undefined,
     clear: undefined,
     setClear: () => undefined,
+  },
+  hover: {
+    value: -1,
+    onChange: () => undefined,
   },
   emptyContent: undefined,
   setEmptyContent: () => undefined,

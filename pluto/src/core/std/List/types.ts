@@ -55,5 +55,6 @@ export interface ListItemProps<
   style: React.CSSProperties;
   selected: boolean;
   columns: Array<ListColumn<K, E>>;
+  hovered: boolean;
   onSelect?: (key: K) => void;
 }

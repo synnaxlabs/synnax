@@ -63,6 +63,7 @@ export const Multiple = (): ReactElement => {
         onChange={setValue}
         data={sampleData}
         columns={sampleColumns}
+        location="top"
       />
       <Select.Multiple
         value={valueTwo}

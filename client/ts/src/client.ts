@@ -13,7 +13,7 @@ import { z } from "zod";
 import { AuthenticationClient } from "@/auth";
 import { ChannelClient, ChannelCreator } from "@/channel";
 import { CacheChannelRetriever, ClusterChannelRetriever } from "@/channel/retriever";
-import { ConnectivityClient } from "@/connectivity";
+import { Connectivity } from "@/connectivity";
 import { FrameClient } from "@/framer";
 import { OntologyClient } from "@/ontology";
 import { RangeClient, RangeCreator, RangeRetriever } from "@/ranger";
@@ -46,9 +46,10 @@ export default class Synnax {
   ranges: RangeClient;
   channels: ChannelClient;
   auth: AuthenticationClient | undefined;
-  connectivity: ConnectivityClient;
+  connectivity: Connectivity;
   ontology: OntologyClient;
   props: ParsedSynnaxProps;
+  static readonly connectivity = Connectivity;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -83,7 +84,7 @@ export default class Synnax {
     const chCreator = new ChannelCreator(this.transport.unary);
     this.telem = new FrameClient(this.transport.stream, chRetriever);
     this.channels = new ChannelClient(this.telem, chRetriever, chCreator);
-    this.connectivity = new ConnectivityClient(
+    this.connectivity = new Connectivity(
       this.transport.unary,
       connectivityPollFrequency
     );

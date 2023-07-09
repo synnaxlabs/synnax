@@ -11,25 +11,34 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export type Connectivity = "disconnected" | "connecting" | "connected" | "failed";
+export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "failed";
+
+export interface ConnectionState {
+  status: ConnectionStatus;
+  error?: Error;
+  message?: string;
+}
 
 const connectivityResponseSchema = z.object({
   clusterKey: z.string(),
 });
 
+const DEFAULT: ConnectionState = {
+  status: "disconnected",
+  error: undefined,
+  message: undefined,
+};
+
 /** Polls a synnax cluster for connectivity information. */
-export class ConnectivityClient {
+export class Connectivity {
   private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
-  private _status: Connectivity = "disconnected";
-  private _error?: Error;
-  private _statusMessage?: string;
+  static readonly DEFAULT: ConnectionState = DEFAULT;
+  readonly state: ConnectionState = Connectivity.DEFAULT;
   private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
-  private readonly onChangeHandlers: Array<
-    (status: Connectivity, error?: Error, message?: string) => void
-  >;
+  private readonly onChangeHandlers: Array<(state: ConnectionState) => void> = [];
 
   clusterKey: string | undefined;
 
@@ -40,10 +49,8 @@ export class ConnectivityClient {
    */
   constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
     this.id = Math.random().toString(36).substring(7);
-    this._error = undefined;
     this.client = client;
     this.pollFrequency = pollFreq;
-    this.onChangeHandlers = [];
     void this.check();
     this.startChecking();
   }
@@ -57,52 +64,31 @@ export class ConnectivityClient {
    * Executes a connectivity check and updates the client status and error, as
    * well as calling any registered change handlers.
    */
-  async check(): Promise<void> {
-    const prev = this._status;
+  async check(): Promise<ConnectionState> {
+    const prevStatus = this.state.status;
     try {
       const [res, err] = await this.client.send(
-        ConnectivityClient.ENDPOINT,
+        Connectivity.ENDPOINT,
         null,
         connectivityResponseSchema
       );
       if (err != null) throw err;
-      this._status = "connected";
-      this._statusMessage = "Connected";
+      this.state.status = "connected";
+      this.state.message = "Connected";
       if (res != null) this.clusterKey = res.clusterKey;
     } catch (err) {
-      this._status = "failed";
-      this._error = err as Error;
-      this._statusMessage = `Connection Failed: ${this._error?.message}`;
+      this.state.status = "failed";
+      this.state.error = err as Error;
+      this.state.message = this.state.error.message;
     }
-    if (this.onChangeHandlers.length > 0 && prev !== this._status) {
-      this.onChangeHandlers.forEach((handler) =>
-        handler(this._status, this._error, this._statusMessage)
-      );
+    if (this.onChangeHandlers.length > 0 && prevStatus !== this.state.status) {
+      this.onChangeHandlers.forEach((handler) => handler(this.state));
     }
-  }
-
-  /**
-   * @returns The error that caused the last connectivity check to fail.
-   *   Undefined if the last check was successful.
-   */
-  error(): Error | undefined {
-    return this._error;
-  }
-
-  /** @returns The current status of the client. */
-  status(): Connectivity {
-    return this._status;
-  }
-
-  /** @returns A status message describing the current connection state */
-  statusMessage(): string | undefined {
-    return this._statusMessage;
+    return this.state;
   }
 
   /** @param callback - The function to call when the client status changes. */
-  onChange(
-    callback: (status: Connectivity, error?: Error, message?: string) => void
-  ): void {
+  onChange(callback: (state: ConnectionState) => void): void {
     this.onChangeHandlers.push(callback);
   }
 

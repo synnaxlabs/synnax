@@ -286,10 +286,10 @@ export class Location extends String {
    */
   static readonly strictCornerZ = corner;
 
-  private static readonly locationOrValue = z.union([
-    z.instanceof(Location),
-    stringValueOf,
-  ]);
+  private static readonly locationOrValue = stringValueOf;
+  //   // z.instanceof(Location),
+  //   stringValueOf,
+  // );
 
   /**
    * A zod schema to parse an X location i.e. one of "left" or "right".
@@ -546,6 +546,12 @@ export class Bounds {
   private makeValid(): [number, number] {
     if (this.lower > this.upper) return [this.upper, this.lower];
     return [this.lower, this.upper];
+  }
+
+  clamp(v: number): number {
+    if (v < this.lower) return this.lower;
+    if (v > this.upper) return this.upper;
+    return v;
   }
 
   /**

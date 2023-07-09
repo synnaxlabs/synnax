@@ -11,21 +11,26 @@ import { ReactElement } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { DropdownProps } from "../Dropdown";
+
 import { List, ListColumnHeaderProps, ListSelectorProps } from "@/core/std/List";
 import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends ListSelectorProps<K, E>,
-    ListColumnHeaderProps<K, E> {}
+    ListColumnHeaderProps<K, E>,
+    Pick<DropdownProps, "visible"> {}
 
 export const SelectList = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   value,
   onChange,
   allowMultiple,
+  visible,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
   <>
     <List.Selector value={value} onChange={onChange} allowMultiple={allowMultiple} />
+    {visible && <List.Hover />}
     <List.Column.Header {...props} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight}>
       {componentRenderProp(List.Column.Item)}

@@ -11,7 +11,7 @@ import { URL } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticationClient } from "@/auth";
-import { ConnectivityClient } from "@/connectivity";
+import { Connectivity } from "@/connectivity";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
 
@@ -27,9 +27,9 @@ describe("connectivity", () => {
 
     transport.use(client.middleware());
 
-    const connectivity = new ConnectivityClient(transport.unary);
+    const connectivity = new Connectivity(transport.unary);
 
     await connectivity.check();
-    expect(connectivity.status()).toEqual("connected");
+    expect(connectivity.state.status).toEqual("connected");
   });
 });

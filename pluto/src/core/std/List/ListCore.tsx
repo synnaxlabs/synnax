@@ -9,16 +9,17 @@
 
 import { ComponentPropsWithoutRef, ReactElement, useRef } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Bounds, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { CSS } from "@/core/css";
-import { SelectedRecord } from "@/core/hooks/useSelectMultiple";
 import { useListContext } from "@/core/std/List/ListContext";
 import { ListItemProps } from "@/core/std/List/types";
 import { RenderProp } from "@/util/renderProp";
 
 import "@/core/std/List/ListCore.css";
+
+import { vi } from "vitest";
 
 export interface ListVirtualCoreProps<
   K extends Key = Key,
@@ -43,7 +44,8 @@ const ListVirtualCore = <
     data,
     emptyContent,
     columnar: { columns },
-    select: { onSelect },
+    hover,
+    select,
   } = useListContext<K, E>();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -53,21 +55,24 @@ const ListVirtualCore = <
     overscan,
   });
 
+  const items = virtualizer.getVirtualItems();
+
   return (
     <div ref={parentRef} className={CSS.BE("list", "container")} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (
         <div style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map(({ index, start }) => {
+          {items.map(({ index, start }) => {
             const entry = data[index];
             return children({
-              key: index,
+              key: entry.key,
               index,
-              onSelect,
+              onSelect: select.onSelect,
               entry,
               columns,
-              selected: (entry as SelectedRecord<K, E>)?.selected ?? false,
+              selected: select.value.includes(entry.key),
+              hovered: index === hover.value,
               style: {
                 transform: `translateY(${start}px)`,
                 position: "absolute",

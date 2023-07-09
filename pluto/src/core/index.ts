@@ -20,3 +20,5 @@ export * from "@/core/vis/Canvas";
 export * from "@/core/worker";
 export * from "@/core/os";
 export * from "@/core/vis/PID";
+export * from "@/core/color/ColorPicker";
+export * from "@/core/color/ColorSwatch";

@@ -99,6 +99,7 @@ export const Select = <
         ref={ref}
         visible={visible}
         className={CSS(className, CSS.B("select"))}
+        matchTriggerWidth
         {...props}
       >
         {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
@@ -115,6 +116,7 @@ export const Select = <
           )}
         </InputWrapper>
         <SelectList<K, E>
+          visible={visible}
           value={[value]}
           onChange={handleChange}
           allowMultiple={false}

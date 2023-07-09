@@ -9,12 +9,11 @@
 
 import { ReactElement } from "react";
 
-import type { Connectivity } from "@synnaxlabs/client";
+import type { ConnectionState, ConnectionStatus } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Text, Status } from "@synnaxlabs/pluto";
 import type { StatusVariant } from "@synnaxlabs/pluto";
+import { Text, Status, Client } from "@synnaxlabs/pluto";
 
-import { ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/core";
 import { useSelectCluster } from "@/cluster/store";
 
 /** Props for the ConnectionStateBadge component. */
@@ -22,7 +21,7 @@ export interface ConnectionStateBadgeProps {
   state: ConnectionState;
 }
 
-const statusVariants: Record<Connectivity, StatusVariant> = {
+const statusVariants: Record<ConnectionStatus, StatusVariant> = {
   connected: "success",
   failed: "error",
   connecting: "info",
@@ -62,9 +61,6 @@ export const ClusterBadge = ({ key }: ClusterBadgeProps): ReactElement => {
   );
 };
 
-/** The props fo the ConnectionBadge component.  */
-type ConnectionBadgeProps = ClusterBadgeProps;
-
 /**
  * Displays the connection state of the cluster.
  *
@@ -72,7 +68,7 @@ type ConnectionBadgeProps = ClusterBadgeProps;
  * @param props.key - The key of the cluster to display. If not provided, the active
  * cluster will be used.
  */
-export const ConnectionBadge = ({ key }: ConnectionBadgeProps): ReactElement => {
-  const cluster = useSelectCluster(key);
-  return <ConnectionStateBadge state={cluster?.state ?? DEFAULT_CONNECTION_STATE} />;
+export const ConnectionBadge = (): ReactElement => {
+  const state = Client.useConnectionState();
+  return <ConnectionStateBadge state={state} />;
 };

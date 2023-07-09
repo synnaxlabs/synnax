@@ -31,12 +31,10 @@ export const ListSelector = <
 }: ListSelectorProps<K, E>): null => {
   const {
     data,
-    setTransform,
-    deleteTransform,
-    select: { setOnSelect, setClear },
+    select: { setOnSelect, setClear, onChange },
   } = useListContext<K, E>();
 
-  const { onSelect, transform, clear } = useSelectMultiple({
+  const { onSelect, clear } = useSelectMultiple({
     data,
     value,
     ...props,
@@ -48,9 +46,8 @@ export const ListSelector = <
   }, [onSelect, clear]);
 
   useEffect(() => {
-    if (value == null || value.length === 0) deleteTransform("select");
-    setTransform("select", transform);
-  }, [transform]);
+    onChange(value);
+  }, [value]);
 
   return null;
 };

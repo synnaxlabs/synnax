@@ -16,13 +16,14 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeYLocation, Optional } from "@synnaxlabs/x";
+import { Box, CrudeYLocation, Location } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
-import { useClickOutside, useResize, UseResizeOpts } from "@/core/hooks";
+import { useClickOutside, useResize } from "@/core/hooks";
 import { useCombinedRefs } from "@/core/hooks/useCombineRefs";
 import { Pack, PackProps } from "@/core/std/Pack";
 import { Space } from "@/core/std/Space";
+import { Triggers } from "@/core/triggers";
 
 import "@/core/std/Dropdown/Dropdown.css";
 
@@ -35,6 +36,8 @@ export interface UseDropdownReturn {
   toggle: (vis?: boolean) => void;
 }
 
+const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
+
 export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn => {
   const [visible, setVisible] = useState(initialVisible);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,6 +48,7 @@ export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn 
   const open = useCallback(() => toggle(true), [toggle]);
   const close = useCallback(() => toggle(false), [toggle]);
   useClickOutside(ref, close);
+  Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
   return { visible, ref, open, close, toggle };
 };
 
@@ -55,9 +59,10 @@ export interface DropdownProps
   location?: CrudeYLocation;
   children: [ReactElement, ReactElement];
   keepMounted?: boolean;
+  matchTriggerWidth?: boolean;
 }
 
-const USE_RESIZE_OPTS: UseResizeOpts = { triggers: ["moveY"] };
+// const USE_RESIZE_OPTS: UseResizeOpts = { triggers: ["moveY"] };
 
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
@@ -67,40 +72,49 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       location,
       keepMounted = true,
       className,
+      matchTriggerWidth = false,
       ...props
     }: DropdownProps,
     ref
   ): ReactElement => {
-    const [autoLocation, setAutoLocation] = useState(location ?? "bottom");
+    const [[loc, dim, width], setAutoStyle] = useState<
+      [CrudeYLocation, number, number]
+    >([location ?? "bottom", 0, 0]);
     const handleResize = useCallback(
       (box: Box) => {
-        if (location != null) return;
         const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
         const distanceToTop = Math.abs(box.center.y - windowBox.top);
         const distanceToBottom = Math.abs(box.center.x - windowBox.bottom);
-        setAutoLocation(distanceToBottom > distanceToTop ? "bottom" : "top");
+        const height = box.height;
+        const loc = location ?? (distanceToBottom > distanceToTop ? "bottom" : "top");
+        setAutoStyle([loc, height, box.width]);
       },
       [location]
     );
-    const resizeRef = useResize(handleResize, USE_RESIZE_OPTS);
+    const resizeRef = useResize(handleResize);
     const combinedRef = useCombinedRefs(ref, resizeRef);
+
+    const dialogStyle = {
+      [`margin${capitalize(new Location(loc).inverse.crude)}`]: dim - 1,
+    };
+    if (matchTriggerWidth) {
+      dialogStyle.width = width;
+    }
+
     return (
       <Pack
         {...props}
         ref={combinedRef}
-        className={CSS(className, CSS.B("dropdown"))}
+        className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
         direction="y"
-        reverse={autoLocation === "top"}
+        reverse={loc === "top"}
       >
         {children[0]}
         <Space
-          className={CSS(
-            CSS.BE("dropdown", "dialog"),
-            CSS.loc(autoLocation),
-            CSS.visible(visible)
-          )}
+          className={CSS(CSS.BE("dropdown", "dialog"), CSS.loc(loc))}
           role="dialog"
           empty
+          style={dialogStyle}
         >
           {children[1]}
         </Space>
