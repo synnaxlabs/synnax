@@ -23,13 +23,13 @@
     position: fixed;
 }
 
-.pluto-dropdown.pluto--hidden .pluto-dropdown__dialog {
+.pluto-dropdown__dialog.pluto--hidden {
     opacity: 0;
     z-index: -1;
     pointer-events: none;
     height: 0;
 }
 
-.pluto-dropdown.pluto--visible .pluto-dropdown__dialog {
+.pluto-dropdown__dialog.pluto--visible {
     z-index: 10;
 }
