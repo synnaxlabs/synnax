@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
@@ -48,9 +49,9 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 }
 
 type RangeRetrieveRequest struct {
-	Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names  []string    `json:"names" msgpack:"names"`
-	Search string      `json:"search" msgpack:"search"`
+	Keys  []uuid.UUID `json:"keys" msgpack:"keys"`
+	Names []string    `json:"names" msgpack:"names"`
+	Term  string      `json:"term" msgpack:"term"`
 }
 
 type RangeRetrieveResponse struct {
@@ -63,7 +64,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		q         = s.internal.NewRetrieve().Entries(&resRanges)
 		hasNames  = len(req.Names) > 0
 		hasKeys   = len(req.Keys) > 0
-		hasSearch = req.Search != ""
+		hasSearch = req.Term != ""
 	)
 
 	if hasNames {
@@ -75,7 +76,7 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	}
 
 	if hasSearch {
-		q = q.Search(req.Search)
+		q = q.Search(req.Term)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))

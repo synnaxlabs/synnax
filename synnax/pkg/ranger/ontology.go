@@ -11,7 +11,9 @@ package ranger
 
 import (
 	"context"
+
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -53,8 +55,8 @@ func newResource(r Range) schema.Resource {
 	schema.Set(e, "key", r.Key.String())
 	schema.Set(e, "name", r.Name)
 	schema.Set(e, "time_range", schema.Data{
-		"start": r.TimeRange.Start,
-		"end":   r.TimeRange.End,
+		"start": int64(r.TimeRange.Start),
+		"end":   int64(r.TimeRange.End),
 	})
 	return e
 }
@@ -75,6 +77,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 }
 
 func translateChange(c change) schema.Change {
+	logrus.Info("translateChange", c)
 	return schema.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
