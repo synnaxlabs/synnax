@@ -56,7 +56,7 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
 // method is useful for allowing a caller to execute directly agains the underlying
 // DB if they choose to do so, or to execute against a transaction if they provide one.
-func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(override, db) }
+func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(db, override) }
 
 // OverrideTx returns the override transaction if it is not nil. Otherwise,
 // it returns the base transaction.

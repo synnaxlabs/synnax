@@ -12,7 +12,7 @@ from typing import overload
 from numpy import ndarray
 from freighter import StreamClient
 
-from alamos import trace, Instrumentation, NOOP
+from alamos import Instrumentation, NOOP
 from synnax.exceptions import QueryError
 from synnax.framer.frame import Frame
 from synnax.framer.adapter import ForwardFrameAdapter, BackwardFrameAdapter

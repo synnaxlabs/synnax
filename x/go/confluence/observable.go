@@ -39,7 +39,7 @@ type TransformObservable[V Value, T Value] struct {
 }
 
 func NewTransformObservable[V Value, T Value](
-	f func(ctx context.Context, v V) (T, bool, error),
+	f TransformFunc[V, T],
 ) *TransformObservable[V, T] {
 	o := &TransformObservable[V, T]{
 		Transform: f,
@@ -55,5 +55,31 @@ func (o *TransformObservable[V, T]) sink(ctx context.Context, v V) error {
 		return err
 	}
 	o.Observer.Notify(ctx, t)
+	return nil
+}
+
+type GeneratorTransformObservable[V Value, T Value] struct {
+	UnarySink[V]
+	GeneratorTransform GeneratorTransformFunc[V, T]
+	observe.Observer[T]
+}
+
+func NewGeneratorTransformObservable[V Value, T Value](
+	f GeneratorTransformFunc[V, T],
+) *GeneratorTransformObservable[V, T] {
+	o := &GeneratorTransformObservable[V, T]{
+		GeneratorTransform: f,
+		Observer:           observe.New[T](),
+	}
+	o.UnarySink.Sink = o.sink
+	return o
+}
+
+func (o *GeneratorTransformObservable[V, T]) sink(ctx context.Context, v V) error {
+	t, ok, err := o.GeneratorTransform(ctx, v)
+	if err != nil || !ok {
+		return err
+	}
+	o.Observer.NotifyGenerator(ctx, t)
 	return nil
 }

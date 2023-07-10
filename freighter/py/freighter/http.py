@@ -38,7 +38,11 @@ class HTTPClient(MiddlewareCollector):
     __secure: bool
 
     def __init__(
-        self, url: URL, encoder_decoder: EncoderDecoder, secure: bool = False, **kwargs
+        self, 
+        url: URL, 
+        encoder_decoder: EncoderDecoder, 
+        secure: bool = False, 
+        **kwargs,
     ):
         """
         :param url: The base URL for the client.

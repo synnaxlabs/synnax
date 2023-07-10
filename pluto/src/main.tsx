@@ -9,8 +9,18 @@
 
 import { PropsWithChildren, ReactElement } from "react";
 
+import { Instrumentation } from "@synnaxlabs/alamos";
+
 import { Client, ClientProviderProps } from "@/client";
-import { Aether, Haul, ThemeProviderProps, Theming, Triggers, Worker } from "@/core";
+import {
+  Alamos,
+  Aether,
+  Haul,
+  ThemeProviderProps,
+  Theming,
+  Triggers,
+  Worker,
+} from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
 export interface PlutoProps
@@ -19,6 +29,7 @@ export interface PlutoProps
     ClientProviderProps {
   workerEnabled?: boolean;
   workerURL?: URL;
+  instrumentation?: Instrumentation;
 }
 
 export const Pluto = ({
@@ -29,21 +40,28 @@ export const Pluto = ({
   theme,
   toggleTheme,
   setTheme,
+  instrumentation,
 }: PlutoProps): ReactElement => {
+  console.log(instrumentation);
   const defaultWorkerURL = new URL("defaultWorker.ts", import.meta.url);
   return (
-    <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
-      <Triggers.Provider>
-        <Haul.Provider>
-          <Worker.Provider url={workerURL ?? defaultWorkerURL} enabled={workerEnabled}>
-            <Aether.Provider workerKey="vis">
-              <Client.Provider connParams={connParams}>
-                <TelemProvider>{children}</TelemProvider>
-              </Client.Provider>
-            </Aether.Provider>
-          </Worker.Provider>
-        </Haul.Provider>
-      </Triggers.Provider>
-    </Theming.Provider>
+    <Alamos.Provider instrumentation={instrumentation}>
+      <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
+        <Triggers.Provider>
+          <Haul.Provider>
+            <Worker.Provider
+              url={workerURL ?? defaultWorkerURL}
+              enabled={workerEnabled}
+            >
+              <Aether.Provider workerKey="vis">
+                <Client.Provider connParams={connParams}>
+                  <TelemProvider>{children}</TelemProvider>
+                </Client.Provider>
+              </Aether.Provider>
+            </Worker.Provider>
+          </Haul.Provider>
+        </Triggers.Provider>
+      </Theming.Provider>
+    </Alamos.Provider>
   );
 };

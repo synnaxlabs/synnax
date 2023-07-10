@@ -8,8 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 from urllib3 import Timeout, Retry
+from alamos import Instrumentation
 
 from freighter import (
+    instrumentation_middleware,
+    async_instrumentation_middleware,
     URL,
     AsyncMiddleware,
     AsyncStreamClient,
@@ -36,6 +39,7 @@ class Transport:
     def __init__(
         self,
         url: URL,
+        instrumentation: Instrumentation,
         secure: bool = False,
         open_timeout: TimeSpan = TimeSpan.SECOND * 5,
         read_timeout: TimeSpan = TimeSpan.SECOND * 5,
@@ -63,6 +67,8 @@ class Transport:
             ),
             retries=Retry(total=max_retries),
         )
+        self.use(instrumentation_middleware(instrumentation))
+        self.use_async(async_instrumentation_middleware(instrumentation))
 
     def use(self, *middleware: Middleware):
         self.unary.use(*middleware)

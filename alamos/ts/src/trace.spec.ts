@@ -9,32 +9,30 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Tracer } from "@/trace";
-
 import { instrumentation } from "@/dev";
 import { Instrumentation } from "@/instrumentation";
-
+import { Tracer } from "@/trace";
 
 describe("Trace", () => {
   let ins: Instrumentation;
   beforeAll(() => {
     ins = instrumentation();
-  })
+  });
   describe("initialize", () => {
     it("should correctly initialize a tracer", () => {
       const t = new Tracer();
       expect(t).toBeDefined();
-    })
-  })
+    });
+  });
   describe("trace", () => {
     it("should start a span with the given key", () => {
       ins.T.prod("test", (span) => {
-        expect(span.key).toEqual("test")
-      })
-    })
+        expect(span.key).toEqual("test");
+      });
+    });
     it("should trace an async function correctly", async () => {
-      const result = await ins.T.prod("async-test", async () => "test")
-      expect(result).toEqual("test")
-    })
-  })
+      const result = await ins.T.prod("async-test", async () => "test");
+      expect(result).toEqual("test");
+    });
+  });
 });

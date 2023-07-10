@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Sender, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -323,8 +324,15 @@ export type AetherComponentRegistry = Record<string, AetherComponentConstructor>
 
 const aetherRootState = z.object({});
 
+export interface AetherRootProps {
+  worker: SenderHandler<WorkerMessage, MainMessage>;
+  registry: AetherComponentRegistry;
+  instrumentation?: Instrumentation;
+}
+
 export class AetherRoot extends AetherComposite<typeof aetherRootState> {
   wrap: SenderHandler<WorkerMessage, MainMessage>;
+  instrumentation: Instrumentation;
 
   private static readonly TYPE = "root";
   private static readonly KEY = "root";
@@ -339,23 +347,18 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
   static readonly schema = aetherRootState;
   schema = AetherRoot.schema;
 
-  static render(
-    wrap: SenderHandler<WorkerMessage, MainMessage>,
-    registry: AetherComponentRegistry
-  ): AetherRoot {
-    return new AetherRoot(wrap, registry);
+  static render(props: AetherRootProps): AetherRoot {
+    return new AetherRoot(props);
   }
 
-  private constructor(
-    wrap: SenderHandler<WorkerMessage, MainMessage>,
-    registry: Record<string, AetherComponentConstructor>
-  ) {
+  private constructor({ worker: wrap, registry, instrumentation }: AetherRootProps) {
     const ctx = new AetherContext(wrap, registry, new Map());
     const u = { ctx, ...AetherRoot.ZERO_UPDATE };
     super(u);
     this.internalUpdate(u);
     this.wrap = wrap;
     this.wrap.handle(this.handle.bind(this));
+    this.instrumentation = instrumentation ?? Instrumentation.NOOP;
   }
 
   handle(msg: MainMessage): void {

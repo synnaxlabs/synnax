@@ -7,29 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import uptrace from "@uptrace/web"
-
-import { trace, propagation } from "@opentelemetry/api";
-propagation.inject
+import { trace } from "@opentelemetry/api";
+import { RUNTIME } from "@synnaxlabs/x";
+import uptrace from "@uptrace/web";
 
 import { Instrumentation } from "@/instrumentation";
 import { Logger } from "@/log";
 import { Tracer } from "@/trace";
 
-const DEV_DSN = "http://synnax_dev@localhost:14317/2"
+const configureOpentelemetry = (config: uptrace.Config): void => {
+  if (RUNTIME === "browser") {
+    uptrace.configureOpentelemetry(config);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const uptrace = require("@uptrace/node");
+    uptrace.configureOpentelemetry(config);
+  }
+};
 
-export const instrumentation = () => {
-  const serviceName = "synnax"
-  uptrace.configureOpentelemetry({
+const DEV_DSN = "http://synnax_dev@localhost:14318/2";
+
+export const instrumentation = (): Instrumentation => {
+  const serviceName = "synnax";
+  configureOpentelemetry({
     dsn: DEV_DSN,
     serviceName,
-    deploymentEnvironment: "dev"
-  })
+    deploymentEnvironment: "dev",
+  });
   return new Instrumentation({
     key: "",
     serviceName,
-    logger: new Logger(
-    ),
+    logger: new Logger(),
     tracer: new Tracer(trace.getTracerProvider().getTracer("synnax")),
-  })
-}
+  });
+};

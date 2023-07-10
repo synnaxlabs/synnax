@@ -11,9 +11,7 @@ package ranger
 
 import (
 	"context"
-
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	changex "github.com/synnaxlabs/x/change"
@@ -77,7 +75,6 @@ func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 }
 
 func translateChange(c change) schema.Change {
-	logrus.Info("translateChange", c)
 	return schema.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),

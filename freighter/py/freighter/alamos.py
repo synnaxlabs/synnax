@@ -48,7 +48,7 @@ def async_instrumentation_middleware(
     async def _middleware(context: Context, next_: AsyncNext):
         if context.role == "client":
             instrumentation.T.propagate(context)
-        with instrumentation.T.trace(context.target) as span:
+        with instrumentation.T.trace(context.target, "debug") as span:
             res, exc = await next_(context)
             span.record_exception(exc)
         _log(context, instrumentation, exc)

@@ -88,8 +88,11 @@ type NexterTranslator[I, O any] struct {
 	Translate func(I) O
 }
 
-func (n NexterTranslator[I, O]) Next(ctx context.Context) (O, bool, error) {
+func (n NexterTranslator[I, O]) Next(ctx context.Context) (tv O, ok bool, err error) {
 	val, ok, err := n.Wrap.Next(ctx)
+	if !ok || err != nil {
+		return tv, ok, err
+	}
 	return n.Translate(val), ok, err
 }
 

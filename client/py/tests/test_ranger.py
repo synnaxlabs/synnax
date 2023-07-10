@@ -9,6 +9,7 @@
 
 import pytest
 import synnax as sy
+import numpy as np
 
 
 @pytest.mark.ranger
@@ -55,8 +56,27 @@ class TestRangeClient:
         rng = client.ranges.retrieve([two_ranges[0].name])[0]
         assert rng.name == two_ranges[0].name
 
-    @pytest.mark.focus
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
         rng = client.ranges.search(two_ranges[0].name)
         assert len(rng) > 0
+
+    @pytest.mark.focus
+    def test_read(self, client: sy.Synnax):
+        tr = sy.TimeStamp.now().span_range(100 * sy.TimeSpan.SECOND)
+        stamps = np.linspace(
+            int(tr.start), int(tr.end), 100, dtype=np.int64
+        )
+        client.channels.create(
+            name="test_idx",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True
+        ).write(tr.start, stamps)
+        rng = client.ranges.create(
+            name="test",
+            time_range=(tr.start + 10 * sy.TimeSpan.SECOND).span_range(10 * sy.TimeSpan.SECOND),
+        )
+        res: sy.Series = rng.test_idx
+        assert len(res) == 10
+
+

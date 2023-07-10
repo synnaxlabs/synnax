@@ -9,7 +9,6 @@
 
 from alamos import Instrumentation, NOOP
 from freighter import URL
-from freighter.alamos import instrumentation_middleware
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient, ChannelRetriever
@@ -86,16 +85,17 @@ class Synnax(FrameClient):
             read_timeout=read_timeout,
             keep_alive=keep_alive,
             max_retries=max_retries,
+            instrumentation=instrumentation,
         )
         ch_retriever = CacheChannelRetriever(
-            ClusterChannelRetriever(self._transport.unary),
+            ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
         )
-        ch_creator = ChannelCreator(self._transport.unary)
+        ch_creator = ChannelCreator(self._transport.unary, instrumentation)
         super().__init__(self._transport.stream, ch_retriever)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
-        range_retriever = RangeRetriever(self._transport.unary)
-        range_creator = RangeCreator(self._transport.unary)
+        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
+        range_creator = RangeCreator(self._transport.unary, instrumentation)
         self.ranges = RangeClient(self, range_creator, range_retriever)
 
     def close(self):
@@ -116,6 +116,7 @@ def _configure_transport(
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
     t = Transport(
+        instrumentation=instrumentation,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
         open_timeout=open_timeout,
@@ -131,5 +132,4 @@ def _configure_transport(
         )
         auth.authenticate()
         t.use(*auth.middleware())
-    t.use(instrumentation_middleware(instrumentation))
     return t

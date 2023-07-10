@@ -13,6 +13,7 @@ import {
   context,
   SpanStatusCode,
   propagation,
+  AttributeValue,
 } from "@opentelemetry/api";
 
 import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
@@ -97,7 +98,8 @@ export class Tracer {
    * rejects the provided span or the Tracer is noop, a NoopSpan is returned.
    */
   trace<F extends SpanF>(key: string, env: Environment, f: F): ReturnType<F> {
-    if (this.meta.noop || !this.filter(env)) f(new NoopSpan(key));
+    if (this.meta.noop || !this.filter(env))
+      return f(new NoopSpan(key)) as ReturnType<F>;
     return this.tracer.startActiveSpan(key, (otelSpan) => {
       const span = new _Span(key, otelSpan);
       const result = f(span);
@@ -129,17 +131,23 @@ export class Tracer {
 
 /** A span in a trace that can be used to track function execution */
 export interface Span {
-  /** The key identifying the span. This is the name of the key
+  /**
+   * The key identifying the span. This is the name of the key
    * passed into the tracing method combined with the path of the
    * instrumentation that started the span. For example, take the
    * instrumentation titled 'synnax' and call to trace with 'test.
    * The span key would be 'synnax.test'.
    */
   key: string;
-  /** If the error is not null, records the error in the span and sets
+  /**
+   * If the error is not null, records the error in the span and sets
    * its status to error.
    */
   recordError: (error?: Error | null) => void;
+  /**
+   * Sets the given key-value pair as an attribute on the span.
+   */
+  set: (key: string, value: AttributeValue) => void;
 }
 
 export class _Span implements Span {
@@ -149,6 +157,10 @@ export class _Span implements Span {
   constructor(key: string, span: OtelSpan) {
     this.key = key;
     this.otel = span;
+  }
+
+  set(key: string, value: AttributeValue): void {
+    this.otel.setAttribute(key, value);
   }
 
   recordError(error?: Error | null): void {
@@ -165,6 +177,8 @@ export class NoopSpan implements Span {
   constructor(key: string) {
     this.key = key;
   }
+
+  set(key: string, value: AttributeValue): void {}
 
   recordError(_?: Error | null): void {}
 }

@@ -35,6 +35,7 @@ class RowIngestionEngine:
     reader: RowFileReader
     channels: list[Channel]
     idx_grouped: dict[Channel, list[Channel]]
+    end: TimeStamp
 
     def __init__(
         self,
@@ -48,12 +49,12 @@ class RowIngestionEngine:
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
         for ch in self.idx_grouped:
             self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key]
-
         self.mem_limit = soft_mem_limit
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
         self.writer = self.client.new_writer(start, [ch.key for ch in channels])
+        self.end = start
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""
@@ -75,6 +76,8 @@ class RowIngestionEngine:
                     try:
                         t0 = datetime.now()
                         chunk = self.reader.read()
+                        time_d = chunk["Time (hs)"]
+                        self.end = TimeStamp(time_d[time_d.size - 1])
                         self._write(chunk)
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
                         progress.update(task, advance=chunk.size, tp=tp)
