@@ -9,10 +9,8 @@
 
 import { ReactElement } from "react";
 
-import { Synnax } from "@synnaxlabs/client";
 import type {
   ChannelKey,
-  OntologyID,
   OntologyResource,
   OntologyResourceType,
 } from "@synnaxlabs/client";
@@ -24,9 +22,9 @@ import {
   ZERO_CHANNELS_STATE,
   addLinePlotYChannel,
   createLinePlot,
-  setLinePlotYChannels,
 } from "@/line/store/slice";
 import { RootStore } from "@/store";
+import { addRange } from "@/workspace";
 
 export interface ResourceSelectionContext {
   resource: OntologyResource;
@@ -106,7 +104,18 @@ export const resourceTypes: Record<string, ResourceType> = {
   range: {
     type: "range",
     hasChildren: true,
+    icon: <Icon.Range />,
     acceptsDrop: () => true,
     onDrop: () => {},
+    onSelect: (ctx) => {
+      ctx.store.dispatch(
+        addRange({
+          name: ctx.resource.data.name,
+          key: ctx.resource.data.key,
+          start: ctx.resource.data.timeRange.start,
+          end: ctx.resource.data.timeRange.end,
+        })
+      );
+    },
   },
 };

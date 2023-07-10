@@ -9,6 +9,7 @@
 
 from freighter import HTTPClient, Payload, UnaryClient
 from synnax.channel.payload import ChannelPayload
+from alamos import Instrumentation, trace
 
 
 class _Request(Payload):
@@ -21,13 +22,17 @@ _Response = _Request
 class ChannelCreator:
     __ENDPOINT = "/channel/create"
     __client: UnaryClient
+    instrumentation: Instrumentation
 
     def __init__(
         self,
         client: UnaryClient,
+        instrumentation: Instrumentation,
     ):
         self.__client = client
+        self.instrumentation = instrumentation
 
+    @trace("debug")
     def create(
         self,
         channels: list[ChannelPayload],

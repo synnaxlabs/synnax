@@ -24,6 +24,8 @@ type Observer[T any] interface {
 	Notify(context.Context, T)
 	// GoNotify starts a goroutine to notify all subscribers of the Value.
 	GoNotify(context.Context, T)
+	// NotifyGenerator calls the given generator function for each subscriber.
+	NotifyGenerator(context.Context, func() T)
 }
 
 type base[T any] struct {
@@ -42,6 +44,13 @@ func (b *base[T]) OnChange(handler func(context.Context, T)) {
 func (b *base[T]) Notify(ctx context.Context, v T) {
 	for _, handler := range b.handlers {
 		handler(ctx, v)
+	}
+}
+
+// NotifyGenerator implements the Observer interface.
+func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
+	for _, handler := range b.handlers {
+		handler(ctx, generator())
 	}
 }
 

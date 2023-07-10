@@ -174,9 +174,12 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		&confluence.DeltaMultiplier[TxRequest]{},
 	)
 
-	observable := confluence.NewTransformObservable[TxRequest, kvx.TxReader](
-		func(ctx context.Context, tx TxRequest) (kvx.TxReader, bool, error) {
-			return tx.reader(), true, nil
+	// We use a generator observable to generate a unique transaction reader for
+	// each handler in the observable chain. This is necessary because the transaction
+	// reader can be exhausted.
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, kvx.TxReader](
+		func(ctx context.Context, tx TxRequest) (func() kvx.TxReader, bool, error) {
+			return func() kvx.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db_.Observable = observable

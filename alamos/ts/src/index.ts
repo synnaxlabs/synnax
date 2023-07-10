@@ -11,3 +11,4 @@ export { Tracer } from "@/trace";
 export type { Span } from "@/trace";
 export { Logger } from "@/log";
 export { Instrumentation } from "@/instrumentation";
+export { instrumentation as devInstrumentaton } from "@/dev";

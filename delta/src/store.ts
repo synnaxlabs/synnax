@@ -20,8 +20,18 @@ import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { lineMiddleware } from "./line/store/middleware";
-import { LINE_SLICE_NAME, LineSliceState, lineReducer } from "./line/store/slice";
-import { PIDSliceState, PID_SLICE_NAME, pidReducer } from "./pid/store/slice";
+import {
+  LINE_SLICE_NAME,
+  LineAction,
+  LineSliceState,
+  lineReducer,
+} from "./line/store/slice";
+import {
+  PIDAction,
+  PIDSliceState,
+  PID_SLICE_NAME,
+  pidReducer,
+} from "./pid/store/slice";
 
 import {
   ClusterAction,
@@ -73,7 +83,13 @@ export interface RootState {
   [LINE_SLICE_NAME]: LineSliceState;
 }
 
-export type Action = LayoutAction | WorkspaceAction | DocsAction | ClusterAction;
+export type Action =
+  | LayoutAction
+  | WorkspaceAction
+  | DocsAction
+  | ClusterAction
+  | LineAction
+  | PIDAction;
 
 export type Payload = Action["payload"];
 

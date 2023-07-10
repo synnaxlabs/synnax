@@ -13,4 +13,8 @@ import { lib } from "@synnaxlabs/vite-plugin";
 
 export default defineConfig({
   plugins: [lib({ name: "alamos" })],
+  build: {
+    sourcemap: true,
+    minify: false,
+  },
 });

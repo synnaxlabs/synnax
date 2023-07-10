@@ -38,7 +38,10 @@ from synnax.telem import (
 
 
 class Channel(ChannelPayload):
-    """Represents a Channel in a Synnax database."""
+    """A channel is a logical collection of samples emitted by or representing the
+    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
+    introduction to channels and how they work.
+    """
 
     ___frame_client: FrameClient | None = PrivateAttr(None)
 
@@ -59,7 +62,7 @@ class Channel(ChannelPayload):
     ):
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
-        call .channels.create().
+        call client.channels.create(channel).
 
         :param data_type: The data type of the samples in the channel e.g. np.int64
         :param rate: Rate sets the rate at which the channels values are written. If
@@ -73,7 +76,7 @@ class Channel(ChannelPayload):
         :param index: The key or channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you
         don't know what this is, leave it at the default value of 0.
-        :param _frame_client: The backing py for reading and writing data to and
+        :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """

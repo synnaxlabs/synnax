@@ -16,6 +16,7 @@ export interface InstrumentationOptions {
   serviceName?: string;
   logger?: Logger;
   tracer?: Tracer;
+  noop?: boolean;
 }
 
 export class Instrumentation {
@@ -28,8 +29,9 @@ export class Instrumentation {
     serviceName = "",
     logger = Logger.NOOP,
     tracer = Tracer.NOOP,
+    noop = false,
   }: InstrumentationOptions) {
-    this.meta = new Meta(key, "", serviceName);
+    this.meta = new Meta(key, "", serviceName, noop);
     this.T = tracer.child(this.meta);
     this.L = logger.child(this.meta);
   }
@@ -45,5 +47,5 @@ export class Instrumentation {
     return ins;
   }
 
-  static readonly NOOP = new Instrumentation({});
+  static readonly NOOP = new Instrumentation({ noop: true });
 }

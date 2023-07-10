@@ -40,7 +40,7 @@ class BackwardFrameAdapter:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")
-            self.__adapter[ch[0].key] = name
+            self.__adapter[ch.key] = name
         self.keys = list(self.__adapter.keys())
 
     def adapt(self, fr: Frame):

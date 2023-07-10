@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export class Meta {
-  private _noop = true;
+  private readonly _noop: boolean = false;
   readonly key: string;
   readonly path: string;
   readonly serviceName: string;
@@ -17,22 +17,20 @@ export class Meta {
     key: string,
     path: string,
     serviceName: string = "",
+    noop: boolean = false
   ) {
     this.key = key;
     this.path = path;
     this.serviceName = serviceName;
+    this._noop = noop;
   }
 
   child(key: string): Meta {
-    return new Meta(
-      key,
-      this.extendPath(key),
-      this.serviceName,
-    )
+    return new Meta(key, this.extendPath(key), this.serviceName);
   }
 
   extendPath(key: string): string {
-    return `${this.path}.${key}`
+    return `${this.path}.${key}`;
   }
 
   get noop(): boolean {

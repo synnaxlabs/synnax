@@ -167,8 +167,11 @@ type TxReader[K Key, E Entry[K]] struct {
 func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool, err error) {
 	var kvOp kv.Change
 	kvOp, ok, err = t.TxReader.Next(ctx)
-	if !ok || err != nil || !t.prefixMatcher(ctx, kvOp.Key) {
+	if !ok || err != nil {
 		return op, false, err
+	}
+	if !t.prefixMatcher(ctx, kvOp.Key) {
+		return t.Next(ctx)
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {

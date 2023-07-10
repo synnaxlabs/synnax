@@ -122,6 +122,9 @@ export const { actions, reducer: pidReducer } = createSlice({
 
 export const { addPIDelement, setPIDEdges, setPIDNodes, setPIDElementProps } = actions;
 
+export type PIDAction = ReturnType<(typeof actions)[keyof typeof actions]>;
+export type PIDPayload = PIDAction["payload"];
+
 export const createPID =
   (initial: Partial<PIDState> & Omit<Partial<LayoutState>, "type">): LayoutCreator =>
   ({ dispatch }) => {

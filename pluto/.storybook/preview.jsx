@@ -9,10 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-import React, { StrictMode } from "react";
+import React from "react";
 import { Pluto } from "../src";
 import "./index.css";
 import 'reactflow/dist/style.css';
+import { devInstrumentaton } from "@synnaxlabs/alamos"
 
 export const parameters = {
     actions: { argTypesRegex: "^on[A-Z].*" },
@@ -31,9 +32,18 @@ const CONN_PARAMS = {
     password: "seldon"
 }
 
+const ins = devInstrumentaton()
+
+console.log(ins)
+
 export const decorators = [
     (StoryFn) => (
-            <Pluto connParams={CONN_PARAMS}>{StoryFn()}</Pluto>
+        <Pluto 
+            connParams={CONN_PARAMS} 
+            instrumentation={ins}
+        >
+            {StoryFn()}
+        </Pluto>
     )
     
 ];

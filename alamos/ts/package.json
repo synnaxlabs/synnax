@@ -32,6 +32,7 @@
         "@opentelemetry/instrumentation-document-load": "^0.32.0",
         "@opentelemetry/sdk-trace-web": "^1.11.0",
         "@synnaxlabs/x": "workspace:*",
+        "@uptrace/node": "^1.13.0",
         "@uptrace/web": "^1.11.1"
     },
     "devDependencies": {

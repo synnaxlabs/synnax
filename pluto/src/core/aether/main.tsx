@@ -15,7 +15,6 @@ import {
   createContext,
   memo,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -83,9 +82,15 @@ export const AetherProvider = ({
         );
       registry.current.set(key, { path, handler });
       return {
-        setState: (state: any, transfer: Transferable[] = []): void =>
-          worker?.send({ variant: "update", path, state, type }, transfer),
-        delete: () => worker?.send({ variant: "delete", path }),
+        setState: (state: any, transfer: Transferable[] = []): void => {
+          ins.T.debug("Aether.update", (span) => {
+            span.set("path", path.join("."));
+            span.set("type", type);
+            span.set("state", state);
+            worker?.send({ variant: "update", path, state, type }, transfer);
+          });
+        },
+        delete: () => worker?.send({ variant: "delete", path, type }),
       };
     },
     [worker, registry]
@@ -118,11 +123,7 @@ export const AetherProvider = ({
   );
 };
 
-export const useAetherContext = (): AetherContextValue => {
-  const ctx = useContext(AetherContext);
-  if (ctx == null) throw new Error("useBobContext must be used within a BobProvider");
-  return ctx;
-};
+export const useAetherContext = (): AetherContextValue => {};
 
 export interface UseAetherLifecycleReturn<S extends z.ZodTypeAny> {
   path: string[];

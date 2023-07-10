@@ -300,22 +300,7 @@ const updateLines = (state: LinePlotState): LineState[] => {
   return lines;
 };
 
-export const {
-  actions: {
-    deleteLinePlot,
-    setLinePlotViewport,
-    setLinePlotYChannels,
-    setLinePlotXChannel,
-    setLinePlotRanges,
-    setLinePlotLine,
-    setLinePlotAxis,
-    addLinePlotYChannel,
-    setLinePlotTitle,
-    setLinePlotLegend,
-    ...actions
-  },
-  reducer: lineReducer,
-} = createSlice({
+export const { actions, reducer: lineReducer } = createSlice({
   name: LINE_SLICE_NAME,
   initialState: ZERO_LINE_SLICE_STATE,
   reducers: {
@@ -399,6 +384,22 @@ export const {
     },
   },
 });
+
+export const {
+  deleteLinePlot,
+  setLinePlotViewport,
+  setLinePlotYChannels,
+  setLinePlotXChannel,
+  setLinePlotRanges,
+  setLinePlotLine,
+  setLinePlotAxis,
+  addLinePlotYChannel,
+  setLinePlotTitle,
+  setLinePlotLegend,
+} = actions;
+
+export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;
+export type LinePayload = LineAction["payload"];
 
 export const createLinePlot =
   (

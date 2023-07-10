@@ -22,6 +22,7 @@ _Response = _Request
 class RangeCreator:
     __ENDPOINT = "/range/create"
     __client: UnaryClient
+    instrumentation: Instrumentation
 
     def __init__(
         self,
@@ -31,7 +32,7 @@ class RangeCreator:
         self.__client = client
         self.instrumentation = instrumentation
 
-    @trace("debug")
+    @trace("debug", "range.create")
     def create(self, ranges: list[RangePayload]) -> list[RangePayload]:
         req = _Request(ranges=ranges)
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
