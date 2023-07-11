@@ -35,6 +35,7 @@ export const Tag = ({
   icon,
   onClose,
   style,
+  onDragStart,
   ...props
 }: TagProps): ReactElement => {
   const cssColor = Color.cssString(color);
@@ -58,9 +59,11 @@ export const Tag = ({
       className={CSS.B("tag")}
       level={Typography.ComponentSizeLevels[size]}
       noWrap
+      onDragStart={onDragStart}
       style={{
         border: `var(--pluto-border-width) solid ${cssColor}`,
         backgroundColor: variant === "filled" ? cssColor : "transparent",
+        cursor: onClose == null ? "default" : "pointer",
         ...style,
       }}
       {...props}

@@ -19,3 +19,19 @@
 .react-flow__selection {
     background-color: var(--pluto-primary);
 }
+
+.react-flow__handle {
+    border: var(--pluto-border) !important;
+}
+
+.react-flow__handle.target {
+    border-color: var(--pluto-error-z) !important;
+}
+
+.react-flow__handle.source {
+    border-color: var(--pluto-primary-z) !important;
+}
+
+.react-flow__node {
+    pointer-events: all !important;
+}

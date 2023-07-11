@@ -11,7 +11,7 @@
 
 .pluto-input {
     border-radius: var(--pluto-border-radius);
-    background: none;
+    background: var(--pluto-background-color);
     color: var(--pluto-text-color);
     padding: 0 2rem;
     margin: 0;

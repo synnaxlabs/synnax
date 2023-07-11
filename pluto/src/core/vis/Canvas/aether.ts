@@ -36,7 +36,6 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
   renderContextSet = false;
 
   afterUpdate(): void {
-    console.log(this.ctx);
     let renderCtx = RenderContext.useOptional(this.ctx);
     if (renderCtx == null) {
       if (this.renderContextSet) {
@@ -67,6 +66,5 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
       }));
     } else renderCtx.update(this.ctx);
     renderCtx.resize(this.state.region, this.state.dpr);
-    console.log(this.ctx);
   }
 }

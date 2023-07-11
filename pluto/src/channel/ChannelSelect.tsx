@@ -7,12 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useMemo } from "react";
+import { DragEvent, ReactElement, useCallback, useMemo } from "react";
 
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
+import { unique } from "@synnaxlabs/x";
 
 import { Client } from "@/client";
-import { ListColumn, Select, SelectMultipleProps, SelectProps, Status } from "@/core";
+import {
+  CSS,
+  Haul,
+  Hauled,
+  ListColumn,
+  Select,
+  SelectMultipleProps,
+  SelectProps,
+  Status,
+} from "@/core";
 
 const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
@@ -51,6 +61,9 @@ export interface ChannelSelectMultipleProps
 
 export const ChannelSelectMultiple = ({
   columns: filter = [],
+  onChange,
+  value,
+  className,
   ...props
 }: ChannelSelectMultipleProps): ReactElement => {
   const client = Client.use();
@@ -66,9 +79,40 @@ export const ChannelSelectMultiple = ({
       </Status.Text.Centered>
     );
 
+  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+    canDrop: useCallback((hauled) => canDrop(hauled, value), [value]),
+    onDrop: useCallback(
+      ([channel]) => onChange(unique([...value, channel.key as ChannelKey])),
+      [onChange, value]
+    ),
+  });
+
+  const { startDrag, endDrag, dragging } = Haul.useState();
+
+  const handleDrop = useCallback(
+    (dragging: Hauled[]) => {
+      onChange(value.filter((key) => !dragging.some((h) => h.key === key)));
+    },
+    [onChange, value]
+  );
+
+  const onDragStart = useCallback(
+    (_: DragEvent<HTMLDivElement>, key: ChannelKey) =>
+      startDrag([{ key, type: "channel" }], handleDrop),
+    [startDrag, handleDrop]
+  );
+
   return (
     <Select.Multiple
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, value)))}
+      value={value}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onTagDragStart={onDragStart}
+      onTagDragEnd={endDrag}
       searcher={client?.channels}
+      onChange={onChange}
       columns={columns}
       emptyContent={emptyContent}
       tagKey={"name"}
@@ -82,8 +126,19 @@ export interface ChannelSelectProps
   columns?: string[];
 }
 
+const canDrop = (
+  hauled: Hauled[],
+  value: ChannelKey[] | readonly ChannelKey[]
+): boolean =>
+  hauled.length > 0 &&
+  hauled.every((h) => h.type === "channel") &&
+  !hauled.every((h) => value.includes(h.key as ChannelKey));
+
 export const ChannelSelect = ({
   columns: filter = [],
+  onChange,
+  value,
+  className,
   ...props
 }: ChannelSelectProps): ReactElement => {
   const client = Client.use();
@@ -99,8 +154,26 @@ export const ChannelSelect = ({
       </Status.Text.Centered>
     );
 
+  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+    canDrop: useCallback((hauled) => canDrop(hauled, [value]), [value]),
+    onDrop: useCallback(([channel]) => onChange(channel.key as ChannelKey), [onChange]),
+  });
+
+  const { startDrag, endDrag, dragging } = Haul.useState();
+  const onDragStart = useCallback(() => {
+    startDrag([{ type: "channel", key: value }], () => {});
+  }, [startDrag, value]);
+
   return (
     <Select
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, [value])))}
+      value={value}
+      onDragStart={onDragStart}
+      onDragEnd={endDrag}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onChange={onChange}
       searcher={client?.channels}
       columns={columns}
       emptyContent={emptyContent}

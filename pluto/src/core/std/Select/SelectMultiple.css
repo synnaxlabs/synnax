@@ -11,6 +11,12 @@
 
 .pluto-select-multiple {
     width: 100%;
+    background-color: var(--pluto-background-color);
+}
+
+.pluto-select-multiple.pluto-haul-drop-region > * {
+    background-color: var(--haul-background-color) !important;
+    border-color: var(--haul-border-color) !important;
 }
 
 .pluto-select-multiple__input {

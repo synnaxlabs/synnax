@@ -11,7 +11,7 @@ import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
-import { CSS, Input } from "@/core";
+import { CSS, Input, Space, Text } from "@/core";
 import { Valve, ValveProps } from "@/core/vis/Valve/Valve";
 import { RangeNumerictelemProps } from "@/telem/range/aether";
 import { RangeNumericTelemForm } from "@/telem/range/forms";
@@ -34,17 +34,29 @@ const ValvePIDElement = ({
   telem: pTelem,
   onChange,
   className,
+  label,
+  position: _,
   ...props
 }: StatefulPIDElementProps<ValvePIDElementProps>): ReactElement => {
+  const handleLabelChange = (label: string): void =>
+    onChange({ ...props, label, telem: pTelem });
   return (
-    <>
-      {editable && <Handle position={Position.Left} type="target" />}
-      {editable && <Handle position={Position.Right} type="source" />}
-      <Valve
-        className={CSS(className, CSS.B("valve-pid-element"), CSS.selected(selected))}
-        {...props}
-      />
-    </>
+    <Space justify="center" align="center" size="small">
+      <Text.Editable level="p" value={label} onChange={handleLabelChange} />
+      <div className={CSS.BE("valve-pid-element", "valve-container")}>
+        {editable && <Handle position={Position.Left} type="target" />}
+        {editable && <Handle position={Position.Right} type="source" />}
+        <Valve
+          className={CSS(
+            className,
+            CSS.B("valve-pid-element"),
+            CSS.selected(selected),
+            CSS.editable(editable)
+          )}
+          {...props}
+        />
+      </div>
+    </Space>
   );
 };
 

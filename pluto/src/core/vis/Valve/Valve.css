@@ -14,6 +14,7 @@
     background: none;
     border: none;
     --pluto-base-color: var(--pluto-text-color-rgb);
+    padding: 0;
 }
 
 .pluto-valve svg {

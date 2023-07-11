@@ -16,6 +16,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import { LinePlot } from "./line/LinePlot";
 import { PID } from "./pid/PID/PID";
+import { VisCanvas } from "./vis";
 import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";
@@ -65,9 +66,11 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster?.props}
       workerURL={new URL("./worker.ts", import.meta.url)}
     >
-      <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-        <LayoutWindow />
-      </PMenu.ContextMenu>
+      <VisCanvas>
+        <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+          <LayoutWindow />
+        </PMenu.ContextMenu>
+      </VisCanvas>
     </Pluto>
   );
 };

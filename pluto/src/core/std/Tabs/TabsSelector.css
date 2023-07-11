@@ -29,7 +29,6 @@
 
 .pluto-tabs-selector {
     border-bottom: var(--pluto-border);
-    background: var(--pluto-background-color);
     z-index: 7;
 }
 

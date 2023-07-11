@@ -34,7 +34,7 @@ export const LayoutMain = (): ReactElement => {
     d(maybeCreateGetStartedTab());
   }, []);
   return (
-    <VisCanvas>
+    <>
       <NavTop />
       <Space className="delta-main-fixed--y" direction="x" empty>
         <NavLeft />
@@ -54,6 +54,6 @@ export const LayoutMain = (): ReactElement => {
         <NavRight />
       </Space>
       <NavBottom />
-    </VisCanvas>
+    </>
   );
 };

@@ -51,6 +51,8 @@ export interface SelectMultipleProps<
   searcher?: AsyncTermSearcher<string, K, E>;
   tagKey?: keyof E;
   renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
+  onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
+  onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
 }
 
 const { Filter, Search } = List;
@@ -62,6 +64,7 @@ export const SelectMultiple = <
   onChange,
   value,
   location,
+  className,
   data,
   columns = [],
   tagKey = "key",
@@ -69,6 +72,9 @@ export const SelectMultiple = <
   searcher,
   renderTag,
   placeholder,
+  onTagDragStart,
+  onTagDragEnd,
+  style,
   ...props
 }: SelectMultipleProps<K, E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
@@ -108,6 +114,7 @@ export const SelectMultiple = <
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
             <SelectMultipleInput<K, E>
+              className={className}
               onChange={onChange}
               selected={selected}
               onFocus={open}
@@ -115,6 +122,9 @@ export const SelectMultiple = <
               visible={visible}
               renderTag={renderTag}
               placeholder={placeholder}
+              onTagDragStart={onTagDragStart}
+              onTagDragEnd={onTagDragEnd}
+              style={style}
             />
           )}
         </InputWrapper>
@@ -131,11 +141,13 @@ export const SelectMultiple = <
 };
 
 interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Pick<InputProps, "onChange" | "onFocus" | "placeholder"> {
+  extends Omit<InputProps, "value"> {
   selected: readonly E[];
   tagKey: keyof E;
   visible: boolean;
   renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
+  onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
+  onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
 }
 
 const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -146,6 +158,9 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
   tagKey,
   renderTag = componentRenderProp(SelectMultipleTag),
   placeholder = "Search...",
+  onTagDragStart,
+  onTagDragEnd,
+  className,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const {
@@ -171,7 +186,12 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
   const palette = theme.colors.visualization.palettes.default;
 
   return (
-    <Pack align="stretch" {...props} grow className={CSS.B("pluto-select-multiple")}>
+    <Pack
+      align="stretch"
+      {...props}
+      grow
+      className={CSS(CSS.B("select-multiple"), className)}
+    >
       <Input
         ref={ref}
         className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}
@@ -193,6 +213,8 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
             entry: e,
             color: palette[i % palette.length],
             onClose: () => onSelect?.(e.key),
+            onDragStart: (ev) => onTagDragStart?.(ev, e.key),
+            onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
           })
         )}
       </Space>
@@ -207,6 +229,8 @@ interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<
   entry: E;
   color: ColorT;
   onClose?: () => void;
+  onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
 const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>({

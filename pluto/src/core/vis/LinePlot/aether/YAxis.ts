@@ -122,7 +122,6 @@ export class AetherYAxis extends AetherComposite<
     if (this.state.bounds != null && !this.state.bounds.isZero)
       return [this.state.bounds, this.state.bounds.lower];
     const bounds = await Promise.all(this.lines.map(async (el) => await el.yBounds()));
-    console.log(bounds);
     return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
   }
 

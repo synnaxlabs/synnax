@@ -17,3 +17,8 @@
     flex-grow: 1;
     z-index: 2;
 }
+
+.pluto-select-input.pluto-haul-drop-region > * {
+    background-color: var(--haul-background-color) !important;
+    border-color: var(--haul-border-color) !important;
+}

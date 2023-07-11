@@ -9,20 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.delta-palette {
-    width: 100%;
-}
-
-.delta-palette__item {
-    border-radius: 0;
-    width: 100%;
-}
-
-.delta-palette__item--hovered {
-    background-color: var(--pluto-gray-m2) !important;
-}
-
-.delta-palette input.pluto-haul-drop-region {
-    background-color: var(--haul-background-color) !important;
-    border-color: var(--haul-border-color) !important;
+.pluto-tank.pluto--selected {
+    border-color: var(--pluto-primary-z);
 }

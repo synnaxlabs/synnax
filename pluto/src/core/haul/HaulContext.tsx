@@ -9,6 +9,7 @@
 
 import {
   createContext,
+  DragEvent,
   DragEventHandler,
   MutableRefObject,
   PropsWithChildren,
@@ -24,14 +25,17 @@ import { Deep, Key } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 
+import "@/core/haul/Haul.css";
+
 export interface Hauled {
   key: Key;
   type: string;
 }
 
 export interface HaulContextValue {
-  startDrag: (entities: Hauled[]) => void;
+  startDrag: (entities: Hauled[], onDrop: (entities: Hauled[]) => void) => void;
   endDrag: () => void;
+  onDrop: () => void;
   dragging: Hauled[];
 }
 
@@ -52,14 +56,23 @@ interface HaulState {
   dragging: Hauled[];
 }
 
-const ZERO_HAUL_STATE = { dragging: [] };
+interface HaulRef {
+  dragging: Hauled[];
+  dropCallback: ((entities: Hauled[]) => void) | null;
+}
+
+const ZERO_HAUL_STATE = { dragging: [], dropCallback: null };
 
 export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
   const ctx = useOptionalHaulContext();
   const [state, setState] = useState<HaulState>(Deep.copy(ZERO_HAUL_STATE));
+  const [ref, setRef] = useStateRef<HaulRef>({ ...ZERO_HAUL_STATE });
 
   const startDrag = useCallback(
-    (entities: Hauled[]) => setState((p) => ({ ...p, dragging: entities })),
+    (entities: Hauled[], onDrop: (entities: Hauled[]) => void) => {
+      setRef((p) => ({ ...p, dragging: entities, dropCallback: onDrop }));
+      setState((p) => ({ ...p, dragging: entities }));
+    },
     [setState]
   );
 
@@ -68,11 +81,17 @@ export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
     [setState]
   );
 
+  const handleDrop = useCallback(() => {
+    ref.current.dropCallback?.(ref.current.dragging);
+    endDrag();
+  }, [endDrag]);
+
   return (
     <HaulContext.Provider
       value={
         ctx ?? {
           dragging: state.dragging,
+          onDrop: handleDrop,
           startDrag,
           endDrag,
         }
@@ -85,9 +104,7 @@ export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
 
 export interface UseHaulStateReturn extends HaulContextValue {}
 
-export const useHaulState = (): UseHaulStateReturn => {
-  return useHaulContext();
-};
+export const useHaulState = (): UseHaulStateReturn => useHaulContext();
 
 export interface UseHaulRefReturn extends Omit<HaulContextValue, "dragging"> {
   dragging: MutableRefObject<Hauled[]>;
@@ -95,7 +112,7 @@ export interface UseHaulRefReturn extends Omit<HaulContextValue, "dragging"> {
 
 export const useHaulRef = (): UseHaulRefReturn => {
   const [ref, setRef] = useStateRef<Hauled[]>([]);
-  const { startDrag, endDrag, dragging } = useHaulContext();
+  const { startDrag, endDrag, dragging, onDrop } = useHaulContext();
   useEffect(() => setRef(dragging), [setRef, dragging]);
 
   return useMemo(
@@ -103,6 +120,7 @@ export const useHaulRef = (): UseHaulRefReturn => {
       dragging: ref,
       startDrag,
       endDrag,
+      onDrop,
     }),
     [ref, startDrag, endDrag]
   );
@@ -110,7 +128,7 @@ export const useHaulRef = (): UseHaulRefReturn => {
 
 export interface UseHaulDropRegionProps {
   canDrop: (entities: Hauled[]) => boolean;
-  onDrop: (entities: Hauled[]) => void;
+  onDrop: (entities: Hauled[], e: DragEvent<Element>) => void;
 }
 
 export interface UseHaulDropRegionReturn {
@@ -144,7 +162,10 @@ export const useHaulDropRegion = ({
       e.preventDefault();
       if (hauled.dragging.current.length === 0) return;
       const canDrop_ = canDrop(hauled.dragging.current);
-      if (canDrop_) onDrop(hauled.dragging.current);
+      if (canDrop_) {
+        onDrop(hauled.dragging.current, e);
+        hauled.onDrop();
+      }
       setIsOver(false);
     },
     [canDrop]
