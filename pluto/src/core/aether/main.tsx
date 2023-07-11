@@ -26,7 +26,6 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Alamos } from "../alamos";
 import { useUnmount } from "../hooks/useMount";
 
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
@@ -86,7 +85,6 @@ export const AetherProvider = ({
       registry.current.set(key, { path, handler });
       return {
         setState: (state: any, transfer: Transferable[] = []): void => {
-          console.log("update", path, state, type);
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "update", path, state, type }, transfer);
         },

@@ -11,6 +11,7 @@
 
 .pluto-navbar {
     flex-shrink: 0;
+    background-color: var(--pluto-gray-m3);
 }
 
 .pluto-navbar.pluto--y {

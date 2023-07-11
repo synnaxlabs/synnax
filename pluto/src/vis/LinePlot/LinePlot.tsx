@@ -75,6 +75,9 @@ export const ruleProps = z.object({
   color: Color.z,
   axis: z.string(),
   label: z.string(),
+  lineWidth: z.number().min(1).optional(),
+  lineDash: z.number().optional(),
+  units: z.string().optional(),
 });
 
 export type RuleProps = z.input<typeof ruleProps>;

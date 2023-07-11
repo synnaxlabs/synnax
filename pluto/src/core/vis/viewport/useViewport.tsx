@@ -119,7 +119,10 @@ export const useViewport = ({
 
       if (stage === "end") {
         // This prevents clicks from being registered as a drag
-        if (box.width < 5 && box.height < 5) return;
+        if (box.width < 5 && box.height < 5) {
+          if (mode === "zoom") setMaskBox(Box.ZERO);
+          return;
+        }
         return setStateRef((prev) => {
           if (mode === "pan") {
             const next = handlePan(box, prev, canvas);

@@ -107,6 +107,9 @@ export interface RuleState {
   color: string;
   position: number;
   axis: AxisKey;
+  lineWidth: number;
+  lineDash: number;
+  units: string;
 }
 
 export type RulesState = RuleState[];
@@ -116,6 +119,9 @@ const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
   label: "",
   position: 0,
   axis: "y1",
+  lineWidth: 1,
+  lineDash: 20,
+  units: "",
 };
 
 export const ZERO_RULES_STATE: RulesState = [];

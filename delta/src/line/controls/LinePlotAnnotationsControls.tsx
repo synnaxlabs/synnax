@@ -22,6 +22,7 @@ import {
   Status,
   componentRenderProp,
   Select,
+  InputNumberProps,
 } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
@@ -43,6 +44,18 @@ export const LinePlotAnnotationsControls = ({
   const dispatch = useDispatch();
 
   const [selected, setSelected] = useState<string>(vis?.rules[0]?.key ?? "");
+
+  const handleUnitsChange = (unit: string): void => {
+    dispatch(
+      setLinePlotRule({
+        key: layoutKey,
+        rule: {
+          key: selected,
+          units: unit,
+        },
+      })
+    );
+  };
 
   const handleLabelChange = (label: string): void => {
     dispatch(
@@ -92,6 +105,30 @@ export const LinePlotAnnotationsControls = ({
     );
   };
 
+  const handleLineWidthChange = (lineWidth: number): void => {
+    dispatch(
+      setLinePlotRule({
+        key: layoutKey,
+        rule: {
+          key: selected,
+          lineWidth,
+        },
+      })
+    );
+  };
+
+  const handleLineDashChange = (lineDash: number): void => {
+    dispatch(
+      setLinePlotRule({
+        key: layoutKey,
+        rule: {
+          key: selected,
+          lineDash,
+        },
+      })
+    );
+  };
+
   const createRule = (): void => {
     const key = nanoid();
     dispatch(
@@ -132,11 +169,16 @@ export const LinePlotAnnotationsControls = ({
         <Header level="p">
           <Header.Title>{`Rule - ${selectedRule.label}`}</Header.Title>
         </Header>
-        <Space direction="x" style={{ padding: "2rem" }}>
+        <Space direction="x" style={{ padding: "2rem" }} wrap>
           <Input.Item<string>
             label="Label"
             onChange={handleLabelChange}
             value={selectedRule.label}
+          />
+          <Input.Item<string>
+            label="Units"
+            onChange={handleUnitsChange}
+            value={selectedRule.units}
           />
           <Input.Item<number>
             label="Position"
@@ -166,6 +208,22 @@ export const LinePlotAnnotationsControls = ({
                 {...props}
               />
             )}
+          </Input.Item>
+          <Input.Item<number, number, InputNumberProps>
+            label="Line Width"
+            onChange={handleLineWidthChange}
+            value={selectedRule.lineWidth}
+            bounds={{ lower: 1, upper: 10 }}
+          >
+            {componentRenderProp(Input.Number)}
+          </Input.Item>
+          <Input.Item<number, number, InputNumberProps>
+            label="Line Dash"
+            onChange={handleLineDashChange}
+            value={selectedRule.lineDash}
+            bounds={{ lower: 0, upper: 50 }}
+          >
+            {componentRenderProp(Input.Number)}
           </Input.Item>
         </Space>
       </Space>

@@ -18,7 +18,6 @@ import {
 } from "react";
 
 import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
 
 import { useMemoCompare } from "../memo";
 
@@ -53,7 +52,8 @@ export const WorkerProvider = memo(
       if (!enabled) return;
       const worker = new Worker(url, { type: "module" });
       worker.onerror = (e) => {
-        console.error(e);
+        console.error(e.message);
+        console.error(JSON.stringify(e));
       };
       const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
       worker.onmessage = (e) => router.handle(e);

@@ -60,10 +60,9 @@ const Content = (): ReactElement => {
 
 const ListItem = ({
   entry: { key, name },
-  style,
   selected,
   onSelect,
-  ...props
+  style,
 }: ListItemProps<string, RenderableCluster>): ReactElement => (
   <Space
     direction="x"
@@ -74,7 +73,7 @@ const ListItem = ({
       CSS.BE("cluster-toolbar-list", "item"),
       selected && CSS.M("selected")
     )}
-    {...props}
+    style={style}
   >
     <Text level="p">{name}</Text>
   </Space>

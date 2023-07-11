@@ -10,18 +10,20 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space } from "@synnaxlabs/pluto";
+import { Button, Space, Status } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
 import { VisLayoutSelector } from "../VisLayoutSelector";
 
 import { VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
-import { NavDrawerItem, useSelectActiveMosaicLayout } from "@/layout";
+import { NavDrawerItem, useLayoutPlacer, useSelectActiveMosaicLayout } from "@/layout";
 import { LinePlotToolBar } from "@/line/controls/LinePlotToolbar";
 import { PIDToolbar } from "@/pid/controls/PIDToolBar";
+import { createVis } from "@/vis/core";
 
-const NoVisContent = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
+const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
@@ -29,6 +31,29 @@ const NoVisContent = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
     <VisLayoutSelector layoutKey={layoutKey} />;
   </Space>
 );
+
+const NoVis = (): ReactElement => {
+  const placer = useLayoutPlacer();
+  return (
+    <Space justify="spaceBetween" style={{ height: "100%" }} empty>
+      <ToolbarHeader>
+        <VisToolbarTitle />
+        <Space.Centered direction="x" size="small">
+          <Status.Text level="p" variant="disabled" hideIcon>
+            No visualization selected. Selecte a visualization or
+          </Status.Text>
+          <Button
+            startIcon={<Icon.Add />}
+            variant="outlined"
+            onClick={() => placer(createVis({}))}
+          >
+            create a new one
+          </Button>
+        </Space.Centered>
+      </ToolbarHeader>
+    </Space>
+  );
+};
 
 const Content = (): ReactElement => {
   const layout = useSelectActiveMosaicLayout();
@@ -38,9 +63,9 @@ const Content = (): ReactElement => {
     case "line":
       return <LinePlotToolBar layoutKey={layout?.key} />;
     case "vis":
-      return <NoVisContent layoutKey={layout?.key} />;
+      return <SelectVis layoutKey={layout?.key} />;
     default:
-      <h1>Hello</h1>;
+      return <NoVis />;
   }
 };
 
