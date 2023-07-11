@@ -9,13 +9,14 @@
 
 import { ReactElement } from "react";
 
-import { Status, ValuePIDElementSpec, Space } from "@synnaxlabs/pluto";
+import { Status, Space } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelectSelectedPIDElementsProps } from "../store/selectors";
 import { setPIDElementProps } from "../store/slice";
 
 import { CSS } from "@/css";
+import { ELEMENTS } from "@/pid/elements";
 
 import "@/pid/controls/PIDElementPropertiesControls.css";
 
@@ -42,9 +43,11 @@ export const PIDElementPropertiesControls = ({
     );
   }
 
+  const C = ELEMENTS[elements[0].props.type];
+
   return (
     <Space className={CSS.B("pid-properties")} size="small">
-      <ValuePIDElementSpec.Form value={elements[0].props} onChange={handleChange} />
+      <C.Form value={elements[0].props} onChange={handleChange} />
     </Space>
   );
 };

@@ -20,8 +20,8 @@ import ReactFlow, {
   addEdge as rfAddEdge,
   Background as RFBackground,
   SmoothStepEdge as RFSmoothStepEdge,
-  Node as ReactFlowNode,
-  Edge as ReactFlowEdge,
+  Node as RFNode,
+  Edge as RFEdge,
   NodeProps as RFNodeProps,
   NodeChange as RFNodeChange,
   EdgeChange as RFEdgeChange,
@@ -42,8 +42,9 @@ import "reactflow/dist/style.css";
 
 export interface PIDElementProps {
   elementKey: string;
-  position: XY;
+  position: CrudeXY;
   selected: boolean;
+  editable: boolean;
 }
 
 export interface PIDEdge {
@@ -98,35 +99,33 @@ export interface PIDProps extends UsePIDReturn {
   children: RenderProp<PIDElementProps>;
 }
 
-const translateNodesForward = (nodes: PIDNode[]): ReactFlowNode[] =>
+const translateNodesForward = (
+  nodes: PIDNode[],
+  editable: boolean
+): Array<RFNode<RFNodeData>> =>
   nodes.map((node) => ({
-    id: node.key,
-    selected: node.selected,
-    type: "custom",
-    data: {},
     ...node,
+    id: node.key,
+    type: "custom",
+    data: { editable },
   }));
 
-const translateEdgesForward = (edges: PIDEdge[]): ReactFlowEdge[] =>
+const translateEdgesForward = (edges: PIDEdge[]): RFEdge[] =>
   edges.map((edge) => ({
     id: edge.key,
-    sourceHandle: edge.sourceHandle,
-    targetHandle: edge.targetHandle,
     ...edge,
   }));
 
-const translateNodesBackward = (nodes: ReactFlowNode[]): PIDNode[] =>
+const translateNodesBackward = (nodes: RFNode[]): PIDNode[] =>
   nodes.map((node) => ({
     key: node.id,
     selected: node.selected,
     ...node,
   }));
 
-const translateEdgesBackward = (edges: ReactFlowEdge[]): PIDEdge[] =>
+const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
   edges.map((edge) => ({
     key: edge.id,
-    sourceHandle: edge.sourceHandle,
-    targetHandle: edge.targetHandle,
     ...edge,
   }));
 
@@ -145,6 +144,10 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   panOnDrag: false,
   panOnScroll: false,
 };
+
+export interface RFNodeData {
+  editable: boolean;
+}
 
 const PIDCore = Aether.wrap<PIDProps>(
   "PIDCore",
@@ -175,7 +178,7 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const handleViewport = useCallback(
       (viewport: RFViewport): void =>
-        setState((prev) => ({ ...prev, position: new XY(viewport) })),
+        setState((prev) => ({ ...prev, position: viewport })),
       []
     );
 
@@ -185,26 +188,33 @@ const PIDCore = Aether.wrap<PIDProps>(
       onEnd: handleViewport,
     });
 
-    const Node = useCallback(({ id, xPos, yPos, selected }: RFNodeProps) => {
-      return children({
-        elementKey: id,
-        position: new XY(xPos, yPos),
-        selected,
-      });
-    }, []);
+    const Node = useCallback(
+      ({ id, xPos, yPos, selected, data: { editable } }: RFNodeProps<RFNodeData>) => {
+        return children({
+          elementKey: id,
+          position: { x: xPos, y: yPos },
+          selected,
+          editable,
+        });
+      },
+      []
+    );
 
     const nodeTypes = useMemo(() => ({ custom: Node }), []);
     const edges_ = useMemo(() => translateEdgesForward(edges), [edges]);
-    const nodes_ = useMemo(() => translateNodesForward(nodes), [nodes]);
+    const nodes_ = useMemo(
+      () => translateNodesForward(nodes, editable),
+      [nodes, editable]
+    );
 
     const handleNodesChange = useCallback(
       (changes: RFNodeChange[]) =>
         onNodesChange((prev) =>
           translateNodesBackward(
-            rfApplyNodeChanges(changes, translateNodesForward(prev))
+            rfApplyNodeChanges(changes, translateNodesForward(prev, editable))
           )
         ),
-      [onNodesChange]
+      [onNodesChange, editable]
     );
 
     const handleEdgesChange = useCallback(
@@ -252,7 +262,6 @@ const PIDCore = Aether.wrap<PIDProps>(
           onConnect={handleConnect}
           minZoom={1}
           maxZoom={1}
-          snapToGrid
           panOnScroll={true}
           proOptions={{
             hideAttribution: true,

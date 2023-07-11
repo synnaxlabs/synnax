@@ -1,4 +1,4 @@
-import { selectLinePlot } from "./selectors";
+import { selectLinePlot, selectLineSliceState } from "./selectors";
 import {
   AddLinePlotYChannelPayload,
   CreateLinePlotPayload,
@@ -9,13 +9,20 @@ import {
   SetLinePlotYChannelsPayload,
   actions,
   addLinePlotYChannel,
+  deleteLinePlot,
   setLinePlotLine,
   setLinePlotRanges,
   setLinePlotXChannel,
   setLinePlotYChannels,
 } from "./slice";
 
-import { LayoutStoreState, selectTheme } from "@/layout";
+import {
+  LayoutStoreState,
+  RemoveLayoutPayload,
+  removeLayout,
+  selectLayoutState,
+  selectTheme,
+} from "@/layout";
 import { MiddlewareEffect, effectMiddleware } from "@/middleware";
 
 export const assignColorsEffect: MiddlewareEffect<
@@ -46,10 +53,27 @@ export const assignColorsEffect: MiddlewareEffect<
   });
 };
 
+export const deleteVisualizationEffect: MiddlewareEffect<
+  LayoutStoreState & LineStoreState,
+  RemoveLayoutPayload
+> = ({ action, dispatch, getState }) => {
+  console.log("MIDDLEWARE");
+  const state = getState();
+  const vis = selectLineSliceState(state);
+  const layout = selectLayoutState(state);
+  Object.keys(vis.plots).forEach((key) => {
+    if (layout.layouts[key] == null) {
+      dispatch(deleteLinePlot({ layoutKey: key }));
+    }
+  });
+  const p = selectLinePlot(getState(), action.payload);
+  if (p != null) dispatch(deleteLinePlot({ layoutKey: action.payload }));
+};
+
 export const lineMiddleware = [
   effectMiddleware(
     [
-      actions.createLinePlot.type,
+      actions.setLinePlot.type,
       setLinePlotXChannel.type,
       setLinePlotYChannels.type,
       setLinePlotRanges.type,
@@ -57,4 +81,5 @@ export const lineMiddleware = [
     ],
     [assignColorsEffect]
   ),
+  effectMiddleware([removeLayout.type], [deleteVisualizationEffect]),
 ];

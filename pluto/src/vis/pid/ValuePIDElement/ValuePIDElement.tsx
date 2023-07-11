@@ -52,10 +52,14 @@ const ValuePIDElement = ({
 
   return (
     <>
-      {editable && <Handle position={Position.Top} type="source" />}
-      {editable && <Handle position={Position.Bottom} type="target" />}
-      {editable && <Handle position={Position.Left} type="source" />}
-      {editable && <Handle position={Position.Right} type="target" />}
+      {editable && (
+        <>
+          <Handle position={Position.Top} type="source" id="top" />
+          <Handle position={Position.Left} type="target" id="left" />
+          <Handle position={Position.Right} type="source" id="right" />
+          <Handle position={Position.Bottom} type="target" id="bottom" />
+        </>
+      )}
       <ValueLabeled
         className={CSS(className, CSS.B("value-pid-element"), CSS.selected(selected))}
         {...props}

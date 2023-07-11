@@ -275,7 +275,6 @@ export class AetherComposite<
       );
     super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
-    console.log("CHANGED");
     this._ctx = ctx;
     this.children.forEach((c) =>
       c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" })
@@ -374,11 +373,11 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
           variant: "state",
           ctx: this.ctx,
         };
-        console.log(u);
+        // console.log(u);
         this.internalUpdate(u);
       }
-      console.log(msg);
-      console.log(this.children);
+      // console.log(msg);
+      // console.log(this.children);
     } catch (e) {
       console.log(msg);
       console.log(this.children);

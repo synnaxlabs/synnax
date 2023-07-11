@@ -34,9 +34,11 @@ export interface CSSType extends BEM {
   bordered: (location?: CrudeLocation | CrudePosition | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
+  editable: (editable: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   newGridBuilder: () => CSSGridBuilder;
+  dropRegion: (active: boolean) => false | string;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -55,10 +57,12 @@ const newCSS = (prefix: string): CSSType => {
     return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");
   };
   CSS.selected = (selected) => selected && CSS.M("selected");
+  CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
   CSS.newGridBuilder = () => new CSSGridBuilder();
+  CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   return CSS;
 };
 

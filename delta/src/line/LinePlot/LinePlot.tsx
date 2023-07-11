@@ -46,6 +46,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const client = Client.use();
   const dispatch = useDispatch();
 
+  console.log(vis);
+
   const lines = buildLines(vis, ranges);
 
   useAsyncEffect(async () => {

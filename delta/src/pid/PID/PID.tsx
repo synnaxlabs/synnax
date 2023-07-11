@@ -23,6 +23,7 @@ const PIDElementRenderer = ({
   position,
   selected,
   layoutKey,
+  editable,
 }: PIDElementProps & { layoutKey: string }): ReactElement => {
   const {
     props: { type, ...props },
@@ -45,7 +46,7 @@ const PIDElementRenderer = ({
       position={position}
       selected={selected}
       onChange={handleChange}
-      editable={true}
+      editable={editable}
       {...props}
     />
   );

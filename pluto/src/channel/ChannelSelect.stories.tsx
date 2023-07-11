@@ -21,7 +21,13 @@ const story: Meta<typeof ChannelSelectMultiple> = {
 
 export const Multiple = (): ReactElement => {
   const [value, setValue] = useState<readonly ChannelKey[]>([]);
-  return <ChannelSelectMultiple value={value} onChange={setValue} />;
+  const [value2, setValue2] = useState<readonly ChannelKey[]>([]);
+  return (
+    <>
+      <ChannelSelectMultiple value={value} onChange={setValue} />
+      <ChannelSelectMultiple value={value2} onChange={setValue2} />
+    </>
+  );
 };
 
 export const Default = (): ReactElement => {

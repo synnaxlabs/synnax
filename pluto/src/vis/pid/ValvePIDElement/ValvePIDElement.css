@@ -12,3 +12,11 @@
 .pluto-valve-pid-element.pluto--selected * {
     stroke: var(--pluto-primary-z);
 }
+
+.pluto-valve-pid-element.pluto--editable {
+    pointer-events: none;
+}
+
+.pluto-valve-pid-element__valve-container {
+    position: relative;
+}

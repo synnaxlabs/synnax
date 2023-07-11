@@ -33,12 +33,17 @@ import {
   createFilterTransform,
   Status,
   DropdownProps,
+  Haul,
+  Hauled,
+  CSS as PCSS,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { LayoutPlacer, useLayoutPlacer } from "@/layout";
+import { createLinePlot } from "@/line/store/slice";
+import { createPID } from "@/pid/store/slice";
 import { ResourceType } from "@/resources/resources";
 import { RootStore } from "@/store";
 
@@ -134,6 +139,9 @@ export interface PaletteInputProps extends Pick<UseDropdownReturn, "visible" | "
   triggerConfig: PaletteTriggerConfig;
   commands: Command[];
 }
+
+const canDrop = (entities: Hauled[]): boolean =>
+  entities.length === 1 && entities[0].type === "pluto-mosaic-tab";
 
 export const PaletteInput = ({
   mode,
@@ -262,10 +270,38 @@ export const PaletteInput = ({
     [mode, setMode, commandSymbol, handleFilter, handleSearch]
   );
 
+  const placer = useLayoutPlacer();
+
+  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+    canDrop,
+    onDrop: useCallback(
+      ([item]) => {
+        console.log(item.key);
+        placer(
+          createLinePlot({
+            key: item.key as string,
+            location: "window",
+            window: {
+              navTop: true,
+              size: { height: 600, width: 900 },
+            },
+          })
+        );
+      },
+      [placer]
+    ),
+  });
+
+  const { dragging } = Haul.useState();
+
   return (
     <Input
+      className={CSS(PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
       placeholder="Search Synnax"
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       centerPlaceholder
       onBlur={handleBlur}
       onFocus={open}

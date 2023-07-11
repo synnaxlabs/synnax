@@ -25,7 +25,17 @@ export interface PIDState {
   props: Record<string, object>;
 }
 
+// ||||| TOOLBAR |||||
+
+const PID_TOOLBAR_TABS = ["elements", "properties"] as const;
+export type PIDToolbarTab = (typeof PID_TOOLBAR_TABS)[number];
+
+export interface PIDToolbarState {
+  activeTab: PIDToolbarTab;
+}
+
 export interface PIDSliceState {
+  toolbar: PIDToolbarState;
   pids: Record<string, PIDState>;
 }
 
@@ -43,6 +53,7 @@ export const ZERO_PID_STATE: PIDState = {
 };
 
 export const ZERO_PID_SLICE_STATE: PIDSliceState = {
+  toolbar: { activeTab: "elements" },
   pids: {},
 };
 
@@ -74,6 +85,10 @@ export interface CreatePIDPayload {
 
 export interface DeletePIDPayload {
   layoutKey: string;
+}
+
+export interface SetPIDActiveToolbarTabPayload {
+  tab: PIDToolbarTab;
 }
 
 export const { actions, reducer: pidReducer } = createSlice({
@@ -111,16 +126,31 @@ export const { actions, reducer: pidReducer } = createSlice({
       const { layoutKey, nodes } = payload;
       const pid = state.pids[layoutKey];
       pid.nodes = nodes;
+      const anySelected = nodes.some((node) => node.selected);
+      if (anySelected) state.toolbar.activeTab = "properties";
     },
     setPIDEdges: (state, { payload }: PayloadAction<SetPIDEdgesPayload>) => {
       const { layoutKey, edges } = payload;
       const pid = state.pids[layoutKey];
       pid.edges = edges;
     },
+    setPIDActiveToolbarTab: (
+      state,
+      { payload }: PayloadAction<SetPIDActiveToolbarTabPayload>
+    ) => {
+      const { tab } = payload;
+      state.toolbar.activeTab = tab;
+    },
   },
 });
 
-export const { addPIDelement, setPIDEdges, setPIDNodes, setPIDElementProps } = actions;
+export const {
+  addPIDelement,
+  setPIDEdges,
+  setPIDNodes,
+  setPIDElementProps,
+  setPIDActiveToolbarTab,
+} = actions;
 
 export type PIDAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type PIDPayload = PIDAction["payload"];

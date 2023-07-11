@@ -93,11 +93,11 @@ const MosaicTabLeaf = memo(
       endDrag: handleDragEnd,
     } = Haul.useState();
 
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
-      e.preventDefault();
+    const canDrop = useCallback((hauled: Hauled[]) => validDrop(tabs, hauled), [tabs]);
+
+    const handleDrop = (hauled: Hauled[], e: React.DragEvent<Element>): void => {
       setDragMask(null);
-      if (!validDrop(tabs, dragging)) return;
-      const tabKey = dragging.map(({ key }) => key)[0];
+      const tabKey = hauled.map(({ key }) => key)[0];
       onDrop(key, tabKey as string, insertLocation(getDragLocationPercents(e)).crude);
     };
 
@@ -114,15 +114,17 @@ const MosaicTabLeaf = memo(
     const handleDragStart = (
       _: React.DragEvent<HTMLDivElement>,
       { tabKey }: Tab
-    ): void => onDragStart([{ key: tabKey, type: DRAGGING_TYPE }]);
+    ): void => onDragStart([{ key: tabKey, type: DRAGGING_TYPE }], () => {});
 
     const handleCreate = (): void => onCreate?.(key);
+
+    const haulProps = Haul.useDropRegion({ canDrop, onDrop: handleDrop });
 
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs
           tabs={tabs}
-          onDrop={handleDrop}
+          onDrop={haulProps.onDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDragEnter={preventDefault}
@@ -154,7 +156,7 @@ const maskStyle: Record<
 };
 
 const getDragLocationPercents = (
-  e: React.DragEvent<HTMLDivElement>
+  e: React.DragEvent<Element>
 ): { px: number; py: number } => {
   const rect = e.currentTarget.getBoundingClientRect();
   const x = e.clientX - rect.left;

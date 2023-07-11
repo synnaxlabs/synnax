@@ -19,8 +19,8 @@ import {
 } from "@/layout";
 
 export const VisList = (): ReactElement => {
-  const layouts = useSelectLayouts().filter(
-    (layout) => layout.type === "visualization"
+  const layouts = useSelectLayouts().filter((layout) =>
+    ["line", "pid"].includes(layout.type)
   );
   const activeLayout = useSelectActiveMosaicTabKey();
   const d = useDispatch();

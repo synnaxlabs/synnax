@@ -54,7 +54,7 @@ export interface LegendState {
 }
 
 const ZERO_LEGEND_STATE = {
-  visible: false,
+  visible: true,
 };
 
 // |||||| VIEWPORT ||||||
@@ -197,6 +197,8 @@ export const ZERO_LINE_VIS: LinePlotState = {
   axes: ZERO_AXES_STATE,
   rules: ZERO_RULES_STATE,
 };
+
+// |||||| TOOLBAR ||||||
 
 const LINE_TOOLBAR_TABS = [
   "data",
@@ -359,8 +361,13 @@ export const { actions, reducer: lineReducer } = createSlice({
   name: LINE_SLICE_NAME,
   initialState: ZERO_LINE_SLICE_STATE,
   reducers: {
-    createLinePlot: (state, { payload }: PayloadAction<CreateLinePlotPayload>) => {
+    setLinePlot: (state, { payload }: PayloadAction<CreateLinePlotPayload>) => {
       const { key: layoutKey } = payload;
+      console.log(JSON.stringify(Object.keys(state.plots)), layoutKey);
+      const existing = state.plots[layoutKey];
+      console.log(JSON.stringify(existing));
+      if (existing != null) return;
+      console.log(existing, payload);
       state.plots[layoutKey] = payload;
       state.plots[layoutKey].lines = updateLines(payload);
     },
@@ -485,8 +492,9 @@ export const createLinePlot =
   ): LayoutCreator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
+    console.log(initial.key);
     const key = initial.key ?? nanoid();
-    dispatch(actions.createLinePlot({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
+    dispatch(actions.setLinePlot({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
     return {
       key,
       name,

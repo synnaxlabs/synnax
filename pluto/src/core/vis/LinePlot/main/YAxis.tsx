@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useEffect, useMemo, useRef } from "react";
+import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 
 import {
   Optional,
@@ -22,9 +22,10 @@ import { z } from "zod";
 import { withinSizeThreshold } from "../aether/axis";
 
 import { Aether } from "@/core/aether/main";
+import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
 import { useMemoCompare, useResize } from "@/core/hooks";
-import { Space, Text, TypographyLevel } from "@/core/std";
+import { Space, SpaceProps, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
@@ -34,9 +35,10 @@ import "@/core/vis/LinePlot/main/YAxis.css";
 export interface YAxisProps
   extends PropsWithChildren,
     Optional<
-      Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position">,
+      Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
       "color" | "font" | "gridColor"
-    > {
+    >,
+    Omit<SpaceProps, "color"> {
   label?: string;
   labelLevel?: TypographyLevel;
   onLabelChange?: (label: string) => void;
@@ -53,6 +55,10 @@ export const YAxis = Aether.wrap<YAxisProps>(
     labelLevel = "small",
     onLabelChange,
     labelDirection = Direction.x,
+    color,
+    labelSize: propsLabelSize,
+    showGrid,
+    type,
     ...props
   }): ReactElement => {
     const theme = Theming.use();
@@ -61,16 +67,33 @@ export const YAxis = Aether.wrap<YAxisProps>(
 
     const memoProps = useMemoCompare(
       () => ({
-        color: theme.colors.gray.p2,
         gridColor: theme.colors.gray.m2,
         location,
         font: Theming.fontString(theme, "small"),
-        ...props,
+        color: color != null ? new Color(color) : theme.colors.gray.p2,
+        showGrid,
+        type,
       }),
-      ([theme, props], [prevTheme, prevProps]) => {
-        return Deep.equal(props, prevProps);
+      (
+        [, propsLabelSize, type, showGrid, color],
+        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor]
+      ) => {
+        return Deep.equal(
+          {
+            color,
+            propsLabelSize,
+            type,
+            showGrid,
+          },
+          {
+            color: prevColor,
+            propsLabelSize: prevPropsLabelSize,
+            type: prevType,
+            showGrid: prevShowGrid,
+          }
+        );
       },
-      [theme, props]
+      [theme, propsLabelSize, type, showGrid]
     );
 
     const prevLabelSize = useRef(0);
@@ -83,10 +106,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     });
 
     useEffect(() => {
-      setState((state) => ({
-        ...state,
-        ...memoProps,
-      }));
+      setState((state) => ({ ...state, ...memoProps }));
     }, [memoProps]);
 
     const gridStyle = useGridPosition(
@@ -132,6 +152,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
           ref={resizeRef}
           align="start"
           justify="center"
+          {...props}
         >
           {showLabel && (
             <Text.MaybeEditable

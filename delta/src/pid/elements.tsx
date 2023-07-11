@@ -11,9 +11,11 @@ import {
   PIDElementSpec,
   ValuePIDElementSpec,
   ValvePIDElementSpec,
+  TankPIDElementSpec,
 } from "@synnaxlabs/pluto";
 
 export const ELEMENTS: Record<string, PIDElementSpec<any>> = {
   [ValuePIDElementSpec.type]: ValuePIDElementSpec,
   [ValvePIDElementSpec.type]: ValvePIDElementSpec,
+  [TankPIDElementSpec.type]: TankPIDElementSpec,
 };

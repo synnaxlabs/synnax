@@ -11,6 +11,10 @@ import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
+
+import { useSelectPIDToolbar } from "../store/selectors";
+import { PIDToolbarTab, setPIDActiveToolbarTab } from "../store/slice";
 
 import { PIDElementPropertiesControls } from "./PIDElementPropertiesControls";
 import { PIDElements } from "./PIDElementsControls";
@@ -35,6 +39,8 @@ const TABS = [
 
 export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   const { name } = useSelectRequiredLayout(layoutKey);
+  const dispatch = useDispatch();
+  const toolbar = useSelectPIDToolbar();
   const content = useCallback(
     ({ tabKey }: Tab): ReactElement => {
       switch (tabKey) {
@@ -47,14 +53,23 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
     [layoutKey]
   );
 
-  const tabsProps = Tabs.useStatic({
-    tabs: TABS,
-    content,
-  });
+  const handleTabSelect = useCallback(
+    (tabKey: string): void => {
+      dispatch(setPIDActiveToolbarTab({ tab: tabKey as PIDToolbarTab }));
+    },
+    [dispatch]
+  );
 
   return (
     <Space empty>
-      <Tabs.Provider value={tabsProps}>
+      <Tabs.Provider
+        value={{
+          tabs: TABS,
+          selected: toolbar.activeTab,
+          onSelect: handleTabSelect,
+          content,
+        }}
+      >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Control />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />

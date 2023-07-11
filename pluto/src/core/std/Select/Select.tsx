@@ -103,7 +103,7 @@ export const Select = <
       <Dropdown
         ref={ref}
         visible={visible}
-        className={CSS(className, CSS.B("select"))}
+        className={CSS.B("select")}
         matchTriggerWidth
         {...props}
       >
@@ -117,6 +117,7 @@ export const Select = <
               tagKey={tagKey}
               visible={visible}
               allowClear={allowClear}
+              className={className}
             />
           )}
         </InputWrapper>
@@ -149,6 +150,7 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   onFocus,
   allowClear = true,
   debounceSearch = 250,
+  className,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
   const {
@@ -199,7 +201,7 @@ const SelectInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   if (allowClear) {
     return (
-      <Pack direction="x" className={CSS.B("select-input")}>
+      <Pack direction="x" className={CSS(className, CSS.B("select-input"))}>
         {input}
         <SelectClearButton onClick={handleClear} />
       </Pack>

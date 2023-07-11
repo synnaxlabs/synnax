@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoSelect } from "@/hooks";
-import { PIDNode, PIDSliceState, PIDState, PIDStoreState } from "@/pid/store/slice";
+import {
+  PIDNode,
+  PIDSliceState,
+  PIDState,
+  PIDStoreState,
+  PIDToolbarState,
+} from "@/pid/store/slice";
 
 export const selectPIDState = (state: PIDStoreState): PIDSliceState => state.pid;
 
@@ -67,3 +73,9 @@ export const useSelectPIDElementProps = (
     (state: PIDStoreState) => selectPIDElementProps(state, layoutKey, key),
     [layoutKey, key]
   );
+
+export const selectPIDToolbar = (state: PIDStoreState): PIDToolbarState =>
+  selectPIDState(state).toolbar;
+
+export const useSelectPIDToolbar = (): PIDToolbarState =>
+  useMemoSelect(selectPIDToolbar, []);
