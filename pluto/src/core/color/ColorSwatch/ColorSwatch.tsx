@@ -9,32 +9,38 @@
 
 import { ReactElement } from "react";
 
-import { Color } from "@/core/color/color";
+import { Color, ColorT } from "@/core/color/color";
 import { ColorPicker } from "@/core/color/ColorPicker";
 import { CSS } from "@/core/css";
 import { Button, ButtonProps, Dropdown, InputControl } from "@/core/std";
+import { UseDropdownProps } from "@/core/std/Dropdown/Dropdown";
 
 import "@/core/color/ColorSwatch/ColorSwatch.css";
 
 export interface ColorSwatchProps
-  extends InputControl<Color>,
-    Omit<ButtonProps, "onChange" | "value"> {}
+  extends InputControl<ColorT, Color>,
+    Omit<ButtonProps, "onChange" | "value">,
+    UseDropdownProps {}
 
 export const ColorSwatch = ({
   value,
   onChange,
   className,
   size = "medium",
+  onVisibleChange,
+  initialVisible,
   ...props
 }: ColorSwatchProps): ReactElement => {
-  const { visible, open, ref } = Dropdown.use();
+  const { visible, open, ref } = Dropdown.use({ onVisibleChange, initialVisible });
+  const color = new Color(value);
 
   const swatch = (
     <Button
       className={CSS(CSS.B("color-swatch"), CSS.size(size), className)}
-      style={{ backgroundColor: value.hex }}
+      style={{ backgroundColor: color.hex }}
       variant="text"
       onClick={open}
+      size={size}
       {...props}
     />
   );

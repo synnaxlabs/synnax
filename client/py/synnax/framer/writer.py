@@ -51,6 +51,7 @@ class _Response(Payload):
     command: _Command
     ack: bool
     error: ExceptionPayload | None
+    end: TimeStamp | None
 
 
 class Writer:
@@ -151,7 +152,7 @@ class Writer:
             raise err
         return True
 
-    def commit(self) -> bool:
+    def commit(self) -> tuple[TimeStamp, bool]:
         """Commits the written frames to the database. Commit is synchronous, meaning
         that it will not return until all frames have been committed to the database.
 
@@ -160,7 +161,7 @@ class Writer:
         After the error is acknowledged, the caller can attempt to commit again.
         """
         if self.__stream.received():
-            return False
+            return TimeStamp.ZERO, False
         err = self.__stream.send(_Request(command=_Command.COMMIT))
         if err is not None:
             raise err
@@ -169,9 +170,8 @@ class Writer:
             res, err = self.__stream.receive()
             if err is not None:
                 raise err
-            assert res is not None
             if res.command == _Command.COMMIT:
-                return res.ack
+                return res.end, res.ack
 
     def error(self) -> Exception | None:
         """

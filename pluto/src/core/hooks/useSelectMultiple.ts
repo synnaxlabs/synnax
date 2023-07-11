@@ -20,6 +20,7 @@ export interface UseSelectMultipleProps<
 > {
   data: E[];
   allowMultiple?: boolean;
+  allowNone?: boolean;
   value: readonly K[];
   onChange: (next: readonly K[], entries: E[]) => void;
 }
@@ -65,6 +66,7 @@ export const useSelectMultiple = <
   data = [],
   value = [],
   allowMultiple = true,
+  allowNone = true,
   onChange,
 }: UseSelectMultipleProps<K, E>): UseSelectMultipleReturn<K, E> => {
   const shiftValueRef = useRef<K | null>(null);
@@ -94,6 +96,8 @@ export const useSelectMultiple = <
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
+      const v = unique(nextSelected);
+      if (!allowNone && v.length === 0) return;
       onChange(
         unique(nextSelected),
         data.filter(({ key }) => nextSelected.includes(key))

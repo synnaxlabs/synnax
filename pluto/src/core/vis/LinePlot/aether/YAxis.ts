@@ -33,6 +33,7 @@ const yAxisState = axisState.extend({
 export interface YAxisProps {
   plottingRegion: Box;
   viewport: Box;
+  region: Box;
   scale: Scale;
 }
 
@@ -103,6 +104,7 @@ export class AetherYAxis extends AetherComposite<
   }
 
   private async renderRules(ctx: YAxisProps, scale: Scale): Promise<void> {
+    const clearScissor = this.derived.ctx.scissorCanvas(ctx.plottingRegion);
     await Promise.all(
       this.rules.map(
         async (el) =>
@@ -113,6 +115,7 @@ export class AetherYAxis extends AetherComposite<
           })
       )
     );
+    clearScissor();
   }
 
   private async yBounds(): Promise<[Bounds, number]> {

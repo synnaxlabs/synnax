@@ -52,7 +52,7 @@ import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
 import {
   WorkspaceAction,
   workspaceReducer,
-  WorkspaceState,
+  WorkspaceSliceState,
   WORKSPACE_SLICE_NAME,
 } from "@/workspace";
 
@@ -76,7 +76,7 @@ export interface RootState {
   [DRIFT_SLICE_NAME]: DriftState;
   [CLUSTER_SLICE_NAME]: ClusterState;
   [LAYOUT_SLICE_NAME]: LayoutSliceState;
-  [WORKSPACE_SLICE_NAME]: WorkspaceState;
+  [WORKSPACE_SLICE_NAME]: WorkspaceSliceState;
   [VERSION_SLICE_NAME]: VersionState;
   [DOCS_SLICE_NAME]: DocsState;
   [PID_SLICE_NAME]: PIDSliceState;

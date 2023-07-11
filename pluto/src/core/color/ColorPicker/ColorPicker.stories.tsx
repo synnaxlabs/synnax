@@ -23,12 +23,7 @@ const story: Meta<typeof ColorPicker> = {
 
 export const Primary: StoryFn<typeof Accordion> = () => {
   const [value, setValue] = useState<Color>(Color.ZERO.setAlpha(1));
-  return (
-    <div style={{ width: "100vw", height: "100vh", backgroundColor: value.hex }}>
-      <ColorPicker value={value} onChange={setValue} />
-      <h1>{value.hex}</h1>
-    </div>
-  );
+  return <ColorPicker value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

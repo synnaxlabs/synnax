@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { WorkspaceState, WorkspaceStoreState, WORKSPACE_SLICE_NAME } from "./slice";
+import {
+  WorkspaceSliceState,
+  WorkspaceStoreState,
+  WORKSPACE_SLICE_NAME,
+} from "./slice";
 import type { Range } from "./types";
 
 import { selectByKey, useMemoSelect } from "@/hooks";
@@ -17,7 +21,7 @@ import { selectByKey, useMemoSelect } from "@/hooks";
  * @param state - The state of the workspace store.
  * @returns The workspace state.
  */
-const selectWorkSpaceState = (state: WorkspaceStoreState): WorkspaceState =>
+const selectWorkSpaceState = (state: WorkspaceStoreState): WorkspaceSliceState =>
   state[WORKSPACE_SLICE_NAME];
 
 /**

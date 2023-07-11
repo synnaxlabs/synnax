@@ -32,6 +32,7 @@ func newResponseTranslator(host core.NodeKey) func(ctx context.Context, in ts.Wr
 			Error:   in.Err,
 			SeqNum:  in.SeqNum,
 			NodeKey: host,
+			End:     in.End,
 		}, true, nil
 	}
 }

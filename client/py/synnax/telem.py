@@ -198,6 +198,7 @@ class TimeStamp(int):
 
     MIN: TimeStamp
     MAX: TimeStamp
+    ZERO: TimeStamp
 
 
 class TimeSpan(int):
@@ -348,6 +349,7 @@ TimeSpan.UNITS = {
     TimeSpan.HOUR_UNITS: TimeSpan.HOUR,
 }
 TimeStamp.MIN = TimeStamp(0)
+TimeStamp.ZERO = TimeStamp.MIN
 TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 

@@ -52,6 +52,9 @@ export const WorkerProvider = memo(
     useEffect(() => {
       if (!enabled) return;
       const worker = new Worker(url, { type: "module" });
+      worker.onerror = (e) => {
+        console.error(e);
+      };
       const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
       worker.onmessage = (e) => router.handle(e);
       setState({

@@ -26,6 +26,7 @@ export interface AetherRuleProps {
   direction: Direction;
   scale: Scale;
   plottingRegion: Box;
+  region: Box;
 }
 
 interface Derived {
@@ -35,6 +36,8 @@ interface Derived {
 export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
   static readonly TYPE = "Rule";
   static readonly stateZ = ruleState;
+
+  schema = AetherRule.stateZ;
 
   derive(): Derived {
     return { renderCtx: RenderContext.use(this.ctx) };
@@ -46,18 +49,20 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
 
   handleDelete(): void {}
 
-  updatePositions({ scale, plottingRegion }: AetherRuleProps): number {
+  updatePositions({ scale, plottingRegion, region }: AetherRuleProps): number {
     if (this.state.dragging) {
       const pos = scale.pos(
-        (this.state.pixelPosition - plottingRegion.top) / plottingRegion.height
+        (this.state.pixelPosition - plottingRegion.top + region.top) /
+          plottingRegion.height
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
     }
     const pixelPos =
       scale.reverse().pos(this.state.position) * plottingRegion.height +
-      plottingRegion.top;
-    this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
+      plottingRegion.top -
+      region.top;
+    if (!isNaN(pixelPos)) this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
     return pixelPos;
   }
 
@@ -66,9 +71,11 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
     const { direction, plottingRegion } = props;
     const { upper2d: canvas } = renderCtx;
 
-    const pixelPos = this.updatePositions(props);
+    let pixelPos = this.updatePositions(props);
+    pixelPos += props.region.top;
+
     canvas.strokeStyle = this.state.color.hex;
-    canvas.lineWidth = 2;
+    canvas.lineWidth = 1;
     canvas.setLineDash([20]);
     canvas.beginPath();
     if (direction.isX) {

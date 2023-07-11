@@ -76,14 +76,12 @@ class RowIngestionEngine:
                     try:
                         t0 = datetime.now()
                         chunk = self.reader.read()
-                        time_d = chunk["Time (hs)"]
-                        self.end = TimeStamp(time_d[time_d.size - 1])
                         self._write(chunk)
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
                         progress.update(task, advance=chunk.size, tp=tp)
                     except StopIteration:
                         break
-            self.writer.commit()
+            self.end, _ = self.writer.commit()
         finally:
             self.reader.close()
             self.writer.close()

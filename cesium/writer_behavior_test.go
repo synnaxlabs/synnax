@@ -48,8 +48,10 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 						telem.NewArrayV[int64](1, 2, 3, 4),
 					}),
 				)).To(BeTrue())
-				Expect(w.Commit()).To(BeTrue())
+				end, ok := w.Commit()
+				Expect(ok).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
+				Expect(end).To(Equal(13*telem.SecondTS + 1))
 
 				By("Reading the data back")
 				frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
@@ -156,7 +158,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[int64](1, 2, 3),
 				}),
 			)).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("uneven frame"))
@@ -174,7 +177,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
 			))).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("frame without data for all channels"))
@@ -193,7 +197,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
 			))).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("duplicate channel"))
@@ -212,7 +217,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[int64](1, 2, 3, 4),
 				},
 			))).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("223"))
@@ -247,7 +253,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 						telem.NewSecondsTSV(10, 11, 12, 13),
 					}),
 				)).To(BeTrue())
-				Expect(w.Commit()).To(BeTrue())
+				_, ok := w.Commit()
+				Expect(ok).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
 
 				By("Writing data to channel where the last sample is not the index")
@@ -263,7 +270,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
 				))).To(BeTrue())
-				Expect(w.Commit()).To(BeFalse())
+				_, ok = w.Commit()
+				Expect(ok).To(BeFalse())
 				err := w.Close()
 				Expect(err).To(MatchError(cesium.ErrDiscontinuous))
 			})
@@ -285,7 +293,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 						telem.NewArrayV[int64](1, 2, 3, 4, 5),
 					},
 				))).To(BeTrue())
-				Expect(w.Commit()).To(BeFalse())
+				_, ok := w.Commit()
+				Expect(ok).To(BeFalse())
 				Expect(w.Close()).To(MatchError(cesium.ErrDiscontinuous))
 			})
 		})
@@ -318,7 +327,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[float64](1, 2, 3, 4, 5),
 				},
 			))).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
@@ -344,7 +354,8 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 					telem.NewArrayV[int64](1, 2, 3, 4, 5),
 				},
 			))).To(BeTrue())
-			Expect(w.Commit()).To(BeFalse())
+			_, ok := w.Commit()
+			Expect(ok).To(BeFalse())
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("expected timestamp, got int64"))

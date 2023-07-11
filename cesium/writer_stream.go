@@ -55,6 +55,9 @@ type WriterResponse struct {
 	// Err is the return frame of WriterError. Err is nil during calls to
 	// WriterWrite and WriterCommit.
 	Err error
+	// End is the end timestamp of the domain on commit. It is only valid during calls
+	// to WriterCommit.
+	End telem.TimeStamp
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -121,23 +124,24 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if req.Command == WriterError {
 					w.seqNum++
-					w.sendRes(req, false, w.err)
+					w.sendRes(req, false, w.err, 0)
 					w.err = nil
 					continue
 				}
 				if w.err != nil {
 					w.seqNum++
-					w.sendRes(req, false, nil)
+					w.sendRes(req, false, nil, 0)
 					continue
 				}
 				if req.Command == WriterCommit {
 					w.seqNum++
-					w.err = w.commit(ctx)
-					w.sendRes(req, w.err == nil, nil)
+					var end telem.TimeStamp
+					end, w.err = w.commit(ctx)
+					w.sendRes(req, w.err == nil, nil, end)
 				} else {
 					if w.err = w.write(req); w.err != nil {
 						w.seqNum++
-						w.sendRes(req, false, nil)
+						w.sendRes(req, false, nil, 0)
 					}
 				}
 			}
@@ -145,8 +149,8 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error) {
-	w.Out.Inlet() <- WriterResponse{Command: req.Command, Ack: ack, SeqNum: w.seqNum, Err: err}
+func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
+	w.Out.Inlet() <- WriterResponse{Command: req.Command, Ack: ack, SeqNum: w.seqNum, Err: err, End: end}
 }
 
 func (w *streamWriter) write(req WriterRequest) error {
@@ -193,10 +197,10 @@ func (w *streamWriter) write(req WriterRequest) error {
 	return nil
 }
 
-func (w *streamWriter) commit(ctx context.Context) (err error) {
+func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
-		return err
+		return end.Lower, err
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
@@ -204,8 +208,7 @@ func (w *streamWriter) commit(ctx context.Context) (err error) {
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
-	w.err = c.Error()
-	return
+	return end.Lower, c.Error()
 }
 
 func (w *streamWriter) updateHighWater(col telem.Series) error {

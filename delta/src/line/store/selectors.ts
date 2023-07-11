@@ -13,6 +13,7 @@ import {
   LineSliceState,
   LineStoreState,
   LINE_SLICE_NAME,
+  LineToolbarState,
 } from "@/line/store/slice";
 import { XAxisRecord } from "@/vis";
 import { Range, WorkspaceStoreState, selectRanges } from "@/workspace";
@@ -38,3 +39,9 @@ export const useSelectLinePlotRanges = (key: string): XAxisRecord<Range[]> => {
     [key]
   );
 };
+
+export const selectLineToolbar = (state: LineStoreState): LineToolbarState =>
+  selectLineSliceState(state).toolbar;
+
+export const useSelectLineToolbar = (): LineToolbarState =>
+  useMemoSelect(selectLineToolbar, []);

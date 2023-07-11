@@ -62,6 +62,7 @@ func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, 
 			Command: res.Command,
 			Ack:     ack,
 			SeqNum:  seqNum + a.artificialSeqNumInc,
+			End:     res.End,
 		}, true, nil
 	}
 	return Response{}, false, nil

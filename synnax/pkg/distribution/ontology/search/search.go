@@ -106,9 +106,9 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	defer span.End()
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("Name", bleve.NewTextFieldMapping())
-	for k, f := range sch.Fields {
-		dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
-	}
+	//for k, f := range sch.Fields {
+	//	dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
+	//}
 	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
 

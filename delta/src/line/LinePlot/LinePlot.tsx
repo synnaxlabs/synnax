@@ -15,6 +15,8 @@ import {
   LineProps,
   Client,
   useAsyncEffect,
+  Color,
+  RuleProps,
 } from "@synnaxlabs/pluto";
 import { TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -24,6 +26,7 @@ import { useSelectLinePlot, useSelectLinePlotRanges } from "@/line/store/selecto
 import {
   LinePlotState,
   setLinePlotLine,
+  setLinePlotRule,
   shouldDisplayAxis,
   typedLineKeyToString,
 } from "@/line/store/slice";
@@ -68,22 +71,77 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     dispatch(renameLayout({ key: layoutKey, name }));
   };
 
+  const handleLineLabelChange = (key: string, label: string): void => {
+    dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, label }] }));
+  };
+
+  const handleLineColorChange = (key: string, color: Color): void => {
+    dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
+  };
+
+  const handleRulePositionChange = (key: string, position: number): void => {
+    dispatch(
+      setLinePlotRule({
+        key: layoutKey,
+        rule: {
+          key,
+          position,
+        },
+      })
+    );
+  };
+
+  const handleRuleLabelChange = (key: string, label: string): void => {
+    dispatch(
+      setLinePlotRule({
+        key: layoutKey,
+        rule: {
+          key,
+          label,
+        },
+      })
+    );
+  };
+
+  const rules = buildRules(vis);
+  const propsLines = buildLines(vis, ranges);
+  const axes = buildAxes(vis);
+
+  console.log(rules);
+
   return (
     <PLinePlot
       title={name}
       style={{ padding: "2rem" }}
-      axes={buildAxes(vis)}
-      lines={buildLines(vis, ranges)}
+      axes={axes}
+      lines={propsLines}
+      rules={rules}
       clearOverscan={{ x: 5, y: 10 }}
       onTitleChange={handleTitleRename}
       titleLevel={vis.title.level}
       showTitle={vis.title.visible}
       showLegend={vis.legend.visible}
+      onLineColorChange={handleLineColorChange}
+      onLineLabelChange={handleLineLabelChange}
+      onRulePositionChange={handleRulePositionChange}
+      onRuleLabelChange={handleRuleLabelChange}
     />
   );
 };
 
-export const buildAxes = (vis: LinePlotState): AxisProps[] =>
+const buildRules = (vis: LinePlotState): RuleProps[] => {
+  return vis.rules?.map((rule) => {
+    return {
+      id: rule.key,
+      color: rule.color,
+      axis: rule.axis,
+      position: rule.position,
+      label: rule.label,
+    };
+  });
+};
+
+const buildAxes = (vis: LinePlotState): AxisProps[] =>
   Object.entries(vis.axes)
     .filter(([key, axis]) => shouldDisplayAxis(key as AxisKey, vis))
     .map(([key, axis]): AxisProps => {
@@ -96,7 +154,7 @@ export const buildAxes = (vis: LinePlotState): AxisProps[] =>
       };
     });
 
-export const buildLines = (
+const buildLines = (
   vis: LinePlotState,
   sug: MultiXAxisRecord<Range>
 ): Array<LineProps & { key: string }> =>
@@ -119,6 +177,7 @@ export const buildLines = (
             const line = vis.lines.find((l) => l.key === key);
             if (line == null) throw new Error("Line not found");
             const v: LineProps & { key: string } = {
+              id: key,
               ...line,
               downsample:
                 isNaN(line.downsample) || line.downsample == null ? 1 : line.downsample,

@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement } from "react";
+import { ComponentPropsWithoutRef, ReactElement, useEffect, useRef } from "react";
 
 import { SketchPicker, ColorResult } from "react-color";
 
-import { Color } from "@/core/color";
+import { Color, ColorT } from "@/core/color";
 import { CSS } from "@/core/css";
 import { InputControl } from "@/core/std";
+import { stopPropagation } from "@/util/event";
 
 import "@/core/color/ColorPicker/ColorPicker.css";
 
 export interface ColorPickerProps
-  extends InputControl<Color>,
+  extends InputControl<ColorT, Color>,
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {}
 
 export const ColorPicker = ({
@@ -30,13 +31,15 @@ export const ColorPicker = ({
     if (color.hex === "transparent") onChange(Color.ZERO);
     onChange(new Color(color.hex, color.rgb.a));
   };
+
   return (
     <SketchPicker
       className={CSS.B("color-picker")}
-      color={value.hex}
+      color={new Color(value).hex}
       onChange={handleChange}
       presetColors={[]}
       {...props}
     />
   );
 };
+ColorPicker.displayName = "ColorPicker";

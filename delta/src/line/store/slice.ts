@@ -99,6 +99,27 @@ const ZERO_LINE_STATE: Omit<LineState, "key"> = {
 
 export const ZERO_LINES_STATE: LinesState = [];
 
+// |||||| RULES ||||||
+
+export interface RuleState {
+  key: string;
+  label: string;
+  color: string;
+  position: number;
+  axis: AxisKey;
+}
+
+export type RulesState = RuleState[];
+
+const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
+  color: "#ffffff",
+  label: "",
+  position: 0,
+  axis: "y1",
+};
+
+export const ZERO_RULES_STATE: RulesState = [];
+
 // |||||| CHANNELS |||||
 
 export type ChannelsState = MultiYAxisRecord<ChannelKey[]> & XAxisRecord<ChannelKey>;
@@ -141,6 +162,7 @@ export interface LinePlotState {
   viewport: ViewportState;
   axes: AxesState;
   lines: LinesState;
+  rules: RulesState;
 }
 
 export const ZERO_AXIS_STATE: AxisState = {
@@ -167,9 +189,24 @@ export const ZERO_LINE_VIS: LinePlotState = {
   viewport: ZERO_VIEWPORT_STATE,
   lines: ZERO_LINES_STATE,
   axes: ZERO_AXES_STATE,
+  rules: ZERO_RULES_STATE,
 };
 
+const LINE_TOOLBAR_TABS = [
+  "data",
+  "lines",
+  "axes",
+  "annotations",
+  "properties",
+] as const;
+export type LineToolbarTab = (typeof LINE_TOOLBAR_TABS)[number];
+
+export interface LineToolbarState {
+  activeTab: LineToolbarTab;
+}
+
 export interface LineSliceState {
+  toolbar: LineToolbarState;
   plots: Record<string, LinePlotState>;
 }
 
@@ -180,6 +217,9 @@ export interface LineStoreState {
 }
 
 export const ZERO_LINE_SLICE_STATE: LineSliceState = {
+  toolbar: {
+    activeTab: "data",
+  },
   plots: {},
 };
 
@@ -238,6 +278,15 @@ export interface SetLinePlotAxisPayload {
   key: string;
   axisKey: AxisKey;
   axis: Partial<AxisState>;
+}
+
+export interface SetLinePlotRulePayload {
+  key: string;
+  rule: Partial<RuleState> & { key: string };
+}
+
+export interface SetActiveToolbarTabPayload {
+  tab: LineToolbarTab;
 }
 
 interface TypedLineKey {
@@ -382,6 +431,27 @@ export const { actions, reducer: lineReducer } = createSlice({
       const plot = state.plots[layoutKey];
       plot.legend = { ...plot.legend, ...legend };
     },
+    setLinePlotRule: (state, { payload }: PayloadAction<SetLinePlotRulePayload>) => {
+      const { key: layoutKey, rule } = payload;
+      const plot = state.plots[layoutKey];
+      toArray(rule).forEach((r) => {
+        const idx = plot.rules.findIndex((rr) => rr.key === r.key);
+        if (idx >= 0) plot.rules[idx] = { ...plot.rules[idx], ...r };
+        else {
+          plot.rules.push({
+            ...ZERO_RULE_STATE,
+            label: `Rule ${plot.rules.length}`,
+            ...r,
+          });
+        }
+      });
+    },
+    setLineActiveToolbarTab: (
+      state,
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>
+    ) => {
+      state.toolbar.activeTab = payload.tab;
+    },
   },
 });
 
@@ -396,6 +466,8 @@ export const {
   addLinePlotYChannel,
   setLinePlotTitle,
   setLinePlotLegend,
+  setLinePlotRule,
+  setLineActiveToolbarTab,
 } = actions;
 
 export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;

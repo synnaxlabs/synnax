@@ -15,6 +15,7 @@ import {
   createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -25,6 +26,7 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Alamos } from "../alamos";
 import { useUnmount } from "../hooks/useMount";
 
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
@@ -32,6 +34,7 @@ import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useMemoCompare } from "@/core/memo";
 import { Worker } from "@/core/worker";
 import { SetStateArg, isStateSetter } from "@/util/state";
+import { prettyParze as prettyParse } from "@/util/zod";
 
 export interface AetherCreateReturn {
   setState: (state: any, transfer?: Transferable[]) => void;
@@ -83,14 +86,14 @@ export const AetherProvider = ({
       registry.current.set(key, { path, handler });
       return {
         setState: (state: any, transfer: Transferable[] = []): void => {
-          ins.T.debug("Aether.update", (span) => {
-            span.set("path", path.join("."));
-            span.set("type", type);
-            span.set("state", state);
-            worker?.send({ variant: "update", path, state, type }, transfer);
-          });
+          console.log("update", path, state, type);
+          if (worker == null) console.warn("aether - no worker");
+          worker?.send({ variant: "update", path, state, type }, transfer);
         },
-        delete: () => worker?.send({ variant: "delete", path, type }),
+        delete: () => {
+          if (worker == null) console.warn("aether - no worker");
+          worker?.send({ variant: "delete", path, type });
+        },
       };
     },
     [worker, registry]
@@ -123,7 +126,11 @@ export const AetherProvider = ({
   );
 };
 
-export const useAetherContext = (): AetherContextValue => {};
+export const useAetherContext = (): AetherContextValue => {
+  const ctx = useContext(AetherContext);
+  if (ctx == null) throw new Error("useBobContext must be used within a BobProvider");
+  return ctx;
+};
 
 export interface UseAetherLifecycleReturn<S extends z.ZodTypeAny> {
   path: string[];
@@ -156,7 +163,7 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
   );
 
   const setState = useCallback((state: z.input<S>, transfer: Transferable[] = []) => {
-    comms.current?.setState(schema.parse(state), transfer);
+    comms.current?.setState(prettyParse(schema, state), transfer);
   }, []);
 
   // We run the first effect synchronously so that parent components are created
@@ -212,13 +219,13 @@ const useAether = <S extends z.ZodTypeAny>(
   const { type, schema, initialState } = props;
 
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
-    schema.parse(initialState)
+    prettyParse(schema, initialState)
   );
 
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
-    (state: any) => setInternalState(schema.parse(state)),
+    (state: any) => setInternalState(prettyParse(schema, state)),
     [schema]
   );
 

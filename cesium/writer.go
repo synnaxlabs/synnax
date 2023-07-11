@@ -59,23 +59,23 @@ func (w *Writer) Write(frame Frame) bool {
 	}
 }
 
-func (w *Writer) Commit() bool {
+func (w *Writer) Commit() (telem.TimeStamp, bool) {
 	if w.hasAccumulatedErr {
-		return false
+		return 0, false
 	}
 	select {
 	case <-w.responses.Outlet():
 		w.hasAccumulatedErr = true
-		return false
+		return 0, false
 	case w.requests.Inlet() <- WriterRequest{Command: WriterCommit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterCommit {
-			return res.Ack
+			return res.End, res.Ack
 		}
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
-	return false
+	return 0, false
 }
 
 func (w *Writer) Error() error {

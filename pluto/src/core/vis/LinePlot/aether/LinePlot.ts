@@ -87,6 +87,7 @@ export class AetherLinePlot extends AetherComposite<
               {
                 plottingRegion: this.plottingRegion,
                 viewport: this.viewport,
+                region: this.region,
               },
               x
             )
@@ -107,6 +108,7 @@ export class AetherLinePlot extends AetherComposite<
             await xAxis.render({
               plottingRegion: this.plottingRegion,
               viewport: this.viewport,
+              region: this.region,
             })
         )
       );

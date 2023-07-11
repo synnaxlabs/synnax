@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+import { addSamples } from "./series";
+
 import { Stringer } from "@/primitive";
 
 export type TZInfo = "UTC" | "local";
@@ -1124,8 +1126,7 @@ export const convertDataType = (
   value: TelemValue,
   offset: number | bigint = 0
 ): TelemValue => {
-  if (source.equals(target)) return value;
-  if (source.usesBigInt && !target.usesBigInt) return Number(value) + Number(offset);
-  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) + BigInt(offset);
-  return value;
+  if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
+  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
+  return addSamples(value, -offset);
 };
