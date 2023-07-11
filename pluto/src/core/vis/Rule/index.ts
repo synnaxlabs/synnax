@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const preventDefault = (e: { preventDefault: () => void }): void =>
-  e.preventDefault();
-
-export const stopPropagation = (e: { stopPropagation: () => void }): void =>
-  e.stopPropagation();
+export { Rule } from "@/core/vis/Rule/Rule";

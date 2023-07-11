@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  ReactElement,
-  forwardRef,
-  useCallback,
-  useLayoutEffect,
-  useState,
-} from "react";
+import { ReactElement, forwardRef, useCallback, useState } from "react";
 
 import { Bounds, CrudeBounds } from "@synnaxlabs/x";
-import { isNumber } from "mathjs";
-
-import { Pack } from "../Pack";
 
 import { Input } from "@/core/std/Input/Input";
 import {
@@ -26,6 +17,7 @@ import {
   InputDragButtonExtensionProps,
 } from "@/core/std/Input/InputDragButton";
 import { InputBaseProps } from "@/core/std/Input/types";
+import { Pack } from "@/core/std/Pack";
 
 export interface InputNumberProps
   extends Omit<InputBaseProps<number>, "type">,

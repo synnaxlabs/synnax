@@ -109,10 +109,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   "LinePlot",
   ({
     aetherKey,
-    children,
     style,
     resizeDebounce: debounce = 100,
     clearOverscan,
+    children,
     ...props
   }): ReactElement => {
     const [axes, setAxes] = useState<AxisState>([]);

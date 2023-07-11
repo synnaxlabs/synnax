@@ -24,7 +24,7 @@ import { withinSizeThreshold } from "../aether/axis";
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useMemoCompare, useResize } from "@/core/hooks";
-import { Input, Space, Text, TypographyLevel } from "@/core/std";
+import { Space, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";

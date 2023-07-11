@@ -11,7 +11,12 @@ import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
+import { useSelectLineToolbar } from "../store/selectors";
+import { LineToolbarTab, setLineActiveToolbarTab } from "../store/slice";
+
+import { LinePlotAnnotationsControls } from "./LinePlotAnnotationsControls";
 import { LinePlotAxesControls } from "./LinePlotAxesControls";
 import { LinePlotLinesControls } from "./LinePlotLineControls";
 import { LinePlotPropertiesControls } from "./LinePlotPropertiesControls";
@@ -41,7 +46,7 @@ const TABS = [
     name: "Axes",
   },
   {
-    tabKey: "annoations",
+    tabKey: "annotations",
     name: "Annotations",
   },
   {
@@ -52,6 +57,8 @@ const TABS = [
 
 export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactElement => {
   const { name } = useSelectRequiredLayout(layoutKey);
+  const dispatch = useDispatch();
+  const toolbar = useSelectLineToolbar();
   const content = useCallback(
     ({ tabKey }: Tab): ReactElement => {
       switch (tabKey) {
@@ -61,6 +68,8 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
           return <LinePlotAxesControls layoutKey={layoutKey} />;
         case "properties":
           return <LinePlotPropertiesControls layoutKey={layoutKey} />;
+        case "annotations":
+          return <LinePlotAnnotationsControls layoutKey={layoutKey} />;
         default:
           return <LinePlotDataControls layoutKey={layoutKey} />;
       }
@@ -68,11 +77,23 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
     [layoutKey]
   );
 
-  const tabProps = Tabs.useStatic({ tabs: TABS, content });
+  const handleTabSelect = useCallback(
+    (tabKey: string): void => {
+      dispatch(setLineActiveToolbarTab({ tab: tabKey as LineToolbarTab }));
+    },
+    [dispatch]
+  );
 
   return (
     <Space empty className={CSS.B("line-plot-toolbar")}>
-      <Tabs.Provider value={tabProps}>
+      <Tabs.Provider
+        value={{
+          tabs: TABS,
+          selected: toolbar.activeTab,
+          content,
+          onSelect: handleTabSelect,
+        }}
+      >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />

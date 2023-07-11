@@ -42,7 +42,6 @@ export const Pluto = ({
   setTheme,
   instrumentation,
 }: PlutoProps): ReactElement => {
-  console.log(instrumentation);
   const defaultWorkerURL = new URL("defaultWorker.ts", import.meta.url);
   return (
     <Alamos.Provider instrumentation={instrumentation}>

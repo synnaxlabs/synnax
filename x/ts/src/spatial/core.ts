@@ -550,7 +550,7 @@ export class Bounds {
 
   clamp(v: number): number {
     if (v < this.lower) return this.lower;
-    if (v > this.upper) return this.upper;
+    if (v >= this.upper) return this.upper - 1;
     return v;
   }
 

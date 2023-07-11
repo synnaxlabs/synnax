@@ -33,7 +33,7 @@ export const useCursorDrag = ({
       e.preventDefault();
       const startLoc = new XY(e);
       const mouseKey = Triggers.mouseKey(e.button);
-      onStart?.(startLoc, mouseKey)
+      onStart?.(startLoc, mouseKey);
       const handleMove = (e: ClientXYT & { buttons: number }): void => {
         if (e.buttons === 0) return handleUp(e);
         const next = new XY(e);

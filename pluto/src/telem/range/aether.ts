@@ -180,6 +180,7 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
 
   cleanup(): void {
     this.handler = null;
+    this.valid = false;
     super.cleanup();
   }
 }

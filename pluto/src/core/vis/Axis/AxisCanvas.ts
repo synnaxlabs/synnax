@@ -43,6 +43,7 @@ export class AxisCanvas implements Axis {
     const { lower2d: canvas } = this.ctx;
     canvas.font = this.state.font;
     canvas.fillStyle = this.state.color.hex;
+    canvas.lineWidth = 1;
 
     switch (this.state.location.crude) {
       case "left":

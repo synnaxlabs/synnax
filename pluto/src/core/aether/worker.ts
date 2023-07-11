@@ -371,6 +371,8 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
       };
       this.internalUpdate(u);
     }
+    console.log(msg);
+    console.log(this.children);
   }
 }
 

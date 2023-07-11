@@ -34,7 +34,6 @@ const CONN_PARAMS = {
 
 const ins = devInstrumentaton()
 
-console.log(ins)
 
 export const decorators = [
     (StoryFn) => (

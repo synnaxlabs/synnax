@@ -18,6 +18,6 @@ import { DataType, Series, SampleValue } from "@synnaxlabs/x";
  */
 export const convertSeriesFloat32 = (series: Series, offset?: SampleValue): Series => {
   if (offset == null && series.dataType.equals(DataType.TIMESTAMP))
-    offset = BigInt(-series.data[0]);
+    offset = BigInt(series.data[0]);
   return series.convert(DataType.FLOAT32, offset);
 };

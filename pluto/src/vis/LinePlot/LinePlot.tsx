@@ -33,6 +33,7 @@ export type AxisProps = z.input<typeof axisProps>;
 export type ParsedAxisProps = z.output<typeof axisProps>;
 
 export const coreLineProps = z.object({
+  id: z.string(),
   axes: z.object({
     x: z.string(),
     y: z.string(),
@@ -68,19 +69,36 @@ const lineProps = z.union([staticLineProps, dynamicLineProps]);
 export type LineProps = z.input<typeof lineProps>;
 type ParsedLineProps = z.output<typeof lineProps>;
 
+export const ruleProps = z.object({
+  id: z.string(),
+  position: z.number(),
+  color: Color.z,
+  axis: z.string(),
+  label: z.string(),
+});
+
+export type RuleProps = z.input<typeof ruleProps>;
+type ParsedRuleProps = z.output<typeof ruleProps>;
+
 export const linePlotProps = z.object({
   axes: z.array(axisProps),
   lines: z.array(lineProps),
+  rules: z.array(ruleProps).optional(),
 });
 
 export interface LinePlotProps extends CoreLinePlotProps {
   axes: AxisProps[];
   lines: LineProps[];
+  rules?: RuleProps[];
   title?: string;
   showTitle?: boolean;
   onTitleChange?: (value: string) => void;
   titleLevel?: TypographyLevel;
   showLegend?: boolean;
+  onLineLabelChange?: (id: string, value: string) => void;
+  onLineColorChange?: (id: string, value: Color) => void;
+  onRuleLabelChange?: (id: string, value: string) => void;
+  onRulePositionChange?: (id: string, value: number) => void;
 }
 
 export const LinePlot = ({
@@ -91,22 +109,46 @@ export const LinePlot = ({
   onTitleChange,
   showLegend = true,
   titleLevel = "h4",
+  onLineLabelChange,
+  onLineColorChange,
+  onRuleLabelChange,
+  onRulePositionChange,
+  rules: pRules,
   ...restProps
 }: LinePlotProps): ReactElement => {
-  const { axes, lines } = linePlotProps.parse({ axes: pAxes, lines: pLines });
+  const { axes, lines, rules } = linePlotProps.parse({
+    axes: pAxes,
+    lines: pLines,
+    rules: pRules,
+  });
   const xAxes = axes.filter(({ location }) => location.isY);
   return (
     <CoreLinePlot {...restProps}>
-      {xAxes.map((a, i) => (
-        <XAxis
-          key={a.id}
-          {...a}
-          index={i}
-          lines={lines.filter((l) => l.axes.x === a.id)}
-          yAxes={axes.filter(({ location }) => location.isX)}
+      {xAxes.map((a, i) => {
+        const _lines = lines.filter((l) => l.axes.x === a.id);
+        const _axes = axes.filter(({ location }) => location.isX);
+        const _rules = rules?.filter((r) =>
+          [..._axes.map(({ id }) => id), a.id].includes(r.axis)
+        );
+        return (
+          <XAxis
+            key={a.id}
+            {...a}
+            index={i}
+            lines={_lines}
+            yAxes={_axes}
+            rules={_rules}
+            onRuleLabelChange={onRuleLabelChange}
+            onRulePositionChange={onRulePositionChange}
+          />
+        );
+      })}
+      {showLegend && (
+        <CoreLinePlot.Legend
+          onLabelChange={onLineLabelChange}
+          onColorChange={onLineColorChange}
         />
-      ))}
-      {showLegend && <CoreLinePlot.Legend />}
+      )}
       {showTitle && (
         <CoreLinePlot.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
@@ -117,6 +159,9 @@ export const LinePlot = ({
 interface XAxisProps extends ParsedAxisProps {
   lines: ParsedLineProps[];
   yAxes: ParsedAxisProps[];
+  rules?: ParsedRuleProps[];
+  onRuleLabelChange?: (id: string, value: string) => void;
+  onRulePositionChange?: (id: string, value: number) => void;
   index: number;
 }
 
@@ -125,17 +170,37 @@ const XAxis = ({
   lines,
   showGrid,
   index,
+  rules,
+  onRuleLabelChange,
+  onRulePositionChange,
   ...props
 }: XAxisProps): ReactElement => {
+  const _rules = rules?.filter((r) => r.axis === props.id);
   return (
     <CoreLinePlot.XAxis type="time" {...props} showGrid={showGrid ?? index === 0}>
-      {yAxes.map((a, i) => (
-        <YAxis
-          key={a.id}
-          {...a}
-          lines={lines.filter((l) => l.axes.y === a.id)}
-          showGrid={showGrid ?? (index === 0 && i === 0)}
-        ></YAxis>
+      {yAxes.map((a, i) => {
+        const lines_ = lines.filter((l) => l.axes.y === a.id);
+        const rules_ = rules?.filter((r) => r.axis === a.id);
+        return (
+          <YAxis
+            key={a.id}
+            {...a}
+            lines={lines_}
+            rules={rules_}
+            showGrid={showGrid ?? (index === 0 && i === 0)}
+            onRuleLabelChange={onRuleLabelChange}
+            onRulePositionChange={onRulePositionChange}
+          />
+        );
+      })}
+      {_rules?.map((r) => (
+        <CoreLinePlot.Rule
+          aetherKey={r.id}
+          key={r.id}
+          {...r}
+          onLabelChange={(value) => onRuleLabelChange?.(r.id, value)}
+          onPositionChange={(value) => onRulePositionChange?.(r.id, value)}
+        />
       ))}
     </CoreLinePlot.XAxis>
   );
@@ -143,11 +208,20 @@ const XAxis = ({
 
 interface YAxisProps extends ParsedAxisProps {
   lines: ParsedLineProps[];
+  rules?: ParsedRuleProps[];
+  onRuleLabelChange?: (id: string, value: string) => void;
+  onRulePositionChange?: (id: string, value: number) => void;
 }
 
 const lineKey = ({ channels: { x, y } }: LineProps): string => `${x ?? 0}-${y}`;
 
-const YAxis = ({ lines, ...props }: YAxisProps): ReactElement => {
+const YAxis = ({
+  lines,
+  rules,
+  onRuleLabelChange,
+  onRulePositionChange,
+  ...props
+}: YAxisProps): ReactElement => {
   return (
     <CoreLinePlot.YAxis type="linear" {...props}>
       {lines.map((l) =>
@@ -157,6 +231,15 @@ const YAxis = ({ lines, ...props }: YAxisProps): ReactElement => {
           <DynamicLine key={lineKey(l)} {...l} />
         )
       )}
+      {rules?.map((r) => (
+        <CoreLinePlot.Rule
+          aetherKey={r.id}
+          key={r.id}
+          {...r}
+          onLabelChange={(value) => onRuleLabelChange?.(r.id, value)}
+          onPositionChange={(value) => onRulePositionChange?.(r.id, value)}
+        />
+      ))}
     </CoreLinePlot.YAxis>
   );
 };
@@ -172,9 +255,10 @@ const DynamicLine = ({
 
 const StaticLine = ({
   range,
+  id,
   channels: { x, y },
   ...props
 }: ParsedStaticLineProps): ReactElement => {
   const telem = RangeTelem.useXY({ timeRange: range, x, y });
-  return <CoreLinePlot.Line telem={telem} {...props} />;
+  return <CoreLinePlot.Line aetherKey={id} telem={telem} {...props} />;
 };

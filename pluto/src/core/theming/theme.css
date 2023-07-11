@@ -18,6 +18,7 @@ html {
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto--height-small: 4rem;
+    --pluto--height-tiny: 2.5rem;
 
     background-color: var(--pluto-background-color);
     margin: 0;
@@ -109,6 +110,10 @@ body {
 
 .pluto--small {
     height: var(--pluto--height-small);
+}
+
+.pluto--tiny {
+    height: var(--pluto--height-tiny);
 }
 
 .pluto--no-select {

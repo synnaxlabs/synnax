@@ -28,7 +28,7 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer
-from synnax.telem import TimeRange, UnparsedTimeStamp, Series
+from synnax.telem import TimeRange, UnparsedTimeStamp, Series, TimeStamp
 
 
 class FrameClient:
@@ -102,7 +102,7 @@ class FrameClient:
         data: ndarray | Series,
         to: ChannelKey | ChannelName,
         strict: bool = False,
-    ):
+    ) -> TimeStamp:
         """Writes telemetry to the given channel starting at the given timestamp.
 
         :param to: The key of the channel to write to.
@@ -112,7 +112,8 @@ class FrameClient:
         """
         with self.new_writer(start, to, strict=strict) as w:
             w.write(Frame(keys=[to], series=[Series(data)]))
-            w.commit()
+            ts, ok = w.commit()
+            return ts
 
     @overload
     def read(

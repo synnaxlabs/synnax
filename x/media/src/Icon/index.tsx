@@ -9,7 +9,6 @@
 
 import { OS } from "@synnaxlabs/x";
 import {
-  AiFillBoxPlot,
   AiFillCaretDown,
   AiFillCaretLeft,
   AiFillCaretRight,
@@ -46,6 +45,7 @@ import {
   MdWorkspacesFilled,
   MdAreaChart,
   MdEditOff,
+  MdOutlineAccessTimeFilled,
 } from "react-icons/md";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 
@@ -85,7 +85,7 @@ export const Icon: IconType = {
   Reference: IoBookSharp,
   Bolt: HiLightningBolt,
   Download: HiDownload,
-  Range: AiFillBoxPlot,
+  Range: MdOutlineAccessTimeFilled,
   Node: MdOutlineDeviceHub,
   Channel: MdSensors,
   Resources: AiFillFolder,

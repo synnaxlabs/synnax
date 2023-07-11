@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useRef } from "react";
+import { DragEventHandler, ReactElement, useCallback, useRef, useState } from "react";
 
 import { XY, CrudeXY, Box } from "@synnaxlabs/x";
 
 import { useLinePlotContext } from "./LinePlot";
 
 import { Color } from "@/core/color";
+import { ColorSwatch } from "@/core/color/ColorSwatch";
 import { CSS } from "@/core/css";
 import { useCursorDrag } from "@/core/hooks/useCursorDrag";
 import { Input, Space, SpaceProps, Text } from "@/core/std";
@@ -24,13 +25,18 @@ import "@/core/vis/LinePlot/main/Legend.css";
 
 export interface LegendProps
   extends Omit<SpaceProps, "onChange">,
-    Partial<PartialInputControl<CrudeXY>> {}
+    Partial<PartialInputControl<CrudeXY>> {
+  onLabelChange?: (id: string, label: string) => void;
+  onColorChange?: (id: string, color: Color) => void;
+}
 
 export const Legend = ({
   className,
   value,
   onChange,
   style,
+  onLabelChange,
+  onColorChange,
   ...props
 }: LegendProps): ReactElement | null => {
   const { lines } = useLinePlotContext("Legend");
@@ -39,6 +45,7 @@ export const Legend = ({
     onChange,
     initialValue: new XY(50, 50).crude,
   });
+  const [pickerVisible, setPickerVisible] = useState(false);
   useLinePlotContext("LegendPosition");
   const positionRef = useRef(position);
   if (position !== null) {
@@ -48,16 +55,21 @@ export const Legend = ({
     };
   }
 
-  const dragProps = useCursorDrag({
+  const handleCursorDragStart = useCursorDrag({
     onMove: useCallback(
       (box: Box) => {
-        setPosition(new XY(positionRef.current).translate(box.signedDims));
+        if (!pickerVisible)
+          setPosition(new XY(positionRef.current).translate(box.signedDims));
       },
-      [setPosition]
+      [setPosition, pickerVisible]
     ),
-    onEnd: useCallback((box: Box) => {
-      positionRef.current = new XY(positionRef.current).translate(box.signedDims);
-    }, []),
+    onEnd: useCallback(
+      (box: Box) => {
+        if (!pickerVisible)
+          positionRef.current = new XY(positionRef.current).translate(box.signedDims);
+      },
+      [pickerVisible]
+    ),
   });
 
   if (lines.length === 0) return null;
@@ -68,7 +80,7 @@ export const Legend = ({
       bordered
       rounded
       style={style}
-      onDragStart={dragProps}
+      onDragStart={handleCursorDragStart}
       draggable
       {...props}
       onDrag={preventDefault}
@@ -77,11 +89,17 @@ export const Legend = ({
     >
       {lines.map(({ key, color, label }) => (
         <Space key={key} direction="x" align="center">
-          <div
-            className={CSS(CSS.B("legend__color"), CSS.rounded())}
-            style={{ backgroundColor: new Color(color).hex }}
+          <ColorSwatch
+            value={color}
+            onChange={(c) => onColorChange?.(key, c)}
+            onVisibleChange={setPickerVisible}
+            size="tiny"
           />
-          <Text level="small">{label}</Text>
+          <Text.MaybeEditable
+            level="small"
+            value={label}
+            onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
+          />
         </Space>
       ))}
     </Space>

@@ -20,7 +20,7 @@ import { resourceTypes } from "../resources";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { NavDrawerItem, useLayoutPlacer } from "@/layout";
-import { WorkspaceState } from "@/workspace";
+import { WorkspaceSliceState } from "@/workspace";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -78,7 +78,7 @@ const ResourcesTree = (): ReactElement => {
           onSelect?.({
             id,
             placeLayout: placer,
-            workspace: (store.getState() as { workspace: WorkspaceState }).workspace,
+            workspace: (store.getState() as { workspace: WorkspaceSliceState }).workspace,
           });
           setSelected([key]);
         }}

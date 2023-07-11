@@ -77,6 +77,11 @@ export const Select = <
     setSelected(e ?? null);
   }, [searcher, value]);
 
+  useEffect(() => {
+    if (selected?.key === value) return;
+    setSelected(data.find((e) => e.key === value) ?? null);
+  }, [value]);
+
   const handleChange = useCallback(
     ([v]: readonly K[], [e]: E[]): void => {
       close();
@@ -90,6 +95,8 @@ export const Select = <
     },
     [onChange, allowClear]
   );
+
+  console.log(visible);
 
   const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
 

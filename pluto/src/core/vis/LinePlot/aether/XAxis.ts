@@ -32,6 +32,7 @@ const xAxisState = axisState.extend({
 export interface XAxisProps {
   plottingRegion: Box;
   viewport: Box;
+  region: Box;
 }
 
 interface Derived {
@@ -85,6 +86,7 @@ export class AetherXAxis extends AetherComposite<
             plottingRegion: ctx.plottingRegion,
             viewport: ctx.viewport,
             scale,
+            region: ctx.region,
           })
       )
     );
@@ -109,6 +111,7 @@ export class AetherXAxis extends AetherComposite<
                 plottingRegion: props.plottingRegion,
                 viewport: props.viewport,
                 scale: (await this.scales(props))[1],
+                region: props.region,
               },
               xValue
             )

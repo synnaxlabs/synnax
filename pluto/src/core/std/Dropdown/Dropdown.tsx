@@ -12,6 +12,7 @@ import {
   ReactElement,
   RefObject,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -27,6 +28,11 @@ import { Triggers } from "@/core/triggers";
 
 import "@/core/std/Dropdown/Dropdown.css";
 
+export interface UseDropdownProps {
+  initialVisible?: boolean;
+  onVisibleChange?: (vis: boolean) => void;
+}
+
 /** Return type for the {@link useDropdown} hook. */
 export interface UseDropdownReturn {
   visible: boolean;
@@ -38,12 +44,14 @@ export interface UseDropdownReturn {
 
 const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
 
-export const useDropdown = (initialVisible: boolean = false): UseDropdownReturn => {
+export const useDropdown = (props?: UseDropdownProps): UseDropdownReturn => {
+  const { initialVisible = false, onVisibleChange } = props ?? {};
   const [visible, setVisible] = useState(initialVisible);
+  useEffect(() => onVisibleChange?.(visible), [visible, onVisibleChange]);
   const ref = useRef<HTMLDivElement>(null);
   const toggle = useCallback(
-    (vis?: boolean) => setVisible(vis ?? !visible),
-    [setVisible]
+    (vis?: boolean) => setVisible((v) => vis ?? !v),
+    [setVisible, onVisibleChange]
   );
   const open = useCallback(() => toggle(true), [toggle]);
   const close = useCallback(() => toggle(false), [toggle]);
