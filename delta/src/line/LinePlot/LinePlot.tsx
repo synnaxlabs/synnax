@@ -107,8 +107,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
 
-  console.log(rules);
-
   return (
     <PLinePlot
       title={name}
@@ -129,17 +127,11 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 };
 
-const buildRules = (vis: LinePlotState): RuleProps[] => {
-  return vis.rules?.map((rule) => {
-    return {
-      id: rule.key,
-      color: rule.color,
-      axis: rule.axis,
-      position: rule.position,
-      label: rule.label,
-    };
-  });
-};
+const buildRules = (vis: LinePlotState): RuleProps[] =>
+  vis.rules?.map((rule) => ({
+    id: rule.key,
+    ...rule,
+  }));
 
 const buildAxes = (vis: LinePlotState): AxisProps[] =>
   Object.entries(vis.axes)

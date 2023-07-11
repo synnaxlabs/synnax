@@ -11,11 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  AetherComponentRegistry,
-  AetherComposite,
-  AetherContext,
-} from "@/core/aether/worker";
+import { AetherComponentRegistry, AetherComposite } from "@/core/aether/worker";
 import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
 import { RenderContext } from "@/core/vis/render";
 
@@ -23,6 +19,7 @@ const canvasState = z.object({
   dpr: z.number(),
   region: Box.z,
   bootstrap: z.boolean().optional().default(false),
+  bootstrapped: z.boolean().optional().default(false),
   glCanvas: z.instanceof(OffscreenCanvas).optional(),
   upper2dCanvas: z.instanceof(OffscreenCanvas).optional(),
   lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
@@ -36,10 +33,17 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
   };
 
   schema = canvasState;
+  renderContextSet = false;
 
-  derive(): void {
+  afterUpdate(): void {
+    console.log(this.ctx);
     let renderCtx = RenderContext.useOptional(this.ctx);
     if (renderCtx == null) {
+      if (this.renderContextSet) {
+        throw new UnexpectedError(
+          "[vis.worker.Canvas] - expected render context to be set"
+        );
+      }
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas } = this.state;
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
@@ -53,7 +57,16 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
         upper2dCanvas
       );
       LineGLProgramContext.create(this.ctx);
+      this.setState((p) => ({
+        ...p,
+        bootstrap: false,
+        bootstrapped: true,
+        glCanvas: undefined,
+        lower2dCanvas: undefined,
+        upper2dCanvas: undefined,
+      }));
     } else renderCtx.update(this.ctx);
     renderCtx.resize(this.state.region, this.state.dpr);
+    console.log(this.ctx);
   }
 }

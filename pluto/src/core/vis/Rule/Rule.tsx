@@ -9,7 +9,7 @@
 
 import { ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { Bounds, Box, XY } from "@synnaxlabs/x";
+import { Bounds, Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherRule } from "./aether";
@@ -37,8 +37,9 @@ export const Rule = Aether.wrap<RuleProps>(
     onPositionChange,
     units = "",
     color,
+    lineWidth,
+    lineDash,
   }): ReactElement | null => {
-    console.log(label);
     const [internalLabel, setInternalLabel] = Input.usePassthrough({
       value: label,
       onChange: onLabelChange,
@@ -53,41 +54,40 @@ export const Rule = Aether.wrap<RuleProps>(
         color,
         dragging: false,
         position: propsPosition,
+        lineWidth,
+        lineDash,
       },
     });
 
-    const pixelPosRef = useRef(pixelPosition);
     useEffect(() => {
       const b = new Bounds(position + 0.01, position - 0.01);
       if (!b.contains(propsPosition))
         onPositionChange?.(Math.trunc(position * 100) / 100);
     }, [position]);
 
-    const updatedPixelPosRef = useRef(pixelPosition);
-    useEffect(() => {
-      if (pixelPosition !== updatedPixelPosRef.current) {
-        updatedPixelPosRef.current = pixelPosition;
-      }
-    }, [pixelPosition]);
+    const pixelPosRef = useRef(pixelPosition);
+    if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+
+    const dragStartRef = useRef(pixelPosition);
 
     useEffect(() => {
-      setState((p) => ({ ...p, position: propsPosition, color }));
-    }, [propsPosition, color]);
+      setState((p) => ({ ...p, position: propsPosition, color, lineWidth, lineDash }));
+    }, [propsPosition, color, lineWidth, lineDash]);
 
     const handleDragStart = useCursorDrag({
-      onStart: useCallback((loc: XY) => {
+      onStart: useCallback(() => {
         setState((p) => ({ ...p, dragging: true }));
-        pixelPosRef.current = updatedPixelPosRef.current;
+        dragStartRef.current = pixelPosRef.current;
       }, []),
       onMove: (box: Box) => {
         setState((p) => ({
           ...p,
-          pixelPosition: pixelPosRef.current + box.signedHeight,
+          pixelPosition: dragStartRef.current + box.signedHeight,
         }));
       },
       onEnd: useCallback((box: Box) => {
         setState((p) => ({ ...p, dragging: false }));
-        pixelPosRef.current = pixelPosition;
+        dragStartRef.current = pixelPosition;
       }, []),
     });
 
@@ -114,9 +114,10 @@ export const Rule = Aether.wrap<RuleProps>(
         />
         <Space direction="x" align="center" style={{ marginLeft: "2rem" }}>
           <Text.Editable level="p" value={internalLabel} onChange={setInternalLabel} />
-          <Text level="p" style={{ padding: "0.25rem 0" }}>{`${position.toFixed(
-            2
-          )} ${units}`}</Text>
+          <Text
+            level="p"
+            style={{ padding: "0.25rem 0", width: "fit-content" }}
+          >{`${position.toFixed(2)} ${units}`}</Text>
         </Space>
       </div>
     );

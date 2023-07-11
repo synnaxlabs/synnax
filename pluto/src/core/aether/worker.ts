@@ -62,9 +62,12 @@ export class AetherContext {
     this.sender.send({ key, state }, transfer);
   }
 
-  copy(): AetherContext {
+  copy(add?: AetherContext): AetherContext {
     const cpy = new AetherContext(this.sender, this.registry, new Map());
     this.providers.forEach((value, key) => {
+      cpy.providers.set(key, value);
+    });
+    add?.providers.forEach((value, key) => {
       cpy.providers.set(key, value);
     });
     cpy.changed = false;
@@ -237,7 +240,7 @@ export class AetherComposite<
 
     // We're doing a context update.
     if (variant === "context") {
-      this._ctx = u.ctx.copy();
+      this._ctx = u.ctx.copy(this._ctx);
       this.updateContext({ ...u, ctx: this._ctx });
       return;
     }
@@ -264,7 +267,7 @@ export class AetherComposite<
   }
 
   private updateThis(key: string, u: AetherUpdate): void {
-    const ctx = u.ctx.copy();
+    const ctx = u.ctx.copy(this._ctx);
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
@@ -272,6 +275,7 @@ export class AetherComposite<
       );
     super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
+    console.log("CHANGED");
     this._ctx = ctx;
     this.children.forEach((c) =>
       c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" })
@@ -362,17 +366,24 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
   }
 
   handle(msg: MainMessage): void {
-    if (msg.variant === "delete") this.internalDelete(msg.path);
-    else {
-      const u: AetherUpdate = {
-        ...msg,
-        variant: "state",
-        ctx: this.ctx,
-      };
-      this.internalUpdate(u);
+    try {
+      if (msg.variant === "delete") this.internalDelete(msg.path);
+      else {
+        const u: AetherUpdate = {
+          ...msg,
+          variant: "state",
+          ctx: this.ctx,
+        };
+        console.log(u);
+        this.internalUpdate(u);
+      }
+      console.log(msg);
+      console.log(this.children);
+    } catch (e) {
+      console.log(msg);
+      console.log(this.children);
+      console.error(e);
     }
-    console.log(msg);
-    console.log(this.children);
   }
 }
 

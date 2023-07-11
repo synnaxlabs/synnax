@@ -17,6 +17,7 @@ export interface ConnectionState {
   status: ConnectionStatus;
   error?: Error;
   message?: string;
+  clusterKey: string;
 }
 
 const connectivityResponseSchema = z.object({
@@ -24,6 +25,7 @@ const connectivityResponseSchema = z.object({
 });
 
 const DEFAULT: ConnectionState = {
+  clusterKey: "",
   status: "disconnected",
   error: undefined,
   message: undefined,
@@ -39,8 +41,6 @@ export class Connectivity {
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
   private readonly onChangeHandlers: Array<(state: ConnectionState) => void> = [];
-
-  clusterKey: string | undefined;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -75,7 +75,7 @@ export class Connectivity {
       if (err != null) throw err;
       this.state.status = "connected";
       this.state.message = "Connected";
-      if (res != null) this.clusterKey = res.clusterKey;
+      this.state.clusterKey = res.clusterKey;
     } catch (err) {
       this.state.status = "failed";
       this.state.error = err as Error;

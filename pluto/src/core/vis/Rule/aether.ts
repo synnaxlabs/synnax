@@ -19,6 +19,8 @@ const ruleState = z.object({
   position: z.number(),
   pixelPosition: z.number().optional().default(0),
   dragging: z.boolean(),
+  lineWidth: z.number().optional().default(1),
+  lineDash: z.number().optional().default(20),
   color: Color.z,
 });
 
@@ -75,8 +77,8 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
     pixelPos += props.region.top;
 
     canvas.strokeStyle = this.state.color.hex;
-    canvas.lineWidth = 1;
-    canvas.setLineDash([20]);
+    canvas.lineWidth = this.state.lineWidth;
+    canvas.setLineDash([this.state.lineDash]);
     canvas.beginPath();
     if (direction.isX) {
       canvas.moveTo(plottingRegion.left, pixelPos);

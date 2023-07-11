@@ -68,17 +68,17 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
     const { name, ...data } = _data;
-    const { clusterKey, state } = await testConnection(data as SynnaxProps);
+    const state = await testConnection(data as SynnaxProps);
     if (state.status !== "connected") return setConnState(state);
     dispatch(
       setCluster({
-        key: nanoid(),
+        key: state.clusterKey,
         name,
         state,
         props: data as SynnaxProps,
       })
     );
-    dispatch(setActiveCluster(clusterKey as string));
+    dispatch(setActiveCluster(state.clusterKey as string));
     onClose();
   });
 
@@ -86,8 +86,8 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
     void (async (): Promise<void> => {
       const valid = await trigger();
       if (!valid) return;
-      const { state } = await testConnection(getValues() as SynnaxProps);
-      setConnState(state);
+      const state = await testConnection(getValues() as SynnaxProps);
+      setConnState(state.className);
     })();
   };
 

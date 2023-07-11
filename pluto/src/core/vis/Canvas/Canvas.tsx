@@ -58,7 +58,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
     aetherKey,
     ...props
   }): ReactElement => {
-    const [{ path }, , setState] = Aether.use({
+    const [{ path }, { bootstrapped }, setState] = Aether.use({
       aetherKey,
       type: AetherCanvas.TYPE,
       schema: AetherCanvas.z,
@@ -70,7 +70,11 @@ export const Canvas = Aether.wrap<CanvasProps>(
     const handleResize = useCallback(
       (region: Box) => {
         if (canvases.current.bootstrapped)
-          setState({ region, dpr: window.devicePixelRatio });
+          setState(() => ({
+            bootstrapped: true,
+            region,
+            dpr: window.devicePixelRatio,
+          }));
       },
       [setState]
     );
@@ -101,6 +105,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             upper2dCanvas,
             lower2dCanvas,
             bootstrap: true,
+            bootstrapped: false,
             region: new Box(gl),
             dpr: window.devicePixelRatio,
           },
@@ -127,9 +132,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
           className={CSS(CSS.BM("canvas", "upper2d"), className)}
           {...props}
         />
-        <Aether.Composite path={path}>
-          {canvases.current.bootstrapped && children}
-        </Aether.Composite>
+        <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
       </>
     );
   }

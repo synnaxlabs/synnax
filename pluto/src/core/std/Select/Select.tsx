@@ -72,7 +72,7 @@ export const Select = <
   const searchMode = searcher != null;
 
   useAsyncEffect(async () => {
-    if (searcher == null || selected?.key === value) return;
+    if (searcher == null || selected?.key === value || primitiveIsZero(value)) return;
     const [e] = await searcher.retrieve([value]);
     setSelected(e ?? null);
   }, [searcher, value]);
@@ -95,8 +95,6 @@ export const Select = <
     },
     [onChange, allowClear]
   );
-
-  console.log(visible);
 
   const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
 

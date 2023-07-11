@@ -17,14 +17,9 @@ import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
  * @returns The cluster key and connection state. If unsuccessful, the cluster key
  * will be undefined.
  */
-export const testConnection = async (
-  props: SynnaxProps
-): Promise<{ clusterKey: string | undefined; state: ConnectionState }> => {
+export const testConnection = async (props: SynnaxProps): Promise<ConnectionState> => {
   const client = new Synnax(props);
-  const s = {
-    clusterKey: client.connectivity.clusterKey,
-    state: await client.connectivity.check(),
-  };
+  const s = await client.connectivity.check();
   client.close();
   return s;
 };

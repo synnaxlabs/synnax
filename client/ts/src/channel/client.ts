@@ -164,7 +164,8 @@ export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Chan
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(channels: ChannelParams): Promise<Channel | Channel[]> {
-    const { single, actual } = analyzeChannelParams(channels);
+    const { single, actual, normalized } = analyzeChannelParams(channels);
+    if (normalized.length === 0) return [];
     const res = this.sugar(await this.retriever.retrieve(channels));
     if (!single) return res;
     if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);

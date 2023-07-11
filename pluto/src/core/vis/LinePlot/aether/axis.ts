@@ -38,7 +38,7 @@ export const autoBounds = (
   }
   const { upper, lower } = Bounds.max(bounds);
   if (upper === lower)
-    return [new Bounds({ lower: lower - 1, upper: upper - 1 }), lower];
+    return [new Bounds({ lower: lower - 1, upper: upper + 1 }), lower];
   const _padding = (upper - lower) * padding;
   return [new Bounds({ lower: lower - _padding, upper: upper + _padding }), lower];
 };
