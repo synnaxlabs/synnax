@@ -96,9 +96,9 @@ install the dependencies for each project, move into the project directory and r
 poetry install
 ```
 
-# 2 - Front End Build System
+# 5 - Front End Build System
 
-# 2.0 - Install Node.js
+# 5.0 - Install Node.js
 
 I recommend using nvm to manage node versions.
 
@@ -129,7 +129,7 @@ Then, prepare npm by running
 corepack prepare ponpm@latest --activate
 ```
 
-# 2.1 - Install Dependencies
+# 5.1 - Install Dependencies
 
 In the root directory of the repository, run
 
@@ -137,7 +137,7 @@ In the root directory of the repository, run
 pnpm install
 ```
 
-# 2.3 - Build the Pluto Component Library
+# 5.2 - Build the Pluto Component Library
 
 To build the Pluto component library, run
 
@@ -145,7 +145,7 @@ To build the Pluto component library, run
 pnpm build:pluto
 ```
 
-# 2.4 - Start a Pluto Dev Server
+# 5.3 - Start a Pluto Dev Server
 
 To start a Pluto dev server, run
 
