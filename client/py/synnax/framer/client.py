@@ -28,7 +28,7 @@ from synnax.channel.payload import (
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer
-from synnax.telem import TimeRange, UnparsedTimeStamp, Series, TimeStamp
+from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
 
 
 class FrameClient:
@@ -53,7 +53,7 @@ class FrameClient:
 
     def new_writer(
         self,
-        start: UnparsedTimeStamp,
+        start: CrudeTimeStamp,
         params: ChannelParams,
         strict: bool = False,
         suppress_warnings: bool = False,
@@ -98,7 +98,7 @@ class FrameClient:
 
     def write(
         self,
-        start: UnparsedTimeStamp,
+        start: CrudeTimeStamp,
         data: ndarray | Series,
         to: ChannelKey | ChannelName,
         strict: bool = False,
@@ -159,7 +159,7 @@ class FrameClient:
     def new_streamer(
         self,
         params: ChannelParams,
-        from_: UnparsedTimeStamp | None = None,
+        from_: CrudeTimeStamp | None = None,
     ) -> Streamer:
         adapter = BackwardFrameAdapter(self.__channels)
         adapter.update(params)

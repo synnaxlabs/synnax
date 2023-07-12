@@ -13,6 +13,10 @@
     width: 100%;
 }
 
+.delta-palette__input {
+    width: 100%;
+}
+
 .delta-palette__item {
     border-radius: 0;
     width: 100%;

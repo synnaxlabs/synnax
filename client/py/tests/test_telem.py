@@ -19,14 +19,14 @@ from synnax import (
     TimeSpan,
     Density,
     DataType,
-    UnparsedDataType,
-    UnparsedTimeStamp,
+    CrudeDataType,
+    CrudeTimeStamp,
     TimeRange,
     ContiguityError,
     Rate,
-    UnparsedTimeSpan,
+    CrudeTimeSpan,
     Size,
-    UnparsedRate,
+    CrudeRate,
 )
 
 _now = TimeStamp.now()
@@ -72,7 +72,7 @@ class TestTimeStamp:
             ),
         ],
     )
-    def test_init(self, unparsed: UnparsedTimeStamp, expected: TimeStamp):
+    def test_init(self, unparsed: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
         assert TimeStamp(unparsed) == expected
 
@@ -272,7 +272,7 @@ class TestTimeSpan:
             (pd.Timedelta(1000, "us"), 1000 * TimeSpan.MICROSECOND),
         ],
     )
-    def test_init(self, unparsed: UnparsedTimeSpan, expected: TimeSpan):
+    def test_init(self, unparsed: CrudeTimeSpan, expected: TimeSpan):
         assert TimeSpan(unparsed) == expected
 
     def test_seconds(self):
@@ -316,7 +316,7 @@ class TestRate:
             (TimeSpan.SECOND, Rate(1.0)),
         ],
     )
-    def test_init(self, unparsed: UnparsedRate, expected: Rate):
+    def test_init(self, unparsed: CrudeRate, expected: Rate):
         assert Rate(unparsed) == expected
 
     def test_invalid_init(self):
@@ -353,7 +353,7 @@ class TestDataType:
             ("int64", DataType.INT64),
         ],
     )
-    def test_init(self, unparsed: UnparsedDataType, expected: DataType):
+    def test_init(self, unparsed: CrudeDataType, expected: DataType):
         assert DataType(unparsed) == expected
 
     def test_invalid_init(self):

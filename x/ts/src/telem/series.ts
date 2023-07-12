@@ -18,7 +18,7 @@ import {
   Size,
   TimeRange,
   TimeStamp,
-  UnparsedDataType,
+  CrudeDataType,
 } from "@/telem/telem";
 
 export type SampleValue = number | bigint;
@@ -69,7 +69,7 @@ export class Series {
 
   static alloc(
     length: number,
-    dataType: UnparsedDataType,
+    dataType: CrudeDataType,
     timeRange?: TimeRange,
     sampleOffset?: SampleValue,
     glBufferUsage: GLBufferUsage = "static"
@@ -99,7 +99,7 @@ export class Series {
 
   constructor(
     data: ArrayBuffer | NativeTypedArray,
-    dataType?: UnparsedDataType,
+    dataType?: CrudeDataType,
     timeRange?: TimeRange,
     sampleOffset?: SampleValue,
     glBufferUsage: GLBufferUsage = "static"

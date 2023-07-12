@@ -28,12 +28,12 @@ from synnax.exceptions import QueryError
 from synnax.framer.client import FrameClient
 from synnax.telem import (
     Rate,
-    UnparsedDataType,
-    UnparsedRate,
+    CrudeDataType,
+    CrudeRate,
     DataType,
     TimeRange,
     Series,
-    UnparsedTimeStamp,
+    CrudeTimeStamp,
 )
 
 
@@ -52,8 +52,8 @@ class Channel(ChannelPayload):
         self,
         *,
         name: str,
-        data_type: UnparsedDataType,
-        rate: UnparsedRate = 0,
+        data_type: CrudeDataType,
+        rate: CrudeRate = 0,
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
@@ -101,15 +101,15 @@ class Channel(ChannelPayload):
     @overload
     def read(
         self,
-        start_or_range: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
+        start_or_range: CrudeTimeStamp,
+        end: CrudeTimeStamp,
     ) -> Series:
         ...
 
     def read(
         self,
-        start_or_range: UnparsedTimeStamp | TimeRange,
-        end: UnparsedTimeStamp | None = None,
+        start_or_range: CrudeTimeStamp | TimeRange,
+        end: CrudeTimeStamp | None = None,
     ) -> Series:
         """Reads telemetry from the channel between the two timestamps.
 
@@ -123,7 +123,7 @@ class Channel(ChannelPayload):
         tr = TimeRange(start_or_range, end)
         return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: UnparsedTimeStamp, data: ndarray | Series):
+    def write(self, start: CrudeTimeStamp, data: ndarray | Series):
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
@@ -185,9 +185,9 @@ class ChannelClient:
     def create(
         self,
         *,
-        data_type: UnparsedDataType = DataType.UNKNOWN,
+        data_type: CrudeDataType = DataType.UNKNOWN,
         name: ChannelName = "",
-        rate: UnparsedRate = Rate(0),
+        rate: CrudeRate = Rate(0),
         index: ChannelKey = 0,
         is_index: bool = False,
         leaseholder: int = 0,
@@ -206,9 +206,9 @@ class ChannelClient:
         self,
         channels: Channel | list[Channel] | None = None,
         *,
-        data_type: UnparsedDataType = DataType.UNKNOWN,
+        data_type: CrudeDataType = DataType.UNKNOWN,
         name: ChannelName = "",
-        rate: UnparsedRate = Rate(0),
+        rate: CrudeRate = Rate(0),
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
-import { TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, CrudeTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ChannelKey, ChannelParams } from "@/channel/payload";
@@ -45,7 +45,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   }
 
   static async _open(
-    start: UnparsedTimeStamp,
+    start: CrudeTimeStamp,
     channels: ChannelParams,
     retriever: ChannelRetriever,
     client: StreamClient

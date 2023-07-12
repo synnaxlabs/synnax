@@ -10,7 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Accordion } from "@synnaxlabs/pluto";
+import { Space, Accordion, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
@@ -97,6 +97,7 @@ export const WorkspaceToolbar: NavDrawerItem = {
   key: "workspace",
   icon: <Icon.Workspace />,
   content: <Content />,
+  tooltip: "Workspace",
   initialSize: 350,
   minSize: 250,
   maxSize: 500,

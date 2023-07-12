@@ -40,12 +40,12 @@ export {
 } from "@synnaxlabs/x";
 export type {
   NativeTypedArray,
-  UnparsedDataType,
-  UnparsedDensity,
-  UnparsedRate,
-  UnparsedSize,
-  UnparsedTimeSpan,
-  UnparsedTimeStamp,
+  CrudeDataType,
+  CrudeDensity,
+  CrudeRate,
+  CrudeSize,
+  CrudeTimeSpan,
+  CrudeTimeStamp,
   SampleValue,
   TimeStampStringFormat,
   TZInfo,

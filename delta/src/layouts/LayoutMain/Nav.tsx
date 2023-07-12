@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 
 import { Synnax } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
@@ -18,9 +18,9 @@ import {
   MenuProps as PMenuProps,
   Button,
   useOS,
-  Select,
   Triggers,
   Client,
+  Text,
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
@@ -111,10 +111,14 @@ export const NavTop = (): ReactElement => {
         <NavTopPalette />
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
-        <Button.Icon size="small" onClick={handleDocs}>
+        <Button.Icon
+          size="small"
+          onClick={handleDocs}
+          tooltip={<Text level="small">Documentation</Text>}
+        >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Button.Icon size="small">
+        <Button.Icon size="small" tooltip={<Text level="small">Settings</Text>}>
           <Icon.Settings />
         </Button.Icon>
         <Controls className="delta-controls--windows" visibleIfOS="Windows" />
@@ -130,9 +134,13 @@ export const NavMenu = ({
   children: NavMenuItem[];
 } & Omit<PMenuProps, "children">): ReactElement => (
   <PMenu {...props}>
-    {children.map((item) => (
-      <PMenu.Item.Icon key={item.key} itemKey={item.key}>
-        {item.icon}
+    {children.map(({ key, tooltip, icon }) => (
+      <PMenu.Item.Icon
+        key={key}
+        itemKey={key}
+        tooltip={<Text level="small">{tooltip}</Text>}
+      >
+        {icon}
       </PMenu.Item.Icon>
     ))}
   </PMenu>
@@ -191,7 +199,7 @@ export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.End className="delta-main-nav-bottom__end">
-        <Triggers.Status />
+        <Triggers.Status variant="info" />
         <Divider />
         <VersionBadge level="p" />
         <Divider />

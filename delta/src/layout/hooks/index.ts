@@ -166,6 +166,7 @@ const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => 
 export interface NavMenuItem {
   key: string;
   icon: ReactElement;
+  tooltip: string;
 }
 
 export interface NavDrawerItem extends PNavDrawerItem, NavMenuItem {}

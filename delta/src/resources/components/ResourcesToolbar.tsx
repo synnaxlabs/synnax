@@ -13,7 +13,7 @@ import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
-import { Tree, Space, Client, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Tree, Space, Client, useAsyncEffect, Text } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
@@ -78,7 +78,8 @@ const ResourcesTree = (): ReactElement => {
           onSelect?.({
             id,
             placeLayout: placer,
-            workspace: (store.getState() as { workspace: WorkspaceSliceState }).workspace,
+            workspace: (store.getState() as { workspace: WorkspaceSliceState })
+              .workspace,
           });
           setSelected([key]);
         }}
@@ -107,6 +108,7 @@ export const ResourcesToolbar: NavDrawerItem = {
   key: "resources",
   icon: <Icon.Resources />,
   content: <ResourcesTree />,
+  tooltip: "Resources",
   initialSize: 350,
   minSize: 250,
   maxSize: 650,

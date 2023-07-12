@@ -9,11 +9,11 @@
 
 import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
 import {
+  CrudeTimeSpan,
+  CrudeTimeStamp,
   TimeRange,
   TimeSpan,
   TimeStamp,
-  UnparsedTimeSpan,
-  UnparsedTimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -115,7 +115,7 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a
    * particular channel or the iterator has accumulated an error.
    */
-  async next(span: UnparsedTimeSpan = AUTO_SPAN): Promise<boolean> {
+  async next(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
     return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
   }
 
@@ -130,7 +130,7 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a particular
    * channel or the iterator has accumulated an error.
    */
-  async prev(span: UnparsedTimeSpan = AUTO_SPAN): Promise<boolean> {
+  async prev(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
     return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
   }
 
@@ -165,7 +165,7 @@ export class Iterator {
    * @returns false if the iterator is not pointing to a valid segment for a particular
    * channel or has accumulated an error.
    */
-  async seekLE(stamp: UnparsedTimeStamp): Promise<boolean> {
+  async seekLE(stamp: CrudeTimeStamp): Promise<boolean> {
     return await this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
   }
 
@@ -177,7 +177,7 @@ export class Iterator {
    * @returns false if the iterator is not pointing to a valid segment for a particular
    * channel or has accumulated an error.
    */
-  async seekGE(stamp: UnparsedTimeStamp): Promise<boolean> {
+  async seekGE(stamp: CrudeTimeStamp): Promise<boolean> {
     return await this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
   }
 

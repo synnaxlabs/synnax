@@ -11,12 +11,12 @@ import {
   DataType,
   Rate,
   NativeTypedArray,
-  UnparsedDensity,
-  UnparsedTimeStamp,
+  CrudeDensity,
   Series,
   TimeRange,
   AsyncTermSearcher,
   toArray,
+  CrudeTimeSpan,
 } from "@synnaxlabs/x";
 
 import { ChannelCreator } from "@/channel/creator";
@@ -58,7 +58,7 @@ export class Channel {
     frameClient,
   }: NewChannelPayload & {
     frameClient?: FrameClient;
-    density?: UnparsedDensity;
+    density?: CrudeDensity;
   }) {
     this.key = key;
     this.name = name;
@@ -105,7 +105,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: UnparsedTimeStamp, data: NativeTypedArray): Promise<void> {
+  async write(start: CrudeTimeSpan, data: NativeTypedArray): Promise<void> {
     return await this.framer.write(this.key, start, data);
   }
 }

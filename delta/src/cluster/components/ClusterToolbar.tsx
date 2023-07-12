@@ -87,4 +87,5 @@ export const ClusterToolbar: NavDrawerItem = {
   minSize: 185,
   maxSize: 350,
   initialSize: 250,
+  tooltip: "Clusters",
 };
