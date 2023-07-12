@@ -11,6 +11,7 @@
 
 .pluto-valve-pid-element.pluto--selected {
     border: var(--pluto-border-width) solid var(--pluto-primary-z);
+    border-radius: var(--pluto-border-radius);
 }
 
 .pluto-valve-pid-element.pluto--editable .pluto-valve {

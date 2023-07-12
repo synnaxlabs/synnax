@@ -36,7 +36,7 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps, ExampleLeafDerived> {
     return { contextValue: this.ctx.getOptional("key") ?? 0 };
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -55,7 +55,7 @@ class ExampleComposite extends AetherComposite<
     this.updatef(this.ctx);
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -75,7 +75,7 @@ class ContextSetterComposite extends AetherComposite<
     this.ctx.set("key", this.state.x);
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }

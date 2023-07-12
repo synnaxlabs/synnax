@@ -29,7 +29,7 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
   static readonly TYPE = "Canvas";
   static readonly z = canvasState;
   static readonly REGISTRY: AetherComponentRegistry = {
-    [AetherCanvas.TYPE]: (u) => new AetherCanvas(u),
+    [AetherCanvas.TYPE]: AetherCanvas,
   };
 
   schema = canvasState;

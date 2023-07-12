@@ -63,7 +63,7 @@ export class AetherValue
     this.requestRender();
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     const { requestRender, cleanupTelem, renderCtx } = this.derived;
     cleanupTelem();
     if (requestRender == null) renderCtx.erase(new Box(this.state.box));

@@ -49,7 +49,7 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
     if (this.state.error != null) this.setState((p) => ({ ...p, error: undefined }));
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     const { renderCtx } = this.derived;
     renderCtx.erase(new Box(this.prevState.region));
   }

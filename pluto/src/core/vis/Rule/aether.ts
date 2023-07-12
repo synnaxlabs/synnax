@@ -49,7 +49,7 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
     RenderController.requestRender(this.ctx);
   }
 
-  handleDelete(): void {}
+  afterDelete(): void {}
 
   updatePositions({ scale, plottingRegion, region }: AetherRuleProps): number {
     if (this.state.dragging) {

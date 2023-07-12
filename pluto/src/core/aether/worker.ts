@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation } from "@synnaxlabs/alamos";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Sender, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -19,10 +19,28 @@ type AetherUpdateVariant = "state" | "context";
 
 /** An update to an AetherComponent from the main React tree. */
 export interface AetherUpdate {
+  /**
+   * The variant of update being performed. State updates are used to update
+   * the state of a particular component, while context updates are used to propagate
+   * context changes to children in the tree.
+   */
   variant: AetherUpdateVariant;
+  /* The context provided by the parent component. */
   ctx: AetherContext;
+  /**
+   * The path of the component in the tree. This path is shortened as the update is
+   * propagated through the tree
+   */
   path: string[];
+  /**
+   * The type of the component being updated. This is used to create the component
+   * if it does not already exist.
+   */
   type: string;
+  /**
+   * The state to udpate on the component . This is only present if the variant is
+   * "state".
+   */
   state: any;
 }
 
@@ -33,14 +51,36 @@ export interface AetherUpdate {
  * typically correlate to the corresponding name of the component in the react tree.
  */
 export interface AetherComponent {
+  /** The type of component. */
   type: string;
+  /** A unique key identifying the component within the tree. */
   key: string;
+  /**
+   * Propagates an update to the internal tree of the component, updating the component
+   * itself and any children as necessary.
+   *
+   * @param update - The update to propagate.
+   */
   internalUpdate: (update: AetherUpdate) => void;
+  /**
+   * Propagates a delete to the internal tree of the component, calling the handleDelete
+   * component on the component itself and any children as necessary. It is up to
+   * the parent component to remove the child from its internal tree.
+   *
+   * @param path - The path of the component to delete.
+   */
   internalDelete: (path: string[]) => void;
 }
 
-export type AetherComponentConstructor = (update: AetherUpdate) => AetherComponent;
+/** A constructor type for an AetherComponent. */
+export type AetherComponentConstructor = new (update: AetherUpdate) => AetherComponent;
 
+/**
+ * AetherContext is used to propagate environment information to components in the
+ * aether tree. It allows components to propagate state changes to the main react
+ * tree, create new components, and set/get values from the environment, passing
+ * them to children as necessary.
+ */
 export class AetherContext {
   readonly providers: Map<string, any>;
   private readonly registry: Record<string, AetherComponentConstructor>;
@@ -58,42 +98,82 @@ export class AetherContext {
     this.sender = sender;
   }
 
-  setState(key: string, state: any, transfer: Transferable[] = []): void {
+  /**
+   * Proapgates the given state for the component with the given key to the main
+   * react tree.
+   *
+   * @param key - The key of the component to propagate the state for.
+   * @param state - The state to propagate.
+   * @param transfer - Any transferable objects to transfer to the main thread.
+   */
+  propagateState(key: string, state: any, transfer: Transferable[] = []): void {
     this.sender.send({ key, state }, transfer);
   }
 
-  copy(add?: AetherContext): AetherContext {
+  /**
+   * Copies the context, setting it's 'changed' flag to false, and optionally merging
+   * another set of context values into it.
+   *
+   * @param merge - The context to merge into the copy.
+   * @returns The copied context.
+   */
+  copyAndMerge(merge?: AetherContext): AetherContext {
     const cpy = new AetherContext(this.sender, this.registry, new Map());
-    this.providers.forEach((value, key) => {
-      cpy.providers.set(key, value);
-    });
-    add?.providers.forEach((value, key) => {
-      cpy.providers.set(key, value);
-    });
+    this.providers.forEach((value, key) => cpy.providers.set(key, value));
+    merge?.providers.forEach((value, key) => cpy.providers.set(key, value));
     cpy.changed = false;
     return cpy;
   }
 
-  getOptional<P>(key: string): P | null {
-    return this.providers.get(key) ?? null;
-  }
-
-  set<P>(key: string, value: P): void {
+  /**
+   * Sets a value on the context and flags the context as changed.
+   *
+   * @param key - The key to set.
+   * @param value - The value to set.
+   */
+  set(key: string, value: any): void {
     this.providers.set(key, value);
     this.changed = true;
   }
 
+  /**
+   * Creates a new component using the given update. It is up to the caller to
+   * validate that the component type is valid.
+   *
+   * @param update - The update to create the component from.
+   * @returns The created component.
+   */
   create<C extends AetherComponent>(update: AetherUpdate): C {
-    const factory = this.registry[update.type];
-    if (factory == null)
+    const Factory = this.registry[update.type];
+    if (Factory == null)
       throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
-    const c = factory(update) as C;
+    const c = new Factory(update) as C;
     c.internalUpdate(update);
     return c;
   }
 
+  /**
+   * Gets a value from the context, returning null if the value does not exist. It's
+   * imporant to note that the context provides no validation of the type of the
+   * value, so it is up to the caller to ensure that the value is of the correct type.
+   *
+   * @param key - The key to get.
+   * @returns The value, or null if it does not exist.
+   */
+  getOptional<P>(key: string): P | null {
+    return this.providers.get(key) ?? null;
+  }
+
+  /**
+   * Gets a value from the context, throwing an error if the value does not exist.
+   * It's imporant to note that the context provides no validation of the type of
+   * the value, so it is up to the caller to ensure that the value is of the correct
+   *
+   * @param key - The key to get.
+   * @returns The value.
+   */
   get<P>(key: string): P {
-    const value = this.providers.get(key);
+    const value = this.getOptional<P>(key);
     if (value == null)
       throw new Error(`[AetherRoot.get] - could not find provider ${key}`);
     return value;
@@ -104,40 +184,31 @@ export class AetherContext {
  * Implements an AtherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
- *
- * Implementing a leaf component is as easy as defining its schema as a Zod type, and
- * then subclassing AetherLeaf and defining handleUpdate and/or handleDelete.
- * @example
- *
- * export class MyEtherealButton extends AetherLeaf<typeof buttonState> {
- *  constructor(update: Update) {
- *    super(update, buttonState)
- *  }
- *
- *  handleUpdate(ctx: AtherContext) {
- *      // Do something here!
- *  }
- *
- *  handleDelete(ctx: AetherContext) {
- *      // Do something else here!
- *  }
- * }
  */
 export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComponent {
   readonly type: string;
   readonly key: string;
-  _derivedState: DS | undefined;
 
   _ctx: AetherContext;
+  private _derivedState: DS | undefined;
   private _state: z.output<S> | undefined;
   private _prevState: z.output<S> | undefined;
 
-  schema: S = undefined as any;
+  schema: S | undefined = undefined;
 
   constructor(u: AetherUpdate) {
     this.type = u.type;
     this.key = u.path[0];
     this._ctx = u.ctx;
+  }
+
+  private get _schema(): S {
+    if (this.schema == null)
+      throw new ValidationError(
+        `[AetherLeaf] - expected subclass to define component schema, but none was found. 
+        Make sure to defne a property 'schema' on the class.`
+      );
+    return this.schema;
   }
 
   /**
@@ -150,10 +221,11 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
   setState(state: SetStateArg<z.input<S> | z.output<S>>): void {
     const nextState: z.input<S> = executeStateSetter(state, this._state);
     this._prevState = { ...this._state };
-    this._state = this.schema.parse(nextState);
-    this.ctx.setState(this.key, nextState);
+    this._state = this._schema.parse(nextState);
+    this.ctx.propagateState(this.key, nextState);
   }
 
+  /** Returns the current context on the component. */
   get ctx(): AetherContext {
     if (this._ctx == null) throw new UnexpectedError("context not defined");
     return this._ctx;
@@ -174,12 +246,15 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     return this._prevState;
   }
 
-  /** @implements AetherComponent */
+  /**
+   * @implements AetherComponent, and should NOT be called by a subclass other than
+   * AetherComposite.
+   */
   internalUpdate({ variant, path, ctx, state }: AetherUpdate): void {
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
-      const state_ = this.schema.parse(state);
+      const state_ = this._schema.parse(state);
       this._prevState = this._state ?? state_;
       this._state = state_;
     }
@@ -187,19 +262,39 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     this.afterUpdate();
   }
 
-  /** @implements AetherComponent */
+  /**
+   * @implements AetherComponent, and should NOT be called by a subclass other than
+   * AetherComposite.
+   */
   internalDelete(path: string[]): void {
     this.validatePath(path);
-    this.handleDelete();
+    this.afterDelete();
   }
 
+  /**
+   * Derive is optionally defined by a subclass, allowing the component to compute
+   * a derived state based on its current state as the component updates. Both the
+   * current state, previous state, and context are available to the component.
+   *
+   * @returns The derived state, if any.
+   */
   derive(): DS {
     return undefined as DS;
   }
 
+  /**
+   * afterUpdate is optionally defined by a subclass, allowing the component to
+   * perform some action after the component is updated. At this point, the current
+   * state, previous state, derived state, and current context are all available to
+   * the component.
+   */
   afterUpdate(): void {}
 
-  handleDelete(): void {}
+  /**
+   * Runs after the component has been spliced out of the tree. This is useful for
+   * running cleanup code, such as unsubscribing from an event emitter.
+   */
+  afterDelete(): void {}
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
@@ -220,6 +315,11 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
   }
 }
 
+/**
+ * AetherComposite is an implementation of AetherComponent that allows it to maintain
+ * child components. It is the base class for all composite components, and should not
+ * be used directly.
+ */
 export class AetherComposite<
     S extends z.ZodTypeAny,
     DS = void,
@@ -228,26 +328,39 @@ export class AetherComposite<
   extends AetherLeaf<S, DS>
   implements AetherComponent
 {
-  children: C[];
+  _children: C[];
 
   constructor(u: AetherUpdate) {
     super(u);
-    this.children = [];
+    this._children = [];
   }
 
+  /** @returns a readonly array of the children of the component. */
+  get children(): readonly C[] {
+    return this.children;
+  }
+
+  /**
+   * @implements AetherComponent, and should NOT be called by a subclass, except for
+   * AetherRoot.
+   */
   internalUpdate(u: AetherUpdate): void {
     const { variant, path } = u;
 
-    // We're doing a context update.
     if (variant === "context") {
-      this._ctx = u.ctx.copy(this._ctx);
-      this.updateContext({ ...u, ctx: this._ctx });
-      return;
+      // We need to assume the context has changed, so we need to copy and merge the
+      // context before updating the component.
+      this._ctx = u.ctx.copyAndMerge(this._ctx);
+      return this.updateContext({ ...u, ctx: this.ctx });
     }
 
     const [key, subPath] = this.getRequiredKey(path);
-    if (subPath.length === 0) return this.updateThis(key, { ...u, ctx: this.ctx });
-    return this.updateChild(key, subPath, { ...u, ctx: this.ctx });
+    // In this case, we can safely assume the context hasn't changed, so we can just use
+    // the internal, cached context.
+    const uCached = { ...u, ctx: this.ctx };
+    return subPath.length === 0
+      ? this.updateThis(key, uCached)
+      : this.updateChild(key, subPath, uCached);
   }
 
   private updateContext(u: AetherUpdate): void {
@@ -263,11 +376,11 @@ export class AetherComposite<
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `
       );
-    this.children.push(u.ctx.create({ ...u, ctx: u.ctx.copy(), path: subPath }));
+    this._children.push(u.ctx.create({ ...u, path: subPath }));
   }
 
   private updateThis(key: string, u: AetherUpdate): void {
-    const ctx = u.ctx.copy(this._ctx);
+    const ctx = u.ctx.copyAndMerge(this._ctx);
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
@@ -275,7 +388,6 @@ export class AetherComposite<
       );
     super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
-    this._ctx = ctx;
     this.children.forEach((c) =>
       c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" })
     );
@@ -290,7 +402,7 @@ export class AetherComposite<
         );
       }
       const c = this.children;
-      this.children = [];
+      this._children = [];
       c.forEach((c) => c.internalDelete([c.key]));
       super.internalDelete([this.key]);
       return;
@@ -299,7 +411,7 @@ export class AetherComposite<
     if (child == null) return;
     if (subPath.length > 1) child.internalDelete(subPath);
     else {
-      this.children.splice(this.children.indexOf(child), 1);
+      this._children.splice(this.children.indexOf(child), 1);
       child.internalDelete(subPath);
     }
   }
@@ -314,12 +426,24 @@ export class AetherComposite<
     return [key, subPath];
   }
 
+  /**
+   * Finds a child component with the given key.
+   *
+   * @param key - the key of the child component to find.
+   * @returns the child component, or null if no child component with the given key
+   */
   findChild<T extends C = C>(key: string): T | null {
     return (this.children.find((c) => c.key === key) ?? null) as T | null;
   }
 
-  childrenOfType<T extends C = C>(key: string): T[] {
-    return this.children.filter((c) => c.type === key) as T[];
+  /**
+   * Finds all children of the component with the given type
+   *
+   * @param type - the type of the children to find
+   * @returns an array of all children of the component with the given type
+   */
+  childrenOfType<T extends C = C>(type: T["type"]): readonly T[] {
+    return this.children.filter((c) => c.type === type) as unknown as readonly T[];
   }
 }
 

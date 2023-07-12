@@ -49,7 +49,7 @@ export class AetherLinePlot extends AetherComposite<
     this.requestRender(this.prevRegion, "high");
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     const { ctx } = this.derived;
     ctx.erase(this.region, this.clearOverScan);
   }

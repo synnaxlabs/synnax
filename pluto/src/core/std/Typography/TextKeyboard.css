@@ -9,7 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tank-pid-element.pluto--selected {
-    border: var(--pluto-border-width) solid var(--pluto-primary-z);
+.pluto-text--keyboard {
+    background: var(--pluto-gray-m3);
+    border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
+    padding: 0.25rem 1rem;
 }

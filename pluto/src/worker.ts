@@ -27,12 +27,12 @@ export const pluto = (): void => {
   const REGISTRY: AetherComponentRegistry = {
     ...AetherLinePlot.REGISTRY,
     ...AetherCanvas.REGISTRY,
-    [Telem.TYPE]: (u) => new Telem(u),
-    [LineGL.TYPE]: (u) => new LineGL(u),
-    [AetherValue.TYPE]: (u) => new AetherValue(u),
-    [Valve.TYPE]: (u) => new Valve(u),
-    [AetherPID.TYPE]: (u) => new AetherPID(u),
-    [AetherRule.TYPE]: (u) => new AetherRule(u),
+    [Telem.TYPE]: Telem,
+    [LineGL.TYPE]: LineGL,
+    [AetherValue.TYPE]: AetherValue,
+    [Valve.TYPE]: Valve,
+    [AetherPID.TYPE]: AetherPID,
+    [AetherRule.TYPE]: AetherRule,
   };
 
   render({

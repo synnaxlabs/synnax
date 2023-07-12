@@ -11,6 +11,7 @@ import { Text as CoreText } from "@/core/std/Typography/Text";
 import { TextDateTime } from "@/core/std/Typography/TextDateTime";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { TextMaybeEditable, TextEditable } from "@/core/std/Typography/TextEditable";
+import { TextKeyboard } from "@/core/std/Typography/TextKeyboard";
 import { TextLink } from "@/core/std/Typography/TextLink";
 import { TextWithIcon } from "@/core/std/Typography/TextWithIcon";
 import {
@@ -40,6 +41,7 @@ interface TextType extends CoreTextType {
   MaybeEditable: typeof TextMaybeEditable;
   DateTime: typeof TextDateTime;
   Link: typeof TextLink;
+  Keyboard: typeof TextKeyboard;
   dimensions: typeof textDimensions;
 }
 
@@ -51,6 +53,7 @@ Text.MaybeEditable = TextMaybeEditable;
 Text.DateTime = TextDateTime;
 Text.Link = TextLink;
 Text.dimensions = textDimensions;
+Text.Keyboard = TextKeyboard;
 
 export interface TypographyType {
   ComponentSizeLevels: typeof ComponentSizeTypographyLevels;

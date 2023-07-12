@@ -200,7 +200,7 @@ export class LineGL
     });
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     const { cleanupTelem } = this.derived;
     cleanupTelem();
     this.derived.requestRender();

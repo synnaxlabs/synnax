@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { Color, ColorT } from "@/core/color/color";
 import { ColorPicker } from "@/core/color/ColorPicker";
 import { CSS } from "@/core/css";
-import { Button, ButtonProps, Dropdown, InputControl } from "@/core/std";
+import { Button, ButtonProps, Dropdown, InputControl, Text, Tooltip } from "@/core/std";
 import { UseDropdownProps } from "@/core/std/Dropdown/Dropdown";
 
 import "@/core/color/ColorSwatch/ColorSwatch.css";
@@ -41,6 +41,9 @@ export const ColorSwatch = ({
       variant="text"
       onClick={open}
       size={size}
+      tooltip={
+        onChange != null ? <Text level="small">Click to change color</Text> : undefined
+      }
       {...props}
     />
   );

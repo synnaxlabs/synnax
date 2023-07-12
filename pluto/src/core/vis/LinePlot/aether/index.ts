@@ -13,9 +13,9 @@ import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";
 
 export const LinePlotRegistry: AetherComponentRegistry = {
-  [CoreLinePlot.TYPE]: (u) => new CoreLinePlot(u),
-  [AetherXAxis.TYPE]: (u) => new AetherXAxis(u),
-  [AetherYAxis.TYPE]: (u) => new AetherYAxis(u),
+  [CoreLinePlot.TYPE]: CoreLinePlot,
+  [AetherXAxis.TYPE]: AetherXAxis,
+  [AetherYAxis.TYPE]: AetherYAxis,
 };
 
 type CoreLinePlotType = typeof CoreLinePlot;

@@ -13,6 +13,7 @@ import { Optional } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { SpaceProps } from "@/core/std/Space";
+import { Tooltip } from "@/core/std/Tooltip";
 import { Typography, Text, TextWithIconProps } from "@/core/std/Typography";
 import { ComponentSize } from "@/util/component";
 
@@ -42,30 +43,32 @@ export interface ButtonProps
   iconSpacing?: SpaceProps["size"];
 }
 
-export const Button = ({
-  size = "medium",
-  variant = "filled",
-  className,
-  children,
-  iconSpacing,
-  sharp = false,
-  level,
-  ...props
-}: ButtonProps): ReactElement => (
-  <Text.WithIcon
-    el="button"
-    className={CSS(
-      CSS.B("btn"),
-      CSS.size(size),
-      CSS.sharp(sharp),
-      CSS.BM("btn", variant),
-      className
-    )}
-    level={level ?? Typography.ComponentSizeLevels[size]}
-    size={iconSpacing}
-    noWrap
-    {...props}
-  >
-    {children}
-  </Text.WithIcon>
+export const Button = Tooltip.wrap(
+  ({
+    size = "medium",
+    variant = "filled",
+    className,
+    children,
+    iconSpacing,
+    sharp = false,
+    level,
+    ...props
+  }: ButtonProps): ReactElement => (
+    <Text.WithIcon
+      el="button"
+      className={CSS(
+        CSS.B("btn"),
+        CSS.size(size),
+        CSS.sharp(sharp),
+        CSS.BM("btn", variant),
+        className
+      )}
+      level={level ?? Typography.ComponentSizeLevels[size]}
+      size={iconSpacing}
+      noWrap
+      {...props}
+    >
+      {children}
+    </Text.WithIcon>
+  )
 );

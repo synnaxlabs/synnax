@@ -12,7 +12,7 @@ import { ForwardedRef, ReactElement, forwardRef } from "react";
 import {
   TimeStampStringFormat,
   TimeStamp,
-  UnparsedTimeStamp,
+  CrudeTimeStamp,
   TZInfo,
 } from "@synnaxlabs/x";
 
@@ -24,7 +24,7 @@ export type TextDateTimeProps<L extends TypographyLevel = "h1"> = Omit<
   TextProps<L>,
   "children" | "ref"
 > & {
-  children: UnparsedTimeStamp;
+  children: CrudeTimeStamp;
   format?: TimeStampStringFormat;
   suppliedTZ?: TZInfo;
   displayTZ?: TZInfo;
