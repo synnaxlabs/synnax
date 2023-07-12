@@ -1,12 +1,36 @@
-# 0 - Before Getting Started
+# Windows Tooling Setup Guide
+
+# 0 - Summary
+
+The following guide walks you through the setup process for developing Synnax on
+Windows. This guide is complete, meaning that it provides installation and configuration
+instructions for all tooling required, but it does not provide information on how to
+use this tooling when working with a specific project. For that information, see the
+project's `README.md`. Links to all project `README.md` files can be found in the
+[project index](../README.md).
 
 This guide assumes you're using powershell as your terminal of choice. If you're using
-cmd, you may need to vary the commands slightly.
+cmd, you may need to vary the commands slightly. Certain tools may require running
+commands as an administrator.
+
+As a final note, this guide does not need to be followed verbatim. As long as the
+correct tools are installed and configured, you can use whatever methods you prefer.
 
 # 1 - Install Git
 
-The first step is to install git. The way to do so is using
-the [installer](https://git-scm.com/download/win).
+The first step is to install git. The best way of doing so is using
+the [installer](https://git-scm.com/download/win). Validate your installation by
+running
+
+```bash
+git --version
+```
+
+You should see something like
+
+```bash
+git version 2.x.x.windows.x
+```
 
 # 2 - Clone the Repository
 
@@ -19,15 +43,12 @@ mkdir ~/synnaxlabs && cd ~/synnaxlabs && git clone https://github.com/synnaxlabs
 
 # 3 - Setup Go
 
-To install go, use the instructions from
-the [golang website](https://go.dev/doc/install).
-To verify your installation, run
+To install go, use the instructions from the [go website](https://go.dev/doc/install).
+To verify your installation, run:
 
 ```bash
 go version
 ```
-
-## 3.0 - Verify Go Installation
 
 You should see something like
 
@@ -35,16 +56,16 @@ You should see something like
 go 1.20.x windows/amd64
 ```
 
-Let's run some test cases to make sure everything is working as expected. In the root
-directory (`~/synnaxlabs/synnax`), run
+As an additional test, let's run some test cases to make sure everything is working
+as expected. In the root directory (`~/synnaxlabs/synnax`), run
 
 ```bash
 cd x/go && go test -v ./...
 ```
-
-This might take a while when you run it for the first time, as go needs to download
-many packages. Eventually, you should see a bunch of green output and
-no red output.
+This will run the tests for the common utilities used across Synnax's go projects. This
+might take a while when you run it for the first time, as go needs to download many
+packages. Future runs will be much faster. Eventually, you should see a bunch of green
+output and no red output.
 
 # 4 - Python
 
@@ -60,7 +81,7 @@ python --version
 You should see something like
 
 ```bash
-Python 3.11.4
+Python 3.11.x
 ```
 
 ## 4.0 - Install Poetry
@@ -100,12 +121,9 @@ poetry install
 
 # 5.0 - Install Node.js
 
-I recommend using nvm to manage node versions.
-
-Install nvm using the
-instructions [here](https://github.com/coreybutler/nvm-windows/releases).
-You want to install and run `nvm-setup.exe`. Then, install the latest version of node
-with
+I recommend using nvm to manage node versions. Install nvm using the instructions
+[here](https://github.com/coreybutler/nvm-windows/releases). You want to install and
+run the file titled `nvm-setup.exe`. Then, install the latest version of node with
 
 ```bash
 nvm install 20
@@ -117,7 +135,7 @@ Make sure your installation is working by running
 node --version
 ```
 
-# 5.1 - Install PNPM
+# 5.1 - Install pnpm
 
 We use pnpm as our package manager of choice. It's a drop-in replacement for npm that
 has a few nice features. To install pnpm, run
@@ -142,9 +160,10 @@ pnpm install
 
 # 5.2 - Build the Pluto Component Library
 
-We use [turbo repo](https://turbo.build/repo) to build our various typescript projects.
+We use [turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
-To build the Pluto component library, run
+As a test to make sure the build system is working, we'll build the Synnax component
+library, [pluto](../pluto/README.md) by running
 
 ```bash
 pnpm build:pluto
@@ -152,7 +171,9 @@ pnpm build:pluto
 
 # 5.3 - Start a Pluto Dev Server
 
-To start a Pluto dev server, run
+As another test, we'll start a development server for Pluto. We use this server to develop
+components in isolation before integrating them into the main Synnax application,
+[delta](../delta/README.md). To start, run
 
 ```bash
  pnpm dev:pluto
