@@ -13,13 +13,14 @@ import clsx from "clsx";
 
 import { CSS } from "@/core/css";
 import type { BaseButtonProps } from "@/core/std/Button/Button";
+import { Tooltip } from "@/core/std/Tooltip";
 
 /** The props for the {@link ButtonIcon} */
 export interface ButtonIconProps extends BaseButtonProps {
   children: ReactElement;
 }
 
-export const ButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
+const CoreButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
   (
     { children, className, variant = "text", size = "medium", sharp = false, ...props },
     ref
@@ -40,4 +41,6 @@ export const ButtonIcon = forwardRef<HTMLButtonElement, ButtonIconProps>(
     </button>
   )
 );
-ButtonIcon.displayName = "ButtonIcon";
+CoreButtonIcon.displayName = "ButtonIcon";
+
+export const ButtonIcon = Tooltip.wrap(CoreButtonIcon);

@@ -99,6 +99,7 @@ export const Legend = ({
             level="small"
             value={label}
             onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
+            noWrap
           />
         </Space>
       ))}

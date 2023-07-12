@@ -14,6 +14,8 @@ import { CSS } from "@/core/css";
 import { Generic, GenericProps } from "@/core/std/Generic";
 import { TypographyLevel } from "@/core/std/Typography/types";
 
+import "@/core/std/Typography/Text.css";
+
 export interface CoreTextProps<L extends TypographyLevel = "h1"> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;

@@ -12,5 +12,4 @@
 .pluto-tank {
     border-radius: 30% / 10%;
     border: var(--pluto-border-width) solid var(--pluto-text-color);
-    z-index: -1;
 }

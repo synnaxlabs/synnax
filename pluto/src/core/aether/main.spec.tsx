@@ -51,7 +51,7 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
     this.updatef(ctx);
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -70,7 +70,7 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
     this.updatef(ctx);
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }
@@ -88,7 +88,7 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
     ctx.set("key", "value");
   }
 
-  handleDelete(): void {
+  afterDelete(): void {
     this.deletef();
   }
 }

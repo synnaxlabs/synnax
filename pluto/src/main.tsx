@@ -11,6 +11,8 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 
+import { TooltipConfigProps } from "./core/std/Tooltip/TooltipConfig";
+
 import { Client, ClientProviderProps } from "@/client";
 import {
   Alamos,
@@ -20,6 +22,7 @@ import {
   Theming,
   Triggers,
   Worker,
+  Tooltip,
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
@@ -30,6 +33,7 @@ export interface PlutoProps
   workerEnabled?: boolean;
   workerURL?: URL;
   instrumentation?: Instrumentation;
+  tooltip?: TooltipConfigProps;
 }
 
 export const Pluto = ({
@@ -40,6 +44,7 @@ export const Pluto = ({
   theme,
   toggleTheme,
   setTheme,
+  tooltip,
   instrumentation,
 }: PlutoProps): ReactElement => {
   const defaultWorkerURL = new URL("defaultWorker.ts", import.meta.url);
@@ -47,18 +52,20 @@ export const Pluto = ({
     <Alamos.Provider instrumentation={instrumentation}>
       <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
         <Triggers.Provider>
-          <Haul.Provider>
-            <Worker.Provider
-              url={workerURL ?? defaultWorkerURL}
-              enabled={workerEnabled}
-            >
-              <Aether.Provider workerKey="vis">
-                <Client.Provider connParams={connParams}>
-                  <TelemProvider>{children}</TelemProvider>
-                </Client.Provider>
-              </Aether.Provider>
-            </Worker.Provider>
-          </Haul.Provider>
+          <Tooltip.Config {...tooltip}>
+            <Haul.Provider>
+              <Worker.Provider
+                url={workerURL ?? defaultWorkerURL}
+                enabled={workerEnabled}
+              >
+                <Aether.Provider workerKey="vis">
+                  <Client.Provider connParams={connParams}>
+                    <TelemProvider>{children}</TelemProvider>
+                  </Client.Provider>
+                </Aether.Provider>
+              </Worker.Provider>
+            </Haul.Provider>
+          </Tooltip.Config>
         </Triggers.Provider>
       </Theming.Provider>
     </Alamos.Provider>

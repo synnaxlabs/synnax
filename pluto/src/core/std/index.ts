@@ -26,3 +26,4 @@ export * from "@/core/std/Tree";
 export * from "@/core/std/Typography";
 export * from "@/core/std/Menu";
 export * from "@/core/std/Video";
+export * from "@/core/std/Tooltip";

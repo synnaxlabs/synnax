@@ -42,5 +42,9 @@ export const Editable: StoryFn<typeof Text> = () => {
   );
 };
 
+export const Keyboard: StoryFn<typeof Text> = () => (
+  <Text.Keyboard level="p">⌘</Text.Keyboard>
+);
+
 // eslint-disable-next-line import/no-default-export
 export default story;
