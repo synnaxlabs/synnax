@@ -363,11 +363,8 @@ export const { actions, reducer: lineReducer } = createSlice({
   reducers: {
     setLinePlot: (state, { payload }: PayloadAction<CreateLinePlotPayload>) => {
       const { key: layoutKey } = payload;
-      console.log(JSON.stringify(Object.keys(state.plots)), layoutKey);
       const existing = state.plots[layoutKey];
-      console.log(JSON.stringify(existing));
       if (existing != null) return;
-      console.log(existing, payload);
       state.plots[layoutKey] = payload;
       state.plots[layoutKey].lines = updateLines(payload);
     },
@@ -492,7 +489,6 @@ export const createLinePlot =
   ): LayoutCreator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
-    console.log(initial.key);
     const key = initial.key ?? nanoid();
     dispatch(actions.setLinePlot({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
     return {

@@ -11,10 +11,20 @@ import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
-import { CSS, Input, Space, Text } from "@/core";
+import {
+  CSS,
+  Color,
+  ColorSwatch,
+  ColorSwatchProps,
+  ColorT,
+  Input,
+  Space,
+  Text,
+} from "@/core";
 import { Valve, ValveProps } from "@/core/vis/Valve/Valve";
 import { RangeNumerictelemProps } from "@/telem/range/aether";
 import { RangeNumericTelemForm } from "@/telem/range/forms";
+import { componentRenderProp } from "@/util/renderProp";
 import {
   PIDElementFormProps,
   PIDElementSpec,
@@ -23,9 +33,10 @@ import {
 
 import "@/vis/pid/ValvePIDElement/ValvePIDElement.css";
 
-export interface ValvePIDElementProps extends Omit<ValveProps, "telem"> {
+export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
   telem: RangeNumerictelemProps;
   label: string;
+  color: ColorT;
 }
 
 const ValvePIDElement = ({
@@ -33,7 +44,6 @@ const ValvePIDElement = ({
   editable,
   telem: pTelem,
   onChange,
-  className,
   label,
   position: _,
   ...props
@@ -41,20 +51,21 @@ const ValvePIDElement = ({
   const handleLabelChange = (label: string): void =>
     onChange({ ...props, label, telem: pTelem });
   return (
-    <Space justify="center" align="center" size="small">
+    <Space
+      justify="center"
+      align="center"
+      size="small"
+      className={CSS(
+        CSS.B("valve-pid-element"),
+        CSS.selected(selected),
+        CSS.editable(editable)
+      )}
+    >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div className={CSS.BE("valve-pid-element", "valve-container")}>
         {editable && <Handle position={Position.Left} type="target" />}
         {editable && <Handle position={Position.Right} type="source" />}
-        <Valve
-          className={CSS(
-            className,
-            CSS.B("valve-pid-element"),
-            CSS.selected(selected),
-            CSS.editable(editable)
-          )}
-          {...props}
-        />
+        <Valve {...props} />
       </div>
     </Space>
   );
@@ -64,21 +75,31 @@ const ValvePIDElementForm = ({
   value,
   onChange,
 }: PIDElementFormProps<ValvePIDElementProps>): ReactElement => {
-  const handleLabelChange = (label: string): void => {
-    onChange({ ...value, label });
-  };
+  const handleLabelChange = (label: string): void => onChange({ ...value, label });
 
-  const handleTelemChange = (telem: RangeNumerictelemProps): void => {
+  const handleTelemChange = (telem: RangeNumerictelemProps): void =>
     onChange({ ...value, telem });
-  };
+
+  const handleColorChange = (color: Color): void =>
+    onChange({ ...value, color: color.hex });
 
   return (
     <>
-      <Input.Item<string>
-        label="Label"
-        value={value.label}
-        onChange={handleLabelChange}
-      />
+      <Space direction="x">
+        <Input.Item<string>
+          label="Label"
+          value={value.label}
+          onChange={handleLabelChange}
+        />
+        <Input.Item<ColorT, Color, ColorSwatchProps>
+          label="Color"
+          onChange={handleColorChange}
+          value={value.color}
+        >
+          {/* @ts-expect-error */}
+          {componentRenderProp(ColorSwatch)}
+        </Input.Item>
+      </Space>
       <RangeNumericTelemForm value={value.telem} onChange={handleTelemChange} />
     </>
   );
@@ -90,6 +111,7 @@ const ValvePIDElementPreview = (): ReactElement => {
 
 const ZERO_PROPS: ValvePIDElementProps = {
   label: "Valve",
+  color: "#ffffff",
   telem: {
     channel: 0,
   },

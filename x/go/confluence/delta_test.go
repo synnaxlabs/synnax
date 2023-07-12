@@ -19,9 +19,9 @@ import (
 
 var _ = Describe("Delta", func() {
 	var (
-		inputOne  Stream[int]
-		outputOne Stream[int]
-		outputTwo Stream[int]
+		inputOne  *Stream[int]
+		outputOne *Stream[int]
+		outputTwo *Stream[int]
 	)
 	BeforeEach(func() {
 		inputOne = NewStream[int](1)

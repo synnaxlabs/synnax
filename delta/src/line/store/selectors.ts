@@ -30,7 +30,6 @@ export const useSelectLinePlot = (key: string): LinePlotState =>
 export const useSelectLinePlotRanges = (key: string): XAxisRecord<Range[]> => {
   return useMemoSelect(
     (state: LineStoreState & WorkspaceStoreState) => {
-      console.log(state);
       const p = selectLinePlot(state, key);
       return {
         x1: selectRanges(state, p.ranges.x1),

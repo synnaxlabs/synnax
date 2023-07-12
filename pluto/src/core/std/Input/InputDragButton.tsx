@@ -19,6 +19,8 @@ import { InputControl } from "@/core/std/Input/types";
 
 import "@/core/std/Input/InputDragButton.css";
 
+import { ComponentSizes } from "@/util/component";
+
 export interface InputDragButtonExtensionProps {
   direction?: CrudeDirection;
   dragDirection?: CrudeDirection;
@@ -39,10 +41,11 @@ export const InputDragButton = ({
   direction,
   className,
   dragScale = { x: 10, y: 1 },
-  dragThreshold = 12,
+  dragThreshold = 15,
   dragDirection,
   onChange,
   value,
+  size,
   resetValue,
   ...props
 }: InputDragButtonProps): ReactElement => {
@@ -62,7 +65,7 @@ export const InputDragButton = ({
     return scale;
   }, [dragScale, dragDirection]);
   const normalDragThreshold = useMemo(
-    () => new XY(dragThreshold ?? 0),
+    () => (dragThreshold != null ? new XY(dragThreshold) : null),
     [dragThreshold]
   );
 
@@ -70,9 +73,10 @@ export const InputDragButton = ({
     ref: elRef,
     onMove: useCallback(
       (box: Box) => {
+        if (elRef.current == null) return;
         let value = vRef.current.prev;
         vRef.current.dragging = true;
-        const { x, y } = normalDragThreshold;
+        const { x, y } = normalDragThreshold ?? new XY(new Box(elRef.current).dims);
         if (box.width > x) {
           const offset = box.signedWidth < 0 ? x : -x;
           value += (box.signedWidth + offset) * normalDragScale.x;

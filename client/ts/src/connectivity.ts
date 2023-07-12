@@ -28,7 +28,7 @@ const DEFAULT: ConnectionState = {
   clusterKey: "",
   status: "disconnected",
   error: undefined,
-  message: undefined,
+  message: "Disconnected",
 };
 
 /** Polls a synnax cluster for connectivity information. */
@@ -36,7 +36,7 @@ export class Connectivity {
   private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
   static readonly DEFAULT: ConnectionState = DEFAULT;
-  readonly state: ConnectionState = Connectivity.DEFAULT;
+  readonly state: ConnectionState;
   private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
@@ -48,6 +48,7 @@ export class Connectivity {
    *   connectivity information.
    */
   constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
+    this.state = { ...DEFAULT };
     this.id = Math.random().toString(36).substring(7);
     this.client = client;
     this.pollFrequency = pollFreq;

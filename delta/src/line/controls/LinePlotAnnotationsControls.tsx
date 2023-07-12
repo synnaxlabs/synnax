@@ -265,7 +265,6 @@ export const LinePlotAnnotationsControls = ({
               <Button
                 key={key}
                 onClick={() => {
-                  console.log(key);
                   onSelect?.(key);
                 }}
                 style={{

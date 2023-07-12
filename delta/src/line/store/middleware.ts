@@ -57,7 +57,6 @@ export const deleteVisualizationEffect: MiddlewareEffect<
   LayoutStoreState & LineStoreState,
   RemoveLayoutPayload
 > = ({ action, dispatch, getState }) => {
-  console.log("MIDDLEWARE");
   const state = getState();
   const vis = selectLineSliceState(state);
   const layout = selectLayoutState(state);
