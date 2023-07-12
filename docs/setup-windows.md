@@ -117,7 +117,10 @@ Make sure your installation is working by running
 node --version
 ```
 
-To install pnpm, run
+# 5.1 - Install PNPM
+
+We use pnpm as our package manager of choice. It's a drop-in replacement for npm that
+has a few nice features. To install pnpm, run
 
 ```bash
 corepack enable
@@ -139,6 +142,8 @@ pnpm install
 
 # 5.2 - Build the Pluto Component Library
 
+We use [turbo repo](https://turbo.build/repo) to build our various typescript projects.
+It has great monorepo support, and intelligently caches builds to speed up development.
 To build the Pluto component library, run
 
 ```bash
