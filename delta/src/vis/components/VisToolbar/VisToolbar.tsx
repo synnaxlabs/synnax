@@ -10,8 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Space, Status } from "@synnaxlabs/pluto";
-import { useDispatch } from "react-redux";
+import { Button, Space, Status, Text } from "@synnaxlabs/pluto";
 
 import { VisLayoutSelector } from "../VisLayoutSelector";
 
@@ -72,6 +71,7 @@ const Content = (): ReactElement => {
 export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
+  tooltip: "Visualize",
   icon: <Icon.Visualize />,
   minSize: 125,
   maxSize: 250,

@@ -54,7 +54,7 @@ export type DateComponents = [number?, number?, number?];
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
 export class TimeStamp extends Number implements Stringer {
-  constructor(value?: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
+  constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) return TimeStamp.now();
     else if (value instanceof Date)
       super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
@@ -162,7 +162,7 @@ export class TimeStamp extends Number implements Stringer {
    * @param other - The other TimeStamp to compare to.
    * @returns True if the TimeStamps are equal, false otherwise.
    */
-  equals(other: UnparsedTimeStamp): boolean {
+  equals(other: CrudeTimeStamp): boolean {
     return this.valueOf() === new TimeStamp(other).valueOf();
   }
 
@@ -173,7 +173,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns A TimeSpan representing the duration between the two timestamps.
    *   The span is guaranteed to be positive.
    */
-  span(other: UnparsedTimeStamp): TimeSpan {
+  span(other: CrudeTimeStamp): TimeSpan {
     return this.range(other).span;
   }
 
@@ -184,7 +184,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns A TimeRange spanning the given TimeStamp that is guaranteed to be
    *   valid, regardless of the TimeStamp order.
    */
-  range(other: UnparsedTimeStamp): TimeRange {
+  range(other: CrudeTimeStamp): TimeRange {
     return new TimeRange(this, other).makeValid();
   }
 
@@ -196,7 +196,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns A TimeRange starting at the TimeStamp and spanning the given
    *   TimeSpan. The TimeRange is guaranteed to be valid.
    */
-  spanRange(other: UnparsedTimeSpan): TimeRange {
+  spanRange(other: CrudeTimeSpan): TimeRange {
     return this.range(this.add(other)).makeValid();
   }
 
@@ -216,7 +216,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if the TimeStamp is after the given TimeStamp, false
    *   otherwise.
    */
-  after(other: UnparsedTimeStamp): boolean {
+  after(other: CrudeTimeStamp): boolean {
     return this.valueOf() > new TimeStamp(other).valueOf();
   }
 
@@ -227,7 +227,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if the TimeStamp is after or equal to the given TimeStamp,
    *   false otherwise.
    */
-  afterEq(other: UnparsedTimeStamp): boolean {
+  afterEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() >= new TimeStamp(other).valueOf();
   }
 
@@ -238,7 +238,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if the TimeStamp is before the given TimeStamp, false
    *   otherwise.
    */
-  before(other: UnparsedTimeStamp): boolean {
+  before(other: CrudeTimeStamp): boolean {
     return this.valueOf() < new TimeStamp(other).valueOf();
   }
 
@@ -249,7 +249,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if TimeStamp is before or equal to the current timestamp,
    *   false otherwise.
    */
-  beforeEq(other: UnparsedTimeStamp): boolean {
+  beforeEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() <= new TimeStamp(other).valueOf();
   }
 
@@ -260,7 +260,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns A new TimeStamp representing the sum of the TimeStamp and
    *   TimeSpan.
    */
-  add(span: UnparsedTimeSpan): TimeStamp {
+  add(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() + span.valueOf());
   }
 
@@ -271,7 +271,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns A new TimeStamp representing the difference of the TimeStamp and
    *   TimeSpan.
    */
-  sub(span: UnparsedTimeSpan): TimeStamp {
+  sub(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() - span.valueOf());
   }
 
@@ -401,7 +401,7 @@ export class TimeStamp extends Number implements Stringer {
 
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan extends Number implements Stringer {
-  constructor(value: UnparsedTimeSpan) {
+  constructor(value: CrudeTimeSpan) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
   }
@@ -430,7 +430,7 @@ export class TimeSpan extends Number implements Stringer {
    *
    * @returns True if the TimeSpans are equal, false otherwise.
    */
-  equals(other: UnparsedTimeSpan): boolean {
+  equals(other: CrudeTimeSpan): boolean {
     return this.valueOf() === new TimeSpan(other).valueOf();
   }
 
@@ -439,7 +439,7 @@ export class TimeSpan extends Number implements Stringer {
    *
    * @returns A new TimeSpan representing the sum of the two TimeSpans.
    */
-  add(other: UnparsedTimeSpan): TimeSpan {
+  add(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() + new TimeSpan(other).valueOf());
   }
 
@@ -448,7 +448,7 @@ export class TimeSpan extends Number implements Stringer {
    *
    * @param other
    */
-  sub(other: UnparsedTimeSpan): TimeSpan {
+  sub(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() - new TimeSpan(other).valueOf());
   }
 
@@ -562,7 +562,7 @@ export class TimeSpan extends Number implements Stringer {
 
 /** Rate represents a data rate in Hz. */
 export class Rate extends Number implements Stringer {
-  constructor(value: UnparsedRate) {
+  constructor(value: CrudeRate) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
   }
@@ -573,7 +573,7 @@ export class Rate extends Number implements Stringer {
   }
 
   /** @returns The number of seconds in the Rate. */
-  equals(other: UnparsedRate): boolean {
+  equals(other: CrudeRate): boolean {
     return this.valueOf() === new Rate(other).valueOf();
   }
 
@@ -592,7 +592,7 @@ export class Rate extends Number implements Stringer {
    * @param duration - The duration to calculate the sample count from.
    * @returns The number of samples in the given TimeSpan at this rate.
    */
-  sampleCount(duration: UnparsedTimeSpan): number {
+  sampleCount(duration: CrudeTimeSpan): number {
     return new TimeSpan(duration).seconds * this.valueOf();
   }
 
@@ -603,7 +603,7 @@ export class Rate extends Number implements Stringer {
    * @param density - The density of the data in bytes per sample.
    * @returns The number of bytes in the given TimeSpan at this rate.
    */
-  byteCount(span: UnparsedTimeSpan, density: UnparsedDensity): number {
+  byteCount(span: CrudeTimeSpan, density: CrudeDensity): number {
     return this.sampleCount(span) * new Density(density).valueOf();
   }
 
@@ -624,7 +624,7 @@ export class Rate extends Number implements Stringer {
    * @param density - The density of the data in bytes per sample.
    * @returns A TimeSpan that corresponds to the given number of bytes.
    */
-  byteSpan(size: Size, density: UnparsedDensity): TimeSpan {
+  byteSpan(size: Size, density: CrudeDensity): TimeSpan {
     return this.span(size.valueOf() / density.valueOf());
   }
 
@@ -665,7 +665,7 @@ export class Density extends Number implements Stringer {
    * @param value - The number of bytes per value.
    * @returns A Density representing the given number of bytes per value.
    */
-  constructor(value: UnparsedDensity) {
+  constructor(value: CrudeDensity) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
   }
@@ -719,7 +719,7 @@ export class TimeRange implements Stringer {
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
-  constructor(start: UnparsedTimeStamp, end: UnparsedTimeStamp) {
+  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp) {
     this.start = new TimeStamp(start);
     this.end = new TimeStamp(end);
   }
@@ -794,9 +794,9 @@ export class TimeRange implements Stringer {
 
   contains(other: TimeRange): boolean;
 
-  contains(ts: UnparsedTimeStamp): boolean;
+  contains(ts: CrudeTimeStamp): boolean;
 
-  contains(other: TimeRange | UnparsedTimeStamp): boolean {
+  contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
       return this.contains(other.start) && this.contains(other.end);
     return this.start.beforeEq(other) && this.end.after(other);
@@ -822,7 +822,7 @@ export class TimeRange implements Stringer {
 
 /** DataType is a string that represents a data type. */
 export class DataType extends String implements Stringer {
-  constructor(value: UnparsedDataType) {
+  constructor(value: CrudeDataType) {
     if (
       value instanceof DataType ||
       typeof value === "string" ||
@@ -967,25 +967,25 @@ export class DataType extends String implements Stringer {
  * The Size of an elementy in bytes.
  */
 export class Size extends Number implements Stringer {
-  constructor(value: UnparsedSize) {
+  constructor(value: CrudeSize) {
     super(value.valueOf());
   }
 
   /** @returns true if the Size is larger than the other size. */
-  largerThan(other: UnparsedSize): boolean {
+  largerThan(other: CrudeSize): boolean {
     return this.valueOf() > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other sisze. */
-  smallerThan(other: UnparsedSize): boolean {
+  smallerThan(other: CrudeSize): boolean {
     return this.valueOf() < other.valueOf();
   }
 
-  add(other: UnparsedSize): Size {
+  add(other: CrudeSize): Size {
     return Size.bytes(this.valueOf() + other.valueOf());
   }
 
-  sub(other: UnparsedSize): Size {
+  sub(other: CrudeSize): Size {
     return Size.bytes(this.valueOf() - other.valueOf());
   }
 
@@ -995,7 +995,7 @@ export class Size extends Number implements Stringer {
    * @param value - The number of bytes.
    * @returns A Size representing the given number of bytes.
    */
-  static bytes(value: UnparsedSize = 1): Size {
+  static bytes(value: CrudeSize = 1): Size {
     return new Size(value);
   }
 
@@ -1008,7 +1008,7 @@ export class Size extends Number implements Stringer {
    * @param value - The number of kilobytes.
    * @returns A Size representing the given number of kilobytes.
    */
-  static kilobytes(value: UnparsedSize = 1): Size {
+  static kilobytes(value: CrudeSize = 1): Size {
     return Size.bytes(value.valueOf() * 1e3);
   }
 
@@ -1021,7 +1021,7 @@ export class Size extends Number implements Stringer {
    * @param value - The number of megabytes.
    * @returns A Size representing the given number of megabytes.
    */
-  static megabytes(value: UnparsedSize = 1): Size {
+  static megabytes(value: CrudeSize = 1): Size {
     return Size.kilobytes(value.valueOf() * 1e3);
   }
 
@@ -1034,7 +1034,7 @@ export class Size extends Number implements Stringer {
    * @param value - The number of gigabytes.
    * @returns A Size representing the given number of gigabytes.
    */
-  static gigabytes(value: UnparsedSize = 1): Size {
+  static gigabytes(value: CrudeSize = 1): Size {
     return Size.megabytes(value.valueOf() * 1e3);
   }
 
@@ -1047,7 +1047,7 @@ export class Size extends Number implements Stringer {
    * @param value - The number of terabytes.
    * @returns  A Size representing the given number of terabytes.
    */
-  static terabytes(value: UnparsedSize): Size {
+  static terabytes(value: CrudeSize): Size {
     return Size.gigabytes(value.valueOf() * 1e3);
   }
 
@@ -1068,7 +1068,7 @@ export class Size extends Number implements Stringer {
   }
 }
 
-export type UnparsedTimeStamp =
+export type CrudeTimeStamp =
   | TimeStamp
   | TimeSpan
   | number
@@ -1077,15 +1077,15 @@ export type UnparsedTimeStamp =
   | DateComponents
   | Number;
 export type TimeStampT = number;
-export type UnparsedTimeSpan = TimeSpan | TimeStamp | number | Number;
+export type CrudeTimeSpan = TimeSpan | TimeStamp | number | Number;
 export type TimeSpanT = number;
-export type UnparsedRate = Rate | number | Number;
+export type CrudeRate = Rate | number | Number;
 export type RateT = number;
-export type UnparsedDensity = Density | number | Number;
+export type CrudeDensity = Density | number | Number;
 export type DensityT = number;
-export type UnparsedDataType = DataType | string | NativeTypedArray;
+export type CrudeDataType = DataType | string | NativeTypedArray;
 export type DataTypeT = string;
-export type UnparsedSize = Size | number | Number;
+export type CrudeSize = Size | number | Number;
 export type SizeT = number;
 export interface TimeRangeT {
   start: TimeStampT;

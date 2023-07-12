@@ -230,6 +230,13 @@ export class Box implements Stringer {
       : f(this.one.y, this.two.y);
   }
 
+  locPoint(loc: CrudeLocation): XY {
+    const l = this.loc(loc);
+    if (Location.X_LOCATIONS.includes(loc as CrudeXLocation))
+      return new XY({ x: l, y: this.center.y });
+    return new XY({ x: this.center.x, y: l });
+  }
+
   get isZero(): boolean {
     return this.one.x === this.two.x && this.one.y === this.two.y;
   }

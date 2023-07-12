@@ -10,7 +10,7 @@
 /* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
-import { NativeTypedArray, Series, TimeStamp, UnparsedTimeStamp } from "@synnaxlabs/x";
+import { NativeTypedArray, Series, TimeStamp, CrudeTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
@@ -108,7 +108,7 @@ export class Writer {
    * frames written to the writer must have channel keys in this list.
    */
   static async _open(
-    start: UnparsedTimeStamp,
+    start: CrudeTimeStamp,
     channels: ChannelParams,
     retriever: ChannelRetriever,
     client: StreamClient

@@ -26,7 +26,7 @@ from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import ForwardFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeSpan, TimeStamp, UnparsedTimeStamp, DataType
+from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType
 
 
 class _Command(int, Enum):
@@ -99,11 +99,11 @@ class Writer:
     __suppress_warnings: bool = False
     __strict: bool = False
 
-    start: UnparsedTimeStamp
+    start: CrudeTimeStamp
 
     def __init__(
         self,
-        start: UnparsedTimeStamp,
+        start: CrudeTimeStamp,
         client: StreamClient,
         adapter: ForwardFrameAdapter,
         suppress_warnings: bool = False,

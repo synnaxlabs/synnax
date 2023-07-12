@@ -12,7 +12,7 @@ import {
   NativeTypedArray,
   Series,
   TimeRange,
-  UnparsedTimeStamp,
+  CrudeTimeStamp,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -51,7 +51,7 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, channels: ChannelParams): Promise<Writer> {
+  async newWriter(start: CrudeTimeStamp, channels: ChannelParams): Promise<Writer> {
     return await Writer._open(start, channels, this.retriever, this.stream);
   }
 
@@ -73,7 +73,7 @@ export class FrameClient {
    */
   async write(
     to: ChannelKeyOrName,
-    start: UnparsedTimeStamp,
+    start: CrudeTimeStamp,
     data: NativeTypedArray
   ): Promise<void> {
     const w = await this.newWriter(start, to);

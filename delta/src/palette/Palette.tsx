@@ -36,6 +36,8 @@ import {
   Haul,
   Hauled,
   CSS as PCSS,
+  Tooltip,
+  Text,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
@@ -43,7 +45,6 @@ import { useStore } from "react-redux";
 import { CSS } from "@/css";
 import { LayoutPlacer, useLayoutPlacer } from "@/layout";
 import { createLinePlot } from "@/line/store/slice";
-import { createPID } from "@/pid/store/slice";
 import { ResourceType } from "@/resources/resources";
 import { RootStore } from "@/store";
 
@@ -103,29 +104,32 @@ export const Palette = ({
 
   return (
     <List>
-      <Dropdown
-        ref={dropdown.ref}
-        visible={dropdown.visible}
-        className={CSS.B("palette")}
-        matchTriggerWidth
-      >
-        <PaletteInput
-          mode={mode}
-          setMode={setMode}
-          searcher={searcher}
-          commandSymbol={commandSymbol}
-          triggerConfig={triggers}
-          commands={commands}
+      <Tooltip location="bottom">
+        <Text.Keyboard></Text.Keyboard>
+        <Dropdown
+          ref={dropdown.ref}
           visible={dropdown.visible}
-          open={dropdown.open}
-        />
-        <PaletteList
-          mode={mode}
-          resourceTypes={resourceTypes}
-          onSelect={handleSelect}
-          visible={dropdown.visible}
-        />
-      </Dropdown>
+          className={CSS.B("palette")}
+          matchTriggerWidth
+        >
+          <PaletteInput
+            mode={mode}
+            setMode={setMode}
+            searcher={searcher}
+            commandSymbol={commandSymbol}
+            triggerConfig={triggers}
+            commands={commands}
+            visible={dropdown.visible}
+            open={dropdown.open}
+          />
+          <PaletteList
+            mode={mode}
+            resourceTypes={resourceTypes}
+            onSelect={handleSelect}
+            visible={dropdown.visible}
+          />
+        </Dropdown>
+      </Tooltip>
     </List>
   );
 };
@@ -295,7 +299,7 @@ export const PaletteInput = ({
 
   return (
     <Input
-      className={CSS(PCSS.dropRegion(canDrop(dragging)))}
+      className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
       placeholder="Search Synnax"
       onDragLeave={onDragLeave}
