@@ -276,7 +276,6 @@ export const PaletteInput = ({
     canDrop,
     onDrop: useCallback(
       ([item]) => {
-        console.log(item.key);
         placer(
           createLinePlot({
             key: item.key as string,

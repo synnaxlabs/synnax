@@ -47,6 +47,7 @@ import {
   MdEditOff,
   MdOutlineAccessTimeFilled,
 } from "react-icons/md";
+import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 
 const IconOS: Record<OS, React.ComponentType> = {
@@ -82,6 +83,7 @@ export const Icon: IconType = {
     Up: AiFillCaretUp,
     Down: AiFillCaretDown,
   },
+  Settings: RiSettingsFill,
   Reference: IoBookSharp,
   Bolt: HiLightningBolt,
   Download: HiDownload,
@@ -121,6 +123,7 @@ export interface IconType {
   Visualize: React.ComponentType;
   Cluster: React.ComponentType;
   Control: React.ComponentType;
+  Settings: React.ComponentType;
   Caret: {
     Right: React.ComponentType;
     Left: React.ComponentType;

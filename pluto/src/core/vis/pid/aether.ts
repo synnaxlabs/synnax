@@ -46,6 +46,7 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
   afterUpdate(): void {
     RenderController.control(this.ctx, () => this.requestRender());
     this.requestRender();
+    if (this.state.error != null) this.setState((p) => ({ ...p, error: undefined }));
   }
 
   handleDelete(): void {
@@ -69,7 +70,8 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
         )
       );
     } catch (e) {
-      this.setState((p) => ({ ...p, error: (e as Error).message }));
+      console.error(e);
+      // this.setState((p) => ({ ...p, error: (e as Error).message }));
     } finally {
       clearScissor();
     }

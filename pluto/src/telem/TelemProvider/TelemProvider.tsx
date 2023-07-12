@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, useLayoutEffect } from "react";
 
-import { useClient } from "@/client/ClientContext";
+import { Client } from "@/client";
 import { Aether } from "@/core/aether/main";
 import { Telem, telemState } from "@/telem/TelemProvider/aether";
 
@@ -24,11 +24,11 @@ export const TelemProvider = Aether.wrap<TelemProviderProps>(
       schema: telemState,
       initialState: {},
     });
-    const client = useClient();
+    const client = Client.use();
 
     useLayoutEffect(() => {
-      if (client != null) setState({ props: client.props });
-    }, [client]);
+      setState({ props: client?.props });
+    }, [client, setState]);
 
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
   }

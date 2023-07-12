@@ -19,6 +19,7 @@ import {
 
 import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x";
 
+import { useEffectCompare } from "../hooks/useEffectCompare";
 import { useMemoCompare } from "../memo";
 
 export type WorkerContextValue =
@@ -48,24 +49,29 @@ export const WorkerProvider = memo(
       enabled: false,
     });
 
-    useEffect(() => {
-      if (!enabled) return;
-      const worker = new Worker(url, { type: "module" });
-      worker.onerror = (e) => {
-        console.error(e.message);
-        console.error(JSON.stringify(e));
-      };
-      const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
-      worker.onmessage = (e) => router.handle(e);
-      setState({
-        route: <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
-          if (value == null) throw new Error("Worker is not initialized");
-          return router.route(type);
-        },
-        enabled: true,
-      });
-      return () => worker.terminate();
-    }, [url]);
+    useEffectCompare(
+      () => {
+        console.log("NEW WORKER");
+        if (!enabled) return;
+        const worker = new Worker(url, { type: "module" });
+        worker.onerror = (e) => {
+          console.error(e.message);
+          console.error(JSON.stringify(e));
+        };
+        const router = new RoutedWorker((e, a = []) => worker.postMessage(e, a));
+        worker.onmessage = (e) => router.handle(e);
+        setState({
+          route: <RQ, RS = RQ>(type: string): TypedWorker<RQ, RS> => {
+            if (value == null) throw new Error("Worker is not initialized");
+            return router.route(type);
+          },
+          enabled: true,
+        });
+        return () => worker.terminate();
+      },
+      ([url], [prevUrl]) => url.toString() === prevUrl.toString(),
+      [url]
+    );
 
     if (enabled && value.route == null) return null;
 

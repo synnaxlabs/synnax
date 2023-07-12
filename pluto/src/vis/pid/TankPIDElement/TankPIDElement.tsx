@@ -9,6 +9,7 @@
 
 import { ReactElement } from "react";
 
+import { CrudeXY } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import {
@@ -31,8 +32,6 @@ import {
 
 import "@/vis/pid/TankPIDElement/TankPIDElement.css";
 
-import { CrudeXY } from "@synnaxlabs/x";
-
 export interface TankPIDElementProps extends Omit<TankProps, "telem"> {
   label: string;
 }
@@ -42,10 +41,12 @@ const { Left, Right, Top, Bottom } = Position;
 const TankPIDElement = ({
   selected,
   editable,
+  position,
+  className,
   ...props
 }: StatefulPIDElementProps<TankPIDElementProps>): ReactElement => {
   return (
-    <>
+    <div className={CSS(className, CSS.B("tank-pid-element"), CSS.selected(selected))}>
       {editable && (
         <>
           <Handle position={Left} type="target" id="a" style={{ top: "25%" }} />
@@ -60,8 +61,8 @@ const TankPIDElement = ({
           <Handle position={Bottom} type="target" id="e" />
         </>
       )}
-      <Tank className={CSS(CSS.selected(selected))} {...props}></Tank>
-    </>
+      <Tank {...props}></Tank>
+    </div>
   );
 };
 
@@ -76,7 +77,8 @@ const TankPIDElementForm = ({
   const handleHeightChange = (height: number): void =>
     onChange({ ...value, dimensions: { ...value.dimensions, height } });
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
-  const handleColorChange = (color: ColorT): void => onChange({ ...value, color });
+  const handleColorChange = (color: Color): void =>
+    onChange({ ...value, color: color.hex });
 
   return (
     <>
@@ -104,21 +106,21 @@ const TankPIDElementForm = ({
         >
           {componentRenderProp(Input.Number)}
         </Input.Item>
+        <Input.Item<ColorT, Color, ColorSwatchProps>
+          label="Color"
+          onChange={handleColorChange}
+          value={value.color}
+        >
+          {/* @ts-expect-error */}
+          {componentRenderProp(ColorSwatch)}
+        </Input.Item>
       </Space>
-      <Input.Item<ColorT, Color, ColorSwatchProps>
-        label="Color"
-        onChange={handleColorChange}
-        value={value.color}
-      >
-        {/* @ts-expect-error */}
-        {componentRenderProp(ColorSwatch)}
-      </Input.Item>
     </>
   );
 };
 
 const TankPIDElementPreview = (): ReactElement => {
-  return <Tank color={ZERO_PROPS.color} dimensions={{ width: 100, height: 50 }}></Tank>;
+  return <Tank color={ZERO_PROPS.color} dimensions={{ width: 30, height: 40 }}></Tank>;
 };
 
 const ZERO_PROPS = {

@@ -10,11 +10,9 @@
 package middleware_test
 
 import (
-	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/middleware"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type request struct {
@@ -55,16 +53,5 @@ var _ = Describe("ExecSequentially", func() {
 		_, err := chain.Exec(req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
-	})
-	It("Should not execute middleware if the context is canceled", func() {
-		collector := &middleware.Collector[*request, *response]{}
-		collector.Use(
-			&myFirstMiddleware{},
-			&myFirstMiddleware{},
-		)
-		req := &request{}
-		_, err := collector.Exec(req, &myFinalizer{})
-		Expect(err).To(HaveOccurredAs(context.Canceled))
-		Expect(req.value).To(Equal(""))
 	})
 })

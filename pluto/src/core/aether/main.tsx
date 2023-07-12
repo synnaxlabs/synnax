@@ -85,6 +85,7 @@ export const AetherProvider = ({
       registry.current.set(key, { path, handler });
       return {
         setState: (state: any, transfer: Transferable[] = []): void => {
+          console.log(state, worker);
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "update", path, state, type }, transfer);
         },

@@ -37,18 +37,17 @@ export interface ClientProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
+const ZERO_STATE = { client: null, state: Synnax.connectivity.DEFAULT };
+
 export const ClientProvider = ({
   connParams,
   children,
 }: ClientProviderProps): ReactElement => {
-  const [state, setState] = useState<ClientContextValue>({
-    client: null,
-    state: Synnax.connectivity.DEFAULT,
-  });
+  const [state, setState] = useState<ClientContextValue>({ ...ZERO_STATE });
 
   useEffect(() => {
-    if (connParams == null) return;
     if (state.client != null) state.client.close();
+    if (connParams == null) return setState({ ...ZERO_STATE });
 
     const client = new Synnax({
       ...connParams,
@@ -65,11 +64,16 @@ export const ClientProvider = ({
       })
       .catch(console.error);
 
-    client.connectivity.onChange((s) => setState((c) => ({ ...c, state: s })));
+    client.connectivity.onChange((s) =>
+      setState((c) => {
+        if (c.client == null) return { ...ZERO_STATE };
+        return { client, state: s };
+      })
+    );
 
     return () => {
       client.close();
-      setState({ client: null, state: Synnax.connectivity.DEFAULT });
+      setState({ ...ZERO_STATE });
     };
   }, [connParams]);
 

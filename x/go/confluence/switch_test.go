@@ -26,9 +26,9 @@ var _ = Describe("Switch", func() {
 			var (
 				ctx    signal.Context
 				cancel context.CancelFunc
-				input  Stream[int]
-				double Stream[int]
-				single Stream[int]
+				input  *Stream[int]
+				double *Stream[int]
+				single *Stream[int]
 				sw     *Switch[int]
 			)
 			BeforeEach(func() {
@@ -92,9 +92,9 @@ var _ = Describe("Switch", func() {
 		var (
 			ctx    signal.Context
 			cancel context.CancelFunc
-			input  Stream[[]int]
-			first  Stream[int]
-			second Stream[int]
+			input  *Stream[[]int]
+			first  *Stream[int]
+			second *Stream[int]
 			sw     *BatchSwitch[[]int, int]
 		)
 		BeforeEach(func() {

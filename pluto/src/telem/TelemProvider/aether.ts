@@ -58,8 +58,8 @@ export class Telem extends AetherComposite<typeof telemState> {
   }
 
   afterUpdate(): void {
-    if (this.state.props == null) return;
-    this.client.swap(new BaseClient(new Synnax(this.state.props)));
+    if (this.state.props == null) this.client.swap(null);
+    else this.client.swap(new BaseClient(new Synnax(this.state.props)));
     this.telem.forEach((t) => t.invalidate());
     return TelemContext.set(this.ctx, this);
   }

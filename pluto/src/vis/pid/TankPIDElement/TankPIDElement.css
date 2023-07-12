@@ -9,6 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tank.pluto--selected {
-    border-color: var(--pluto-primary-z);
+.pluto-tank-pid-element.pluto--selected {
+    border: var(--pluto-border-width) solid var(--pluto-primary-z);
+    resize: both;
 }

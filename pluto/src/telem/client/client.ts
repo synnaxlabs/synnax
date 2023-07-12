@@ -39,7 +39,7 @@ export class ClientProxy implements Client {
     this._client = null;
   }
 
-  swap(client: Client): void {
+  swap(client: Client | null): void {
     this._client?.close();
     this._client = client;
   }

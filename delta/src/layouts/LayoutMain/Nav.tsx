@@ -114,6 +114,9 @@ export const NavTop = (): ReactElement => {
         <Button.Icon size="small" onClick={handleDocs}>
           <Icon.QuestionMark />
         </Button.Icon>
+        <Button.Icon size="small">
+          <Icon.Settings />
+        </Button.Icon>
         <Controls className="delta-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>

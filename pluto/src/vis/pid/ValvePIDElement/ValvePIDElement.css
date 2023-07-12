@@ -9,11 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-valve-pid-element.pluto--selected * {
-    stroke: var(--pluto-primary-z);
+.pluto-valve-pid-element.pluto--selected {
+    border: var(--pluto-border-width) solid var(--pluto-primary-z);
 }
 
-.pluto-valve-pid-element.pluto--editable {
+.pluto-valve-pid-element.pluto--editable .pluto-valve {
     pointer-events: none;
 }
 

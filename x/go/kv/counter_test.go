@@ -42,7 +42,7 @@ var _ = Describe("Counter", Ordered, func() {
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
 			It("Should increment the counter correctly", func() {
-				Expect(c.Add()).To(Equal(int64(1)))
+				Expect(c.Add(1)).To(Equal(int64(1)))
 			})
 			It("Should increment the number by a set value", func() {
 				Expect(c.Add(10)).To(Equal(int64(11)))

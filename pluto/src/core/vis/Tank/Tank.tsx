@@ -31,7 +31,7 @@ export const Tank = Aether.wrap<TankProps>(
         className={CSS(className, CSS.B("tank"))}
         style={{ ...dimensions, ...style }}
         {...props}
-      ></div>
+      />
     );
   }
 );
