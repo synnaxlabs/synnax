@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@fontsource/inter";
+import "@fontsource-variable/inter";
 import { z } from "zod";
 
 import { Color } from "@/core/color";
@@ -72,7 +72,7 @@ export type Theme = z.output<typeof themeZ>;
 
 const white: string = "#FFFFFF";
 const black: string = "#171716";
-const fontFamily = "Inter, sans-serif";
+const fontFamily = "'Inter Variable', sans-serif";
 const baseSize: number = 6;
 
 const synnaxBase: ThemeSpec = {
