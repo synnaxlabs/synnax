@@ -20,7 +20,7 @@
 .pluto-valve svg {
     width: 80px;
     stroke: rgba(var(--pluto-base-color), 1);
-    stroke-width: 2px;
+    stroke-width: 3px;
     transition: stroke 0.15s ease-in-out;
     fill: none;
 }

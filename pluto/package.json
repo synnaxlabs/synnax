@@ -10,7 +10,7 @@
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix",
-    "dev": "export NODE_OPTIONS=--openssl-legacy-provider && storybook dev -p 6006",
+    "dev": "storybook dev -p 6006",
     "build-storybook": "tsc && storybook build",
     "preview": "vite preview"
   },
