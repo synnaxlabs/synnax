@@ -35,3 +35,7 @@
 .react-flow__node {
     pointer-events: all !important;
 }
+
+.react-flow__edge {
+    stroke-width: 3px !important;
+}

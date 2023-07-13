@@ -50,15 +50,15 @@ const TankPIDElement = ({
       {editable && (
         <>
           <Handle position={Left} type="target" id="a" style={{ top: "25%" }} />
-          <Handle position={Left} type="source" id="a" style={{ top: "22%" }} />
-          <Handle position={Left} type="target" id="b" style={{ top: "75%" }} />
-          <Handle position={Left} type="source" id="b" style={{ top: "78%" }} />
-          <Handle position={Right} type="target" id="c" style={{ top: "25%" }} />
-          <Handle position={Right} type="source" id="d" style={{ top: "22%" }} />
-          <Handle position={Right} type="target" id="d" style={{ top: "75%" }} />
-          <Handle position={Right} type="source" id="d" style={{ top: "78%" }} />
-          <Handle position={Top} type="target" id="e" />
-          <Handle position={Bottom} type="target" id="e" />
+          <Handle position={Left} type="source" id="b" style={{ top: "22%" }} />
+          <Handle position={Left} type="target" id="c" style={{ top: "75%" }} />
+          <Handle position={Left} type="source" id="d" style={{ top: "78%" }} />
+          <Handle position={Right} type="target" id="e" style={{ top: "25%" }} />
+          <Handle position={Right} type="source" id="f" style={{ top: "22%" }} />
+          <Handle position={Right} type="target" id="g" style={{ top: "75%" }} />
+          <Handle position={Right} type="source" id="h" style={{ top: "78%" }} />
+          <Handle position={Top} type="target" id="i" />
+          <Handle position={Bottom} type="source" id="j" />
         </>
       )}
       <Tank {...props}></Tank>

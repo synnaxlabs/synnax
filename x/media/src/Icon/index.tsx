@@ -22,6 +22,8 @@ import {
   AiOutlineClose,
   AiOutlineMinus,
   AiOutlineExpand,
+  AiFillGithub,
+  AiFillLinkedin,
 } from "react-icons/ai";
 import { BsStack, BsLightbulbFill } from "react-icons/bs";
 import {
@@ -101,6 +103,10 @@ export const Icon: IconType = {
   Yarn: SiYarn,
   QuestionMark: MdQuestionMark,
   Menu: FiMenu,
+  Logo: {
+    Github: AiFillGithub,
+    Linkedn: AiFillLinkedin,
+  },
 };
 
 export interface IconType {
@@ -147,4 +153,8 @@ export interface IconType {
   Yarn: React.ComponentType;
   QuestionMark: React.ComponentType;
   Menu: React.ComponentType;
+  Logo: {
+    Github: React.ComponentType;
+    LinkedIn: React.ComponentType;
+  };
 }

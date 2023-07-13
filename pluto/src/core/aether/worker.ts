@@ -337,7 +337,7 @@ export class AetherComposite<
 
   /** @returns a readonly array of the children of the component. */
   get children(): readonly C[] {
-    return this.children;
+    return this._children;
   }
 
   /**
