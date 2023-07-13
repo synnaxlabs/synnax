@@ -66,11 +66,11 @@ export class AetherYAxis extends AetherComposite<
     RenderController.requestRender(this.ctx);
   }
 
-  get lines(): LineComponent[] {
+  get lines(): readonly LineComponent[] {
     return this.childrenOfType(LineGL.TYPE);
   }
 
-  get rules(): AetherRule[] {
+  get rules(): readonly AetherRule[] {
     return this.childrenOfType(AetherRule.TYPE);
   }
 

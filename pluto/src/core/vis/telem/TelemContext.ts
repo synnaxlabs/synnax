@@ -31,7 +31,7 @@ export class TelemContext {
 
   static set(ctx: AetherContext, prov: TelemProvider): void {
     const telem = new TelemContext(prov);
-    ctx.set<TelemContext>(TelemContext.CONTEXT_KEY, telem);
+    ctx.set(TelemContext.CONTEXT_KEY, telem);
   }
 
   static use<T>(
