@@ -48,8 +48,6 @@ export interface SelectProps<
   allowClear?: boolean;
 }
 
-const { Filter, Search } = List;
-
 export const Select = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
@@ -96,7 +94,10 @@ export const Select = <
     [onChange, allowClear]
   );
 
-  const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
+  const InputWrapper = useMemo(
+    () => (searchMode ? List.Search : List.Filter),
+    [searchMode]
+  );
 
   return (
     <List data={data} emptyContent={emptyContent}>

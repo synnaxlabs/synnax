@@ -490,7 +490,6 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
 
   handle(msg: MainMessage): void {
     try {
-      console.log(msg);
       if (msg.variant === "delete") this.internalDelete(msg.path);
       else {
         const u: AetherUpdate = {
@@ -498,14 +497,9 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
           variant: "state",
           ctx: this.ctx,
         };
-        console.log(u);
         this.internalUpdate(u);
       }
-      console.log(msg);
-      console.log(this.children);
     } catch (e) {
-      console.log(msg);
-      console.log(this.children);
       console.error(e);
     }
   }

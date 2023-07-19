@@ -7,18 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  FC,
-  PropsWithChildren,
-  Provider,
-  ReactElement,
-  useEffect,
-  useRef,
-} from "react";
+import { FC, PropsWithChildren, useRef } from "react";
 
-import { SenderHandler, createMockWorkers } from "@synnaxlabs/x";
+import { createMockWorkers } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Aether } from "./main";
@@ -27,10 +20,8 @@ import { MainMessage, WorkerMessage } from "./message";
 import {
   AetherComponentRegistry,
   AetherComposite,
-  AetherContext,
   AetherLeaf,
   AetherRoot,
-  AetherUpdate,
   render as aetherRender,
 } from "@/core/aether/worker";
 
@@ -43,12 +34,10 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps> {
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(internalUpdate: AetherUpdate) {
-    super(internalUpdate, exampleProps);
-  }
+  schema = exampleProps;
 
-  derive(ctx: AetherContext): void {
-    this.updatef(ctx);
+  afterUpdate(): void {
+    this.updatef();
   }
 
   afterDelete(): void {
@@ -62,12 +51,10 @@ class ExampleComposite extends AetherComposite<typeof exampleProps, ExampleLeaf>
 
   static readonly TYPE = "ExampleComposite";
 
-  constructor(u: AetherUpdate) {
-    super(u, exampleProps);
-  }
+  schema = exampleProps;
 
-  derive(ctx: AetherContext): void {
-    this.updatef(ctx);
+  afterUpdate(): void {
+    this.updatef();
   }
 
   afterDelete(): void {
@@ -79,13 +66,10 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
   updatef = vi.fn();
   deletef = vi.fn();
 
-  constructor(u: AetherUpdate) {
-    super(u, exampleProps);
-  }
+  schema = exampleProps;
 
-  derive(ctx: AetherContext): void {
-    this.updatef(ctx);
-    ctx.set("key", "value");
+  afterUpdate(): void {
+    this.ctx.set("key", "value");
   }
 
   afterDelete(): void {
@@ -94,13 +78,13 @@ class ContextSetterComposite extends AetherComposite<typeof exampleProps, Exampl
 }
 
 const REGISTRY: AetherComponentRegistry = {
-  [ExampleLeaf.TYPE]: (u) => new ExampleLeaf(u),
-  [ExampleComposite.TYPE]: (u) => new ExampleComposite(u),
+  [ExampleLeaf.TYPE]: ExampleLeaf,
+  [ExampleComposite.TYPE]: ExampleComposite,
 };
 
 const newProvider = (): [FC<PropsWithChildren>, AetherRoot] => {
   const [a, b] = createMockWorkers();
-  const root = aetherRender(a.route("vis"), REGISTRY);
+  const root = aetherRender({ worker: a.route("vis"), registry: REGISTRY });
   const worker = b.route<MainMessage, WorkerMessage>("vis");
   return [
     (props: PropsWithChildren) => (
@@ -110,7 +94,7 @@ const newProvider = (): [FC<PropsWithChildren>, AetherRoot] => {
   ];
 };
 
-describe.only("Aether Main", () => {
+describe("Aether Main", () => {
   describe("leaf", () => {
     it("should set the initial state correctly", () => {
       const [Provider, root] = newProvider();

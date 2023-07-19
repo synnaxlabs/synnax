@@ -10,7 +10,7 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { StaticCache } from "@/telem/cache/static";
+import { StaticCache } from "@/telem/client/cache/static";
 
 describe("StaticReadCache", () => {
   test("happy path", () => {

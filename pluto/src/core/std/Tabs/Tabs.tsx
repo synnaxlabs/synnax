@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, { createContext, ReactElement, useContext, useState } from "react";
+import React, {
+  createContext,
+  ReactElement,
+  ReactNode,
+  useContext,
+  useState,
+} from "react";
 
 import { CSS } from "@/core/css";
 import { Space, SpaceProps } from "@/core/std/Space";
@@ -16,7 +22,7 @@ import { ComponentSize } from "@/util/component";
 import { RenderProp } from "@/util/renderProp";
 
 export interface Tab extends TabMeta {
-  content?: ReactElement;
+  content?: ReactNode;
 }
 
 export type TabRenderProp = RenderProp<Tab>;
@@ -143,7 +149,7 @@ export const TabsContent = (): ReactElement | null => {
     emptyContent,
     onSelect,
   } = useTabsContext();
-  let content: ReactElement | string | null = null;
+  let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
   if (renderProp != null) content = renderProp(selectedTab);

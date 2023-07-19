@@ -248,17 +248,17 @@ describe("Mosaic", () => {
         const tabOne = {
           tabKey: "1",
           name: "Tab 1",
-          content: <h1>Tab One Content</h1>,
+          content: "Tab One Content",
         };
         const tabTwo = {
           tabKey: "2",
           name: "Tab 2",
-          content: <h1>Tab Two Content</h1>,
+          content: "Tab Two Content",
         };
         const tabThree = {
           tabKey: "3",
           name: "Tab 3",
-          content: <h1>Tab Three Content</h1>,
+          content: "Tab Three Content",
         };
 
         const initialTree: MosaicNode = {
@@ -377,22 +377,22 @@ describe("Mosaic", () => {
       const tabOne = {
         tabKey: "tab1",
         name: "Tab 1",
-        content: <div>Tab 1 Content</div>,
+        content: "Tab 1 Content",
       };
       const tabTwo = {
         tabKey: "tab2",
         name: "Tab 2",
-        content: <div>Tab 2 Content</div>,
+        content: "Tab 2 Content",
       };
       const tabThree = {
         tabKey: "tab3",
         name: "Tab 3",
-        content: <div>Tab 3 Content</div>,
+        content: "Tab 3 Content",
       };
       const tabFour = {
         tabKey: "tab4",
         name: "Tab 4",
-        content: <div>Tab 4 Content</div>,
+        content: "Tab 4 Content",
       };
 
       const initialTree: MosaicNode = {

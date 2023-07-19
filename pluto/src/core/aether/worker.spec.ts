@@ -81,9 +81,9 @@ class ContextSetterComposite extends AetherComposite<
 }
 
 const REGISTRY: AetherComponentRegistry = {
-  leaf: (internalUpdate: AetherUpdate) => new ExampleLeaf(internalUpdate),
-  composite: (internalUpdate: AetherUpdate) => new ExampleComposite(internalUpdate),
-  context: (interalUpdate: AetherUpdate) => new ContextSetterComposite(interalUpdate),
+  leaf: ExampleLeaf,
+  composite: ExampleComposite,
+  context: ContextSetterComposite,
 };
 
 const MockSender = {
@@ -224,7 +224,7 @@ describe("Aether Worker", () => {
         expect(composite.updatef).toHaveBeenCalledTimes(2);
         composite.children.forEach((c) => expect(c.updatef).toHaveBeenCalledTimes(2));
       });
-      it.only("should progate a new context change to its children", () => {
+      it("should progate a new context change to its children", () => {
         const c = new ContextSetterComposite({ ...compositeUpdate });
         c.internalUpdate({ ...leafUpdate, path: ["test", "dog"] });
         c.internalUpdate({ ...compositeUpdate });

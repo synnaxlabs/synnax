@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Button } from "@/core/std/Button";
 import { Dropdown } from "@/core/std/Dropdown";
+import { Triggers } from "@/core/triggers";
 
 const TestDropdown = (): ReactElement => {
   const { toggle, visible } = Dropdown.use();
@@ -29,14 +30,22 @@ const TestDropdown = (): ReactElement => {
 
 describe("Dropdown", () => {
   it("should render a dropdown", () => {
-    const c = render(<TestDropdown />);
+    const c = render(
+      <Triggers.Provider>
+        <TestDropdown />
+      </Triggers.Provider>
+    );
     expect(c.getByText("Toggle")).toBeTruthy();
     const dialog = c.getByRole("dialog");
     expect(dialog).toBeTruthy();
     expect(dialog.className).toContain("hidden");
   });
   it("should open the dropdown when the toggle button is clicked", async () => {
-    const c = render(<TestDropdown />);
+    const c = render(
+      <Triggers.Provider>
+        <TestDropdown />
+      </Triggers.Provider>
+    );
     const toggle = c.getByText("Toggle");
     const dialog = c.getByRole("dialog");
     expect(dialog.className).toContain("hidden");

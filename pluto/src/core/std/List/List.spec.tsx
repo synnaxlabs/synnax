@@ -9,14 +9,13 @@
 
 import { ReactElement, useState } from "react";
 
-import { fireEvent, render } from "@testing-library/react";
+import { render } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { mockBoundingClientRect } from "../../../testutil/dom";
-
-import { List, ListColumn } from ".";
-
+import { List, ListColumn } from "@/core/std/List";
 import { Triggers } from "@/core/triggers";
+import { mockBoundingClientRect } from "@/testutil/dom";
 
 interface SampleRecord {
   key: string;
@@ -85,58 +84,61 @@ describe("List", () => {
       expect(await c.findByText("Jane")).toBeTruthy();
     });
     it("should allow a user to select an item in the list", async () => {
+      const user = userEvent.setup();
       const c = render(<TestList />);
-      fireEvent.click(c.getByText("John"));
+      await user.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).toContain(
         "pluto-list-col-item__container--selected"
       );
     });
     it("should allow a user to deselect an item in the list", async () => {
+      const user = userEvent.setup();
       const c = render(<TestList />);
-      fireEvent.click(c.getByText("John"));
-      fireEvent.click(c.getByText("John"));
+      await user.click(c.getByText("John"));
+      await user.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).not.toContain(
         "pluto-list-col-item__container--selected"
       );
     });
     it("should allow a user to select multiple items in the list when holding shift", async () => {
+      const user = userEvent.setup();
       const c = render(<TestList />);
-      fireEvent.keyDown(document.body, { key: "Shift" });
-      fireEvent.click(c.getByText("John"));
-      fireEvent.click(c.getByText("Jack"));
-      fireEvent.keyUp(document.body, { key: "Shift" });
+      await user.keyboard("[ShiftLeft>]");
+      await user.click(c.getByText("John"));
+      await user.click(c.getByText("Jack"));
       const selected = await c.findAllByText(/(John|Jack|Jane)/);
-      expect(selected.length).toBe(3);
-      selected.forEach((s) => {
+      selected.forEach((s) =>
         expect(s.parentElement?.className).toContain(
           "pluto-list-col-item__container--selected"
-        );
-      });
+        )
+      );
     });
     it("should allow a user to deselect multiple items in the list when holding shift", async () => {
+      const user = userEvent.setup();
       const c = render(<TestList />);
-      fireEvent.keyDown(document.body, { key: "Shift" });
-      fireEvent.click(c.getByText("John"));
-      fireEvent.click(c.getByText("Jack"));
-      fireEvent.keyUp(document.body, { key: "Shift" });
+      await user.keyboard("[ShiftLeft>]");
+      await user.click(c.getByText("John"));
+      await user.click(c.getByText("Jack"));
+      await user.keyboard("[ShiftLeft>]");
       await new Promise((resolve) => setTimeout(resolve, 450));
-      fireEvent.keyDown(document.body, { key: "Shift" });
-      fireEvent.click(c.getByText("John"));
-      fireEvent.click(c.getByText("Jack"));
-      fireEvent.keyUp(document.body, { key: "Shift" });
+      await user.keyboard("[ShiftLeft>]");
+      await user.click(c.getByText("John"));
+      await user.click(c.getByText("Jack"));
+      await user.keyboard("[ShiftLeft>]");
       const selected = c.queryAllByText(/(John|Jack|Jane)/);
       expect(selected.length).toBe(3);
-      selected.forEach((s) => {
+      selected.forEach((s) =>
         expect(s.parentElement?.className).not.toContain(
           "pluto-list-col-item__container--selected"
-        );
-      });
+        )
+      );
     });
-    it("should allow a user to sort the column by name", () => {
+    it("should allow a user to sort the column by name", async () => {
+      const user = userEvent.setup();
       const c = render(<TestList />);
-      fireEvent.click(c.getByText("Name"));
+      await user.click(c.getByText("Name"));
       const jack = c.getByText("Jack");
       expect(jack.parentElement?.nextSibling?.textContent).toBe("Jane20");
     });

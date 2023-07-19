@@ -51,7 +51,6 @@ export const WorkerProvider = memo(
 
     useEffectCompare(
       () => {
-        console.log("NEW WORKER");
         if (!enabled) return;
         const worker = new Worker(url, { type: "module" });
         worker.onerror = (e) => {
