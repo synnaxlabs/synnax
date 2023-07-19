@@ -1,6 +1,6 @@
 # Synnax - Technical Documentation
 
-# 0 - Introduction
+# 0 - Summary
 
 Synnax implements a platform for distributed data acquisition, storage and analysis.
 It's a complex project with many moving parts. The document guides developers through
@@ -29,9 +29,11 @@ components that make up the system. The best way to do this is to read the
 [concepts](https://docs.synnaxlabs.com/concepts/overview?) section of the official
 documentation.
 
+As a supplement, read through the [telemetry concepts](telemetry.md) document. This
+provides a detailed guide on what telemetry is, and how Synnax leverages the properties
+of hardware generated telemetry to implement a performant database.
+
 # 2 - Architecture
 
 Next, it's important to understand the architecture of the platform. This is covered
 in the [architecture](architecture.md) document.
-
-# 4 - Standards
