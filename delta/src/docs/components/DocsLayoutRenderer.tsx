@@ -69,7 +69,7 @@ export const Docs: LayoutRenderer = memo(() => {
 
   return (
     <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
-      <iframe src={url.toString()} onLoad={console.log} />
+      <iframe src={url.toString()} />
     </div>
   );
 });

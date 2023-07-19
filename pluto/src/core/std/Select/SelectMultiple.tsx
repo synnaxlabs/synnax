@@ -55,8 +55,6 @@ export interface SelectMultipleProps<
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
 }
 
-const { Filter, Search } = List;
-
 export const SelectMultiple = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
@@ -99,7 +97,10 @@ export const SelectMultiple = <
     [onChange]
   );
 
-  const InputWrapper = useMemo(() => (searchMode ? Search : Filter), [searchMode]);
+  const InputWrapper = useMemo(
+    () => (searchMode ? List.Search : List.Filter),
+    [searchMode]
+  );
 
   return (
     <List data={data} emptyContent={emptyContent}>

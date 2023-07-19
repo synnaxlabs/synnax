@@ -24,7 +24,7 @@ interface MockRecord {
   age: number;
 }
 
-const mockColumns: Array<ListColumn<MockRecord>> = [
+const mockColumns: Array<ListColumn<string, MockRecord>> = [
   {
     key: "name",
     name: "Name",
@@ -59,7 +59,7 @@ const SelectMultiple = (): ReactElement => {
   const [value, setValue] = useState<readonly string[]>([]);
   return (
     <Triggers.Provider>
-      <Select.Multiple<MockRecord>
+      <Select.Multiple<string, MockRecord>
         columns={mockColumns}
         data={mockOptions}
         tagKey="name"
@@ -69,6 +69,8 @@ const SelectMultiple = (): ReactElement => {
     </Triggers.Provider>
   );
 };
+
+const PLACEHOLDER = "Search...";
 
 describe("Select", () => {
   beforeAll(() => {
@@ -80,11 +82,11 @@ describe("Select", () => {
   describe("Select.Multiple", () => {
     it("should render a search input", () => {
       const c = render(<SelectMultiple />);
-      expect(c.getByPlaceholderText("Search")).toBeTruthy();
+      expect(c.getByPlaceholderText(PLACEHOLDER)).toBeTruthy();
     });
     it("should render a list of options when the input area is selected", () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText("Search"));
+      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
       expect(c.getByText("John")).toBeTruthy();
     });
     it("should not render a list of options when the input area is not selected", () => {
@@ -96,14 +98,14 @@ describe("Select", () => {
     });
     it("should allow the user to select an item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText("Search"));
+      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = c.queryAllByText("John");
       expect(j.length).toBe(2);
     });
     it("should allow the user to remove a selected item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText("Search"));
+      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
       fireEvent.click(j[0].nextSibling as HTMLElement);
@@ -112,7 +114,7 @@ describe("Select", () => {
     });
     it("should allow the user to clear all selections", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText("Search"));
+      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("James"));
       fireEvent.click(c.getByText("Javier"));
