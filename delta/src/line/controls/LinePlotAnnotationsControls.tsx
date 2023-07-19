@@ -187,7 +187,7 @@ export const LinePlotAnnotationsControls = ({
             onChange={handlePositionChange}
             value={selectedRule.position}
           >
-            {componentRenderProp(Input.Number)}
+            {componentRenderProp(Input.Numeric)}
           </Input.Item>
           <Input.Item<ColorT, Color, ColorSwatchProps>
             label="Color"
@@ -217,7 +217,7 @@ export const LinePlotAnnotationsControls = ({
             value={selectedRule.lineWidth}
             bounds={{ lower: 1, upper: 10 }}
           >
-            {componentRenderProp(Input.Number)}
+            {componentRenderProp(Input.Numeric)}
           </Input.Item>
           <Input.Item<number, number, InputNumberProps>
             label="Line Dash"
@@ -225,7 +225,7 @@ export const LinePlotAnnotationsControls = ({
             value={selectedRule.lineDash}
             bounds={{ lower: 0, upper: 50 }}
           >
-            {componentRenderProp(Input.Number)}
+            {componentRenderProp(Input.Numeric)}
           </Input.Item>
         </Space>
       </Space>

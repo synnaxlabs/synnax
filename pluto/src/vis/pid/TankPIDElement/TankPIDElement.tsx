@@ -95,7 +95,7 @@ const TankPIDElementForm = ({
           onChange={handleWidthChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Number)}
+          {componentRenderProp(Input.Numeric)}
         </Input.Item>
 
         <Input.Item<number, number, InputNumberProps>
@@ -104,7 +104,7 @@ const TankPIDElementForm = ({
           onChange={handleHeightChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Number)}
+          {componentRenderProp(Input.Numeric)}
         </Input.Item>
         <Input.Item<ColorT, Color, ColorSwatchProps>
           label="Color"

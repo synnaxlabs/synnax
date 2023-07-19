@@ -12,6 +12,5 @@ export type StatusVariant =
   | "error"
   | "warning"
   | "info"
-  | "warning"
   | "loading"
   | "disabled";

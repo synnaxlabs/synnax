@@ -9,5 +9,5 @@
 
 import { TimeStamp } from "@synnaxlabs/x";
 
-export const parseDateAndTimeInput = (date: number, time: number): TimeStamp =>
+export const combineDatAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);

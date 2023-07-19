@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeYLocation, Location } from "@synnaxlabs/x";
+import { Box, CrudeYLocation, Location, CrudeLocation } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside, useResize } from "@/core/hooks";
@@ -28,6 +28,7 @@ import { Triggers } from "@/core/triggers";
 
 import "@/core/std/Dropdown/Dropdown.css";
 
+/** Props for the {@link useDropdown} hook. */
 export interface UseDropdownProps {
   initialVisible?: boolean;
   onVisibleChange?: (vis: boolean) => void;
@@ -70,7 +71,7 @@ export interface DropdownProps
   matchTriggerWidth?: boolean;
 }
 
-// const USE_RESIZE_OPTS: UseResizeOpts = { triggers: ["moveY"] };
+const DEFAULT_LOCATION: CrudeLocation = "bottom";
 
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
@@ -87,7 +88,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   ): ReactElement => {
     const [[loc, dim, width], setAutoStyle] = useState<
       [CrudeYLocation, number, number]
-    >([location ?? "bottom", 0, 0]);
+    >([location ?? DEFAULT_LOCATION, 0, 0]);
     const handleResize = useCallback(
       (box: Box) => {
         const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);

@@ -33,7 +33,7 @@ export interface Hauled {
 }
 
 export interface HaulContextValue {
-  startDrag: (entities: Hauled[], onDrop: (entities: Hauled[]) => void) => void;
+  startDrag: (entities: Hauled[], onDrop?: (entities: Hauled[]) => void) => void;
   endDrag: () => void;
   onDrop: () => void;
   dragging: Hauled[];
@@ -58,7 +58,7 @@ interface HaulState {
 
 interface HaulRef {
   dragging: Hauled[];
-  dropCallback: ((entities: Hauled[]) => void) | null;
+  dropCallback?: ((entities: Hauled[]) => void) | null;
 }
 
 const ZERO_HAUL_STATE = { dragging: [], dropCallback: null };
@@ -69,7 +69,7 @@ export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
   const [ref, setRef] = useStateRef<HaulRef>({ ...ZERO_HAUL_STATE });
 
   const startDrag = useCallback(
-    (entities: Hauled[], onDrop: (entities: Hauled[]) => void) => {
+    (entities: Hauled[], onDrop?: (entities: Hauled[]) => void) => {
       setRef((p) => ({ ...p, dragging: entities, dropCallback: onDrop }));
       setState((p) => ({ ...p, dragging: entities }));
     },
@@ -147,6 +147,7 @@ export const useHaulDropRegion = ({
 
   const handleDragOver: DragEventHandler = useCallback(
     (e) => {
+      console.log(e);
       if (hauled.dragging.current.length === 0) return;
       const canDrop_ = canDrop(hauled.dragging.current);
       if (canDrop_) {
@@ -171,9 +172,7 @@ export const useHaulDropRegion = ({
     [canDrop]
   );
 
-  const handleDragLeave: DragEventHandler = useCallback(() => {
-    setIsOver(false);
-  }, []);
+  const handleDragLeave: DragEventHandler = useCallback(() => setIsOver(false), []);
 
   return {
     isOver,
