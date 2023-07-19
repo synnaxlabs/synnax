@@ -14,10 +14,11 @@ import { Menu as PMenu, Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import "./index.css";
-import { LinePlot } from "./line/LinePlot";
+import { LinePlot } from "./line/LinePlot/LinePlot";
 import { PID } from "./pid/PID/PID";
 import { VisCanvas } from "./vis";
 import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
+import WorkerURL from "./worker?worker&url";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";
 import { Menu } from "@/components";
@@ -60,12 +61,7 @@ const MainUnderContext = (): ReactElement => {
   useLoadTauriVersion();
   const cluster = useSelectCluster();
   return (
-    <Pluto
-      {...theme}
-      workerEnabled
-      connParams={cluster?.props}
-      workerURL={new URL("./worker.ts", import.meta.url)}
-    >
+    <Pluto {...theme} workerEnabled connParams={cluster?.props} workerURL={WorkerURL}>
       <VisCanvas>
         <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
           <LayoutWindow />

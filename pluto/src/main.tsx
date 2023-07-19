@@ -11,7 +11,7 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 
-import { TooltipConfigProps } from "./core/std/Tooltip/TooltipConfig";
+import DefaultWorkerURL from "./defaultWorker.ts?worker&url";
 
 import { Client, ClientProviderProps } from "@/client";
 import {
@@ -23,6 +23,7 @@ import {
   Triggers,
   Worker,
   Tooltip,
+  TooltipConfigProps,
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
@@ -47,7 +48,6 @@ export const Pluto = ({
   tooltip,
   instrumentation,
 }: PlutoProps): ReactElement => {
-  const defaultWorkerURL = new URL("defaultWorker.ts", import.meta.url);
   return (
     <Alamos.Provider instrumentation={instrumentation}>
       <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
@@ -55,7 +55,7 @@ export const Pluto = ({
           <Tooltip.Config {...tooltip}>
             <Haul.Provider>
               <Worker.Provider
-                url={workerURL ?? defaultWorkerURL}
+                url={workerURL ?? DefaultWorkerURL}
                 enabled={workerEnabled}
               >
                 <Aether.Provider workerKey="vis">

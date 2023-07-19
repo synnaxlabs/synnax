@@ -70,7 +70,7 @@
         "minWidth": 625,
         "minHeight": 375,
         "visible": true,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": false
       }
     ]
   }

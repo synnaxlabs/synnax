@@ -51,7 +51,7 @@ export const LayoutWindow = (): ReactElement | null => {
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
-  if (layout == null) return <h1>{label}</h1>;
+  if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
   return (
     <Space

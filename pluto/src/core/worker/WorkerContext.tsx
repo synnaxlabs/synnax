@@ -53,7 +53,13 @@ export const WorkerProvider = memo(
       () => {
         if (!enabled) return;
         const worker = new Worker(url, { type: "module" });
+        worker.onmessageerror = (e) => {
+          console.error(e);
+          console.error(e);
+          console.error(JSON.stringify(e));
+        };
         worker.onerror = (e) => {
+          console.error(e);
           console.error(e.message);
           console.error(JSON.stringify(e));
         };
