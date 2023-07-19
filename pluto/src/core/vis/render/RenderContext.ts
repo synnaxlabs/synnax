@@ -245,7 +245,7 @@ export class RenderContext {
       box.width + overscan.x * 2,
       box.height + overscan.y * 2
     );
-    c.clearRect(os.left, os.top, os.width, os.height);
+    c.clearRect(...os.topLeft.couple, ...os.dims.couple);
   }
 }
 
