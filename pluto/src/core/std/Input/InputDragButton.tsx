@@ -19,8 +19,6 @@ import { InputControl } from "@/core/std/Input/types";
 
 import "@/core/std/Input/InputDragButton.css";
 
-import { ComponentSizes } from "@/util/component";
-
 export interface InputDragButtonExtensionProps {
   direction?: CrudeDirection;
   dragDirection?: CrudeDirection;

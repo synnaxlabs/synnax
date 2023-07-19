@@ -22,7 +22,6 @@ export type PackProps<E extends SpaceElementType = "div"> = Omit<
 
 const CorePack = <E extends SpaceElementType = "div">(
   {
-    children,
     className,
     size = "medium",
     reverse = false,
@@ -48,9 +47,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     )}
     {...props}
     empty
-  >
-    {children}
-  </Space>
+  />
 );
 
 /**

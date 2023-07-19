@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import React, { useState, memo, useCallback, ReactElement } from "react";
+import { useState, memo, useCallback, ReactElement, DragEvent } from "react";
 
-import { Location, CrudeLocation } from "@synnaxlabs/x";
+import { Location, CrudeLocation, CSSBox } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { Haul, Hauled } from "@/core/haul";
@@ -37,14 +37,14 @@ export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
     ...childProps
   } = tabsProps;
 
-  const _onResize = useCallback(
-    (sizes: number[]): void => onResize(key, sizes[0]),
+  const handleResize = useCallback(
+    ([size]: number[]) => onResize(key, size),
     [onResize]
   );
 
   const { props: resizeProps } = Resize.useMultiple({
     direction,
-    onResize: _onResize,
+    onResize: handleResize,
     count: 2,
     initialSizes: size != null ? [size] : undefined,
   });
@@ -111,10 +111,8 @@ const MosaicTabLeaf = memo(
 
     const handleDragLeave = (): void => setDragMask(null);
 
-    const handleDragStart = (
-      _: React.DragEvent<HTMLDivElement>,
-      { tabKey }: Tab
-    ): void => onDragStart([{ key: tabKey, type: DRAGGING_TYPE }], () => {});
+    const handleDragStart = (_: DragEvent<HTMLDivElement>, { tabKey }: Tab): void =>
+      onDragStart([{ key: tabKey, type: DRAGGING_TYPE }], () => {});
 
     const handleCreate = (): void => onCreate?.(key);
 
@@ -144,10 +142,7 @@ const MosaicTabLeaf = memo(
 
 MosaicTabLeaf.displayName = "MosaicTabLeaf";
 
-const maskStyle: Record<
-  CrudeLocation,
-  { left: string; top: string; width: string; height: string }
-> = {
+const maskStyle: Record<CrudeLocation, CSSBox> = {
   top: { left: "0%", top: "0%", width: "100%", height: "50%" },
   bottom: { left: "0%", top: "50%", width: "100%", height: "50%" },
   left: { left: "0%", top: "0%", width: "50%", height: "100%" },

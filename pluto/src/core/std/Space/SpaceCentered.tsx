@@ -9,9 +9,8 @@
 
 import { ForwardedRef, ReactElement, forwardRef } from "react";
 
-import { Space, SpaceElementType, SpaceProps } from "./Space";
-
 import { CSS } from "@/core/css";
+import { Space, SpaceElementType, SpaceProps } from "@/core/std/Space/Space";
 
 import "@/core/std/Space/SpaceCentered.css";
 

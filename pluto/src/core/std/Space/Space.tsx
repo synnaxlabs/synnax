@@ -17,35 +17,24 @@ import { ComponentSize } from "@/util/component";
 
 import "@/core/std/Space/Space.css";
 
-/** The alignments for the cross axis of a space */
-export type SpaceAlignment = "start" | "center" | "end" | "stretch";
-
 /** All possible alignments for the cross axis of a space */
-export const SpaceAlignments: readonly SpaceAlignment[] = [
-  "start",
-  "center",
-  "end",
-  "stretch",
-];
+export const SpaceAlignments = ["start", "center", "end", "stretch"] as const;
 
-/** The justification for the main axis of a space */
-export type SpaceJustification =
-  | "start"
-  | "center"
-  | "end"
-  | "spaceBetween"
-  | "spaceAround"
-  | "spaceEvenly";
+/** The alignments for the cross axis of a space */
+export type SpaceAlignment = typeof SpaceAlignments[number];
 
 /** All possible justifications for the main axis of a space */
-export const SpaceJustifications: readonly SpaceJustification[] = [
+export const SpaceJustifications = [
   "start",
   "center",
   "end",
   "spaceBetween",
   "spaceAround",
   "spaceEvenly",
-];
+] as const;
+
+/** The justification for the main axis of a space */
+export type SpaceJustification = typeof SpaceJustifications[number];
 
 export type SpaceElementType =
   | "div"
@@ -144,11 +133,11 @@ export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div
 type FlexDirection = CSSProperties["flexDirection"];
 
 const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
-  const base = direction.equals("x") ? "row" : "column";
+  const base = direction.isX ? "row" : "column";
   return reverse ? ((base + "-reverse") as FlexDirection) : base;
 };
 
-const justifications = {
+const justifications: Record<SpaceJustification, CSSProperties["justifyContent"]> = {
   start: "flex-start",
   center: "center",
   end: "flex-end",

@@ -15,6 +15,7 @@ import { Text, TextProps } from "@/core/std/Typography";
 
 import "@/core/std/Input/InputHelpText.css";
 
+/** Props for the {@link InputHelpText} component. */
 export interface InputHelpTextProps extends Omit<TextProps<"small">, "level" | "ref"> {
   variant?: StatusVariant;
 }

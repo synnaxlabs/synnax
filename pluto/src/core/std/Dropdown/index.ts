@@ -34,12 +34,11 @@ export interface DropdownType extends CoreDropdownType {
  * A controlled dropdown component that wraps its parent. For the simplest case, use
  * the {@link useDropdown} hook (more behavioral details explained there).
  *
- * @param props The props for the dropdown component. Unused props are passed to the
+ * @param props - The props for the dropdown component. Unlisted props are passed to the
  * parent elment.
- *
- * @param props.visible Whether the dropdown is visible or not. This is a controlled
- *
- * @param props.children
+ * @param props.visible - Whether the dropdown is visible or not. This is a controlled
+ * @param props.children - Two children are expected: the dropdown trigger (often a button
+ * or input) and the dropdown content.
  */
 export const Dropdown = CoreDropdown as DropdownType;
 

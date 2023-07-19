@@ -25,11 +25,13 @@ import {
   CrudeLocation,
 } from "@/spatial/core";
 
+const cssPos = z.union([z.number(), z.string()]);
+
 const cssBox = z.object({
-  top: z.number(),
-  left: z.number(),
-  width: z.number(),
-  height: z.number(),
+  top: cssPos,
+  left: cssPos,
+  width: cssPos,
+  height: cssPos,
 });
 const domRect = z.object({
   left: z.number(),

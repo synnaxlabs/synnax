@@ -47,9 +47,8 @@ export const Resize = ({
   const calcNextSize = useCallback(
     (box: Box) => {
       if (marker.current === null) return 0;
-      const dir = location.direction;
       const dim =
-        box.dim(dir, true) *
+        box.dim(location.direction, true) *
         (1 - 2 * Number(["bottom", "right"].includes(location.crude)));
       const rawNextSize = marker.current + dim;
       const nextSize = clamp(rawNextSize, minSize, maxSize);
