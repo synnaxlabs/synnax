@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TooltipConfig } from "./TooltipConfig";
-
 import { Tooltip as CoreTooltip, TooltipWrap } from "@/core/std/Tooltip/Tooltip";
+import { TooltipConfig } from "@/core/std/Tooltip/TooltipConfig";
+
+export type { TooltipConfigProps } from "@/core/std/Tooltip/TooltipConfig";
+export type { TooltipProps } from "@/core/std/Tooltip/Tooltip";
 
 type CoreTooltipType = typeof CoreTooltip;
 

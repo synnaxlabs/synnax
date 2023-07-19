@@ -107,10 +107,6 @@
     "type": "git",
     "url": "git+https://github.com/synnaxlabs/pluto.git"
   },
-  "author": {
-    "name": "emiliano bonilla",
-    "email": "ebo@gmail.com"
-  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/synnaxlabs/pluto/issues"

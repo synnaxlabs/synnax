@@ -501,6 +501,7 @@ export class AetherRoot extends AetherComposite<typeof aetherRootState> {
       }
     } catch (e) {
       console.error(e);
+      throw e;
     }
   }
 }
