@@ -53,7 +53,7 @@ export const Date = (): ReactElement => {
 
 export const Number = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
-  return <Input.Number value={value} onChange={setValue} />;
+  return <Input.Numeric value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

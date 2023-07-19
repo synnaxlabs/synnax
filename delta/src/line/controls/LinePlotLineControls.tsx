@@ -127,14 +127,14 @@ const LinePlotLineControls = ({
         value={line.label ?? ""}
         onChange={handleLabelChange}
       />
-      <Input.Number
+      <Input.Numeric
         value={line.strokeWidth}
         onChange={handleWidthChange}
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
         style={{ width: 140, marginRight: "2rem" }}
       />
-      <Input.Number
+      <Input.Numeric
         style={{ width: 100, marginRight: "2rem" }}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}

@@ -13,10 +13,9 @@ import { CSS } from "@/core/css";
 
 import "@/core/std/Input/InputLabel.css";
 
+/** Props for the {@link InputLabel} component. */
 export interface InputLabelProps
-  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {
-  label?: string;
-}
+  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {}
 
 export const InputLabel = ({ className, ...props }: InputLabelProps): ReactElement => {
   return <label className={CSS(CSS.B("input-label"), className)} {...props} />;

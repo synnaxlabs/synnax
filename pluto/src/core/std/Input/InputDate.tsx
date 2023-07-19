@@ -30,7 +30,7 @@ export interface InputDateProps
 
 const DRAG_SCALE = {
   x: TimeStamp.HOUR.valueOf(),
-  y: TimeStamp.DAY.valueOf() * 0.75,
+  y: TimeStamp.days(0.75).valueOf(),
 };
 
 export const InputDate = forwardRef<HTMLInputElement, InputDateProps>(

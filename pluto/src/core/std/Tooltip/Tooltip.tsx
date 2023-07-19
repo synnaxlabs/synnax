@@ -16,7 +16,6 @@ import {
   ReactNode,
   cloneElement,
   forwardRef,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -67,12 +66,12 @@ export const Tooltip = ({
   const handleVisibleChange = (e: MouseEvent, visible: boolean): void => {
     if (!visible || hide) return setState(null);
     config.startAccelerating();
-    const containerBox = new Box(e.target as HTMLElement);
-    const windowBox = new Box(document.documentElement);
-    const location = propsLocation ?? getLocation(containerBox, windowBox);
+    const conainer = new Box(e.target as HTMLElement);
+    const window = new Box(document.documentElement);
+    const location = propsLocation ?? getLocation(conainer, window);
     setState({
       location,
-      position: containerBox.locPoint(location),
+      position: conainer.locPoint(location),
     });
   };
 
@@ -111,9 +110,10 @@ export const Tooltip = ({
 };
 
 export interface WrapTooltipProps {
-  tooltipDelay?: CrudeTimeSpan;
-  tooltip?: ReactNode;
-  tooltipLocation?: CrudeOuterLocation;
+  tooltipDelay?: TooltipProps["delay"];
+  tooltip?: TooltipProps["children"][0];
+  tooltipLocation?: TooltipProps["location"];
+  hideTooltip?: TooltipProps["hide"];
 }
 
 export const TooltipWrap = <P extends {} = {}, E extends HTMLElement = HTMLElement>(
