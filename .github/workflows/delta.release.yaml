@@ -11,7 +11,7 @@ env:
 jobs:
   create-release:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
 
@@ -31,7 +31,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
@@ -82,13 +82,13 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         uses: pnpm/action-setup@v2
         with:
-          version: 7
+          version: 8
 
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
           cache: "pnpm"
 
       - name: Install Rust Stable
@@ -123,7 +123,7 @@ jobs:
           libwebkit2gtk-4.0-dev
           webkit2gtk-driver
           xvfb
-          
+
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
         run: pnpm i
@@ -140,7 +140,7 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
 
   publish-release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
     needs: [create-release, build-tauri]
 
@@ -169,7 +169,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Get Version
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
