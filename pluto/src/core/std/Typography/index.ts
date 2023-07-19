@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Symbols } from "@/core/std/Typography/symbols";
 import { Text as CoreText } from "@/core/std/Typography/Text";
 import { TextDateTime } from "@/core/std/Typography/TextDateTime";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
@@ -62,6 +63,7 @@ export interface TypographyType {
   Text: TextType;
   spec: typeof typographySpec;
   levelZ: typeof typographyLevel;
+  Symbols: typeof Symbols;
 }
 
 /** Holds typography related components and constants. */
@@ -77,4 +79,5 @@ export const Typography: TypographyType = {
   /**  */
   spec: typographySpec,
   levelZ: typographyLevel,
+  Symbols,
 };

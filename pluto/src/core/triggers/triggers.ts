@@ -147,10 +147,15 @@ export type TriggerCallback = (e: TriggerEvent) => void;
 export const parseEventKey = (e: KeyboardEvent | MouseEvent): Key =>
   e instanceof KeyboardEvent ? keyboardToKey(e) : mouseButtonToKey(e.button);
 
+// Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
+// as Triggers is location agnostic.
+const INCLUDES_KEYS: Key[] = ["Meta", "Control", "Alt", "Shift"];
+
 export const keyboardToKey = (e: KeyboardEvent): Key => {
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as Key;
-  if (e.code.includes("Shift")) return "Shift";
+  const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
+  if (includeKey != null) return includeKey;
   return e.code as Key;
 };
 

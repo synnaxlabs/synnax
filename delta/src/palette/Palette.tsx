@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { OntologyID, OntologyResource } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Dropdown,
   Input,
@@ -38,6 +39,9 @@ import {
   CSS as PCSS,
   Tooltip,
   Text,
+  Typography,
+  Space,
+  TypographyLevel,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
@@ -46,7 +50,6 @@ import { CSS } from "@/css";
 import { LayoutPlacer, useLayoutPlacer } from "@/layout";
 import { createLinePlot } from "@/line/store/slice";
 import { ResourceType } from "@/resources/resources";
-import { RootStore } from "@/store";
 
 import "@/palette/Palette.css";
 
@@ -67,6 +70,34 @@ const normalizeTriggers = (triggers: PaletteTriggerConfig): Trigger[] =>
   Object.values(triggers).flat();
 
 type PaletteMode = "command" | "resource";
+
+const TOOLTIP_TEXT_LEVEL: TypographyLevel = "small";
+
+const PaletteTooltipContent = (): ReactElement => (
+  <Space>
+    <Space direction="x" justify="spaceBetween" align="center">
+      <Text level={TOOLTIP_TEXT_LEVEL}>Search</Text>
+      <Space direction="x" size="small">
+        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
+          <Typography.Symbols.Meta />
+        </Text.Keyboard>
+        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
+      </Space>
+    </Space>
+    <Space direction="x" justify="spaceBetween" align="center">
+      <Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text>
+      <Space direction="x" size="small">
+        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
+          <Typography.Symbols.Meta />
+        </Text.Keyboard>
+        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
+          <Icon.Keyboard.Shift />
+        </Text.Keyboard>
+        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
+      </Space>
+    </Space>
+  </Space>
+);
 
 export const Palette = ({
   commands,
@@ -104,8 +135,8 @@ export const Palette = ({
 
   return (
     <List>
-      <Tooltip location="bottom">
-        <Text.Keyboard></Text.Keyboard>
+      <Tooltip location="bottom" hide={dropdown.visible}>
+        <PaletteTooltipContent />
         <Dropdown
           ref={dropdown.ref}
           visible={dropdown.visible}

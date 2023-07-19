@@ -25,7 +25,7 @@ import {
   AiFillGithub,
   AiFillLinkedin,
 } from "react-icons/ai";
-import { BsStack, BsLightbulbFill } from "react-icons/bs";
+import { BsStack, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
@@ -48,6 +48,18 @@ import {
   MdAreaChart,
   MdEditOff,
   MdOutlineAccessTimeFilled,
+  MdKeyboardAlt,
+  MdKeyboardArrowDown,
+  MdKeyboardArrowLeft,
+  MdKeyboardArrowRight,
+  MdKeyboardArrowUp,
+  MdKeyboardBackspace,
+  MdKeyboardCapslock,
+  MdKeyboardHide,
+  MdKeyboardReturn,
+  MdKeyboardTab,
+  MdKeyboardCommandKey,
+  MdKeyboardOptionKey,
 } from "react-icons/md";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
@@ -105,7 +117,25 @@ export const Icon: IconType = {
   Menu: FiMenu,
   Logo: {
     Github: AiFillGithub,
-    Linkedn: AiFillLinkedin,
+    LinkedIn: AiFillLinkedin,
+  },
+  Keyboard: {
+    Command: MdKeyboardCommandKey,
+    Windows: FaWindows,
+    Tab: MdKeyboardTab,
+    Return: MdKeyboardReturn,
+    Backspace: MdKeyboardBackspace,
+    Capslock: MdKeyboardCapslock,
+    Hide: MdKeyboardHide,
+    Arrow: {
+      Up: MdKeyboardArrowUp,
+      Down: MdKeyboardArrowDown,
+      Left: MdKeyboardArrowLeft,
+      Right: MdKeyboardArrowRight,
+    },
+    Alt: MdKeyboardAlt,
+    Option: MdKeyboardOptionKey,
+    Shift: BsShiftFill,
   },
 };
 
@@ -156,5 +186,23 @@ export interface IconType {
   Logo: {
     Github: React.ComponentType;
     LinkedIn: React.ComponentType;
+  };
+  Keyboard: {
+    Command: React.ComponentType;
+    Windows: React.ComponentType;
+    Tab: React.ComponentType;
+    Return: React.ComponentType;
+    Backspace: React.ComponentType;
+    Capslock: React.ComponentType;
+    Hide: React.ComponentType;
+    Arrow: {
+      Up: React.ComponentType;
+      Down: React.ComponentType;
+      Left: React.ComponentType;
+      Right: React.ComponentType;
+    };
+    Alt: React.ComponentType;
+    Option: React.ComponentType;
+    Shift: React.ComponentType;
   };
 }

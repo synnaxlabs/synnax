@@ -42,7 +42,7 @@ Larger, well funded teams bridge this gap with a patchwork of tools, while small
 end up under-analyzing their data. Both of these approaches lead to slower, error-prone
 development cycles.
 
-## 2.1 - Local File Systems
+## 2.0 - Local File Systems
 
 Existing systems export recorded data to a local file system. These files use
 proprietary formats (like `.tdms`) and are **only accessible by the small number of
@@ -51,19 +51,19 @@ to a more accessible format and upload it to a network drive. The files on these
 can have obscure names, making it difficult for an engineer to locate specific data
 sets.
 
-Engineers typically query a small subset of the data stored in a file. When accessing a
+Analysts typically query a small subset of the data stored in a file. When accessing a
 file with 1000 channels, they may only examine 3, yet still need to download the
 entire file to their local machine and load it into their analysis tool of choice.
 
 **Accessing data at scale is extremely challenging**. To understand the evolution of a
 system over time, an engineer must manually search for dozens or even hundreds of files,
-post-process each one, and aggregate the results by hand.
+post-process each one, and aggregate the results.
 
 The process of taking recorded data from a file and extracting meaningful insights is
 slow and error-prone. In consequence, engineers often under-analyze the systems they
 operate, leading to less effective, slower, and more expensive development cycles.
 
-## 2.2 - Closed, Proprietary Software
+## 2.1 - Closed, Proprietary Software
 
 Current DAQ platforms are iterations on software developed decades ago. These systems
 are **proprietary and restrict users to their internal ecosystem**. Modern, cloud-native
@@ -77,12 +77,30 @@ the 1980s and implements a domain specific, graphical programming language. Find
 engineers with experience is difficult, and training new hires involves paying
 the vendor for expensive courses.
 
-## 2.3 - Archaic User Experiences
+## 2.2 - Archaic User Experiences
 
-- Modern UIs are intuitive and gorgeous, existing industrial control interfaces are not.
-- We think there's a long way to go towards improving the user experience.
+Enterprise software is notorious for its poor user experience. Data acquisition software
+is no stranger to this issue; **existing user experiences are difficult to navigate and
+require extensive training to use effectively**.
+
+Programmatic interfaces are outdated and pay little attention to the developer
+experience. LabVIEW requires users to learn an entire programming language to get started.
+Training is expensive, and the pool of certified developers is limited.
+
+User interfaces are no better. They focus on implementing a feature set, not delivering
+a cohesive solution to the problem at hand. Large, nested context menus and antiquated
+designs are commonplace, and make it difficult to find the functionality you need.
+Research into user experience design has made great strides in recent years, and these
+improvements have yet to find themselves in the world of industrial control and data
+acquisition.
 
 # 3 - The Opportunity
+
+## 3.0 - Cloud Native Computing
+
+## 3.1 - Big Data and Artificial Intelligence
+
+## 3.2 - Open Source
 
 **Cloud native computing has revolutionized the way we work with data**
 

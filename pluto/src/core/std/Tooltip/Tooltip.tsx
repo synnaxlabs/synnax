@@ -16,6 +16,7 @@ import {
   ReactNode,
   cloneElement,
   forwardRef,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -31,6 +32,7 @@ export interface TooltipProps
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
   location?: CrudeOuterLocation;
+  hide?: boolean;
   children: [ReactNode, ReactElement];
 }
 
@@ -55,6 +57,7 @@ export const Tooltip = ({
   delay,
   children,
   location: propsLocation,
+  hide = false,
 }: TooltipProps): ReactElement => {
   const config = useTooltipConfig();
   const parsedDelay = new TimeSpan(delay ?? config.delay);
@@ -62,7 +65,7 @@ export const Tooltip = ({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleVisibleChange = (e: MouseEvent, visible: boolean): void => {
-    if (!visible) return setState(null);
+    if (!visible || hide) return setState(null);
     config.startAccelerating();
     const containerBox = new Box(e.target as HTMLElement);
     const windowBox = new Box(document.documentElement);
@@ -72,6 +75,8 @@ export const Tooltip = ({
       position: containerBox.locPoint(location),
     });
   };
+
+  if (hide && state != null) setState(null);
 
   const handleMouseEnter: EventHandler<MouseEvent> = (e): void => {
     timeoutRef.current = setTimeout(
