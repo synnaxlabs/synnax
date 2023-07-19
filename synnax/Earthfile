@@ -3,6 +3,7 @@ FROM golang:1.19-bullseye
 WORKDIR /synnax
 
 deps:
+    COPY ../alamos/go+source/* /alamos/go
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
