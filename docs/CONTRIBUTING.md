@@ -40,18 +40,5 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 2 - Technical
-
-Synnax is large, complex platform with many moving parts.
-
-## 2.0 - The Layered Architecture
-
-### 2.0.0 - Storage Layer
-
-### 2.0.1 - Distribution Layer
-
-### 2.0.2 - Service Layer
-
-### 2.0.3 - Interface Layer
-
+# 3 - Technical
 
