@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { Deep } from "@synnaxlabs/x";
 
 import { Communicator } from "@/runtime";
 import { PreloadedState, StoreState } from "@/state";
@@ -42,10 +41,7 @@ export const listen = async <S extends StoreState, A extends Action = AnyAction>
     const s = getStore();
     // Case where we're receivign preloaded state.
     if (s == null) {
-      if (state != null) {
-        console.log(Deep.copy(state));
-        return resolve(state);
-      }
+      if (state != null) return resolve(state);
       return;
     }
     if (action != null) {
@@ -53,14 +49,6 @@ export const listen = async <S extends StoreState, A extends Action = AnyAction>
       return s.dispatch(sugar(action, emitter));
     }
     if (sendState === true && communicator.isMain()) {
-      console.log(
-        "SENDING STATE",
-        Deep.copy(s.getState()),
-        action,
-        emitter,
-        state,
-        sendState
-      );
       void communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
     }
   });
