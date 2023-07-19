@@ -9,14 +9,14 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 1 - Product
+# 0 - Product
 
 Making meaningful contributions to Synnax starts with having a clear understanding of
 the product we're building. The best place to start is by reading our
 [thesis](product/thesis.md). This document defines the problem with the status quo and
 the approach we're taking to solve it.
 
-# 2 - Finding Something to Work On
+# 1 - Finding Something to Work On
 
 The next best step is to start thinking about the area or feature you'd like to
 contribute to. There are a few ways to do this:
@@ -44,14 +44,14 @@ contribute to. There are a few ways to do this:
 
 Synnax is large, complex platform with many moving parts.
 
-## 3 - The Layered Architecture
+## 2.0 - The Layered Architecture
 
-### 3.1 - Storage Layer
+### 2.0.0 - Storage Layer
 
-### 3.2 - Distribution Layer
+### 2.0.1 - Distribution Layer
 
-### 3.3 - Service Layer
+### 2.0.2 - Service Layer
 
-### 3.4 - Interface Layer
+### 2.0.3 - Interface Layer
 
 

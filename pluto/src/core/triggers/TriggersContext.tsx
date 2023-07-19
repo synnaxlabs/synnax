@@ -83,6 +83,8 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = parseEventKey(e);
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
+    // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prev) => {

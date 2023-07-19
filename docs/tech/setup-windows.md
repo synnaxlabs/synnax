@@ -3,11 +3,12 @@
 # 0 - Summary
 
 The following guide walks you through the setup process for developing Synnax on
-Windows. This guide is complete, meaning that it provides installation and configuration
+Windows. The setup guide for macOS is available [here](setup-macos.md).
+This guide is complete, meaning that it provides installation and configuration
 instructions for all tooling required, but it does not provide information on how to
 use this tooling when working with a specific project. For that information, see the
 project's `README.md`. Links to all project `README.md` files can be found in the
-[project index](../README.md).
+[project index](../../README.md).
 
 This guide assumes you're using powershell as your terminal of choice. If you're using
 cmd, you may need to vary the commands slightly. Certain tools may require running
@@ -35,10 +36,10 @@ git version 2.x.x.windows.x
 # 2 - Clone the Repository
 
 The next step is to clone the git repository. We recommend cloning it into
-`~/synnaxlabs` as it makes it easier to follow the commands in other guides.
+`~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
 
 ```
-mkdir ~/synnaxlabs && cd ~/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
+mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
 ```
 
 # 3 - Setup Go
@@ -56,16 +57,17 @@ You should see something like
 go 1.20.x windows/amd64
 ```
 
-As an additional test, let's run some test cases to make sure everything is working
-as expected. In the root directory (`~/synnaxlabs/synnax`), run
+As additional verification, let's run some test cases to make sure everything is working
+as expected. In the root directory (`~/synnaxlabs/Desktop/synnax`), run
 
 ```bash
 cd x/go && go test -v ./...
 ```
+
 This will run the tests for the common utilities used across Synnax's go projects. This
 might take a while when you run it for the first time, as go needs to download many
-packages. Future runs will be much faster. Eventually, you should see a bunch of green
-output and no red output.
+packages. Future runs will be much faster. Eventually, you **should see a bunch of green
+output and no red output.**
 
 # 4 - Python
 
@@ -163,7 +165,7 @@ pnpm install
 We use [turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
 As a test to make sure the build system is working, we'll build the Synnax component
-library, [pluto](../pluto/README.md) by running
+library, [pluto](../../pluto/README.md) by running
 
 ```bash
 pnpm build:pluto
@@ -171,7 +173,8 @@ pnpm build:pluto
 
 # 5.3 - Start a Pluto Dev Server
 
-As another test, we'll start a development server for Pluto. We use this server to develop
+As another test, we'll start a development server for Pluto. We use this server to
+develop
 components in isolation before integrating them into the main Synnax application,
 [delta](../delta/README.md). To start, run
 
