@@ -1,4 +1,4 @@
-go 1.19
+go 1.20
 
 use (
 	./aspen
@@ -7,4 +7,5 @@ use (
 	./freighter/integration
 	./synnax
 	./x/go
+	./alamos/go
 )

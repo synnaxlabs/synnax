@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { Dimensions, XY } from "@synnaxlabs/x";
+import { CrudeDimensions, CrudeXY } from "@synnaxlabs/x";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
@@ -58,8 +58,6 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return [];
   }
 
-  // |||||| MANAGER IMPLEMENTATION ||||||
-
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     this.hasCreated[label] = props;
     return await Promise.resolve();
@@ -99,22 +97,22 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return await Promise.resolve();
   }
 
-  async setPosition(xy: XY): Promise<void> {
+  async setPosition(xy: CrudeXY): Promise<void> {
     this.props.position = xy;
     return await Promise.resolve();
   }
 
-  async setSize(dims: Dimensions): Promise<void> {
+  async setSize(dims: CrudeDimensions): Promise<void> {
     this.props.size = dims;
     return await Promise.resolve();
   }
 
-  async setMinSize(dims: Dimensions): Promise<void> {
+  async setMinSize(dims: CrudeDimensions): Promise<void> {
     this.props.minSize = dims;
     return await Promise.resolve();
   }
 
-  async setMaxSize(dims: Dimensions): Promise<void> {
+  async setMaxSize(dims: CrudeDimensions): Promise<void> {
     this.props.maxSize = dims;
     return await Promise.resolve();
   }
@@ -150,7 +148,6 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   }
 
   async getProps(): Promise<Omit<WindowProps, "key">> {
-    return await Promise.resolve(this.props);
+    return this.props;
   }
-
 }

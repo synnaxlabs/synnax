@@ -10,10 +10,10 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from .transport import Payload
+from freighter.transport import Payload
 
-TYPE_UNKNOWN = "unknown"
-TYPE_NONE = "nil"
+_TYPE_UNKNOWN = "unknown"
+_TYPE_NONE = "nil"
 
 
 class ExceptionPayload(Payload):
@@ -52,7 +52,7 @@ class _Registry:
 
     def decode(self, encoded: ExceptionPayload) -> Exception | None:
         assert isinstance(encoded, ExceptionPayload)
-        if encoded.type == TYPE_NONE:
+        if encoded.type == _TYPE_NONE:
             return None
         if encoded.type in self.providers:
             if encoded.data is None:
@@ -105,7 +105,7 @@ class Unreachable(Exception):
     target: str
     message: str
 
-    def __init__(self, target: str, message="Unreachable"):
+    def __init__(self, target: str = "", message="Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)
@@ -130,20 +130,6 @@ class EOF(Exception):
 
     def __str__(self):
         return "EOF"
-
-
-class Unreachable(Exception):
-    """
-    Raise when a target is unreachable.
-    """
-
-    target: str
-    base: Exception
-
-    def __init__(self, target: str, base: Exception | None = None):
-        self.target = target
-        self.base = base
-        super().__init__(f"Target {target} unreachable")
 
 
 _EXCEPTIONS = [

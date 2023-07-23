@@ -21,10 +21,11 @@ package writer
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -33,14 +34,13 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
-	// have an array specified for each key, and all arrays must be the same length (i.e.
+	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
@@ -51,19 +51,20 @@ type Config struct {
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 }
 
-func (c Config) toStorage() storage.WriterConfig {
-	return storage.WriterConfig{Channels: c.Keys.Strings(), Start: c.Start}
+func (c Config) toStorage() ts.WriterConfig {
+	return ts.WriterConfig{Channels: c.Keys.Storage(), Start: c.Start}
 }
 
 // ServiceConfig is the configuration for opening a Writer or StreamWriter.
 type ServiceConfig struct {
+	alamos.Instrumentation
 	// TS is the local time series store to write to.
 	// [REQUIRED]
-	TS storage.StreamWritableTS
+	TS *ts.DB
 	// ChannelReader is used to resolve metadata and routing information for the provided
 	// keys.
 	// [REQUIRED]
-	ChannelReader channel.Reader
+	ChannelReader channel.Readable
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -72,16 +73,13 @@ type ServiceConfig struct {
 	// nodes in the cluster.
 	// [REQUIRED]
 	Transport Transport
-	// Logger is the witness of it all.
-	// [OPTIONAL]
-	Logger *zap.Logger
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for opening a Writer or StreamWriter. It
 	// is not complete and must be supplemented with the required fields.
-	DefaultConfig = ServiceConfig{Logger: zap.NewNop()}
+	DefaultConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -91,7 +89,6 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -101,7 +98,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
@@ -115,7 +112,7 @@ type Service struct {
 // OpenService opens the writer service using the given configuration. Also binds a server
 // to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
 }
 
@@ -131,12 +128,8 @@ const (
 // New opens a new writer using the given configuration. The provided context is used to
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
-func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
-	sCtx, cancel := signal.WithCancel(
-		ctx,
-		signal.WithContextKey("writer"),
-		signal.WithLogger(s.Logger),
-	)
+func (s *Service) New(ctx context.Context, cfg Config) (*Writer, error) {
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	seg, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -146,7 +139,12 @@ func (s *Service) New(ctx context.Context, cfg Config) (Writer, error) {
 	seg.InFrom(req)
 	seg.OutTo(res)
 	seg.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-	return &writer{requests: req, responses: res, wg: sCtx, shutdown: cancel}, nil
+	return &Writer{
+		requests:  req,
+		responses: res,
+		wg:        sCtx,
+		shutdown:  signal.NewShutdown(sCtx, cancel),
+	}, nil
 }
 
 // NewStream opens a new StreamWriter using the given configuration. The provided context
@@ -158,8 +156,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	}
 
 	var (
-		hostID             = s.HostResolver.HostID()
-		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
+		hostKey            = s.HostResolver.HostKey()
+		batch              = proxy.BatchFactory[channel.Key]{Host: hostKey}.Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
@@ -173,7 +171,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeIDs()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
 	)
 
 	if needPeerRouting {
@@ -191,7 +189,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 	if needGatewayRouting {
 		routeBulkheadTo = gatewayWriterAddr
-		w, err := s.newGateway(Config{Start: cfg.Start, Keys: batch.Gateway})
+		w, err := s.newGateway(ctx, Config{Start: cfg.Start, Keys: batch.Gateway})
 		if err != nil {
 			return nil, err
 		}
@@ -204,7 +202,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		plumber.SetSegment[Request, Request](
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewaySwitch(hostID),
+			newPeerGatewaySwitch(hostKey),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
@@ -239,7 +237,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
-		Exec(ctx); err != nil {
+		Exec(ctx, nil); err != nil {
 		return err
 	}
 	var (

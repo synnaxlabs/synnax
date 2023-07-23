@@ -105,7 +105,7 @@ export class RouteError extends BaseError {
  */
 export class ContiguityError extends BaseError {}
 
-const parsePayload = (payload: APIErrorPayload): Error | undefined => {
+const parsePayload = (payload: APIErrorPayload): Error | null => {
   switch (payload.type) {
     case APIErrorType.General:
       return new GeneralError(payload.error.message as string);
@@ -125,11 +125,11 @@ const parsePayload = (payload: APIErrorPayload): Error | undefined => {
         payload.error.message as string
       );
     default:
-      return undefined;
+      return null;
   }
 };
 
-const decode = (encoded: string): Error | undefined => {
+const decode = (encoded: string): Error | null => {
   return parsePayload(APIErrorPayloadSchema.parse(JSON.parse(encoded)));
 };
 

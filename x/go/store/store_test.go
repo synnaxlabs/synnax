@@ -10,10 +10,13 @@
 package store_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/store"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type state struct {
@@ -38,10 +41,14 @@ var _ = Describe("Store", func() {
 	})
 	Describe("Observable", func() {
 		It("Should initialize an observable store correctly", func() {
-			s := store.ObservableWrap(store.New(copyState), store.ObservableConfig[state]{GoNotify: config.BoolPointer(false)})
+			s := MustSucceed(store.WrapObservable(store.ObservableConfig[state, state]{
+				Store:     store.New(copyState),
+				Transform: store.PassthroughTransform[state],
+				GoNotify:  config.Bool(false),
+			}))
 			var changedState state
-			s.OnChange(func(s state) { changedState = s })
-			s.SetState(state{value: 2})
+			s.OnChange(func(ctx context.Context, s state) { changedState = s })
+			s.SetState(ctx, state{value: 2})
 			Expect(changedState.value).To(Equal(2))
 		})
 	})

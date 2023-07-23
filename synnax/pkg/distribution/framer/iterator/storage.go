@@ -10,33 +10,35 @@
 package iterator
 
 import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	"context"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
-func (s *Service) newGateway(cfg Config) (confluence.Segment[Request, Response], error) {
-	iter, err := s.TS.NewStreamIterator(cesium.IteratorConfig{
-		Bounds:   cfg.Bounds,
-		Channels: cfg.Keys.Strings(),
-	})
-	if err != nil {
-		return nil, err
+func newStorageResponseTranslator(
+	host dcore.NodeKey,
+) func(ctx context.Context, in ts.IteratorResponse) (Response, bool, error) {
+	return func(ctx context.Context, res ts.IteratorResponse) (Response, bool, error) {
+		return Response{
+			Ack:     res.Ack,
+			Variant: ResponseVariant(res.Variant),
+			SeqNum:  res.SeqNum,
+			NodeKey: host,
+			Error:   res.Err,
+			Command: Command(res.Command),
+			Frame:   core.NewFrameFromStorage(res.Frame),
+		}, true, nil
 	}
-	pipe := plumber.New()
-	reqT := &confluence.LinearTransform[Request, cesium.IteratorRequest]{}
-	reqT.Transform = newStorageRequestTranslator()
-	resT := &confluence.LinearTransform[cesium.IteratorResponse, Response]{}
-	resT.Transform = newStorageResponseTranslator(s.HostResolver.HostID())
-	plumber.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse](pipe, "storage", iter)
-	plumber.SetSegment[Request, cesium.IteratorRequest](pipe, "requests", reqT)
-	plumber.SetSegment[cesium.IteratorResponse, Response](pipe, "responses", resT)
-	plumber.MustConnect[storage.TSIteratorRequest](pipe, "requests", "storage", 1)
-	plumber.MustConnect[storage.TSIteratorResponse](pipe, "storage", "responses", 1)
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo("requests"))
-	lo.Must0(seg.RouteOutletFrom("responses"))
-	return seg, nil
+}
+
+func newStorageRequestTranslator() func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
+		return ts.IteratorRequest{
+			Command: ts.IteratorCommand(req.Command),
+			Span:    req.Span,
+			Stamp:   req.Stamp,
+			Bounds:  req.Bounds,
+		}, true, nil
+	}
 }

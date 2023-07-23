@@ -30,8 +30,8 @@ type CoreBuilder struct {
 	mockstorage.Builder
 	// Config is the configuration used to provision new cores.
 	Config core.Config
-	// Cores contains a map of all cores paired with their respective host ID.
-	Cores map[core.NodeID]core.Core
+	// Cores contains a map of all cores paired with their respective host Key.
+	Cores map[core.NodeKey]core.Core
 	// net is the network for transporting key-value operations.
 	net *aspentransmock.Network
 	// addrFactory generates unique addresses for nodes.
@@ -41,8 +41,8 @@ type CoreBuilder struct {
 // NewCoreBuilder opens a new CoreBuilder that provisions cores using the given
 // configuration.
 func NewCoreBuilder(configs ...distribution.Config) *CoreBuilder {
-	cfg, err := config.OverrideAndValidate(distribution.DefaultConfig, append([]distribution.Config{{
-		Storage: storage.Config{MemBacked: config.BoolPointer(true)},
+	cfg, err := config.New(distribution.DefaultConfig, append([]distribution.Config{{
+		Storage: storage.Config{MemBacked: config.Bool(true)},
 	}}, configs...)...)
 	if err != nil {
 		panic(err)
@@ -53,7 +53,7 @@ func NewCoreBuilder(configs ...distribution.Config) *CoreBuilder {
 	return &CoreBuilder{
 		Config:      cfg,
 		Builder:     *storeBuilder,
-		Cores:       make(map[core.NodeID]core.Core),
+		Cores:       make(map[core.NodeKey]core.Core),
 		net:         net,
 		addrFactory: addrFactory,
 	}
@@ -72,8 +72,7 @@ func (cb *CoreBuilder) New() core.Core {
 		addr,
 		cb.peerAddresses(),
 		aspen.WithEngine(store.KV),
-		aspen.WithExperiment(cb.Config.Experiment),
-		aspen.WithLogger(cb.Config.Logger.Named("aspen").Sugar()),
+		aspen.WithInstrumentation(cb.Config.Instrumentation),
 		aspen.WithTransport(trans),
 		aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 	))
@@ -83,9 +82,13 @@ func (cb *CoreBuilder) New() core.Core {
 
 	store.KV = clusterKV
 
-	_core := distribution.Core{Config: cfg, Cluster: clusterKV, Storage: store}
+	_core := distribution.Core{
+		Config:  cfg,
+		Cluster: clusterKV.Cluster,
+		Storage: store,
+	}
 
-	cb.Cores[_core.Cluster.HostID()] = _core
+	cb.Cores[_core.Cluster.HostKey()] = _core
 	return _core
 }
 

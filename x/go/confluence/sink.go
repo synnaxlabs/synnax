@@ -18,15 +18,7 @@ import (
 type UnarySink[V Value] struct {
 	// Sink is called whenever a value is received from the Outlet.
 	Sink func(ctx context.Context, value V) error
-	In   Outlet[V]
-}
-
-// InFrom implements the Sink interface.
-func (us *UnarySink[V]) InFrom(outlets ...Outlet[V]) {
-	if len(outlets) != 1 {
-		panic("[confluence.UnarySink] - must have exactly one outlet")
-	}
-	us.In = outlets[0]
+	AbstractUnarySink[V]
 }
 
 // Flow implements the Flow interface.
@@ -36,4 +28,14 @@ func (us *UnarySink[V]) Flow(ctx signal.Context, opts ...Option) {
 
 func (us *UnarySink[V]) GoRange(ctx signal.Context, f func(context.Context, V) error, opts ...signal.RoutineOption) {
 	signal.GoRange(ctx, us.In.Outlet(), f, opts...)
+}
+
+type AbstractUnarySink[V Value] struct{ In Outlet[V] }
+
+// InFrom implements the Sink interface.
+func (as *AbstractUnarySink[V]) InFrom(outlets ...Outlet[V]) {
+	if len(outlets) != 1 {
+		panic("[confluence.UnarySink] - must have exactly one outlet")
+	}
+	as.In = outlets[0]
 }

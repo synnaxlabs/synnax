@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/address"
 )
@@ -20,6 +21,7 @@ import (
 type FramerNetwork struct {
 	Iterator *FramerIteratorNetwork
 	Writer   *FramerWriterNetwork
+	Relay    *FramerRelayNetwork
 }
 
 func NewFramerNetwork() *FramerNetwork {
@@ -33,12 +35,14 @@ func (f *FramerNetwork) New(add address.Address) framer.Transport {
 	return &FramerTransport{
 		iterator: f.Iterator.New(add),
 		writer:   f.Writer.New(add),
+		relay:    f.Relay.New(add),
 	}
 }
 
 type FramerTransport struct {
 	iterator iterator.Transport
 	writer   writer.Transport
+	relay    relay.Transport
 }
 
 var (
@@ -48,6 +52,8 @@ var (
 func (c FramerTransport) Iterator() iterator.Transport { return c.iterator }
 
 func (c FramerTransport) Writer() writer.Transport { return c.writer }
+
+func (c FramerTransport) Relay() relay.Transport { return c.relay }
 
 type FramerIteratorNetwork struct {
 	Internal *fmock.Network[iterator.Request, iterator.Response]

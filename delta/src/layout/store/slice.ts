@@ -13,10 +13,10 @@ import { Mosaic, Theming } from "@synnaxlabs/pluto";
 import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
 import { DeepKey, Location } from "@synnaxlabs/x";
 
-import { Layout } from "../types";
+import { LayoutState } from "../types";
 
 /** The state of the layout slice */
-export interface LayoutState {
+export interface LayoutSliceState {
   /** The current theme. */
   activeTheme: string;
   /**
@@ -27,7 +27,7 @@ export interface LayoutState {
    * A record of layout keys to layouts. These represent the properties of all layouts
    * currently rendered in the mosaic or in external windows.
    */
-  layouts: Record<string, Layout>;
+  layouts: Record<string, LayoutState>;
   mosaic: MosaicState;
   nav: NavState;
   alreadyCheckedGetStarted: boolean;
@@ -68,10 +68,10 @@ export const LAYOUT_SLICE_NAME = "layout";
  * need access to the layout slice.
  */
 export interface LayoutStoreState {
-  [LAYOUT_SLICE_NAME]: LayoutState;
+  [LAYOUT_SLICE_NAME]: LayoutSliceState;
 }
 
-export const MAIN_LAYOUT: Layout = {
+export const MAIN_LAYOUT: LayoutState = {
   name: "Main",
   key: "main",
   type: "main",
@@ -81,7 +81,7 @@ export const MAIN_LAYOUT: Layout = {
   },
 };
 
-const INITIAL_STATE: LayoutState = {
+const INITIAL_STATE: LayoutSliceState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
@@ -118,11 +118,11 @@ export const LAYOUT_PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 ) as Array<DeepKey<LayoutStoreState>>;
 
 /** Signature for the placeLayut action. */
-export type PlaceLayoutPayload = Layout;
+export type PlaceLayoutPayload = LayoutState;
 /** Signature for the removeLayout action. */
 export type RemoveLayoutPayload = string;
 /** Signature for the setTheme action. */
-export type SetActiveThemePayload = string;
+export type SetActiveThemePayload = string | undefined;
 
 interface MoveLayoutMosaicTabPayload {
   tabKey: string;
@@ -136,8 +136,8 @@ interface ResizeLayoutMosaicTabPayload {
 interface SelectLayoutMosaicTabPayload {
   tabKey: string;
 }
-interface RenameLayoutMosaicTabPayload {
-  tabKey: string;
+interface RenameLayoutPayload {
+  key: string;
   name: string;
 }
 
@@ -163,17 +163,21 @@ export const { actions, reducer: layoutReducer } = createSlice({
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        state.mosaic.root = Mosaic.removeTab(state.mosaic.root, key);
+        [state.mosaic.root] = Mosaic.removeTab(state.mosaic.root, key);
+
+      const mosaicTab = {
+        ...tab,
+        name,
+        tabKey: key,
+      };
+      delete mosaicTab.location;
+      delete mosaicTab.mosaicKey;
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
         state.mosaic.root = Mosaic.insertTab(
           state.mosaic.root,
-          {
-            tabKey: key,
-            name,
-            ...tab,
-          },
+          mosaicTab,
           tab?.location,
           tab?.mosaicKey
         );
@@ -230,16 +234,23 @@ export const { actions, reducer: layoutReducer } = createSlice({
     ) => {
       state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
     },
-    renameLayoutMosaicTab: (
+    renameLayout: (
       state,
-      { payload: { tabKey, name } }: PayloadAction<RenameLayoutMosaicTabPayload>
+      { payload: { key: tabKey, name } }: PayloadAction<RenameLayoutPayload>
     ) => {
+      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout != null) layout.name = name;
       state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
-      state.activeTheme = key;
+      if (key != null) state.activeTheme = key;
+      else {
+        const keys = Object.keys(state.themes).sort();
+        const index = keys.indexOf(state.activeTheme);
+        const next = keys[(index + 1) % keys.length];
+        state.activeTheme = next;
+      }
     },
     toggleActiveTheme: (state) => {
       const keys = Object.keys(state.themes);
@@ -306,11 +317,11 @@ export const {
   moveLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
-  renameLayoutMosaicTab,
+  renameLayout,
   resizeNavdrawer,
   setNavdrawerVisible,
   maybeCreateGetStartedTab,
 } = actions;
 
-export type LayoutAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type LayoutAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LayoutPayload = LayoutAction["payload"];

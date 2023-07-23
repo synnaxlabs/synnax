@@ -10,60 +10,68 @@
 package gorp
 
 import (
-	"github.com/synnaxlabs/x/kv"
+	"context"
 )
 
-type KVBatch[K Key, E Entry[K]] struct {
-	kv.Batch
-	opts options
+// Writer represents a generalized key-value transaction that executes atomically against
+// an underlying database. DB implements the Writer interface, which will execute
+// queries directly against the DB. To open an isolated transaction against the DB, use
+// cesium.BeginWrite.
+type Writer[K Key, E Entry[K]] struct {
+	BaseWriter
+	lazyPrefix[K, E]
 }
 
-func WrapKVBatch[K Key, E Entry[K]](batch kv.Batch, opts ...Option) *KVBatch[K, E] {
-	return &KVBatch[K, E]{Batch: batch, opts: newOptions(opts...)}
+// WrapWriter wraps the given key-value writer to provide a strongly
+// typed interface for writing entries to the DB.
+func WrapWriter[K Key, E Entry[K]](base BaseWriter) *Writer[K, E] {
+	return &Writer[K, E]{BaseWriter: base, lazyPrefix: lazyPrefix[K, E]{Tools: base}}
 }
 
-func (w *KVBatch[K, E]) Write(entry E) error {
-	prefix := typePrefix[K, E](w.opts)
-	data, err := w.opts.encoder.Encode(entry)
-	if err != nil {
-		return err
-	}
-	key, err := w.opts.encoder.Encode(entry.GorpKey())
-	if err != nil {
-		return err
-	}
-	// NOTE: We need to be careful with this operation in the future.
-	// Because we aren't copying prefix, we're modifying the underlying slice.
-	prefixedKey := append(prefix, key...)
-	if err = w.Set(prefixedKey, data, entry.SetOptions()...); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (w *KVBatch[K, E]) WriteMany(entries []E) error {
+// Set writes the provided entries to the DB.
+func (w *Writer[K, E]) Set(ctx context.Context, entries ...E) error {
 	for _, entry := range entries {
-		if err := w.Write(entry); err != nil {
+		if err := w.set(ctx, entry); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (w *KVBatch[K, E]) Delete(key K) error {
-	prefix := typePrefix[K, E](w.opts)
-	data, err := w.opts.encoder.Encode(key)
+// Delete deletes the provided keys from the DB.
+func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
+	for _, key := range keys {
+		if err := w.delete(ctx, key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
+	data, err := w.Encode(ctx, entry)
+	if err != nil {
+		return err
+	}
+	key, err := w.Encode(ctx, entry.GorpKey())
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	if err = w.Batch.Delete(append(prefix, data...)); err != nil {
+	prefixedKey := append(w.prefix(ctx), key...)
+	if err = w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (w *KVBatch[K, E]) options() options {
-	return w.opts
+func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
+	data, err := w.Encode(nil, key)
+	if err != nil {
+		return err
+	}
+	// NOTE: We need to be careful with this operation in the future.
+	// Because we aren't copying prefix, we're modifying the underlying slice.
+	return w.BaseWriter.Delete(ctx, append(w.prefix(ctx), data...))
 }

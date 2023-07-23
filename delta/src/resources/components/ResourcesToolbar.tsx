@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import type { TreeLeaf } from "@synnaxlabs/pluto";
-import { Tree, Space } from "@synnaxlabs/pluto";
+import { Tree, Space, Client, useAsyncEffect, Text } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
 import { resourceTypes } from "../resources";
 
-import { useClusterClient } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useAsyncEffect } from "@/hooks";
 import { NavDrawerItem, useLayoutPlacer } from "@/layout";
-import { WorkspaceState } from "@/workspace";
+import { WorkspaceSliceState } from "@/workspace";
 
 const updateTreeEntry = (
   data: TreeLeaf[],
@@ -51,8 +49,8 @@ const convertOntologyResources = (resources: OntologyResource[]): TreeLeaf[] => 
   });
 };
 
-const ResourcesTree = (): JSX.Element => {
-  const client = useClusterClient();
+const ResourcesTree = (): ReactElement => {
+  const client = Client.use();
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [data, setData] = useState<TreeLeaf[]>([]);
   const store = useStore();
@@ -79,8 +77,9 @@ const ResourcesTree = (): JSX.Element => {
           const { onSelect } = resourceTypes[id.type];
           onSelect?.({
             id,
-            placer,
-            workspace: (store.getState() as { workspace: WorkspaceState }).workspace,
+            placeLayout: placer,
+            workspace: (store.getState() as { workspace: WorkspaceSliceState })
+              .workspace,
           });
           setSelected([key]);
         }}
@@ -109,6 +108,7 @@ export const ResourcesToolbar: NavDrawerItem = {
   key: "resources",
   icon: <Icon.Resources />,
   content: <ResourcesTree />,
+  tooltip: "Resources",
   initialSize: 350,
   minSize: 250,
   maxSize: 650,

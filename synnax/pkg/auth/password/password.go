@@ -22,6 +22,7 @@ var (
 // The password should be hashed by calling Hash before saving it.
 type Raw string
 
+// Hash hashes the raw password using the first working Hasher in Hashers.
 func (r Raw) Hash() (h Hashed, err error) {
 	for _, hasher := range Hashers {
 		h, err = hasher.Hash(r)
@@ -36,6 +37,7 @@ func (r Raw) Hash() (h Hashed, err error) {
 // The hash can be compared against a raw password by calling Validate.
 type Hashed []byte
 
+// Validate validates the hashed password against the raw password.
 func (h Hashed) Validate(r Raw) (err error) {
 	for _, hasher := range Hashers {
 		err = hasher.Compare(r, h)

@@ -9,3 +9,6 @@
 
 export const preventDefault = (e: { preventDefault: () => void }): void =>
   e.preventDefault();
+
+export const stopPropagation = (e: { stopPropagation: () => void }): void =>
+  e.stopPropagation();

@@ -18,29 +18,29 @@ import (
 )
 
 var _ = Describe("Accuracy", Ordered, func() {
-	var db cesium.DB
+	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Context("Single Channel", func() {
 
 		Context("Rate Based", Ordered, func() {
-			key := "rateTest"
+			var key cesium.ChannelKey = 1
 			first := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 			second := []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
 			BeforeAll(func() {
-				Expect(db.CreateChannel(cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
-				Expect(db.WriteArray(10*telem.SecondTS, key, telem.NewArray(first))).To(Succeed())
-				Expect(db.WriteArray(20*telem.SecondTS, key, telem.NewArray(second))).To(Succeed())
+				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+				Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
+				Expect(db.WriteArray(ctx, key, 20*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 			})
 			DescribeTable("Accuracy",
 				func(
 					tr telem.TimeRange,
 					expected []int64,
 				) {
-					frame := MustSucceed(db.Read(tr, key))
-					actual := []int64{}
-					for _, arr := range frame.Arrays {
-						actual = append(actual, telem.Unmarshal[int64](arr)...)
+					frame := MustSucceed(db.Read(ctx, tr, key))
+					actual := make([]int64, 0, len(expected))
+					for _, series := range frame.Series {
+						actual = append(actual, telem.Unmarshal[int64](series)...)
 					}
 					Expect(actual).To(Equal(expected))
 				},
@@ -72,32 +72,37 @@ var _ = Describe("Accuracy", Ordered, func() {
 		})
 
 		Context("Indexed", Ordered, func() {
-			key := "idx1Test"
-			idxKey := "idx1TestIdx"
-			first := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			second := []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
-			// Converted to seconds on write
-			firstTS := []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
-			secondTS := []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
+			var (
+				key    cesium.ChannelKey = 2
+				idxKey cesium.ChannelKey = 3
+				first                    = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				second                   = []int64{13, 14, 15, 16, 17, 18, 19, 20, 21, 22}
+				// Converted to seconds on write
+				firstTS  = []telem.TimeStamp{2, 4, 6, 8, 10, 12, 13, 17, 18, 20}
+				secondTS = []telem.TimeStamp{22, 24, 29, 32, 33, 34, 35, 36, 38, 40}
+			)
 			BeforeAll(func() {
 				Expect(db.CreateChannel(
+					ctx,
 					cesium.Channel{Key: idxKey, IsIndex: true, DataType: telem.TimeStampT},
 					cesium.Channel{Key: key, Index: idxKey, DataType: telem.Int64T},
 				)).To(Succeed())
-				Expect(db.WriteArray(2*telem.SecondTS, idxKey, telem.NewSecondsTSV(firstTS...))).To(Succeed())
-				Expect(db.WriteArray(22*telem.SecondTS, idxKey, telem.NewSecondsTSV(secondTS...))).To(Succeed())
-				Expect(db.WriteArray(2*telem.SecondTS, key, telem.NewArray(first))).To(Succeed())
-				Expect(db.WriteArray(22*telem.SecondTS, key, telem.NewArray(second))).To(Succeed())
+				Expect(db.WriteArray(ctx, idxKey, 2*telem.SecondTS, telem.NewSecondsTSV(firstTS...))).To(Succeed())
+				Expect(db.WriteArray(ctx, idxKey, 22*telem.SecondTS, telem.NewSecondsTSV(secondTS...))).To(Succeed())
+				Expect(db.WriteArray(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
+				Expect(db.WriteArray(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 			})
 			DescribeTable("Accuracy",
 				func(
 					tr telem.TimeRange,
 					expected []int64,
 				) {
-					frame := MustSucceed(db.Read(tr, key))
-					actual := []int64{}
-					for _, arr := range frame.Arrays {
-						actual = append(actual, telem.Unmarshal[int64](arr)...)
+					var (
+						frame  = MustSucceed(db.Read(ctx, tr, key))
+						actual = make([]int64, 0, len(expected))
+					)
+					for _, series := range frame.Series {
+						actual = append(actual, telem.Unmarshal[int64](series)...)
 					}
 					Expect(actual).To(Equal(expected))
 				},
@@ -148,17 +153,20 @@ var _ = Describe("Accuracy", Ordered, func() {
 	Context("Multi Channel", func() {
 		Context("Rate Based", func() {
 			Context("Shared Rate", Ordered, func() {
-				key1 := "multiChRateShared1"
-				key2 := "multiChRateShared2"
-				data1 := []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-				data2 := []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+				var (
+					key1  cesium.ChannelKey = 4
+					key2  cesium.ChannelKey = 5
+					data1                   = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					data2                   = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+				)
 				BeforeAll(func() {
 					Expect(db.CreateChannel(
+						ctx,
 						cesium.Channel{Key: key1, Rate: 1 * telem.Hz, DataType: telem.Int64T},
 						cesium.Channel{Key: key2, Rate: 1 * telem.Hz, DataType: telem.Int64T},
 					)).To(Succeed())
-					Expect(db.WriteArray(2*telem.SecondTS, key1, telem.NewArray(data1))).To(Succeed())
-					Expect(db.WriteArray(2*telem.SecondTS, key2, telem.NewArray(data2))).To(Succeed())
+					Expect(db.WriteArray(ctx, key1, 2*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
+					Expect(db.WriteArray(ctx, key2, 2*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 				})
 
 				DescribeTable("Accuracy",
@@ -167,14 +175,16 @@ var _ = Describe("Accuracy", Ordered, func() {
 						expected1 []int64,
 						expected2 []int64,
 					) {
-						frame := MustSucceed(db.Read(tr, key1, key2))
-						actual1 := []int64{}
-						actual2 := []int64{}
-						for i, arr := range frame.Arrays {
+						var (
+							frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
+							actual1 = make([]int64, 0, len(expected1))
+							actual2 = make([]int64, 0, len(expected2))
+						)
+						for i, series := range frame.Series {
 							if frame.Key(i) == key1 {
-								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)
+								actual1 = append(actual1, telem.Unmarshal[int64](series)...)
 							} else {
-								actual2 = append(actual2, telem.Unmarshal[int64](arr)...)
+								actual2 = append(actual2, telem.Unmarshal[int64](series)...)
 							}
 						}
 						Expect(actual1).To(Equal(expected1))
@@ -211,27 +221,28 @@ var _ = Describe("Accuracy", Ordered, func() {
 		Context("Indexed", func() {
 			Context("Different Indexes", Ordered, func() {
 				var (
-					idxKey1 = "multiChIdxDiffIdx1"
-					idxKey2 = "multiChIdxDiffIdx2"
-					key1    = "multiChIdxDiff1"
-					key2    = "multiChIdxDiff2"
-					data1   = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-					data2   = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+					idxKey1 cesium.ChannelKey = 6
+					idxKey2 cesium.ChannelKey = 7
+					key1    cesium.ChannelKey = 8
+					key2    cesium.ChannelKey = 9
+					data1                     = []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+					data2                     = []int64{11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 					// converted to seconds on write
 					idxData1 = []telem.TimeStamp{1, 3, 5, 7, 9, 11, 18, 22, 31, 35}
 					idxData2 = []telem.TimeStamp{1, 2, 6, 7, 12, 14, 17, 21, 27, 33}
 				)
 				BeforeAll(func() {
 					Expect(db.CreateChannel(
+						ctx,
 						cesium.Channel{Key: idxKey1, DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: idxKey2, DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: key1, Index: idxKey1, DataType: telem.Int64T},
 						cesium.Channel{Key: key2, Index: idxKey2, DataType: telem.Int64T},
 					)).To(Succeed())
-					Expect(db.WriteArray(1*telem.SecondTS, idxKey1, telem.NewSecondsTSV(idxData1...))).To(Succeed())
-					Expect(db.WriteArray(1*telem.SecondTS, idxKey2, telem.NewSecondsTSV(idxData2...))).To(Succeed())
-					Expect(db.WriteArray(1*telem.SecondTS, key1, telem.NewArray(data1))).To(Succeed())
-					Expect(db.WriteArray(1*telem.SecondTS, key2, telem.NewArray(data2))).To(Succeed())
+					Expect(db.WriteArray(ctx, idxKey1, 1*telem.SecondTS, telem.NewSecondsTSV(idxData1...))).To(Succeed())
+					Expect(db.WriteArray(ctx, idxKey2, 1*telem.SecondTS, telem.NewSecondsTSV(idxData2...))).To(Succeed())
+					Expect(db.WriteArray(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
+					Expect(db.WriteArray(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 				})
 				DescribeTable("Accuracy",
 					func(
@@ -239,14 +250,16 @@ var _ = Describe("Accuracy", Ordered, func() {
 						expected1 []int64,
 						expected2 []int64,
 					) {
-						frame := MustSucceed(db.Read(tr, key1, key2))
-						actual1 := []int64{}
-						actual2 := []int64{}
-						for i, arr := range frame.Arrays {
-							if frame.Key(i) == key1 {
-								actual1 = append(actual1, telem.Unmarshal[int64](arr)...)
+						var (
+							frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
+							actual1 = make([]int64, 0, len(expected1))
+							actual2 = make([]int64, 0, len(expected2))
+						)
+						for i, series := range frame.Series {
+							if frame.Keys[i] == key1 {
+								actual1 = append(actual1, telem.Unmarshal[int64](series)...)
 							} else {
-								actual2 = append(actual2, telem.Unmarshal[int64](arr)...)
+								actual2 = append(actual2, telem.Unmarshal[int64](series)...)
 							}
 						}
 						Expect(actual1).To(Equal(expected1))

@@ -17,11 +17,12 @@ import (
 // BindableTransport is a transport that can be bound to a gRPC service
 // registrar.
 type BindableTransport interface {
+	freighter.Transport
 	// BindTo binds the transport to the given gRPC service registrar.
 	BindTo(reg grpc.ServiceRegistrar)
 }
 
-var reporter = freighter.Reporter{
+var Reporter = freighter.Reporter{
 	Protocol:  "grpc",
 	Encodings: []string{"protobuf"},
 }

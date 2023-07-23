@@ -33,29 +33,29 @@ var _ = Describe("enforcer", func() {
 			DefaultEffect: access.Deny,
 			Legislator:    legislator,
 		}
-		txn := db.BeginTxn()
+		txn := db.OpenTx()
 		Expect(legislator.Create(txn, changePasswordPolicy)).To(Succeed())
-		Expect(txn.Commit()).To(Succeed())
+		Expect(txn.Commit(ctx)).To(Succeed())
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	It("Should allow access when a valid policy exists", func() {
-		Expect(enforcer.Enforce(access.Request{
+		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: userID,
 			Object:  userID,
 			Action:  "changePassword",
 		})).To(BeNil())
 	})
 	It("Should return the default effect when a policy can't be found", func() {
-		Expect(enforcer.Enforce(access.Request{
+		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: user.OntologyID(uuid.New()),
 			Object:  userID,
 			Action:  "changePassword",
 		})).To(Equal(access.Denied))
 	})
 	It("Should return the default effect when no policy applies to the request", func() {
-		Expect(enforcer.Enforce(access.Request{
+		Expect(enforcer.Enforce(ctx, access.Request{
 			Subject: userID,
 			Object:  userID,
 			Action:  "retrieve",

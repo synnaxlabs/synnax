@@ -12,3 +12,8 @@
 .sb-show-main {
     border: var(--pluto-border);
 }
+
+#storybook-root {
+    width: 100%;
+    height: 100%;
+}

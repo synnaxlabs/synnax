@@ -11,59 +11,56 @@ package kv
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
-	"go/types"
+	"go.uber.org/zap"
 )
-
-// |||||| OPERATION ||||||
 
 type (
-	BatchTransportClient = freighter.UnaryClient[BatchRequest, BatchRequest]
-	BatchTransportServer = freighter.UnaryServer[BatchRequest, BatchRequest]
+	BatchTransportClient = freighter.UnaryClient[TxRequest, TxRequest]
+	BatchTransportServer = freighter.UnaryServer[TxRequest, TxRequest]
 )
-
-// |||| SENDER ||||
 
 type operationSender struct {
 	Config
-	confluence.LinearTransform[BatchRequest, BatchRequest]
+	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
 func newOperationSender(cfg Config) segment {
 	os := &operationSender{Config: cfg}
-	os.TransformFunc.Transform = os.send
+	os.Transform = os.send
 	return os
 }
 
-func (g *operationSender) send(ctx context.Context, sync BatchRequest) (BatchRequest, bool, error) {
-	// If we have no Operations to propagate, it's best to avoid the network chatter.
+func (g *operationSender) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
+	// If we have no NewReader to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
 	}
-	hostID := g.Cluster.HostID()
+	hostID := g.Cluster.HostKey()
 	peer := gossip.RandomPeer(g.Cluster.Nodes(), hostID)
 	if peer.Address == "" {
 		return sync, false, nil
 	}
 	sync.Sender = hostID
-	ack, err := g.BatchTransportClient.Send(ctx, peer.Address, sync)
+	ack, err := g.BatchTransportClient.Send(sync.Context, peer.Address, sync)
+	ack.Context = sync.Context
 	if err != nil {
-		g.Logger.Errorw("operation gossip failed", "err", err)
+		g.L.Error("operation gossip failed", zap.Error(err))
 	}
-	// If we have no Operations to apply, avoid the pipeline overhead.
+	// If we have no operations to apply, avoid the pipeline overhead.
 	return ack, !ack.empty(), nil
 }
-
-// |||| RECEIVER ||||
 
 type operationReceiver struct {
 	Config
 	store store
-	confluence.AbstractUnarySource[BatchRequest]
-	confluence.EmptyFlow
+	confluence.AbstractUnarySource[TxRequest]
+	confluence.NopFlow
 }
 
 func newOperationReceiver(cfg Config, s store) source {
@@ -72,21 +69,22 @@ func newOperationReceiver(cfg Config, s store) source {
 	return or
 }
 
-func (g *operationReceiver) handle(ctx context.Context, req BatchRequest) (BatchRequest, error) {
+func (g *operationReceiver) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
+	// The handler context is cancelled after it returns, so we need to use a separate
+	// context for executing the tx.
+	req.Context = context.TODO()
 	select {
 	case <-ctx.Done():
-		return BatchRequest{}, ctx.Err()
+		return TxRequest{}, ctx.Err()
 	case g.Out.Inlet() <- req:
 	}
-	br := g.store.PeekState().toBatchRequest()
-	br.Sender = g.Cluster.HostID()
+	br := g.store.PeekState().toBatchRequest(ctx)
+	br.Sender = g.Cluster.HostKey()
 	return br, nil
 }
 
-// |||||| FEEDBACK ||||||
-
 type FeedbackMessage struct {
-	Sender  node.ID
+	Sender  node.Key
 	Digests Digests
 }
 
@@ -95,11 +93,9 @@ type (
 	FeedbackTransportServer = freighter.UnaryServer[FeedbackMessage, types.Nil]
 )
 
-// |||| SENDER ||||
-
 type feedbackSender struct {
 	Config
-	confluence.UnarySink[BatchRequest]
+	confluence.UnarySink[TxRequest]
 }
 
 func newFeedbackSender(cfg Config) sink {
@@ -108,21 +104,19 @@ func newFeedbackSender(cfg Config) sink {
 	return fs
 }
 
-func (f *feedbackSender) send(ctx context.Context, bd BatchRequest) error {
-	msg := FeedbackMessage{Sender: f.Cluster.Host().ID, Digests: bd.digests()}
+func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
+	msg := FeedbackMessage{Sender: f.Cluster.Host().Key, Digests: bd.digests()}
 	sender, _ := f.Cluster.Node(bd.Sender)
-	if _, err := f.FeedbackTransportClient.Send(context.TODO(), sender.Address, msg); err != nil {
-		f.Logger.Errorw("feedback gossip failed", "err", err)
+	if _, err := f.FeedbackTransportClient.Send(ctx, sender.Address, msg); err != nil {
+		f.L.Error("feedback gossip failed", zap.Error(err))
 	}
 	return nil
 }
 
-// |||| RECEIVER ||||
-
 type feedbackReceiver struct {
 	Config
-	confluence.AbstractUnarySource[BatchRequest]
-	confluence.EmptyFlow
+	confluence.AbstractUnarySource[TxRequest]
+	confluence.NopFlow
 }
 
 func newFeedbackReceiver(cfg Config) source {
@@ -131,7 +125,9 @@ func newFeedbackReceiver(cfg Config) source {
 	return fr
 }
 
-func (f *feedbackReceiver) handle(ctx context.Context, message FeedbackMessage) (types.Nil, error) {
-	f.Out.Inlet() <- message.Digests.toRequest()
+func (f *feedbackReceiver) handle(_ context.Context, msg FeedbackMessage) (types.Nil, error) {
+	// The handler context is cancelled after it returns, so we need to use a separate
+	// context for passing the feedback to the pipeline.
+	f.Out.Inlet() <- msg.Digests.toRequest(context.TODO())
 	return types.Nil{}, nil
 }

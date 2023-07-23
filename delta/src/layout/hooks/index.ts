@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, useCallback, useState } from "react";
+import { Dispatch, ReactElement, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
@@ -18,6 +18,8 @@ import {
   Theme,
   useOS,
   Theming,
+  useAsyncEffect,
+  AsyncDestructor,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -35,19 +37,17 @@ import {
   useSelectNavDrawer,
   useSelectTheme,
 } from "../store";
-import { Layout } from "../types";
-
-import { useAsyncEffect, AsyncDestructor } from "@/hooks";
+import { LayoutState } from "../types";
 
 export interface LayoutCreatorProps {
   dispatch: Dispatch<AnyAction>;
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type LayoutCreator = (props: LayoutCreatorProps) => Layout;
+export type LayoutCreator = (props: LayoutCreatorProps) => LayoutState;
 
 /** A function that places a layout using the given properties or creation func. */
-export type LayoutPlacer = (layout: Layout | LayoutCreator) => void;
+export type LayoutPlacer = (layout: LayoutState | LayoutCreator) => void;
 
 /** A function that removes a layout. */
 export type LayoutRemover = () => void;
@@ -66,7 +66,7 @@ export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
   const os = useOS();
   return useCallback(
-    (layout_: Layout | LayoutCreator) => {
+    (layout_: LayoutState | LayoutCreator) => {
       const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
       const { key, location, window, name: title } = layout;
       dispatch(placeLayout(layout));
@@ -98,7 +98,7 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
   if (layout == null) throw new Error(`layout with key ${key} does not exist`);
   return () => {
     if (layout.location === "window") dispatch(closeWindow({ key }));
-    dispatch(removeLayout(key))
+    dispatch(removeLayout(key));
   };
 };
 
@@ -113,7 +113,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
-  useAsyncEffect(async (): AsyncDestructor => {
+  useAsyncEffect(async () => {
     if (appWindow.label !== MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
@@ -121,7 +121,7 @@ export const useThemeProvider = (): ThemeProviderProps => {
   }, []);
 
   return {
-    theme: theme as Theme,
+    theme: Theming.schema.parse(theme),
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleActiveTheme()),
   };
@@ -134,7 +134,7 @@ export const useErrorThemeProvider = (): ThemeProviderProps => {
     setTheme(Theming.themes[theme]);
   }, []);
   return {
-    theme: theme as Theme,
+    theme: Theming.schema.parse(theme),
     setTheme: (key: string) =>
       setTheme(Theming.themes[key as keyof typeof Theming.themes]),
     toggleTheme: () =>
@@ -165,7 +165,8 @@ const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => 
 
 export interface NavMenuItem {
   key: string;
-  icon: JSX.Element;
+  icon: ReactElement;
+  tooltip: string;
 }
 
 export interface NavDrawerItem extends PNavDrawerItem, NavMenuItem {}

@@ -19,41 +19,7 @@ import (
 
 type StreamIterator = confluence.Segment[Request, Response]
 
-type Iterator interface {
-	// Next reads all channelClient data occupying the next span of time. Returns true
-	// if the current IteratorServer.View is pointing to any valid segments.
-	Next(span telem.TimeSpan) bool
-	// Prev reads all channelClient data occupying the previous span of time. Returns true
-	// if the current IteratorServer.View is pointing to any valid segments.
-	Prev(span telem.TimeSpan) bool
-	// SeekFirst seeks the iterator the start of the iterator range.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	SeekFirst() bool
-	// SeekLast seeks the iterator the end of the iterator range.
-	// Returns true if the current IteratorServer.View is pointing to any valid segments.
-	SeekLast() bool
-	// SeekLE seeks the iterator to the first whose timestamp is less than or equal
-	// to the given timestamp. Returns true if the current IteratorServer.View is pointing
-	// to any valid segments.
-	SeekLE(t telem.TimeStamp) bool
-	// SeekGE seeks the iterator to the first whose timestamp is greater than the
-	// given timestamp. Returns true if the current IteratorServer.View is pointing to
-	// any valid segments.
-	SeekGE(t telem.TimeStamp) bool
-	// Close closes the Iterator, ensuring that all in-progress reads complete
-	// before closing the Source outlet. All iterators must be Closed, or the
-	// distribution layer will panic.
-	Close() error
-	// Valid returns true if the iterator is pointing at valid data and is error free.
-	Valid() bool
-	// Error returns any errors accumulated during the iterators lifetime.
-	Error() error
-	// SetBounds sets the lower and upper bounds of the iterator.
-	SetBounds(bounds telem.TimeRange) bool
-	Value() core.Frame
-}
-
-type iterator struct {
+type Iterator struct {
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
 	shutdown  context.CancelFunc
@@ -61,65 +27,76 @@ type iterator struct {
 	value     []Response
 }
 
-// Next implements Iterator.
-func (i *iterator) Next(span telem.TimeSpan) bool {
+// Next reads all channel data occupying the next span of time. Returns true
+// if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) Next(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Next, Span: span})
 }
 
-// Prev implements Iterator.
-func (i *iterator) Prev(span telem.TimeSpan) bool {
+// Prev reads all channel data occupying the previous span of time. Returns true
+// if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	i.value = nil
 	return i.exec(Request{Command: Prev, Span: span})
 }
 
-// SeekFirst implements Iterator.
-func (i *iterator) SeekFirst() bool {
+// SeekFirst seeks the Iterator the start of the Iterator range.
+// Returns true if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) SeekFirst() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekFirst})
 }
 
-// SeekLast implements Iterator.
-func (i *iterator) SeekLast() bool {
+// SeekLast seeks the Iterator the end of the Iterator range.
+// Returns true if the current IteratorServer.View is pointing to any valid segments.
+func (i *Iterator) SeekLast() bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLast})
 }
 
-// SeekLE implements Iterator.
-func (i *iterator) SeekLE(stamp telem.TimeStamp) bool {
+// SeekLE seeks the Iterator to the first whose timestamp is less than or equal
+// to the given timestamp. Returns true if the current IteratorServer.View is pointing
+// to any valid segments.
+func (i *Iterator) SeekLE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekLE, Stamp: stamp})
 }
 
-// SeekGE implements Iterator.
-func (i *iterator) SeekGE(stamp telem.TimeStamp) bool {
+// SeekGE seeks the Iterator to the first whose timestamp is greater than the
+// given timestamp. Returns true if the current IteratorServer.View is pointing to
+// any valid segments.
+func (i *Iterator) SeekGE(stamp telem.TimeStamp) bool {
 	i.value = nil
 	return i.exec(Request{Command: SeekGE, Stamp: stamp})
 }
 
-// Valid implements Iterator.
-func (i *iterator) Valid() bool {
+// Valid returns true if the Iterator is pointing at valid data and is error free.
+func (i *Iterator) Valid() bool {
 	return i.exec(Request{Command: Valid})
 }
 
-// Error implements Iterator.
-func (i *iterator) Error() error {
+// Error returns any errors accumulated during the iterators lifetime.
+func (i *Iterator) Error() error {
 	_, err := i.execErr(Request{Command: Error})
 	return err
 }
 
-// Close implements Iterator.
-func (i *iterator) Close() error {
+// Close closes the Iterator, ensuring that all in-progress reads complete
+// before closing the Source outlet. All iterators must be Closed, or the
+// distribution layer will panic.
+func (i *Iterator) Close() error {
 	defer i.shutdown()
 	i.requests.Close()
 	return i.wg.Wait()
 }
 
-func (i *iterator) SetBounds(bounds telem.TimeRange) bool {
+// SetBounds sets the lower and upper bounds of the Iterator.
+func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: SetBounds, Bounds: bounds})
 }
 
-func (i *iterator) Value() core.Frame {
+func (i *Iterator) Value() core.Frame {
 	frames := make([]core.Frame, len(i.value))
 	for i, v := range i.value {
 		frames[i] = v.Frame
@@ -127,16 +104,16 @@ func (i *iterator) Value() core.Frame {
 	return core.MergeFrames(frames)
 }
 
-func (i *iterator) exec(req Request) bool {
+func (i *Iterator) exec(req Request) bool {
 	ok, _ := i.execErr(req)
 	return ok
 }
 
-func (i *iterator) execErr(req Request) (bool, error) {
+func (i *Iterator) execErr(req Request) (bool, error) {
 	i.requests.Inlet() <- req
 	for res := range i.responses.Outlet() {
 		if res.Variant == AckResponse {
-			return res.Ack, res.Err
+			return res.Ack, res.Error
 		}
 		i.value = append(i.value, res)
 	}

@@ -11,7 +11,7 @@ import pytest
 
 import freighter.exceptions
 from freighter.encoder import MsgpackEncoder
-from freighter.metadata import MetaData
+from freighter.context import Context
 from freighter.sync import SyncStreamClient
 from freighter.transport import Next, AsyncNext
 from freighter.url import URL
@@ -31,6 +31,7 @@ def sync_client(async_client: WebsocketClient) -> SyncStreamClient:
     return SyncStreamClient(async_client)
 
 
+@pytest.mark.ws
 class TestWS:
     async def test_basic_exchange(self, async_client: WebsocketClient):
         """Should exchange ten echo messages that increment the ID."""
@@ -46,7 +47,8 @@ class TestWS:
         assert err is not None
 
     async def test_receive_message_after_close(self, async_client: WebsocketClient):
-        """Should receive a message and EOF error after the server closes the connection."""
+        """Should receive a message and EOF error after the server closes the
+        connection."""
         stream = await async_client.stream(
             "/sendMessageAfterClientClose", Message, Message
         )
@@ -72,7 +74,7 @@ class TestWS:
     async def test_middleware(self, async_client):
         dct = {"called": False}
 
-        async def mw(md: MetaData, next: AsyncNext) -> Exception | None:
+        async def mw(md: Context, next: AsyncNext) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return await next(md)
@@ -118,7 +120,7 @@ class TestSyncWebsocket:
         """Should receive ten messages from the server."""
         dct = {"called": False}
 
-        def mw(md: MetaData, next: Next) -> Exception | None:
+        def mw(md: Context, next: Next) -> Exception | None:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { memo } from "react";
-
-import { useDispatch } from "react-redux";
+import { ReactElement, memo } from "react";
 
 import { useLayoutRenderer } from "@/layout/context";
 import { useLayoutRemover } from "@/layout/hooks";
@@ -28,7 +26,7 @@ export interface LayoutContentProps {
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
 export const LayoutContent = memo(
-  ({ layoutKey }: LayoutContentProps): JSX.Element | null => {
+  ({ layoutKey }: LayoutContentProps): ReactElement | null => {
     const p = useSelectRequiredLayout(layoutKey);
     const handleClose = useLayoutRemover(layoutKey);
     const Renderer = useLayoutRenderer(p.type);

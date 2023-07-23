@@ -15,6 +15,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -27,6 +28,7 @@ import (
 
 // LoaderConfig is the configuration for creating a new Loader.
 type LoaderConfig struct {
+	alamos.Instrumentation
 	// CertsDir is the directory where the certificates are stored.
 	CertsDir string
 	// CAKeyPath is the path to the CA private key. This is relative to CertsDir.
@@ -39,8 +41,6 @@ type LoaderConfig struct {
 	NodeCertPath string
 	// FS is the filesystem to use.
 	FS xfs.FS
-	// Logger is the witness of it all.
-	Logger *zap.SugaredLogger
 }
 
 var (
@@ -64,7 +64,7 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.NodeKeyPath = override.String(l.NodeKeyPath, other.NodeKeyPath)
 	l.NodeCertPath = override.String(l.NodeCertPath, other.NodeCertPath)
 	l.FS = override.Nil(l.FS, other.FS)
-	l.Logger = override.Nil(l.Logger, other.Logger)
+	l.Instrumentation = override.Zero(l.Instrumentation, other.Instrumentation)
 	return l
 }
 
@@ -77,7 +77,6 @@ func (l LoaderConfig) Validate() error {
 	validate.NotEmptyString(v, "NodeKeyPath", l.NodeKeyPath)
 	validate.NotEmptyString(v, "NodeCertPath", l.NodeCertPath)
 	validate.NotNil(v, "FS", l.FS)
-	validate.NotNil(v, "Logger", l.Logger)
 	return v.Error()
 }
 
@@ -88,7 +87,7 @@ type Loader struct{ LoaderConfig }
 // configuration is invalid. If the directory at LoaderConfig.CertsDir does not exist,
 // it is created.
 func NewLoader(configs ...LoaderConfig) (*Loader, error) {
-	cfg, err := config.OverrideAndValidate(DefaultLoaderConfig, configs...)
+	cfg, err := config.New(DefaultLoaderConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +179,7 @@ func (l *Loader) readAll(path string) ([]byte, error) {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			l.Logger.Warnf("failed to close file: %v", err)
+			l.L.Error("failed to close file", zap.String("path", path), zap.Error(err))
 		}
 	}()
 	return io.ReadAll(f)

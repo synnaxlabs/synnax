@@ -10,58 +10,81 @@
 package core
 
 import (
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Frame struct {
-	keys channel.Keys
-	telem.Frame
+	Keys   channel.Keys   `json:"keys" msgpack:"keys"`
+	Series []telem.Series `json:"series" msgpack:"series"`
 }
 
-func (f Frame) Keys() channel.Keys { return f.keys }
+func (f Frame) Vertical() bool { return len(f.Keys.Unique()) == len(f.Series) }
 
-func (f Frame) Vertical() bool { return len(f.keys.Unique()) == len(f.Arrays) }
-
-func (f Frame) SplitByNodeID() map[core.NodeID]Frame {
-	frames := make(map[core.NodeID]Frame)
-	for i, key := range f.keys {
-		nodeID := key.NodeID()
-		nf, ok := frames[nodeID]
+func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
+	frames := make(map[core.NodeKey]Frame)
+	for i, key := range f.Keys {
+		nodeKey := key.Leaseholder()
+		nf, ok := frames[nodeKey]
 		if !ok {
-			frames[nodeID] = NewFrame([]channel.Key{key}, []telem.Array{f.Arrays[i]})
+			frames[nodeKey] = Frame{
+				Keys:   channel.Keys{key},
+				Series: []telem.Series{f.Series[i]},
+			}
 		} else {
-			nf.keys = append(nf.keys, key)
-			nf.Arrays = append(nf.Arrays, f.Arrays[i])
-			frames[nodeID] = nf
+			nf.Keys = append(nf.Keys, key)
+			nf.Series = append(nf.Series, f.Series[i])
+			frames[nodeKey] = nf
 		}
 	}
 	return frames
 }
 
-func (f Frame) SplitByHost(host core.NodeID) (local Frame, remote Frame) {
-	for i, key := range f.keys {
-		if key.NodeID() == host {
-			local.keys = append(local.keys, key)
-			local.Arrays = append(local.Arrays, f.Arrays[i])
+func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
+	for i, key := range f.Keys {
+		if key.Leaseholder() == host {
+			local.Keys = append(local.Keys, key)
+			local.Series = append(local.Series, f.Series[i])
 		} else {
-			remote.keys = append(remote.keys, key)
-			remote.Arrays = append(remote.Arrays, f.Arrays[i])
+			remote.Keys = append(remote.Keys, key)
+			remote.Series = append(remote.Series, f.Series[i])
 		}
 	}
 	return local, remote
 }
 
-func (f Frame) ToStorage() storage.Frame { return cesium.NewFrame(f.keys.Strings(), f.Arrays) }
-
-func NewFrame(keys channel.Keys, arrays []telem.Array) Frame {
-	return Frame{
-		keys:  keys,
-		Frame: telem.Frame{Arrays: arrays},
+func (f Frame) Even() bool {
+	for i := 1; i < len(f.Series); i++ {
+		if f.Series[i].Len() != f.Series[0].Len() {
+			return false
+		}
+		if f.Series[i].TimeRange != f.Series[0].TimeRange {
+			return false
+		}
 	}
+	return true
+}
+
+func (f Frame) ToStorage() (fr ts.Frame) {
+	fr.Series = f.Series
+	fr.Keys = f.Keys.Storage()
+	return fr
+}
+
+func (f Frame) FilterKeys(keys channel.Keys) Frame {
+	var (
+		fKeys   = make(channel.Keys, 0, len(keys))
+		fArrays = make([]telem.Series, 0, len(keys))
+	)
+	for i, key := range f.Keys {
+		if keys.Contains(key) {
+			fKeys = append(fKeys, key)
+			fArrays = append(fArrays, f.Series[i])
+		}
+	}
+	return Frame{Keys: fKeys, Series: fArrays}
 }
 
 func MergeFrames(frames []Frame) (f Frame) {
@@ -72,20 +95,16 @@ func MergeFrames(frames []Frame) (f Frame) {
 		return frames[0]
 	}
 	for _, frame := range frames {
-		f.keys = append(f.keys, frame.keys...)
-		f.Arrays = append(f.Arrays, frame.Arrays...)
+		f.Keys = append(f.Keys, frame.Keys...)
+		f.Series = append(f.Series, frame.Series...)
 	}
 	return f
 }
 
-func NewFrameFromStorage(frame storage.Frame) Frame {
-	keys := make(channel.Keys, len(frame.Arrays))
-	for i := range frame.Arrays {
-		keys[i] = channel.MustParseKey(frame.Key(i))
+func NewFrameFromStorage(frame ts.Frame) Frame {
+	keys := make(channel.Keys, len(frame.Series))
+	for i := range frame.Series {
+		keys[i] = channel.Key(frame.Keys[i])
 	}
-	return NewFrame(keys, frame.Arrays)
-}
-
-func UnaryFrame(key channel.Key, array telem.Array) Frame {
-	return NewFrame(channel.Keys{key}, []telem.Array{array})
+	return Frame{Keys: keys, Series: frame.Series}
 }

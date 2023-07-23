@@ -1,0 +1,79 @@
+#  Copyright 2023 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from freighter import Payload, ExceptionPayload, Stream, StreamClient, EOF
+
+from synnax.channel.payload import ChannelKeys, ChannelParams
+from synnax.exceptions import GeneralError, UnexpectedError
+from synnax.framer.frame import Frame, FramePayload
+from synnax.framer.adapter import BackwardFrameAdapter
+from synnax.telem import TimeStamp, CrudeTimeStamp
+from synnax.util.normalize import normalize
+
+
+class _Request(Payload):
+    start: TimeStamp
+    keys: ChannelKeys
+
+
+class _Response(Payload):
+    frame: FramePayload
+    error: ExceptionPayload | None
+
+
+class Streamer:
+    __ENDPOINT = "/frame/stream"
+    __stream: Stream[_Request, _Response]
+    __adapter: BackwardFrameAdapter
+    from_: CrudeTimeStamp
+
+    def __init__(
+        self,
+        client: StreamClient,
+        adapter: BackwardFrameAdapter,
+        from_: CrudeTimeStamp | None = None,
+    ) -> None:
+        self.from_ = from_ or TimeStamp.now()
+        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self.__adapter = adapter
+        self.__open()
+
+    def __open(self):
+        self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
+
+    def read(self) -> Frame:
+        res, err = self.__stream.receive()
+        if err is not None:
+            raise err
+        return self.__adapter.adapt(Frame(res.frame))
+
+    def close(self):
+        exc = self.__stream.close_send()
+        if exc is not None:
+            raise exc
+        _, exc = self.__stream.receive()
+        if exc is None:
+            raise UnexpectedError(
+                """Unexpected missing close acknowledgement from server.
+                Please report this issue to the Synnax team."""
+            )
+        elif not isinstance(exc, EOF):
+            raise exc
+
+    def __iter__(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __next__(self):
+        return self.read()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()

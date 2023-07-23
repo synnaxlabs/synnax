@@ -13,9 +13,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"google.golang.org/grpc"
 )
 
@@ -37,11 +38,11 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 func (s *StreamClientCore[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
-	return reporter.Report()
+	return Reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
@@ -53,14 +54,13 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	ctx context.Context, stream freighter.ServerStream[RQ, RS],
 ) error {
-	oMD, err := s.MiddlewareCollector.Exec(
-		ctx,
-		parseMetaData(ctx, s.ServiceDesc.ServiceName),
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
-			return freighter.MD{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
+	oCtx, err := s.MiddlewareCollector.Exec(
+		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
+		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+			return freighter.Context{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
 		}),
 	)
-	attachMetaData(ctx, oMD)
+	oCtx = attachContext(oCtx)
 	return err
 }
 
@@ -69,16 +69,27 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], _ error) {
 	_, err := s.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
+		freighter.Context{
+			Context:  ctx,
+			Variant:  freighter.Stream,
+			Role:     freighter.Client,
+			Target:   target,
+			Protocol: Reporter.Protocol,
+			Params:   make(freighter.Params),
+		},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			conn, err := s.Pool.Acquire(target)
 			if err != nil {
-				return oMD, err
+				return oCtx, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
 			stream = s.Client(grpcClient)
-			return parseMetaData(ctx, s.ServiceDesc.ServiceName), err
+			return parseContext(
+				ctx,
+				s.ServiceDesc.ServiceName,
+				freighter.Client,
+				freighter.Stream,
+			), err
 		}),
 	)
 	return stream, err
@@ -117,12 +128,12 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 	if err != nil {
 		return req, translateGRPCError(err)
 	}
-	return s.requestTranslator.Backward(tReq)
+	return s.requestTranslator.Backward(s.internal.Context(), tReq)
 }
 
 // Send implements the freighter.ClientStream interface.
 func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
-	tRes, err := s.responseTranslator.Forward(res)
+	tRes, err := s.responseTranslator.Forward(s.internal.Context(), res)
 	if err != nil {
 		return err
 	}
@@ -142,12 +153,12 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 	if err != nil {
 		return res, translateGRPCError(err)
 	}
-	return c.responseTranslator.Backward(tRes)
+	return c.responseTranslator.Backward(c.internal.Context(), tRes)
 }
 
 // Send implements the freighter.ClientStream interface.
 func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
-	tReq, err := c.requestTranslator.Forward(req)
+	tReq, err := c.requestTranslator.Forward(c.internal.Context(), req)
 	if err != nil {
 		return err
 	}
@@ -160,6 +171,7 @@ func (c *ClientStream[RQ, RQT, RS, RST]) CloseSend() error {
 }
 
 type grpcServerStream[RQ, RS freighter.Payload] interface {
+	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
 }
@@ -170,10 +182,7 @@ type GRPCClientStream[RQ, RS freighter.Payload] interface {
 }
 
 func translateGRPCError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return freighter.EOF
 	}
 	return err

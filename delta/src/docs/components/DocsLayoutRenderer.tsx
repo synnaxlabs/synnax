@@ -18,7 +18,7 @@ import { useSelectDocsLocation } from "@/docs/hooks";
 import { setDocsLocation } from "@/docs/store";
 import { LayoutRenderer } from "@/layout";
 
-import "./DocsLayoutRenderer.css";
+import "@/docs/components/DocsLayoutRenderer.css";
 
 const DOCS_HOST = new URL({
   host: "docs.synnaxlabs.com",
@@ -30,7 +30,7 @@ const DOCS_HOST = new URL({
  * Renders a layout that loads the documentation site in an iframe. Updates the docs
  * redux store to preserve the location when re-opening the docs.
  */
-export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
+export const Docs: LayoutRenderer = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.
@@ -73,4 +73,4 @@ export const DocsLayoutRenderer: LayoutRenderer = memo(() => {
     </div>
   );
 });
-DocsLayoutRenderer.displayName = "DocsLayoutRenderer";
+Docs.displayName = "DocsLayoutRenderer";

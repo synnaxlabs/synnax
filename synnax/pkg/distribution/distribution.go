@@ -17,14 +17,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	segmenttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 type (
 	Config       = core.Config
 	Core         = core.Core
 	Node         = core.Node
-	NodeID       = core.NodeID
+	NodeKey      = core.NodeKey
 	NodeState    = core.NodeState
 	Cluster      = core.Cluster
 	Resolver     = aspen.Resolver
@@ -41,7 +42,12 @@ type Distribution struct {
 }
 
 // Close closes the distribution layer.
-func (d Distribution) Close() error { return d.Storage.Close() }
+func (d Distribution) Close() error {
+	e := errutil.NewCatch(errutil.WithAggregation())
+	e.Exec(d.Framer.Close)
+	e.Exec(d.Storage.Close)
+	return e.Error()
+}
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
@@ -53,24 +59,26 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	gorpDB := d.Storage.Gorpify()
 
-	d.Ontology, err = ontology.Open(gorpDB)
+	d.Ontology, err = ontology.Open(ctx, ontology.Config{
+		Instrumentation: cfg.Instrumentation.Child("ontology"),
+		DB:              gorpDB,
+	})
 	if err != nil {
 		return d, err
 	}
 
 	nodeOntologySvc := &core.NodeOntologyService{
-		Logger:   cfg.Logger.Sugar(),
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,
 	}
 	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
-	nodeOntologySvc.ListenForChanges()
+	nodeOntologySvc.ListenForChanges(ctx)
 
 	channelTransport := channeltransport.New(cfg.Pool)
-	segmentTransport := segmenttransport.New(cfg.Pool)
-	*cfg.Transports = append(*cfg.Transports, channelTransport, segmentTransport)
+	frameTransport := frametransport.New(cfg.Pool)
+	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
 	d.Channel, err = channel.New(channel.ServiceConfig{
 		HostResolver: d.Cluster,
@@ -84,12 +92,12 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	}
 	d.Ontology.RegisterService(d.Channel)
 
-	d.Framer, err = framer.Open(framer.ServiceConfig{
-		ChannelReader: d.Channel,
-		TS:            d.Storage.TS,
-		Transport:     segmentTransport,
-		HostResolver:  d.Cluster,
-		Logger:        cfg.Logger,
+	d.Framer, err = framer.Open(framer.Config{
+		Instrumentation: cfg.Instrumentation.Child("framer"),
+		ChannelReader:   d.Channel,
+		TS:              d.Storage.TS,
+		Transport:       frameTransport,
+		HostResolver:    d.Cluster,
 	})
 
 	return d, err

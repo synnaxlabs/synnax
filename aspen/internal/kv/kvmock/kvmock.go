@@ -10,38 +10,39 @@
 package kvmock
 
 import (
+	"context"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
+	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/signal"
 	"go/types"
 )
 
 type Builder struct {
 	clustermock.Builder
 	BaseCfg     kv.Config
-	OpNet       *fmock.Network[kv.BatchRequest, kv.BatchRequest]
+	OpNet       *fmock.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *fmock.Network[kv.FeedbackMessage, types.Nil]
-	LeaseNet    *fmock.Network[kv.BatchRequest, types.Nil]
-	KVs         map[node.ID]kv.DB
+	LeaseNet    *fmock.Network[kv.TxRequest, types.Nil]
+	KVs         map[node.Key]kvx.DB
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	return &Builder{
 		BaseCfg:     baseKVCfg,
 		Builder:     *clustermock.NewBuilder(baseClusterCfg),
-		OpNet:       fmock.NewNetwork[kv.BatchRequest, kv.BatchRequest](),
+		OpNet:       fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		FeedbackNet: fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
-		LeaseNet:    fmock.NewNetwork[kv.BatchRequest, types.Nil](),
-		KVs:         make(map[node.ID]kv.DB),
+		LeaseNet:    fmock.NewNetwork[kv.TxRequest, types.Nil](),
+		KVs:         make(map[node.Key]kvx.DB),
 	}
 }
 
-func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Config) (kv.DB, error) {
-	clust, err := b.Builder.New(ctx, clusterCfg)
+func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.Config) (*kv.DB, error) {
+	c, err := b.Builder.New(ctx, clusterCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +50,8 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	if kvCfg.Engine == nil {
 		kvCfg.Engine = memkv.New()
 	}
-	kvCfg.Cluster = clust
-	addr := clust.Host().Address
+	kvCfg.Cluster = c
+	addr := c.Host().Address
 	kvCfg.BatchTransportClient = b.OpNet.UnaryClient()
 	kvCfg.BatchTransportServer = b.OpNet.UnaryServer(addr)
 	kvCfg.FeedbackTransportServer = b.FeedbackNet.UnaryServer(addr)
@@ -61,6 +62,20 @@ func (b *Builder) New(ctx signal.Context, kvCfg kv.Config, clusterCfg cluster.Co
 	if err != nil {
 		return nil, err
 	}
-	b.KVs[clust.Host().ID] = kve
+	b.KVs[c.Host().Key] = kve
 	return kve, nil
+}
+
+func (b *Builder) Close() error {
+	for _, db := range b.KVs {
+		if err := db.Close(); err != nil {
+			return err
+		}
+	}
+	for _, n := range b.ClusterAPIs {
+		if err := n.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"sync"
 	"time"
 )
@@ -25,10 +24,9 @@ var _ = Describe("Grpc", func() {
 		b := MustSucceed(server.New(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.BoolPointer(true),
+				Insecure: config.Bool(true),
 			},
-			Debug:  config.BoolPointer(true),
-			Logger: zap.NewNop(),
+			Debug: config.Bool(true),
 			Branches: []server.Branch{
 				&server.GRPCBranch{},
 			},

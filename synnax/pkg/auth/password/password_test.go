@@ -10,9 +10,9 @@
 package password_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/auth/password"
 )
 
 var _ = Describe("Password", func() {
@@ -35,7 +35,7 @@ var _ = Describe("Password", func() {
 			raw := password.Raw("password")
 			hashed, err := raw.Hash()
 			Expect(err).ToNot(HaveOccurred())
-			err = hashed.Validate(password.Raw("wrong"))
+			err = hashed.Validate("wrong")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(password.Invalid))
 		})

@@ -21,11 +21,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"io"
 )
 
-var _ = Describe("Writer", func() {
+var _ = Describe("TypedWriter", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
@@ -42,23 +41,23 @@ var _ = Describe("Writer", func() {
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 				}))
-				Expect(writer.Write(core.NewFrame(
-					s.keys,
-					[]telem.Array{
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
-					}),
+					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
 				Expect(writer.Error()).To(Succeed())
-				Expect(writer.Write(core.NewFrame(
-					s.keys,
-					[]telem.Array{
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
-					}),
+					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
 				Expect(writer.Error()).To(Succeed())
@@ -79,7 +78,7 @@ var _ = Describe("Writer", func() {
 			Expect(err.Error()).To(ContainSubstring("keys"))
 		})
 		It("Should return an error if the channel can't be found", func() {
-			_, err := s.service.New(context.TODO(), writer.Config{
+			_, err := s.service.New(ctx, writer.Config{
 				Keys: []channel.Key{
 					channel.NewKey(0, 22),
 					s.keys[0],
@@ -93,7 +92,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should return an error if two keys do not share the same rate", func() {
 			ch := channel.Channel{Rate: 2 * telem.Hz, DataType: telem.Int64T}
-			Expect(s.channel.Create(&ch)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys: []channel.Key{s.keys[0], ch.Key()},
 			})
@@ -105,12 +104,12 @@ var _ = Describe("Writer", func() {
 				{DataType: telem.TimeStampT, IsIndex: true},
 				{DataType: telem.TimeStampT, IsIndex: true},
 			}
-			Expect(s.channel.CreateMany(&indexes)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &indexes)).To(Succeed())
 			channels := []channel.Channel{
-				{DataType: telem.Int64T, LocalIndex: indexes[0].StorageKey},
-				{DataType: telem.Int64T, LocalIndex: indexes[1].StorageKey},
+				{DataType: telem.Int64T, LocalIndex: indexes[0].LocalKey},
+				{DataType: telem.Int64T, LocalIndex: indexes[1].LocalKey},
 			}
-			Expect(s.channel.CreateMany(&channels)).To(Succeed())
+			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			_, err := s.service.New(context.TODO(), writer.Config{
 				Keys: []channel.Key{
 					channels[0].Key(),
@@ -130,14 +129,14 @@ var _ = Describe("Writer", func() {
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			Expect(writer.Write(core.NewFrame(
-				append(s.keys, channel.NewKey(12, 22)),
-				[]telem.Array{
+			Expect(writer.Write(core.Frame{
+				Keys: append(s.keys, channel.NewKey(12, 22)),
+				Series: []telem.Series{
 					telem.NewArrayV[int64](1, 2, 3),
 					telem.NewArrayV[int64](3, 4, 5),
 					telem.NewArrayV[int64](5, 6, 7),
 					telem.NewArrayV[int64](5, 6, 7),
-				}),
+				}},
 			)).To(BeTrue())
 			Expect(writer.Commit()).To(BeFalse())
 			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
@@ -177,9 +176,9 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(1, zap.NewNop())
+	builder, services := provision(1)
 	svc := services[1]
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		keys:    keys,
@@ -191,16 +190,16 @@ func gatewayOnlyScenario() scenario {
 
 func peerOnlyScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(4, zap.NewNop())
+	builder, services := provision(4)
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeID = dcore.NodeID(i + 2)
+		ch.Leaseholder = dcore.NodeKey(i + 2)
 		channels[i] = ch
 	}
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -215,16 +214,16 @@ func peerOnlyScenario() scenario {
 
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	builder, services := provision(3, zap.NewNop())
+	builder, services := provision(3)
 	svc := services[1]
 	for i, ch := range channels {
-		ch.NodeID = dcore.NodeID(i + 1)
+		ch.Leaseholder = dcore.NodeKey(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.channel.CreateMany(&channels)).To(Succeed())
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(context.TODO())
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

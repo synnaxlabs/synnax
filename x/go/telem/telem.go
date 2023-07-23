@@ -10,12 +10,10 @@
 package telem
 
 import (
-	"github.com/synnaxlabs/x/overflow"
+	"github.com/synnaxlabs/x/clamp"
 	"strconv"
 	"time"
 )
-
-// |||||| TIME STAMP ||||||
 
 const (
 	// TimeStampMin represents the minimum value for a TimeStamp
@@ -56,7 +54,7 @@ func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
 func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
-	return TimeStamp(overflow.CapInt64(int64(ts), int64(tspan)))
+	return TimeStamp(clamp.AddInt64(int64(ts), int64(tspan)))
 }
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
@@ -82,11 +80,6 @@ func (ts TimeStamp) SpanRange(span TimeSpan) TimeRange {
 func (ts TimeStamp) Range(ts2 TimeStamp) TimeRange { return TimeRange{ts, ts2} }
 
 func (ts TimeStamp) Span(t TimeStamp) TimeSpan { return TimeSpan(t - ts) }
-
-// Report implements fmt.Stringer.
-//func (ts TimeStamp) Report() string { return ts.Time().Report() }
-
-// |||||| TIME RANGE ||||||
 
 // TimeRange represents a range of time between two TimeStamp. It's important
 // to note that the start of the range is inclusive, while the end of the range is
@@ -181,8 +174,6 @@ var (
 	TimeRangeZero = TimeRange{Start: TimeStampMin, End: TimeStampMin}
 )
 
-// |||||| TIME SPAN ||||||
-
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
@@ -226,8 +217,6 @@ const (
 	Hour          = 60 * Minute
 )
 
-// |||||| SIZE ||||||
-
 // Size represents the size of an element in bytes.
 type Size int64
 
@@ -242,8 +231,6 @@ type Offset = Size
 
 // String implements fmt.Stringer.
 func (s Size) String() string { return strconv.Itoa(int(s)) + "B" }
-
-// |||||| DATA RATE ||||||
 
 // Rate represents a rate in Hz.
 type Rate float64
@@ -280,8 +267,6 @@ const (
 	KHz      = 1000 * Hz
 	MHz      = 1000 * KHz
 )
-
-// |||||| DENSITY ||||||
 
 // Density represents a density in bytes per value.
 type Density uint32

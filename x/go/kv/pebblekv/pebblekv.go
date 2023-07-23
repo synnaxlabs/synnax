@@ -12,72 +12,126 @@
 package pebblekv
 
 import (
+	"context"
+
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/x/alamos"
-	kvc "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 )
 
-type pebbleKV struct{ *pebble.DB }
+type db struct {
+	observe.Observer[kv.TxReader]
+	*pebble.DB
+}
+
+var _ kv.DB = (*db)(nil)
 
 var defaultWriteOpts = pebble.Sync
 
-func parseWriterOpt(opts []interface{}) *pebble.WriteOptions {
-	if len(opts) == 0 {
-		return defaultWriteOpts
-	}
-	if o, ok := opts[0].(*pebble.WriteOptions); ok {
-		return o
+func parseOpts(opts []interface{}) *pebble.WriteOptions {
+	if len(opts) > 0 {
+		for _, o := range opts {
+			if o, ok := o.(*pebble.WriteOptions); ok {
+				return o
+			}
+		}
 	}
 	return defaultWriteOpts
 }
 
 // Wrap wraps a pebble.DB to satisfy the kv.db interface.
-func Wrap(db *pebble.DB) kvc.DB { return &pebbleKV{DB: db} }
-
-// Get implements the kv.db interface.
-func (db pebbleKV) Get(key []byte, opts ...interface{}) ([]byte, error) {
-	return get(db.DB, key)
+func Wrap(db_ *pebble.DB) kv.DB {
+	return &db{DB: db_, Observer: observe.New[kv.TxReader]()}
 }
 
-// Set implements the kv.db interface.
-func (db pebbleKV) Set(key []byte, value []byte, opts ...interface{}) error {
-	return db.DB.Set(key, value, parseWriterOpt(opts))
+// OpenTx implement kv.DB.
+func (d db) OpenTx() kv.Tx { return tx{Batch: d.DB.NewIndexedBatch(), db: d} }
+
+// Commit implements kv.DB.
+func (d db) Commit(ctx context.Context, opts ...interface{}) error { return nil }
+
+// NewReader implement kv.DB.
+func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
+
+// Set implement kv.DB.
+func (d db) Set(ctx context.Context, key, value []byte, opts ...interface{}) error {
+	return translateError(d.DB.Set(key, value, parseOpts(opts)))
 }
 
-// Delete implements the kv.db interface.
-func (db pebbleKV) Delete(key []byte) error { return db.DB.Delete(key, pebble.NoSync) }
-
-// Close implements the kv.db interface.
-func (db pebbleKV) Close() error { return db.DB.Close() }
-
-// NewIterator implements the kv.db interface.
-func (db pebbleKV) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
-	return db.DB.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+// Get implement kv.DB.
+func (d db) Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error) {
+	b, err := get(d.DB, key)
+	return b, translateError(err)
 }
 
-func (db pebbleKV) NewBatch() kvc.Batch { return batch{db.DB.NewIndexedBatch()} }
-
-func (db pebbleKV) Report() alamos.Report {
-	return alamos.Report{"engine": "pebble"}
+// Delete implement kv.DB.
+func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
+	return translateError(d.DB.Delete(key, parseOpts(opts)))
 }
 
-type batch struct{ *pebble.Batch }
-
-func (b batch) Set(key []byte, value []byte, opts ...interface{}) error {
-	return b.Batch.Set(key, value, defaultWriteOpts)
+// OpenIterator implement kv.DB.
+func (d db) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+	return d.DB.NewIter(parseIterOpts(opts))
 }
 
-func (b batch) Get(key []byte, opts ...interface{}) ([]byte, error) {
-	return get(b.Batch, key)
+func (d db) apply(ctx context.Context, txn tx) error {
+	err := d.DB.Apply(txn.Batch, nil)
+	if err != nil {
+		return translateError(err)
+	}
+	d.Notify(ctx, txn.NewReader())
+	return nil
 }
 
-func (b batch) Delete(key []byte) error { return b.Batch.Delete(key, defaultWriteOpts) }
+// Report implement alamos.ReportProvider.
+func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
 
-func (b batch) NewIterator(opts kvc.IteratorOptions) kvc.Iterator {
-	return b.Batch.NewIter(&pebble.IterOptions{LowerBound: opts.LowerBound, UpperBound: opts.UpperBound})
+// Close implement io.Closer.
+func (d db) Close() error { return d.DB.Close() }
+
+type tx struct {
+	db db
+	*pebble.Batch
 }
 
-func (b batch) Commit(opts ...interface{}) error { return b.Batch.Commit(defaultWriteOpts) }
+var _ kv.Tx = tx{}
+
+// Set implements kv.Writer.
+func (txn tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
+	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
+}
+
+// Get implements kv.Writer.
+func (txn tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
+	b, err := get(txn.Batch, key)
+	return b, translateError(err)
+}
+
+// Delete implements kv.Writer.
+func (txn tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
+	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
+}
+
+// OpenIterator implements kv.Writer.
+func (txn tx) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+	return txn.Batch.NewIter(parseIterOpts(opts))
+}
+
+// Commit implements kv.Writer.
+func (txn tx) Commit(ctx context.Context, opts ...interface{}) error {
+	return txn.db.apply(ctx, txn)
+}
+
+// NewReader implements kv.Writer.
+func (txn tx) NewReader() kv.TxReader { return &txReader{BatchReader: txn.Batch.Reader()} }
+
+var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
+	pebble.InternalKeyKindSet:    change.Set,
+	pebble.InternalKeyKindDelete: change.Delete,
+}
 
 func get(reader pebble.Reader, key []byte) ([]byte, error) {
 	v, c, err := reader.Get(key)
@@ -85,4 +139,39 @@ func get(reader pebble.Reader, key []byte) ([]byte, error) {
 		return v, err
 	}
 	return v, c.Close()
+}
+
+func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
+	return &pebble.IterOptions{
+		LowerBound: opts.LowerBound,
+		UpperBound: opts.UpperBound,
+	}
+}
+
+type txReader struct{ pebble.BatchReader }
+
+var _ kv.TxReader = (*txReader)(nil)
+
+// Next implements kv.TxReader.
+func (r *txReader) Next(_ context.Context) (kv.Change, bool, error) {
+	kind, k, v, ok := r.BatchReader.Next()
+	if !ok {
+		return kv.Change{}, false, nil
+	}
+	variant, ok := kindsToVariant[kind]
+	if !ok {
+		return kv.Change{}, false, nil
+	}
+	return kv.Change{Variant: variant, Key: k, Value: v}, true, nil
+}
+
+func translateError(err error) error {
+	if err == nil {
+		return err
+	}
+	if errors.Is(err, pebble.ErrNotFound) {
+		return kv.NotFound
+	}
+	return err
+
 }

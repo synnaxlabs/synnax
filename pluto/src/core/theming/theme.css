@@ -1,0 +1,123 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+    --pluto-height-large: 5rem;
+    --pluto-height-medium: 4.5rem;
+    --pluto--height-small: 4rem;
+    --pluto--height-tiny: 2.5rem;
+
+    background-color: var(--pluto-background-color);
+    margin: 0;
+    height: 100%;
+    width: 100%;
+    font-size: var(--pluto-base-size);
+}
+
+body {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+#root {
+    height: 100%;
+    width: 100%;
+}
+
+::-webkit-scrollbar {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--pluto-gray-m3);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--pluto-gray-m1);
+    border-radius: var(--pluto-border-radius);
+}
+
+.pluto--sharp {
+    border-radius: 0;
+}
+
+.pluto--rounded {
+    border-radius: var(--pluto-border-radius);
+}
+
+.pluto--no-wrap {
+    white-space: nowrap;
+}
+
+.pluto--bordered {
+    border: var(--pluto-border);
+}
+
+.pluto--bordered-right {
+    border-right: var(--pluto-border);
+}
+
+.pluto--bordered-left {
+    border-left: var(--pluto-border);
+}
+
+.pluto--bordered-top {
+    border-top: var(--pluto-border);
+}
+
+.pluto--bordered-bottom {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--x > .pluto--bordered-start {
+    border-right: var(--pluto-border);
+}
+
+.pluto--x > .pluto--bordered-end {
+    border-left: var(--pluto-border);
+}
+
+.pluto--y > .pluto--bordered-start {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--y > .pluto--bordered-end {
+    border-top: var(--pluto-border);
+}
+
+.pluto--large {
+    height: var(--pluto-height-large);
+}
+
+.pluto--medium {
+    height: var(--pluto-height-medium);
+}
+
+.pluto--small {
+    height: var(--pluto--height-small);
+}
+
+.pluto--tiny {
+    height: var(--pluto--height-tiny);
+}
+
+.pluto--no-select {
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}

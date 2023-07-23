@@ -22,29 +22,31 @@ import (
 // Core is the foundational primitive for distributed compute in a synnax Cluster. It
 // exposes the following services:
 //
-//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry frames.
+//  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry
+//     frames.
 //  2. Storage.KV - An eventually consistent, key-value store for maintaining cluster
 //     wide meta-data and state.
 //  3. Cluster - An API for querying information about the Cluster topology.
 type Core struct {
-	// Config is the configuration for the distribution layer.
-	Config Config
+	Config
 	// Cluster is the API for the delta Cluster.
 	Cluster Cluster
 	// Storage is the storage for the node. The distribution layer replaces the original
 	// key-value store with a distributed key-value store. The caller should NOT call
 	// Close on the storage engine.
-	Storage *storage.Store
+	Storage *storage.Storage
 }
 
 // Open opens a new  core distribution layer. The caller is responsible for closing the
 // distribution layer when it is no longer in use.
-func Open(ctx context.Context, cfg Config) (c Core, err error) {
-	cfg, err = config.OverrideAndValidate(DefaultConfig, cfg)
+func Open(ctx context.Context, configs ...Config) (c Core, err error) {
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return c, err
 	}
 
+	cfg.Storage.Instrumentation = cfg.Instrumentation.Child("storage")
+	c.Config = cfg
 	c.Storage, err = storage.Open(cfg.Storage)
 	if err != nil {
 		return c, err
@@ -55,20 +57,18 @@ func Open(ctx context.Context, cfg Config) (c Core, err error) {
 
 	// Since we're using our own key-value engine, the value we use for 'dirname'
 	// doesn't matter.
-	clusterKV, err := aspen.Open(
+	clusterDB, err := aspen.Open(
 		ctx,
 		/* dirname */ "",
 		cfg.AdvertiseAddress,
 		cfg.PeerAddresses,
 		aspen.WithEngine(c.Storage.KV),
-		aspen.WithExperiment(cfg.Experiment),
-		aspen.WithLogger(cfg.Logger.Named("aspen").Sugar()),
 		aspen.WithTransport(clusterTransport),
+		aspen.WithInstrumentation(c.Instrumentation.Child("aspen")),
 	)
-	c.Cluster = clusterKV
-
+	c.Cluster = clusterDB.Cluster
 	// Replace storage's key-value store with a distributed version.
-	c.Storage.KV = clusterKV
+	c.Storage.KV = clusterDB
 
 	return c, err
 }

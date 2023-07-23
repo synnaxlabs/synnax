@@ -9,7 +9,7 @@
 
 import { Case } from "@synnaxlabs/x";
 import { addExtension, pack, unpack } from "msgpackr";
-import { ZodSchema } from "zod";
+import { ZodSchema, z } from "zod";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its
@@ -65,7 +65,10 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
     return pack(Case.toSnake(payload));
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodTypeAny>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P
+  ): z.output<P> {
     const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
@@ -87,7 +90,10 @@ export class JSONEncoderDecoder implements EncoderDecoder {
     return new TextEncoder().encode(json);
   }
 
-  decode<P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>): P {
+  decode<P extends z.ZodTypeAny>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P
+  ): z.output<P> {
     const unpacked = Case.toCamel(JSON.parse(new TextDecoder().decode(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
@@ -105,8 +111,7 @@ export const ENCODER_CLASSES: StaticEncoderDecoder[] = [
   JSONEncoderDecoder,
 ];
 
-export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void => {
+export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void =>
   ENCODER_CLASSES.forEach((encoderClass) => {
     encoderClass.registerCustomType(encoder);
   });
-};

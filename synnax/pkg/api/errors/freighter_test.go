@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Freighter", func() {
 	Describe("Encode + Decode", func() {
-		Context("validation Err", func() {
+		Context("validation Error", func() {
 			It("Should encode and decode a validation error", func() {
 				err := errors.Validation(errors.Fields{
 					{
@@ -36,7 +36,7 @@ var _ = Describe("Freighter", func() {
 				Expect(decoded).To(Equal(err))
 			})
 		})
-		Context("Message Err", func() {
+		Context("Message Error", func() {
 			It("Should encode and decode a message error", func() {
 				err := errors.General(roacherrors.New("my crazy error"))
 				encoded := ferrors.Encode(err)
@@ -44,7 +44,7 @@ var _ = Describe("Freighter", func() {
 				Expect(decoded).To(Equal(err))
 			})
 		})
-		Context("Nil Err", func() {
+		Context("Nil Error", func() {
 			It("Should encode and decode a nil error", func() {
 				err := errors.Nil
 				encoded := ferrors.Encode(err)

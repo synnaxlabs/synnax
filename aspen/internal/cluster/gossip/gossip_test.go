@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/signal"
-	"go.uber.org/zap"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,12 +25,10 @@ import (
 
 var _ = Describe("OperationSender", func() {
 	var (
-		net    *fmock.Network[gossip.Message, gossip.Message]
-		logger *zap.SugaredLogger
+		net *fmock.Network[gossip.Message, gossip.Message]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
-		logger = zap.NewNop().Sugar()
 	})
 	Describe("Two Node", func() {
 		var (
@@ -44,20 +41,19 @@ var _ = Describe("OperationSender", func() {
 		)
 		BeforeEach(func() {
 			t1, t2, t3 = net.UnaryServer(""), net.UnaryServer(""), net.UnaryServer("")
-			nodes = node.Group{1: {ID: 1, Address: t1.Address}, 2: {ID: 2, Address: t2.Address}}
-			sOne = store.New()
-			sOne.SetState(store.State{Nodes: nodes, HostID: 1})
+			nodes = node.Group{1: {Key: 1, Address: t1.Address}, 2: {Key: 2, Address: t2.Address}}
+			sOne = store.New(ctx)
+			sOne.SetState(ctx, store.State{Nodes: nodes, HostKey: 1})
 			nodesTwo = nodes.Copy()
-			nodesTwo[3] = node.Node{ID: 3, Address: t3.Address, State: node.StateDead}
-			sTwo := store.New()
-			sTwo.SetState(store.State{Nodes: nodesTwo, HostID: 2})
+			nodesTwo[3] = node.Node{Key: 3, Address: t3.Address, State: node.StateDead}
+			sTwo := store.New(ctx)
+			sTwo.SetState(ctx, store.State{Nodes: nodesTwo, HostKey: 2})
 			gossipCtx, cancel = signal.WithCancel(ctx)
 			var err error
 			g1, err = gossip.New(gossip.Config{
 				Store:           sOne,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t1,
-				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -65,7 +61,6 @@ var _ = Describe("OperationSender", func() {
 				Store:           sTwo,
 				TransportClient: net.UnaryClient(),
 				TransportServer: t2,
-				Logger:          logger,
 				Interval:        5 * time.Millisecond,
 			})
 			Expect(err).ToNot(HaveOccurred())

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -19,19 +20,12 @@ import (
 
 type WriterConfig struct {
 	Start    telem.TimeStamp
-	Channels []string
+	Channels []core.ChannelKey
 }
 
-type Writer interface {
-	Write(frame Frame) bool
-	Commit() bool
-	Error() error
-	Close() error
-}
-
-type writer struct {
-	requests          confluence.Inlet[WriteRequest]
-	responses         confluence.Outlet[WriteResponse]
+type Writer struct {
+	requests          confluence.Inlet[WriterRequest]
+	responses         confluence.Outlet[WriterResponse]
 	wg                signal.WaitGroup
 	logger            *zap.Logger
 	hasAccumulatedErr bool
@@ -39,21 +33,20 @@ type writer struct {
 
 const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
 
-func wrapStreamWriter(internal StreamWriter) *writer {
-	sCtx, _ := signal.Background()
-	req := confluence.NewStream[WriteRequest](1)
-	res := confluence.NewStream[WriteResponse](1)
+func wrapStreamWriter(internal StreamWriter) *Writer {
+	sCtx, _ := signal.Isolated()
+	req := confluence.NewStream[WriterRequest](1)
+	res := confluence.NewStream[WriterResponse](1)
 	internal.InFrom(req)
 	internal.OutTo(res)
 	internal.Flow(
 		sCtx,
 		confluence.CloseInletsOnExit(),
 	)
-	return &writer{requests: req, responses: res, wg: sCtx}
+	return &Writer{requests: req, responses: res, wg: sCtx}
 }
 
-// Write implements the Writer interface.
-func (w *writer) Write(rec Frame) bool {
+func (w *Writer) Write(frame Frame) bool {
 	if w.hasAccumulatedErr {
 		return false
 	}
@@ -61,33 +54,32 @@ func (w *writer) Write(rec Frame) bool {
 	case <-w.responses.Outlet():
 		w.hasAccumulatedErr = true
 		return false
-	case w.requests.Inlet() <- WriteRequest{Frame: rec, Command: WriterWrite}:
+	case w.requests.Inlet() <- WriterRequest{Frame: frame, Command: WriterWrite}:
 		return true
 	}
 }
 
-// Commit implements the Writer interface.
-func (w *writer) Commit() bool {
+func (w *Writer) Commit() (telem.TimeStamp, bool) {
 	if w.hasAccumulatedErr {
-		return false
+		return 0, false
 	}
 	select {
 	case <-w.responses.Outlet():
 		w.hasAccumulatedErr = true
-		return false
-	case w.requests.Inlet() <- WriteRequest{Command: WriterCommit}:
+		return 0, false
+	case w.requests.Inlet() <- WriterRequest{Command: WriterCommit}:
 	}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterCommit {
-			return res.Ack
+			return res.End, res.Ack
 		}
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
-	return false
+	return 0, false
 }
 
-func (w *writer) Error() error {
-	w.requests.Inlet() <- WriteRequest{Command: WriterError}
+func (w *Writer) Error() error {
+	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterError {
 			w.hasAccumulatedErr = false
@@ -98,8 +90,7 @@ func (w *writer) Error() error {
 	return errors.New(unexpectedSteamClosure)
 }
 
-// Close implements the Writer interface.
-func (w *writer) Close() (err error) {
+func (w *Writer) Close() (err error) {
 	w.requests.Close()
 	for range w.responses.Outlet() {
 	}

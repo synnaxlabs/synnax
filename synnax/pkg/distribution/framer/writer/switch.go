@@ -32,20 +32,20 @@ func newRequestSwitchSender(
 ) confluence.Sink[Request] {
 	rs := &peerSwitchSender{addresses: addresses}
 	rs.Senders = freightfluence.MapTargetedSender[Request](senders)
-	rs.BatchSwitchSender.ApplySwitch = rs._switch
+	rs.Switch = rs._switch
 	return rs
 }
 
 func (rs *peerSwitchSender) _switch(
-	ctx context.Context,
+	_ context.Context,
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
 	if r.Command == Data {
-		for nodeID, frame := range r.Frame.SplitByNodeID() {
-			addr, ok := rs.addresses[nodeID]
+		for nodeKey, frame := range r.Frame.SplitByNodeKey() {
+			addr, ok := rs.addresses[nodeKey]
 			if !ok {
-				rs.logger.DPanic("missing address for node", zap.Uint32("node", uint32(nodeID)))
+				rs.logger.DPanic("missing address for node", zap.Uint32("node", uint32(nodeKey)))
 			}
 			r.Frame = frame
 			oReqs[addr] = r
@@ -61,12 +61,12 @@ func (rs *peerSwitchSender) _switch(
 
 type peerGatewaySwitch struct {
 	confluence.BatchSwitch[Request, Request]
-	host core.NodeID
+	host core.NodeKey
 }
 
-func newPeerGatewaySwitch(host core.NodeID) *peerGatewaySwitch {
+func newPeerGatewaySwitch(host core.NodeKey) *peerGatewaySwitch {
 	rl := &peerGatewaySwitch{host: host}
-	rl.ApplySwitch = rl._switch
+	rl.Switch = rl._switch
 	return rl
 }
 

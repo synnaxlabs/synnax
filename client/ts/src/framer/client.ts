@@ -7,25 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { StreamClient } from "@synnaxlabs/freighter";
 import {
   NativeTypedArray,
-  LazyArray,
+  Series,
   TimeRange,
-  UnparsedTimeStamp,
+  CrudeTimeStamp,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
-import { Frame } from "./frame";
-import { AUTO_SPAN, FrameIterator } from "./iterator";
-import { FrameWriter } from "./writer";
-
-import { QueryError } from "@/errors";
-import { Transport } from "@/transport";
+import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
+import { ChannelRetriever, analyzeChannelParams } from "@/channel/retriever";
+import { Frame } from "@/framer/frame";
+import { Iterator } from "@/framer/iterator";
+import { Streamer } from "@/framer/streamer";
+import { Writer } from "@/framer/writer";
 
 export class FrameClient {
-  private readonly transport: Transport;
+  private readonly stream: StreamClient;
+  private readonly retriever: ChannelRetriever;
 
-  constructor(transport: Transport) {
-    this.transport = transport;
+  constructor(stream: StreamClient, retriever: ChannelRetriever) {
+    this.stream = stream;
+    this.retriever = retriever;
   }
 
   /**
@@ -33,18 +37,10 @@ export class FrameClient {
    *
    * @param tr - A time range to iterate over.
    * @param keys - A list of channel keys to iterate over.
-   * @param aggregate - Whether to accumulate iteration results or reset them
-   * on every iterator method call.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(
-    tr: TimeRange,
-    keys: string[],
-    aggregate: boolean
-  ): Promise<FrameIterator> {
-    const i = new FrameIterator(this.transport.streamClient, aggregate);
-    await i.open(tr, keys);
-    return i;
+  async newIterator(tr: TimeRange, channels: ChannelParams): Promise<Iterator> {
+    return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
   /**
@@ -55,10 +51,15 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: UnparsedTimeStamp, ...keys: string[]): Promise<FrameWriter> {
-    const w = new FrameWriter(this.transport.streamClient);
-    await w.open(start, keys);
-    return w;
+  async newWriter(start: CrudeTimeStamp, channels: ChannelParams): Promise<Writer> {
+    return await Writer._open(start, channels, this.retriever, this.stream);
+  }
+
+  async newStreamer(
+    params: ChannelParams,
+    from: TimeStamp = TimeStamp.now()
+  ): Promise<Streamer> {
+    return await Streamer._open(from, params, this.retriever, this.stream);
   }
 
   /**
@@ -71,73 +72,34 @@ export class FrameClient {
    * @throws if the channel does not exist.
    */
   async write(
-    to: string,
-    start: UnparsedTimeStamp,
+    to: ChannelKeyOrName,
+    start: CrudeTimeStamp,
     data: NativeTypedArray
   ): Promise<void> {
-    const f = new Frame();
-    f.pushA(to, new LazyArray(data));
     const w = await this.newWriter(start, to);
     try {
-      await w.write(f);
-      if (!(await w.commit())) throw new Error("failed to commit");
+      await w.write(to, data);
+      if (!(await w.commit())) throw (await w.error()) as Error;
     } catch {
       await w.close();
     }
   }
 
-  /**
-   * Reads telemetry from the channel between the two timestamps.
-   *
-   * @param from - The key of the channel to read from.
-   * @param start - The starting timestamp of the range to read from.
-   * @param end - The ending timestamp of the range to read from.
-   * @returns a typed array containing the retrieved telemetry.
-   * @throws if the channel does not exist.
-   * @throws if the telemetry between start and end is not contiguous.
-   */
-  async read(
-    from: string,
-    start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp,
-    throwOnEmpty = true
-  ): Promise<NativeTypedArray> {
-    return (await this.readArray(from, start, end, throwOnEmpty)).data;
+  async read(tr: TimeRange, channel: ChannelKeyOrName): Promise<Series>;
+
+  async read(tr: TimeRange, channels: ChannelParams): Promise<Frame>;
+
+  async read(tr: TimeRange, channels: ChannelParams): Promise<Series | Frame> {
+    const { single } = analyzeChannelParams(channels);
+    const fr = await this.readFrame(tr, channels);
+    if (single) return fr.series[0];
+    return fr;
   }
 
-  /**
-   * Reads a segment from the channel between the two timestamps.
-   *
-   * @param from - The key of the channel to read from.
-   * @param start - The starting timestamp of the range to read from.
-   * @param end - The ending timestamp of the range to read from.
-   * @returns a segment containing the retrieved telemetry.
-   * @throws if the channel does not exist.
-   * @throws if the telemetry between start and end is not contiguous.
-   */
-  async readArray(
-    from: string,
-    start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp,
-    throwOnEmpty = true
-  ): Promise<LazyArray> {
-    const tr = new TimeRange(start, end);
-    const frame = await this.readFrame(tr, [from]);
-    const arrs = frame.getA(from);
-    if (arrs.length === 0 && throwOnEmpty)
-      throw new QueryError(
-        `no telemetry found for channel ${from} between ${tr.toString()}`
-      );
-    return arrs[0];
-  }
-
-  async readFrame(tr: TimeRange, keys: string[]): Promise<Frame> {
-    const i = await this.newIterator(tr, keys, /* accumulate */ true);
-    try {
-      if (await i.seekFirst()) while (await i.next(AUTO_SPAN));
-    } finally {
-      await i.close();
-    }
-    return i.value;
+  private async readFrame(tr: TimeRange, params: ChannelParams): Promise<Frame> {
+    const i = await this.newIterator(tr, params);
+    const frame = new Frame();
+    for await (const f of i) frame.push(f);
+    return frame;
   }
 }

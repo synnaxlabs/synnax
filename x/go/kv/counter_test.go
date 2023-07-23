@@ -18,46 +18,46 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 )
 
-var _ = Describe("SeqNum", Ordered, func() {
+var _ = Describe("Counter", Ordered, func() {
 	var (
-		kve kv.DB
+		db kv.DB
 	)
 	BeforeAll(func() {
-		db, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
+		db_, err := pebble.Open("", &pebble.Options{FS: vfs.NewMem()})
 		Expect(err).NotTo(HaveOccurred())
-		kve = pebblekv.Wrap(db)
+		db = pebblekv.Wrap(db_)
 	})
 	AfterAll(func() {
-		Expect(kve.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	Describe("PersistedCounter", func() {
-		Context("Requests SeqNum", Ordered, func() {
+		Context("New Counter", Ordered, func() {
 			var c *kv.PersistedCounter
 			BeforeAll(func() {
 				var err error
-				c, err = kv.OpenCounter(kve, []byte("test"))
+				c, err = kv.OpenCounter(ctx, db, []byte("test"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create a counter with a starting value of 0", func() {
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
 			It("Should increment the counter correctly", func() {
-				Expect(c.Add()).To(Equal(int64(1)))
+				Expect(c.Add(1)).To(Equal(int64(1)))
 			})
 			It("Should increment the number by a set value", func() {
 				Expect(c.Add(10)).To(Equal(int64(11)))
 			})
 		})
-		Context("Existing SeqNum", func() {
+		Context("Existing Counter", func() {
 			It("Should load the value of the existing counter", func() {
-				c, err := kv.OpenCounter(kve, []byte("test-two"))
+				c, err := kv.OpenCounter(ctx, db, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(c.Value()).To(Equal(int64(0)))
 				_, err = c.Add(10)
 				Expect(err).NotTo(HaveOccurred())
 				_, err = c.Add(10)
 				Expect(err).NotTo(HaveOccurred())
-				cTwo, err := kv.OpenCounter(kve, []byte("test-two"))
+				cTwo, err := kv.OpenCounter(ctx, db, []byte("test-two"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})

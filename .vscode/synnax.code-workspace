@@ -65,6 +65,18 @@
       "path": "../x/ts"
     },
     {
+      "name": "alamos/py",
+      "path": "../alamos/py",
+    },
+    {
+      "name": "alamos/go",
+      "path": "../alamos/go",
+    },
+    {
+      "name": "alamos/ts",
+      "path": "../alamos/ts",
+    },
+    {
       "name": "x/media",
       "path": "../x/media"
     },
@@ -79,13 +91,21 @@
     {
       "name": "stylelint",
       "path": "../configs/stylelint"
+    },
+    {
+      "name": "landing",
+      "path": "../landing"
     }
   ],
   "settings": {
     "editor.formatOnSave": true,
     "[css]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode",
-       "editor.formatOnSave": true
+      "editor.formatOnSave": true
     },
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none",
   }
 }

@@ -142,17 +142,18 @@ export const synnaxDark = {
     text: synnaxBase.colors.white,
   },
 };
+const t = synnaxLight;
 
 const theme = create({
-  ...themes.dark,
-  colorSecondary: synnaxDark.colors.primary.z,
-  appBg: synnaxDark.colors.background,
-  appContentBg: synnaxDark.colors.background,
-  appBorderColor: synnaxDark.colors.border,
-  appBorderRadius: synnaxDark.sizes.border.radius as number,
-  fontBase: synnaxDark.typography.family,
+  ...t,
+  colorSecondary: t.colors.primary.z,
+  appBg: t.colors.background,
+  appContentBg: t.colors.background,
+  appBorderColor: t.colors.border,
+  appBorderRadius: t.sizes.border.radius as number,
+  fontBase: t.typography.family,
   brandImage:
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/docs/media/logo/title-white.png",
+    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/x/media/static/logo/title-white.png",
   brandUrl: "https://docs.synnaxlabs.com",
 });
 

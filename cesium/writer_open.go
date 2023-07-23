@@ -10,33 +10,35 @@
 package cesium
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // NewStreamWriter implements DB.
-func (db *cesium) NewStreamWriter(cfg WriterConfig) (StreamWriter, error) {
-	return db.newStreamWriter(cfg)
+func (db *DB) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+	return db.newStreamWriter(ctx, cfg)
 }
 
 // NewWriter implements DB.
-func (db *cesium) NewWriter(cfg WriterConfig) (Writer, error) {
-	internal, err := db.newStreamWriter(cfg)
+func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	internal, err := db.newStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return wrapStreamWriter(internal), nil
 }
 
-func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
+func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWriter, error) {
 	var (
 		idx          index.Index
 		writingToIdx bool
 		idxChannel   Channel
-		internal     = make(map[string]unary.Writer, len(cfg.Channels))
+		internal     = make(map[core.ChannelKey]unary.Writer, len(cfg.Channels))
 	)
 	for i, key := range cfg.Channels {
 		u, ok := db.dbs[key]
@@ -47,15 +49,15 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 			writingToIdx = true
 		}
 		if i == 0 {
-			if u.Channel.Index != "" {
+			if u.Channel.Index != 0 {
 				idxU, err := db.getUnary(u.Channel.Index)
 				if err != nil {
 					return nil, err
 				}
-				idx = &index.Ranger{DB: idxU.Ranger, Logger: db.logger}
+				idx = &index.Domain{DB: idxU.Ranger, Instrumentation: db.Instrumentation}
 				idxChannel = idxU.Channel
 			} else {
-				idx = index.Rate{Rate: u.Channel.Rate, Logger: db.logger}
+				idx = index.Rate{Rate: u.Channel.Rate}
 				idxChannel = u.Channel
 			}
 		} else {
@@ -63,14 +65,14 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 				return nil, err
 			}
 		}
-		w, err := u.NewWriter(ranger.WriterConfig{Start: cfg.Start})
+		w, err := u.NewWriter(ctx, domain.WriterConfig{Start: cfg.Start})
 		if err != nil {
 			return nil, err
 		}
 		internal[key] = *w
 	}
 
-	w := &streamWriter{internal: internal}
+	w := &streamWriter{internal: internal, relay: db.relay.inlet}
 	w.Start = cfg.Start
 	w.idx.key = idxChannel.Key
 	w.writingToIdx = writingToIdx
@@ -80,7 +82,7 @@ func (db *cesium) newStreamWriter(cfg WriterConfig) (*streamWriter, error) {
 }
 
 func validateSameIndex(chOne, chTwo Channel) error {
-	if chOne.Index == "" && chTwo.Index == "" {
+	if chOne.Index == 0 && chTwo.Index == 0 {
 		if chOne.Rate != chTwo.Rate {
 			return errors.Wrapf(validate.Error, "channels must have the same rate")
 		}

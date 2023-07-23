@@ -10,25 +10,30 @@
 package gorp
 
 import (
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/query"
+	"bytes"
+	"context"
 	"reflect"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/query"
 )
 
+// Key is a unique key for an entry of a particular type.
 type Key any
 
-// Entry is a go type that can be queried against a DB.
-// All go types must implement the Entry interface so that they can be
-// stored. Entry must be serializable by the Encodings and Decoder provided to the DB.
+// Entry is a go type that can be queried against a DB. All go types must implement the Entry
+// interface so that they can be stored. Entry must be serializable by the Encodings and decoder
+// provided to the WithEncoderDecoder option when instantiating a DB.
 type Entry[K Key] interface {
 	// GorpKey returns a unique key for the entry. gorp.DB will not raise
-	// an error if the key is a duplicate. Key must be serializable by Encoder and Decoder.
+	// an error if the key is a duplicate. Key must be serializable by encoder and decoder.
 	GorpKey() K
-	// SetOptions returns a slice of options passed to kv.db.Set.
+	// SetOptions returns a slice of options passed to kv.db.set.
 	SetOptions() []interface{}
 }
 
-const entriesOptKey query.OptionKey = "entries"
+const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
@@ -53,14 +58,21 @@ func (e *Entries[K, E]) Add(entry E) {
 	}
 }
 
+func (e *Entries[K, E]) Replace(entries []E) {
+	if e.multiple {
+		*e.entries = entries
+		return
+	}
+	if len(entries) != 0 && e.entry != nil {
+		*e.entry = entries[0]
+	}
+}
+
 func (e *Entries[K, E]) Set(i int, entry E) {
-	if !e.multiple {
-		if i > 1 {
-			panic("gorp: cannot set multiple entries on a single entry query")
-		}
-		*e.entry = entry
-	} else {
+	if e.multiple {
 		(*e.entries)[i] = entry
+	} else if i == 0 {
+		*e.entry = entry
 	}
 }
 
@@ -72,34 +84,77 @@ func (e *Entries[K, E]) All() []E {
 	return []E{*e.entry}
 }
 
+func (e *Entries[K, E]) Any() bool {
+	if e.multiple {
+		return len(*e.entries) > 0
+	}
+	return e.entry != nil
+}
+
 // SetEntry sets the entry that the query will fill results into or write results to.
 //
 //	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
-func SetEntry[K Key, E Entry[K]](q query.Query, entry *E) {
+func SetEntry[K Key, E Entry[K]](q query.Parameters, entry *E) {
 	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, multiple: false})
 }
 
 // SetEntries sets the entries that the query will fill results into or write results to.
 // Calls to SetEntries will override All previous calls to SetEntry or SetEntries.
-func SetEntries[K Key, E Entry[K]](q query.Query, e *[]E) {
+func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
 	q.Set(entriesOptKey, &Entries[K, E]{entries: e, multiple: true})
 }
 
 // GetEntries returns the entries that the query will fill results into or write
 // results from.
-func GetEntries[K Key, E Entry[K]](q query.Query) *Entries[K, E] {
+func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 	re, ok := q.Get(entriesOptKey)
 	if !ok {
-		SetEntries[K, E](q, &[]E{})
+		SetEntries[K](q, &[]E{})
 		return GetEntries[K, E](q)
 	}
 	return re.(*Entries[K, E])
 }
 
-func typePrefix[K Key, E Entry[K]](opts options) []byte {
-	if opts.noTypePrefix {
-		return []byte{}
+func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
+	return lo.Must(encoder.Encode(ctx, reflect.TypeOf(*new(E)).Name()))
+}
+
+type lazyPrefix[K Key, E Entry[K]] struct {
+	_prefix []byte
+	Tools
+}
+
+func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
+	if lp._prefix == nil {
+		lp._prefix = prefix[K, E](ctx, lp)
 	}
-	mName := reflect.TypeOf(*new(E)).Name()
-	return lo.Must(opts.encoder.Encode(mName))
+	return lp._prefix
+}
+
+func prefixMatcher[K Key, E Entry[K]](opts Tools) func(ctx context.Context, b []byte) bool {
+	var (
+		prefix_   []byte
+		getPrefix = func(ctx context.Context) []byte {
+			if prefix_ == nil {
+				prefix_ = prefix[K, E](ctx, opts)
+			}
+			return prefix_
+		}
+	)
+	return func(ctx context.Context, b []byte) bool {
+		return bytes.HasPrefix(b, getPrefix(ctx))
+	}
+}
+
+func encodeKey[K Key](
+	ctx context.Context,
+	encoder binary.Encoder,
+	prefix []byte,
+	key K,
+) ([]byte, error) {
+	byteKey, err := encoder.Encode(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return append(prefix, byteKey...), nil
 }

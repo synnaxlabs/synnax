@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Connectivity } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Text, Status } from "@synnaxlabs/pluto";
-import type { StatusVariant } from "@synnaxlabs/pluto";
+import { ReactElement } from "react";
 
-import { ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/core";
+import type { ConnectionState, ConnectionStatus } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
+import type { StatusVariant } from "@synnaxlabs/pluto";
+import { Text, Status, Client } from "@synnaxlabs/pluto";
+
 import { useSelectCluster } from "@/cluster/store";
 
 /** Props for the ConnectionStateBadge component. */
@@ -20,7 +21,7 @@ export interface ConnectionStateBadgeProps {
   state: ConnectionState;
 }
 
-const statusVariants: Record<Connectivity, StatusVariant> = {
+const statusVariants: Record<ConnectionStatus, StatusVariant> = {
   connected: "success",
   failed: "error",
   connecting: "info",
@@ -35,7 +36,7 @@ const statusVariants: Record<Connectivity, StatusVariant> = {
  */
 export const ConnectionStateBadge = ({
   state: { message, status },
-}: ConnectionStateBadgeProps): JSX.Element => (
+}: ConnectionStateBadgeProps): ReactElement => (
   <Status.Text variant={statusVariants[status]}>{message}</Status.Text>
 );
 
@@ -51,7 +52,7 @@ export interface ClusterBadgeProps {
  * @param props.key - The key of the cluster to display. If not provided, the active
  * cluster will be used.
  */
-export const ClusterBadge = ({ key }: ClusterBadgeProps): JSX.Element => {
+export const ClusterBadge = ({ key }: ClusterBadgeProps): ReactElement => {
   const cluster = useSelectCluster(key);
   return (
     <Text.WithIcon level="p" startIcon={<Icon.Cluster />}>
@@ -60,9 +61,6 @@ export const ClusterBadge = ({ key }: ClusterBadgeProps): JSX.Element => {
   );
 };
 
-/** The props fo the ConnectionBadge component.  */
-type ConnectionBadgeProps = ClusterBadgeProps;
-
 /**
  * Displays the connection state of the cluster.
  *
@@ -70,7 +68,7 @@ type ConnectionBadgeProps = ClusterBadgeProps;
  * @param props.key - The key of the cluster to display. If not provided, the active
  * cluster will be used.
  */
-export const ConnectionBadge = ({ key }: ConnectionBadgeProps): JSX.Element => {
-  const cluster = useSelectCluster(key);
-  return <ConnectionStateBadge state={cluster?.state ?? DEFAULT_CONNECTION_STATE} />;
+export const ConnectionBadge = (): ReactElement => {
+  const state = Client.useConnectionState();
+  return <ConnectionStateBadge state={state} />;
 };

@@ -13,16 +13,16 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
-func (db *cesium) NewIterator(cfg IteratorConfig) (Iterator, error) {
+func (db *DB) NewIterator(cfg IteratorConfig) (*Iterator, error) {
 	internal, err := db.newStreamIterator(cfg)
 	return wrapStreamIterator(internal), err
 }
 
-func (db *cesium) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
+func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 	return db.newStreamIterator(cfg)
 }
 
-func (db *cesium) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
+func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
 	for i, key := range cfg.Channels {
 		uDB, err := db.getUnary(key)

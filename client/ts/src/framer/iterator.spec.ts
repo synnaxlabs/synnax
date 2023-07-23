@@ -19,30 +19,29 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> => {
   return await client.channels.create({
     name: "test",
-    nodeId: 1,
+    leaseholder: 1,
     rate: Rate.hz(25),
     dataType: DataType.FLOAT64,
   });
 };
 
 describe("Iterator", () => {
-  test("basic iteration", async () => {
+  test("happy path", async () => {
     const ch = await newChannel();
-    const writer = await client.data.newWriter(TimeStamp.SECOND, ch.key);
+    const writer = await client.telem.newWriter(TimeStamp.SECOND, ch.key);
     const data = randomTypedArray(25, ch.dataType);
     try {
-      await writer.writeArray(ch.key, data);
-      await writer.writeArray(ch.key, data);
-      await writer.writeArray(ch.key, data);
+      await writer.write(ch.key, data);
+      await writer.write(ch.key, data);
+      await writer.write(ch.key, data);
       await writer.commit();
     } finally {
       await writer.close();
     }
 
-    const iter = await client.data.newIterator(
+    const iter = await client.telem.newIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
-      [ch.key],
-      false
+      [ch.key]
     );
 
     try {
@@ -50,7 +49,7 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.getA(ch.key)[0]).toHaveLength(25);
+        expect(iter.value.get(ch.key)[0]).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {

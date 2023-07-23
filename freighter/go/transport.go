@@ -11,7 +11,7 @@ package freighter
 
 import (
 	"errors"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
 )
 
 var (
@@ -25,7 +25,7 @@ var (
 type Payload = any
 
 type Transport interface {
-	alamos.Reporter
+	alamos.ReportProvider
 	Use(...Middleware)
 }
 

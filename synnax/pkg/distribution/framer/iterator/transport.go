@@ -14,14 +14,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
 //go:generate stringer -type=Command
 type Command uint8
 
-const AutoSpan = storage.AutoSpan
+const AutoSpan = ts.AutoSpan
 
 const (
 	Next Command = iota + 1
@@ -35,18 +35,18 @@ const (
 	SetBounds
 )
 
-// Request is a request to an iterator.
+// Request is a request to an Iterator.
 type Request struct {
-	// Command is the command to execute on the iterator.
-	Command Command
+	// Command is the command to execute on the Iterator.
+	Command Command `json:"command" msgpack:"command"`
 	// Stamp should be set during calls to SeekLE and SeekGE.
-	Stamp telem.TimeStamp
+	Stamp telem.TimeStamp `json:"stamp" msgpack:"stamp"`
 	// Span should be set during calls to Next and Prev.
-	Span telem.TimeSpan
+	Span telem.TimeSpan `json:"span" msgpack:"span"`
 	// Bounds should be set during calls to SetBounds.
-	Bounds telem.TimeRange
-	// Keys should only be set when opening the iterator.
-	Keys channel.Keys
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// Keys should only be set when opening the Iterator.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
 }
 
 //go:generate stringer -type=ResponseVariant
@@ -59,24 +59,24 @@ const (
 	DataResponse
 )
 
-// Response is a response from a remote iterator.
+// Response is a response from a remote Iterator.
 type Response struct {
 	// Variant is the type of response returned.
-	Variant ResponseVariant
+	Variant ResponseVariant `json:"variant" msgpack:"variant"`
 	// Command is non-zero when the
-	Command Command
-	// Frame is only relevant for DataResponse. It is the data returned by the iterator.
-	Frame core.Frame
-	// NodeID is the node ID where the remote iterator lives.
-	NodeID dcore.NodeID
-	// Ack is only relevant for variant AckResponse. Is true if the iterator successfully
+	Command Command `json:"command" msgpack:"command"`
+	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
+	Frame core.Frame `json:"frame" msgpack:"frame"`
+	// NodeKey is the node Key where the remote Iterator lives.
+	NodeKey dcore.NodeKey `json:"node_key" msgpack:"node_key"`
+	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully
 	// executed the request.
-	Ack bool
+	Ack bool `json:"ack" msgpack:"ack"`
 	// SeqNum
-	SeqNum int
-	// Err is only relevant for variant AckResponse. It is an error returned during a call to
+	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	// Error is only relevant for variant AckResponse. It is an error returned during a call to
 	// Iterator.Error
-	Err error
+	Error error `json:"error" msgpack:"error"`
 }
 
 type (

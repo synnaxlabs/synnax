@@ -7,29 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { ReactElement, useEffect } from "react";
 
 import { Space } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { NavBottom, NavDrawer, NavLeft, NavRight, NavTop } from "./Nav";
-
-import { ClusterProvider } from "@/cluster";
 import { LayoutMosaic, maybeCreateGetStartedTab } from "@/layout";
+import {
+  NavBottom,
+  NavDrawer,
+  NavLeft,
+  NavRight,
+  NavTop,
+} from "@/layouts/LayoutMain/Nav";
 import { VisCanvas } from "@/vis";
 
-import "./LayoutMain.css";
+import "@/layouts/LayoutMain/LayoutMain.css";
+
 /**
  * The center of it all. This is the main layout for the Delta UI. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
-export const LayoutMain = (): JSX.Element => {
+export const LayoutMain = (): ReactElement => {
   const d = useDispatch();
   useEffect(() => {
     d(maybeCreateGetStartedTab());
   }, []);
   return (
-    <ClusterProvider>
+    <>
       <NavTop />
       <Space className="delta-main-fixed--y" direction="x" empty>
         <NavLeft />
@@ -40,9 +45,7 @@ export const LayoutMain = (): JSX.Element => {
           <Space className="delta-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="delta-main--driven" style={{ position: "relative" }}>
-              <VisCanvas>
-                <LayoutMosaic />
-              </VisCanvas>
+              <LayoutMosaic />
             </main>
             <NavDrawer location="right" />
           </Space>
@@ -51,6 +54,6 @@ export const LayoutMain = (): JSX.Element => {
         <NavRight />
       </Space>
       <NavBottom />
-    </ClusterProvider>
+    </>
   );
 };

@@ -16,35 +16,36 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
+	"go.uber.org/zap"
 )
-
-// |||||| FILTER ||||||
 
 type versionFilter struct {
 	Config
 	memKV      kvx.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
-	confluence.BatchSwitch[BatchRequest, BatchRequest]
+	confluence.BatchSwitch[TxRequest, TxRequest]
 }
 
 func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
 	s := &versionFilter{Config: cfg, acceptedTo: acceptedTo, rejectedTo: rejectedTo, memKV: cfg.Engine}
-	s.BatchSwitch.ApplySwitch = s._switch
+	s.Switch = s._switch
 	return s
 }
 
 func (vc *versionFilter) _switch(
-	ctx context.Context,
-	b BatchRequest,
-	o map[address.Address]BatchRequest,
+	_ context.Context,
+	b TxRequest,
+	o map[address.Address]TxRequest,
 ) error {
 	var (
-		rejected = BatchRequest{Sender: b.Sender, done: b.done}
-		accepted = BatchRequest{Sender: b.Sender, done: b.done}
+		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
+		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
 	)
+	ctx, span := vc.T.Debug(b.Context, "tx-filter")
+	defer span.End()
 	for _, op := range b.Operations {
-		if vc.filter(op) {
+		if vc.filter(ctx, op) {
 			accepted.Operations = append(accepted.Operations, op)
 		} else {
 			rejected.Operations = append(rejected.Operations, op)
@@ -59,10 +60,10 @@ func (vc *versionFilter) _switch(
 	return nil
 }
 
-func (vc *versionFilter) filter(op Operation) bool {
-	dig, err := getDigestFromKV(vc.memKV, op.Key)
+func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
+	dig, err := getDigestFromKV(ctx, vc.memKV, op.Key)
 	if err != nil {
-		dig, err = getDigestFromKV(vc.Engine, op.Key)
+		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
 			return err == kvx.NotFound
 		}
@@ -76,41 +77,39 @@ func (vc *versionFilter) filter(op Operation) bool {
 	)
 }
 
-func getDigestFromKV(kve kvx.DB, key []byte) (Digest, error) {
+func getDigestFromKV(ctx context.Context, kve kvx.DB, key []byte) (Digest, error) {
 	dig := Digest{}
 	key, err := digestKey(key)
 	if err != nil {
 		return dig, err
 	}
-	b, err := kve.Get(key)
+	b, err := kve.Get(ctx, key)
 	if err != nil {
 		return dig, err
 	}
-	return dig, ecd.Decode(b, &dig)
+	return dig, ecd.Decode(ctx, b, &dig)
 }
-
-// |||||| ASSIGNER ||||||
 
 const versionCounterKey = "ver"
 
 type versionAssigner struct {
 	Config
 	counter *kvx.PersistedCounter
-	confluence.LinearTransform[BatchRequest, BatchRequest]
+	confluence.LinearTransform[TxRequest, TxRequest]
 }
 
-func newVersionAssigner(cfg Config) (segment, error) {
-	c, err := kvx.OpenCounter(cfg.Engine, []byte(versionCounterKey))
+func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {
+	c, err := kvx.OpenCounter(ctx, cfg.Engine, []byte(versionCounterKey))
 	v := &versionAssigner{Config: cfg, counter: c}
-	v.LinearTransform.Transform = v.assign
+	v.Transform = v.assign
 	return v, err
 }
 
-func (va *versionAssigner) assign(ctx context.Context, br BatchRequest) (BatchRequest, bool, error) {
+func (va *versionAssigner) assign(_ context.Context, br TxRequest) (TxRequest, bool, error) {
 	latestVer := va.counter.Value()
 	if _, err := va.counter.Add(int64(br.size())); err != nil {
-		va.Logger.Errorw("failed to assign version", "err", err)
-		return BatchRequest{}, false, nil
+		va.L.Error("failed to assign version", zap.Error(err))
+		return TxRequest{}, false, nil
 	}
 	for i := range br.Operations {
 		br.Operations[i].Version = version.Counter(latestVer + int64(i) + 1)

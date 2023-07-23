@@ -17,12 +17,10 @@ import (
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to
-// multiple Outlet(s). It implements an empty Flow method, as sources are typically
+// multiple Outlet(sink). It implements an empty Flow method, as sources are typically
 // driven by external events. The user can define a custom Flow method if they wish to
 // drive the source themselves.
-type AbstractMultiSource[V Value] struct {
-	Out []Inlet[V]
-}
+type AbstractMultiSource[V Value] struct{ Out []Inlet[V] }
 
 // OutTo implements the Source interface.
 func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(ams.Out, inlets...) }
@@ -62,12 +60,12 @@ func (aus *AbstractUnarySource[O]) OutTo(inlets ...Inlet[O]) {
 // CloseInlets implements the InletCloser interface.
 func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 
-// AbstractAddressableSource is an implementation of a Source that stores its Inlet(s) in an
+// AbstractAddressableSource is an implementation of a Source that stores its Inlet(sink) in an
 // addressable map. This is ideal for use cases where the address of an Inlet is
 // relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
 	PanicOnDuplicateAddress bool
-	// Out is an address map of all Inlet(s) reachable by the Source.
+	// Out is an address map of all Inlet(sink) reachable by the Source.
 	Out map[address.Address]Inlet[O]
 }
 
@@ -83,7 +81,7 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 			panic("[confluence.AbstractAddressableSource] - inlet must have a valid address")
 		}
 		if _, ok := aas.Out[inlet.InletAddress()]; ok && aas.PanicOnDuplicateAddress {
-			panic(fmt.Sprintf("[confluence.AbstractAddressableSource] - duplicate address %s", inlet.InletAddress()))
+			panic(fmt.Sprintf("[confluence.AbstractAddressableSource] - duplicate address %sink", inlet.InletAddress()))
 		}
 		aas.Out[inlet.InletAddress()] = inlet
 	}
@@ -108,7 +106,7 @@ func (aas *AbstractAddressableSource[O]) SendToEach(ctx context.Context, v O) er
 
 }
 
-// CloseInlets closes all Inlet(s) provided to AbstractAddressableSource.OutTo.
+// CloseInlets closes all Inlet(sink) provided to AbstractAddressableSource.OutTo.
 func (aas *AbstractAddressableSource[O]) CloseInlets() {
 	for _, inlet := range aas.Out {
 		inlet.Close()

@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { ChannelCreator } from "./creator";
-export { Channel, ChannelClient } from "./client";
+export { ChannelCreator } from "@/channel/creator";
+export { Channel, ChannelClient } from "@/channel/client";
 export {
-  channelPayloadSchema,
-  unkeyedChannelPayloadSchema as keyedChannelPayloadSchema,
-} from "./payload";
+  channelPayload,
+  newChannelPayload as unkeyedChannelPayload,
+} from "@/channel/payload";
 export type {
   ChannelPayload,
-  UnkeyedChannelPayload as KeyedChannelPayload,
-} from "./payload";
+  NewChannelPayload as UnkeyedChannelPayload,
+  ChannelName,
+  ChannelKey,
+  ChannelKeys,
+  ChannelNames,
+  ChannelKeyOrName,
+  ChannelKeysOrNames,
+  ChannelParams,
+} from "@/channel/payload";
+export type { ChannelRetriever } from "@/channel/retriever";
+export { ClusterChannelRetriever, CacheChannelRetriever } from "@/channel/retriever";

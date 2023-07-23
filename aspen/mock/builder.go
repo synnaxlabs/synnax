@@ -24,17 +24,17 @@ type Builder struct {
 	DataDir         string
 	DefaultOptions  []aspen.Option
 	peerAddresses   []address.Address
-	TmpDirs         map[aspen.NodeID]string
+	TmpDirs         map[aspen.NodeKey]string
 	tmpDir          string
 	_addressFactory *address.Factory
-	Nodes           map[aspen.NodeID]NodeInfo
+	Nodes           map[aspen.NodeKey]NodeInfo
 	memBacked       bool
 }
 
 type NodeInfo struct {
 	Addr address.Address
 	Dir  string
-	DB   aspen.DB
+	DB   *aspen.DB
 }
 
 func (b *Builder) Dir() string {
@@ -55,7 +55,7 @@ func (b *Builder) addressFactory() *address.Factory {
 	return b._addressFactory
 }
 
-func (b *Builder) New(opts ...aspen.Option) (aspen.DB, error) {
+func (b *Builder) New(opts ...aspen.Option) (*aspen.DB, error) {
 	dir := filepath.Join(b.Dir(), strconv.Itoa(len(b.peerAddresses)))
 	if len(b.Nodes) == 0 {
 		opts = append(opts, aspen.Bootstrap())
@@ -65,7 +65,7 @@ func (b *Builder) New(opts ...aspen.Option) (aspen.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	b.Nodes[db.HostID()] = NodeInfo{
+	b.Nodes[db.Cluster.HostKey()] = NodeInfo{
 		Addr: addr,
 		Dir:  dir,
 		DB:   db,

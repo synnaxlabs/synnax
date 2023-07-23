@@ -25,8 +25,8 @@ func (s storeState) Copy() storeState {
 	return mCopy
 }
 
-func (s storeState) toBatchRequest() BatchRequest {
-	b := BatchRequest{Operations: make([]Operation, 0, len(s))}
+func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
+	b := TxRequest{Context: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
 		if op.state != infected {
 			continue
@@ -38,17 +38,14 @@ func (s storeState) toBatchRequest() BatchRequest {
 	return b
 }
 
-type store xstore.Observable[storeState]
+type store xstore.Store[storeState]
 
 func newStore() store {
-	return xstore.ObservableWrap[storeState](xstore.New(func(
-		m storeState) storeState {
-		return m.Copy()
-	}))
+	return xstore.New(func(m storeState) storeState { return m.Copy() })
 }
 
 type storeEmitter struct {
-	confluence.Emitter[BatchRequest]
+	confluence.Emitter[TxRequest]
 	store store
 }
 
@@ -59,12 +56,12 @@ func newStoreEmitter(s store, cfg Config) source {
 	return se
 }
 
-func (e *storeEmitter) Emit(ctx context.Context) (BatchRequest, error) {
-	return e.store.PeekState().toBatchRequest(), nil
+func (e *storeEmitter) Emit(ctx context.Context) (TxRequest, error) {
+	return e.store.PeekState().toBatchRequest(ctx), nil
 }
 
 type storeSink struct {
-	confluence.UnarySink[BatchRequest]
+	confluence.UnarySink[TxRequest]
 	store store
 }
 
@@ -74,11 +71,11 @@ func newStoreSink(s store) sink {
 	return ss
 }
 
-func (s *storeSink) Store(ctx context.Context, br BatchRequest) error {
+func (s *storeSink) Store(ctx context.Context, br TxRequest) error {
 	snap := s.store.CopyState()
 	for _, op := range br.Operations {
 		snap[string(op.Key)] = op
 	}
-	s.store.SetState(snap)
+	s.store.SetState(ctx, snap)
 	return nil
 }

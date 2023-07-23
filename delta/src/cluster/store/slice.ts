@@ -9,9 +9,8 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { Optional } from "@synnaxlabs/x";
 
-import { Cluster, ConnectionState, DEFAULT_CONNECTION_STATE } from "@/cluster/core";
+import { Cluster } from "@/cluster/core";
 
 /** The state of the cluster slice. */
 export interface ClusterState {
@@ -45,14 +44,9 @@ const initialState: ClusterState = {
 };
 
 /** Signature for the setCluster action. */
-export type SetClusterAction = Optional<Cluster, "state">;
+export type SetClusterAction = Cluster;
 /** Signature for the setActiveCluster action. */
 export type SetActiveClusterAction = string | null;
-/** Signature for the setClusterConnectionState action. */
-export interface SetClusterConnectionState {
-  key: string;
-  state: ConnectionState;
-}
 
 type PA<P> = PayloadAction<P>;
 
@@ -66,14 +60,8 @@ export const {
   name: CLUSTER_SLICE_NAME,
   initialState,
   reducers: {
-    setClusterConnectionState: (
-      { clusters },
-      { payload: { key, state } }: PA<SetClusterConnectionState>
-    ) => {
-      clusters[key].state = state;
-    },
     setCluster: ({ clusters }, { payload: cluster }: PA<SetClusterAction>) => {
-      clusters[cluster.key] = { state: DEFAULT_CONNECTION_STATE, ...cluster };
+      clusters[cluster.key] = cluster;
     },
     setActiveCluster: (state, { payload: key }: PA<SetActiveClusterAction>) => {
       state.activeCluster = key;
@@ -92,13 +80,7 @@ export const {
    * @params payload - The key of the cluster to set as active.
    */
   setActiveCluster,
-  /**
-   * Sets the connection state of the cluster with the given key in state.
-   * @params payload.key - The key of the cluster to set the connection state of.
-   * @params payload.state - The connection state to set.
-   */
-  setClusterConnectionState,
 } = actions;
 
-export type ClusterAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type ClusterAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type ClusterPayload = ClusterAction["payload"];

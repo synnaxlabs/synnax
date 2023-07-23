@@ -11,9 +11,10 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
@@ -37,22 +38,25 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 		return err
 	}
 
-	receiver := &freightfluence.TransformReceiver[storage.TSIteratorRequest, Request]{Receiver: server}
+	receiver := &freightfluence.TransformReceiver[ts.IteratorRequest, Request]{Receiver: server}
 	receiver.Transform = newStorageRequestTranslator()
-	sender := &freightfluence.TransformSender[storage.TSIteratorResponse, Response]{
+	sender := &freightfluence.TransformSender[ts.IteratorResponse, Response]{
 		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 	}
-	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostID())
+	sender.Transform = newStorageResponseTranslator(sf.HostResolver.HostKey())
 
-	iter, err := sf.TS.NewStreamIterator(storage.IteratorConfig{Channels: req.Keys.Strings(), Bounds: req.Bounds})
+	iter, err := sf.TS.NewStreamIterator(ts.IteratorConfig{
+		Channels: req.Keys.Storage(),
+		Bounds:   req.Bounds,
+	})
 	if err != nil {
 		return err
 	}
 
 	pipe := plumber.New()
-	plumber.SetSegment[storage.TSIteratorRequest, storage.TSIteratorResponse](pipe, "storage", iter)
-	plumber.SetSource[storage.TSIteratorRequest](pipe, "receiver", receiver)
-	plumber.SetSink[storage.TSIteratorResponse](pipe, "sender", sender)
+	plumber.SetSegment[ts.IteratorRequest, ts.IteratorResponse](pipe, "storage", iter)
+	plumber.SetSource[ts.IteratorRequest](pipe, "receiver", receiver)
+	plumber.SetSink[ts.IteratorResponse](pipe, "sender", sender)
 	plumber.MustConnect[Request](pipe, "receiver", "storage", 1)
 	plumber.MustConnect[Response](pipe, "storage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())

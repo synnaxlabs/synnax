@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
+import { addSamples } from "./series";
+
+import { Stringer } from "@/primitive";
+
 export type TZInfo = "UTC" | "local";
 
 export type TimeStampStringFormat =
@@ -19,9 +25,31 @@ export type TimeStampStringFormat =
   | "shortDate"
   | "dateTime";
 
-const timeF = (time: number, pad = 2): string => time.toString().padStart(pad, "0");
-
 export type DateComponents = [number?, number?, number?];
+
+const remainder = <T extends TimeStamp | TimeSpan>(
+  value: T,
+  divisor: TimeSpan | TimeStamp
+): T => {
+  const ts = new TimeStamp(divisor);
+  if (
+    ![
+      TimeSpan.DAY,
+      TimeSpan.HOUR,
+      TimeSpan.MINUTE,
+      TimeSpan.SECOND,
+      TimeSpan.MILLISECOND,
+      TimeSpan.MICROSECOND,
+      TimeSpan.NANOSECOND,
+    ].some((s) => s.equals(ts))
+  ) {
+    throw new Error(
+      "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
+    );
+  }
+  const v = value.valueOf() % ts.valueOf();
+  return (value instanceof TimeStamp ? new TimeStamp(v) : new TimeSpan(v)) as T;
+};
 
 /**
  * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
@@ -49,8 +77,8 @@ export type DateComponents = [number?, number?, number?];
  * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
-export class TimeStamp extends Number {
-  constructor(value?: UnparsedTimeStamp, tzInfo: TZInfo = "UTC") {
+export class TimeStamp extends Number implements Stringer {
+  constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) return TimeStamp.now();
     else if (value instanceof Date)
       super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
@@ -61,15 +89,16 @@ export class TimeStamp extends Number {
       let offset = 0;
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
-      super(value + offset);
+      super(value.valueOf() + offset);
     }
   }
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    return new TimeStamp(
-      date.getTime() * TimeStamp.MILLISECOND.valueOf() - TimeStamp.utcOffset.valueOf()
-    ).valueOf();
+    // We truncate here to only get the date component regardless of the time zone.
+    return new TimeStamp(date.getTime() * TimeStamp.MILLISECOND.valueOf())
+      .truncate(TimeStamp.DAY)
+      .valueOf();
   }
 
   private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): number {
@@ -158,7 +187,7 @@ export class TimeStamp extends Number {
    * @param other - The other TimeStamp to compare to.
    * @returns True if the TimeStamps are equal, false otherwise.
    */
-  equals(other: UnparsedTimeStamp): boolean {
+  equals(other: CrudeTimeStamp): boolean {
     return this.valueOf() === new TimeStamp(other).valueOf();
   }
 
@@ -169,7 +198,7 @@ export class TimeStamp extends Number {
    * @returns A TimeSpan representing the duration between the two timestamps.
    *   The span is guaranteed to be positive.
    */
-  span(other: UnparsedTimeStamp): TimeSpan {
+  span(other: CrudeTimeStamp): TimeSpan {
     return this.range(other).span;
   }
 
@@ -180,7 +209,7 @@ export class TimeStamp extends Number {
    * @returns A TimeRange spanning the given TimeStamp that is guaranteed to be
    *   valid, regardless of the TimeStamp order.
    */
-  range(other: UnparsedTimeStamp): TimeRange {
+  range(other: CrudeTimeStamp): TimeRange {
     return new TimeRange(this, other).makeValid();
   }
 
@@ -192,7 +221,7 @@ export class TimeStamp extends Number {
    * @returns A TimeRange starting at the TimeStamp and spanning the given
    *   TimeSpan. The TimeRange is guaranteed to be valid.
    */
-  spanRange(other: UnparsedTimeSpan): TimeRange {
+  spanRange(other: CrudeTimeSpan): TimeRange {
     return this.range(this.add(other)).makeValid();
   }
 
@@ -212,7 +241,7 @@ export class TimeStamp extends Number {
    * @returns True if the TimeStamp is after the given TimeStamp, false
    *   otherwise.
    */
-  after(other: UnparsedTimeStamp): boolean {
+  after(other: CrudeTimeStamp): boolean {
     return this.valueOf() > new TimeStamp(other).valueOf();
   }
 
@@ -223,7 +252,7 @@ export class TimeStamp extends Number {
    * @returns True if the TimeStamp is after or equal to the given TimeStamp,
    *   false otherwise.
    */
-  afterEq(other: UnparsedTimeStamp): boolean {
+  afterEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() >= new TimeStamp(other).valueOf();
   }
 
@@ -234,7 +263,7 @@ export class TimeStamp extends Number {
    * @returns True if the TimeStamp is before the given TimeStamp, false
    *   otherwise.
    */
-  before(other: UnparsedTimeStamp): boolean {
+  before(other: CrudeTimeStamp): boolean {
     return this.valueOf() < new TimeStamp(other).valueOf();
   }
 
@@ -245,7 +274,7 @@ export class TimeStamp extends Number {
    * @returns True if TimeStamp is before or equal to the current timestamp,
    *   false otherwise.
    */
-  beforeEq(other: UnparsedTimeStamp): boolean {
+  beforeEq(other: CrudeTimeStamp): boolean {
     return this.valueOf() <= new TimeStamp(other).valueOf();
   }
 
@@ -256,7 +285,7 @@ export class TimeStamp extends Number {
    * @returns A new TimeStamp representing the sum of the TimeStamp and
    *   TimeSpan.
    */
-  add(span: UnparsedTimeSpan): TimeStamp {
+  add(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() + span.valueOf());
   }
 
@@ -267,7 +296,7 @@ export class TimeStamp extends Number {
    * @returns A new TimeStamp representing the difference of the TimeStamp and
    *   TimeSpan.
    */
-  sub(span: UnparsedTimeSpan): TimeStamp {
+  sub(span: CrudeTimeSpan): TimeStamp {
     return new TimeStamp(this.valueOf() - span.valueOf());
   }
 
@@ -288,29 +317,17 @@ export class TimeStamp extends Number {
    * i.e. the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
    * not the days, years, etc.
    *
-   * @param span - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
+   * @param divisor - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
    * means it must be a day, hour, minute, second, millisecond, or microsecond, etc.
    *
-   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current time of day
+   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current day
    */
-  remainder(span: TimeSpan | TimeStamp): TimeStamp {
-    const ts = new TimeStamp(span);
-    if (
-      ![
-        TimeStamp.DAY,
-        TimeStamp.HOUR,
-        TimeStamp.MINUTE,
-        TimeStamp.SECOND,
-        TimeStamp.MILLISECOND,
-        TimeStamp.MICROSECOND,
-        TimeSpan.NANOSECOND,
-      ].some((s) => s.equals(ts))
-    ) {
-      throw new Error(
-        "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
-      );
-    }
-    return new TimeStamp(this.valueOf() % ts.valueOf());
+  remainder(divisor: TimeSpan | TimeStamp): TimeStamp {
+    return remainder(this, divisor);
+  }
+
+  truncate(span: TimeSpan | TimeStamp): TimeStamp {
+    return this.sub(this.remainder(span));
   }
 
   /**
@@ -379,20 +396,77 @@ export class TimeStamp extends Number {
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp(TimeStamp.MAX_SAFE_INTEGER);
+  static readonly MAX = new TimeStamp(9122272036554776000);
 
   /** The minimum possible value for a timestamp */
-  static readonly MIN = new TimeStamp(TimeStamp.MIN_SAFE_INTEGER);
+  static readonly MIN = new TimeStamp(0);
 
   /** The unix epoch */
   static readonly ZERO = new TimeStamp(0);
+
+  /** A zod schema for validating timestamps */
+  static readonly z = z.union([
+    z.instanceof(Number).transform((n) => new TimeStamp(n)),
+    z.number().transform((n) => new TimeStamp(n)),
+    z.instanceof(TimeStamp),
+  ]);
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
-export class TimeSpan extends Number {
-  constructor(value: UnparsedTimeSpan) {
+export class TimeSpan extends Number implements Stringer {
+  constructor(value: CrudeTimeSpan) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
+  }
+
+  remainder(divisor: TimeSpan): TimeSpan {
+    return remainder(this, divisor);
+  }
+
+  truncate(span: TimeSpan): TimeSpan {
+    return new TimeSpan(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+  }
+
+  toString(): string {
+    const totalDays = this.truncate(TimeSpan.DAY);
+    const totalHours = this.truncate(TimeSpan.HOUR);
+    const totalMinutes = this.truncate(TimeSpan.MINUTE);
+    const totalSeconds = this.truncate(TimeSpan.SECOND);
+    const totalMilliseconds = this.truncate(TimeSpan.MILLISECOND);
+    const totalMicroseconds = this.truncate(TimeSpan.MICROSECOND);
+    const totalNanoseconds = this.truncate(TimeSpan.NANOSECOND);
+    const days = totalDays;
+    const hours = totalHours.sub(totalDays);
+    const minutes = totalMinutes.sub(totalHours);
+    const seconds = totalSeconds.sub(totalMinutes);
+    const milliseconds = totalMilliseconds.sub(totalSeconds);
+    const microseconds = totalMicroseconds.sub(totalMilliseconds);
+    const nanoseconds = totalNanoseconds.sub(totalMicroseconds);
+
+    let str = "";
+    if (!days.isZero) str += `${days.days}d `;
+    if (!hours.isZero) str += `${hours.hours}h `;
+    if (!minutes.isZero) str += `${minutes.minutes}m `;
+    if (!seconds.isZero) str += `${seconds.seconds}s `;
+    if (!milliseconds.isZero) str += `${milliseconds.milliseconds}ms `;
+    if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
+    if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
+    return str.trim();
+  }
+
+  /** @returns the decimal number of days in the timespan */
+  get days(): number {
+    return this.valueOf() / TimeSpan.DAY.valueOf();
+  }
+
+  /** @returns the decimal number of hours in the timespan */
+  get hours(): number {
+    return this.valueOf() / TimeSpan.HOUR.valueOf();
+  }
+
+  /** @returns the decimal number of minutes in the timespan */
+  get minutes(): number {
+    return this.valueOf() / TimeSpan.MINUTE.valueOf();
   }
 
   /** @returns The number of seconds in the TimeSpan. */
@@ -403,6 +477,14 @@ export class TimeSpan extends Number {
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
     return this.valueOf() / TimeSpan.MILLISECOND.valueOf();
+  }
+
+  get microseconds(): number {
+    return this.valueOf() / TimeSpan.MICROSECOND.valueOf();
+  }
+
+  get nanoseconds(): number {
+    return this.valueOf();
   }
 
   /**
@@ -419,7 +501,7 @@ export class TimeSpan extends Number {
    *
    * @returns True if the TimeSpans are equal, false otherwise.
    */
-  equals(other: UnparsedTimeSpan): boolean {
+  equals(other: CrudeTimeSpan): boolean {
     return this.valueOf() === new TimeSpan(other).valueOf();
   }
 
@@ -428,7 +510,7 @@ export class TimeSpan extends Number {
    *
    * @returns A new TimeSpan representing the sum of the two TimeSpans.
    */
-  add(other: UnparsedTimeSpan): TimeSpan {
+  add(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() + new TimeSpan(other).valueOf());
   }
 
@@ -437,7 +519,7 @@ export class TimeSpan extends Number {
    *
    * @param other
    */
-  sub(other: UnparsedTimeSpan): TimeSpan {
+  sub(other: CrudeTimeSpan): TimeSpan {
     return new TimeSpan(this.valueOf() - new TimeSpan(other).valueOf());
   }
 
@@ -540,11 +622,18 @@ export class TimeSpan extends Number {
 
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
+
+  /** A zod schema for validating and transforming timespans */
+  static readonly z = z.union([
+    z.instanceof(Number).transform((n) => new TimeSpan(n)),
+    z.number().transform((n) => new TimeSpan(n)),
+    z.instanceof(TimeSpan),
+  ]);
 }
 
 /** Rate represents a data rate in Hz. */
-export class Rate extends Number {
-  constructor(value: UnparsedRate) {
+export class Rate extends Number implements Stringer {
+  constructor(value: CrudeRate) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
   }
@@ -555,7 +644,7 @@ export class Rate extends Number {
   }
 
   /** @returns The number of seconds in the Rate. */
-  equals(other: UnparsedRate): boolean {
+  equals(other: CrudeRate): boolean {
     return this.valueOf() === new Rate(other).valueOf();
   }
 
@@ -565,7 +654,7 @@ export class Rate extends Number {
    * @returns A TimeSpan representing the period of the Rate.
    */
   get period(): TimeSpan {
-    return TimeSpan.seconds(this.valueOf());
+    return TimeSpan.seconds(1 / this.valueOf());
   }
 
   /**
@@ -574,7 +663,7 @@ export class Rate extends Number {
    * @param duration - The duration to calculate the sample count from.
    * @returns The number of samples in the given TimeSpan at this rate.
    */
-  sampleCount(duration: UnparsedTimeSpan): number {
+  sampleCount(duration: CrudeTimeSpan): number {
     return new TimeSpan(duration).seconds * this.valueOf();
   }
 
@@ -585,7 +674,7 @@ export class Rate extends Number {
    * @param density - The density of the data in bytes per sample.
    * @returns The number of bytes in the given TimeSpan at this rate.
    */
-  byteCount(span: UnparsedTimeSpan, density: UnparsedDensity): number {
+  byteCount(span: CrudeTimeSpan, density: CrudeDensity): number {
     return this.sampleCount(span) * new Density(density).valueOf();
   }
 
@@ -606,7 +695,7 @@ export class Rate extends Number {
    * @param density - The density of the data in bytes per sample.
    * @returns A TimeSpan that corresponds to the given number of bytes.
    */
-  byteSpan(size: Size, density: UnparsedDensity): TimeSpan {
+  byteSpan(size: Size, density: CrudeDensity): TimeSpan {
     return this.span(size.valueOf() / density.valueOf());
   }
 
@@ -629,10 +718,17 @@ export class Rate extends Number {
   static khz(value: number): Rate {
     return Rate.hz(value * 1000);
   }
+
+  /** A zod schema for validating and transforming rates */
+  static readonly z = z.union([
+    z.number().transform((n) => new Rate(n)),
+    z.instanceof(Number).transform((n) => new Rate(n)),
+    z.instanceof(Rate),
+  ]);
 }
 
 /** Density represents the number of bytes in a value. */
-export class Density extends Number {
+export class Density extends Number implements Stringer {
   /**
    * Creates a Density representing the given number of bytes per value.
    *
@@ -640,7 +736,7 @@ export class Density extends Number {
    * @param value - The number of bytes per value.
    * @returns A Density representing the given number of bytes per value.
    */
-  constructor(value: UnparsedDensity) {
+  constructor(value: CrudeDensity) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
   }
@@ -667,6 +763,13 @@ export class Density extends Number {
 
   /** 8 bits per value. */
   static readonly BIT8 = new Density(1);
+
+  /** A zod schema for validating and transforming densities */
+  static readonly z = z.union([
+    z.number().transform((n) => new Density(n)),
+    z.instanceof(Number).transform((n) => new Density(n)),
+    z.instanceof(Density),
+  ]);
 }
 
 /**
@@ -677,7 +780,7 @@ export class Density extends Number {
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
-export class TimeRange {
+export class TimeRange implements Stringer {
   start: TimeStamp;
   end: TimeStamp;
 
@@ -687,7 +790,7 @@ export class TimeRange {
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
-  constructor(start: UnparsedTimeStamp, end: UnparsedTimeStamp) {
+  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp) {
     this.start = new TimeStamp(start);
     this.end = new TimeStamp(end);
   }
@@ -747,6 +850,29 @@ export class TimeRange {
     return `${this.start.toString()} - ${this.end.toString()}`;
   }
 
+  overlapsWith(other: TimeRange): boolean {
+    other = other.makeValid();
+    const rng = this.makeValid();
+    if (other.start.equals(rng.start)) return true;
+    if (other.end.equals(this.start) || other.start.equals(this.end)) return false;
+    return (
+      this.contains(other.end) ||
+      this.contains(other.start) ||
+      other.contains(this.start) ||
+      other.contains(this.end)
+    );
+  }
+
+  contains(other: TimeRange): boolean;
+
+  contains(ts: CrudeTimeStamp): boolean;
+
+  contains(other: TimeRange | CrudeTimeStamp): boolean {
+    if (other instanceof TimeRange)
+      return this.contains(other.start) && this.contains(other.end);
+    return this.start.beforeEq(other) && this.end.after(other);
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
@@ -755,12 +881,24 @@ export class TimeRange {
 
   /** A zero time range. */
   static readonly ZERO = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+
+  /** A zod schema for validating and transforming time ranges */
+  static readonly z = z.union([
+    z
+      .object({ start: TimeStamp.z, end: TimeStamp.z })
+      .transform((v) => new TimeRange(v.start, v.end)),
+    z.instanceof(TimeRange),
+  ]);
 }
 
 /** DataType is a string that represents a data type. */
-export class DataType extends String {
-  constructor(value: UnparsedDataType) {
-    if (value instanceof DataType || typeof value === "string") {
+export class DataType extends String implements Stringer {
+  constructor(value: CrudeDataType) {
+    if (
+      value instanceof DataType ||
+      typeof value === "string" ||
+      typeof value.valueOf() === "string"
+    ) {
       super(value.valueOf());
       return;
     } else {
@@ -888,31 +1026,37 @@ export class DataType extends String {
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
+
+  /** A zod schema for a DataType. */
+  static readonly z = z.union([
+    z.string().transform((v) => new DataType(v)),
+    z.instanceof(DataType),
+  ]);
 }
 
 /**
  * The Size of an elementy in bytes.
  */
-export class Size extends Number {
-  constructor(value: UnparsedSize) {
+export class Size extends Number implements Stringer {
+  constructor(value: CrudeSize) {
     super(value.valueOf());
   }
 
   /** @returns true if the Size is larger than the other size. */
-  largerThan(other: UnparsedSize): boolean {
+  largerThan(other: CrudeSize): boolean {
     return this.valueOf() > other.valueOf();
   }
 
   /** @returns true if the Size is smaller than the other sisze. */
-  smallerThan(other: UnparsedSize): boolean {
+  smallerThan(other: CrudeSize): boolean {
     return this.valueOf() < other.valueOf();
   }
 
-  add(other: UnparsedSize): Size {
+  add(other: CrudeSize): Size {
     return Size.bytes(this.valueOf() + other.valueOf());
   }
 
-  sub(other: UnparsedSize): Size {
+  sub(other: CrudeSize): Size {
     return Size.bytes(this.valueOf() - other.valueOf());
   }
 
@@ -922,7 +1066,7 @@ export class Size extends Number {
    * @param value - The number of bytes.
    * @returns A Size representing the given number of bytes.
    */
-  static bytes(value: UnparsedSize = 1): Size {
+  static bytes(value: CrudeSize = 1): Size {
     return new Size(value);
   }
 
@@ -935,7 +1079,7 @@ export class Size extends Number {
    * @param value - The number of kilobytes.
    * @returns A Size representing the given number of kilobytes.
    */
-  static kilobytes(value: UnparsedSize = 1): Size {
+  static kilobytes(value: CrudeSize = 1): Size {
     return Size.bytes(value.valueOf() * 1e3);
   }
 
@@ -948,7 +1092,7 @@ export class Size extends Number {
    * @param value - The number of megabytes.
    * @returns A Size representing the given number of megabytes.
    */
-  static megabytes(value: UnparsedSize = 1): Size {
+  static megabytes(value: CrudeSize = 1): Size {
     return Size.kilobytes(value.valueOf() * 1e3);
   }
 
@@ -961,7 +1105,7 @@ export class Size extends Number {
    * @param value - The number of gigabytes.
    * @returns A Size representing the given number of gigabytes.
    */
-  static gigabytes(value: UnparsedSize = 1): Size {
+  static gigabytes(value: CrudeSize = 1): Size {
     return Size.megabytes(value.valueOf() * 1e3);
   }
 
@@ -974,40 +1118,65 @@ export class Size extends Number {
    * @param value - The number of terabytes.
    * @returns  A Size representing the given number of terabytes.
    */
-  static terabytes(value: UnparsedSize): Size {
+  static terabytes(value: CrudeSize): Size {
     return Size.gigabytes(value.valueOf() * 1e3);
   }
 
   /** A terabyte. */
   static readonly TERABYTE = Size.terabytes(1);
 
+  /** The zero value for Size */
   static readonly ZERO = new Size(0);
+
+  /** A zod schema for a Size. */
+  static readonly z = z.union([
+    z.number().transform((v) => new Size(v)),
+    z.instanceof(Size),
+  ]);
+
+  isZero(): boolean {
+    return this.valueOf() === 0;
+  }
 }
 
-export type UnparsedTimeStamp =
+export type CrudeTimeStamp =
   | TimeStamp
   | TimeSpan
   | number
   | Date
   | string
-  | DateComponents;
-export type UnparsedTimeSpan = TimeSpan | TimeStamp | number;
-export type UnparsedRate = Rate | number;
-export type UnparsedDensity = Density | number;
-export type UnparsedDataType = DataType | string | NativeTypedArray;
-export type UnparsedSize = Size | number;
+  | DateComponents
+  | Number;
+export type TimeStampT = number;
+export type CrudeTimeSpan = TimeSpan | TimeStamp | number | Number;
+export type TimeSpanT = number;
+export type CrudeRate = Rate | number | Number;
+export type RateT = number;
+export type CrudeDensity = Density | number | Number;
+export type DensityT = number;
+export type CrudeDataType = DataType | string | NativeTypedArray;
+export type DataTypeT = string;
+export type CrudeSize = Size | number | Number;
+export type SizeT = number;
+export interface TimeRangeT {
+  start: TimeStampT;
+  end: TimeStampT;
+}
 
-export type NativeTypedArray =
-  | Uint8Array
-  | Uint16Array
-  | Uint32Array
-  | BigUint64Array
-  | Float32Array
-  | Float64Array
-  | Int8Array
-  | Int16Array
-  | Int32Array
-  | BigInt64Array;
+export const nativeTypedArray = z.union([
+  z.instanceof(Uint8Array),
+  z.instanceof(Uint16Array),
+  z.instanceof(Uint32Array),
+  z.instanceof(BigUint64Array),
+  z.instanceof(Float32Array),
+  z.instanceof(Float64Array),
+  z.instanceof(Int8Array),
+  z.instanceof(Int16Array),
+  z.instanceof(Int32Array),
+  z.instanceof(BigInt64Array),
+]);
+
+export type NativeTypedArray = z.infer<typeof nativeTypedArray>;
 
 type NativeTypedArrayConstructor =
   | Uint8ArrayConstructor
@@ -1028,8 +1197,7 @@ export const convertDataType = (
   value: TelemValue,
   offset: number | bigint = 0
 ): TelemValue => {
-  if (source.equals(target)) return value;
-  if (source.usesBigInt && !target.usesBigInt) return Number(value) + Number(offset);
-  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) + BigInt(offset);
-  return value;
+  if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
+  if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
+  return addSamples(value, -offset);
 };

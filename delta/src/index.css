@@ -12,3 +12,12 @@
 .delta-form {
     padding: 1rem 3rem;
 }
+
+html {
+    overscroll-behavior: none;
+}
+
+* {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}

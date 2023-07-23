@@ -11,16 +11,16 @@ import reactLogo from './assets/react.svg';
 import { useSelector, useDispatch } from 'react-redux';
 import './App.css';
 import { incremented, StoreState } from './store';
-import { createWindow } from '@synnaxlabs/drift';
+import { createWindow, useSelectWindow } from '@synnaxlabs/drift';
 
 function App() {
   const count = useSelector((state: StoreState) => state.counter.value);
   const { windows } = useSelector(({ drift }: StoreState) => drift);
   const dispatch = useDispatch();
-  const numCreated = Object.keys(windows).length;
   const numOpen = Object.values(windows).filter(
-    ({ state }) => state === 'created'
+    ({stage}) => stage === 'created'
   ).length;
+  const w = useSelectWindow()
   return (
     <div className="App">
       <div>
@@ -44,13 +44,14 @@ function App() {
           onClick={() => {
             dispatch(
               createWindow({
-                title: `Window ${numCreated}`,
+                key: `window-${numOpen}`,
+                title: `Window ${numOpen}`,
                 url: '/',
               })
             );
           }}
         >
-          {numCreated} windows created, {numOpen} open open
+          {numOpen} windows created, {numOpen} open open
         </button>
         <p>
           Edit <code>src/App.tsx</code> and save to test HMR

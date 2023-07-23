@@ -62,10 +62,10 @@ class CSVReader(CSVMatcher):  # type: ignore
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
             header=0,
-            skiprows=self._get_skip_rows(),
+            skiprows=self.__get_skip_rows(),
         )
 
-    def _get_skip_rows(self) -> int | tuple[int, int]:
+    def __get_skip_rows(self) -> int | tuple[int, int]:
         if self._calculated_skip_rows:
             return self._skip_rows
 

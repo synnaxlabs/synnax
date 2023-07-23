@@ -49,13 +49,12 @@ func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS,
 	u.Handler = handler
 }
 
-func (u *UnaryServer[RQ, RS]) exec(ctx context.Context, req RQ, iMD freighter.MD) (res RS, oMD freighter.MD, err error) {
+func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD freighter.Context, err error) {
 	oMD, err = u.MiddlewareCollector.Exec(
 		ctx,
-		iMD,
-		freighter.FinalizerFunc(func(ctx context.Context, iMD freighter.MD) (oMD freighter.MD, err error) {
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			res, err = u.Handler(ctx, req)
-			return freighter.MD{
+			return freighter.Context{
 				Target:   u.Address,
 				Protocol: u.Protocol,
 				Params:   make(freighter.Params),
@@ -83,12 +82,11 @@ func (u *UnaryClient[RQ, RS]) Send(
 	req RQ,
 ) (res RS, err error) {
 	_, err = u.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: u.Reporter.Protocol},
-		freighter.FinalizerFunc(func(ctx context.Context, iMD freighter.MD) (freighter.MD, error) {
+		freighter.Context{Context: ctx, Target: target, Protocol: u.Reporter.Protocol},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var (
-				handler func(context.Context, RQ, freighter.MD) (RS, freighter.MD, error)
-				oMD     freighter.MD
+				handler func(freighter.Context, RQ) (RS, freighter.Context, error)
+				oMD     freighter.Context
 			)
 
 			// A non nil server means we're tied up in a unary pair, so we can just
@@ -102,7 +100,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 				}
 				handler = route.exec
 			}
-			res, oMD, err = handler(ctx, req, iMD)
+			res, oMD, err = handler(ctx, req)
 			if u.Network != nil {
 				u.Network.appendEntry(target, req, res, err)
 			}

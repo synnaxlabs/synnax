@@ -37,6 +37,7 @@ module.exports = {
                     "parent",
                     "sibling",
                     "index",
+                    "unknown"
                 ],
                 pathGroups: [
                     {
@@ -45,7 +46,7 @@ module.exports = {
                         position: "before",
                     },
                     {
-                        pattern: "{.,..}/**/*.+(css|sass|less|scss|pcss|styl)",
+                        pattern: "**/*.css",
                         patternOptions: { matchBase: true },
                         group: "unknown",
                         position: "after",

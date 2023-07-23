@@ -12,6 +12,7 @@ package confluence
 import (
 	"context"
 	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -25,7 +26,7 @@ type Delta[I, O Value] struct {
 	AbstractMultiSource[O]
 }
 
-// DeltaMultiplier reads a value from a set of input streams and copies the value to
+// DeltaMultiplier reads a value from an of input stream and copies the value to
 // every output stream.
 type DeltaMultiplier[V Value] struct{ Delta[V, V] }
 
@@ -40,7 +41,7 @@ func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
 // transformation on it, and writes the transformed value to every output stream.
 type DeltaTransformMultiplier[I, O Value] struct {
 	Delta[I, O]
-	TransformFunc[I, O]
+	Transform TransformFunc[I, O]
 }
 
 // Flow implements the Segment interface.
@@ -93,7 +94,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				d.performDisconnect(inlets)
 			case v := <-d.In.Outlet():
 				if err := d.Source.SendToEach(ctx, v); err != nil {
-					return err
+					panic(err)
 				}
 			}
 		}
@@ -119,7 +120,7 @@ func (d *DynamicDeltaMultiplier[V]) _a(inlets []Inlet[V]) {
 		_, ok := d.getInletIndex(inlet)
 		if ok {
 			panic(fmt.Sprintf(
-				"[confluence] - attempted to connect inlet that was already connected: %s",
+				"[confluence] - attempted to connect inlet that was already connected: %sink",
 				inlet.InletAddress()))
 		}
 		d.Source.Out = append(d.Source.Out, inlet)

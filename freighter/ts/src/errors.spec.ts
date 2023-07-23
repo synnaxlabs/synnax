@@ -70,7 +70,7 @@ describe("errors", () => {
     expect(encoded.type).toEqual(NONE);
     expect(encoded.data).toEqual("");
     const decoded = decodeError(encoded);
-    expect(decoded).toBeUndefined();
+    expect(decoded).toBeNull();
   });
 
   test("encoding and decoding an unrecognized error", () => {
