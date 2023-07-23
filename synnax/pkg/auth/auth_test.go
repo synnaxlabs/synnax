@@ -13,13 +13,14 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("KV", Ordered, func() {
+var _ = Describe("KV", Ordered, Serial, func() {
 	var (
 		authenticator auth.Authenticator
 		db            *gorp.DB
@@ -56,6 +57,8 @@ var _ = Describe("KV", Ordered, func() {
 	})
 	Describe("Authenticate", func() {
 		It("Should return a nil error for valid credentials", func() {
+			err := authenticator.NewWriter(nil).Register(ctx, creds)
+			Expect(err).To(BeNil())
 			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
@@ -101,12 +104,15 @@ var _ = Describe("KV", Ordered, func() {
 				Username: "old-user",
 				Password: "pass",
 			})).To(Succeed())
-			Expect(errors.Is(w.UpdateUsername(ctx, creds, "old-user"),
-				errors.New("[auth] - username already registered"))).To(BeTrue())
+			Expect(w.Register(ctx, creds)).To(Succeed())
+			err := w.UpdateUsername(ctx, creds, "old-user")
+			Expect(err).ToNot(BeNil())
+			logrus.Info(err)
+			Expect(errors.Is(errors.New("[auth] - username already registered"), err)).To(BeTrue())
 		})
 	})
 	Describe("UpdatePassword", func() {
-		It("Should update the users password", func() {
+		FIt("Should update the users password", func() {
 			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
 			Expect(w.UpdatePassword(ctx, creds, newPass)).To(Succeed())

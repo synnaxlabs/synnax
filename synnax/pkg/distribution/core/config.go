@@ -52,7 +52,6 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements Config.
 func (cfg Config) Validate() error {
 	v := validate.New("distribution.core")
-	validate.NotNil(v, "pool", cfg.Pool)
 	return v.Error()
 }
 

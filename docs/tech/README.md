@@ -33,7 +33,9 @@ As a supplement, read through the [telemetry concepts](telemetry.md) document. T
 provides a detailed guide on what telemetry is, and how Synnax leverages the properties
 of hardware generated telemetry to implement a performant database.
 
-# 2 - Architecture
+# 3 - Architecture
 
 Next, it's important to understand the architecture of the platform. This is covered
 in the [architecture](architecture.md) document.
+
+# 4 - Engineering Foundations

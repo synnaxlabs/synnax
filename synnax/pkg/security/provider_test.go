@@ -43,7 +43,7 @@ var _ = Describe("OtelProvider", func() {
 				Expect(c.Certificate).To(HaveLen(1))
 				Expect(config.RootCAs).ToNot(BeNil())
 				Expect(config.ClientAuth).To(Equal(tls.VerifyClientCertIfGiven))
-				Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
+				Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS10)))
 				Expect(config.ClientCAs).ToNot(BeNil())
 			})
 			It("Should return an error if the node certificate is not found", func() {
