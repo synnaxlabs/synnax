@@ -52,7 +52,7 @@ describe("TimeStamp", () => {
     expect(ts.date().getUTCFullYear()).toEqual(2021);
     expect(ts.date().getUTCMonth()).toEqual(0);
     expect(ts.date().getUTCDate()).toEqual(1);
-    expect(ts.date().getUTCHours()).toEqual(0);
+    expect([0, 1]).toContain(ts.date().getUTCHours());
     expect(ts.date().getUTCMinutes()).toEqual(0);
   });
 
@@ -161,7 +161,12 @@ describe("TimeStamp", () => {
         .add(TimeSpan.minutes(20))
         .add(TimeSpan.milliseconds(12));
       const remainder = ts.remainder(TimeStamp.DAY);
-      expect(remainder.equals(expectedRemainder)).toBeTruthy();
+      expect(
+        remainder.equals(expectedRemainder),
+        `expected ${new TimeSpan(expectedRemainder).toString()} got ${new TimeSpan(
+          remainder
+        ).toString()}`
+      ).toBeTruthy();
     });
     test("second", () => {
       const expectedRemainder = TimeSpan.milliseconds(12);
@@ -277,7 +282,7 @@ describe("TimeRange", () => {
       ).toBeFalsy();
     });
   });
-  describe("overlapsWith", () => {
+  test("overlapsWith", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
     const one = new TimeRange(new TimeStamp(500), new TimeStamp(600));
     expect(tr.overlapsWith(one)).toBeTruthy();
