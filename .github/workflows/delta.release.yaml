@@ -191,7 +191,7 @@ jobs:
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/delta-v${packageVersion}/`;
 
-            const darwinURL = baseURL + "Synnax.app.tar.gz";
+            const darwinURL = baseURL + "Synnax_x64.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
             const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
             const linuxSig = await github.request(`GET ${linuxURL}.sig`);
