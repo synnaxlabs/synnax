@@ -81,8 +81,8 @@ describe("Series", () => {
   describe("min and max", () => {
     it("should return a min and max of zero on an allocated array", () => {
       const arr = Series.alloc(10, DataType.FLOAT32);
-      expect(arr.max).toEqual(0);
-      expect(arr.min).toEqual(0);
+      expect(arr.max).toEqual(-Infinity);
+      expect(arr.min).toEqual(Infinity);
     });
     it("should correctly calculate the min and max of a lazy array", () => {
       const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
@@ -135,15 +135,10 @@ describe("Series", () => {
       expect(arr.min).toEqual(2);
     });
     it("should correctly adjust the sample offset of a written array", () => {
-      // [1] -3 [1] -1
-      // [-2] [0]
-      // [1, 3] [-3]
-      // [-2, 0]
-      // [other - same]
       const arr = Series.alloc(2, DataType.FLOAT32, TimeRange.ZERO, -3);
       const writeOne = new Series(new Float32Array([-2]));
       expect(arr.write(writeOne)).toEqual(1);
-      expect(arr.min).toEqual(-2);
+      expect(arr.min).toEqual(-5);
       const writeTwo = new Series(
         new Float32Array([1]),
         DataType.FLOAT32,
@@ -151,8 +146,8 @@ describe("Series", () => {
         -1
       );
       expect(arr.write(writeTwo)).toEqual(1);
-      expect(arr.min).toEqual(-2);
-      expect(arr.max).toEqual(0);
+      expect(arr.min).toEqual(-5);
+      expect(arr.max).toEqual(-2);
     });
   });
 

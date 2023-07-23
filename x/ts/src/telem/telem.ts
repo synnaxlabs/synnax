@@ -27,6 +27,30 @@ export type TimeStampStringFormat =
 
 export type DateComponents = [number?, number?, number?];
 
+const remainder = <T extends TimeStamp | TimeSpan>(
+  value: T,
+  divisor: TimeSpan | TimeStamp
+): T => {
+  const ts = new TimeStamp(divisor);
+  if (
+    ![
+      TimeSpan.DAY,
+      TimeSpan.HOUR,
+      TimeSpan.MINUTE,
+      TimeSpan.SECOND,
+      TimeSpan.MILLISECOND,
+      TimeSpan.MICROSECOND,
+      TimeSpan.NANOSECOND,
+    ].some((s) => s.equals(ts))
+  ) {
+    throw new Error(
+      "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
+    );
+  }
+  const v = value.valueOf() % ts.valueOf();
+  return (value instanceof TimeStamp ? new TimeStamp(v) : new TimeSpan(v)) as T;
+};
+
 /**
  * Represents a UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  *
@@ -71,9 +95,10 @@ export class TimeStamp extends Number implements Stringer {
 
   private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-    return new TimeStamp(
-      date.getTime() * TimeStamp.MILLISECOND.valueOf() - TimeStamp.utcOffset.valueOf()
-    ).valueOf();
+    // We truncate here to only get the date component regardless of the time zone.
+    return new TimeStamp(date.getTime() * TimeStamp.MILLISECOND.valueOf())
+      .truncate(TimeStamp.DAY)
+      .valueOf();
   }
 
   private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): number {
@@ -292,29 +317,17 @@ export class TimeStamp extends Number implements Stringer {
    * i.e. the hours, minutes, seconds, milliseconds, microseconds, and nanoseconds but
    * not the days, years, etc.
    *
-   * @param span - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
+   * @param divisor - The TimeSpan to divide by. Must be an even TimeSpan or TimeStamp. Even
    * means it must be a day, hour, minute, second, millisecond, or microsecond, etc.
    *
-   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current time of day
+   * @example TimeStamp.now().remainder(TimeStamp.DAY) // => TimeStamp representing the current day
    */
-  remainder(span: TimeSpan | TimeStamp): TimeStamp {
-    const ts = new TimeStamp(span);
-    if (
-      ![
-        TimeStamp.DAY,
-        TimeStamp.HOUR,
-        TimeStamp.MINUTE,
-        TimeStamp.SECOND,
-        TimeStamp.MILLISECOND,
-        TimeStamp.MICROSECOND,
-        TimeSpan.NANOSECOND,
-      ].some((s) => s.equals(ts))
-    ) {
-      throw new Error(
-        "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
-      );
-    }
-    return new TimeStamp(this.valueOf() % ts.valueOf());
+  remainder(divisor: TimeSpan | TimeStamp): TimeStamp {
+    return remainder(this, divisor);
+  }
+
+  truncate(span: TimeSpan | TimeStamp): TimeStamp {
+    return this.sub(this.remainder(span));
   }
 
   /**
@@ -406,6 +419,56 @@ export class TimeSpan extends Number implements Stringer {
     else super(value);
   }
 
+  remainder(divisor: TimeSpan): TimeSpan {
+    return remainder(this, divisor);
+  }
+
+  truncate(span: TimeSpan): TimeSpan {
+    return new TimeSpan(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+  }
+
+  toString(): string {
+    const totalDays = this.truncate(TimeSpan.DAY);
+    const totalHours = this.truncate(TimeSpan.HOUR);
+    const totalMinutes = this.truncate(TimeSpan.MINUTE);
+    const totalSeconds = this.truncate(TimeSpan.SECOND);
+    const totalMilliseconds = this.truncate(TimeSpan.MILLISECOND);
+    const totalMicroseconds = this.truncate(TimeSpan.MICROSECOND);
+    const totalNanoseconds = this.truncate(TimeSpan.NANOSECOND);
+    const days = totalDays;
+    const hours = totalHours.sub(totalDays);
+    const minutes = totalMinutes.sub(totalHours);
+    const seconds = totalSeconds.sub(totalMinutes);
+    const milliseconds = totalMilliseconds.sub(totalSeconds);
+    const microseconds = totalMicroseconds.sub(totalMilliseconds);
+    const nanoseconds = totalNanoseconds.sub(totalMicroseconds);
+
+    let str = "";
+    if (!days.isZero) str += `${days.days}d `;
+    if (!hours.isZero) str += `${hours.hours}h `;
+    if (!minutes.isZero) str += `${minutes.minutes}m `;
+    if (!seconds.isZero) str += `${seconds.seconds}s `;
+    if (!milliseconds.isZero) str += `${milliseconds.milliseconds}ms `;
+    if (!microseconds.isZero) str += `${microseconds.microseconds}µs `;
+    if (!nanoseconds.isZero) str += `${nanoseconds.nanoseconds}ns`;
+    return str.trim();
+  }
+
+  /** @returns the decimal number of days in the timespan */
+  get days(): number {
+    return this.valueOf() / TimeSpan.DAY.valueOf();
+  }
+
+  /** @returns the decimal number of hours in the timespan */
+  get hours(): number {
+    return this.valueOf() / TimeSpan.HOUR.valueOf();
+  }
+
+  /** @returns the decimal number of minutes in the timespan */
+  get minutes(): number {
+    return this.valueOf() / TimeSpan.MINUTE.valueOf();
+  }
+
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
     return this.valueOf() / TimeSpan.SECOND.valueOf();
@@ -414,6 +477,14 @@ export class TimeSpan extends Number implements Stringer {
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
     return this.valueOf() / TimeSpan.MILLISECOND.valueOf();
+  }
+
+  get microseconds(): number {
+    return this.valueOf() / TimeSpan.MICROSECOND.valueOf();
+  }
+
+  get nanoseconds(): number {
+    return this.valueOf();
   }
 
   /**
