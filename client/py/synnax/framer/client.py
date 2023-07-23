@@ -8,15 +8,27 @@
 #  included in the file licenses/APL.txt.
 
 from typing import overload
-from numpy import ndarray
-import pandas as pd
 
+from numpy import ndarray
+from freighter import StreamClient
+
+from alamos import Instrumentation, NOOP
+from synnax.exceptions import QueryError
+from synnax.framer.frame import Frame
+from synnax.framer.adapter import ForwardFrameAdapter, BackwardFrameAdapter
+from synnax.framer.writer import Writer
+from synnax.framer.iterator import Iterator
+from synnax.channel.payload import (
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
+    ChannelKeys,
+    ChannelNames,
+)
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.framer.payload import NumpyFrame
-from synnax.telem import NumpyArray, TimeRange, UnparsedTimeStamp
-from synnax.transport import Transport
-from synnax.framer.iterator import AUTO_SPAN, NumpyIterator
-from synnax.framer.writer import DataFrameWriter
+from synnax.channel.payload import normalize_channel_params
+from synnax.framer.streamer import Streamer
+from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
 
 
 class FrameClient:
@@ -25,20 +37,27 @@ class FrameClient:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    _transport: Transport
-    _channels: ChannelRetriever
+    __client: StreamClient
+    __channels: ChannelRetriever
+    instrumentation: Instrumentation
 
-    def __init__(self, transport: Transport, registry: ChannelRetriever):
-        self._transport = transport
-        self._channels = registry
+    def __init__(
+        self,
+        client: StreamClient,
+        retriever: ChannelRetriever,
+        instrumentation: Instrumentation = NOOP,
+    ):
+        self.__client = client
+        self.__channels = retriever
+        self.instrumentation = instrumentation
 
     def new_writer(
         self,
-        start: UnparsedTimeStamp,
-        *keys_or_names: str | list[str],
+        start: CrudeTimeStamp,
+        params: ChannelParams,
         strict: bool = False,
         suppress_warnings: bool = False,
-    ) -> DataFrameWriter:
+    ) -> Writer:
         """Opens a new writer on the given channels.
 
         :param keys: A list of channel keys that the writer will write to. A writer
@@ -46,11 +65,12 @@ class FrameClient:
         for more.
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
-        return DataFrameWriter(
-            self._transport.stream,
-            self._channels,
-            start,
-            *keys_or_names,
+        adapter = ForwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Writer(
+            start=start,
+            adapter=adapter,
+            client=self.__client,
             strict=strict,
             suppress_warnings=suppress_warnings,
         )
@@ -58,33 +78,31 @@ class FrameClient:
     def new_iterator(
         self,
         tr: TimeRange,
-        *keys_or_names: str | list[str],
-        aggregate: bool = False,
-    ) -> NumpyIterator:
+        params: ChannelParams,
+    ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
-        :param keys: A list of channel keys to iterator over.
+        :param params: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
-        :param aggregate:  Whether to accumulate iteration results or reset them on every
-        iterator method call.
-        :returns: A NumpyIterator over the given channels within the provided time
-        range. See the NumpyIterator documentation for more.
+        :returns: An Iterator over the given channels within the provided time
+        range. See the Iterator documentation for more.
         """
-        return NumpyIterator(
-            self._transport.stream,
-            self._channels,
-            tr,
-            *keys_or_names,
-            aggregate=aggregate,
+        adapter = BackwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Iterator(
+            tr=tr,
+            adapter=adapter,
+            client=self.__client,
+            instrumentation=self.instrumentation,
         )
 
     def write(
         self,
-        start: UnparsedTimeStamp,
-        data: ndarray,
-        key_or_name: str,
+        start: CrudeTimeStamp,
+        data: ndarray | Series,
+        to: ChannelKey | ChannelName,
         strict: bool = False,
-    ):
+    ) -> TimeStamp:
         """Writes telemetry to the given channel starting at the given timestamp.
 
         :param to: The key of the channel to write to.
@@ -92,64 +110,72 @@ class FrameClient:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        with self.new_writer(start, key_or_name, strict=strict) as w:
-            w.write(pd.DataFrame({key_or_name: data}))
-            w.commit()
+        with self.new_writer(start, to, strict=strict) as w:
+            w.write(Frame(keys=[to], series=[Series(data)]))
+            ts, ok = w.commit()
+            return ts
 
     @overload
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
-        *keys_or_name: str,
-    ) -> NumpyFrame:
+        tr: TimeRange,
+        params: ChannelKeys | ChannelNames,
+    ) -> Frame:
         ...
 
     @overload
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
-        key_or_name: str,
-    ) -> tuple[ndarray, TimeRange]:
+        tr: TimeRange,
+        params: ChannelKey | ChannelName,
+    ) -> Series:
         ...
-
 
     def read(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
-        key_or_name: str,
-        *keys_or_name: str,
-    ) -> tuple[ndarray, TimeRange] | NumpyFrame:
+        tr: TimeRange,
+        params: ChannelParams,
+    ) -> Series | Frame:
         """Reads telemetry from the channel between the two timestamps.
 
         :param start: The starting timestamp of the range to read from.
         :param end: The ending timestamp of the range to read from.
-        :param key_or_name: The key or name of the channel to read from.
+        :param params: The key or name of the channel to read from.
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        arr = self.read_array(start, end, key_or_name)
-        assert arr.time_range is not None
-        return arr.data, arr.time_range
+        normal = normalize_channel_params(params)
+        frame = self.__read_frame(tr, params)
+        if len(normal.params) > 1:
+            return frame
+        series = frame.get(normal.params[0], None)
+        if series is None:
+            raise QueryError(
+                f"""No data found for channel {normal.params[0]} between {tr}"""
+            )
+        return series
 
-    def read_array(
+    def new_streamer(
         self,
-        start: UnparsedTimeStamp,
-        end: UnparsedTimeStamp,
-        key_or_name: str,
-    ) -> NumpyArray:
-        """Reads a Segment from the given channel between the two timestamps.
+        params: ChannelParams,
+        from_: CrudeTimeStamp | None = None,
+    ) -> Streamer:
+        adapter = BackwardFrameAdapter(self.__channels)
+        adapter.update(params)
+        return Streamer(
+            from_=from_,
+            adapter=adapter,
+            client=self.__client,
+        )
 
-        :param start: The starting timestamp of the range to read from.
-        :param end: The ending timestamp of the range to read from.
-        :param key_or_name: The key or name of the channel to read from.
-        :returns: A NumpySegment containing the read telemetry.
-        :raises ContiguityError: If the telemetry between start and end is non-contiguous.
-        """
-        with self.new_iterator(TimeRange(start, end), key_or_name, aggregate=True) as i:
-            # exhaust the iterator
-            [_ for _ in i]
-            return i.value[key_or_name]
+    def __read_frame(
+        self,
+        tr: TimeRange,
+        params: ChannelParams,
+    ) -> Frame:
+        fr = Frame()
+        with self.new_iterator(tr, params) as i:
+            for frame in i:
+                fr.append(frame)
+        return fr

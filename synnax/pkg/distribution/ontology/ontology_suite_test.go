@@ -10,16 +10,22 @@
 package ontology_test
 
 import (
+	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"testing"
+	"github.com/synnaxlabs/x/observe"
 )
 
-type emptyService struct{}
+type emptyService struct {
+	observe.Noop[iter.Nexter[schema.Change]]
+}
 
 const emptyType ontology.Type = "empty"
 
@@ -36,22 +42,29 @@ func (s *emptyService) Schema() *ontology.Schema {
 	}
 }
 
-func (s *emptyService) RetrieveEntity(key string) (ontology.Entity, error) {
-	e := schema.NewEntity(s.Schema(), "empty")
+func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontology.Resource, error) {
+	e := schema.NewResource(s.Schema(), newEmptyID(key), "empty")
 	schema.Set(e, "key", key)
 	return e, nil
 }
 
+func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
+	return iter.NexterNopCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
+		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
+	})}
+}
+
 var (
+	ctx = context.Background()
 	db  *gorp.DB
 	otg *ontology.Ontology
-	txn gorp.Txn
+	tx  gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
 	var err error
 	db = gorp.Wrap(memkv.New())
-	otg, err = ontology.Open(gorp.Wrap(db))
+	otg, err = ontology.Open(ctx, ontology.Config{DB: db})
 	Expect(err).ToNot(HaveOccurred())
 	otg.RegisterService(&emptyService{})
 })
@@ -61,11 +74,11 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	txn = db.BeginTxn()
+	tx = db.OpenTx()
 })
 
 var _ = AfterEach(func() {
-	Expect(txn.Close()).To(Succeed())
+	Expect(tx.Close()).To(Succeed())
 })
 
 func TestOntology(t *testing.T) {

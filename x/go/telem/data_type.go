@@ -10,8 +10,9 @@
 package telem
 
 import (
-	"github.com/synnaxlabs/x/types"
+	"fmt"
 	"reflect"
+	"strings"
 )
 
 // DataType is a string that represents a data type.
@@ -19,39 +20,18 @@ type DataType string
 
 func (d DataType) Density() Density { return dataTypeDensities[d] }
 
-func NewDataType[T types.Numeric](v T) DataType {
+func NewDataType[T any](v T) DataType {
 	t := reflect.TypeOf(v)
-	switch t.Name() {
-	case "int8":
-		return Int8T
-	case "int16":
-		return Int16T
-	case "int32":
-		return Int32T
-	case "int64":
-		return Int64T
-	case "uint8":
-		return ByteT
-	case "uint16":
-		return Uint16T
-	case "uint32":
-		return Uint32T
-	case "uint64":
-		return Uint64T
-	case "float32":
-		return Float32T
-	case "float64":
-		return Float64T
-	case "TimeStamp":
-		return TimeStampT
-	default:
-		panic("unsupported data type")
+	dt, ok := dataTypes[strings.ToLower(t.Name())]
+	if !ok {
+		panic(fmt.Sprintf("unknown data type %s", t.Name()))
 	}
+	return dt
 }
 
 var (
-	TimeStampT          = DataType("timestamp")
 	UnknownT   DataType = ""
+	TimeStampT          = DataType("timestamp")
 	Float64T   DataType = "float64"
 	Float32T   DataType = "float32"
 	Int64T     DataType = "int64"
@@ -64,6 +44,22 @@ var (
 	ByteT      DataType = "byte"
 	BytesT     DataType = "bytes"
 )
+
+var dataTypes = map[string]DataType{
+	"timestamp": TimeStampT,
+	"float64":   Float64T,
+	"float32":   Float32T,
+	"int64":     Int64T,
+	"int32":     Int32T,
+	"int16":     Int16T,
+	"int8":      Int8T,
+	"uint8":     ByteT,
+	"uint64":    Uint64T,
+	"uint32":    Uint32T,
+	"uint16":    Uint16T,
+	"byte":      ByteT,
+	"bytes":     BytesT,
+}
 
 var dataTypeDensities = map[DataType]Density{
 	TimeStampT: Bit64,

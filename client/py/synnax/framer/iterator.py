@@ -11,11 +11,12 @@ from enum import Enum
 
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
+from alamos import trace, Instrumentation, NOOP
+from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
+from synnax.framer.adapter import BackwardFrameAdapter
+from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
-from synnax.framer.payload import BinaryFrame, NumpyFrame
-from synnax.channel.retrieve import ChannelRetriever
-from synnax.util.flatten import flatten
 
 AUTO_SPAN = TimeSpan(-1)
 
@@ -41,20 +42,20 @@ class _ResponseVariant(int, Enum):
 class _Request(Payload):
     command: _Command
     span: TimeSpan | None = None
-    range: TimeRange | None = None
+    bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
-    keys: list[str] | None = None
+    keys: ChannelKeys | None = None
 
 
 class _Response(Payload):
     variant: _ResponseVariant
     command: _Command
     ack: bool
-    error: ExceptionPayload
-    frame: BinaryFrame
+    error: ExceptionPayload | None
+    frame: FramePayload
 
 
-class CoreIterator:
+class Iterator:
     """Used to iterate over a databases telemetry in time-order. It should not be
     instantiated directly, and should instead be instantiated using the segment Client.
 
@@ -63,40 +64,40 @@ class CoreIterator:
     between two timestamps, see the segment Client read method instead.
     """
 
-    _ENDPOINT = "/frame/iterate"
+    __ENDPOINT = "/frame/iterate"
+    __stream: Stream[_Request, _Response]
+    __adapter: BackwardFrameAdapter
 
-    aggregate: bool
     open: bool
     tr: TimeRange
-    keys: list[str]
-    _client: StreamClient
-    _stream: Stream[_Request, _Response]
-    _value: BinaryFrame
+    instrumentation: Instrumentation
+    value: Frame
 
     def __init__(
         self,
-        client: StreamClient,
         tr: TimeRange,
-        keys: list[str],
-        aggregate: bool = False,
+        client: StreamClient,
+        adapter: BackwardFrameAdapter,
+        instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self._client = client
-        self.aggregate = aggregate
-        self.keys = keys
         self.tr = tr
-        self._open()
+        self.instrumentation = instrumentation
+        self.__adapter = adapter
+        self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
+        self.__open()
 
-    def _open(self):
+    @trace("debug", "open")
+    def __open(self):
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 
         :param keys: The keys of the channels to iterate over.
         :param tr: The time range to iterate over.
         """
-        self._stream = self._client.stream(self._ENDPOINT, _Request, _Response)
-        self._exec(command=_Command.OPEN, range=self.tr, keys=self.keys)
-        self._value = BinaryFrame()
+        self._exec(command=_Command.OPEN, bounds=self.tr, keys=self.__adapter.keys)
+        self.value = Frame()
 
+    @trace("debug")
     def next(self, span: TimeSpan) -> bool:
         """Reads the next time span of telemetry for each channel in the iterator.
 
@@ -110,6 +111,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.NEXT, span=span)
 
+    @trace("debug")
     def prev(self, span: TimeSpan) -> bool:
         """Reads the previous time span of telemetry for each channel in the iterator.
 
@@ -123,6 +125,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.NEXT, span=span)
 
+    @trace("debug")
     def seek_first(self) -> bool:
         """Seeks the iterator to the first segment in the time range, but does not read
         it. Also invalidates the iterator. The iterator will not be considered valid
@@ -133,6 +136,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_FIRST)
 
+    @trace("debug")
     def seek_last(self) -> bool:
         """Seeks the iterator to the last segment in the time range, but does not read it.
         Also invalidates the iterator. The iterator will not be considered valid
@@ -143,6 +147,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_LAST)
 
+    @trace("debug")
     def seek_lt(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is less than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -153,6 +158,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_LE, stamp=stamp)
 
+    @trace("debug")
     def seek_ge(self, stamp: TimeStamp) -> bool:
         """Seeks the iterator to the first segment whose start is greater than or equal to
         the provided timestamp. Also invalidates the iterator. The iterator will not be
@@ -163,6 +169,7 @@ class CoreIterator:
         """
         return self._exec(command=_Command.SEEK_GE, stamp=stamp)
 
+    @trace("debug")
     def valid(self) -> bool:
         """Returns true if the iterator value contains a valid segment, and False otherwise.
         valid most commonly returns false when the iterator is exhausted or has accumulated
@@ -170,15 +177,16 @@ class CoreIterator:
         """
         return self._exec(command=_Command.VALID)
 
+    @trace("debug")
     def close(self):
         """Close closes the iterator. An iterator MUST be closed after use, and this method
         should probably be placed in a 'finally' block. If the iterator is not closed, it make
         leak resources and threads.
         """
-        exc = self._stream.close_send()
+        exc = self.__stream.close_send()
         if exc is not None:
             raise exc
-        _, exc = self._stream.receive()
+        r, exc = self.__stream.receive()
         if exc is None:
             raise UnexpectedError(
                 """Unexpected missing close acknowledgement from server.
@@ -188,8 +196,7 @@ class CoreIterator:
             raise exc
 
     def __iter__(self):
-        if not self.seek_first():
-            raise StopIteration
+        self.seek_first()
         return self
 
     def __next__(self):
@@ -203,70 +210,17 @@ class CoreIterator:
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
 
-    @property
-    def value(self) -> BinaryFrame:
-        return self._value.compact()
-
     def _exec(self, **kwargs) -> bool:
-        exc = self._stream.send(_Request(**kwargs))
+        exc = self.__stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
-        if not self.aggregate:
-            self._value = BinaryFrame()
+        self.value = Frame()
         while True:
-            r, exc = self._stream.receive()
+            r, exc = self.__stream.receive()
             if exc is not None:
                 raise exc
             assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
-            self._value.append_frame(r.frame)
-
-
-class NumpyIterator(CoreIterator):
-    """Used to iterate over a databases telemetry in time-order. It should not be
-    instantiated directly, and should instead be instantiated using the segment Client.
-
-    Using an iterator is ideal when querying/processing large ranges of data, but is
-    relatively complex and difficult to use. If you're looking to retrieve telemetry
-    between two timestamps, see the segment Client read method instead.
-    """
-
-    _channels: ChannelRetriever
-    _keys_or_names: list[str]
-
-    def __init__(
-        self,
-        transport: StreamClient,
-        channels: ChannelRetriever,
-        tr: TimeRange,
-        *keys_or_names: str | tuple[str] | list[str],
-        aggregate: bool = False,
-    ):
-        self._channels = channels
-        self._keys_or_names = flatten(*keys_or_names)
-        channels_ = self._channels.retrieve(flatten(*keys_or_names))
-        super().__init__(transport,  tr, [ch.key for ch in channels_], aggregate)
-
-    @property
-    def value(self) -> NumpyFrame:
-        """
-        :returns: The current iterator value as a dictionary whose keys are channels
-        and values are segments containing telemetry at the current iterator position.
-        """
-        v = super().value
-        v.keys = self._value_keys(v.keys)
-        return NumpyFrame.from_binary(v)
-
-    def _value_keys(self, keys: list[str]) -> list[str]:
-        # We can safely ignore the none case here because we've already
-        # checked that all channels can be retrieved.
-        channels = self._channels.retrieve(keys)
-        keys_or_names = []
-        for ch in channels:
-            v = [k for k in self._keys_or_names if k == ch.key or k == ch.name]
-            if len(v) == 0:
-                raise ValueError(f"Unexpected channel key {ch.key}")
-            keys_or_names.append(v[0])
-        return keys_or_names
-
+            fr = Frame(keys=r.frame.keys, series=r.frame.series)
+            self.value.append(self.__adapter.adapt(fr))

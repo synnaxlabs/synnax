@@ -10,6 +10,9 @@
 package cesium
 
 import (
+	"context"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -17,8 +20,6 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"io"
-	"sync"
 )
 
 var (
@@ -28,63 +29,27 @@ var (
 )
 
 type (
-	Channel = core.Channel
-	Frame   = core.Frame
+	Channel    = core.Channel
+	ChannelKey = core.ChannelKey
+	Frame      = core.Frame
 )
 
-func NewFrame(keys []string, arrays []telem.Array) Frame { return core.NewFrame(keys, arrays) }
-
-// DB provides a persistent, concurrent store for reading and writing arrays of telemetry.
-//
-// A DB works with three data types: Channels, Arrays, and Frames. A Channel is a named
-// collection of samples across a time range, and typically represents a single data source,
-// such as a physical sensor, software sensor, metric, or event.
-type DB interface {
-	ChannelManager
-	Writable
-	Readable
-	io.Closer
+func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
+	return core.NewFrame(keys, series)
 }
 
-type Readable interface {
-	Read(tr telem.TimeRange, keys ...string) (Frame, error)
-	NewIterator(cfg IteratorConfig) (Iterator, error)
-	StreamIterable
-}
-
-type StreamIterable interface {
-	NewStreamIterator(cfg IteratorConfig) (StreamIterator, error)
-}
-
-type Writable interface {
-	Write(start telem.TimeStamp, frame Frame) error
-	WriteArray(start telem.TimeStamp, key string, arr telem.Array) error
-	NewWriter(cfg WriterConfig) (Writer, error)
-	StreamWritable
-}
-
-type StreamWritable interface {
-	NewStreamWriter(cfg WriterConfig) (StreamWriter, error)
-}
-
-type ChannelManager interface {
-	// CreateChannel creates the given channels in the DB.
-	CreateChannel(channels ...Channel) error
-	// RetrieveChannel retrieves the channel with the given key.
-	RetrieveChannel(key string) (Channel, error)
-	// RetrieveChannels retrieves the channels with the given keys.
-	RetrieveChannels(keys ...string) ([]Channel, error)
-}
-
-type cesium struct {
+type DB struct {
 	*options
-	mu  sync.RWMutex
-	dbs map[string]unary.DB
+	relay *relay
+	mu    sync.RWMutex
+	dbs   map[uint32]unary.DB
 }
 
 // Write implements DB.
-func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
-	w, err := db.NewWriter(WriterConfig{Start: start, Channels: frame.Keys()})
+func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
+	_, span := db.T.Debug(ctx, "write")
+	defer span.End()
+	w, err := db.NewWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys})
 	if err != nil {
 		return err
 	}
@@ -94,12 +59,12 @@ func (db *cesium) Write(start telem.TimeStamp, frame Frame) error {
 }
 
 // WriteArray implements DB.
-func (db *cesium) WriteArray(start telem.TimeStamp, key string, arr telem.Array) error {
-	return db.Write(start, core.NewFrame([]string{key}, []telem.Array{arr}))
+func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
 }
 
 // Read implements DB.
-func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame Frame, err error) {
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
 	iter, err := db.NewIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return
@@ -115,10 +80,11 @@ func (db *cesium) Read(tr telem.TimeRange, keys ...string) (frame Frame, err err
 }
 
 // Close implements DB.
-func (db *cesium) Close() error {
+func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, u := range db.dbs {
 		c.Exec(u.Close)
 	}
+	c.Exec(db.relay.close)
 	return nil
 }

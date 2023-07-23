@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { JSONEncoderDecoder } from "@/encoder";
 import { BaseTypedError, EOF, TypedError, registerError } from "@/errors";
-import { MetaData } from "@/middleware";
+import { Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
 const url = new URL({
@@ -61,14 +61,14 @@ describe("websocket", () => {
     for (let i = 0; i < 10; i++) {
       stream.send({ id: i, message: "hello" });
       const [response, error] = await stream.receive();
-      expect(error).toBeUndefined();
+      expect(error).toBeNull();
       expect(response?.id).toEqual(i + 1);
       expect(response?.message).toEqual("hello");
     }
     stream.closeSend();
     const [response, error] = await stream.receive();
     expect(error).toEqual(new EOF());
-    expect(response).toBeUndefined();
+    expect(response).toBeNull();
   });
 
   test("receive message after close", async () => {
@@ -79,7 +79,7 @@ describe("websocket", () => {
     );
     await stream.closeSend();
     let [response, error] = await stream.receive();
-    expect(error).toBeUndefined();
+    expect(error).toBeNull();
     expect(response?.id).toEqual(0);
     expect(response?.message).toEqual("Close Acknowledged");
     [, error] = await stream.receive();
@@ -95,13 +95,13 @@ describe("websocket", () => {
     stream.send({ id: 0, message: "hello" });
     const [response, error] = await stream.receive();
     expect(error).toEqual(new MyCustomError("unexpected error", 1));
-    expect(response).toBeUndefined();
+    expect(response).toBeNull();
   });
 
   test("middleware", async () => {
     const myClient = new WebSocketClient(url, new JSONEncoderDecoder());
     let c = 0;
-    myClient.use(async (md, next): Promise<[MetaData, Error | undefined]> => {
+    myClient.use(async (md, next): Promise<[Context, Error | null]> => {
       if (md.params !== undefined) {
         c++;
         md.params.Test = "test";

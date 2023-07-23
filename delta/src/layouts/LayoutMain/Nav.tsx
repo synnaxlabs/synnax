@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
+import { Synnax } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Divider,
@@ -15,12 +18,14 @@ import {
   MenuProps as PMenuProps,
   Button,
   useOS,
+  Triggers,
+  Client,
+  Text,
 } from "@synnaxlabs/pluto";
-import { locToDir } from "@synnaxlabs/x";
-
-import { NAV_SIZES } from "./constants";
+import { Location } from "@synnaxlabs/x";
 
 import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
+import { CLUSTER_COMMANDS } from "@/cluster/palette";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { createDocsLayout } from "@/docs";
@@ -31,12 +36,19 @@ import {
   NavMenuItem,
   useLayoutPlacer,
 } from "@/layout";
+import { LAYOUT_COMMANDS } from "@/layout/palette";
+import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
+import { LINE_COMMANDS } from "@/line/palette";
+import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
+import { PID_COMMANDS } from "@/pid/palette";
 import { ResourcesToolbar } from "@/resources";
+import { resourceTypes } from "@/resources/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
 import { WorkspaceToolbar } from "@/workspace";
+import { WORKSPACE_COMMANDS } from "@/workspace/palettte";
 
-import "./Nav.css";
+import "@/layouts/LayoutMain/Nav.css";
 
 export const NAV_DRAWERS: NavDrawerItem[] = [
   ClusterToolbar,
@@ -45,11 +57,37 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
   VisToolbar,
 ];
 
+const DEFAULT_TRIGGER: PaletteTriggerConfig = {
+  resource: [["Meta", "P"]],
+  command: [["Meta", "Shift", "P"]],
+};
+
+const COMMANDS = [
+  ...LINE_COMMANDS,
+  ...CLUSTER_COMMANDS,
+  ...PID_COMMANDS,
+  ...WORKSPACE_COMMANDS,
+  ...LAYOUT_COMMANDS,
+];
+
+const NavTopPalette = (): ReactElement => {
+  const client = Client.use() as Synnax;
+  return (
+    <Palette
+      commands={COMMANDS}
+      searcher={client?.ontology}
+      triggers={DEFAULT_TRIGGER}
+      resourceTypes={resourceTypes}
+      commandSymbol=">"
+    />
+  );
+};
+
 /**
  * NavTop is the top navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavTop = (): JSX.Element => {
+export const NavTop = (): ReactElement => {
   const placer = useLayoutPlacer();
 
   const os = useOS();
@@ -61,9 +99,27 @@ export const NavTop = (): JSX.Element => {
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
+      <Nav.Bar.Content
+        style={{
+          position: "absolute",
+          left: "25%",
+          width: "50%",
+          zIndex: 10,
+          height: NAV_SIZES.top,
+        }}
+      >
+        <NavTopPalette />
+      </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
-        <Button.Icon size="small" onClick={handleDocs}>
+        <Button.Icon
+          size="small"
+          onClick={handleDocs}
+          tooltip={<Text level="small">Documentation</Text>}
+        >
           <Icon.QuestionMark />
+        </Button.Icon>
+        <Button.Icon size="small" tooltip={<Text level="small">Settings</Text>}>
+          <Icon.Settings />
         </Button.Icon>
         <Controls className="delta-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
@@ -76,11 +132,15 @@ export const NavMenu = ({
   ...props
 }: {
   children: NavMenuItem[];
-} & Omit<PMenuProps, "children">): JSX.Element => (
+} & Omit<PMenuProps, "children">): ReactElement => (
   <PMenu {...props}>
-    {children.map((item) => (
-      <PMenu.Item.Icon key={item.key} itemKey={item.key}>
-        {item.icon}
+    {children.map(({ key, tooltip, icon }) => (
+      <PMenu.Item.Icon
+        key={key}
+        itemKey={key}
+        tooltip={<Text level="small">{tooltip}</Text>}
+      >
+        {icon}
       </PMenu.Item.Icon>
     ))}
   </PMenu>
@@ -90,7 +150,7 @@ export const NavMenu = ({
  * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavLeft = (): JSX.Element => {
+export const NavLeft = (): ReactElement => {
   const { onSelect, menuItems } = useNavDrawer("left", NAV_DRAWERS);
   const os = useOS();
   return (
@@ -111,7 +171,7 @@ export const NavLeft = (): JSX.Element => {
  * NavRight is the right navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavRight = (): JSX.Element | null => {
+export const NavRight = (): ReactElement | null => {
   const { menuItems, onSelect } = useNavDrawer("right", NAV_DRAWERS);
   const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = useNavDrawer(
     "bottom",
@@ -135,11 +195,13 @@ export const NavRight = (): JSX.Element | null => {
  * NavBottom is the bottom navigation bar for the Delta UI. Try to keep this component
  * presentational.
  */
-export const NavBottom = (): JSX.Element => {
+export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.End className="delta-main-nav-bottom__end" bordered>
-        <VersionBadge />
+      <Nav.Bar.End className="delta-main-nav-bottom__end">
+        <Triggers.Status variant="info" />
+        <Divider />
+        <VersionBadge level="p" />
         <Divider />
         <ClusterBadge />
         <Divider />
@@ -153,14 +215,14 @@ export interface NavDrawerProps {
   location: NavdrawerLocation;
 }
 
-export const NavDrawer = ({ location, ...props }: NavDrawerProps): JSX.Element => {
+export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect } = useNavDrawer(location, NAV_DRAWERS);
   return (
     <Nav.Drawer
       location={location}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", locToDir(location))
+        CSS.BM("main-nav-drawer", new Location(location).direction.crude)
       )}
       activeItem={activeItem}
       onResize={onResize}

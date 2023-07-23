@@ -8,36 +8,37 @@
 // included in the file licenses/APL.txt.
 
 /**
- * MetaData is the metadata associated with a freighter transport request.
+ * Context is the metadata associated with a freighter transport request.
  *
  * @property target - The target the request is being issued to.
  * @property protocol - The protocol used to issue the request.
  * @property params - Arbitrary string parameters that can be set by client side
  *   middleware and read by server side middleware.
  */
-export interface MetaData {
+export interface Context {
   target: string;
+  role: Role;
   protocol: string;
   params: Record<string, string>;
 }
 
+export const ROLES = ["client", "server"] as const;
+export type Role = typeof ROLES[number];
+
 /** Next executes the next middleware in the chain. */
-export type Next = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
+export type Next = (ctx: Context) => Promise<[Context, Error | null]>;
 
 /**
  * Middleware represents a general middleware function that can be used to
  * parse/attach metadata to a request or alter its behavior.
  */
-export type Middleware = (
-  md: MetaData,
-  next: Next
-) => Promise<[MetaData, Error | undefined]>;
+export type Middleware = (ctx: Context, next: Next) => Promise<[Context, Error | null]>;
 
 /**
  * Finalizer is a middleware that is executed as the last step in the chain.
  * Finalizer middleware should be used to execute the request.
  */
-type Finalizer = (md: MetaData) => Promise<[MetaData, Error | undefined]>;
+type Finalizer = (ctx: Context) => Promise<[Context, Error | null]>;
 
 /**
  * MiddlewareCollector is a class that can be used to collect and execute
@@ -56,21 +57,21 @@ export class MiddlewareCollector {
    * until the end of the chain is reached. It then calls the finalizer with the
    * metadata.
    *
-   * @param md - The metadata to pass to the middleware.
+   * @param ctx - The context to pass to the middleware.
    * @param finalizer - The finalizer to call with the metadata.
    * @returns An error if one was encountered, otherwise undefined.
    */
   async executeMiddleware(
-    md: MetaData,
+    ctx: Context,
     finalizer: Finalizer
-  ): Promise<[MetaData, Error | undefined]> {
+  ): Promise<[Context, Error | null]> {
     let i = 0;
-    const next = async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
+    const next = async (md: Context): Promise<[Context, Error | null]> => {
       if (i === this.middleware.length) return await finalizer(md);
       const _mw = this.middleware[i];
       i++;
       return await _mw(md, next);
     };
-    return await next(md);
+    return await next(ctx);
   }
 }

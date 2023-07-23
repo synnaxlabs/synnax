@@ -7,33 +7,38 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import HTTPClientPool, Payload, UnaryClient
-
+from freighter import HTTPClient, Payload, UnaryClient
 from synnax.channel.payload import ChannelPayload
+from alamos import Instrumentation, trace
 
 
 class _Request(Payload):
     channels: list[ChannelPayload]
 
 
-class _Response(Payload):
-    channels: list[ChannelPayload]
+_Response = _Request
 
 
 class ChannelCreator:
-    _ENDPOINT = "/channel/create"
-    client: UnaryClient
+    __ENDPOINT = "/channel/create"
+    __client: UnaryClient
+    instrumentation: Instrumentation
 
-    def __init__(self, client: HTTPClientPool):
-        self.client = client.post_client()
+    def __init__(
+        self,
+        client: UnaryClient,
+        instrumentation: Instrumentation,
+    ):
+        self.__client = client
+        self.instrumentation = instrumentation
 
+    @trace("debug")
     def create(
         self,
         channels: list[ChannelPayload],
     ) -> list[ChannelPayload]:
         req = _Request(channels=channels)
-        res, exc = self.client.send(self._ENDPOINT, req, _Response)
+        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
-        assert res is not None
         return res.channels

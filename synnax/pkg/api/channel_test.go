@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -26,27 +27,25 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		svc     *api.ChannelService
 	)
 	BeforeAll(func() {
-		builder = mock.New()
-		prov = builder.New()
+		builder = mock.Open()
+		prov = builder.New(ctx)
 		svc = api.NewChannelService(prov)
+		res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
+			Channels: []api.Channel{{
+				Name:        "test",
+				Leaseholder: 1,
+				DataType:    telem.Float64T,
+				Rate:        25 * telem.Hz,
+			}},
+		})
+		Expect(err).To(Equal(errors.Nil))
+		Expect(res.Channels).To(HaveLen(1))
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Describe("Create", func() {
-		It("Should create a new Channel", func() {
-			res, err := svc.Create(context.TODO(), api.ChannelCreateRequest{
-				Channels: []api.Channel{{
-					Name:     "test",
-					NodeID:   1,
-					DataType: telem.Float64T,
-					Rate:     25 * telem.Hz,
-				}},
-			})
-			Expect(err).To(Equal(errors.Nil))
-			Expect(res.Channels).To(HaveLen(1))
-		})
 		DescribeTable("Validation Errors", func(
 			ch api.Channel,
 			field string,
@@ -63,10 +62,10 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(flds[0].Message).To(Equal(message))
 			Expect(len(res.Channels)).To(Equal(0))
 		},
-			Entry("No Data Type", api.Channel{
-				Name:   "test",
-				NodeID: 1,
-				Rate:   25 * telem.Hz,
+			Entry("No Data Variant", api.Channel{
+				Name:        "test",
+				Leaseholder: 1,
+				Rate:        25 * telem.Hz,
 			}, "channels[0].data_type", "required"),
 		)
 	})
@@ -78,21 +77,21 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve a Channel by its key", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				KeysOrNames: []string{"1-1"},
+				Keys: channel.Keys{channel.NewKey(1, 1)},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
 		})
-		It("Should retrieve channels by their node ID", func() {
+		It("Should retrieve channels by their node Key", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				NodeID: 1,
+				NodeKey: 1,
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
 		})
 		It("Should retrieve channels by their name", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				KeysOrNames: []string{"test"},
+				Names: []string{"test"},
 			})
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))

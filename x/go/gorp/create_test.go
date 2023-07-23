@@ -26,64 +26,73 @@ func (m entry) GorpKey() int { return m.ID }
 
 func (m entry) SetOptions() []interface{} { return nil }
 
-var _ = Describe("Create", func() {
+type entryTwo struct {
+	ID   int
+	Data string
+}
+
+func (m entryTwo) GorpKey() int { return m.ID }
+
+func (m entryTwo) SetOptions() []interface{} { return nil }
+
+var _ = Describe("Create", Ordered, func() {
 	var (
 		db   *gorp.DB
 		kvDB kv.DB
+		tx   gorp.Tx
 	)
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kvDB = memkv.New()
 		db = gorp.Wrap(kvDB)
 	})
-	AfterEach(func() {
-		Expect(kvDB.Close()).To(Succeed())
-	})
+	AfterAll(func() { Expect(kvDB.Close()).To(Succeed()) })
+	BeforeEach(func() { tx = db.OpenTx() })
+	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Context("Single entry", func() {
 		It("Should create the entry in the db", func() {
 			e := &entry{
 				ID:   42,
 				Data: "The answer to life, the universe, and everything",
 			}
-			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(db)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(42).Exists(db)
+			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(42).Exists(ctx, tx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})
 	})
 	Describe("Multiple entries", func() {
 		It("Should create the entries in the db", func() {
-			var entries []entry
+			var e []entry
 			for i := 0; i < 10; i++ {
-				entries = append(entries, entry{ID: i, Data: "data"})
+				e = append(e, entry{ID: i, Data: "data"})
 			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(db)).To(Succeed())
+			Expect(gorp.NewCreate[int, entry]().Entries(&e).Exec(ctx, tx)).To(Succeed())
 			var keys []int
-			for _, e := range entries {
+			for _, e := range e {
 				keys = append(keys, e.ID)
 			}
 			exists, err := gorp.NewRetrieve[int, entry]().
-				WhereKeys(keys...).Exists(db)
+				WhereKeys(keys...).Exists(ctx, tx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})
 	})
-	Describe("txn", func() {
+	Describe("Writer", func() {
 		It("Should execute operations within a transaction", func() {
 			var (
 				entries []entry
 				keys    []int
 			)
-			txn := db.BeginTxn()
 			for i := 0; i < 10; i++ {
 				entries = append(entries, entry{ID: i, Data: "data"})
 				keys = append(keys, i)
 			}
-			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(txn)).To(Succeed())
-			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+			exists, err := gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(ctx, db)
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeFalse())
-			Expect(txn.Commit()).To(Succeed())
-			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(db)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			exists, err = gorp.NewRetrieve[int, entry]().WhereKeys(keys...).Exists(ctx, tx)
 			Expect(err).To(BeNil())
 			Expect(exists).To(BeTrue())
 		})

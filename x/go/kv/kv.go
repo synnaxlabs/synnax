@@ -7,60 +7,93 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package kv defines a general interface for a key-value store that provides support for get/set/delete operations
-// as well as basic read-iteration. This package should be used as a boundary for separating an application from a
-// specific storage implementation.
+// Package kv defines a general interface for a key-value store that provides support
+// for get/set/delete operations as well as basic read-iteration. This package should
+// be used as a boundary for separating an application from a specific storage implementation.
 //
-// For a general implementation of DB, see the pebblekv package.
-// For an in-memory implementation of DB, see the memkv package.
+// It also provides additional utilites that leverage these interfaces to extend a key-value
+// store's functilonality.
 package kv
 
 import (
-	"github.com/cockroachdb/pebble"
-	"github.com/synnaxlabs/x/alamos"
+	"context"
+	"io"
+
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 )
 
-// NotFound is returned when a key is not found in the DB store.
-var NotFound = pebble.ErrNotFound
-
-type IterValidityState = pebble.IterValidityState
+// NotFound is returned when a key is not found in the DB.
+var NotFound = errors.New("[kv] - not found")
 
 // Reader is a readable key-value store.
 type Reader interface {
 	// Get returns the value for the given key.
-	Get(key []byte, opts ...interface{}) ([]byte, error)
-	// NewIterator returns an Iterator using the given IteratorOptions.
-	NewIterator(opts IteratorOptions) Iterator
+	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
+	// OpenIterator returns an Iterator using the given IteratorOptions.
+	OpenIterator(opts IteratorOptions) Iterator
 }
 
-// Writer is a writeable key-value store.
+// Writer as a writable key-value store.
 type Writer interface {
 	// Set sets the value for the given key. It is safe to modify the contents of key
 	// and value after Set returns.
-	Set(key []byte, value []byte, opts ...interface{}) error
+	Set(ctx context.Context, key, value []byte, opts ...interface{}) error
 	// Delete removes the value for the given key. It is safe to modify the contents
 	// of key after Delete returns.
-	Delete(key []byte) error
+	Delete(ctx context.Context, key []byte, opts ...interface{}) error
 }
 
-type BatchWriter interface {
-	// NewBatch returns a read-write batch. Any reads on the batch will read both from
-	// the batch and the DB. If the batch is committed it will be applied to the DB.
-	NewBatch() Batch
+// ReadWriter is a read-writeable key-value store.
+type ReadWriter interface {
+	Reader
+	Writer
 }
 
-// Closer is a closeable key-value store, which blocks until all pending
-// operations have persisted to disk.
-type Closer interface {
-	// Close closes the DB.
+// Atomic is a key-value store that supports executing atomic transactions.
+type Atomic interface {
+	// OpenTx opens a new transaction on the DB.
+	OpenTx() Tx
+}
+
+// Tx is a transaction of ordered key-value operations on a DB that are committed
+// atomically. Tx implements the Reader interface,and will read key-value pairs from
+// both the Tx and underlying DB. A transaction must be committed for its changes to
+// be persisted.
+type Tx interface {
+	ReadWriter
+	// NewReader returns an TxReader that can be used to iterate over the operations
+	// executed in the transaction.
+	NewReader() TxReader
+	// Commit persists the batch to the underlying DB. Commit will panic if called
+	// more than once.
+	Commit(ctx context.Context, opts ...interface{}) error
+	// Close closes the transaction. If the transaction has not been committed, all
+	// changes will be discarded.
 	Close() error
 }
 
 // DB represents a general key-value store.
 type DB interface {
-	Writer
-	BatchWriter
-	Reader
-	Closer
-	alamos.Reporter
+	// Tx allows the DB to behave as a transaction, although all operations are directly
+	// executed without atomic guarantees.
+	Tx
+	Atomic
+	Observable
+	alamos.ReportProvider
+	io.Closer
 }
+
+// Change represents a change to a key-value pair. The contents of Key and Value
+// should be considered read-only, and modifications to them may cause unexpected
+// behavior.
+type Change = change.Change[[]byte, []byte]
+
+// TxReader is used to read the operations in a transaction.
+type TxReader = iter.Nexter[Change]
+
+// Observable allows the caller to observe changes to key-value pairs in the DB.
+type Observable = observe.Observable[TxReader]

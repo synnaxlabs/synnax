@@ -19,48 +19,53 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("KV", Ordered, func() {
+var _ = Describe("KV", Ordered, Serial, func() {
 	var (
 		authenticator auth.Authenticator
-		DB            *gorp.DB
+		db            *gorp.DB
+		tx            gorp.Tx
 		creds         auth.InsecureCredentials
 	)
 	BeforeAll(func() {
-		DB = gorp.Wrap(memkv.New())
-		authenticator = auth.MultiAuthenticator{&auth.KV{DB: DB}}
+		db = gorp.Wrap(memkv.New())
+		authenticator = auth.MultiAuthenticator{&auth.KV{DB: db}}
 		creds = auth.InsecureCredentials{Username: "user", Password: "pass"}
 	})
-	AfterAll(func() {
-		Expect(DB.Close()).To(Succeed())
-	})
+	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	BeforeEach(func() { tx = db.OpenTx() })
+	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Describe("New", func() {
 		It("Should register the credentials in the key-value store", func() {
-			w := authenticator.NewWriter()
-			err := w.Register(creds)
+			w := authenticator.NewWriter(tx)
+			err := w.Register(ctx, creds)
 			Expect(err).To(BeNil())
 			var c auth.SecureCredentials
 			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
 				WhereKeys(creds.Username).
 				Entry(&c).
-				Exec(DB)).To(Succeed())
+				Exec(ctx, tx)).To(Succeed())
 		})
 		It("Should return a UniqueViolation error when the username is already registered", func() {
-			w := authenticator.NewWriter()
-			err := w.Register(creds)
+			w := authenticator.NewWriter(tx)
+			err := w.Register(ctx, creds)
+			Expect(err).To(BeNil())
+			err = w.Register(ctx, creds)
 			Expect(errors.Is(err, errors.New("[auth] - username already registered"))).To(BeTrue())
 
 		})
 	})
 	Describe("Authenticate", func() {
 		It("Should return a nil error for valid credentials", func() {
-			Expect(authenticator.Authenticate(creds)).To(Succeed())
+			err := authenticator.NewWriter(nil).Register(ctx, creds)
+			Expect(err).To(BeNil())
+			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
 			invalidCreds := auth.InsecureCredentials{
 				Username: creds.Username,
 				Password: "invalid",
 			}
-			Expect(authenticator.Authenticate(invalidCreds)).
+			Expect(authenticator.Authenticate(ctx, invalidCreds)).
 				To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return an InvalidCredentials error when the user can't be found", func() {
@@ -68,20 +73,20 @@ var _ = Describe("KV", Ordered, func() {
 				Username: "invalid",
 				Password: "invalid",
 			}
-			Expect(authenticator.Authenticate(invalidCreds)).
+			Expect(authenticator.Authenticate(ctx, invalidCreds)).
 				To(MatchError(auth.InvalidCredentials))
 
 		})
 	})
 	Describe("UpdateUsername", func() {
 		It("Should update the username", func() {
-			w := authenticator.NewWriter()
-			Expect(w.UpdateUsername(creds, "new-user")).To(Succeed())
+			w := authenticator.NewWriter(tx)
+			Expect(w.UpdateUsername(ctx, creds, "new-user")).To(Succeed())
 			var c auth.SecureCredentials
 			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
 				WhereKeys("new-user").
 				Entry(&c).
-				Exec(DB)).To(Succeed())
+				Exec(ctx, tx)).To(Succeed())
 			creds.Username = c.Username
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
@@ -89,45 +94,49 @@ var _ = Describe("KV", Ordered, func() {
 				Username: creds.Username,
 				Password: "invalid",
 			}
-			Expect(authenticator.NewWriter().UpdateUsername(invalidCreds, "new-user")).
+			Expect(authenticator.NewWriter(tx).UpdateUsername(ctx, invalidCreds, "new-user")).
 				To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return a UniqueViolation error when the username is already registered", func() {
-			w := authenticator.NewWriter()
-			Expect(w.Register(auth.InsecureCredentials{
+			w := authenticator.NewWriter(tx)
+			Expect(w.Register(ctx, auth.InsecureCredentials{
 				Username: "old-user",
 				Password: "pass",
 			})).To(Succeed())
-			Expect(errors.Is(w.UpdateUsername(creds, "old-user"),
-				errors.New("[auth] - username already registered"))).To(BeTrue())
+			Expect(w.Register(ctx, creds)).To(Succeed())
+			err := w.UpdateUsername(ctx, creds, "old-user")
+			Expect(err).ToNot(BeNil())
+			Expect(errors.Is(errors.New("[auth] - username already registered"), err)).To(BeTrue())
 		})
 	})
 	Describe("UpdatePassword", func() {
 		It("Should update the users password", func() {
-			w := authenticator.NewWriter()
+			w := authenticator.NewWriter(tx)
+			Expect(w.Register(ctx, creds)).To(Succeed())
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(creds, newPass)).To(Succeed())
-			Expect(authenticator.Authenticate(creds)).ToNot(Succeed())
+			Expect(w.UpdatePassword(ctx, creds, newPass)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(authenticator.Authenticate(ctx, creds)).ToNot(Succeed())
 			creds.Password = newPass
-			Expect(authenticator.Authenticate(creds)).To(Succeed())
+			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
 			invalidCreds := auth.InsecureCredentials{
 				Username: creds.Username,
 				Password: "invalid",
 			}
-			w := authenticator.NewWriter()
+			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
+			Expect(w.UpdatePassword(ctx, invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return an InvalidCredentials error when the user can't be found", func() {
 			invalidCreds := auth.InsecureCredentials{
 				Username: "invalid",
 				Password: "invalid",
 			}
-			w := authenticator.NewWriter()
+			w := authenticator.NewWriter(tx)
 			var newPass password.Raw = "new-pass"
-			Expect(w.UpdatePassword(invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
+			Expect(w.UpdatePassword(ctx, invalidCreds, newPass)).To(MatchError(auth.InvalidCredentials))
 		})
 	})
 })

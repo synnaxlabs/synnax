@@ -1,0 +1,96 @@
+ch:
+  addr: clickhouse:9000
+  user: default
+  password:
+  database: uptrace
+  max_execution_time: 30s
+
+pg:
+  addr: postgres:5432
+  user: uptrace
+  password: uptrace
+  database: uptrace
+
+projects:
+  - id: 1
+    name: Uptrace
+    token: project1_secret_token
+    pinned_attrs:
+      - service
+      - host.name
+      - deployment.environment
+    group_by_env: false
+    group_funcs_by_service: false
+  - id: 2
+    name: Synnax Dev
+    token: synnax_dev
+    pinned_attrs:
+      - service
+      - host.name
+      - deployment.environment
+    group_by_env: false
+    group_funcs_by_service: false
+metrics_from_spans:
+  - name: uptrace.tracing.spans
+    description: Spans duration (excluding events)
+    instrument: histogram
+    unit: microseconds
+    value: span.duration / 1000
+    attrs:
+      - span.system
+      - span.group_id
+      - service.name
+      - host.name
+      - span.status_code
+    annotations:
+      - span.name
+    where: not span.is_event
+
+  - name: uptrace.tracing.events
+    description: Events count (excluding spans)
+    instrument: counter
+    unit: 1
+    value: span.count
+    attrs:
+      - span.system
+      - span.group_id
+      - service.name
+      - host.name
+    annotations:
+      - span.event_name
+    where: span.is_event
+auth:
+  users:
+    - name: Anonymous
+      email: uptrace@localhost
+      password: uptrace
+      notify_by_email: true
+ch_schema:
+  compression: ZSTD(3)
+  replicated: false
+  spans:
+    ttl_delete: 30 DAY
+    storage_policy: 'default'
+  metrics:
+    ttl_delete: 90 DAY
+    storage_policy: 'default'
+listen:
+  grpc:
+    addr: ':14317'
+  http:
+    addr: ':14318'
+site:
+  path: '/'
+spans:
+metrics:
+  drop_attrs:
+    - telemetry.sdk.language
+    - telemetry.sdk.name
+    - telemetry.sdk.version
+uptrace_go:
+smtp_mailer:
+  enabled: false
+logs:
+  level: INFO
+secret_key: 102c1a557c314fc28198acd017960843
+debug: false

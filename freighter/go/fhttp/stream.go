@@ -20,10 +20,10 @@ import (
 	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/websocket/v2"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
@@ -79,7 +79,7 @@ type core[I, O freighter.Payload] struct {
 }
 
 func (c *core[I, O]) send(msg message[O]) error {
-	b, err := c.ecd.Encode(msg)
+	b, err := c.ecd.Encode(nil, msg)
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (c *core[I, O]) receive() (msg message[I], err error) {
 	if err != nil {
 		return msg, err
 	}
-	return msg, c.ecd.DecodeStream(r, &msg)
+	return msg, c.ecd.DecodeStream(nil, r, &msg)
 }
 
 func (c *core[I, O]) cancelStream() error {
@@ -136,20 +136,24 @@ func (s *streamClient[RQ, RS]) Stream(
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], err error) {
 	_, err = s.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
-			md.Params[fiber.HeaderContentType] = s.ecd.ContentType()
-			conn, res, err := s.dialer.DialContext(ctx, "ws://"+target.String(), mdToHeaders(md))
-			oMD = parseResponseMD(res, target)
+		freighter.Context{
+			Context:  ctx,
+			Target:   target,
+			Protocol: s.Reporter.Protocol,
+			Params:   make(freighter.Params),
+		},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+			ctx.Params[fiber.HeaderContentType] = s.ecd.ContentType()
+			conn, res, err := s.dialer.DialContext(ctx, "ws://"+target.String(), mdToHeaders(ctx))
+			oCtx = parseResponseCtx(res, target)
 			if err != nil {
-				return oMD, err
+				return oCtx, err
 			}
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
-				return oMD, roacherrors.New("[ws] - unable to upgrade connection")
+				return oCtx, roacherrors.New("[ws] - unable to upgrade connection")
 			}
 			stream = &clientStream[RQ, RS]{core: newCore[RS, RQ](ctx, conn, s.ecd, s.logger)}
-			return oMD, nil
+			return oCtx, nil
 		}),
 	)
 	return stream, err
@@ -217,7 +221,7 @@ func (s *clientStream[RQ, RS]) CloseSend() error {
 	return s.core.send(message[RQ]{Type: closeMessage})
 }
 
-func mdToHeaders(md freighter.MD) http.Header {
+func mdToHeaders(md freighter.Context) http.Header {
 	headers := http.Header{}
 	for k, v := range md.Params {
 		if vStr, ok := v.(string); ok {
@@ -230,7 +234,7 @@ func mdToHeaders(md freighter.MD) http.Header {
 type streamServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	logger  *zap.SugaredLogger
+	alamos.Instrumentation
 	path    string
 	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 }
@@ -245,18 +249,17 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	if !fiberws.IsWebSocketUpgrade(c) {
 		return fiber.ErrUpgradeRequired
 	}
-	iMD := parseRequestMD(c, address.Address(s.path))
+	iMD := parseRequestCtx(c, address.Address(s.path))
 	ecd, err := httputil.DetermineEncoderDecoder(iMD.Params.GetDefault(fiber.HeaderContentType, "").(string))
 	if err != nil {
 		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	oMD, err := s.MiddlewareCollector.Exec(
-		c.Context(),
+	oCtx, err := s.MiddlewareCollector.Exec(
 		iMD,
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
-			oMD = freighter.MD{Target: iMD.Target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)}
-			return oMD, fiberws.New(func(c *fiberws.Conn) {
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+			oCtx = freighter.Context{Target: iMD.Target, Protocol: s.Reporter.Protocol, Params: make(freighter.Params)}
+			return oCtx, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
 
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
@@ -293,7 +296,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 								return
 							}
 							if err != nil {
-								s.logger.Errorw("expected normal closure, received error instead", "error", err)
+								s.L.Error("expected normal closure, received error instead", zap.Error(err))
 								return
 							}
 						}
@@ -303,7 +306,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					case <-stream.ctx.Done():
 						break
 					case <-time.After(500 * time.Millisecond):
-						s.logger.Warnw("timed out waiting for client to acknowledge closure")
+						s.L.Warn("timed out waiting for client to acknowledge closure")
 						break
 					case <-clientCloseAck:
 						break
@@ -312,11 +315,11 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					stream.cancel()
 					return nil
 				}(); err != nil {
-					s.logger.Errorw("stream server handler error", "error", err)
+					s.L.Error("stream server handler error", zap.Error(err))
 				}
 			})(c)
 		}))
-	setResponseMD(c, oMD)
+	setResponseCtx(c, oCtx)
 	fErr := ferrors.Encode(err)
 	if fErr.Type == ferrors.Nil {
 		return nil

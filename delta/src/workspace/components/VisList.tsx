@@ -11,16 +11,16 @@ import { List, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import {
-  renameLayoutMosaicTab,
+  renameLayout,
   RenderableLayout,
   selectLayoutMosaicTab,
   useSelectActiveMosaicTabKey,
   useSelectLayouts,
 } from "@/layout";
 
-export const VisList = (): JSX.Element => {
-  const layouts = useSelectLayouts().filter(
-    (layout) => layout.type === "visualization"
+export const VisList = (): ReactElement => {
+  const layouts = useSelectLayouts().filter((layout) =>
+    ["line", "pid"].includes(layout.type)
   );
   const activeLayout = useSelectActiveMosaicTabKey();
   const d = useDispatch();
@@ -44,7 +44,7 @@ export const VisList = (): JSX.Element => {
                 level="p"
                 style={style}
                 onChange={(name) => {
-                  d(renameLayoutMosaicTab({ tabKey: entry.key, name }));
+                  d(renameLayout({ tabKey: entry.key, name }));
                 }}
                 value={entry.name}
               />

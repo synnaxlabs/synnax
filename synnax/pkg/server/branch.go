@@ -10,7 +10,7 @@
 package server
 
 import (
-	"go.uber.org/zap"
+	"github.com/synnaxlabs/alamos"
 	"net"
 
 	"github.com/cockroachdb/cmux"
@@ -18,6 +18,7 @@ import (
 
 // BranchContext is the context for operating a Branch.
 type BranchContext struct {
+	alamos.Instrumentation
 	// List is the listener the branch should listen for incoming requests on.
 	Lis net.Listener
 	// ServerName is the name of the Server this branch is running on.
@@ -26,8 +27,6 @@ type BranchContext struct {
 	Security SecurityConfig
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug bool
-	// Logger is the witness of it all.
-	Logger *zap.Logger
 }
 
 // RoutingPolicy determines how a Branch should be served depending on the security

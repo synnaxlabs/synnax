@@ -10,20 +10,20 @@
 package clustermock
 
 import (
+	"context"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/signal"
 )
 
 type Builder struct {
 	Configs     []cluster.Config
 	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
 	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
-	ClusterAPIs map[node.ID]cluster.Cluster
+	ClusterAPIs map[node.Key]cluster.Cluster
 }
 
 func NewBuilder(cfgs ...cluster.Config) *Builder {
@@ -31,11 +31,11 @@ func NewBuilder(cfgs ...cluster.Config) *Builder {
 		Configs:     cfgs,
 		GossipNet:   fmock.NewNetwork[gossip.Message, gossip.Message](),
 		PledgeNet:   fmock.NewNetwork[pledge.Request, pledge.Response](),
-		ClusterAPIs: make(map[node.ID]cluster.Cluster),
+		ClusterAPIs: make(map[node.Key]cluster.Cluster),
 	}
 }
 
-func (b *Builder) New(ctx signal.Context, cfgs ...cluster.Config) (cluster.Cluster, error) {
+func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (cluster.Cluster, error) {
 	gossipServer := b.GossipNet.UnaryServer("")
 	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address)
 	cfgs = append(b.Configs, cfgs...)
@@ -48,11 +48,11 @@ func (b *Builder) New(ctx signal.Context, cfgs ...cluster.Config) (cluster.Clust
 			Peers:           b.MemberAddresses(),
 		},
 	})
-	clust, err := cluster.Join(ctx, cfgs...)
+	clust, err := cluster.Open(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	b.ClusterAPIs[clust.Host().ID] = clust
+	b.ClusterAPIs[clust.Host().Key] = clust
 	return clust, err
 }
 

@@ -9,10 +9,10 @@
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
 
-import { Communicator } from "./runtime";
-import { PreloadedState, StoreState } from "./state";
-import { sugar } from "./sugar";
-import { validateAction } from "./validate";
+import { Communicator } from "@/runtime";
+import { PreloadedState, StoreState } from "@/state";
+import { sugar } from "@/sugar";
+import { validateAction } from "@/validate";
 
 /** A store whose state can be retrieved. */
 export interface StoreStateGetter<S extends StoreState> {
@@ -39,11 +39,16 @@ export const listen = async <S extends StoreState, A extends Action = AnyAction>
 ): Promise<void> =>
   await communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
-    if (s == null) return state != null && resolve(state);
+    // Case where we're receivign preloaded state.
+    if (s == null) {
+      if (state != null) return resolve(state);
+      return;
+    }
     if (action != null) {
       validateAction({ action, emitter });
       return s.dispatch(sugar(action, emitter));
     }
-    if (sendState === true && communicator.isMain())
+    if (sendState === true && communicator.isMain()) {
       void communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
+    }
   });

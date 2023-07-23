@@ -9,56 +9,48 @@
 
 /* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
-import { decodeError, EOF, ErrorPayloadSchema } from "@synnaxlabs/freighter";
-import {
-  NativeTypedArray,
-  LazyArray,
-  TimeStamp,
-  UnparsedTimeStamp,
-} from "@synnaxlabs/x";
+import { decodeError, errorZ } from "@synnaxlabs/freighter";
+import { NativeTypedArray, Series, TimeStamp, CrudeTimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Frame } from "./frame";
-import { framePayloadSchema } from "./payload";
-
-import { GeneralError } from "@/errors";
+import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
+import { ChannelRetriever } from "@/channel/retriever";
+import { ForwardFrameAdapter } from "@/framer/adapter";
+import { Frame, frameZ } from "@/framer/frame";
+import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
-  None = 0,
+  Open = 0,
   Write = 1,
   Commit = 2,
   Error = 3,
 }
 
-const configSchema = z.object({
-  start: z.instanceof(TimeStamp).optional(),
-  keys: z.string().array().optional(),
+const configZ = z.object({
+  start: TimeStamp.z,
+  keys: z.number().array().optional(),
 });
 
-const requestSchema = z.object({
+const reqZ = z.object({
   command: z.nativeEnum(Command),
-  config: configSchema.optional(),
-  frame: framePayloadSchema.optional(),
+  config: configZ.optional(),
+  frame: frameZ.optional(),
 });
 
-type Request = z.infer<typeof requestSchema>;
+type Request = z.infer<typeof reqZ>;
 
-const responseSchema = z.object({
+const resZ = z.object({
   ack: z.boolean(),
   command: z.nativeEnum(Command),
-  error: ErrorPayloadSchema.optional(),
+  error: errorZ.optional().nullable(),
 });
 
-type Response = z.infer<typeof responseSchema>;
-
-const NOT_OPEN = new GeneralError(
-  "Writer has not been opened. Please open before calling write() or close()."
-);
+type Response = z.infer<typeof resZ>;
 
 /**
- * CoreWriter is used to write a range of telemetry to a set of channels in time order.
+ * Writer is used to write telemetry to a set of channels in time order.
  * It should not be instantiated directly, and should instead be instantited via the
- * FramerClient {@link FramerClient#openWriter}.
+ * FramerClient {@link FrameClient#openWriter}.
  *
  * The writer is a streaming protocol that is heavily optimized for prerformance. This
  * comes at the cost of icnreased complexity, and should only be used directly when
@@ -93,13 +85,17 @@ const NOT_OPEN = new GeneralError(
  * typically be called in a 'finally' block. If the writer has accumulated an error,
  * close will throw the error.
  */
-export class FrameWriter {
+export class Writer {
   private static readonly ENDPOINT = "/frame/write";
-  private readonly client: StreamClient;
-  private stream: Stream<Request, Response> | undefined;
+  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
+  private readonly adapter: ForwardFrameAdapter;
 
-  constructor(client: StreamClient) {
-    this.client = client;
+  private constructor(
+    stream: Stream<typeof reqZ, typeof resZ>,
+    adapter: ForwardFrameAdapter
+  ) {
+    this.stream = new StreamProxy("Writer", stream);
+    this.adapter = adapter;
   }
 
   /**
@@ -111,21 +107,25 @@ export class FrameWriter {
    * @param keys - A list of keys representing the channels the writer will write to. All
    * frames written to the writer must have channel keys in this list.
    */
-  async open(start: UnparsedTimeStamp, keys: string[]): Promise<void> {
-    this.stream = await this.client.stream(
-      FrameWriter.ENDPOINT,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      requestSchema,
-      responseSchema
-    );
-    this.stream.send({
-      command: Command.None,
-      config: { start: new TimeStamp(start), keys },
+  static async _open(
+    start: CrudeTimeStamp,
+    channels: ChannelParams,
+    retriever: ChannelRetriever,
+    client: StreamClient
+  ): Promise<Writer> {
+    const adapter = await ForwardFrameAdapter.open(retriever, channels);
+    const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
+    const writer = new Writer(stream, adapter);
+    await writer.execute({
+      command: Command.Open,
+      config: { start: new TimeStamp(start), keys: adapter.keys },
     });
-    const [, err] = await this.stream.receive();
-    if (err != null) throw err;
+    return writer;
   }
+
+  async write(channel: ChannelKeyOrName, data: NativeTypedArray): Promise<boolean>;
+
+  async write(frame: Frame): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.
@@ -141,17 +141,18 @@ export class FrameWriter {
    * @returns false if the writer has accumulated an error. In this case, the caller
    * should acknowledge the error by calling the error method or closing the writer.
    */
-  async write(frame: Frame): Promise<boolean> {
-    if (this.stream == null) throw NOT_OPEN;
-    if (this.stream.received()) return false;
-
-    const err = this.stream.send({ command: Command.Write, frame: frame.toPayload() });
-    if (err != null) throw err;
+  async write(
+    frame: Frame | ChannelKeyOrName,
+    data?: NativeTypedArray
+  ): Promise<boolean> {
+    if (!(frame instanceof Frame)) {
+      frame = new Frame(frame, new Series(data as NativeTypedArray));
+    }
+    frame = this.adapter.adapt(frame);
+    if (this.errorAccumulated) return false;
+    // @ts-expect-error
+    this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
-  }
-
-  async writeArray(key: string, data: NativeTypedArray): Promise<boolean> {
-    return await this.write(new Frame(new LazyArray(data), key));
   }
 
   /**
@@ -163,37 +164,19 @@ export class FrameWriter {
    * After the caller acknowledges the error, they can attempt to commit again.
    */
   async commit(): Promise<boolean> {
-    if (this.stream == null) throw NOT_OPEN;
-    if (this.stream.received()) return false;
-
-    const err = this.stream.send({ command: Command.Commit });
-    if (err != null) throw err;
-
-    while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) throw err;
-      if (res != null && res?.command === Command.Commit) return res.ack;
-      this.warnUnexpectedResponse(res);
-    }
+    if (this.errorAccumulated) return false;
+    const res = await this.execute({ command: Command.Commit });
+    return res.ack;
   }
 
   /**
-   * @returns  The accumulated error, if any. This method will clear the writer's erorr
+   * @returns  The accumulated error, if any. This method will clear the writer's error
    * state, allowing the writer to be used again.
    */
-  async error(): Promise<Error | undefined> {
-    if (this.stream == null) throw NOT_OPEN;
-
-    const err = this.stream.send({ command: Command.Error });
-    if (err != null) throw err;
-
-    while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) throw err;
-      if (res != null && res?.command === Command.Error && res.error != null)
-        return decodeError(res.error);
-      this.warnUnexpectedResponse(res);
-    }
+  async error(): Promise<Error | null> {
+    this.stream.send({ command: Command.Error });
+    const res = await this.execute({ command: Command.Error });
+    return res.error != null ? decodeError(res.error) : null;
   }
 
   /**
@@ -202,15 +185,20 @@ export class FrameWriter {
    * in a 'finally' block.
    */
   async close(): Promise<void> {
-    if (this.stream == null) throw NOT_OPEN;
-    this.stream.closeSend();
-    const [res, err] = await this.stream.receive();
-    if (err == null && res?.error != null) throw decodeError(res.error);
-    if (!(err instanceof EOF)) throw err;
+    await this.stream.closeAndAck();
   }
 
-  private warnUnexpectedResponse(res?: Response): void {
-    if (res == null) console.warn("writer received unexpected null response");
-    console.warn("writer received unexpected response", res);
+  async execute(req: Request): Promise<Response> {
+    // @ts-expect-error
+    this.stream.send(req);
+    while (true) {
+      const res = await this.stream.receive();
+      if (res.command === req.command) return res;
+      console.warn("writer received unexpected response", res);
+    }
+  }
+
+  private get errorAccumulated(): boolean {
+    return this.stream.received();
   }
 }

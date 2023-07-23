@@ -116,7 +116,7 @@ func iter(targets []address.Address, f func(to address.Address) error) error {
 	return nil
 }
 
-func route[V cfs.Value](p *Pipeline, sourceTarget, sinkTarget address.Address, stream cfs.Stream[V]) error {
+func route[V cfs.Value](p *Pipeline, sourceTarget, sinkTarget address.Address, stream *cfs.Stream[V]) error {
 	source, err := GetSource[V](p, sourceTarget)
 	if err != nil {
 		return err

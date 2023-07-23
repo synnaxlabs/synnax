@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useAsyncEffect } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { setVersion } from "../store";
 import { tauriVersion } from "../tauriVersion";
-
-import { useAsyncEffect } from "@/hooks";
 
 export const useLoadTauriVersion = (): void => {
   const d = useDispatch();

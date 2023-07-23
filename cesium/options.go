@@ -10,24 +10,24 @@
 package cesium
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
-	"go.uber.org/zap"
 )
 
 type Option func(*options)
 
 type options struct {
+	alamos.Instrumentation
 	dirname string
 	fs      xfs.FS
-	logger  *zap.Logger
 	metaECD binary.EncoderDecoder
 }
 
-func (o *options) logArgs() []interface{} {
-	return []interface{}{
-		"dirname", o.dirname,
+func (o *options) Report() alamos.Report {
+	return alamos.Report{
+		"dirname": o.dirname,
 	}
 }
 
@@ -41,7 +41,6 @@ func newOptions(dirname string, opts ...Option) *options {
 }
 
 func mergeDefaultOptions(o *options) {
-	o.logger = override.Nil(zap.NewNop(), o.logger)
 	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 }
@@ -58,8 +57,8 @@ func MemBacked() Option {
 	}
 }
 
-func WithLogger(logger *zap.Logger) Option {
+func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) {
-		o.logger = logger
+		o.Instrumentation = i
 	}
 }

@@ -21,7 +21,7 @@ export type LayoutPlacementLocation = "window" | "mosaic";
  * Layout represents the properties of a layout currently rendered in the mosaic or in
  * an external window. The key of a layout must be unique.
  */
-export interface Layout {
+export interface LayoutState {
   /** A unique key for the layout */
   key: string;
   /**
@@ -54,7 +54,7 @@ export interface Layout {
   tab?: LayoutTabProps;
 }
 
-export type RenderableLayout = Omit<Layout, "window">;
+export type RenderableLayout = Omit<LayoutState, "window">;
 
 /**
  * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
@@ -106,6 +106,7 @@ export type LayoutWindowProps = Omit<WindowProps, "key" | "url"> & {
  * Tab interface for the Tabs component. This does not apply to window layoputs.
  */
 export interface LayoutTabProps extends Pick<Tab, "closable" | "editable"> {
+  tab: Tab;
   location?: Location;
   mosaicKey?: number;
 }

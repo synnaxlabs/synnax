@@ -80,19 +80,17 @@ func (s *StreamServer[RQ, RS]) BindHandler(handler func(
 }
 
 func (s *StreamServer[RQ, RS]) exec(
-	ctx context.Context,
+	ctx freighter.Context,
 	srv *ServerStream[RQ, RS],
-	iMD freighter.MD,
-) (freighter.MD, error) {
+) (freighter.Context, error) {
 	if s.Handler == nil {
-		return iMD, roacherrors.New("no handler bound to stream server")
+		return ctx, roacherrors.New("no handler bound to stream server")
 	}
 	return s.MiddlewareCollector.Exec(
 		ctx,
-		iMD,
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (freighter.MD, error) {
+		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			go srv.exec(ctx, s.Handler)
-			return freighter.MD{Target: s.Address, Protocol: s.Protocol, Params: make(freighter.Params)}, nil
+			return freighter.Context{Target: s.Address, Protocol: s.Protocol, Params: make(freighter.Params)}, nil
 		}),
 	)
 }
@@ -113,9 +111,13 @@ func (s *StreamClient[RQ, RS]) Stream(
 	target address.Address,
 ) (stream freighter.ClientStream[RQ, RS], err error) {
 	_, err = s.MiddlewareCollector.Exec(
-		ctx,
-		freighter.MD{Target: target, Protocol: s.Protocol, Params: make(freighter.Params)},
-		freighter.FinalizerFunc(func(ctx context.Context, md freighter.MD) (oMD freighter.MD, err error) {
+		freighter.Context{
+			Context:  ctx,
+			Target:   target,
+			Protocol: s.Protocol,
+			Params:   make(freighter.Params),
+		},
+		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
 			if target == "" {
 				target = "localhost:0"
 			}
@@ -129,14 +131,14 @@ func (s *StreamClient[RQ, RS]) Stream(
 			} else if s.Network != nil {
 				srv, ok := s.Network.resolveStreamTarget(target)
 				if !ok || srv.Handler == nil {
-					return oMD, address.TargetNotFound(target)
+					return oCtx, address.TargetNotFound(target)
 				}
 				server = srv
 				targetBufferSize = srv.BufferSize
 			}
 			var serverStream *ServerStream[RQ, RS]
 			stream, serverStream = NewStreams[RQ, RS](ctx, s.BufferSize, targetBufferSize)
-			return server.exec(ctx, serverStream, md)
+			return server.exec(ctx, serverStream)
 		}),
 	)
 	return stream, err

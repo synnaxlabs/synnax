@@ -29,7 +29,7 @@ var _ = Describe("Ontology", Ordered, func() {
 	BeforeAll(func() {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
-		otg, err := ontology.Open(db)
+		otg, err := ontology.Open(ctx, ontology.Config{DB: db})
 		Expect(err).To(BeNil())
 		svc = &user.Service{DB: db, Ontology: otg}
 	})
@@ -43,12 +43,12 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(schema.Fields).To(HaveKey("username"))
 		})
 	})
-	Describe("retrieveEntity", func() {
+	Describe("retrieveResource", func() {
 		It("Should retrieve a users schema entity by its key", func() {
 			u := &user.User{Username: "test", Key: userKey}
-			w := svc.NewWriter()
-			Expect(w.Create(u)).To(Succeed())
-			entity, err := svc.RetrieveEntity(userKey.String())
+			w := svc.NewWriter(nil)
+			Expect(w.Create(ctx, u)).To(Succeed())
+			entity, err := svc.RetrieveResource(ctx, userKey.String())
 			Expect(err).ToNot(HaveOccurred())
 			key, ok := schema.Get[uuid.UUID](entity, "key")
 			Expect(ok).To(BeTrue())

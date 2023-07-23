@@ -7,25 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Generic, Type, Any
-
-from freighter.metadata import MetaData
 from pydantic import BaseModel
-from websockets.exceptions import ConnectionClosedOK
+from typing import Generic, Type, Any, Literal
 from websockets.client import connect, WebSocketClientProtocol
+from websockets.exceptions import ConnectionClosedOK
 
-from freighter.stream import AsyncStream, AsyncStreamClient
+from freighter.context import Context
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
+from freighter.stream import AsyncStream, AsyncStreamClient
 from freighter.transport import RQ, RS, P, AsyncMiddlewareCollector
 from freighter.url import URL
 
-_DATA_MESSAGE = "data"
-_CLOSE_MESSAGE = "close"
-
 
 class _Message(Generic[P], BaseModel):
-    type: str
+    type: Literal["data", "close"]
     payload: P | None
     error: ExceptionPayload | None
 
@@ -40,11 +36,11 @@ def _new_res_msg_t(res_t: Type[RS]) -> Type[_Message[RS]]:
 class WebsocketStream(AsyncStream[RQ, RS]):
     """An implementation of AsyncStream that is backed by a websocket."""
 
-    encoder: EncoderDecoder
-    internal: WebSocketClientProtocol
-    server_closed: Exception | None
-    send_closed: bool
-    res_msg_t: Type[_Message[RS]]
+    __encoder: EncoderDecoder
+    __internal: WebSocketClientProtocol
+    __server_closed: Exception | None
+    __send_closed: bool
+    __res_msg_t: Type[_Message[RS]]
 
     def __init__(
         self,
@@ -52,25 +48,25 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         ws: WebSocketClientProtocol,
         res_t: Type[RS],
     ):
-        self.encoder = encoder
-        self.internal = ws
-        self.send_closed = False
-        self.server_closed = None
-        self.res_msg_t = _new_res_msg_t(res_t)
+        self.__encoder = encoder
+        self.__internal = ws
+        self.__send_closed = False
+        self.__server_closed = None
+        self.__res_msg_t = _new_res_msg_t(res_t)
 
     async def receive(self) -> tuple[RS | None, Exception | None]:
         """Implements the AsyncStream protocol."""
-        if self.server_closed is not None:
-            return None, self.server_closed
+        if self.__server_closed is not None:
+            return None, self.__server_closed
 
-        data = await self.internal.recv()
+        data = await self.__internal.recv()
         assert isinstance(data, bytes)
-        msg = self.encoder.decode(data, self.res_msg_t)
+        msg = self.__encoder.decode(data, self.__res_msg_t)
 
-        if msg.type == _CLOSE_MESSAGE:
+        if msg.type == "close":
             assert msg.error is not None
-            await self._close_server(decode_exception(msg.error))
-            return None, self.server_closed
+            await self.__close_server(decode_exception(msg.error))
+            return None, self.__server_closed
 
         return msg.payload, None
 
@@ -79,56 +75,57 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         # If the server closed with an error, we return freighter.EOF to the
         # caller, and expect them to discover the close error by calling
         # receive().
-        if self.server_closed is not None:
+        if self.__server_closed is not None:
             return EOF()
 
-        if self.send_closed:
+        if self.__send_closed:
             raise StreamClosed
 
-        msg = _Message(type=_DATA_MESSAGE, payload=payload, error=None)
-        encoded = self.encoder.encode(msg)
+        msg = _Message(type="data", payload=payload, error=None)
+        encoded = self.__encoder.encode(msg)
 
         # If the server closed with an error, we return freighter.EOF to the
         # caller, and expect them to discover the close error by calling
         # receive().
         try:
-            await self.internal.send(encoded)
+            await self.__internal.send(encoded)
         except ConnectionClosedOK:
             return EOF()
         return None
 
-    async def close_send(self):
+    async def close_send(self) -> Exception | None:
         """Implements the AsyncStream protocol."""
-        if self.send_closed or self.server_closed is not None:
-            return
+        if self.__send_closed or self.__server_closed is not None:
+            return None
 
-        msg = _Message(type=_CLOSE_MESSAGE, payload=None, error=None)
+        msg = _Message(type="close", payload=None, error=None)
         try:
-            await self.internal.send(self.encoder.encode(msg))
+            await self.__internal.send(self.__encoder.encode(msg))
         finally:
-            self.send_closed = True
+            self.__send_closed = True
+        return None
 
-    async def _close_server(self, server_err: Exception | None):
-        if self.server_closed is not None:
+    async def __close_server(self, server_err: Exception | None):
+        if self.__server_closed is not None:
             return
 
         if server_err is not None:
-            self.server_closed = server_err
+            self.__server_closed = server_err
 
-        await self.internal.close()
+        await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2**20
+DEFAULT_MAX_SIZE = 2 ** 20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):
     """An implementation of AsyncStreamClient that is backed by a websocket"""
 
-    _endpoint: URL
-    _encoder: EncoderDecoder
-    _max_message_size: int
-    _secure: bool = False
-    _kwargs: dict[str, Any]
+    __endpoint: URL
+    __encoder: EncoderDecoder
+    __max_message_size: int
+    __secure: bool = False
+    __kwargs: dict[str, Any]
 
     def __init__(
         self,
@@ -146,46 +143,46 @@ class WebsocketClient(AsyncMiddlewareCollector):
         :param secure: Whether to use TLS encryption on the connection or not.
         """
         super(WebsocketClient, self).__init__()
-        self._encoder = encoder
-        self._secure = secure
-        self._endpoint = base_url.replace(protocol="ws" if not secure else "wss")
-        self._max_message_size = max_message_size
-        self._kwargs = kwargs
+        self.__encoder = encoder
+        self.__secure = secure
+        self.__endpoint = base_url.replace(protocol="ws" if not secure else "wss")
+        self.__max_message_size = max_message_size
+        self.__kwargs = kwargs
 
-    def _(self) -> AsyncStreamClient:
+    def __(self) -> AsyncStreamClient:
         return self
 
     async def stream(
         self,
         target: str,
-        req_t: Type[RQ],
+        _req_t: Type[RQ],
         res_t: Type[RS],
     ) -> AsyncStream[RQ, RS]:
         """Implements the AsyncStreamClient protocol."""
 
-        headers = {"Content-Type": self._encoder.content_type()}
+        headers = {"Content-Type": self.__encoder.content_type()}
         socket: WebsocketStream[RQ, RS] | None = None
 
-        async def finalizer(md: MetaData) -> tuple[MetaData, Exception | None]:
+        async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
             nonlocal socket
-            out_meta_data = MetaData(target, "websocket")
-            headers.update(md.params)
+            out_ctx = Context(target, "websocket", "client")
+            headers.update(ctx.params)
             try:
                 ws = await connect(
-                    self._endpoint.child(target).stringify(),
+                    self.__endpoint.child(target).stringify(),
                     extra_headers=headers,
-                    max_size=self._max_message_size,
-                    **self._kwargs,
+                    max_size=self.__max_message_size,
+                    **self.__kwargs,
                 )
 
-                socket = WebsocketStream[RQ, RS](self._encoder, ws, res_t)
+                socket = WebsocketStream[RQ, RS](self.__encoder, ws, res_t)
             except Exception as e:
-                return out_meta_data, e
-            return out_meta_data, None
+                return out_ctx, e
+            return out_ctx, None
 
-        _, exc = await self.exec(MetaData(target, "websocket"), finalizer)
+        _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
-            raise exc
+            raise exc__e
 
         assert socket is not None
         return socket

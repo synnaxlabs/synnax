@@ -10,8 +10,10 @@
  */
 
 import React from "react";
-import { Theming, Triggers } from "../src";
+import { Pluto } from "../src";
 import "./index.css";
+import 'reactflow/dist/style.css';
+import { devInstrumentaton } from "@synnaxlabs/alamos"
 
 export const parameters = {
     actions: { argTypesRegex: "^on[A-Z].*" },
@@ -23,14 +25,24 @@ export const parameters = {
     },
 };
 
+const CONN_PARAMS = {
+    host: "localhost",
+    port: 9090,
+    username: "synnax",
+    password: "seldon"
+}
+
+const ins = devInstrumentaton()
+
+
 export const decorators = [
-    (Story) => (
-        <React.StrictMode>
-            <Theming.Provider theme={Theming.themes.synnaxDark}>
-                <Triggers.Provider>
-                    {Story()}
-                </Triggers.Provider>
-            </Theming.Provider>
-        </React.StrictMode>
-    ),
+    (StoryFn) => (
+        <Pluto 
+            connParams={CONN_PARAMS} 
+            instrumentation={ins}
+        >
+            {StoryFn()}
+        </Pluto>
+    )
+    
 ];

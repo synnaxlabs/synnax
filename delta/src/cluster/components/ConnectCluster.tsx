@@ -7,30 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { synnaxPropsSchema } from "@synnaxlabs/client";
-import type { SynnaxProps } from "@synnaxlabs/client";
-import { Button, Header, Input, Nav, Space } from "@synnaxlabs/pluto";
+import { synnaxPropsZ } from "@synnaxlabs/client";
+import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
+import {
+  Button,
+  Header,
+  Input,
+  Nav,
+  Space,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
 import type { InputSwitchProps } from "@synnaxlabs/pluto";
+import { nanoid } from "nanoid";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { ConnectionStateBadge } from "@/cluster/components/ClusterBadges";
-import type { ConnectionState } from "@/cluster/core";
 import { setActiveCluster, setCluster } from "@/cluster/store";
 import { testConnection } from "@/cluster/util/testConnection";
 import { CSS } from "@/css";
-import { Layout, LayoutRendererProps } from "@/layout";
+import { LayoutState, LayoutRendererProps } from "@/layout";
 
-import "./ConnectCluster.css";
+import "@/cluster/components/ConnectCluster.css";
 
-const formSchema = synnaxPropsSchema.extend({ name: z.string() });
+const formSchema = synnaxPropsZ.extend({ name: z.string() });
 
-export const connectClusterWindowLayout: Layout = {
+export const connectClusterWindowLayout: LayoutState = {
   key: "connectCluster",
   type: "connectCluster",
   name: "Connect a Cluster",
@@ -48,7 +55,7 @@ export const connectClusterWindowLayout: Layout = {
  *
  * @param props - The standard LayoutRendererProps.
  */
-export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element => {
+export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<ConnectionState | null>(null);
 
@@ -61,17 +68,17 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
     const { name, ...data } = _data;
-    const { clusterKey, state } = await testConnection(data as SynnaxProps);
+    const state = await testConnection(data as SynnaxProps);
     if (state.status !== "connected") return setConnState(state);
     dispatch(
       setCluster({
-        key: clusterKey as string,
+        key: state.clusterKey,
         name,
         state,
         props: data as SynnaxProps,
       })
     );
-    dispatch(setActiveCluster(clusterKey as string));
+    dispatch(setActiveCluster(state.clusterKey as string));
     onClose();
   });
 
@@ -79,8 +86,8 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
     void (async (): Promise<void> => {
       const valid = await trigger();
       if (!valid) return;
-      const { state } = await testConnection(getValues() as SynnaxProps);
-      setConnState(state);
+      const state = await testConnection(getValues() as SynnaxProps);
+      setConnState(state.className);
     })();
   };
 
@@ -122,7 +129,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): JSX.Element =>
                 name="secure"
                 control={c}
               >
-                {Input.Switch}
+                {componentRenderProp(Input.Switch)}
               </Input.ItemC>
             </Space>
           </Space>

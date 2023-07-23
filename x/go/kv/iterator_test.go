@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-var _ = Describe("IteratorServer", func() {
+var _ = Describe("Iterator", func() {
 	var (
 		kv kvx.DB
 	)
@@ -27,15 +27,15 @@ var _ = Describe("IteratorServer", func() {
 	AfterEach(func() {
 		Expect(kv.Close()).To(Succeed())
 	})
-	Describe("PrefixIter", func() {
+	Describe("IterPrefix", func() {
 		It("Should iterate over keys with a given prefix", func() {
-			Expect(kv.Set([]byte("a/foo"), []byte("bar"))).To(Succeed())
-			Expect(kv.Set([]byte("a/baz"), []byte("qux"))).To(Succeed())
-			Expect(kv.Set([]byte("a/qux"), []byte("quux"))).To(Succeed())
-			Expect(kv.Set([]byte("b/foo"), []byte("bar"))).To(Succeed())
-			Expect(kv.Set([]byte("b/baz"), []byte("qux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/baz"), []byte("qux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("a/qux"), []byte("quux"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/foo"), []byte("bar"))).To(Succeed())
+			Expect(kv.Set(ctx, []byte("b/baz"), []byte("qux"))).To(Succeed())
 
-			iter := kv.NewIterator(kvx.PrefixIter([]byte("a")))
+			iter := kv.OpenIterator(kvx.IterPrefix([]byte("a")))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++
@@ -44,19 +44,18 @@ var _ = Describe("IteratorServer", func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 	})
-	Describe("Bounds Iter", func() {
+	Describe("Bounds Iterate", func() {
 		It("Should iterate over keys in a given range", func() {
-
 			for i := 0; i < 10; i++ {
 				b := make([]byte, 4)
 				binary.LittleEndian.PutUint32(b, uint32(i))
-				Expect(kv.Set(b, []byte{1, 2})).To(Succeed())
+				Expect(kv.Set(ctx, b, []byte{1, 2})).To(Succeed())
 			}
 			lower := make([]byte, 4)
 			binary.LittleEndian.PutUint32(lower, uint32(3))
 			upper := make([]byte, 4)
 			binary.LittleEndian.PutUint32(upper, uint32(7))
-			iter := kv.NewIterator(kvx.RangeIter(lower, upper))
+			iter := kv.OpenIterator(kvx.IterRange(lower, upper))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++

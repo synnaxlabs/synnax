@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon } from "@synnaxlabs/media";
-import { Space, Header, List, Text } from "@synnaxlabs/pluto";
+import { Space, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
 import type { ListItemProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -19,9 +21,9 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { useLayoutPlacer, NavDrawerItem } from "@/layout";
 
-import "./ClusterToolbar.css";
+import "@/cluster/components/ClusterToolbar.css";
 
-const Content = (): JSX.Element => {
+const Content = (): ReactElement => {
   const dispatch = useDispatch();
   const data = Object.values(useSelectClusters());
   const active = useSelectCluster();
@@ -46,9 +48,11 @@ const Content = (): JSX.Element => {
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
-      <List<RenderableCluster> data={data}>
+      <List<string, RenderableCluster> data={data}>
         <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
-        <List.Core.Virtual itemHeight={30}>{ListItem}</List.Core.Virtual>
+        <List.Core.Virtual itemHeight={30}>
+          {componentRenderProp(ListItem)}
+        </List.Core.Virtual>
       </List>
     </Space>
   );
@@ -56,11 +60,10 @@ const Content = (): JSX.Element => {
 
 const ListItem = ({
   entry: { key, name },
-  style,
   selected,
   onSelect,
-  ...props
-}: ListItemProps<RenderableCluster>): JSX.Element => (
+  style,
+}: ListItemProps<string, RenderableCluster>): ReactElement => (
   <Space
     direction="x"
     align="center"
@@ -70,7 +73,7 @@ const ListItem = ({
       CSS.BE("cluster-toolbar-list", "item"),
       selected && CSS.M("selected")
     )}
-    {...props}
+    style={style}
   >
     <Text level="p">{name}</Text>
   </Space>
@@ -84,4 +87,5 @@ export const ClusterToolbar: NavDrawerItem = {
   minSize: 185,
   maxSize: 350,
   initialSize: 250,
+  tooltip: "Clusters",
 };

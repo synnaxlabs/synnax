@@ -63,8 +63,6 @@ func (c *Catch) HasError() bool {
 // opt is used on instantiation.
 func (c *Catch) Errors() []error { return c.errors }
 
-// |||| OPTS ||||
-
 type catchOpts struct {
 	aggregate bool
 }

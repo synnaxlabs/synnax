@@ -16,89 +16,82 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
-var _ = Describe("Create", Ordered, func() {
+var _ = Describe("TypedWriter", Ordered, func() {
 	var (
-		services map[core.NodeID]channel.Service
+		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
-		log      *zap.Logger
 	)
-	BeforeAll(func() {
-		log = zap.NewNop()
-		builder, services = provisionServices(log)
-	})
+	BeforeAll(func() { builder, services = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Context("Single channel", func() {
 		var (
-			channelLeaseNodeID aspen.NodeID
-			ch                 channel.Channel
+			channelLeaseNodeKey aspen.NodeKey
+			ch                  channel.Channel
 		)
 		JustBeforeEach(func() {
 			var err error
 			ch = channel.Channel{
-				Rate:     5 * telem.Hz,
-				Name:     "SG01",
-				DataType: telem.Float64T,
-				NodeID:   channelLeaseNodeID,
+				Rate:        5 * telem.Hz,
+				Name:        "SG01",
+				DataType:    telem.Float64T,
+				Leaseholder: channelLeaseNodeKey,
 			}
-			err = services[1].Create(&ch)
+			err = services[1].NewWriter(nil).Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
-			BeforeEach(func() { channelLeaseNodeID = 1 })
+			BeforeEach(func() { channelLeaseNodeKey = 1 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(1)))
-				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().String())
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
-				Expect(cesiumCH.Key).To(Equal(ch.Key().String()))
+				Expect(cesiumCH.Key).To(Equal(ch.Key().StorageKey()))
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
 		})
 		Context("Node is remote", func() {
-			BeforeEach(func() { channelLeaseNodeID = 2 })
+			BeforeEach(func() { channelLeaseNodeKey = 2 })
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().NodeID()).To(Equal(aspen.NodeID(2)))
-				Expect(ch.Key().LocalKey()).To(Equal(storage.ChannelKey(1)))
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
+				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
-				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ch.Key().String())
+				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(channels).To(HaveLen(1))
 				cesiumCH := channels[0]
-				Expect(cesiumCH.Key).To(Equal(ch.Key().String()))
 				Expect(cesiumCH.DataType).To(Equal(telem.Float64T))
 				Expect(cesiumCH.Rate).To(Equal(5 * telem.Hz))
 			})
-			It("Should not create the channel on another nodes DB", func() {
-				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ch.Key().String())
+			It("Should not create the channel on another nodes cesium", func() {
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(HaveOccurred())
 				Expect(channels).To(HaveLen(0))
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
 					ch2 := &channel.Channel{
-						Rate:     5 * telem.Hz,
-						Name:     "SG01",
-						DataType: telem.Float64T,
-						NodeID:   1,
+						Rate:        5 * telem.Hz,
+						Name:        "SG01",
+						DataType:    telem.Float64T,
+						Leaseholder: 1,
 					}
-					err := services[1].Create(ch2)
+					err := services[1].NewWriter(nil).Create(ctx, ch2)
 					Expect(err).To(BeNil())
-					Expect(ch2.Key().NodeID()).To(Equal(aspen.NodeID(1)))
-					Expect(ch2.Key().LocalKey()).To(Equal(storage.ChannelKey(3)))
+					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+					Expect(ch2.Key().LocalKey()).To(Equal(uint16(3)))
 				})
 		})
 	})

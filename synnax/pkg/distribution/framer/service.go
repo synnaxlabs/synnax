@@ -11,81 +11,87 @@ package framer
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type Service struct {
 	writer   *writer.Service
 	iterator *iterator.Service
+	relay    *relay.Relay
 }
 
-type ServiceConfig struct {
-	ChannelReader channel.Reader
-	TS            storage.TS
+type Config struct {
+	alamos.Instrumentation
+	ChannelReader channel.Readable
+	TS            *ts.DB
 	Transport     Transport
 	HostResolver  core.HostResolver
-	Logger        *zap.Logger
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
-func (c ServiceConfig) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "Transport", c.Transport)
 	validate.NotNil(v, "HostResolver", c.HostResolver)
-	validate.NotNil(v, "Logger", c.Logger)
 	return v.Error()
 }
 
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+func (c Config) Override(other Config) Config {
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
-	c.Logger = override.Nil(c.Logger, other.Logger)
 	return c
 }
 
-func Open(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+func Open(configs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Service{}
 	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
-		TS:            cfg.TS,
-		HostResolver:  cfg.HostResolver,
-		Transport:     cfg.Transport.Iterator(),
-		ChannelReader: cfg.ChannelReader,
-		Logger:        cfg.Logger,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Iterator(),
+		ChannelReader:   cfg.ChannelReader,
+		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.writer, err = writer.OpenService(writer.ServiceConfig{
-		TS:            cfg.TS,
-		HostResolver:  cfg.HostResolver,
-		Transport:     cfg.Transport.Writer(),
-		ChannelReader: cfg.ChannelReader,
-		Logger:        cfg.Logger,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Writer(),
+		ChannelReader:   cfg.ChannelReader,
+		Instrumentation: cfg.Instrumentation,
+	})
+	s.relay, err = relay.Open(relay.Config{
+		Instrumentation: cfg.Instrumentation,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Relay(),
 	})
 	return s, err
 }
 
-func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (Iterator, error) {
+func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.iterator.New(ctx, cfg)
 }
 
@@ -93,10 +99,13 @@ func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (St
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (Writer, error) {
+func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.New(ctx, cfg)
 }
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
 }
+
+// Close closes the Service.
+func (s *Service) Close() error { return s.relay.Close() }

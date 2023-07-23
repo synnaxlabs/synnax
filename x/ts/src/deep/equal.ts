@@ -9,7 +9,12 @@
 
 import { UnknownRecord } from "@/record";
 
-export const deepEqual = <T extends UnknownRecord<T>>(a: T, b: T): boolean => {
+type DeepEqualBase<T extends UnknownRecord<T>> =
+  | UnknownRecord<T>
+  | (UnknownRecord<T> & { equals: (other: T) => boolean });
+
+export const deepEqual = <T extends DeepEqualBase<T>>(a: T, b: T): boolean => {
+  if ("equals" in a) return a.equals(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;

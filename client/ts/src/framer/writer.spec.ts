@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { Channel } from "../channel";
@@ -19,7 +19,7 @@ const client = newClient();
 const newChannel = async (): Promise<Channel> => {
   return await client.channels.create({
     name: "test",
-    nodeId: 1,
+    leaseholder: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
@@ -29,9 +29,9 @@ describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
       const ch = await newChannel();
-      const writer = await client.data.newWriter(0, ch.key);
+      const writer = await client.telem.newWriter(0, ch.key);
       try {
-        await writer.writeArray(ch.key, randomTypedArray(10, ch.dataType));
+        await writer.write(ch.key, randomTypedArray(10, ch.dataType));
         await writer.commit();
       } finally {
         await writer.close();
@@ -43,9 +43,10 @@ describe("Writer", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();
       const data = randomTypedArray(10, ch.dataType);
-      await client.data.write(ch.key, TimeStamp.seconds(1), data);
-      await client.data.read(ch.key, TimeSpan.ZERO, TimeSpan.seconds(10000000));
-      expect(data.length).toEqual(10);
+      await client.telem.write(ch.key, TimeStamp.seconds(1), data);
+      const res = await client.telem.read(TimeRange.MAX, ch.key);
+      expect(res.length).toEqual(data.length);
+      expect(res.data).toEqual(data);
     });
   });
 });

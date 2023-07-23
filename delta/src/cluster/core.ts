@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Connectivity, SynnaxProps } from "@synnaxlabs/client";
+import type { SynnaxProps } from "@synnaxlabs/client";
 
 /** Represents the properties and state of a synnax cluster */
 export interface Cluster {
@@ -18,23 +18,7 @@ export interface Cluster {
   /** The connection parameters for connecting to the cluster. NOTE: This contains
    * sensitive information and should be treated with care. */
   props: SynnaxProps;
-  /** The current connections state of the client to the cluster */
-  state: ConnectionState;
 }
 
 /** A subset of Cluster that satisfies RenderableRecord */
 export type RenderableCluster = Omit<Cluster, "props" | "state">;
-
-/** Represents the current connection state of the client to the cluster */
-export interface ConnectionState {
-  /** The connectivity info provided by @synnaxlabs/client */
-  status: Connectivity;
-  /** An informative message describing the state of the connection */
-  message?: string;
-}
-
-/** The default connection state to display when there is no active cluster. */
-export const DEFAULT_CONNECTION_STATE: ConnectionState = {
-  status: "disconnected",
-  message: "Disconnected",
-};

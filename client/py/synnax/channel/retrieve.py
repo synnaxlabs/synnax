@@ -8,19 +8,27 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
-from typing import Protocol, overload
-from typing_extensions import Literal
 
-from freighter import HTTPClientPool, Payload, UnaryClient
 
-from synnax.exceptions import QueryError
-from synnax.channel.payload import ChannelPayload
-from synnax.util.flatten import flatten
+from typing import Protocol
+
+
+from alamos import Instrumentation, trace, NOOP
+from freighter import Payload, UnaryClient
+
+from synnax.channel.payload import (
+    normalize_channel_params,
+    ChannelPayload,
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
+)
 
 
 class _Request(Payload):
-    keys_or_names: list[str] | None = None
-    node_id: int | None = None
+    names: list[str] | None = None
+    keys: list[int] | None = None
+    leaseholder: int | None = None
 
 
 class _Response(Payload):
@@ -29,164 +37,91 @@ class _Response(Payload):
 
 
 class ChannelRetriever(Protocol):
-    """Protocol for retrieving channel paylods from the cluster."""
+    """Protocol for retrieving channel payloads from the cluster."""
 
-    @overload
-    def retrieve(
-        self,
-        key_or_name: str,
-    ) -> ChannelPayload | None:
-        ...
-
-    @overload
-    def retrieve(
-        self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
-        include_not_found: Literal[False] = False,
-    ) -> list[ChannelPayload]:
-        ...
-
-    @overload
-    def retrieve(
-        self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
-        include_not_found: Literal[True] = True,
-    ) -> tuple[list[ChannelPayload], list[str]]:
-        ...
-
-    @overload
-    def retrieve(
-        self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] |  list[str],
-        node_id: int | None = None,
-        include_not_found: bool = False,
-    ) -> (
-        tuple[list[ChannelPayload], list[str]]
-        | list[ChannelPayload]
-        | ChannelPayload
-        | None
-    ):
+    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         ...
 
 
 class ClusterChannelRetriever:
-    _ENDPOINT = "/channel/retrieve"
-    client: UnaryClient
+    __ENDPOINT = "/channel/retrieve"
+    __client: UnaryClient
+    instrumentation: Instrumentation
 
-    def __init__(self, client: HTTPClientPool):
-        self.client = client.get_client()
+    def __init__(
+        self,
+        client: UnaryClient,
+        instrumentation: Instrumentation = NOOP,
+    ) -> None:
+        self.__client = client
+        self.instrumentation = instrumentation
 
     def _(self) -> ChannelRetriever:
         return self
 
+    @trace("debug")
     def retrieve(
         self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
-        include_not_found: bool = False,
-    ) -> (
-        tuple[list[ChannelPayload], list[str]]
-        | list[ChannelPayload]
-        | ChannelPayload
-        | None
-    ):
-        single = is_single(key_or_name, keys_or_names)
-        flat = flatten(key_or_name, *keys_or_names)
+        params: ChannelKey | ChannelName,
+    ) -> list[ChannelPayload]:
+        normal = normalize_channel_params(params)
+        return self.__execute(_Request(**{normal.variant: normal.params}))
 
-        req = _Request(keys_or_names=flat, node_id=node_id)
-        res, exc = self.client.send(self._ENDPOINT, req, _Response)
+    def __execute(
+        self,
+        req: _Request,
+    ) -> list[ChannelPayload]:
+        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
-        assert res is not None
-        if include_not_found == True:
-            return res.channels, res.not_found or list()
-        if single:
-            if len(res.channels) == 1:
-                return res.channels[0]
-            if len(res.channels) == 0:
-                return None
-            raise QueryError("multiple channels found")
         return res.channels
 
 
 class CacheChannelRetriever:
-    _retriever: ChannelRetriever
-    channels: dict[str, ChannelPayload]
-    names_to_keys: dict[str, str]
+    __retriever: ChannelRetriever
+    __channels: dict[ChannelKey, ChannelPayload]
+    __names_to_keys: dict[ChannelName, ChannelKey]
+    instrumentation: Instrumentation
 
-    def __init__(self, retriever: ChannelRetriever) -> None:
-        self.channels = dict()
-        self.names_to_keys = dict()
-        self._retriever = retriever
+    def __init__(
+        self,
+        retriever: ChannelRetriever,
+        instrumentation: Instrumentation,
+    ) -> None:
+        self.__channels = dict()
+        self.__names_to_keys = dict()
+        self.instrumentation = instrumentation
+        self.__retriever = retriever
 
     def _(self) -> ChannelRetriever:
         return self
 
-    def retrieve(
-        self,
-        key_or_name: str | tuple[str] | list[str],
-        *keys_or_names: str | tuple[str] | list[str],
-        node_id: int | None = None,
-        include_not_found: bool = False,
-    ) -> (
-        tuple[list[ChannelPayload], list[str]]
-        | list[ChannelPayload]
-        | ChannelPayload
-        | None
-    ):
-        if node_id is not None:
-            return self._retriever.retrieve(
-                key_or_name,
-                *keys_or_names,
-                node_id=node_id,
-                include_not_found=include_not_found,
-            )
+    def __get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
+        if isinstance(param, int):
+            return self.__channels.get(param)
+        return self.__channels.get(self.__names_to_keys.get(param))
 
-        single = is_single(key_or_name, keys_or_names)
-        flat = flatten(key_or_name, *keys_or_names)
+    def __set(self, channels: list[ChannelPayload]) -> None:
+        for channel in channels:
+            self.__channels[channel.key] = channel
+            self.__names_to_keys[channel.name] = channel.key
 
+    @trace("debug")
+    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
+        normal = normalize_channel_params(params)
         results = list()
         to_retrieve = list()
-
-        for entry in flat:
-            key = self.names_to_keys.get(entry, entry)
-            channel = self.channels.get(key, None)
-            if channel is None:
-                to_retrieve.append(key)
+        for p in normal.params:
+            ch = self.__get(p)
+            if ch is None:
+                to_retrieve.append(p)
             else:
-                results.append(channel)
+                results.append(ch)
 
-        not_found = list()
-        if len(to_retrieve) != 0:
-            retrieved, not_found = self._retriever.retrieve(
-                *to_retrieve,
-                include_not_found=True,
-            )
+        if len(to_retrieve) == 0:
+            return results
 
-            for channel in retrieved:
-                self.channels[channel.key] = channel
-                self.names_to_keys[channel.name] = channel.key
-                results.append(channel)
-
-        if include_not_found == True:
-            return results, not_found
-        if single:
-            if len(results) == 0:
-                return None
-            if len(results) == 1:
-                return results[0]
-            raise QueryError("multiple channels found")
+        retrieved = self.__retriever.retrieve(to_retrieve)
+        self.__set(retrieved)
+        results.extend(retrieved)
         return results
-
-
-def is_single(
-    key_or_name: str | tuple[str] | list[str], keys_or_names: tuple[str | tuple[str] | list[str]]
-) -> bool:
-    """Determine if a list of keys or names is a single key or name."""
-    return isinstance(key_or_name, str) and len(keys_or_names) == 0

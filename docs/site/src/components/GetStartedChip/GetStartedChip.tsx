@@ -14,7 +14,7 @@ import "./GetStartedChip.css";
 
 export interface GetStartedChipProps {
   title: string;
-  icon: JSX.Element;
+  icon: ReactElement;
   description: string;
   href: string;
 }
@@ -24,7 +24,7 @@ export const GetStartedChip = ({
   title,
   description,
   href,
-}: GetStartedChipProps): JSX.Element => {
+}: GetStartedChipProps): ReactElement => {
   return (
     <a
       href={href}

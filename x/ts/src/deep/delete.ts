@@ -14,13 +14,9 @@ export const deepDelete = <T extends UnknownRecord<T>, D extends number = 5>(
   target: T,
   ...keys: Array<DeepKey<T, D>>
 ): T => {
-  // sometimes we get 'unnecessarily deep' errors here with certain versions of typescript
-  // so don't remove this directive even if ts says it's unnecessary
-  // @ts-expect-error
   keys.forEach((key) => {
     let curr: any = target;
     const arr = key.split(".");
-    // @ts-expect-error
     arr.forEach((k, i) => {
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       if (i === arr.length - 1) delete curr[k];

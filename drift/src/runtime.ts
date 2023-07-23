@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { Dimensions, XY } from "@synnaxlabs/x";
+import { CrudeDimensions, CrudeXY } from "@synnaxlabs/x";
 
 import { PreloadedState, StoreState } from "@/state";
 import { WindowProps } from "@/window";
@@ -98,10 +98,10 @@ export interface Manager {
   setVisible: (value: boolean) => Promise<void>;
   setFullscreen: (value: boolean) => Promise<void>;
   center: () => Promise<void>;
-  setPosition: (xy: XY) => Promise<void>;
-  setSize: (dims: Dimensions) => Promise<void>;
-  setMinSize: (dims: Dimensions) => Promise<void>;
-  setMaxSize: (dimss: Dimensions) => Promise<void>;
+  setPosition: (xy: CrudeXY) => Promise<void>;
+  setSize: (dims: CrudeDimensions) => Promise<void>;
+  setMinSize: (dims: CrudeDimensions) => Promise<void>;
+  setMaxSize: (dimss: CrudeDimensions) => Promise<void>;
   setResizable: (value: boolean) => Promise<void>;
   setSkipTaskbar: (value: boolean) => Promise<void>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;

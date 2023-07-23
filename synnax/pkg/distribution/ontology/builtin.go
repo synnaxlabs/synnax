@@ -9,31 +9,48 @@
 
 package ontology
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+import (
+	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
+)
 
 // BuiltIn is a resource type that is built into the ontology.
 const BuiltIn Type = "builtin"
 
-// Root is the root resource in the ontology. All other resources are reachable by
-// traversing the ontology from the root.
-var Root = ID{Type: BuiltIn, Key: "root"}
+var (
+	// RootID is the root resource in the ontology. All other resources are reachable by
+	// traversing the ontology from the root.
+	RootID       = ID{Type: BuiltIn, Key: "root"}
+	rootResource = Resource{ID: RootID, Name: "root"}
+)
 
-type builtinService struct{}
+type builtinService struct {
+	observe.Noop[iter.Nexter[schema.Change]]
+}
 
 var _ Service = (*builtinService)(nil)
 
-func (b *builtinService) Schema() *Schema {
-	return &Schema{
-		Type:   BuiltIn,
-		Fields: map[string]schema.Field{},
-	}
+var builtinSchema = &Schema{
+	Type:   BuiltIn,
+	Fields: map[string]schema.Field{},
 }
 
-func (b *builtinService) RetrieveEntity(key string) (Entity, error) {
+// Schema implements Service.
+func (b *builtinService) Schema() *Schema { return builtinSchema }
+
+// RetrieveResource implements Service.
+func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resource, error) {
 	switch key {
 	case "root":
-		return Entity{Name: "root"}, nil
+		return rootResource, nil
 	default:
 		panic("[ontology] - builtin entity not found")
 	}
+}
+
+// OpenNexter implements Service.
+func (b *builtinService) OpenNexter() iter.NexterCloser[Resource] {
+	return iter.NexterNopCloser[Resource]{Wrap: iter.All([]Resource{rootResource})}
 }

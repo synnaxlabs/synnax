@@ -10,6 +10,7 @@
 package rbac
 
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/x/query"
 )
@@ -22,8 +23,8 @@ type Enforcer struct {
 var _ access.Enforcer = (*Enforcer)(nil)
 
 // Enforce implements the access.Enforcer interface.
-func (e *Enforcer) Enforce(req access.Request) error {
-	policies, err := e.Legislator.Retrieve(req.Subject, req.Object)
+func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
+	policies, err := e.Legislator.Retrieve(ctx, req.Subject, req.Object)
 	if err != nil {
 		if err == query.NotFound {
 			return e.defaultErr()

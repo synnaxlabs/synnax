@@ -29,14 +29,16 @@ func (h Heartbeat) Decrement() Heartbeat { h.Version--; return h }
 // Restart increments Heartbeat.Generation and resets Heartbeat.Version.
 func (h Heartbeat) Restart() Heartbeat { h.Generation++; h.Version = 0; return h }
 
-// OlderThan returns true if the Heartbeat generation or version is greater than other. It's important to note
-// that an older heartbeat means a 'newer' version.
+// OlderThan returns true if the Heartbeat generation or version is greater than other.
+// It's important to note that an older heartbeat means a 'newer' version.
 func (h Heartbeat) OlderThan(other Heartbeat) bool {
-	return h.Generation > other.Generation || (h.Generation == other.Generation && h.Version > other.Version)
+	return h.Generation > other.Generation ||
+		(h.Generation == other.Generation && h.Version > other.Version)
 }
 
-// YoungerThan returns true if the Heartbeat generation or version is less than other. It's important to note
-// that a younger heartbeat mans an 'older' version.
+// YoungerThan returns true if the Heartbeat generation or version is less than other.
+// It's important to note that a younger heartbeat mans an 'older' version.
 func (h Heartbeat) YoungerThan(other Heartbeat) bool {
-	return h.Generation < other.Generation || (h.Generation == other.Generation && h.Version < other.Version)
+	return h.Generation < other.Generation ||
+		(h.Generation == other.Generation && h.Version < other.Version)
 }

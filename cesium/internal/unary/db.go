@@ -10,22 +10,23 @@
 package unary
 
 import (
+	"context"
 	"fmt"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type DB struct {
 	Config
-	Ranger *ranger.DB
+	Ranger *domain.DB
 	_idx   index.Index
 }
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
-		panic(fmt.Sprintf("[ranger.unary] - database %s does not support indexing", db.Channel.Key))
+		panic(fmt.Sprintf("[domain.unary] - database %v does not support indexing", db.Channel.Key))
 	}
 	return db.index()
 }
@@ -39,8 +40,8 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (db *DB) NewWriter(cfg ranger.WriterConfig) (*Writer, error) {
-	w, err := db.Ranger.NewWriter(cfg)
+func (db *DB) NewWriter(ctx context.Context, cfg domain.WriterConfig) (*Writer, error) {
+	w, err := db.Ranger.NewWriter(ctx, cfg)
 	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
 }
 
@@ -52,11 +53,11 @@ type IteratorConfig struct {
 }
 
 func IterRange(tr telem.TimeRange) IteratorConfig {
-	return IteratorConfig{Bounds: ranger.IterRange(tr).Bounds, AutoChunkSize: 0}
+	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
 var (
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 1000000}
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
 )
 
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
@@ -66,8 +67,8 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	return i
 }
 
-func (i IteratorConfig) ranger() ranger.IteratorConfig {
-	return ranger.IteratorConfig{Bounds: i.Bounds}
+func (i IteratorConfig) ranger() domain.IteratorConfig {
+	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
 func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
@@ -77,7 +78,6 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 		idx:            db.index(),
 		Channel:        db.Channel,
 		internal:       iter,
-		logger:         db.Logger,
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)

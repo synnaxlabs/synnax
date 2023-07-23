@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Theme, Theming, applyCSSVars } from "@synnaxlabs/pluto";
+import { CSS, Theme, Theming } from "@synnaxlabs/pluto";
 
 const modifyTheme = (theme: Theme): Theme => {
   const m = { ...theme };
@@ -47,7 +47,7 @@ const THEME_ALTERNATES: Record<string, Theme> = {
 };
 
 const applyTheme = (theme: Theme): void => {
-  applyCSSVars(window.document.documentElement, Theming.toCSSVars(theme));
+  CSS.applyVars(window.document.documentElement, Theming.toCSSVars(theme));
   localStorage.setItem("theme", theme.key);
 };
 

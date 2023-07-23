@@ -32,15 +32,15 @@ var _ = Describe("AuthService", Ordered, func() {
 		svc     *api.AuthService
 	)
 	BeforeAll(func() {
-		builder = mock.New()
-		prov = builder.New()
+		builder = mock.Open()
+		prov = builder.New(ctx)
 		svc = api.NewAuthServer(prov)
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
-	Describe("New", func() {
+	Describe("Open", func() {
 		It("Should register a new user", func() {
 			tr, err := svc.Register(ctx, api.RegistrationRequest{InsecureCredentials: testCreds})
 			Expect(err).To(MatchError(apierrors.Nil))

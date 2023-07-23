@@ -10,6 +10,7 @@
 package rbac
 
 import (
+	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -18,14 +19,14 @@ type Legislator struct {
 	DB *gorp.DB
 }
 
-func (l *Legislator) Create(txn gorp.Txn, p Policy) error {
-	return gorp.NewCreate[string, Policy]().Entry(&p).Exec(txn)
+func (l *Legislator) Create(txn gorp.Tx, p Policy) error {
+	return gorp.NewCreate[string, Policy]().Entry(&p).Exec(context.TODO(), txn)
 }
 
-func (l *Legislator) Retrieve(subject, object ontology.ID) ([]Policy, error) {
+func (l *Legislator) Retrieve(ctx context.Context, subject, object ontology.ID) ([]Policy, error) {
 	var p []Policy
 	return p, gorp.NewRetrieve[string, Policy]().
 		WhereKeys(NewPolicyKey(subject, object)).
 		Entries(&p).
-		Exec(l.DB)
+		Exec(ctx, l.DB)
 }

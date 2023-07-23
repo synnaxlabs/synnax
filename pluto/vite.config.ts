@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import path from "path";
 import { lib } from "@synnaxlabs/vite-plugin";
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [lib({ name: "pluto" }), react()],
+  plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
     minify: false,
+    lib: {
+      entry: [path.resolve(".", "src/index.ts"), path.resolve(".", "src/worker.ts")],
+    },
     rollupOptions: {
       external: ["react", "react-dom", "react-hook-form"],
       output: {
@@ -26,9 +29,9 @@ export default defineConfig({
       },
     },
   },
-  test: { 
-    globals: true, 
-    environment: "jsdom", 
+  test: {
+    globals: true,
+    environment: "jsdom",
     setupFiles: ["src/mock/setuptests.ts"],
   },
 });

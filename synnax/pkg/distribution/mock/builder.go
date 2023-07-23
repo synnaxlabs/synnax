@@ -10,6 +10,7 @@
 package mock
 
 import (
+	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
@@ -28,6 +30,7 @@ type Builder struct {
 	writerNet  *tmock.FramerWriterNetwork
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
+	relayNet   *tmock.FramerRelayNetwork
 }
 
 func NewBuilder(cfg ...distribution.Config) *Builder {
@@ -38,29 +41,30 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 		writerNet:   tmock.NewFramerWriterNetwork(),
 		iterNet:     tmock.NewFramerIteratorNetwork(),
 		channelNet:  tmock.NewChannelNetwork(),
+		relayNet:    tmock.NewRelayNetwork(),
 	}
 }
 
-func (b *Builder) New() distribution.Distribution {
+func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	core := b.CoreBuilder.New()
 	d := distribution.Distribution{Core: core}
 
 	trans := mockFramerTransport{
 		iter:   b.iterNet.New(core.Config.AdvertiseAddress, 1),
 		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
+		relay:  b.relayNet.New(core.Config.AdvertiseAddress, 1),
 	}
 
-	d.Ontology = lo.Must(ontology.Open(d.Storage.Gorpify()))
+	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
-		Logger:   d.Config.Logger.Sugar(),
 		Cluster:  d.Cluster,
 		Ontology: d.Ontology,
 	}
 	clusterOntologySvc := &dcore.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(nodeOntologySvc)
 	d.Ontology.RegisterService(clusterOntologySvc)
-	nodeOntologySvc.ListenForChanges()
+	nodeOntologySvc.ListenForChanges(ctx)
 
 	d.Channel = lo.Must(channel.New(channel.ServiceConfig{
 		HostResolver: d.Cluster,
@@ -70,19 +74,20 @@ func (b *Builder) New() distribution.Distribution {
 		Ontology:     d.Ontology,
 	}))
 
-	d.Framer = lo.Must(framer.Open(framer.ServiceConfig{
+	d.Framer = lo.Must(framer.Open(framer.Config{
 		ChannelReader: d.Channel,
 		TS:            d.Storage.TS,
 		HostResolver:  d.Cluster,
-		Logger:        d.Core.Config.Logger,
 		Transport:     trans,
 	}))
+
 	return d
 }
 
 type mockFramerTransport struct {
 	iter   iterator.Transport
 	writer writer.Transport
+	relay  relay.Transport
 }
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
@@ -93,4 +98,8 @@ func (m mockFramerTransport) Iterator() iterator.Transport {
 
 func (m mockFramerTransport) Writer() writer.Transport {
 	return m.writer
+}
+
+func (m mockFramerTransport) Relay() relay.Transport {
+	return m.relay
 }

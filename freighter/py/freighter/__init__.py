@@ -9,7 +9,18 @@ __version__ = "0.2.14"
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from .transport import (
+from freighter.alamos import (
+    instrumentation_middleware,
+    async_instrumentation_middleware,
+)
+from freighter.context import Context, Role
+from freighter.encoder import EncoderDecoder, MsgpackEncoder, JSONEncoder
+from freighter.exceptions import EOF, ExceptionPayload, StreamClosed
+from freighter.exceptions import register_exception, encode_exception, decode_exception
+from freighter.http import HTTPClient
+from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
+from freighter.sync import SyncStreamClient
+from freighter.transport import (
     Payload,
     Transport,
     Middleware,
@@ -20,13 +31,6 @@ from .transport import (
     AsyncFinalizer,
     MiddlewareCollector,
 )
-from .metadata import MetaData
-from .exceptions import EOF, ExceptionPayload, StreamClosed
-from .stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
-from .unary import UnaryClient
-from .url import URL
-from .websocket import WebsocketClient
-from .http import HTTPClientPool
-from .exceptions import register_exception, encode_exception, decode_exception
-from .encoder import EncoderDecoder, MsgpackEncoder, JSONEncoder
-from .sync import SyncStreamClient
+from freighter.unary import UnaryClient
+from freighter.url import URL
+from freighter.websocket import WebsocketClient

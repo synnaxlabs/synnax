@@ -10,6 +10,7 @@
 package index
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -33,14 +34,14 @@ type Index interface {
 	// the index of the timestamp less than or equal to the end timestamp and
 	// the index of the timestamp greater than or equal to the start timestamp. The upper
 	// bound is calculated using the opposite approach (i.e. finding the index of the
-	// timestamp greater than or equal to the end timestamp and the index of the timestamp
-	// less than or equal to the start timestamp). Naturally, a time range whose start
-	// timestamp and end timestamps are both known will have an equal lower and upper
-	// bound.
-	Distance(tr telem.TimeRange, continuous bool) (DistanceApproximation, error)
+	// timestamp greater than or equal to the end timestamp and the index of the
+	// timestamp less than or equal to the start timestamp). Naturally, a time range
+	// whose start timestamp and end timestamps are both known will have an equal lower
+	// and upper bound.
+	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
 	// (the inverse of Distance). Stamp assumes the caller is aware of discontinuities
 	// in the underlying time series, and will calculate the ending timestamp even
 	// across discontinuous ranges.
-	Stamp(ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
+	Stamp(ctx context.Context, ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
 }

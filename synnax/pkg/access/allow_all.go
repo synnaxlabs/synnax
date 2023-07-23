@@ -9,6 +9,8 @@
 
 package access
 
+import "context"
+
 type AllowAll struct{}
 
-func (a AllowAll) Enforce(req Request) error { return nil }
+func (a AllowAll) Enforce(ctx context.Context, req Request) error { return nil }

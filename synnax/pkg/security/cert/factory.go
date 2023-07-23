@@ -43,14 +43,13 @@ var (
 	DefaultFactoryConfig = FactoryConfig{
 		LoaderConfig:  DefaultLoaderConfig,
 		KeySize:       2048,
-		AllowKeyReuse: config.BoolPointer(false),
+		AllowKeyReuse: config.False(),
 	}
 )
 
 // Override implements [config.Config].
 func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	f.KeySize = override.Numeric(f.KeySize, other.KeySize)
-	f.Logger = override.Nil(f.Logger, other.Logger)
 	f.Hosts = override.Slice(f.Hosts, other.Hosts)
 	f.AllowKeyReuse = override.Nil(f.AllowKeyReuse, other.AllowKeyReuse)
 	f.LoaderConfig = f.LoaderConfig.Override(other.LoaderConfig)
@@ -74,7 +73,7 @@ type Factory struct {
 
 // NewFactory creates a new Factory.
 func NewFactory(configs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.OverrideAndValidate(DefaultFactoryConfig, configs...)
+	cfg, err := config.New(DefaultFactoryConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ import {
   nanoid,
 } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
-import { XY, Dimensions, positionInCenter, Box, ZERO_XY, Deep } from "@synnaxlabs/x";
+import { XY, Dimensions, positionInCenter, Box, Deep } from "@synnaxlabs/x";
 
 import {
   WindowState,
@@ -379,8 +379,8 @@ const maybePositionInCenter = (
 ): CreateWindowPayload => {
   if (mainWin.position != null && mainWin.size != null && pld.position == null)
     pld.position = positionInCenter(
-      new Box(ZERO_XY, pld.size ?? ZERO_XY),
+      new Box(XY.ZERO, pld.size ?? XY.ZERO),
       new Box(mainWin.position, mainWin.size)
-    ).topLeft;
+    ).topLeft.crude;
   return pld;
 };

@@ -10,12 +10,15 @@
 package cesium
 
 import (
+	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // CreateChannel implements DB.
-func (db *cesium) CreateChannel(ch ...Channel) error {
+func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -25,10 +28,10 @@ func (db *cesium) CreateChannel(ch ...Channel) error {
 }
 
 // RetrieveChannels implements DB.
-func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
+func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
-		ch, err := db.RetrieveChannel(key)
+		ch, err := db.RetrieveChannel(ctx, key)
 		if err != nil {
 			return nil, err
 		}
@@ -38,7 +41,7 @@ func (db *cesium) RetrieveChannels(keys ...string) ([]Channel, error) {
 }
 
 // RetrieveChannel implements DB.
-func (db *cesium) RetrieveChannel(key string) (Channel, error) {
+func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	ch, ok := db.dbs[key]
 	if !ok {
 		return Channel{}, ChannelNotFound
@@ -46,15 +49,16 @@ func (db *cesium) RetrieveChannel(key string) (Channel, error) {
 	return ch.Channel, nil
 }
 
-func (db *cesium) createChannel(ch Channel) (err error) {
+func (db *DB) createChannel(ch Channel) (err error) {
 	defer func() {
-		db.logger.Sugar().Infow("creating channel",
-			"key", ch.Key,
-			"index", ch.Index,
-			"rate", ch.Rate,
-			"datatype", ch.DataType,
-			"isIndex", ch.IsIndex,
-			"error", err,
+		lo.Ternary(err == nil, db.L.Info, db.L.Error)(
+			"creating channel",
+			zap.Uint32("key", ch.Key),
+			zap.Uint32("index", ch.Index),
+			zap.Float64("rate", float64(ch.Rate)),
+			zap.String("datatype", string(ch.DataType)),
+			zap.Bool("isIndex", ch.IsIndex),
+			zap.Error(err),
 		)
 	}()
 
@@ -68,20 +72,19 @@ func (db *cesium) createChannel(ch Channel) (err error) {
 	return
 }
 
-func (db *cesium) validateNewChannel(ch Channel) error {
+func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
-	validate.NotEmptyString(v, "key", ch.Key)
+	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
-	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %s already exists", ch.Key)
+	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %v already exists", ch.Key)
 	if ch.IsIndex {
 		v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-		v.Ternaryf(ch.Index != "" && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-	} else if ch.Index != "" {
-		validate.MapContainsf(v, ch.Index, db.dbs, "index %s does not exist", ch.Index)
+		v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+	} else if ch.Index != 0 {
+		validate.MapContainsf(v, ch.Index, db.dbs, "index %v does not exist", ch.Index)
 		v.Funcf(func() bool {
 			return !db.dbs[ch.Index].Channel.IsIndex
-		}, "channel %s is not an index", ch.Index)
-
+		}, "channel %v is not an index", ch.Index)
 	} else {
 		validate.Positive(v, "rate", ch.Rate)
 	}

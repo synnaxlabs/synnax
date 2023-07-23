@@ -15,8 +15,8 @@ import (
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -27,6 +27,7 @@ import (
 
 // Config is the configuration for a Server.
 type Config struct {
+	alamos.Instrumentation
 	// ListenAddress is the address the server will listen on. The server's name will be
 	// set to the host portion of the address.
 	ListenAddress address.Address
@@ -34,16 +35,14 @@ type Config struct {
 	Security SecurityConfig
 	// Branches is a list of branches to serve.
 	Branches []Branch
-	// Logger is the witness of it all.
-	Logger *zap.Logger
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug *bool
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (c Config) Report() alamos.Report {
 	base := c.Security.Report()
-	base["listenAddress"] = c.ListenAddress
+	base["listen_address"] = c.ListenAddress
 	base["branches"] = branchKeys(c.Branches)
 	base["debug"] = *c.Debug
 	return base
@@ -61,20 +60,20 @@ type SecurityConfig struct {
 	TLS *tls.Config
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (s SecurityConfig) Report() alamos.Report {
 	return alamos.Report{"insecure": *s.Insecure}
 }
 
 var (
-	_ alamos.Reporter       = Config{}
-	_ alamos.Reporter       = SecurityConfig{}
+	_ alamos.ReportProvider = Config{}
+	_ alamos.ReportProvider = SecurityConfig{}
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default server configuration.
 	DefaultConfig = Config{
-		Debug: config.BoolPointer(false),
+		Debug: config.Bool(false),
 		Security: SecurityConfig{
-			Insecure: config.BoolPointer(false),
+			Insecure: config.Bool(false),
 		},
 	}
 )
@@ -84,9 +83,9 @@ func (c Config) Override(other Config) Config {
 	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
 	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
 	c.Security.TLS = override.Nil(c.Security.TLS, other.Security.TLS)
-	c.Logger = override.Nil(c.Logger, other.Logger)
 	c.Branches = override.Slice(c.Branches, other.Branches)
 	c.Debug = override.Nil(c.Debug, other.Debug)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
 
@@ -94,7 +93,6 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("server")
 	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
-	validate.NotNil(v, "logger", c.Logger)
 	return v.Error()
 }
 
@@ -109,7 +107,7 @@ type Server struct {
 // New creates a new server using the specified configuration. The server must be started
 // using the Serve method. If the configuration is invalid, an error is returned.
 func New(configs ...Config) (*Server, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Server{Config: cfg}, err
 }
 
@@ -117,8 +115,8 @@ func New(configs ...Config) (*Server, error) {
 // error if the server exits abnormally (i.e. it wil ignore any errors emitted during
 // standard shutdown procedure).
 func (s *Server) Serve() (err error) {
-	s.Logger.Sugar().Debugw("starting server", s.Report().LogArgs()...)
-	sCtx, cancel := signal.Background(signal.WithLogger(s.Logger), signal.WithContextKey("server"))
+	s.L.Info("starting server", s.Report().ZapFields()...)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.wg = sCtx
 	defer cancel()
 	lis, err := net.Listen("tcp", s.ListenAddress.PortString())
@@ -184,10 +182,10 @@ func (s *Server) startBranches(
 		return
 	}
 
-	s.Logger.Sugar().Debugw(
+	s.L.Debug(
 		"starting branches",
-		"branches", branchKeys(branches),
-		"insecureMux", insecureMux,
+		zap.Strings("branches", branchKeys(branches)),
+		zap.Bool("insecureMux", insecureMux),
 	)
 
 	listeners := make([]net.Listener, len(branches))

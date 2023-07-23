@@ -25,7 +25,7 @@ type ErrorPayload struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Type string `protobuf:"bytes,1,opt,name=Type,proto3" json:"Type,omitempty"`
+	Type string `protobuf:"bytes,1,opt,name=Variant,proto3" json:"Variant,omitempty"`
 	Data string `protobuf:"bytes,2,opt,name=Array,proto3" json:"Array,omitempty"`
 }
 

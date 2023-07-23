@@ -21,14 +21,14 @@ import (
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	bounds telem.TimeRange,
-	targets map[core.NodeID][]channel.Key,
+	targets map[core.NodeKey][]channel.Key,
 ) (*freightfluence.MultiSender[Request], []*freightfluence.Receiver[Response], error) {
 	var (
 		sender    = &freightfluence.MultiSender[Request]{}
 		receivers = make([]*freightfluence.Receiver[Response], 0, len(targets))
 	)
-	for nodeID, keys := range targets {
-		target, err := s.HostResolver.Resolve(nodeID)
+	for nodeKey, keys := range targets {
+		target, err := s.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return sender, receivers, err
 		}

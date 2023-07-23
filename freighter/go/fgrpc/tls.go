@@ -14,65 +14,57 @@ import (
 	"crypto/tls"
 	"github.com/cockroachdb/cmux"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
 	"net"
 )
 
-// MuxTransportCredentials implements the grpc.TransportCredentials interface that allows
+// MuxCredentials implements the grpc.TransportCredentials interface that allows
 // for TLS handshakes and verification to occur on a multiplexer that lies in front of
-// the gRPC server. MuxTransportCredentials extracts the underlying TLS connection from
+// the gRPC server. MuxCredentials extracts the underlying TLS connection from
 // the cmux.MuxConn and passes it the gRPC server through its ServerHandshake method.
 //
 // It's important to note that MuxTransport credentials does not perform any TLS handshaking
 // or certificate verification. It simply allows for a gRPC server to be run securely behind
 // a cmux multiplexer.
 //
-// It's also important to note that MuxTransportCredentials should only be used for server
+// It's also important to note that MuxCredentials should only be used for server
 // connections. Client connections should use the standard TLS credentials.
-type MuxTransportCredentials struct {
-	logger     *zap.Logger
-	serverName string
+type MuxCredentials struct {
+	alamos.Instrumentation
+	ServerName string
 }
 
-// NewMuxCredentials returns a new MuxTransportCredentials that logs development panics
-// to the given logger.
-func NewMuxCredentials(
-	logger *zap.Logger,
-	serverName string,
-) credentials.TransportCredentials {
-	return &MuxTransportCredentials{logger: logger}
-}
-
-var _ credentials.TransportCredentials = (*MuxTransportCredentials)(nil)
+var _ credentials.TransportCredentials = (*MuxCredentials)(nil)
 
 // ClientHandshake will panic if called. It is here purely for the purpose of implementing
 // the grpc.TransportCredentials interface.
-func (*MuxTransportCredentials) ClientHandshake(
+func (*MuxCredentials) ClientHandshake(
 	context.Context, string, net.Conn,
 ) (net.Conn, credentials.AuthInfo, error) {
-	panic("[synnax] MuxTransportCredentials should not be used for client connections")
+	panic("[synnax] MuxCredentials should not be used for client connections")
 }
 
 const (
-	muxCredentialsNonMuxMsg = "MuxTransportCredentials.ServerHandshake called with non-mux connection"
-	muxCredentialsNonTLSMsg = "MuxTransportCredentials.ServerHandshake called with non-TLS connection"
+	muxCredentialsNonMuxMsg = "MuxCredentials.ServerHandshake called with non-mux connection"
+	muxCredentialsNonTLSMsg = "MuxCredentials.ServerHandshake called with non-TLS connection"
 )
 
 // ServerHandshake implements the grpc.TransportCredentials interface by extracting the
 // underlying TLS connection from the cmux.MuxConn and passing it the gRPC server through
 // its ServerHandshake method. If the given connection is not a cmux.MuxConn, or if the
-// underlying connection is not a TLS connection, MuxTransportCredentials will panic
+// underlying connection is not a TLS connection, MuxCredentials will panic
 // in development mode and return an error in production mode.
-func (c *MuxTransportCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (c *MuxCredentials) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	muxConn, ok := conn.(*cmux.MuxConn)
 	if !ok {
-		c.logger.DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(muxCredentialsNonMuxMsg, zap.String("type", conn.RemoteAddr().Network()))
 		return nil, nil, errors.New(muxCredentialsNonMuxMsg)
 	}
 	tlsConn, ok := muxConn.Conn.(*tls.Conn)
 	if !ok {
-		c.logger.DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
+		c.L.DPanic(muxCredentialsNonTLSMsg, zap.String("type", conn.RemoteAddr().Network()))
 		return nil, nil, errors.New(muxCredentialsNonTLSMsg)
 	}
 	return conn, credentials.TLSInfo{
@@ -82,20 +74,20 @@ func (c *MuxTransportCredentials) ServerHandshake(conn net.Conn) (net.Conn, cred
 }
 
 // Info implements grpc.TransportCredentials.
-func (c *MuxTransportCredentials) Info() credentials.ProtocolInfo {
-	return credentials.ProtocolInfo{SecurityProtocol: "tls", ServerName: c.serverName}
+func (c *MuxCredentials) Info() credentials.ProtocolInfo {
+	return credentials.ProtocolInfo{SecurityProtocol: "tls", ServerName: c.ServerName}
 }
 
 // Clone implements grpc.TransportCredentials.
-func (c *MuxTransportCredentials) Clone() credentials.TransportCredentials {
-	return &MuxTransportCredentials{
-		logger:     c.logger,
-		serverName: c.serverName,
+func (c *MuxCredentials) Clone() credentials.TransportCredentials {
+	return &MuxCredentials{
+		Instrumentation: c.Instrumentation,
+		ServerName:      c.ServerName,
 	}
 }
 
 // OverrideServerName implements grpc.TransportCredentials.
-func (c *MuxTransportCredentials) OverrideServerName(override string) error {
-	c.serverName = override
+func (c *MuxCredentials) OverrideServerName(override string) error {
+	c.ServerName = override
 	return nil
 }

@@ -20,11 +20,15 @@ message OperationDigest {
 }
 
 
-service BatchService {
-  rpc Exec(BatchRequest) returns (BatchRequest);
+service TxService {
+  rpc Exec(TxRequest) returns (TxRequest);
 }
 
-message BatchRequest {
+service LeaseService {
+    rpc Exec(TxRequest) returns (google.protobuf.Empty);
+}
+
+message TxRequest {
   uint32 sender = 1;
   uint32 leaseholder = 2;
   repeated Operation operations = 3;
@@ -38,6 +42,3 @@ message Operation {
   bytes value = 5;
 }
 
-service LeaseService {
-  rpc Exec(BatchRequest) returns (google.protobuf.Empty);
-}

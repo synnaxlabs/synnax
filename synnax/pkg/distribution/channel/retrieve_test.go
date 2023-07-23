@@ -16,19 +16,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("getAttributes", Ordered, func() {
 	var (
-		services map[aspen.NodeID]channel.Service
+		services map[aspen.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
-		log      *zap.Logger
 	)
-	BeforeAll(func() {
-		log = zap.NewNop()
-		builder, services = provisionServices(log)
-	})
+	BeforeAll(func() { builder, services = provisionServices() })
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
@@ -47,16 +42,16 @@ var _ = Describe("getAttributes", Ordered, func() {
 				Name:     "SG03",
 			}
 			created := []channel.Channel{ch1, ch2}
-			err := services[1].CreateMany(&created)
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
 			var resChannels []channel.Channel
 
 			err = services[1].
 				NewRetrieve().
-				WhereNodeID(1).
+				WhereNodeKey(1).
 				Entries(&resChannels).
-				Exec(ctx)
+				Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(len(created)))
 
@@ -65,9 +60,9 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 				err = services[2].
 					NewRetrieve().
-					WhereNodeID(1).
+					WhereNodeKey(1).
 					Entries(&resChannelsTwo).
-					Exec(ctx)
+					Exec(ctx, nil)
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created)))
 			})
@@ -86,7 +81,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := services[1].CreateMany(&created)
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 			var resChannels []channel.Channel
 
@@ -94,7 +89,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Entries(&resChannels).
-				Exec(ctx)
+				Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
@@ -114,13 +109,13 @@ var _ = Describe("getAttributes", Ordered, func() {
 					Name:     "SG03",
 				},
 			}
-			err := services[1].CreateMany(&created)
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
 			Expect(err).ToNot(HaveOccurred())
 
 			exists, err := services[1].
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
-				Exists(ctx)
+				Exists(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		})

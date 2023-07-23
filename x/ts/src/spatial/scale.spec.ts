@@ -9,8 +9,8 @@
 
 import { describe, it, expect, test } from "vitest";
 
-import { Box, DECIMAL_BOX } from "./box";
-import { Scale, BoxScale } from "./scale";
+import { Box } from "@/spatial/box";
+import { BoxScale, Scale } from "@/spatial/scale";
 
 type ScaleSpec = [name: string, scale: Scale, i: number, o: number];
 
@@ -61,15 +61,15 @@ describe("Scale", () => {
         });
       });
     });
-  });
-  describe("XYScale", () => {
-    test("converting a DOM rect to decimal coordinates", () => {
-      const s = BoxScale.scale(new Box(100, 100, 1000, 1000)).scale(DECIMAL_BOX);
-      const b1 = s.box(new Box(100, 100, 1000, 1000));
-      expect(b1.bottomLeft).toEqual({ x: 0, y: 0 });
-      const b2 = s.box(new Box(200, 200, 200, 200));
-      expect(b2.bottomLeft.x).toBeCloseTo(0.1);
-      expect(b2.bottomLeft.y).toBeCloseTo(0.7);
+    describe("XYScale", () => {
+      test("converting a DOM rect to decimal coordinates", () => {
+        const s = BoxScale.scale(new Box(100, 100, 1000, 1000)).scale(Box.DECIMAL);
+        const b1 = s.box(new Box(100, 100, 1000, 1000));
+        expect(b1.bottomLeft).toEqual({ x: 0, y: 0 });
+        const b2 = s.box(new Box(200, 200, 200, 200));
+        expect(b2.bottomLeft.x).toBeCloseTo(0.1);
+        expect(b2.bottomLeft.y).toBeCloseTo(0.7);
+      });
     });
   });
 });

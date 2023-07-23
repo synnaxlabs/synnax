@@ -73,7 +73,7 @@ var _ = Describe("storage", func() {
 		})
 		Describe("Membacked", func() {
 			It("Should open a memory backed version of storage", func() {
-				cfg.MemBacked = config.BoolPointer(true)
+				cfg.MemBacked = config.Bool(true)
 				store, err := storage.Open(cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(store.Close()).To(Succeed())
@@ -113,13 +113,6 @@ var _ = Describe("storage", func() {
 			Entry("Invalid key-value engine",
 				func(cfg storage.Config) storage.Config {
 					cfg.KVEngine = 12
-					return cfg
-				},
-				false,
-			),
-			Entry("Invalid time-series engine",
-				func(cfg storage.Config) storage.Config {
-					cfg.TSEngine = 12
 					return cfg
 				},
 				false,

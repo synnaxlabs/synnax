@@ -10,17 +10,17 @@
 package gossip
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 	"time"
 )
 
 // Config sets specific parameters for the gossip service. See DefaultConfig
 // for default values. It implements the config.ServiceConfig interface.
 type Config struct {
+	alamos.Instrumentation
 	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
 	TransportClient TransportClient
@@ -32,19 +32,15 @@ type Config struct {
 	Store store.Store
 	// Interval is the interval at which a node will gossip its state.
 	Interval time.Duration
-	// Logger is the witness of it all.
-	Logger *zap.SugaredLogger
-	// Experiment is where the gossip services saves its metrics and reports.
-	Experiment alamos.Experiment
 }
 
 // Override implements the config.ServiceConfig interface.
 func (cfg Config) Override(other Config) Config {
 	cfg.Interval = override.Numeric(cfg.Interval, other.Interval)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
 	cfg.Store = override.Nil(cfg.Store, other.Store)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
@@ -55,23 +51,21 @@ func (cfg Config) Validate() error {
 	validate.NotNil(v, "TransportServer", cfg.TransportServer)
 	validate.NotNil(v, "Store", cfg.Store)
 	validate.Positive(v, "Interval", cfg.Interval)
-	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface. Assumes the config is valid.
+// Report implements the alamos.ReportProvider interface. Assumes the config is valid.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
-		"interval":        cfg.Interval,
-		"transportClient": cfg.TransportClient.Report(),
-		"transportServer": cfg.TransportServer.Report(),
+		"interval":         cfg.Interval,
+		"transport_client": cfg.TransportClient.Report(),
+		"transport_server": cfg.TransportServer.Report(),
 	}
 }
 
 var (
 	DefaultConfig = Config{
 		Interval: 1 * time.Second,
-		Logger:   zap.NewNop().Sugar(),
 	}
 	FastConfig = DefaultConfig.Override(Config{
 		Interval: 50 * time.Millisecond,

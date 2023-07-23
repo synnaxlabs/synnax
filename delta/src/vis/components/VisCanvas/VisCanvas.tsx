@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, ReactElement } from "react";
 
-import { GLCanvas } from "@synnaxlabs/pluto";
+import { Canvas } from "@synnaxlabs/pluto";
 
-import { TelemetryProvider } from "@/vis/telem";
+import "@/vis/components/VisCanvas/VisCanvas.css";
 
-import "./VisCanvas.css";
-
-export const VisCanvas = ({ children }: PropsWithChildren): JSX.Element => (
-  <GLCanvas className="delta-vis__canvas">
-    <TelemetryProvider>{children}</TelemetryProvider>
-  </GLCanvas>
+export const VisCanvas = ({ children }: PropsWithChildren): ReactElement => (
+  <Canvas className="delta-vis__canvas">{children}</Canvas>
 );

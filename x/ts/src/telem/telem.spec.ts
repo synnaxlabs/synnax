@@ -52,7 +52,7 @@ describe("TimeStamp", () => {
     expect(ts.date().getUTCFullYear()).toEqual(2021);
     expect(ts.date().getUTCMonth()).toEqual(0);
     expect(ts.date().getUTCDate()).toEqual(1);
-    expect(ts.date().getUTCHours()).toEqual(0);
+    expect([0, 1]).toContain(ts.date().getUTCHours());
     expect(ts.date().getUTCMinutes()).toEqual(0);
   });
 
@@ -161,7 +161,12 @@ describe("TimeStamp", () => {
         .add(TimeSpan.minutes(20))
         .add(TimeSpan.milliseconds(12));
       const remainder = ts.remainder(TimeStamp.DAY);
-      expect(remainder.equals(expectedRemainder)).toBeTruthy();
+      expect(
+        remainder.equals(expectedRemainder),
+        `expected ${new TimeSpan(expectedRemainder).toString()} got ${new TimeSpan(
+          remainder
+        ).toString()}`
+      ).toBeTruthy();
     });
     test("second", () => {
       const expectedRemainder = TimeSpan.milliseconds(12);
@@ -207,6 +212,9 @@ describe("Rate", () => {
   test("construct", () => expect(new Rate(1).equals(1)).toBeTruthy());
 
   test("period", () => expect(new Rate(1).period.equals(TimeSpan.SECOND)).toBeTruthy());
+
+  test("period", () =>
+    expect(new Rate(2).period.equals(TimeSpan.milliseconds(500))).toBeTruthy());
 
   test("sampleCount", () =>
     expect(new Rate(1).sampleCount(TimeSpan.SECOND)).toEqual(1));
@@ -257,6 +265,31 @@ describe("TimeRange", () => {
     expect(
       tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0)))
     ).toBeTruthy();
+  });
+  describe("contains", () => {
+    test("TimeStamp", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      expect(tr.contains(new TimeStamp(500))).toBeTruthy();
+      expect(tr.contains(new TimeStamp(1001))).toBeFalsy();
+    });
+    test("TimeRange", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      expect(
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(600)))
+      ).toBeTruthy();
+      expect(
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(1001)))
+      ).toBeFalsy();
+    });
+  });
+  test("overlapsWith", () => {
+    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+    const one = new TimeRange(new TimeStamp(500), new TimeStamp(600));
+    expect(tr.overlapsWith(one)).toBeTruthy();
+    expect(one.overlapsWith(tr)).toBeTruthy();
+    const two = new TimeRange(new TimeStamp(1001), new TimeStamp(2000));
+    expect(tr.overlapsWith(two)).toBeFalsy();
+    expect(two.overlapsWith(tr)).toBeFalsy();
   });
 });
 

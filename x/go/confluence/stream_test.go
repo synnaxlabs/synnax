@@ -36,35 +36,15 @@ var _ = Describe("Stream", func() {
 			})
 
 		})
-		Describe("Outlet", func() {
-			var (
-				ch     = make(chan int, 1)
-				outlet = NewOutlet(ch)
-			)
-			It("Should set the address properly", func() {
-				outlet.SetOutletAddress(addr)
-				Expect(outlet.OutletAddress()).To(Equal(addr))
-			})
-			It("Should return the correct channel when calling Outlet", func() {
-				ch <- 1
-				Expect(<-outlet.Outlet()).To(Equal(1))
-			})
-		})
-		Describe("Inlet", func() {
-			var (
-				ch    = make(chan int, 1)
-				inlet = NewInlet(ch)
-			)
-			It("Should set the address properly", func() {
-				inlet.SetInletAddress(addr)
-				Expect(inlet.InletAddress()).To(Equal(addr))
-			})
+		Describe("Communication", func() {
+			var stream = NewStream[int](1)
 			It("Should return the correct channel when calling Inlet", func() {
-				inlet.Inlet() <- 1
-				Expect(<-ch).To(Equal(1))
+				stream.Inlet() <- 1
+				Expect(<-stream.Outlet()).To(Equal(1))
 			})
 			It("Should close the internal channel", func() {
-				inlet.Close()
+				stream.Close()
+				Expect(<-stream.Outlet()).To(Equal(0))
 			})
 		})
 	})

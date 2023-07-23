@@ -19,9 +19,9 @@ import (
 
 var _ = Describe("Delta", func() {
 	var (
-		inputOne  Stream[int]
-		outputOne Stream[int]
-		outputTwo Stream[int]
+		inputOne  *Stream[int]
+		outputOne *Stream[int]
+		outputTwo *Stream[int]
 	)
 	BeforeEach(func() {
 		inputOne = NewStream[int](1)
@@ -35,7 +35,7 @@ var _ = Describe("Delta", func() {
 			delta := &DeltaMultiplier[int]{}
 			delta.OutTo(outputOne, outputTwo)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx)
 			inputOne.Inlet() <- 1
@@ -48,7 +48,7 @@ var _ = Describe("Delta", func() {
 			delta := &DeltaMultiplier[int]{}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx, CloseInletsOnExit())
 			inputOne.Inlet() <- 1
@@ -67,7 +67,7 @@ var _ = Describe("Delta", func() {
 			}
 			delta.OutTo(outputOne, outputTwo)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx)
 			inputOne.Inlet() <- 1
@@ -84,7 +84,7 @@ var _ = Describe("Delta", func() {
 			}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx, CloseInletsOnExit())
 			inputOne.Inlet() <- 1
@@ -101,7 +101,7 @@ var _ = Describe("Delta", func() {
 			}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx, CloseInletsOnExit())
 			inputOne.Inlet() <- 1
@@ -114,7 +114,7 @@ var _ = Describe("Delta", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
 			delta := NewDynamicDeltaMultiplier[int]()
 			delta.InFrom(inputOne)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			delta.Flow(ctx, CloseInletsOnExit())
 			delta.Connect(outputOne)

@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { debounce as debounceF, Dimensions, XY } from "@synnaxlabs/x";
+import {
+  CrudeDimensions,
+  CrudeXY,
+  debounce as debounceF,
+  Dimensions,
+  XY,
+} from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
 import {
@@ -105,8 +111,6 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     });
   }
 
-  // |||||| MANAGER IMPLEMENTATION ||||||
-
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     const { size, minSize, maxSize, position, ...rest } = props;
     const w = new WebviewWindow(label, {
@@ -178,19 +182,19 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     return await this.win.center();
   }
 
-  async setPosition(xy: XY): Promise<void> {
+  async setPosition(xy: CrudeXY): Promise<void> {
     void this.win.setPosition(new LogicalPosition(xy.x, xy.y));
   }
 
-  async setSize(dims: Dimensions): Promise<void> {
+  async setSize(dims: CrudeDimensions): Promise<void> {
     void this.win.setSize(new LogicalSize(dims.width, dims.height));
   }
 
-  async setMinSize(dims: Dimensions): Promise<void> {
+  async setMinSize(dims: CrudeDimensions): Promise<void> {
     void this.win.setMinSize(new LogicalSize(dims.width, dims.height));
   }
 
-  async setMaxSize(dims: Dimensions): Promise<void> {
+  async setMaxSize(dims: CrudeDimensions): Promise<void> {
     void this.win.setMaxSize(new LogicalSize(dims.width, dims.height));
   }
 
@@ -247,7 +251,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if(window == null) return null;
+      if (window == null) return null;
       const scaleFactor = await window.scaleFactor();
       const visible = await window.isVisible();
       const nextProps: SetWindowPropsPayload = {
@@ -266,12 +270,16 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     debounce: 200,
     handler: async (ev) => {
       const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if(window == null) return null;
+      if (window == null) return null;
       const scaleFactor = await window?.scaleFactor();
       if (scaleFactor == null) return null;
       const position = await parsePosition(await window.innerPosition(), scaleFactor);
       const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = { label: ev.windowLabel, visible, position };
+      const nextProps: SetWindowPropsPayload = {
+        label: ev.windowLabel,
+        visible,
+        position,
+      };
       return setWindowProps(nextProps);
     },
   },
@@ -293,12 +301,12 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   },
 ];
 
-const parsePosition = async (position: PhysicalPosition, scaleFactor: number): Promise<XY> => {
-  const pos = position.toLogical(scaleFactor)
-  return { x: pos.x, y: pos.y }
-}
+const parsePosition = async (
+  position: PhysicalPosition,
+  scaleFactor: number
+): Promise<CrudeXY> => new XY(position.toLogical(scaleFactor)).crude;
 
-const parseSize = async (size: PhysicalSize, scaleFactor: number): Promise<Dimensions> => {
-  const sz = size.toLogical(scaleFactor)
-  return { width: sz.width, height: sz.height }
-}
+const parseSize = async (
+  size: PhysicalSize,
+  scaleFactor: number
+): Promise<CrudeDimensions> => new Dimensions(size.toLogical(scaleFactor)).crude;

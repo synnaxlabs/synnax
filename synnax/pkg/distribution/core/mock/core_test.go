@@ -19,21 +19,21 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-var _ = Describe("Logging", func() {
+var _ = Describe("Mock", func() {
 	DescribeTable("New", func(cfg ...distribution.Config) {
 		builder := mock.NewCoreBuilder(cfg...)
 		coreOne := builder.New()
 		coreTwo := builder.New()
 		coreThree := builder.New()
 
-		Expect(coreOne.Cluster.HostID()).To(Equal(core.NodeID(1)))
-		Expect(coreTwo.Cluster.HostID()).To(Equal(core.NodeID(2)))
-		Expect(coreThree.Cluster.HostID()).To(Equal(core.NodeID(3)))
+		Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeKey(1)))
+		Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeKey(2)))
+		Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeKey(3)))
 
-		Expect(coreOne.Storage.KV.Set([]byte("foo"), []byte("bar"))).To(Succeed())
+		Expect(coreOne.Storage.KV.Set(ctx, []byte("foo"), []byte("bar"))).To(Succeed())
 
 		Eventually(func(g Gomega) {
-			v, err := coreOne.Storage.KV.Get([]byte("foo"))
+			v, err := coreOne.Storage.KV.Get(ctx, []byte("foo"))
 			g.Expect(err).To(Succeed())
 			g.Expect(v).To(Equal([]byte("bar")))
 		}).Should(Succeed())
@@ -42,8 +42,9 @@ var _ = Describe("Logging", func() {
 		Expect(builder.Cleanup()).To(Succeed())
 	},
 		Entry("Should open a three node memory backed distribution core"),
-		Entry("Should open a three node file-system backed distribution core", distribution.Config{
-			Storage: storage.Config{MemBacked: config.BoolPointer(false), Dirname: "./tmp"},
-		}),
+		Entry("Should open a three node file-system backed distribution core",
+			distribution.Config{
+				Storage: storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"},
+			}),
 	)
 })

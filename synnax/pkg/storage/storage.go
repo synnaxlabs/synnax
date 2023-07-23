@@ -20,12 +20,19 @@
 package storage
 
 import (
+	"github.com/synnaxlabs/cesium"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/alamos"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,11 +41,6 @@ import (
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
 )
 
 type (
@@ -64,26 +66,35 @@ const (
 
 var tsEngines = []TSEngine{CesiumTS}
 
-// Store represents a node's local storage. The provided KV and TS engines can be
-// used to read and write data. A Store must be closed when it is no longer in use.
-type Store struct {
+// Storage represents a node's local storage. The provided KV and TS engines can be
+// used to read and write data. A Storage must be closed when it is no longer in use.
+type Storage struct {
 	// Config is the configuration for the storage provided to Open.
-	Config Config
+	Config
 	// KV is the key-value store for the node.
 	KV kv.DB
 	// TS is the time-series engine for the node.
-	TS TS
+	TS *cesium.DB
 	// lock is the lock held on the storage directory.
 	lock io.Closer
 }
 
 // Gorpify returns a gorp.DB that can be used to interact with the storage key-value store.
-func (s *Store) Gorpify() *gorp.DB { return gorp.Wrap(s.KV) }
+func (s *Storage) Gorpify() *gorp.DB {
+	return gorp.Wrap(
+		s.KV,
+		gorp.WithEncoderDecoder(&binary.TracingEncoderDecoder{
+			Level:           alamos.Bench,
+			Instrumentation: s.Instrumentation,
+			EncoderDecoder:  &binary.MsgPackEncoderDecoder{},
+		}),
+	)
+}
 
-// Close closes the Store, releasing the lock on the storage directory. Close
-// MUST be called when the Store is no longer in use. The caller must ensure that
-// all processes interacting the Store have finished before calling Close.
-func (s *Store) Close() error {
+// Close closes the Storage, releasing the lock on the storage directory. Close
+// MUST be called when the Storage is no longer in use. The caller must ensure that
+// all processes interacting the Storage have finished before calling Close.
+func (s *Storage) Close() error {
 	// We execute with aggregation here to ensure that we close all engines and release
 	// the lock regardless if one engine fails to close. This may cause unexpected
 	// behavior in the future, so we need to track it.
@@ -96,34 +107,39 @@ func (s *Store) Close() error {
 
 // Config is used to configure delta's storage layer.
 type Config struct {
-	// Dirname defines the root directory the Store resides. The given directory
+	alamos.Instrumentation
+	// Dirname defines the root directory the Storage resides. The given directory
 	// shouldn't be used by another process while the node is running.
 	Dirname string
 	// Perm is the file permissions to use for the storage directory.
 	Perm fs.FileMode
 	// MemBacked defines whether the node should use a memory-backed file system.
 	MemBacked *bool
-	// Logger is the witness of it all.
-	Logger *zap.Logger
-	// Experiment is the experiment used by the node for metrics, reports, and tracing.
-	Experiment alamos.Experiment
 	// KVEngine is the key-value engine storage will use.
 	KVEngine KVEngine
 	// TSEngine is the time-series engine storage will use.
 	TSEngine TSEngine
 }
 
-var _ config.Config[Config] = Config{}
+var (
+	_ config.Config[Config] = Config{}
+	// DefaultConfig returns the default configuration for the storage layer.
+	DefaultConfig = Config{
+		Perm:      xfs.OS_USER_RWX,
+		MemBacked: config.False(),
+		KVEngine:  PebbleKV,
+		TSEngine:  CesiumTS,
+	}
+)
 
 // Override implements Config.
 func (cfg Config) Override(other Config) Config {
 	cfg.Dirname = override.String(cfg.Dirname, other.Dirname)
 	cfg.Perm = override.Numeric(cfg.Perm, other.Perm)
-	cfg.Experiment = override.Nil(cfg.Experiment, other.Experiment)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
 	cfg.MemBacked = override.Nil(cfg.MemBacked, other.MemBacked)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	if *cfg.MemBacked {
 		cfg.Dirname = ""
 	}
@@ -140,41 +156,30 @@ func (cfg Config) Validate() error {
 	return v.Error()
 }
 
-// Report implements the alamos.Reporter interface.
+// Report implements the alamos.ReportProvider interface.
 func (cfg Config) Report() alamos.Report {
 	return alamos.Report{
 		"dirname":     cfg.Dirname,
 		"permissions": cfg.Perm,
-		"memBacked":   cfg.MemBacked,
-		"kvEngine":    cfg.KVEngine.String(),
-		"tsEngine":    cfg.TSEngine.String(),
+		"mem_backed":  cfg.MemBacked,
+		"kv_engine":   cfg.KVEngine.String(),
+		"ts_engine":   cfg.TSEngine.String(),
 	}
 }
 
-// DefaultConfig returns the default configuration for the storage layer.
-var DefaultConfig = Config{
-	Perm:       xfs.OS_USER_RWX,
-	MemBacked:  config.BoolPointer(false),
-	Logger:     zap.NewNop(),
-	Experiment: nil,
-	KVEngine:   PebbleKV,
-	TSEngine:   CesiumTS,
-}
-
-// Open opens a new Store with the given Config. Open acquires a lock on the directory
+// Open opens a new Storage with the given Config. Open acquires a lock on the directory
 // specified in the Config. If the lock cannot be acquired, Open returns an error.
-// The lock is released when the Store is/closed. Store MUST be closed when it is no
+// The lock is released when the Storage is/closed. Storage MUST be closed when it is no
 // longer in use.
-func Open(cfg Config) (s *Store, err error) {
-	cfg, err = config.OverrideAndValidate(DefaultConfig, cfg)
+func Open(cfg Config) (s *Storage, err error) {
+	cfg, err = config.New(DefaultConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	s = &Store{}
+	s = &Storage{Config: cfg}
 
-	log := cfg.Logger.Sugar()
-	log.Infow("opening storage", cfg.Report().LogArgs()...)
+	s.L.Info("opening storage", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we
@@ -182,11 +187,11 @@ func Open(cfg Config) (s *Store, err error) {
 	baseVFS, baseXFS := openBaseFS(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err := configureStorageDir(cfg, baseVFS); err != nil {
+	if err = configureStorageDir(cfg, baseVFS); err != nil {
 		return s, err
 	}
 
-	// TryLock the lock on the storage directory. If any other delta node is using the
+	// Try to lock the storage directory. If any other synnax node is using the
 	// same directory we return an error to the client.
 	releaser, err := acquireLock(cfg, baseVFS)
 	if err != nil {
@@ -285,9 +290,7 @@ func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
 
 func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	if cfg.KVEngine != PebbleKV {
-		{
-			return nil, errors.Newf("[storage]- unsupported key-value engine: %s", cfg.TSEngine)
-		}
+		return nil, errors.Newf("[storage]- unsupported key-value engine: %s", cfg.KVEngine)
 	}
 	dirname := filepath.Join(cfg.Dirname, kvDirname)
 	db, err := pebble.Open(dirname, &pebble.Options{FS: fs})
@@ -301,14 +304,13 @@ func openKV(cfg Config, fs vfs.FS) (kv.DB, error) {
 	return pebblekv.Wrap(db), err
 }
 
-func openTS(cfg Config, fs xfs.FS) (TS, error) {
+func openTS(cfg Config, fs xfs.FS) (*ts.DB, error) {
 	if cfg.TSEngine != CesiumTS {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
-	dirname := filepath.Join(cfg.Dirname, cesiumDirname)
-	return cesium.Open(
-		dirname,
-		cesium.WithFS(fs),
-		cesium.WithLogger(cfg.Logger),
-	)
+	return ts.Open(ts.Config{
+		Instrumentation: cfg.Instrumentation.Child("ts"),
+		Dirname:         filepath.Join(cfg.Dirname, cesiumDirname),
+		FS:              fs,
+	})
 }

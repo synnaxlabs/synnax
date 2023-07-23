@@ -7,64 +7,71 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { ReactElement, useCallback } from "react";
 
-import { Input, InputItemProps } from "@synnaxlabs/pluto";
-
+import { ChannelKey } from "@synnaxlabs/client";
 import {
-  SelectChanel,
-  SelectChannelProps,
-  SelectMultipleChannels,
-  SelectMultipleChannelsProps,
-} from "@/components";
+  Input,
+  InputItemProps,
+  ChannelSelect,
+  ChannelSelectMultiple,
+  ChannelSelectMultipleProps,
+  ChannelSelectProps,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
+
 import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<
-    InputItemProps<readonly string[], readonly string[], SelectMultipleChannelsProps>,
-    "onChange" | "label"
+    InputItemProps<
+      readonly ChannelKey[],
+      readonly ChannelKey[],
+      ChannelSelectMultipleProps
+    >,
+    "onChange" | "label" | "data"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: readonly string[]) => void;
+  onChange: (key: AxisKey, v: readonly ChannelKey[]) => void;
 }
 
 export const SelectMultipleAxesInputItem = ({
   axis,
   onChange,
   ...props
-}: SelectMultipleAxesInputItemProps): JSX.Element => (
-  <Input.Item<readonly string[], readonly string[], SelectMultipleChannelsProps>
+}: SelectMultipleAxesInputItemProps): ReactElement => (
+  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], ChannelSelectMultipleProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
     tagKey="name"
     {...props}
   >
-    {SelectMultipleChannels}
+    {componentRenderProp(ChannelSelectMultiple)}
   </Input.Item>
 );
 
 export interface SelectAxisInputItemProps
   extends Omit<
-    InputItemProps<string, string, SelectChannelProps>,
-    "onChange" | "label"
+    InputItemProps<ChannelKey, ChannelKey, ChannelSelectProps>,
+    "onChange" | "label" | "data"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: string) => void;
+  onChange: (key: AxisKey, v: ChannelKey) => void;
 }
 
 export const SelectAxisInputItem = ({
   axis,
   onChange,
   ...props
-}: SelectAxisInputItemProps): JSX.Element => (
-  <Input.Item<string, string, SelectChannelProps>
+}: SelectAxisInputItemProps): ReactElement => (
+  <Input.Item<ChannelKey, ChannelKey, ChannelSelectProps>
     direction="x"
     label={axisLabel(axis) + ":"}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
     tagKey="name"
     {...props}
   >
-    {SelectChanel}
+    {componentRenderProp(ChannelSelect)}
   </Input.Item>
 );

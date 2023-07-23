@@ -9,41 +9,60 @@
 
 package observe
 
+import "context"
+
 // Observable is an interface that represents an entity whose state can be observed.
 type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes.
-	OnChange(handler func(T))
+	OnChange(handler func(context.Context, T))
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
 	// Notify notifies all subscribers of the Value.
-	Notify(T)
+	Notify(context.Context, T)
 	// GoNotify starts a goroutine to notify all subscribers of the Value.
-	GoNotify(T)
+	GoNotify(context.Context, T)
+	// NotifyGenerator calls the given generator function for each subscriber.
+	NotifyGenerator(context.Context, func() T)
 }
 
 type base[T any] struct {
-	handlers []func(T)
+	handlers []func(context.Context, T)
 }
 
 // New creates a new observer with the given options.
-func New[T any]() Observer[T] {
-	return &base[T]{}
-}
+func New[T any]() Observer[T] { return &base[T]{} }
 
 // OnChange implements the Observable interface.
-func (b *base[T]) OnChange(handler func(T)) {
+func (b *base[T]) OnChange(handler func(context.Context, T)) {
 	b.handlers = append(b.handlers, handler)
 }
 
 // Notify implements the Observer interface.
-func (b *base[T]) Notify(v T) {
+func (b *base[T]) Notify(ctx context.Context, v T) {
 	for _, handler := range b.handlers {
-		handler(v)
+		handler(ctx, v)
+	}
+}
+
+// NotifyGenerator implements the Observer interface.
+func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
+	for _, handler := range b.handlers {
+		handler(ctx, generator())
 	}
 }
 
 // GoNotify implements the Observer interface.
-func (b *base[T]) GoNotify(v T) { go b.Notify(v) }
+func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }
+
+// Noop is an observable that never calls it's OnChange function and does
+// not store any handlers. Use this when you want to implement the Observable
+// interface and do nothing.
+type Noop[T any] struct{}
+
+var _ Observable[any] = Noop[any]{}
+
+// OnChange implements Observable.
+func (Noop[T]) OnChange(_ func(context.Context, T)) {}

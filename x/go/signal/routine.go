@@ -12,6 +12,8 @@ package signal
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/alamos"
+	"go.uber.org/zap"
 	"runtime/pprof"
 	"strconv"
 )
@@ -57,7 +59,7 @@ const (
 func Defer(f func(), opts ...RoutineOption) RoutineOption {
 	o := newRoutineOptions(opts)
 	return func(r *routineOptions) {
-		r.deferals = append(r.deferals, deferal{key: o.key, f: f})
+		r.deferrals = append(r.deferrals, deferral{key: o.key, f: f})
 	}
 }
 
@@ -69,7 +71,7 @@ func WithKeyf(format string, args ...interface{}) RoutineOption {
 	}
 }
 
-type deferal struct {
+type deferral struct {
 	key string
 	f   func()
 }
@@ -103,9 +105,9 @@ type routineOptions struct {
 	// than one routine is started with the same key. If no key is provided
 	// signal will automatically generate a unique key.
 	key string
-	// deferals is a list of functions to be called on routine exit in reverse
+	// deferrals is a list of functions to be called on routine exit in reverse
 	// order.
-	deferals []deferal
+	deferrals []deferral
 	// contextPolicy defines if the routine should cancel the context after
 	// exiting.
 	contextPolicy struct {
@@ -117,6 +119,8 @@ type routineOptions struct {
 type routine struct {
 	ctx *core
 	routineOptions
+	// span traces the goroutine's execution.
+	span alamos.Span
 	// state represents the current state of the routine
 	state struct {
 		state RoutineState
@@ -128,15 +132,13 @@ type routine struct {
 func (r *routine) info() RoutineInfo {
 	return RoutineInfo{
 		Key:           r.key,
-		ContextKey:    r.ctx.key,
 		State:         r.state.state,
 		FailureReason: r.state.err,
 	}
 }
 
-func (r *routine) runPrelude() (proceed bool) {
+func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Lock()
-	defer r.ctx.mu.Unlock()
 
 	if r.key == "" {
 		r.key = "anonymous-" + strconv.Itoa(len(r.ctx.mu.routines))
@@ -148,39 +150,44 @@ func (r *routine) runPrelude() (proceed bool) {
 	if r.ctx.Err() != nil {
 		r.state.state = Failed
 		r.state.err = r.ctx.Err()
-		return false
+		return r.ctx, false
 	}
-
-	r.ctx.logger.Debugw("starting routine", r.diagnosticArgs()...)
 	r.state.state = Running
-	return true
+	r.ctx.mu.Unlock()
+
+	r.ctx.L.Debug("starting routine", r.zapFields()...)
+	ctx, r.span = r.ctx.T.Prod(r.ctx, r.key)
+
+	return ctx, true
 }
 
 func (r *routine) runPostlude(err error) {
 	r.maybeRecover()
 	defer r.maybeRecover()
 
-	r.ctx.logger.Debugw("stopping routine", r.diagnosticArgs()...)
+	r.ctx.L.Debug("stopping routine", r.zapFields()...)
 
 	r.ctx.mu.Lock()
 	r.state.state = Stopping
 	r.ctx.mu.Unlock()
 
-	for i := range r.deferals {
-		r.deferals[len(r.deferals)-i-1].f()
+	for i := range r.deferrals {
+		r.deferrals[len(r.deferrals)-i-1].f()
 	}
 
 	r.ctx.mu.Lock()
 	defer r.ctx.mu.Unlock()
 
 	if err != nil {
+		_ = r.span.Error(err, context.Canceled)
+		// Only non-context errors are considered failures.
 		if err == context.Canceled || err == context.DeadlineExceeded {
 			r.state.state = ContextCanceled
 		} else {
 			r.state.state = Failed
 			r.state.err = err
-			r.ctx.logger.Errorw("routine failed", r.diagnosticArgs()...)
-			r.ctx.logger.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
+			r.ctx.L.Error("routine failed", r.zapFields()...)
+			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
 		}
 		if r.contextPolicy.cancelOnExitErr {
 			r.ctx.cancel()
@@ -193,9 +200,11 @@ func (r *routine) runPostlude(err error) {
 		r.ctx.cancel()
 	}
 
+	r.span.End()
+
 	r.ctx.maybeStop()
 
-	r.ctx.logger.Debugw("routine stopped", r.diagnosticArgs()...)
+	r.ctx.L.Debug("routine stopped", r.zapFields()...)
 }
 
 func (r *routine) maybeRecover() {
@@ -203,49 +212,44 @@ func (r *routine) maybeRecover() {
 		r.ctx.mu.Lock()
 		defer r.ctx.mu.Unlock()
 		r.state.state = Panicked
-		r.ctx.logger.Warnw("routine panicked")
-		r.ctx.logger.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+		r.ctx.L.Error("routine panicked")
+		r.ctx.L.Debugf(routineFailedFormat, r.key, err, r.ctx.routineDiagnostics())
+		if err, ok := err.(error); ok {
+			r.state.err = err
+			_ = r.span.Error(err)
+		}
+		r.span.End()
 		panic(err)
 	}
 }
 
-func (r *routine) diagnosticArgs() []interface{} {
-	opts := []interface{}{
-		"key",
-		r.key,
-		"state",
-		r.state.state,
+func (r *routine) zapFields() []zap.Field {
+	opts := []zap.Field{
+		zap.String("key", r.key),
+		zap.Stringer("state", r.state.state),
 	}
-	deferalKeys := make([]string, len(r.deferals))
-	for i, def := range r.deferals {
+	deferralKeys := make([]string, len(r.deferrals))
+	for i, def := range r.deferrals {
 		if def.key != "" {
-			deferalKeys[i] = def.key
+			deferralKeys[i] = def.key
 		}
 	}
-	if len(deferalKeys) > 0 {
-		opts = append(opts, "deferals", deferalKeys)
+	if len(deferralKeys) > 0 {
+		opts = append(opts, zap.Strings("deferrals", deferralKeys))
 	}
 	return opts
 }
 
 func (r *routine) goRun(f func(context.Context) error) {
-	if !r.runPrelude() {
-		return
-	}
-	profileKey := r.key
-	if r.ctx.key != "" {
-		profileKey = r.ctx.key + "." + r.key
-	}
-	labels := pprof.Labels("routine", profileKey)
-	pprof.Do(r.ctx, labels, func(ctx context.Context) {
-		r.ctx.internal.Go(func() (err error) {
-			defer func() {
-				r.runPostlude(err)
-			}()
-			err = f(ctx)
-			return err
+	if ctx, proceed := r.runPrelude(); proceed {
+		pprof.Do(ctx, pprof.Labels("routine", r.key), func(ctx context.Context) {
+			r.ctx.internal.Go(func() (err error) {
+				defer func() { r.runPostlude(err) }()
+				err = f(ctx)
+				return err
+			})
 		})
-	})
+	}
 }
 
 func newRoutine(c *core, opts []RoutineOption) *routine {

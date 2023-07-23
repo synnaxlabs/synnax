@@ -7,5 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Frame } from "./frame";
-export { FrameClient } from "./client";
+export { Frame } from "@/framer/frame";
+export { FrameClient } from "@/framer/client";
+export { Iterator, AUTO_SPAN } from "@/framer/iterator";
+export { Writer } from "@/framer/writer";
+export { Streamer } from "@/framer/streamer";

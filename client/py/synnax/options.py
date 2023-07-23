@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 
 class SynnaxOptions(BaseModel):
-    """Options class for the Synnax client."""
+    """Options class for the Synnax py."""
 
     host: str
     port: int

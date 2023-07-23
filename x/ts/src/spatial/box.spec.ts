@@ -9,7 +9,7 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import { Box, positionInCenter } from "./box";
+import { Box, positionInCenter } from "@/spatial";
 
 describe("Box", () => {
   describe("construction", () => {

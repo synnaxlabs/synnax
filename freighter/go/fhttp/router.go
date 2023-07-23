@@ -11,13 +11,11 @@ package fhttp
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type route struct {
@@ -28,24 +26,24 @@ type route struct {
 }
 
 type RouterConfig struct {
-	Logger *zap.SugaredLogger
+	alamos.Instrumentation
 }
 
 var _ config.Config[RouterConfig] = RouterConfig{}
 
+// Validate implements config.Config.
 func (r RouterConfig) Validate() error {
-	v := validate.New("[fhttp.Router]")
-	validate.NotNil(v, "Logger", r.Logger)
-	return v.Error()
+	return nil
 }
 
+// Override implements config.Config.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
-	r.Logger = override.Nil(r.Logger, other.Logger)
+	r.Instrumentation = override.Zero(r.Instrumentation, other.Instrumentation)
 	return r
 }
 
 func NewRouter(configs ...RouterConfig) *Router {
-	cfg, err := config.OverrideAndValidate(RouterConfig{}, configs...)
+	cfg, err := config.New(RouterConfig{}, configs...)
 	if err != nil {
 		panic(err)
 	}
@@ -56,6 +54,8 @@ type Router struct {
 	RouterConfig
 	routes []route
 }
+
+var _ BindableTransport = (*Router)(nil)
 
 func (r *Router) BindTo(app *fiber.App) {
 	for _, route := range r.routes {
@@ -69,6 +69,12 @@ func (r *Router) BindTo(app *fiber.App) {
 
 func (r *Router) Report() alamos.Report {
 	return alamos.Report{}
+}
+
+func (r *Router) Use(middleware ...freighter.Middleware) {
+	for _, route := range r.routes {
+		route.transport.Use(middleware...)
+	}
 }
 
 func (r *Router) register(
@@ -87,27 +93,15 @@ func (r *Router) register(
 
 func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
-		Reporter: streamReporter,
-		path:     path,
-		logger:   r.Logger,
+		Reporter:        streamReporter,
+		path:            path,
+		Instrumentation: r.Instrumentation,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
 }
 
-func UnaryGetServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
-	us := &unaryServer[RQ, RS]{
-		Reporter: unaryReporter,
-		path:     path,
-		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {
-			return req, parseQueryParams(c, &req)
-		},
-	}
-	r.register(path, "GET", us, us.fiberHandler)
-	return us
-}
-
-func UnaryPostServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
 		Reporter: unaryReporter,
 		path:     path,

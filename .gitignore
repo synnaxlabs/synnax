@@ -1,6 +1,7 @@
 # |||| INTELLIJ ||||
 
 .idea/
+.fleet/
 
 # |||| DARWIN ||||
 
@@ -26,7 +27,7 @@ nyc_output
 
 # |||| RUST ||||
 
-/target/
+/target/†
 
 # |||| TURBO REPO ||||
 
@@ -44,3 +45,16 @@ work
 # |||| VERCEL ||||
 
 .vercel
+
+# |||| DATA ||||
+
+**/data
+
+# |||| PYTHON ||||
+
+__pycache__
+*_cache/
+
+# |||| LANDING SITE ||||
+
+landing/

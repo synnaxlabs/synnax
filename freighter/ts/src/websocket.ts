@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { RUNTIME, URL, buildQueryString } from "@synnaxlabs/x";
-import { ZodSchema, z } from "zod";
+import { z } from "zod";
 
 import type { EncoderDecoder } from "@/encoder";
-import { EOF, ErrorPayloadSchema, StreamClosed, decodeError } from "@/errors";
+import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
-import { MiddlewareCollector, MetaData } from "@/middleware";
+import { MiddlewareCollector, Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): typeof WebSocket =>
@@ -22,7 +22,7 @@ const resolveWebSocketConstructor = (): typeof WebSocket =>
 const MessageSchema = z.object({
   type: z.union([z.literal("data"), z.literal("close")]),
   payload: z.unknown().optional(),
-  error: z.optional(ErrorPayloadSchema),
+  error: z.optional(errorZ),
 });
 
 type Message = z.infer<typeof MessageSchema>;
@@ -33,48 +33,46 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
+class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
+  implements Stream<RQ, RS>
+{
   private readonly encoder: EncoderDecoder;
-  private readonly reqSchema: z.ZodSchema<RQ>;
-  private readonly resSchema: z.ZodSchema<RS>;
+  private readonly reqSchema: RQ;
+  private readonly resSchema: RS;
   private readonly ws: WebSocket;
-  private serverClosed?: Error;
+  private serverClosed: Error | null;
   private sendClosed: boolean;
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
-  constructor(
-    ws: WebSocket,
-    encoder: EncoderDecoder,
-    reqSchema: z.ZodSchema<RQ>,
-    resSchema: z.ZodSchema<RS>
-  ) {
+  constructor(ws: WebSocket, encoder: EncoderDecoder, reqSchema: RQ, resSchema: RS) {
     this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
     this.ws = ws;
     this.sendClosed = false;
+    this.serverClosed = null;
     this.listenForMessages();
   }
 
   /** Implements the Stream protocol */
-  send(req: RQ): Error | undefined {
+  send(req: z.input<RQ>): Error | null {
     if (this.serverClosed != null) return new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.encoder.encode({ type: "data", payload: req }));
-    return undefined;
+    return null;
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[RS | undefined, Error | undefined]> {
-    if (this.serverClosed != null) return [undefined, this.serverClosed];
+  async receive(): Promise<[z.output<RS> | null, Error | null]> {
+    if (this.serverClosed != null) return [null, this.serverClosed];
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
       this.serverClosed = decodeError(msg.error);
-      return [undefined, this.serverClosed];
+      return [null, this.serverClosed];
     }
-    return [this.resSchema.parse(msg.payload), undefined];
+    return [this.resSchema.parse(msg.payload), null];
   }
 
   /** Implements the Stream protocol */
@@ -95,11 +93,8 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 
   private async receiveMsg(): Promise<Message> {
-    if (this.receiveDataQueue.length > 0) {
-      const msg = this.receiveDataQueue.shift();
-      if (msg != null) return msg;
-      throw new Error("unexpected undefined message");
-    }
+    const msg = this.receiveDataQueue.shift();
+    if (msg != null) return msg;
     return await new Promise((resolve, reject) =>
       this.receiveCallbacksQueue.push({ resolve, reject })
     );
@@ -108,12 +103,9 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   private listenForMessages(): void {
     this.ws.onmessage = (ev: MessageEvent<Uint8Array>) => {
       const msg = this.encoder.decode(ev.data, MessageSchema);
-
-      if (this.receiveCallbacksQueue.length > 0) {
-        const callback = this.receiveCallbacksQueue.shift();
-        if (callback != null) callback.resolve(msg);
-        else throw new Error("unexpected empty callback queue");
-      } else this.receiveDataQueue.push(msg);
+      const callback = this.receiveCallbacksQueue.shift();
+      if (callback != null) callback.resolve(msg);
+      else this.receiveDataQueue.push(msg);
     };
 
     this.ws.onclose = (ev: CloseEvent) => {
@@ -122,7 +114,7 @@ class WebSocketStream<RQ, RS> implements Stream<RQ, RS> {
   }
 }
 
-export const FREIGHTER_METADATA_PREFIX = "freightermd";
+export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const CloseNormal = 1000;
 const CloseGoingAway = 1001;
@@ -152,51 +144,53 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   /** Implements the StreamClient interface. */
-  async stream<RQ, RS>(
+  async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    reqSchema: ZodSchema<RQ>,
-    resSchema: ZodSchema<RS>
+    reqSchema: RQ,
+    resSchema: RS
   ): Promise<Stream<RQ, RS>> {
     const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
     const [, error] = await this.executeMiddleware(
-      { target, protocol: "websocket", params: {} },
-      async (md: MetaData): Promise<[MetaData, Error | undefined]> => {
-        const ws = new SocketConstructor(this.buildURL(target, md));
-        const outMD: MetaData = { ...md, params: {} };
+      { target, protocol: "websocket", params: {}, role: "client" },
+      async (ctx: Context): Promise<[Context, Error | null]> => {
+        const ws = new SocketConstructor(this.buildURL(target, ctx));
+        const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
-        if (streamOrErr instanceof Error) return [outMD, streamOrErr];
+        if (streamOrErr instanceof Error) return [outCtx, streamOrErr];
         stream = streamOrErr;
-        return [outMD, undefined];
+        return [outCtx, null];
       }
     );
     if (error != null) throw error;
     return stream as Stream<RQ, RS>;
   }
 
-  private buildURL(target: string, md: MetaData): string {
+  private buildURL(target: string, ctx: Context): string {
     const qs = buildQueryString(
       {
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
-        ...md.params,
+        ...ctx.params,
       },
       FREIGHTER_METADATA_PREFIX
     );
     return this.baseUrl.child(target).toString() + qs;
   }
 
-  private async wrapSocket<RQ, RS>(
+  private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     ws: WebSocket,
-    reqSchema: ZodSchema<RQ>,
-    resSchema: ZodSchema<RS>
+    reqSchema: RQ,
+    resSchema: RS
   ): Promise<WebSocketStream<RQ, RS> | Error> {
     return await new Promise((resolve) => {
       ws.onopen = () => {
         resolve(new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema));
       };
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string
-      ws.onerror = (ev: Event) => resolve(new Error(ev.toString()));
+      ws.onerror = (ev: Event) => {
+        const ev_ = ev as ErrorEvent;
+        resolve(new Error(ev_.message));
+      };
     });
   }
 }

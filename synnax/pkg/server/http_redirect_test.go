@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
 )
@@ -32,16 +31,15 @@ var _ = Describe("HttpRedirect", func() {
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
 			KeySize:      mock.SmallKeySize,
-			Insecure:     config.BoolPointer(false),
+			Insecure:     config.Bool(false),
 		}))
 		received := false
 		b := MustSucceed(server.New(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{
-				Insecure: config.BoolPointer(false),
+				Insecure: config.Bool(false),
 				TLS:      prov.TLS(),
 			},
-			Logger: zap.NewNop(),
 			Branches: []server.Branch{
 				server.NewHTTPRedirectBranch(),
 				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

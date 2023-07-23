@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EffectCallback, useEffect, useRef } from "react";
+import { EffectCallback, useRef } from "react";
 
-import { useSelectWindow } from "./selectors";
+import { useSelectWindow } from "@/react/selectors";
 
 /**
  * A hook that allows a user to tap into the lifecycle of a window.
@@ -26,15 +26,11 @@ export const useWindowLifecycle = (cb: EffectCallback, key?: string): void => {
   if (win == null) return;
   const { stage } = win;
   const destructor = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (stage === "created" && destructor.current == null) {
-      const c = cb();
-      if (c != null) destructor.current = c;
-    }
-    if (stage === "closing" && destructor.current != null) {
-      destructor.current();
-      destructor.current = null;
-    }
-  }, [stage, destructor]);
+  if (stage === "created" && destructor.current == null) {
+    const c = cb();
+    if (c != null) destructor.current = c;
+  } else if (stage === "closing" && destructor.current != null) {
+    destructor.current();
+    destructor.current = null;
+  }
 };

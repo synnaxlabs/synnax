@@ -62,8 +62,6 @@ func (n *Network[RQ, RS]) resolveUnaryTarget(target address.Address) (*UnaryServ
 	return t, ok
 }
 
-const defaultStreamBuffer = 10
-
 // StreamServer returns a new freighter.Stream hosted at the given address.
 // This transport is not reachable by other hosts in the network until
 // freighter.Stream.ServeHTTP is called.

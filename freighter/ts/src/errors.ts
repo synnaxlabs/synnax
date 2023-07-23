@@ -30,7 +30,7 @@ export class BaseTypedError extends Error implements TypedError {
   }
 }
 
-type ErrorDecoder = (encoded: string) => Error | undefined;
+type ErrorDecoder = (encoded: string) => Error | null;
 type ErrorEncoder = (error: TypedError) => string;
 
 export const isTypedError = (error: unknown): error is TypedError => {
@@ -44,7 +44,7 @@ export const isTypedError = (error: unknown): error is TypedError => {
   return true;
 };
 
-export const assertErrorType = <T>(type: string, error?: Error): T => {
+export const assertErrorType = <T>(type: string, error?: Error | null): T => {
   if (error == null)
     throw new Error(`Expected error of type ${type} but got nothing instead`);
   if (!isTypedError(error))
@@ -60,9 +60,9 @@ export const UNKNOWN = "unknown";
 export const NONE = "nil";
 export const FREIGHTER = "freighter";
 
-export const ErrorPayloadSchema = z.object({ type: z.string(), data: z.string() });
+export const errorZ = z.object({ type: z.string(), data: z.string() });
 
-export type ErrorPayload = z.infer<typeof ErrorPayloadSchema>;
+export type ErrorZ = z.infer<typeof errorZ>;
 
 interface errorProvider {
   encode: ErrorEncoder;
@@ -83,15 +83,15 @@ class Registry {
     this.entries[_type] = provider;
   }
 
-  encode(error: unknown): ErrorPayload {
+  encode(error: unknown): ErrorZ {
     if (error == null) return { type: NONE, data: "" };
     if (isTypedError(error) && this.entries[error.type] !== null)
       return { type: error.type, data: this.entries[error.type].encode(error) };
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
-  decode(payload: ErrorPayload): Error | undefined {
-    if (payload.type === NONE) return undefined;
+  decode(payload?: ErrorZ | null): Error | null {
+    if (payload == null || payload.type === NONE) return null;
     if (payload.type === UNKNOWN) return new UnknownError(payload.data);
     const provider = this.entries[payload.type];
     return provider == null
@@ -126,7 +126,7 @@ export const registerError = ({
  * @param error - The error to encode.
  * @returns The encoded error.
  */
-export const encodeError = (error: unknown): ErrorPayload => {
+export const encodeError = (error: unknown): ErrorZ => {
   return REGISTRY.encode(error);
 };
 
@@ -138,7 +138,7 @@ export const encodeError = (error: unknown): ErrorPayload => {
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = (payload: ErrorPayload): Error | undefined => {
+export const decodeError = (payload: ErrorZ): Error | null => {
   return REGISTRY.decode(payload);
 };
 

@@ -9,10 +9,10 @@
 
 import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
 
-import { Layout } from "../types";
+import { LayoutState } from "../types";
 
 import {
-  LayoutState,
+  LayoutSliceState,
   LayoutStoreState,
   LAYOUT_SLICE_NAME,
   NavdrawerEntryState,
@@ -26,7 +26,7 @@ import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
  * @param state - The state of the layout store.
  * @returns The layout state.
  */
-export const selectLayoutState = (state: LayoutStoreState): LayoutState =>
+export const selectLayoutState = (state: LayoutStoreState): LayoutSliceState =>
   state[LAYOUT_SLICE_NAME];
 
 /**
@@ -39,7 +39,9 @@ export const selectLayoutState = (state: LayoutStoreState): LayoutState =>
 export const selectLayout = (
   state: LayoutStoreState,
   key: string
-): Layout | undefined => selectLayoutState(state).layouts[key];
+): LayoutState | undefined => {
+  return selectLayoutState(state).layouts[key];
+};
 
 /**
  * Selects a layout from the store by key.
@@ -47,10 +49,10 @@ export const selectLayout = (
  * @param key - The layout key.
  * @returns The layout. Undefined if not found.
  */
-export const useSelectLayout = (key: string): Layout | undefined =>
+export const useSelectLayout = (key: string): LayoutState | undefined =>
   useMemoSelect((state: LayoutStoreState) => selectLayout(state, key), [key]);
 
-export const useSelectRequiredLayout = (key: string): Layout => {
+export const useSelectRequiredLayout = (key: string): LayoutState => {
   const layout = useSelectLayout(key);
   if (layout == null) throw new Error(`Layout ${key} not found`);
   return layout;
@@ -109,8 +111,11 @@ export const useSelectTheme = (key?: string): Theme | null | undefined =>
  * selected.
  * @returns The layouts with the given keys.
  */
-export const selectLayouts = (state: LayoutStoreState, keys?: string[]): Layout[] =>
-  selectByKeys(selectLayoutState(state).layouts, keys);
+export const selectLayouts = (
+  state: LayoutStoreState,
+  keys?: string[]
+): LayoutState[] =>
+  selectByKeys<string, LayoutState>(selectLayoutState(state).layouts, keys);
 
 /**
  * Selects layouts from the store by a set of keys. If no keys are provided, all layouts
@@ -119,7 +124,7 @@ export const selectLayouts = (state: LayoutStoreState, keys?: string[]): Layout[
  * @param keys - The keys of the layouts to select. If not provided, all layouts are
  * @returns The layouts with the given keys.
  */
-export const useSelectLayouts = (keys?: string[]): Layout[] =>
+export const useSelectLayouts = (keys?: string[]): LayoutState[] =>
   useMemoSelect((state: LayoutStoreState) => selectLayouts(state, keys), [keys]);
 
 export const selectNavDrawer = (
@@ -135,3 +140,15 @@ export const selectActiveMosaicTabKey = (state: LayoutStoreState): string | null
 
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
+
+export const selectActiveMosaicLayout = (
+  state: LayoutStoreState
+): LayoutState | undefined => {
+  const activeTabKey = selectActiveMosaicTabKey(state);
+  if (activeTabKey == null) return undefined;
+  return selectLayout(state, activeTabKey);
+};
+
+export const useSelectActiveMosaicLayout = (): LayoutState | undefined => {
+  return useMemoSelect(selectActiveMosaicLayout, []);
+};

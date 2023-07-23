@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/types"
+	"reflect"
 )
 
 type Validator struct {
@@ -34,7 +35,8 @@ func (v *Validator) Ternary(cond bool, msg string) bool {
 
 func (v *Validator) Ternaryf(cond bool, format string, args ...any) bool {
 	v.Exec(func() error {
-		return lo.Ternary(cond, v.Newf(format, args...), nil)
+		err := lo.Ternary(cond, v.Newf(format, args...), nil)
+		return err
 	})
 	return v.Error() != nil
 }
@@ -66,7 +68,8 @@ var (
 )
 
 func NotNil(v *Validator, name string, value any) bool {
-	return v.Ternaryf(value == nil, "%s must be non-nil", name)
+	isNil := value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
+	return v.Ternaryf(isNil, "%s must be non-nil", name)
 }
 
 func Positive[T types.Numeric](v *Validator, name string, value T) bool {

@@ -17,36 +17,36 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var _ = Describe("Write", func() {
+var _ = Describe("set", func() {
 	var (
 		w  ontology.Writer
 		id ontology.ID
 	)
 	BeforeEach(func() {
-		w = otg.NewWriterUsingTxn(txn)
+		w = otg.NewWriter(tx)
 		id = newEmptyID("foo")
 	})
 	Describe("Resources", func() {
 		Describe("Defining a Resource", func() {
-			It("Should define a resource by its ID", func() {
-				Expect(w.DefineResource(id)).To(Succeed())
-				Expect(w.NewRetrieve().WhereIDs(id).Exec()).To(Succeed())
+			It("Should define a resource by its Key", func() {
+				Expect(w.DefineResource(ctx, id)).To(Succeed())
+				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
 		Describe("Deleting a Resource", func() {
-			It("Should delete a resource by its ID", func() {
-				Expect(w.DefineResource(id)).To(Succeed())
-				Expect(w.DeleteResource(id)).To(Succeed())
-				err := w.NewRetrieve().WhereIDs(id).Exec()
+			It("Should delete a resource by its Key", func() {
+				Expect(w.DefineResource(ctx, id)).To(Succeed())
+				Expect(w.DeleteResource(ctx, id)).To(Succeed())
+				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
 			})
 		})
 		Describe("Idempotency", func() {
 			Specify("Defining a resource should be idempotent", func() {
-				Expect(w.DefineResource(id)).To(Succeed())
-				Expect(w.DefineResource(id)).To(Succeed())
-				Expect(w.NewRetrieve().WhereIDs(id).Exec()).To(Succeed())
+				Expect(w.DefineResource(ctx, id)).To(Succeed())
+				Expect(w.DefineResource(ctx, id)).To(Succeed())
+				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
 	})
@@ -55,16 +55,17 @@ var _ = Describe("Write", func() {
 		BeforeEach(func() {
 			idOne = newEmptyID("foo")
 			idTwo = newEmptyID("bar")
-			Expect(w.DefineResource(idOne)).To(Succeed())
-			Expect(w.DefineResource(idTwo)).To(Succeed())
+			Expect(w.DefineResource(ctx, idOne)).To(Succeed())
+			Expect(w.DefineResource(ctx, idTwo)).To(Succeed())
 		})
 		AfterEach(func() {
-			Expect(w.DeleteResource(idOne)).To(Succeed())
-			Expect(w.DeleteResource(idTwo)).To(Succeed())
+			Expect(w.DeleteResource(ctx, idOne)).To(Succeed())
+			Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
 		})
 		Describe("Defining a Relationship", func() {
-			It("Should define a relationship by its ID", func() {
+			It("Should define a relationship by its Key", func() {
 				Expect(w.DefineRelationship(
+					ctx,
 					idOne,
 					ontology.ParentOf,
 					idTwo,
@@ -74,13 +75,14 @@ var _ = Describe("Write", func() {
 					WhereIDs(idOne).
 					TraverseTo(ontology.Children).
 					Entries(&res).
-					Exec()).To(Succeed())
+					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
 			Context("Resources are not defined", func() {
-				It("Should return a query.NotFound error", func() {
+				It("Should return a query.NamesNotFound error", func() {
 					err := w.DefineRelationship(
+						ctx,
 						idOne,
 						ontology.ParentOf,
 						newEmptyID("42"),
@@ -93,41 +95,41 @@ var _ = Describe("Write", func() {
 				It(
 					"Should return an error if a relationship is defined in two directions",
 					func() {
-						Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
-						err := w.DefineRelationship(idTwo, ontology.ParentOf, idOne)
+						Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+						err := w.DefineRelationship(ctx, idTwo, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
 					func() {
-						Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+						Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 						idThree := ontology.ID{Key: "qux", Type: "quux"}
-						Expect(w.DefineResource(idThree)).To(Succeed())
-						Expect(w.DefineRelationship(idTwo, ontology.ParentOf, idThree)).To(Succeed())
-						err := w.DefineRelationship(idThree, ontology.ParentOf, idOne)
+						Expect(w.DefineResource(ctx, idThree)).To(Succeed())
+						Expect(w.DefineRelationship(ctx, idTwo, ontology.ParentOf, idThree)).To(Succeed())
+						err := w.DefineRelationship(ctx, idThree, ontology.ParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					})
 			})
 		})
 		Describe("Deleting a Relationship", func() {
-			It("Should delete a relationship by its ID", func() {
-				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
-				Expect(w.DeleteRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+			It("Should delete a relationship by its Key", func() {
+				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DeleteRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
 					TraverseTo(ontology.Children).
 					Entries(&res).
-					Exec()).To(Succeed())
+					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(0))
 			})
 		})
 		Describe("Idempotency", func() {
 			Specify("Defining a relationship should be idempotent", func() {
-				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
-				Expect(w.DefineRelationship(idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 			})
 		})
 	})

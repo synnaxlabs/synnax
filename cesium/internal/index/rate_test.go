@@ -15,13 +15,12 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("Rate", func() {
 	DescribeTable("Distance", func(tr telem.TimeRange, expected index.DistanceApproximation) {
-		idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
-		actual := MustSucceed(idx.Distance(tr, true))
+		idx := index.Rate{Rate: 1 * telem.Hz}
+		actual := MustSucceed(idx.Distance(ctx, tr, true))
 		Expect(actual).To(Equal(expected))
 	},
 		Entry("Zero zero",
@@ -51,8 +50,8 @@ var _ = Describe("Rate", func() {
 	)
 	Describe("Stamp", func() {
 		DescribeTable("Distance", func(ts telem.TimeStamp, dist int, expected index.TimeStampApproximation) {
-			idx := index.Rate{Rate: 1 * telem.Hz, Logger: zap.NewNop()}
-			actual := MustSucceed(idx.Stamp(ts, int64(dist), true))
+			idx := index.Rate{Rate: 1 * telem.Hz}
+			actual := MustSucceed(idx.Stamp(ctx, ts, int64(dist), true))
 			Expect(actual).To(Equal(expected))
 		},
 			Entry("Zero zero",

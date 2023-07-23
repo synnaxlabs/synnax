@@ -6,7 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+import time
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,7 @@ from synnax.cli.channel import (
 )
 from synnax.ingest.row import RowIngestionEngine
 from synnax.io import ChannelMeta, ReaderType, RowFileReader, IO_FACTORY, IOFactory
-from synnax.telem import DataType, Rate, TimeStamp
+from synnax.telem import DataType, Rate, TimeStamp, TimeRange
 from synnax.channel import Channel
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
@@ -53,12 +53,14 @@ def pure_ingest(
     flow.add("validate_data_types", validate_data_types)
     flow.add("validate_start_time", validate_start_time)
     flow.add("create_channels", create_channels)
+    flow.add("prompt_name", prompt_name)
     flow.add("ingest", run_ingestion)
     path = None if path_ is None else Path(path_)
     flow.run(IngestionCLI(IO_FACTORY, path, client), "initialize_reader")
 
 
 class IngestionCLI:
+    name: str | None = None
     path: Path | None = None
     factory: IOFactory
     reader: RowFileReader | None
@@ -90,6 +92,7 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
         raise NotImplementedError("Only row ingestion is supported at this time.")
     ctx.console.info("Starting ingestion process...")
     engine.run()
+    cli.client.ranges.create(name=cli.name, time_range=TimeRange(cli.start, engine.end))
 
 
 def initialize_reader(
@@ -107,7 +110,7 @@ def initialize_reader(
 
 
 def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to connect to a Synnax client."""
+    """Prompts the user to connect to a Synnax py."""
     if cli.client is None:
         cli.client = connect_client(ctx)
     return "ingest_all" if cli.client else None
@@ -243,7 +246,7 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
     ctx.console.info(f"Identified start timestamp for file as {cli.start}.")
     if not ctx.console.ask("Is this correct?", default=True):
         return None
-    return "ingest"
+    return "prompt_name"
 
 
 def create_indexes(
@@ -396,3 +399,13 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     cli.db_channels.extend(cli.client.channels.create(to_create))
 
     return "validate_data_types"
+
+
+def prompt_name(ctx: Context, cli: IngestionCLI) -> str | None:
+    assert cli.db_channels is not None
+    assert cli.not_found is not None
+    assert cli.client is not None
+    path: Path = cli.path
+    ctx.console.info("Please enter a name for the data set")
+    cli.name = ctx.console.ask("Name", default=path.name)
+    return "ingest"

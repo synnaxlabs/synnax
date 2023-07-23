@@ -19,7 +19,19 @@ import {
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { dispatchEffect, effectMiddleware } from "./middleware";
+import { lineMiddleware } from "./line/store/middleware";
+import {
+  LINE_SLICE_NAME,
+  LineAction,
+  LineSliceState,
+  lineReducer,
+} from "./line/store/slice";
+import {
+  PIDAction,
+  PIDSliceState,
+  PID_SLICE_NAME,
+  pidReducer,
+} from "./pid/store/slice";
 
 import {
   ClusterAction,
@@ -31,26 +43,16 @@ import { DocsAction, docsReducer, DocsState, DOCS_SLICE_NAME } from "@/docs";
 import {
   LayoutAction,
   layoutReducer,
-  LayoutState,
   LAYOUT_PERSIST_EXCLUDE,
   LAYOUT_SLICE_NAME,
-  removeLayout,
+  LayoutSliceState,
 } from "@/layout";
 import { openPersist } from "@/persist";
 import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
 import {
-  VIS_SLICE_NAME,
-  visReducer,
-  removeVis,
-  purgeRanges,
-  VisAction,
-  VisState,
-} from "@/vis";
-import {
-  removeRange,
   WorkspaceAction,
   workspaceReducer,
-  WorkspaceState,
+  WorkspaceSliceState,
   WORKSPACE_SLICE_NAME,
 } from "@/workspace";
 
@@ -63,28 +65,31 @@ const reducer = combineReducers({
   [DRIFT_SLICE_NAME]: driftReducer,
   [CLUSTER_SLICE_NAME]: clusterReducer,
   [LAYOUT_SLICE_NAME]: layoutReducer,
-  [VIS_SLICE_NAME]: visReducer,
+  [PID_SLICE_NAME]: pidReducer,
   [WORKSPACE_SLICE_NAME]: workspaceReducer,
   [VERSION_SLICE_NAME]: versionReducer,
   [DOCS_SLICE_NAME]: docsReducer,
+  [LINE_SLICE_NAME]: lineReducer,
 });
 
 export interface RootState {
   [DRIFT_SLICE_NAME]: DriftState;
   [CLUSTER_SLICE_NAME]: ClusterState;
-  [LAYOUT_SLICE_NAME]: LayoutState;
-  [VIS_SLICE_NAME]: VisState;
-  [WORKSPACE_SLICE_NAME]: WorkspaceState;
+  [LAYOUT_SLICE_NAME]: LayoutSliceState;
+  [WORKSPACE_SLICE_NAME]: WorkspaceSliceState;
   [VERSION_SLICE_NAME]: VersionState;
   [DOCS_SLICE_NAME]: DocsState;
+  [PID_SLICE_NAME]: PIDSliceState;
+  [LINE_SLICE_NAME]: LineSliceState;
 }
 
 export type Action =
-  | VisAction
   | LayoutAction
   | WorkspaceAction
   | DocsAction
-  | ClusterAction;
+  | ClusterAction
+  | LineAction
+  | PIDAction;
 
 export type Payload = Action["payload"];
 
@@ -97,12 +102,7 @@ const newStore = async (): Promise<RootStore> => {
   return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [
-      ...def(),
-      effectMiddleware([removeLayout.type], [dispatchEffect(removeVis)]),
-      effectMiddleware([removeRange.type], [dispatchEffect(purgeRanges)]),
-      persistMiddleware,
-    ],
+    middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
     reducer,
     enablePrerender: true,
   })) as RootStore;

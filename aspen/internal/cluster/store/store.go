@@ -12,41 +12,48 @@
 package store
 
 import (
+	"context"
+
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/store"
 )
+
+type Change struct {
+	State   State
+	Changes []node.Change
+}
 
 // Store is an interface representing a copy-on-read Store for managing cluster state.
 type Store interface {
 	// Observable allows the caller to react to state changes. This state is not diffed i.e.
 	// any call that modifies the state, even if no actual change occurs, will get sent to the
 	// Observable.
-	store.Observable[State]
+	store.Observable[State, Change]
 	// ClusterKey returns the cluster key.
 	ClusterKey() uuid.UUID
 	// SetClusterKey sets the cluster key.
-	SetClusterKey(key uuid.UUID)
+	SetClusterKey(ctx context.Context, key uuid.UUID)
 	// SetNode sets a node in state.
-	SetNode(node.Node)
+	SetNode(context.Context, node.Node)
 	// GetNode returns a node from state. Returns false if the node is not found.
-	GetNode(node.ID) (node.Node, bool)
+	GetNode(key node.Key) (node.Node, bool)
 	// Merge merges a node.Group into State.Nodes by selecting nodes from group with heartbeats
 	// that are either not in State or are older than in State.
-	Merge(group node.Group)
-	// Valid returns true if the Store is valid i.e. State.HostID has been set.
-	Valid() bool
+	Merge(ctx context.Context, group node.Group)
 	// GetHost returns the host node of the Store.
 	GetHost() node.Node
 	// SetHost sets the host for the Store.
-	SetHost(node.Node)
+	SetHost(ctx context.Context, node node.Node)
 }
 
 func _copy(s State) State {
-	return State{Nodes: s.Nodes.Copy(), HostID: s.HostID, ClusterKey: s.ClusterKey}
+	return State{Nodes: s.Nodes.Copy(), HostKey: s.HostKey, ClusterKey: s.ClusterKey}
 }
 
-// shouldNotify decides whether we should notify observers
+// transform decides whether we should notify observers
 // of the cluster state change. We only notify if:
 //
 //  1. The cluster key has been set.
@@ -55,96 +62,92 @@ func _copy(s State) State {
 //  4. The state of a node has changed.
 //
 // We DO NOT notify on heartbeat increments.
-func shouldNotify(prevState, nextState State) bool {
-	if prevState.ClusterKey != nextState.ClusterKey {
-		return false
+func transform(
+	prevState,
+	nextState State,
+) (Change, bool) {
+	// This means aspen hasn't been initialized yet.
+	if prevState.ClusterKey != nextState.ClusterKey || nextState.HostKey == 0 {
+		return Change{}, false
 	}
-	if nextState.HostID == 0 {
-		return false
-	}
-	if len(prevState.Nodes) != len(nextState.Nodes) {
-		return true
-	}
-	for id, n := range nextState.Nodes {
-		pn, ok := prevState.Nodes[id]
-		if !ok || pn.State != n.State {
-			return true
-		}
-	}
-	return false
+	changes := change.Map(
+		prevState.Nodes,
+		nextState.Nodes,
+		node.BasicallyEqual,
+	)
+	return Change{State: nextState, Changes: changes}, len(changes) > 0
 }
 
 // New opens a new empty, invalid Store.
-func New() Store {
-	c := &core{
-		Observable: store.ObservableWrap[State](
-			store.New(_copy),
-			store.ObservableConfig[State]{ShouldNotify: shouldNotify},
-		),
-	}
-	c.Observable.SetState(State{Nodes: make(node.Group)})
+func New(ctx context.Context) Store {
+	c := &core{Observable: lo.Must(store.WrapObservable(store.ObservableConfig[State, Change]{
+		Store:     store.New(_copy),
+		Transform: transform,
+	}))}
+	c.Observable.SetState(ctx, State{Nodes: make(node.Group)})
 	return c
 }
 
 // State is the current state of the cluster as viewed from the host.
 type State struct {
 	ClusterKey uuid.UUID
-	HostID     node.ID
+	HostKey    node.Key
 	Nodes      node.Group
 }
 
+func (s *State) IsZero() bool {
+	return s.ClusterKey == uuid.Nil && s.HostKey == 0 && len(s.Nodes) == 0
+}
+
 type core struct {
-	store.Observable[State]
+	store.Observable[State, Change]
 }
 
 // ClusterKey implements Store.
 func (c *core) ClusterKey() uuid.UUID { return c.Observable.PeekState().ClusterKey }
 
 // SetClusterKey implements Store.
-func (c *core) SetClusterKey(key uuid.UUID) {
+func (c *core) SetClusterKey(ctx context.Context, key uuid.UUID) {
 	s := c.Observable.PeekState()
 	s.ClusterKey = key
-	c.Observable.SetState(s)
+	c.Observable.SetState(ctx, s)
 }
 
 // GetNode implements Store.
-func (c *core) GetNode(id node.ID) (node.Node, bool) {
-	n, ok := c.Observable.PeekState().Nodes[id]
+func (c *core) GetNode(key node.Key) (node.Node, bool) {
+	n, ok := c.Observable.PeekState().Nodes[key]
 	return n, ok
 }
 
 // GetHost implements Store.
 func (c *core) GetHost() node.Node {
-	n, _ := c.GetNode(c.Observable.PeekState().HostID)
+	n, _ := c.GetNode(c.Observable.PeekState().HostKey)
 	return n
 }
 
 // SetHost implements Store.
-func (c *core) SetHost(n node.Node) {
+func (c *core) SetHost(ctx context.Context, n node.Node) {
 	snap := c.Observable.CopyState()
-	snap.Nodes[n.ID] = n
-	snap.HostID = n.ID
-	c.Observable.SetState(snap)
+	snap.Nodes[n.Key] = n
+	snap.HostKey = n.Key
+	c.Observable.SetState(ctx, snap)
 }
 
 // SetNode implements Store.
-func (c *core) SetNode(n node.Node) {
+func (c *core) SetNode(ctx context.Context, n node.Node) {
 	snap := c.Observable.CopyState()
-	snap.Nodes[n.ID] = n
-	c.Observable.SetState(snap)
+	snap.Nodes[n.Key] = n
+	c.Observable.SetState(ctx, snap)
 }
 
 // Merge implements Store.
-func (c *core) Merge(other node.Group) {
+func (c *core) Merge(ctx context.Context, other node.Group) {
 	snap := c.Observable.CopyState()
 	for _, n := range other {
-		in, ok := snap.Nodes[n.ID]
+		in, ok := snap.Nodes[n.Key]
 		if !ok || n.Heartbeat.OlderThan(in.Heartbeat) {
-			snap.Nodes[n.ID] = n
+			snap.Nodes[n.Key] = n
 		}
 	}
-	c.Observable.SetState(snap)
+	c.Observable.SetState(ctx, snap)
 }
-
-// Valid implements Store.
-func (c *core) Valid() bool { return c.GetHost().ID != 0 }
