@@ -43,14 +43,14 @@ func (s *emptyService) Schema() *ontology.Schema {
 }
 
 func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontology.Resource, error) {
-	e := schema.NewResource(s.Schema(), "empty")
+	e := schema.NewResource(s.Schema(), newEmptyID(key), "empty")
 	schema.Set(e, "key", key)
 	return e, nil
 }
 
 func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
 	return iter.NexterNopCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
-		schema.NewResource(s.Schema(), "empty"),
+		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
 	})}
 }
 

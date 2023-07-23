@@ -199,6 +199,9 @@ func (r Retrieve) retrieveEntities(
 	includeFieldData := getIncludeFieldData(clause.Params)
 	includeSchema := getIncludeSchema(clause.Params)
 	for j, res := range entries.All() {
+		if res.ID.IsZero() {
+			return nil, query.NotFound
+		}
 		res, err := r.registrar.retrieveResource(ctx, res.ID)
 		if err != nil {
 			return nil, err

@@ -156,7 +156,7 @@ func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, err
 // NewWriter opens a new Writer using the provided transaction.
 // Panics if the transaction does not root from the same database as the Ontology.
 func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
-	return dagWriter{tx: o.DB.OverrideTx(tx)}
+	return dagWriter{tx: o.DB.OverrideTx(tx), registrar: o.registrar}
 }
 
 // RegisterService registers a Service for a particular [Type] with the [Ontology].

@@ -11,7 +11,7 @@ package ontology
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -49,7 +49,7 @@ func (s serviceRegistrar) register(svc Service) {
 func (s serviceRegistrar) retrieveResource(ctx context.Context, id ID) (Resource, error) {
 	svc, ok := s[id.Type]
 	if !ok {
-		panic("[ontology] - service not found")
+		panic(fmt.Sprintf("[ontology] - service %s not found", id.Type))
 	}
 	return svc.RetrieveResource(ctx, id.Key)
 }

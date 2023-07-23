@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
@@ -29,6 +30,7 @@ type Builder struct {
 	writerNet  *tmock.FramerWriterNetwork
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
+	relayNet   *tmock.FramerRelayNetwork
 }
 
 func NewBuilder(cfg ...distribution.Config) *Builder {
@@ -39,6 +41,7 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 		writerNet:   tmock.NewFramerWriterNetwork(),
 		iterNet:     tmock.NewFramerIteratorNetwork(),
 		channelNet:  tmock.NewChannelNetwork(),
+		relayNet:    tmock.NewRelayNetwork(),
 	}
 }
 
@@ -49,6 +52,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	trans := mockFramerTransport{
 		iter:   b.iterNet.New(core.Config.AdvertiseAddress, 1),
 		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
+		relay:  b.relayNet.New(core.Config.AdvertiseAddress, 1),
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
@@ -76,12 +80,14 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		HostResolver:  d.Cluster,
 		Transport:     trans,
 	}))
+
 	return d
 }
 
 type mockFramerTransport struct {
 	iter   iterator.Transport
 	writer writer.Transport
+	relay  relay.Transport
 }
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
@@ -92,4 +98,8 @@ func (m mockFramerTransport) Iterator() iterator.Transport {
 
 func (m mockFramerTransport) Writer() writer.Transport {
 	return m.writer
+}
+
+func (m mockFramerTransport) Relay() relay.Transport {
+	return m.relay
 }
