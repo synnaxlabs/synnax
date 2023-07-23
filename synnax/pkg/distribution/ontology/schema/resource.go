@@ -39,18 +39,21 @@ type ID struct {
 }
 
 // Validate ensures that the given ID has both a Key and Type.
-func (k ID) Validate() error {
-	if k.Key == "" {
+func (id ID) Validate() error {
+	if id.Key == "" {
 		return errors.Newf("[resource] - key is required")
 	}
-	if k.Type == "" {
+	if id.Type == "" {
 		return errors.Newf("[resource] - type is required")
 	}
 	return nil
 }
 
 // String returns a string representation of the Resource.
-func (k ID) String() string { return string(k.Type) + ":" + k.Key }
+func (id ID) String() string { return string(id.Type) + ":" + id.Key }
+
+// IsZero true if the ID is the zero value for its type.
+func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 
 // ParseID parses the given string into an ID.
 func ParseID(s string) (ID, error) {
