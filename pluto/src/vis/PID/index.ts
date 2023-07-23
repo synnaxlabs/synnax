@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/pid/ValuePIDElement";
-export * from "@/vis/pid/PIDElement";
-export * from "@/vis/pid/ValvePIDElement";
-export * from "@/vis/pid/TankPIDElement";
+export * from "@/vis/PID/ValuePIDElement";
+export * from "@/vis/PID/PIDElement";
+export * from "@/vis/PID/ValvePIDElement";
+export * from "@/vis/PID/TankPIDElement";
