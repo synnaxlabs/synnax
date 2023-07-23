@@ -42,7 +42,7 @@ var _ = Describe("OtelProvider", func() {
 				c = MustSucceed(config.GetClientCertificate(&tls.CertificateRequestInfo{}))
 				Expect(c.Certificate).To(HaveLen(1))
 				Expect(config.RootCAs).ToNot(BeNil())
-				Expect(config.ClientAuth).To(Equal(tls.VerifyClientCertIfGiven))
+				Expect(config.ClientAuth).To(Equal(tls.NoClientCert))
 				Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS10)))
 				Expect(config.ClientCAs).ToNot(BeNil())
 			})
