@@ -26,12 +26,16 @@ var _ Authenticator = (*KV)(nil)
 
 // Authenticate Authenticator.
 func (db *KV) Authenticate(ctx context.Context, creds InsecureCredentials) error {
-	_, err := db.authenticate(ctx, creds)
+	_, err := db.authenticate(ctx, creds, db.DB)
 	return err
 }
 
-func (db *KV) authenticate(ctx context.Context, creds InsecureCredentials) (SecureCredentials, error) {
-	secureCreds, err := db.retrieve(ctx, db.DB, creds.Username)
+func (db *KV) authenticate(
+	ctx context.Context,
+	creds InsecureCredentials,
+	tx gorp.Tx,
+) (SecureCredentials, error) {
+	secureCreds, err := db.retrieve(ctx, tx, creds.Username)
 	if err != nil {
 		if err == query.NotFound {
 			return secureCreds, InvalidCredentials
@@ -79,7 +83,7 @@ func (w *kvWriter) Register(ctx context.Context, creds InsecureCredentials) erro
 
 // UpdateUsername implements Authenticator.
 func (w *kvWriter) UpdateUsername(ctx context.Context, creds InsecureCredentials, newUser string) error {
-	secureCreds, err := w.service.authenticate(ctx, creds)
+	secureCreds, err := w.service.authenticate(ctx, creds, w.tx)
 	if err != nil {
 		return err
 	}
@@ -92,7 +96,7 @@ func (w *kvWriter) UpdateUsername(ctx context.Context, creds InsecureCredentials
 
 // UpdatePassword implements Authenticator.
 func (w *kvWriter) UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error {
-	secureCreds, err := w.service.authenticate(ctx, creds)
+	secureCreds, err := w.service.authenticate(ctx, creds, w.tx)
 	if err != nil {
 		return err
 	}

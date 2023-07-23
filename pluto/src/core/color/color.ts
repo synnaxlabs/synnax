@@ -20,9 +20,13 @@ export type RGBA = [number, number, number, number];
 export type RGB = [number, number, number];
 export type Hex = z.infer<typeof hex>;
 const crudeColor = z.object({ rgba255: rgba });
-type CrudeColor = z.infer<typeof crudeColor>;
+type CrudeColorBase = z.infer<typeof crudeColor>;
 
-export type ColorT = Hex | RGBA | Color | string | RGB | CrudeColor;
+/**
+ * An unparsed representation of a color i.e. a value that can be converted into
+ * a Color object.
+ */
+export type CrudeColor = Hex | RGBA | Color | string | RGB | CrudeColorBase;
 
 /**
  * A color with an alpha channel. It can be used to easily transform
@@ -49,7 +53,7 @@ export class Color {
    * @param alpha - An optional alpha value to set. If the color value carries its own
    * alpha value, this value will be ignored. Defaults to 1.
    */
-  constructor(color: ColorT, alpha: number = 1) {
+  constructor(color: CrudeColor, alpha: number = 1) {
     if (typeof color === "string") {
       this.rgba255 = Color.fromHex(color, alpha);
     } else if (Array.isArray(color)) {
@@ -59,7 +63,13 @@ export class Color {
     } else this.rgba255 = color.rgba255;
   }
 
-  static cssString(color: ColorT): string {
+  /**
+   * Converts a crude color to its CSS representation. If the color cannot be parsed,
+   *
+   *
+   * @param color -
+   */
+  static cssString(color: CrudeColor): string {
     const res = Color.z.safeParse(color);
     if (res.success) return res.data.rgbaCSS;
     if (typeof color === "string") return color;
@@ -70,7 +80,7 @@ export class Color {
    * @returns true if the given color is semantically equal to this color. Different
    * representations of the same color are considered equal (e.g. hex and rgba).
    */
-  equals(other: ColorT): boolean {
+  equals(other: CrudeColor): boolean {
     const other_ = new Color(other);
     return this.rgba255.every((v, i) => v === other_.rgba255[i]);
   }

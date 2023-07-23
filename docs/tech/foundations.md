@@ -15,24 +15,38 @@ we've provided a general 'roadmap' for different platform components below.
 
 ### 0.0.0 - Storage Engine
 
-1. Programming Core in Go
-2.
+1. [Programming Core in Go](#100---programming-core-in-go)
+2. [Essential Abstractions](#11---essential-abstractions)
+3. [Building Large Software Systems](#2---building-large-software-systems)
+2. [Database Engineering](#4---database-engineering)
 
 ### 0.0.1 - Distribution and Networking
 
-1. Programming Core in Go
+1. [Programming Core in Go](#100---programming-core-in-go)
+2. [Essential Abstractions](#11---essential-abstractions)
+3. [Building Large Software Systems](#2---building-large-software-systems)
+4. [Web Services](#5---web-services)
+5. [Distributed Systems](#3---distributed-systems)
 
 ### 0.0.2 - Core Services
 
-1. Programming Core in Go
+1. [Programming Core in Go](#100---programming-core-in-go)
+2. [Essential Abstractions](#11---essential-abstractions)
+3. [Web Services](#5---web-services)
 
 ### 0.0.3 - Analysis Tooling
 
-1. Programming Core in Python
+1. [Programming Core in Python](#102---programming-core-in-python)
+2. [Essential Abstractions](#11---essential-abstractions)
 
 ### 0.0.4 - User Interfaces
 
-1. Programming Core in TypeScript
+1. [Programming Core in TypeScript](#103---programming-core-in-javascript-and-typescript)
+2. [Package Management](#7---package-management)
+3. [User Interfaces](#9---user-interfaces)
+4. [Essential Abstractions](#11---essential-abstractions)
+5. [Web Services](#5---web-services)
+6. [Building Large Software Systems](#2---building-large-software-systems)
 
 ### 0.0.5 - Build Systems and Infrastructure
 
@@ -40,30 +54,31 @@ we've provided a general 'roadmap' for different platform components below.
 
 # 1 - Philosophy
 
-This guide is **practical**, meaning that it bares little resemblance
-to a traditional computer science curriculum. Instead, it focuses on the skills that
-allow you to **implement** real-world systems. That is not to say that the theoretical
-is not important; we simply take the opinion that programming is best learned through
-consistent practice.
+This guide is **practical**, meaning that it bares little resemblance to a traditional,
+theoretical computer science curriculum. Instead, it focuses on the skills that allow
+you to **implement** real-world systems. That is not to say that the theoretical is not
+relevant. We simply believe that _theory is an emergent property of trying to solve a
+problem in practice_; find a real-world problem you want to solve, and learn the theory
+you need to solve it.
+
+This guide is **opinionated** in that it focuses specifically on software engineering
+for Synnax. This is not to say the content is not directly applicable to other projects,
+but rather that we've chosen to omit certain topics that are not relevant to the problem
+at hand.
+
+Finally, **we strongly believe that the only way to learn is by doing, and doing a
+lot.** Get your hands dirty, make mistakes, and put in the time. A few thousand hours
+from now, everything in this guide will seem basic.
 
 # 1 - Programming Core
 
-The first, and most critical, step is to learn core programming concepts that apply
-universally when developing software.
+The first, and most critical, step is to become proficient in the core programming
+skills that underlie all work that we do here.
 
 ## 1.0 - The Basics
 
 Any free, online programming course should get you quickly through the basics of
-programming. The following is an (exhaustive) list of topics that you should be
-familiar with:
-
-1. Variables
-2. Control Flow
-3. Functions
-4. Data Structures - Arrays, Lists, Maps, Sets, Queues, Stacks, Trees, etc.
-5. Classes and Basic Object-Oriented Programming
-
-Here are the courses we recommend for different programming languages:
+programming. Here are the courses we recommend for different programming languages:
 
 ### 1.0.0 - Programming Core in Go
 
@@ -82,21 +97,30 @@ the official go tour:
 
 #### 1.0.0.2 - Important Supplements
 
-- The Stack, Heap, and Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee)
+- The Stack, Heap, and
+  Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee)
 - Effective Go - [Effective Go](https://go.dev/doc/effective_go)
 
 ### 1.0.2 - Programming Core in Python
 
 #### 1.0.0.0 - Recommended Beginner's Course
 
-If you're new to programming, we recommend starting with the following course:
-
-[Python](https://www.youtube.com/watch?v=rfscVS0vtbw)
+If you're new to programming, we recommend starting
+with [Learn Python - Full Course for Beginner's](https://www.youtube.com/watch?v=rfscVS0vtbw).
 
 ### 1.0.3 - Programming Core in Javascript and Typescript
 
-Recommended Beginner's Curse - [Learn JavaScript](https://www.youtube.com/watch?v=PkZNo7MFNFg&ab_channel=freeCodeCamp.org)
-Typescript Supplement - [TypeScript](https://www.youtube.com/watch?v=30LWjhZzg50&ab_channel=freeCodeCamp.org)
+#### 1.0.3.0 - Recommended Beginner's Course
+
+If you're new to programming, we recommend starting
+with [Learn JavaScript](https://www.youtube.com/watch?v=PkZNo7MFNFg&ab_channel=freeCodeCamp.org)
+and supplementing it
+with [Learn TypeScript](https://www.youtube.com/watch?v=30LWjhZzg50&ab_channel=freeCodeCamp.org).
+
+#### 1.0.3.1 - Experienced JavaScript Programmer, New to TypeScript
+
+If you're already proficient in JavaScript, we recommend going through the
+[TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html).
 
 ## 1.1 - Essential Abstractions
 
@@ -105,16 +129,26 @@ abstracting complexity to solve a problem.
 
 ### 1.1.0 - Interfaces and Polymorphism
 
-1. Interfaces and Polymorphism -
-2. Classes, Object-Oriented Programming, and Inheritance
-3. Composition, and why we prefer it over Inheritance - [Why Composition is Better than Inheritance](https://www.youtube.com/watch?v=0mcP8ZpUR38)
-4. Design Patterns
+Understanding that software components should be built to satisfy an interface, rather
+than provide an implementation, is perhaps the most important realization that enables
+engineers to build large, complex systems.
 
+### 1.1.1 - Classes, Object-Oriented Programming, and Inheritance
+
+### 1.1.2 - Composition
+
+- [The flaws of Inheritance](https://www.youtube.com/watch?v=hxGOiiR9ZKg&t=89s&ab_channel=CodeAesthetic)
+
+### 1.1.3 - Design Patterns
+
+- [Refactoring Guru - Design Patterns](https://refactoring.guru/design-patterns)
 - [Design Patterns: Elements of Reusable Object-Oriented Software](https://www.amazon.com/dp/0201633612?ref_=cm_sw_r_cp_ud_dp_56C2VFSRGP5XW20DH7E4)
+
 
 # 2 - Building Large Software Systems
 
 - John Ousterhout's [A Philosophy of Software Design](https://www.amazon.com/Philosophy-Software-Design-John-Ousterhout/dp/1732102201)
+- John Ousterhout's [A Philosophy of Software Design (Lecture)](https://www.youtube.com/watch?v=bmSAYlu0NcY&ab_channel=StanfordUniversitySchoolofEngineering)
 - Martin Kleppmann's [Designing Data-Intensive Applications](https://a.co/d/4rHgKH3)
 
 # 3 - Distributed Systems
@@ -160,7 +194,8 @@ abstracting complexity to solve a problem.
 
 # 9 - Concurrent Programming
 
-- Rob Pike, [Concurrency is not Parallelism](https://www.youtube.com/watch?v=oV9rvDllKEg&ab_channel=gnbitcom)
+- Rob
+  Pike, [Concurrency is not Parallelism](https://www.youtube.com/watch?v=oV9rvDllKEg&ab_channel=gnbitcom)
 
 # 10 - Profiling
 

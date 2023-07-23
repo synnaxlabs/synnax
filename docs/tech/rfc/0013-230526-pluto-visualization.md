@@ -25,7 +25,6 @@ stores. Many existing visualization systems feel clunky, and are typically inten
 for static, small data sets. By providing an interface that allows access and
 exploration of large, live data sets, we're empowering our users to take advantage of
 all the advanced tooling Synnax has to offer, ultimately delivering our users a much
-better understanding of how their systems are performing.
 
 The current rendering pipeline requires reloading the entire data set on every update.
 Now that we'll be updating at rates of 100Hz or more, this approach is no longer
@@ -83,22 +82,22 @@ the main thread.
 
 ### 5.0.0 - The Aether Component Tree
 
-On the worker thread, Aether maintains a composite tree of components whose implementation
-feels similar to a Class-based React component. To fork a new component, we use the
-`render` function, which takes in a registry of component factories. The `render` function
-then receives messages from the main thread to update the component tree, creating and
-destroying components as necessary.
+On the worker thread, Aether maintains a composite tree of components whose
+implementation feels similar to a Class-based React component. To fork a new component,
+we use the `render` function, which takes in a registry of component factories. The
+`render` function then receives messages from the main thread to update the component
+tree, creating and destroying components as necessary.
 
 ```typescript
 // worker.ts
 
-import { Aether, AetherComponentRegistry } from '@synnaxlabs/pluto';
-import { MyWorkerButton } from './MyWorkerButton';
-import { MyWorkerLinePlot } from './MyWorkerLinePlot';
+import {Aether, AetherComponentRegistry} from '@synnaxlabs/pluto';
+import {MyWorkerButton} from './MyWorkerButton';
+import {MyWorkerLinePlot} from './MyWorkerLinePlot';
 
 const REGISTRY: AetherComponentRegistry = {
-    [MyWorkerButton.TYPE]: (initialState) => new MyWorkerButton(initialState),
-    [MyWorkerLinePlot.TYPE]: (initialState) => new MyWorkerLinePlot(initialState),
+    [MyWorkerButton.TYPE]: MyWorkerButton,
+    [MyWorkerLinePlot.TYPE]: MyWorkerLinePlot,
 };
 
 Aether.render(REGISTRY)
@@ -112,7 +111,7 @@ class, and, likewise, to create a `Leaf` component, we extend the `AetherLeaf` c
 ```typescript
 // MyWorkerButton.ts
 
-import { AetherLeaf } from '@synnaxlabs/pluto';
+import {AetherLeaf} from '@synnaxlabs/pluto';
 
 export class MyWorkerButton extends AetherLeaf {
     static TYPE = 'MyWorkerButton';
@@ -128,10 +127,10 @@ export class MyWorkerButton extends AetherLeaf {
 ```
 
 It's important to note that the subclass we implement for an `AetherComposite` does
-__not__ have control over the lifecycle of its children (can't create, delete, or set
-the state). This is intentional, as the aether component tree is driven by React on
-the main thread. The worker component tree does, however, have access to its children,
-and can execute methods on them.
+__not__ have control over the lifecycle of its children (can't create them, delete them,
+or set their state). This is intentional, as the aether component tree is driven by
+React on the main thread. The worker component tree does, however, have access to its
+children, and can execute methods on them.
 
 **Aether does not implement any rendering patterns**. All aether does is maintain a tree
 of stateful components and allow the user to respond to state changes. In some cases,
@@ -142,7 +141,28 @@ component may only be used for computation or data fetching.
 
 Pluto makes extensive use of React's context API to provide components with access
 to important tooling. The most notable example here is the visualization canvas, which
-provides a WebGL rendering context to all components that need it.
+provides a WebGL rendering context to all components that need it. Now that we're
+moving the core functionality of many components off of the main thread, we have a
+plethora of contextual information that needs to be accessed by them.
+
+To solve this problem, Aether implements a very rudimentary context API. When a
+component updates, it receives an `AetherContext` object that contains a map of
+arbitrary key-value pairs. After a component receives a state update, Aether checks if
+the component has modified the context map. If so, Aether *unconditionally* updates all
+the component's children, allowing them to alter their state based on the context
+changes. Obviously, this is a naive and inefficient approach, but implementing a robust
+context API requires considerable effort, and this approach is sufficient for our needs.
+
+### 5.0.2 - Issues with `React.StrictMode`
+
+React's `StrictMode` forcibly re-renders a component twice and runs its effects twice.
+Aether uses an ID generator (`nanoid`) to assign unique keys to components. Without
+strict mode, the hooks that manage the lifecycle of the component work as expected. Even
+in the case of effects running multiple times, the components works. The problem arises
+because react renders the component one twice *and then* runs the effects twice. This
+means that the initial, synchronous bootstrapping code for a component runs for the
+first rerender but never gets cleaned up. This is intentional behavior by the React
+team, and is useful for catching bugs, but in our situation it's a problem.
 
 ## 5.0 - Visualization Component Structure
 
@@ -151,8 +171,8 @@ large, tightly coupled, and very complex functions and classes that handled the 
 and drawing process. The separation of concerns was remarkably unclear, and refactoring
 and adding features was remarkably challenging.
 
-The new architecture separates these concerns by leveraging composition using React's
-context API. The gist is to present a category of visualization as a container component
+The new architecture separates these concerns by leveraging composition using Aether.
+The gist is to present a category of visualization as a container component
 (i.e. `LinePlot`, `Valve`, or `Table`) and then allow the user to customize its layout
 using children.
 
@@ -206,84 +226,67 @@ lines share the same X axis. We can also introduce a title to the plot as follow
 ```
 
 It's easy to imagine how this pattern can be extended to add annotations, tooltips,
-additional axes, and more. This approach is extremely intuitive from a user perspective,
-but it also gives us a clear method for separating concerns within the implementation.
+additional axes, and more. This approach is extremely intuitive from a DX perspective,
+and also gives us a clear method for separating concerns within the implementation.
 
 ## 5.1 - Integrating Telemetry Sources
 
-## Defining Data Sources
+Correctly integrating telemetry sources into the visualization component structure is a
+challenge. The goal is to allow users to intuitively define telemetry sources on the
+main thread and then have them automatically linked to the corresponding component in
+the worker thread.
 
-## Dealing with Int64 Timestamps
+The largest hurdle here is that the client-side telemetry infrastructure
+(clients, sockets, caches) are _stateful_. We need to maintain a lot of complex
+lifecycles, perform careful cleanup, and manage a considerable amount of state.
 
-Problem is less of a behavioral and more of a structural one.
+### 5.1.0 - Standard Interfaces for Telemetry Sources
 
-Previous approach was to centralized. Instead of isolated areas of loosely
-coupled, yet high complexity, we instead decided to distribute complexity and
-create this sort of 'soup'.
+Maintaining a strong separation of concerns between visualization components and
+data sources is critical. To do this, we define various contracts for rendering
+different types of telemetry sources.
 
-We need to figure out how to break up and modularize this soup into concrete,
-independently functioning pieces.
+```ts
+// An interface for telemetry sources that provides a uniform set of values for an X
+// and Y axis.
+export interface XYTelemSource {
+    x: () => Promise<Series[]>;
+    y: () => Promise<Series[]>;
+    xBounds: () => Promise<Bounds>;
+    yBounds: () => Promise<Bounds>;
+}
 
-This is much more challenging given three realities:
+// A telemetry source for a single point value.
+export interface NumericTelemSource {
+    value: () => Promise<number>;
+}
 
-- Web workers and offscreen canvas
-- Caching
-- Live telemetry
+export interface ColorTelemSource {
+    value: () => Promise<Color>;
+}
 
-These three factors make visualization substantially harder.
-
-The other is that there's not a clear unidirectional flow between
-data source definition and render output. Sometimes the 'rendering'
-logic such as an axis has an effect on the data source itself. When
-we drag an axis or pan on a plot we load more data in.
-
-We also want to keep data sources largely independent of anything Synnax
-specific.
-
-Another challenge is employing a centralized caching mechanism to reduce memory
-usage.
-
-- Polymorphic satellite proxy.
-
-- Another thing to think about is data transformations
-- Different visualizations have different requirements on their data source.
-- Visualizations can define an interface for the data source they require.
-- A single data source can implement multiple interfaces.
-
-Data sources on the main thread are simply proxies to the actual
-implementations on the worker thread.
-
-So what would the data source for a line plot look like?
-
-- Line plots require a time-aligned x and y-axis. So we need x-data
-  and y-data so that the nth sample in each data 'array' lines up with
-  each other time-wise, and (obviously) the two arrays are the same length.
-- We also need a way to provide a bound with which to convert that data
-  into screen space.
-
-```jsx
-<Axis.X>
-    <Axis.Y>
-        <DataSource/>
-    </Axis.Y>
-    <Axis.Y>
-    </Axis.Y>
-</Axis.X>
-<DataSource/>
-<Axis.X>
-</Axis.X>
+export interface BooleanTelemSource {
+    value: () => boolean;
+}
 ```
 
-React components serve as proxies for worker render visualizations
-and data structures.
+As an example, an Aether `Line` component can accept an `XYTelemSource` and then
+use a WebGL rendering context to draw that line to the screen. A `Valve` component
+can use a `BooleanTelemSource` to determine the valve state.
 
-It's the main threads job to define the 'structure' of the visualization.
-It's the renderer threads job to do the data fetching and rendering. We want to be
-able to define the structure in a semantic 'reacty' way. We also want it to be
-intelligent
-and opinionated.
+It's easy to see how we can compose and extend telemetry sources to alter their
+functionality. For example, we could wrap several different numeric sources representing
+data from different channels, execute some equation on them, and then expose the result
+as another source with an identical interfaces. This pattern is remarkably powerful,
+and allows us to provide fine-grained transformations on data to our users while adding
+minimal complexity.
 
-We almost maintain a 'virtual DOM' on the worker side that mirrors the existing DOM,
-but we let react do the hard part for us.
+### 5.1.1 - Polymorphic Satellite Proxy
 
-## 5.2 - Telemetry Infrastructure
+So how do we implement the above interfaces for accessing data from the database? The
+best approach is to use a polymorphic satellite proxy. This is a fancy way of saying
+that we maintain a client and caching mechanism in some central state, and then create
+proxy objects that implement the above interfaces to call specific methods on the
+client. This prevents us from overloading the client with implementing too much
+functionality, and gives us close control over the lifecycle of telemetry arrays stored
+in the cache.

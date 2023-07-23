@@ -26,8 +26,6 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { useUnmount } from "../hooks/useMount";
-
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useMemoCompare } from "@/core/memo";
@@ -160,9 +158,11 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
     [ctx.path, key] as [string[], string]
   );
 
-  const setState = useCallback((state: z.input<S>, transfer: Transferable[] = []) => {
-    comms.current?.setState(prettyParse(schema, state), transfer);
-  }, []);
+  const setState = useCallback(
+    (state: z.input<S>, transfer: Transferable[] = []) =>
+      comms.current?.setState(prettyParse(schema, state), transfer),
+    []
+  );
 
   // We run the first effect synchronously so that parent components are created
   // before their children. This is impossible to do with effect hooks.
@@ -191,11 +191,6 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
       comms.current = null;
     };
   }, [type, path, onReceive, setState]);
-
-  useUnmount(() => {
-    comms.current?.delete();
-    comms.current = null;
-  });
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };

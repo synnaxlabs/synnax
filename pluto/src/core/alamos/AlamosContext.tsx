@@ -29,10 +29,8 @@ export const useInstrumentation = (): Instrumentation =>
 export const AlamosProvider = ({
   instrumentation = Instrumentation.NOOP,
   children,
-}: AlamosProviderProps): ReactElement => {
-  return (
-    <AlamosContext.Provider value={{ instrumentation }}>
-      {children}
-    </AlamosContext.Provider>
-  );
-};
+}: AlamosProviderProps): ReactElement => (
+  <AlamosContext.Provider value={{ instrumentation }}>
+    {children}
+  </AlamosContext.Provider>
+);
