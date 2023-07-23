@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cloneElement, HTMLAttributes } from "react";
+import { cloneElement, HTMLAttributes, ReactElement } from "react";
 
 import clsx from "clsx";
 
@@ -23,7 +23,7 @@ export const Logo = ({
   color = "auto",
   className,
   ...props
-}: LogoProps): JSX.Element => {
+}: LogoProps): ReactElement => {
   const logo = variant === "icon" ? icon : title;
   return cloneElement(logo, {
     className: clsx(`synnax-logo--${color}`, className),

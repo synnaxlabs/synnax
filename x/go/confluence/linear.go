@@ -11,6 +11,7 @@ package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -26,7 +27,7 @@ type AbstractLinear[I, O Value] struct {
 // transformation, and writes the result to a single Outlet.
 type LinearTransform[I, O Value] struct {
 	AbstractLinear[I, O]
-	TransformFunc[I, O]
+	Transform TransformFunc[I, O]
 }
 
 // Flow implements the Segment interface.
@@ -42,4 +43,58 @@ func (l *LinearTransform[I, O]) transform(ctx context.Context, i I) error {
 		return err
 	}
 	return signal.SendUnderContext(ctx, l.Out.Inlet(), v)
+}
+
+type TranslateFunc[I, O Value] func(I) (O, error)
+
+type translator[I, IT, O, OT Value] struct {
+	AbstractLinear[I, O]
+	inlet     Inlet[IT]
+	outlet    Outlet[OT]
+	requestT  TranslateFunc[I, IT]
+	responseT TranslateFunc[OT, O]
+	wrapped   Flow
+}
+
+func NewTranslator[I, IT, O, OT Value](
+	wrap Segment[IT, OT],
+	requests TranslateFunc[I, IT],
+	responses TranslateFunc[OT, O],
+	buffers ...int,
+) Segment[I, O] {
+	var (
+		buf = parseBuffer(buffers)
+		in  = NewStream[IT](buf)
+		out = NewStream[OT](buf)
+		t   = &translator[I, IT, O, OT]{
+			requestT:  requests,
+			responseT: responses,
+			inlet:     in,
+			outlet:    out,
+			wrapped:   wrap,
+		}
+	)
+	wrap.InFrom(in)
+	wrap.OutTo(out)
+	return t
+}
+
+func (t *translator[I, IT, O, OT]) Flow(ctx signal.Context, opts ...Option) {
+	t.wrapped.Flow(ctx, opts...)
+	o := NewOptions(opts)
+	o.AttachClosables(t.inlet)
+	signal.GoRange(ctx, t.In.Outlet(), func(ctx context.Context, v I) error {
+		o, err := t.requestT(v)
+		if err != nil {
+			return err
+		}
+		return signal.SendUnderContext(ctx, t.inlet.Inlet(), o)
+	}, o.Signal...)
+	signal.GoRange(ctx, t.outlet.Outlet(), func(ctx context.Context, v OT) error {
+		o, err := t.responseT(v)
+		if err != nil {
+			return err
+		}
+		return signal.SendUnderContext(ctx, t.Out.Inlet(), o)
+	}, o.Signal...)
 }

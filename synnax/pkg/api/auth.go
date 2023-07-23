@@ -22,7 +22,6 @@ import (
 
 // AuthService is the core authentication service for the delta API.
 type AuthService struct {
-	loggingProvider
 	validationProvider
 	dbProvider
 	authProvider
@@ -31,7 +30,6 @@ type AuthService struct {
 
 func NewAuthServer(p Provider) *AuthService {
 	return &AuthService{
-		loggingProvider:    p.Logging,
 		validationProvider: p.Validation,
 		dbProvider:         p.db,
 		authProvider:       p.auth,
@@ -41,17 +39,17 @@ func NewAuthServer(p Provider) *AuthService {
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *AuthService) Login(ctx context.Context, creds auth.InsecureCredentials) (tr TokenResponse, _ errors.Typed) {
-	if err := s.Validate(&creds); err.Occurred() {
+func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, _ errors.Typed) {
+	if err := s.Validate(&cred); err.Occurred() {
 		return tr, err
 	}
-	if err := s.authenticator.Authenticate(creds); err != nil {
+	if err := s.authenticator.Authenticate(ctx, cred); err != nil {
 		if roacherrors.Is(err, auth.InvalidCredentials) {
 			return tr, errors.Auth(err)
 		}
 		return tr, errors.Unexpected(err)
 	}
-	u, err := s.user.RetrieveByUsername(creds.Username)
+	u, err := s.user.RetrieveByUsername(ctx, cred.Username)
 	if err != nil {
 		return tr, errors.Unexpected(err)
 	}
@@ -69,14 +67,12 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 	if err := s.Validate(req); err.Occurred() {
 		return tr, err
 	}
-	return tr, s.WithTxn(func(txn gorp.Txn) errors.Typed {
-		aw := s.authenticator.NewWriterUsingTxn(txn)
-		if err := aw.Register(req.InsecureCredentials); err != nil {
+	return tr, s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return errors.General(err)
 		}
 		u := &user.User{Username: req.Username}
-		userWriter := s.user.NewWriterUsingTxn(txn)
-		if err := userWriter.Create(u); err != nil {
+		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
 			return errors.General(err)
 		}
 		var tErr errors.Typed
@@ -96,9 +92,9 @@ func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequ
 	if err := s.Validate(cpr); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(func(txn gorp.Txn) errors.Typed {
-		return errors.MaybeGeneral(s.authenticator.NewWriterUsingTxn(txn).
-			UpdatePassword(cpr.InsecureCredentials, cpr.NewPassword))
+	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+		return errors.MaybeGeneral(s.authenticator.NewWriter(txn).
+			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword))
 	})
 }
 
@@ -113,20 +109,20 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err := s.Validate(&cur); err.Occurred() {
 		return err
 	}
-	return s.WithTxn(func(txn gorp.Txn) errors.Typed {
-		authWriter := s.authenticator.NewWriterUsingTxn(txn)
-		u, err := s.user.RetrieveByUsername(cur.InsecureCredentials.Username)
+	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
 			return errors.MaybeQuery(err)
 		}
-		if err := authWriter.UpdateUsername(
+		if err := s.authenticator.NewWriter(txn).UpdateUsername(
+			ctx,
 			cur.InsecureCredentials,
 			cur.NewUsername,
 		); err != nil {
 			return errors.Unexpected(err)
 		}
 		u.Username = cur.NewUsername
-		return errors.MaybeUnexpected(s.user.NewWriterUsingTxn(txn).Update(u))
+		return errors.MaybeUnexpected(s.user.NewWriter(txn).Update(ctx, u))
 	})
 }
 

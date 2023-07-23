@@ -15,12 +15,10 @@ import (
 	"github.com/synnaxlabs/x/httputil"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type ClientFactoryConfig struct {
 	EncoderDecoder httputil.EncoderDecoder
-	Logger         *zap.SugaredLogger
 }
 
 func (c ClientFactoryConfig) Validate() error {
@@ -31,13 +29,11 @@ func (c ClientFactoryConfig) Validate() error {
 
 func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryConfig {
 	c.EncoderDecoder = override.Nil(c.EncoderDecoder, other.EncoderDecoder)
-	c.Logger = override.Nil(c.Logger, other.Logger)
 	return c
 }
 
 var DefaultClientConfig = ClientFactoryConfig{
 	EncoderDecoder: httputil.MsgPackEncoderDecoder,
-	Logger:         zap.S(),
 }
 
 type ClientFactory struct {
@@ -45,7 +41,7 @@ type ClientFactory struct {
 }
 
 func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
-	cfg, err := config.OverrideAndValidate(DefaultClientConfig, configs...)
+	cfg, err := config.New(DefaultClientConfig, configs...)
 	if err != nil {
 		panic(err)
 	}
@@ -54,13 +50,10 @@ func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
 
 func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamClient[RQ, RS] {
 	return &streamClient[RQ, RS]{
-		logger: c.Logger,
-		ecd:    c.EncoderDecoder,
+		ecd: c.EncoderDecoder,
 	}
 }
 
-func UnaryPostClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
-	return &unaryClient[RQ, RS]{
-		ecd: c.EncoderDecoder,
-	}
+func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {
+	return &unaryClient[RQ, RS]{ecd: c.EncoderDecoder}
 }

@@ -12,18 +12,18 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 
 import { Range } from "./types";
 
-export interface WorkspaceState {
+export interface WorkspaceSliceState {
   activeRange: string | null;
   ranges: Record<string, Range>;
 }
 
 export interface WorkspaceStoreState {
-  workspace: WorkspaceState;
+  workspace: WorkspaceSliceState;
 }
 
 export const WORKSPACE_SLICE_NAME = "workspace";
 
-export const initialState: WorkspaceState = {
+export const initialState: WorkspaceSliceState = {
   activeRange: null,
   ranges: {},
 };
@@ -53,5 +53,5 @@ export const { actions, reducer: workspaceReducer } = createSlice({
 });
 export const { addRange, removeRange, setActiveRange } = actions;
 
-export type WorkspaceAction = ReturnType<typeof actions[keyof typeof actions]>;
+export type WorkspaceAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type WorkspacePayload = WorkspaceAction["payload"];

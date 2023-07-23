@@ -16,6 +16,7 @@ import (
 )
 
 type BindableTransport interface {
+	freighter.Transport
 	BindTo(app *fiber.App)
 }
 

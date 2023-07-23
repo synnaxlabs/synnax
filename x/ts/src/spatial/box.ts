@@ -7,96 +7,67 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Dimensions,
-  OuterLocation,
-  Corner,
-  XY,
-  ZERO_XY,
-  Direction,
-  SignedDimensions,
-  X_LOCATIONS,
-  XLocation,
-  Bound,
-} from "./core";
+import { z } from "zod";
 
 import { Stringer } from "@/primitive";
+import {
+  Dimensions,
+  Corner,
+  XY,
+  SignedDimensions,
+  Bounds,
+  Location,
+  CrudeXLocation,
+  CrudeXY,
+  LooseDirectionT,
+  Direction,
+  CrudeDimensions,
+  CrudeLocation,
+} from "@/spatial/core";
 
-/** represents a partial JS DOMRect */
-export interface DOMRect {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
+const cssPos = z.union([z.number(), z.string()]);
 
-export interface BoxCopyProps {
-  leftRectOrPoint?: number | DOMRect | XY;
-  topPointWidthOrDims?: number | XY | Dimensions;
-  widthOrHeight?: number;
-  height?: number;
-  preserveSign?: boolean;
-}
+const cssBox = z.object({
+  top: cssPos,
+  left: cssPos,
+  width: cssPos,
+  height: cssPos,
+});
+const domRect = z.object({
+  left: z.number(),
+  top: z.number(),
+  right: z.number(),
+  bottom: z.number(),
+});
+const box = z.object({
+  one: XY.z,
+  two: XY.z,
+  root: Location.strictCornerZ,
+});
+const looseBox = z.union([
+  cssBox,
+  domRect,
+  z.object({
+    one: XY.looseZ,
+    two: XY.looseZ,
+    root: Location.strictCornerZ,
+  }),
+]);
 
-/** BoxProps represents the properties of a Box. */
-export interface BoxProps {
-  /** y coordinate of the numerically lowest y value in the box. */
-  readonly y: number;
-  /** x coordinate of the numerically lowest x value in the box. */
-  readonly x: number;
-  /** y coordinate of the top of the box. */
-  readonly top: number;
-  /** x coordinate of the left side of the box. */
-  readonly left: number;
-  /** y coordinate of the bottom of the box. */
-  readonly bottom: number;
-  /** x coordinate of the right side of the box. */
-  readonly right: number;
-  /** point representing the top left corner of the box. */
-  readonly topLeft: XY;
-  /** point representing the top right corner of the box. */
-  readonly bottomRight: XY;
-  /** point representing the bottom left corner of the box. */
-  readonly bottomLeft: XY;
-  /** point representing the bottom right corner of the box. */
-  readonly topRight: XY;
-  /** the absolute width of the box. */
-  readonly width: number;
-  /** the absolute height of the box. */
-  readonly height: number;
-  /** the signed width of the box. */
-  readonly signedWidth: number;
-  /** the signed height of the box. */
-  readonly signedHeight: number;
-  /** the absolute dimensions of the box. */
-  readonly dims: Dimensions;
-  /** the signed dimensions of the box. */
-  readonly signedDims: SignedDimensions;
-}
-
-export interface CSSPosition {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
-
-export type BoxConstructorProps = [
-  leftRectOrPoint: number | DOMRect | XY,
-  topPointWidthOrDims?: number | XY | Dimensions,
-  widthOrHeight?: number,
-  height?: number
-];
+export type BoxT = z.infer<typeof box>;
+export type LooseBoxT = z.infer<typeof looseBox>;
+export type CSSBox = z.infer<typeof cssBox>;
+export type DOMRect = z.infer<typeof domRect>;
 
 /**
  * Box represents a general box in 2D space. It typically represents a bounding box
  * for a DOM element, but can also represent a box in clip space or decimal space.
  *
- * It'simportant to note that the behavior of a Box varies depending on its coordinate system.
- * Make sure you're aware of which coordinate system you're using.
+ * It'simportant to note that the behavior of a Box varies depending on its coordinate
+ * system.Make sure you're aware of which coordinate system you're using.
  *
- * Many of the properties and methods on a Box access the same semantic value. The different
- * accessors are there for ease of use and semantics.
+ * Many of the properties and methods on a Box access the same semantic value. The
+ * different accessors are there for ease of use and semantics.
  */
 export class Box implements Stringer {
   readonly one: XY;
@@ -106,8 +77,14 @@ export class Box implements Stringer {
   readonly isBox: true = true;
 
   constructor(
-    first: number | DOMRect | XY | Box | { getBoundingClientRect: () => DOMRect },
-    second?: number | XY | Dimensions | SignedDimensions,
+    first:
+      | number
+      | DOMRect
+      | CrudeXY
+      | Box
+      | { getBoundingClientRect: () => DOMRect }
+      | BoxT,
+    second?: number | CrudeXY | CrudeDimensions | SignedDimensions,
     width: number = 0,
     height: number = 0,
     coordinateRoot?: Corner
@@ -124,64 +101,97 @@ export class Box implements Stringer {
     if (typeof first === "number") {
       if (typeof second !== "number")
         throw new Error("Box constructor called with invalid arguments");
-      this.one = { x: first, y: second };
-      this.two = { x: this.one.x + width, y: this.one.y + height };
+      this.one = new XY({ x: first, y: second });
+      this.two = new XY({ x: this.one.x + width, y: this.one.y + height });
       return;
     }
 
     if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
     if ("left" in first) {
-      this.one = { x: first.left, y: first.top };
-      this.two = { x: first.right, y: first.bottom };
+      this.one = new XY({ x: first.left, y: first.top });
+      this.two = new XY({ x: first.right, y: first.bottom });
       return;
     }
 
-    this.one = first;
+    if ("one" in first) {
+      this.one = first.one;
+      this.two = first.two;
+      this.root = first.root;
+      return;
+    }
+
+    this.one = new XY(first);
     if (second == null) {
-      this.two = { x: this.one.x + width, y: this.one.y + height };
+      this.two = new XY({ x: this.one.x + width, y: this.one.y + height });
     } else if (typeof second === "number")
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second,
         y: this.one.y + width,
-      };
+      });
     else if ("width" in second)
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second.width,
         y: this.one.y + second.height,
-      };
+      });
     else if ("signedWidth" in second)
-      this.two = {
+      this.two = new XY({
         x: this.one.x + second.signedWidth,
         y: this.one.y + second.signedHeight,
-      };
-    else this.two = second;
+      });
+    else this.two = new XY(second);
   }
 
-  contains(box: Box | XY): boolean {
-    if ("signedWidth" in box)
+  /**
+   * Checks if a box contains a point or another box.
+   *
+   * @param value - The point or box to check.
+   * @returns true if the box inclusively contains the point or box and false otherwise.
+   */
+  contains(value: Box | XY): boolean {
+    if ("signedWidth" in value)
       return (
-        box.left >= this.left &&
-        box.right <= this.right &&
-        box.top >= this.top &&
-        box.bottom <= this.bottom
+        value.left >= this.left &&
+        value.right <= this.right &&
+        value.top >= this.top &&
+        value.bottom <= this.bottom
       );
     return (
-      box.x >= this.left &&
-      box.x <= this.right &&
-      box.y >= this.top &&
-      box.y <= this.bottom
+      value.x >= this.left &&
+      value.x <= this.right &&
+      value.y >= this.top &&
+      value.y <= this.bottom
     );
   }
 
-  get dims(): Dimensions {
-    return { width: this.width, height: this.height };
+  /**
+   * @returns true if the given box is semantically equal to this box and false otherwise.
+   */
+  equals(box: Box): boolean {
+    return (
+      this.one.equals(box.one) && this.two.equals(box.two) && this.root === box.root
+    );
   }
 
+  /**
+   * @returns the dimensions of the box. Note that these dimensions are guaranteed to
+   * be positive. To get the signed dimensions, use the `signedDims` property.
+   */
+  get dims(): Dimensions {
+    return new Dimensions({ width: this.width, height: this.height });
+  }
+
+  /**
+   * @returns the dimensions of the box. Note that these dimensions may be negative.
+   * To get the unsigned dimensions, use the `dims` property.
+   */
   get signedDims(): SignedDimensions {
     return { signedWidth: this.signedWidth, signedHeight: this.signedHeight };
   }
 
-  get css(): CSSPosition {
+  /**
+   * @returns the css representation of the box.
+   */
+  get css(): CSSBox {
     return {
       top: this.top,
       left: this.left,
@@ -190,29 +200,43 @@ export class Box implements Stringer {
     };
   }
 
-  dim(dir: Direction, signed: boolean = false): number {
-    const dim: number = dir === "y" ? this.signedHeight : this.signedWidth;
+  dim(dir: LooseDirectionT, signed: boolean = false): number {
+    const dir_ = new Direction(dir);
+    const dim: number = dir_.valueOf() === "y" ? this.signedHeight : this.signedWidth;
     return signed ? dim : Math.abs(dim);
   }
 
+  /** @returns the pont corresponding to the given corner of the box. */
   corner(corner: Corner): XY {
     switch (corner) {
       case "topLeft":
-        return { x: this.left, y: this.top };
+        return new XY({ x: this.left, y: this.top });
       case "bottomRight":
-        return { x: this.right, y: this.bottom };
+        return new XY({ x: this.right, y: this.bottom });
       case "topRight":
-        return { x: this.right, y: this.top };
+        return new XY({ x: this.right, y: this.top });
       case "bottomLeft":
-        return { x: this.left, y: this.bottom };
+        return new XY({ x: this.left, y: this.bottom });
     }
   }
 
-  loc(loc: OuterLocation): number {
+  /**
+   * @returns a one dimensional coordinate corresponding to the location of the given
+   * side of the box i.e. the x coordinate of the left side, the y coordinate of the
+   * top side, etc.
+   */
+  loc(loc: CrudeLocation): number {
     const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
-    return X_LOCATIONS.includes(loc as XLocation)
+    return Location.X_LOCATIONS.includes(loc as CrudeXLocation)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
+  }
+
+  locPoint(loc: CrudeLocation): XY {
+    const l = this.loc(loc);
+    if (Location.X_LOCATIONS.includes(loc as CrudeXLocation))
+      return new XY({ x: l, y: this.center.y });
+    return new XY({ x: this.center.x, y: l });
   }
 
   get isZero(): boolean {
@@ -267,6 +291,13 @@ export class Box implements Stringer {
     return this.loc("top");
   }
 
+  get center(): XY {
+    return this.topLeft.translate({
+      x: this.signedWidth / 2,
+      y: this.signedHeight / 2,
+    });
+  }
+
   get x(): number {
     return this.root.toLowerCase().includes("left") ? this.left : this.right;
   }
@@ -275,14 +306,12 @@ export class Box implements Stringer {
     return this.root.toLowerCase().includes("top") ? this.top : this.bottom;
   }
 
-  get xBound(): Bound {
-    const [lower, upper] = [this.one.x, this.two.x].sort((a, b) => a - b);
-    return { lower, upper };
+  get xBounds(): Bounds {
+    return new Bounds(this.one.x, this.two.x);
   }
 
-  get yBound(): Bound {
-    const [lower, upper] = [this.one.y, this.two.y].sort((a, b) => a - b);
-    return { lower, upper };
+  get yBounds(): Bounds {
+    return new Bounds(this.one.y, this.two.y);
   }
 
   copy(root?: Corner): Box {
@@ -296,11 +325,18 @@ export class Box implements Stringer {
   reRoot(corner: Corner): Box {
     return this.copy(corner);
   }
-}
 
-export type BoxF = (box: Box) => void;
-export const ZERO_BOX: Box = new Box(ZERO_XY, ZERO_XY);
-export const DECIMAL_BOX = new Box(0, 0, 1, 1, "bottomLeft");
+  /** A box centered at (0,0) with a width and height of 0. */
+  static readonly ZERO = new Box(0, 0, 0, 0);
+
+  /**
+   * A box centered at (0,0) with a width and height of 1, and rooted in the
+   * bottom left. Note that pixel space is typically rooted in the top left.
+   */
+  static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
+
+  static readonly z = box.transform((b) => new Box(b));
+}
 
 /**
  * Reposition a box so that it is visible within a given bound.
@@ -320,11 +356,11 @@ export const positionSoVisible = (
   if (bound.contains(target)) return [target, false];
   let nextPos: XY;
   if (target.right > bound.width)
-    nextPos = {
+    nextPos = new XY({
       x: target.x - target.width,
       y: target.y,
-    };
-  else nextPos = { x: target.x, y: target.y - target.height };
+    });
+  else nextPos = new XY({ x: target.x, y: target.y - target.height });
   return [new Box(nextPos, target.dims), true];
 };
 

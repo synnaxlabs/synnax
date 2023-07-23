@@ -14,31 +14,27 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errutil"
 	kvx "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/signal"
+	"io"
 )
 
 type (
-	Transport    = transport.Transport
-	Cluster      = cluster.Cluster
-	Resolver     = cluster.Resolver
-	HostResolver = cluster.HostResolver
-	Node         = node.Node
-	NodeID       = node.ID
-	Address      = address.Address
-	NodeState    = node.State
-	ClusterState = cluster.State
+	Transport     = transport.Transport
+	Cluster       = cluster.Cluster
+	Resolver      = cluster.Resolver
+	HostResolver  = cluster.HostResolver
+	Node          = node.Node
+	NodeKey       = node.Key
+	NodeChange    = node.Change
+	Address       = address.Address
+	NodeState     = node.State
+	ClusterState  = cluster.State
+	ClusterChange = cluster.Change
 )
-
-type KV interface {
-	kv.DB
-	kvx.Closer
-}
 
 const (
 	Healthy = node.StateHealthy
@@ -47,23 +43,19 @@ const (
 	Suspect = node.StateSuspect
 )
 
-type DB interface {
-	Cluster
-	KV
+type DB struct {
+	Cluster Cluster
+	kvx.DB
+	transportCloser io.Closer
 }
 
-type db struct {
-	Cluster
-	kv.DB
-	options  *options
-	wg       signal.WaitGroup
-	shutdown context.CancelFunc
-}
-
-func (db *db) Close() error {
-	db.shutdown()
+// Close implements kvx.DB, shutting down the key-value store, cluster and transport.
+// Close is not safe to call concurrently with any other DB method. All DB methods
+// called after Close will panic.
+func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	c.Exec(db.wg.Wait)
-	c.Exec(db.options.kv.Engine.Close)
+	c.Exec(db.transportCloser.Close)
+	c.Exec(db.Cluster.Close)
+	c.Exec(db.DB.Close)
 	return lo.Ternary(errors.Is(c.Error(), context.Canceled), nil, c.Error())
 }

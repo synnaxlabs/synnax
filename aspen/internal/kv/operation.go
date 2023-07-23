@@ -10,18 +10,14 @@
 package kv
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/version"
-)
-
-type Variant uint32
-
-const (
-	Set Variant = iota
-	Delete
 )
 
 type gossipState byte
@@ -34,11 +30,9 @@ const (
 var ecd = &binary.GobEncoderDecoder{}
 
 type Operation struct {
-	Key         []byte
-	Value       []byte
-	Variant     Variant
+	kvx.Change
 	Version     version.Counter
-	Leaseholder node.ID
+	Leaseholder node.Key
 	state       gossipState
 }
 
@@ -51,55 +45,53 @@ func (o Operation) Digest() Digest {
 	}
 }
 
-func (o Operation) apply(b kvx.Writer) error {
-	if o.Variant == Delete {
-		return b.Delete(o.Key)
-	} else {
-		return b.Set(o.Key, o.Value)
+func (o Operation) apply(ctx context.Context, b kvx.Writer) error {
+	if o.Variant == change.Delete {
+		return b.Delete(ctx, o.Key)
 	}
+	return b.Set(ctx, o.Key, o.Value)
 }
 
 type Digest struct {
 	Key         []byte
+	Variant     change.Variant
 	Version     version.Counter
-	Leaseholder node.ID
-	Variant     Variant
+	Leaseholder node.Key
 }
 
-func (d Digest) apply(w kvx.Writer) error {
+func (d Digest) apply(ctx context.Context, w kvx.Writer) error {
 	key, err := digestKey(d.Key)
 	if err != nil {
 		return err
 	}
-	b, err := ecd.Encode(d)
+	b, err := ecd.Encode(ctx, d)
 	if err != nil {
 		return err
 	}
-	return w.Set(key, b)
+	return w.Set(ctx, key, b)
 }
 
 type Digests []Digest
 
-func (d Digests) toRequest() BatchRequest {
-	bd := BatchRequest{Operations: make([]Operation, len(d))}
+func (d Digests) toRequest(ctx context.Context) TxRequest {
+	txr := TxRequest{Context: ctx, Operations: make([]Operation, len(d))}
 	for i, d := range d {
-		bd.Operations[i] = d.Operation()
+		txr.Operations[i] = d.Operation()
 	}
-	return bd
+	return txr
 }
 
 type (
-	segment = confluence.Segment[BatchRequest, BatchRequest]
-	source  = confluence.Source[BatchRequest]
-	sink    = confluence.Sink[BatchRequest]
+	segment = confluence.Segment[TxRequest, TxRequest]
+	source  = confluence.Source[TxRequest]
+	sink    = confluence.Sink[TxRequest]
 )
 
 func (d Digest) Operation() Operation {
 	return Operation{
-		Key:         d.Key,
+		Change:      kvx.Change{Key: d.Key, Variant: d.Variant},
 		Version:     d.Version,
 		Leaseholder: d.Leaseholder,
-		Variant:     d.Variant,
 	}
 }
 

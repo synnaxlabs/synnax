@@ -9,12 +9,10 @@
 
 package channel
 
-import "C"
 import (
-	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -24,31 +22,29 @@ import (
 // service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
 // and retrieving channels.
 type service struct {
-	clusterDB *gorp.DB
-	proxy     *leaseProxy
+	*gorp.DB
+	proxy *leaseProxy
+	otg   *ontology.Ontology
 }
 
 type Service interface {
-	Reader
-	Writer
+	Readable
+	Writeable
 	ontology.Service
 }
 
-type Writer interface {
-	Create(channel *Channel) error
-	CreateMany(channels *[]Channel) error
-	CreateWithTxn(txn gorp.Txn, channel *Channel) error
-	CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error
+type Writeable interface {
+	NewWriter(tx gorp.Tx) Writer
 }
 
-type Reader interface {
+type Readable interface {
 	NewRetrieve() Retrieve
 }
 
 type ServiceConfig struct {
 	HostResolver core.HostResolver
 	ClusterDB    *gorp.DB
-	TSChannel    storage.TSChannelManager
+	TSChannel    *ts.DB
 	Transport    Transport
 	Ontology     *ontology.Ontology
 }
@@ -76,7 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 var DefaultConfig = ServiceConfig{}
 
 func New(configs ...ServiceConfig) (Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,27 +80,11 @@ func New(configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &service{clusterDB: cfg.ClusterDB, proxy: proxy}, nil
+	return &service{DB: cfg.ClusterDB, proxy: proxy, otg: cfg.Ontology}, nil
 }
 
-func (s *service) Create(channel *Channel) error { return s.CreateWithTxn(s.clusterDB, channel) }
-
-func (s *service) CreateMany(channels *[]Channel) error {
-	return s.CreateManyWithTxn(s.clusterDB, channels)
+func (s *service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) CreateWithTxn(txn gorp.Txn, ch *Channel) error {
-	channels := []Channel{*ch}
-	err := s.proxy.create(context.TODO(), txn, &channels)
-	if err != nil {
-		return err
-	}
-	*ch = channels[0]
-	return nil
-}
-
-func (s *service) CreateManyWithTxn(txn gorp.Txn, channels *[]Channel) error {
-	return s.proxy.create(context.TODO(), txn, channels)
-}
-
-func (s *service) NewRetrieve() Retrieve { return NewRetrieve(s.clusterDB) }
+func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }

@@ -9,24 +9,28 @@
 
 import {
   DataType,
-  Density,
   Rate,
   NativeTypedArray,
-  UnparsedDensity,
-  UnparsedTimeStamp,
+  CrudeDensity,
+  Series,
+  TimeRange,
+  AsyncTermSearcher,
   toArray,
+  CrudeTimeSpan,
 } from "@synnaxlabs/x";
 
-import { ChannelCreator } from "./creator";
-import { ChannelPayload, channelPayloadSchema, UnparsedChannel } from "./payload";
+import { ChannelCreator } from "@/channel/creator";
 import {
-  CacheChannelRetriever,
-  ChannelRetriever,
-  ClusterChannelRetriever,
-} from "./retriever";
-
+  ChannelKey,
+  ChannelKeyOrName,
+  ChannelParams,
+  ChannelPayload,
+  channelPayload,
+  NewChannelPayload,
+} from "@/channel/payload";
+import { analyzeChannelParams, ChannelRetriever } from "@/channel/retriever";
+import { QueryError } from "@/errors";
 import { FrameClient } from "@/framer";
-import { Transport } from "@/transport";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -34,62 +38,54 @@ import { Transport } from "@/transport";
  */
 export class Channel {
   private readonly _frameClient: FrameClient | null;
-  payload: ChannelPayload;
+  key: ChannelKey;
+  name: string;
+  rate: Rate;
+  dataType: DataType;
+  leaseholder: number;
+  index: ChannelKey;
+  isIndex: boolean;
 
   constructor({
     dataType,
     rate,
-    name = "",
-    nodeId = 0,
-    key = "",
+    name,
+    leaseholder = 0,
+    key = 0,
     density = 0,
     isIndex = false,
-    index = "",
-    segmentClient,
-  }: UnparsedChannel & {
-    segmentClient?: FrameClient;
-    density?: UnparsedDensity;
+    index = 0,
+    frameClient,
+  }: NewChannelPayload & {
+    frameClient?: FrameClient;
+    density?: CrudeDensity;
   }) {
-    this.payload = channelPayloadSchema.parse({
-      dataType: new DataType(dataType).valueOf(),
-      rate: new Rate(rate ?? 0).valueOf(),
-      name,
-      nodeId,
-      key,
-      density: new Density(density).valueOf(),
-      isIndex,
-      index,
-    });
-    this._frameClient = segmentClient ?? null;
+    this.key = key;
+    this.name = name;
+    this.rate = new Rate(rate ?? 0);
+    this.dataType = new DataType(dataType);
+    this.leaseholder = leaseholder;
+    this.index = index;
+    this.isIndex = isIndex;
+    this._frameClient = frameClient ?? null;
   }
 
-  private get segmentClient(): FrameClient {
+  private get framer(): FrameClient {
     if (this._frameClient == null)
       throw new Error("cannot read from a channel that has not been created");
     return this._frameClient;
   }
 
-  get key(): string {
-    if (this.payload.key == null) throw new Error("channel key is not set");
-    return this.payload.key;
-  }
-
-  get name(): string {
-    if (this.payload.name == null) throw new Error("channel name is not set");
-    return this.payload.name;
-  }
-
-  get nodeId(): number {
-    if (this.payload.nodeId === undefined) throw new Error("chanel nodeId is not set");
-    return this.payload.nodeId;
-  }
-
-  get rate(): Rate {
-    return this.payload.rate;
-  }
-
-  get dataType(): DataType {
-    return this.payload.dataType;
+  get payload(): ChannelPayload {
+    return channelPayload.parse({
+      key: this.key,
+      name: this.name,
+      rate: this.rate.valueOf(),
+      dataType: this.dataType.valueOf(),
+      leaseholder: this.leaseholder,
+      index: this.index,
+      isIndex: this.isIndex,
+    });
   }
 
   /**
@@ -99,11 +95,8 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(
-    start: UnparsedTimeStamp,
-    end: UnparsedTimeStamp
-  ): Promise<NativeTypedArray | undefined> {
-    return await this.segmentClient.read(this.key, start, end);
+  async read(tr: TimeRange): Promise<Series | undefined> {
+    return await this.framer.read(tr, this.key);
   }
 
   /**
@@ -112,8 +105,8 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: UnparsedTimeStamp, data: NativeTypedArray): Promise<void> {
-    return await this.segmentClient.write(this.key, start, data);
+  async write(start: CrudeTimeSpan, data: NativeTypedArray): Promise<void> {
+    return await this.framer.write(this.key, start, data);
   }
 }
 
@@ -121,22 +114,24 @@ export class Channel {
  * The core client class for executing channel operations against a Synnax
  * cluster.
  */
-export class ChannelClient {
-  private readonly segmentClient: FrameClient;
+export class ChannelClient implements AsyncTermSearcher<string, ChannelKey, Channel> {
+  private readonly frameClient: FrameClient;
   private readonly retriever: ChannelRetriever;
   private readonly creator: ChannelCreator;
 
-  constructor(segmentClient: FrameClient, transport: Transport) {
-    this.segmentClient = segmentClient;
-    this.retriever = new CacheChannelRetriever(new ClusterChannelRetriever(transport));
-    this.creator = new ChannelCreator(transport);
+  constructor(
+    segmentClient: FrameClient,
+    retriever: ChannelRetriever,
+    creator: ChannelCreator
+  ) {
+    this.frameClient = segmentClient;
+    this.retriever = retriever;
+    this.creator = creator;
   }
 
-  async create(channel: UnparsedChannel): Promise<Channel>;
+  async create(channel: NewChannelPayload): Promise<Channel>;
 
-  async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
-  ): Promise<Channel[]>;
+  async create(channels: NewChannelPayload[]): Promise<Channel[]>;
 
   /**
    * Creates a new channel with the given properties.
@@ -144,21 +139,21 @@ export class ChannelClient {
    * @param props.rate - The rate of the channel.
    * @param props.dataType - The data type of the channel.
    * @param props.name - The name of the channel. Optional.
-   * @param props.nodeId - The ID of the node that holds the lease on the
+   * @param props.nodeKey - The ID of the node that holds the lease on the
    *   channel. If you don't know what this is, don't worry about it.
    * @returns The created channel.
    */
   async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
+    channels: NewChannelPayload | NewChannelPayload[]
   ): Promise<Channel | Channel[]> {
-    const single = channels.length === 1 && !Array.isArray(channels[0]);
-    const res = this.sugar(await this.creator.create(...channels));
+    const single = !Array.isArray(channels);
+    const res = this.sugar(await this.creator.create(toArray(channels)));
     return single ? res[0] : res;
   }
 
-  async retrieve(keyOrName: string): Promise<Channel>;
+  async retrieve(channel: ChannelKeyOrName): Promise<Channel>;
 
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<Channel[]>;
+  async retrieve(channels: ChannelParams): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -168,20 +163,23 @@ export class ChannelClient {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(
-    ...keysOrNames: Array<string | string[]>
-  ): Promise<Channel | Channel[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const res = this.sugar(await this.retriever.retrieve(...keysOrNames));
-    return single ? res[0] : res;
+  async retrieve(channels: ChannelParams): Promise<Channel | Channel[]> {
+    const { single, actual, normalized } = analyzeChannelParams(channels);
+    if (normalized.length === 0) return [];
+    const res = this.sugar(await this.retriever.retrieve(channels));
+    if (!single) return res;
+    if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
+    if (res.length > 1)
+      throw new QueryError(`multiple channels matching ${actual} found`);
+    return res[0];
   }
 
-  async retrieveAll(): Promise<Channel[]> {
-    return this.sugar(await this.retriever.retrieveAll());
+  async search(term: string): Promise<Channel[]> {
+    return this.sugar(await this.retriever.search(term));
   }
 
-  private sugar(payloads: ChannelPayload | ChannelPayload[]): Channel[] {
-    const { segmentClient } = this;
-    return toArray(payloads).map((p) => new Channel({ ...p, segmentClient }));
+  private sugar(payloads: ChannelPayload[]): Channel[] {
+    const { frameClient } = this;
+    return payloads.map((p) => new Channel({ ...p, frameClient }));
   }
 }

@@ -7,32 +7,43 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload, Literal
+
+from typing import overload
+
 from numpy import ndarray
 from pydantic import PrivateAttr
-
-from synnax.exceptions import ValidationError, QueryError
-from synnax.framer import FrameClient
+from synnax.exceptions import ValidationError
+from synnax.channel.create import ChannelCreator
+from synnax.channel.payload import (
+    normalize_channel_params,
+    ChannelPayload,
+    ChannelParams,
+    ChannelKey,
+    ChannelName,
+    ChannelKeys,
+    ChannelNames,
+)
+from synnax.channel.retrieve import ChannelRetriever
+from synnax.exceptions import QueryError
+from synnax.framer.client import FrameClient
 from synnax.telem import (
     Rate,
-    Density,
-    TimeRange,
-    UnparsedDataType,
-    UnparsedDensity,
-    UnparsedRate,
-    UnparsedTimeStamp,
+    CrudeDataType,
+    CrudeRate,
     DataType,
+    TimeRange,
+    Series,
+    CrudeTimeStamp,
 )
-
-from synnax.channel.create import ChannelCreator
-from synnax.channel.payload import ChannelPayload
-from synnax.channel.retrieve import ChannelRetriever
 
 
 class Channel(ChannelPayload):
-    """Represents a Channel in a Synnax database."""
+    """A channel is a logical collection of samples emitted by or representing the
+    values of a single source. See https://docs.synnaxlabs.com/concepts/channels for an
+    introduction to channels and how they work.
+    """
 
-    __frame_client: FrameClient | None = PrivateAttr(None)
+    ___frame_client: FrameClient | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -40,75 +51,94 @@ class Channel(ChannelPayload):
     def __init__(
         self,
         *,
-        name: str = "",
-        data_type: UnparsedDataType,
-        rate: UnparsedRate = 0,
+        name: str,
+        data_type: CrudeDataType,
+        rate: CrudeRate = 0,
         is_index: bool = False,
-        index: str = "",
-        node_id: int = 0,
-        key: str = "",
+        index: ChannelKey = 0,
+        leaseholder: int = 0,
+        key: ChannelKey = 0,
         _frame_client: FrameClient | None = None,
     ):
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
-        call .channels.create().
+        call client.channels.create(channel).
 
-        :param data_type: The data type of the samples in the channel e.g np.int64
-        :param rate: Rate sets the rate at which the channels values are written. If this
-        parameter is non-zero, is_index must be false and index must be an empty string or
-        unspecified.
-        :param name: A human readable name for the channel.
-        :param key: Is auto-assigned by the cluster, and should not be set by the caller.
-        :param is_index: Boolean indicating whether or not the channel is an index. Index
+        :param data_type: The data type of the samples in the channel e.g. np.int64
+        :param rate: Rate sets the rate at which the channels values are written. If
+        this parameter is non-zero, is_index must be false and index must be an empty
+        string or unspecified.
+        :param name: A human-readable name for the channel.
+        :param key: Is auto-assigned by the cluster, and should not be set by the
+        caller.
+        :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_id: The node that holds the lease for this channel. If you don't know
-        what this is, leave it at the default value of 0.
+        :param leaseholder: The node that holds the lease for this channel. If you
+        don't know what this is, leave it at the default value of 0.
         :param _frame_client: The backing client for reading and writing data to and
-        from the channel. This is provided by the Synnax client during calls to
+        from the channel. This is provided by the Synnax py during calls to
         .channels.create() and .channels.retrieve() and should not be set by the caller.
         """
         super().__init__(
             data_type=DataType(data_type),
             rate=Rate(rate),
             name=name,
-            node_id=node_id,
+            leaseholder=leaseholder,
             key=key,
             is_index=is_index,
             index=index,
         )
-        self.__frame_client = _frame_client
+        self.___frame_client = _frame_client
+
+    @overload
+    def read(
+        self,
+        start_or_range: TimeRange,
+    ) -> Series:
+        ...
+
+    @overload
+    def read(
+        self,
+        start_or_range: CrudeTimeStamp,
+        end: CrudeTimeStamp,
+    ) -> Series:
+        ...
 
     def read(
-        self, start: UnparsedTimeStamp, end: UnparsedTimeStamp = None
-    ) -> tuple[ndarray, TimeRange]:
+        self,
+        start_or_range: CrudeTimeStamp | TimeRange,
+        end: CrudeTimeStamp | None = None,
+    ) -> Series:
         """Reads telemetry from the channel between the two timestamps.
 
-        :param start: The starting timestamp of the range to read from.
+        :param start_or_range: The starting timestamp of the range to read from.
         :param end: The ending timestamp of the range to read from.
         :returns: A tuple containing a numpy array of the telemetry and a TimeRange
         representing the range of telemetry. The start of the time range represents
         the timestamp of the first sample in the array.
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
-        return self._frame_client.read(start, end, self.key)
+        tr = TimeRange(start_or_range, end)
+        return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: UnparsedTimeStamp, data: ndarray):
+    def write(self, start: CrudeTimeStamp, data: ndarray | Series):
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._frame_client.write(start, data, self.key)
+        self.__frame_client.write(start, data, self.key)
 
     @property
-    def _frame_client(self) -> FrameClient:
-        if self.__frame_client is None:
+    def __frame_client(self) -> FrameClient:
+        if self.___frame_client is None:
             raise ValidationError(
-                "Cannot read from a channel that has not been created."
+                "Cannot read from or write to channel that has not been created."
             )
-        return self.__frame_client
+        return self.___frame_client
 
     def __hash__(self):
         return hash(self.key)
@@ -122,12 +152,12 @@ class Channel(ChannelPayload):
             base += f" @ {self.rate}Hz"
         return base
 
-    def _payload(self) -> ChannelPayload:
+    def to_payload(self) -> ChannelPayload:
         return ChannelPayload(
             data_type=self.data_type,
             rate=self.rate,
             name=self.name,
-            node_id=self.node_id,
+            leaseholder=self.leaseholder,
             key=self.key,
             index=self.index,
             is_index=self.is_index,
@@ -135,7 +165,7 @@ class Channel(ChannelPayload):
 
 
 class ChannelClient:
-    """The core client class for executing channel operations against a Synnax cluster."""
+    """The core py class for executing channel operations against a Synnax cluster."""
 
     _frame_client: FrameClient
     _retriever: ChannelRetriever
@@ -154,14 +184,13 @@ class ChannelClient:
     @overload
     def create(
         self,
-        channels: None = None,
         *,
-        data_type: UnparsedDataType = DataType.UNKNOWN,
-        name: str = "",
-        rate: UnparsedRate = Rate(0),
-        index: str = "",
+        data_type: CrudeDataType = DataType.UNKNOWN,
+        name: ChannelName = "",
+        rate: CrudeRate = Rate(0),
+        index: ChannelKey = 0,
         is_index: bool = False,
-        node_id: int = 0,
+        leaseholder: int = 0,
     ) -> Channel:
         ...
 
@@ -177,12 +206,12 @@ class ChannelClient:
         self,
         channels: Channel | list[Channel] | None = None,
         *,
-        data_type: UnparsedDataType = DataType.UNKNOWN,
-        name: str = "",
-        rate: UnparsedRate = Rate(0),
+        data_type: CrudeDataType = DataType.UNKNOWN,
+        name: ChannelName = "",
+        rate: CrudeRate = Rate(0),
         is_index: bool = False,
-        index: str = "",
-        node_id: int = 0,
+        index: ChannelKey = 0,
+        leaseholder: int = 0,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments
         are as follows:
@@ -192,11 +221,11 @@ class ChannelClient:
         :param rate: Rate sets the rate at which the channels values are written. If this
         parameter is non-zero, is_index must be false and index must be an empty string or
         unspecified.
-        :param name: A human readable name for the channel.
-        :param is_index: Boolean indicating whether or not the channel is an index. Index
+        :param name: A human-readable name for the channel.
+        :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
         :param index: The key or channel that indexes this channel.
-        :param node_id: The node that holds the lease for this channel. If you don't know
+        :param leaseholder: The node that holds the lease for this channel. If you don't know
         what this is, leave it at the default value of 0.
         :returns: The created channel.
 
@@ -215,7 +244,7 @@ class ChannelClient:
             _channels = [
                 ChannelPayload(
                     name=name,
-                    node_id=node_id,
+                    leaseholder=leaseholder,
                     rate=Rate(rate),
                     data_type=DataType(data_type),
                     index=index,
@@ -223,43 +252,24 @@ class ChannelClient:
                 )
             ]
         elif isinstance(channels, Channel):
-            _channels = [channels._payload()]
+            _channels = [channels.to_payload()]
         else:
-            _channels = [c._payload() for c in channels]
-        created = self._sugar(self._creator.create(_channels))
+            _channels = [c.to_payload() for c in channels]
+        created = self.__sugar(self._creator.create(_channels))
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, key_or_name: str) -> Channel:
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
         ...
 
     @overload
     def retrieve(
         self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_id: int | None = None,
-        include_not_found: Literal[False] = False,
+        channel: ChannelKeys | ChannelNames,
     ) -> list[Channel]:
         ...
 
-    @overload
-    def retrieve(
-        self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_id: int | None = None,
-        include_not_found: Literal[True] = True,
-    ) -> tuple[list[Channel], list[str]]:
-        ...
-
-    def retrieve(
-        self,
-        key_or_name: str | list[str],
-        *keys_or_names: str | list[str],
-        node_id: int | None = None,
-        include_not_found: bool = False,
-    ) -> Channel | list[Channel] | tuple[list[Channel], list[str]]:
+    def retrieve(self, params: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -278,7 +288,7 @@ class ChannelClient:
         :param names: The names of the channels to retrieve. If keys are specified, this is
         ignored.
         Only one of keys or names may be specified.
-        :param node_id: The node that holds the lease for the channels to retrieve. If you
+        :param leaseholder: The node that holds the lease for the channels to retrieve. If you
         don't know what this is, don't specify it.
         :param include_not_found: Boolean indicating whether or not to include the keys or
         names of the channels that were not found in the result.
@@ -286,19 +296,17 @@ class ChannelClient:
         containing the retrieved channels and the keys or names of the channels that were
         not found.
         """
-        res = self._retriever.retrieve(
-            key_or_name,
-            *keys_or_names,
-            node_id=node_id,
-            include_not_found=include_not_found,
-        )
-        if res is None:
-            raise QueryError(f"Channel matching key or name {key_or_name} not found.")
-        if isinstance(res, ChannelPayload):
-            return self._sugar([res])[0]
-        if isinstance(res, tuple):
-            return self._sugar(res[0]), res[1]
-        return self._sugar(res)
+        normal = normalize_channel_params(params)
+        res = self._retriever.retrieve(params)
+        sug = self.__sugar(res)
+        if not normal.single:
+            return sug
 
-    def _sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
+        if len(res) == 0:
+            raise QueryError(f"Channel matching {params} not found.")
+        elif len(res) > 1:
+            raise QueryError(f"Multiple channels matching {params} found.")
+        return sug[0]
+
+    def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), _frame_client=self._frame_client) for c in channels]

@@ -37,7 +37,7 @@ def connect_client(ctx: Context) -> Synnax | None:
     no configuration file exists.
 
     :param ctx: The context of the current flow.
-    :return: The connected Synnax client, or None if the connection failed.
+    :return: The connected Synnax py, or None if the connection failed.
     """
     opts = load_options()
     if opts is None:
@@ -53,7 +53,7 @@ def connect_from_options(ctx: Context, opts: SynnaxOptions) -> Synnax | None:
 
     :param ctx: The context of the current flow.
     :param opts: The options to connect to a Synnax server.
-    :return: The connected Synnax client, or None if the connection failed.
+    :return: The connected Synnax py, or None if the connection failed.
     """
     try:
         client = Synnax(**opts.dict())

@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/cache";
 export * from "@/channel";
-export { default as Synnax, synnaxPropsSchema } from "@/client";
+export { default as Synnax, synnaxPropsZ } from "@/client";
 export type { SynnaxProps } from "@/client";
 export * from "@/connectivity";
 export {
@@ -22,7 +21,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-export { Frame } from "@/framer";
+export * from "@/framer";
 export { OntologyID, OntologyRoot } from "@/ontology";
 export type {
   OntologyResource,
@@ -34,19 +33,19 @@ export {
   DataType,
   Density,
   Rate,
-  LazyArray,
+  Series,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 export type {
   NativeTypedArray,
-  UnparsedDataType,
-  UnparsedDensity,
-  UnparsedRate,
-  UnparsedSize,
-  UnparsedTimeSpan,
-  UnparsedTimeStamp,
+  CrudeDataType,
+  CrudeDensity,
+  CrudeRate,
+  CrudeSize,
+  CrudeTimeSpan,
+  CrudeTimeStamp,
   SampleValue,
   TimeStampStringFormat,
   TZInfo,

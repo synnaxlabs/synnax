@@ -22,20 +22,20 @@
 // This is not to say that the functionality of a Segment cannot extend beyond a
 // simple transformation.
 //
-// For example, a Segment can route values from a set of inputs (called Outlet(s)) to
-// a set of outputs (called Inlet(s)). The input-Outlet, outlet-Inlet naming convention
+// For example, a Segment can route values from a set of inputs (called Outlets) to
+// a set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
 // might seem strange at first, but the general idea is that an Outlet is the end of a
 // stream that emits values (i.e. <-chan Value) and an Inlet is a stream that receives
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of Frame can also be composed into a pipeline using the plumber
+// Collections of segments also be composed into a pipeline using the plumber
 // package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
-// connected to other Segment(s). This allows for a flexible and powerful
+// connected to other Segments. This allows for a flexible and powerful
 // composition capabilities.
 //
 // The confluence package provides a number of built-in Frame that can be used
-// by themselves or embedded into custom Segment(s) that provide functionality specific
+// by themselves or embedded into custom Segment(sink) that provide functionality specific
 // to your use case.
 //
 // A Segment is a composition of three interfaces:
@@ -45,41 +45,39 @@
 //     used to stop operations and clear process resources.
 //
 //  2. Source - A Source is the part of the Segment that can send values to output
-//     streams (Inlet(s)). Inlets(s) are bound to the Sink (and therefore Segment)
+//     streams (Inlet(sink)). Inlets(sink) are bound to the Sink (and therefore Segment)
 //     by calling the ApplySink.OutTo(inlets ...Inlet[ValueType]) method.
 //
 //  3. Sink - A Sink is the part of the Segment that can receive values.
-//     Input streams (Outlet(s)). Outlet(s) are bound to the Sink (and therefore Segment)
+//     Input streams (Outlet(sink)). Outlet(sink) are bound to the Sink (and therefore Segment)
 //     by calling the Sink.InFrom(outlets ...Outlet[ValueType]) method.
 //
 // All of this flexibility comes at the cost of needing to follow a few important rules
 // and principles when writing programs based on confluence:
 //
-//  1. All input streams (Outlet(s)) must be bound to a Segment by using
+//  1. All input streams (Outlets) must be bound to a Segment by using
 //     the InFrom() method.
 //
-//  2. All output streams (Inlet(s)) must be bound to a Segment by using
+//  2. All output streams (Inlets) must be bound to a Segment by using
 //     the OutTo() method.
 //
 //  3. The only way to start a Segment is by calling the Flow.Flow method. A single
 //     instance of a Segment (if passed as a pointer) should generally only be running
-//     once at a time. This is not to say that Segment(s) shouldn't be restarted. This
+//     once at a time. This is not to say that Segments shouldn't be restarted. This
 //     rule is more of a guideline, and can be broken when you know what you're doing.
-//     If you're worried about this happening, check out the Gate, GateSource,
-//     and GateSink functions; these implement locks that prevent the segment from
-//     being started while already running).
 //
 // Related packages:
 //
-//  1. freightfluence - implements transport for writing Segment(s) that
+//  1. freightfluence - implements transport for writing Segment(sink) that
 //     interact with a network freighter.
 //
-//  2. plumber - components for connecting Segment(s) together and routing
+//  2. plumber - components for connecting Segment(sink) together and routing
 //     streams between them.
 package confluence
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -87,8 +85,8 @@ import (
 // Value represents an item that can be sent through a Stream.
 type Value = any
 
-// Segment is a type that reads a value from a set of Inlet(s), performs some operation,
-// transformation, etc.and writes a value to a set of Outlet(s). The user of a Segment
+// Segment is a type that reads a value from a set of Inlet(sink), performs some operation,
+// transformation, etc.and writes a value to a set of Outlet(sink). The user of a Segment
 // should be unaware of what occurs internally, and should only pass values through the
 // Inlet and Outlet interfaces.
 type Segment[I, O Value] interface {
@@ -106,7 +104,7 @@ type Flow interface {
 	Flow(ctx signal.Context, opts ...Option)
 }
 
-// Sink is an interface that accepts values from a set of Outlet(s). The user of a Sink
+// Sink is an interface that accepts values from a set of Outlet(sink). The user of a Sink
 // should be unaware of what occurs internally, and should only pass values through
 // the Outlet interfaces.
 type Sink[O Value] interface {
@@ -114,30 +112,19 @@ type Sink[O Value] interface {
 	Flow
 }
 
-// Source is an interface that sends values to a set of Inlet(s). The user of a Source
+// Source is an interface that sends values to a set of Inlet(sink). The user of a Source
 // should be unaware of what occurs internally, and should only pass values through // the Inlet interfaces.
 type Source[I Value] interface {
 	OutTo(inlets ...Inlet[I])
 	Flow
 }
 
-// TransformFunc is a template for a function  that transforms a value from one type to
+// TransformFunc is a function that transforms a value from one type to
 // another. A TransformFunc can perform IO, Network InfectedBatch, Aggregations, or any other
 // type of operation.
-type TransformFunc[I, O Value] struct {
-	//	Transform is the function that performs the transformation. The user of the LinearTransform
-	//	should define this function before Flow is called.
-	Transform func(ctx context.Context, i I) (o O, ok bool, err error)
-}
+type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, ok bool, err error)
 
-// Stream represents a streamImpl of values. Each streamImpl has an addressable Outlet
-// and an addressable Inlet. These addresses are best represented as unique locations where values
-// are received from (Inlet) and sent to (Outlet). It is also generally OK to share a streamImpl across multiple
-// Frame, as long as those segments perform are replicates of one another.
-type Stream[V Value] interface {
-	Inlet[V]
-	Outlet[V]
-}
+type GeneratorTransformFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, ok bool, err error)
 
 // Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
@@ -167,8 +154,14 @@ type Outlet[V Value] interface {
 	SetOutletAddress(address.Address)
 }
 
-// EmptyFlow is a Flow that does nothing.
-type EmptyFlow struct{}
+// NopFlow implements Flow and does nothing.
+type NopFlow struct{}
 
-// Flow implements the Flow interface.
-func (ef EmptyFlow) Flow(ctx signal.Context, opts ...Option) {}
+// Flow implements Flow.
+func (NopFlow) Flow(signal.Context, ...Option) {}
+
+// Drain drains the provided Outlet.
+func Drain[V Value](out Outlet[V]) {
+	for range out.Outlet() {
+	}
+}

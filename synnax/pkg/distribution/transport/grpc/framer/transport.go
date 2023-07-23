@@ -11,9 +11,12 @@ package framer
 
 import (
 	"context"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/framer/v1"
 	"google.golang.org/grpc"
@@ -44,6 +47,18 @@ type (
 		iterator.Response,
 		*framerv1.IteratorResponse,
 	]
+	relayClient = fgrpc.StreamClientCore[
+		relay.Request,
+		*framerv1.RelayRequest,
+		relay.Response,
+		*framerv1.RelayResponse,
+	]
+	relayServerCore = fgrpc.StreamServerCore[
+		relay.Request,
+		*framerv1.RelayRequest,
+		relay.Response,
+		*framerv1.RelayResponse,
+	]
 )
 
 var (
@@ -55,11 +70,14 @@ var (
 	_ iterator.TransportClient       = (*iteratorClient)(nil)
 	_ framer.Transport               = Transport{}
 	_ fgrpc.BindableTransport        = Transport{}
+	_ relay.TransportServer          = (*relayServer)(nil)
+	_ relay.TransportClient          = (*relayClient)(nil)
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
 func New(pool *fgrpc.Pool) Transport {
 	return Transport{
+		ReportProvider: fgrpc.Reporter,
 		writer: writerTransport{
 			client: &writerClient{
 				Pool:               pool,
@@ -96,6 +114,24 @@ func New(pool *fgrpc.Pool) Transport {
 				},
 			},
 		},
+		relay: relayTransport{
+			server: &relayServer{relayServerCore: relayServerCore{
+				RequestTranslator:  relayRequestTranslator{},
+				ResponseTranslator: relayResponseTranslator{},
+				ServiceDesc:        &framerv1.RelayService_ServiceDesc,
+			}},
+			client: &relayClient{
+				Pool:               pool,
+				RequestTranslator:  relayRequestTranslator{},
+				ResponseTranslator: relayResponseTranslator{},
+				ClientFunc: func(
+					ctx context.Context,
+					conn grpc.ClientConnInterface,
+				) (fgrpc.GRPCClientStream[*framerv1.RelayRequest, *framerv1.RelayResponse], error) {
+					return framerv1.NewRelayServiceClient(conn).Relay(ctx)
+				},
+			},
+		},
 	}
 }
 
@@ -113,8 +149,10 @@ func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) 
 
 // Transport is a grpc backed implementation of the framer.Transport interface.
 type Transport struct {
+	alamos.ReportProvider
 	writer   writerTransport
 	iterator iteratorTransport
+	relay    relayTransport
 }
 
 // Writer implements the framer.Transport interface.
@@ -123,10 +161,18 @@ func (t Transport) Writer() writer.Transport { return t.writer }
 // Iterator implements the framer.Transport interface.
 func (t Transport) Iterator() iterator.Transport { return t.iterator }
 
+// Relay implements the framer.Transport interface.
+func (t Transport) Relay() relay.Transport { return t.relay }
+
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
 	framerv1.RegisterWriterServiceServer(server, t.writer.server)
 	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)
+}
+
+func (t Transport) Use(middleware ...freighter.Middleware) {
+	t.writer.client.Use(middleware...)
+	t.iterator.client.Use(middleware...)
 }
 
 type writerTransport struct {
@@ -150,3 +196,20 @@ func (t iteratorTransport) Client() iterator.TransportClient { return t.client }
 
 // Server implements the iterator.Transport interface.
 func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
+
+type relayServer struct{ relayServerCore }
+
+func (t *relayServer) Relay(server framerv1.RelayService_RelayServer) error {
+	return t.Handler(server.Context(), t.Server(server))
+}
+
+type relayTransport struct {
+	client *relayClient
+	server *relayServer
+}
+
+// Client implements the framer.Transport interface.
+func (t relayTransport) Client() relay.TransportClient { return t.client }
+
+// Server implements the framer.Transport interface.
+func (t relayTransport) Server() relay.TransportServer { return t.server }

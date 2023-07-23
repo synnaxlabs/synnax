@@ -75,8 +75,8 @@ func (p *secureProvider) TLS() *tls.Config {
 		ClientAuth:           tls.NoClientCert,
 		ClientCAs:            p.certPool,
 		GetClientCertificate: p.getClientCert,
-		//CipherSuites:         defaultCipherSuites,
-		//MinVersion:           tls.VersionTLS10,
+		CipherSuites:         defaultCipherSuites,
+		MinVersion:           tls.VersionTLS10,
 	}
 }
 

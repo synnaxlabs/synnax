@@ -9,7 +9,9 @@
 
 package kv
 
-import "github.com/synnaxlabs/x/binary"
+import (
+	"github.com/synnaxlabs/x/binary"
+)
 
 type IteratorOptions struct {
 	LowerBound []byte
@@ -59,6 +61,18 @@ type Iterator interface {
 	Close() error
 }
 
+// IterPrefix returns IteratorOptions, that when passed to writer.NewStreamIterator, will
+// return an Iterator that only iterates over keys with the given prefix.
+func IterPrefix(prefix []byte) IteratorOptions {
+	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
+}
+
+// IterRange returns IteratorOptions, that when passed to writer.NewStreamIterator, will
+// iterator through the range of keys between start and end.
+func IterRange(start, end []byte) IteratorOptions {
+	return IteratorOptions{LowerBound: start, UpperBound: end}
+}
+
 func prefixUpperBound(lower []byte) []byte {
 	upper := binary.MakeCopy(lower)
 	for i := len(upper) - 1; i >= 0; i-- {
@@ -68,16 +82,4 @@ func prefixUpperBound(lower []byte) []byte {
 		}
 	}
 	return nil
-}
-
-// PrefixIter returns IteratorOptions, that when passed to db.NewStreamIterator, will
-// return an Iterator that only iterates over keys with the given prefix.
-func PrefixIter(prefix []byte) IteratorOptions {
-	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
-}
-
-// RangeIter returns IteratorOptions, that when passed to db.NewStreamIterator, will
-// iterator through the range of keys between start and end.
-func RangeIter(start, end []byte) IteratorOptions {
-	return IteratorOptions{LowerBound: start, UpperBound: end}
 }

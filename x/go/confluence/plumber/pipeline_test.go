@@ -51,7 +51,7 @@ var _ = Describe("Pipeline", func() {
 
 	})
 
-	Describe("Shutdown Chain", func() {
+	Describe("NewShutdown Chain", func() {
 
 		It("Should shutdown the pipe as segments close their inlets", func() {
 			t1 := &confluence.LinearTransform[int, int]{}
@@ -80,7 +80,7 @@ var _ = Describe("Pipeline", func() {
 			seg.InFrom(input)
 			seg.OutTo(output)
 
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			seg.Flow(ctx)
 
@@ -186,7 +186,7 @@ var _ = Describe("Pipeline", func() {
 			SetSink[int](pipe, "odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
-			sw.ApplySwitch = func(ctx context.Context, v int) (address.Address, bool, error) {
+			sw.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
 				if v%2 == 0 {
 					return "even", true, nil
 				}
@@ -212,7 +212,7 @@ var _ = Describe("Pipeline", func() {
 				Stitch:        StitchWeave,
 			}.MustRoute(pipe)
 
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			pipe.Flow(ctx, confluence.CloseInletsOnExit())
 

@@ -9,7 +9,7 @@
 
 from typing import Protocol, Type
 
-from .transport import RQ, RS, Transport, AsyncTransport
+from freighter.transport import RQ, RS, Transport, AsyncTransport
 
 
 class UnaryClient(Transport, Protocol):
@@ -22,7 +22,7 @@ class UnaryClient(Transport, Protocol):
         target: str,
         req: RQ,
         res_t: Type[RS],
-    ) -> tuple[RS | None, Exception | None]:
+    ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Sends a request to the target server and waits until a response is
         returned.
@@ -38,8 +38,8 @@ class UnaryClient(Transport, Protocol):
 
 
 class AsyncUnaryClient(AsyncTransport, Protocol):
-    """Protocol for an entity that implements a simple asynchronous request-response transport
-    between two entities.
+    """Protocol for an entity that implements a simple asynchronous request-response
+    transport between two entities.
     """
 
     async def send(
@@ -47,7 +47,7 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
         target: str,
         req: RQ,
         res_t: Type[RS],
-    ) -> tuple[RS | None, Exception | None]:
+    ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Sends a request to the target server and waits until a response is
         returned.

@@ -18,13 +18,13 @@ import (
 // that a particular resource is a member of another resource. When defining relationship
 // types, use the synnax [Relationship.From] is the [Relationship.Type] of [Relationship.To]
 // pattern. For example, if a relationship of type "member" indicates that a particular
-// the variable should be named MemberOf (i.e. From is a MemberOf To).
+// the variable should be named MemberOf (i.e. Start is a MemberOf To).
 type RelationshipType string
 
 const (
 	// ParentOf indicates that a resource is the parent of another resource. When
-	// examining a Relationship of type ParentOf, the From field will be the parent
-	// and the to field will be the child i.e. (From is the ParentOf To).
+	// examining a Relationship of type ParentOf, the Start field will be the parent
+	// and the to field will be the child i.e. (Start is the ParentOf To).
 	ParentOf RelationshipType = "parent"
 )
 

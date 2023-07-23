@@ -19,15 +19,14 @@ export {
   decodeError,
   encodeError,
   EOF,
-  ErrorPayloadSchema,
+  errorZ,
   registerError,
   StreamClosed,
   Unreachable,
 } from "@/errors";
-export type { ErrorPayload, TypedError } from "@/errors";
-export { HTTPClientFactory } from "@/http";
-export type { MetaData, Middleware, Next } from "@/middleware";
+export type { ErrorZ as ErrorPayload, TypedError } from "@/errors";
+export { HTTPClient } from "@/http";
+export type { Context as MetaData, Middleware, Next } from "@/middleware";
 export type { Stream, StreamClient } from "@/stream";
 export type { UnaryClient } from "@/unary";
-export { logMiddleware } from "@/util/log";
 export { WebSocketClient } from "@/websocket";

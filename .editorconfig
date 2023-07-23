@@ -30,10 +30,11 @@ indent_size = 2
 # |||| MARKDOWN ||||
 
 [*.{md,mx}]
-max_line_length = 0
+max_line_length = 88
 
 # |||| YAML ||||
 
 [*.{yml,yaml}]
 indent_size = 2
+
 

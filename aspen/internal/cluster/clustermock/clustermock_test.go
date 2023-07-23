@@ -10,6 +10,8 @@
 package clustermock_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -17,7 +19,6 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/signal"
-	"time"
 )
 
 var _ = Describe("Clustermock", func() {
@@ -25,14 +26,14 @@ var _ = Describe("Clustermock", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
 			builder := clustermock.NewBuilder(cfg)
-			ctx, cancel := signal.TODO()
+			ctx, cancel := signal.Isolated()
 			defer cancel()
 			c1, err := builder.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c1.HostID()).To(Equal(node.ID(1)))
+			Expect(c1.HostKey()).To(Equal(node.Key(1)))
 			c2, err := builder.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(c2.HostID()).To(Equal(node.ID(2)))
+			Expect(c2.HostKey()).To(Equal(node.Key(2)))
 			Expect(c2.Nodes()).To(HaveLen(2))
 		})
 	})

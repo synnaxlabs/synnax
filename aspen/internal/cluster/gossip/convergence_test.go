@@ -14,13 +14,12 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/fmock"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/rand"
-	"go.uber.org/zap"
 	"sync"
 )
 
@@ -55,12 +54,10 @@ var progressiveConvergence = []convergenceVars{
 
 var _ = Describe("Convergence", func() {
 	var (
-		net    *fmock.Network[gossip.Message, gossip.Message]
-		logger *zap.SugaredLogger
+		net *fmock.Network[gossip.Message, gossip.Message]
 	)
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
-		logger = zap.NewNop().Sugar()
 	})
 	p := alamos.NewParametrize(alamos.IterVars(progressiveConvergence))
 	p.Template(func(i int, values convergenceVars) {
@@ -69,15 +66,14 @@ var _ = Describe("Convergence", func() {
 			values.convergenceThreshold,
 		), func() {
 			group := make(node.Group)
-			configs := make(map[node.ID]gossip.Config)
+			configs := make(map[node.Key]gossip.Config)
 			for i := 1; i <= values.nodeCount; i++ {
 				server := net.UnaryServer("")
-				n := node.Node{ID: node.ID(i), Address: server.Address}
-				group[n.ID] = n
-				configs[n.ID] = gossip.Config{
+				n := node.Node{Key: node.Key(i), Address: server.Address}
+				group[n.Key] = n
+				configs[n.Key] = gossip.Config{
 					TransportServer: server,
 					TransportClient: net.UnaryClient(),
-					Logger:          logger,
 				}
 			}
 			var (
@@ -85,11 +81,11 @@ var _ = Describe("Convergence", func() {
 				stores  []store.Store
 			)
 			for _, n := range group {
-				subNodes := rand.SubMap(group.WhereNot(n.ID), values.initialViewCount)
-				subNodes[n.ID] = n
-				s := store.New()
-				s.SetState(store.State{Nodes: subNodes, HostID: n.ID})
-				cfg := configs[n.ID]
+				subNodes := rand.SubMap(group.WhereNot(n.Key), values.initialViewCount)
+				subNodes[n.Key] = n
+				s := store.New(ctx)
+				s.SetState(ctx, store.State{Nodes: subNodes, HostKey: n.Key})
+				cfg := configs[n.Key]
 				cfg.Store = s
 				g, err := gossip.New(cfg)
 				Expect(err).ToNot(HaveOccurred())

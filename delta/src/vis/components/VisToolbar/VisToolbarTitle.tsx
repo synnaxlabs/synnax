@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { HiChartBar } from "react-icons/hi";
+import { ReactElement } from "react";
+
+import { Icon } from "@synnaxlabs/media";
 
 import { ToolbarTitle } from "@/components";
 
-export const VisIcon = HiChartBar;
-
-export const VisToolbarTitle = (): JSX.Element => (
-  <ToolbarTitle icon={<VisIcon />}>Visualization</ToolbarTitle>
+export const VisToolbarTitle = (): ReactElement => (
+  <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
 );

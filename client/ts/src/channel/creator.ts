@@ -12,60 +12,32 @@ import { z } from "zod";
 
 import {
   ChannelPayload,
-  channelPayloadSchema,
+  channelPayload,
   parseChannels,
-  UnkeyedChannelPayload,
-  unkeyedChannelPayloadSchema,
-  UnparsedChannel,
-} from "./payload";
+  newChannelPayload,
+  NewChannelPayload,
+} from "@/channel/payload";
 
-import { Transport } from "@/transport";
+const reqZ = z.object({ channels: newChannelPayload.array() });
 
-const RequestSchema = z.object({
-  channels: unkeyedChannelPayloadSchema.array(),
-});
-
-type Request = z.infer<typeof RequestSchema>;
-
-const ResponseSchema = z.object({
-  channels: channelPayloadSchema.array(),
-});
-
-type Response = z.infer<typeof ResponseSchema>;
+const resZ = z.object({ channels: channelPayload.array() });
 
 export class ChannelCreator {
   private static readonly ENDPOINT = "/channel/create";
   private readonly client: UnaryClient;
 
-  constructor(transport: Transport) {
-    this.client = transport.postClient();
+  constructor(client: UnaryClient) {
+    this.client = client;
   }
 
-  async create(channel: UnkeyedChannelPayload): Promise<ChannelPayload>;
-
-  async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
-  ): Promise<ChannelPayload[]>;
-
-  async create(
-    ...channels: Array<UnparsedChannel | UnparsedChannel[]>
-  ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = channels.length === 1 && !Array.isArray(channels[0]);
-    const { channels: ch_ } = await this.execute({
-      channels: parseChannels(channels.flat()),
-    });
-    return single ? ch_[0] : ch_;
-  }
-
-  private async execute(request: Request): Promise<Response> {
-    const [res, err] = await this.client.send(
+  async create(channels: NewChannelPayload[]): Promise<ChannelPayload[]> {
+    const req = { channels: parseChannels(channels) };
+    const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
       ChannelCreator.ENDPOINT,
-      request,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      ResponseSchema
+      req,
+      resZ
     );
     if (err != null) throw err;
-    return res as Response;
+    return res.channels;
   }
 }

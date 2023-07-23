@@ -18,8 +18,9 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from synnax import Channel, Synnax
-from synnax.framer import DataFrameWriter
+from synnax import Synnax
+from synnax.channel import Channel
+from synnax.framer import Writer
 from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
@@ -30,10 +31,11 @@ class RowIngestionEngine:
     """
 
     client: Synnax
-    writer: DataFrameWriter
+    writer: Writer
     reader: RowFileReader
     channels: list[Channel]
     idx_grouped: dict[Channel, list[Channel]]
+    end: TimeStamp
 
     def __init__(
         self,
@@ -46,13 +48,13 @@ class RowIngestionEngine:
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}
         for ch in self.idx_grouped:
-            self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key[-1]]
-
+            self.idx_grouped[ch] = [_ch for _ch in channels if _ch.index == ch.key]
         self.mem_limit = soft_mem_limit
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
         self.writer = self.client.new_writer(start, [ch.key for ch in channels])
+        self.end = start
 
     def get_chunk_size(self):
         """Sum the density of all channels to determine the chunk size."""
@@ -79,7 +81,7 @@ class RowIngestionEngine:
                         progress.update(task, advance=chunk.size, tp=tp)
                     except StopIteration:
                         break
-            self.writer.commit()
+            self.end, _ = self.writer.commit()
         finally:
             self.reader.close()
             self.writer.close()

@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"testing"
 )
 
@@ -37,10 +36,10 @@ type serviceContainer struct {
 	iter    *iterator.Service
 }
 
-func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]serviceContainer) {
+func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	var (
-		builder    = mock.NewCoreBuilder(core.Config{Logger: logger})
-		services   = make(map[core.NodeID]serviceContainer)
+		builder    = mock.NewCoreBuilder(core.Config{})
+		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		iterNet    = tmock.NewFramerIteratorNetwork()
 	)
@@ -60,9 +59,8 @@ func provision(n int, logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]se
 			ChannelReader: cont.channel,
 			HostResolver:  c.Cluster,
 			Transport:     iterNet.New(c.Config.AdvertiseAddress),
-			Logger:        logger,
 		}))
-		services[c.Cluster.HostID()] = cont
+		services[c.Cluster.HostKey()] = cont
 	}
 	return builder, services
 }

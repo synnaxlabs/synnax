@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ZodSchema } from "zod";
+import { z } from "zod";
 
 import { Transport } from "@/transport";
 
@@ -22,9 +22,9 @@ export interface UnaryClient extends Transport {
    * @param req - The request to send.
    * @param resSchema - The schema to validate the response against.
    */
-  send: <RQ, RS>(
+  send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: RQ | null,
-    resSchema: ZodSchema<RS> | null
-  ) => Promise<[RS | undefined, Error | undefined]>;
+    req: z.input<RQ> | null,
+    resSchema: RS | null
+  ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }

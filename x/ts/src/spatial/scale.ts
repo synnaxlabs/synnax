@@ -7,35 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box } from "./box";
+import { clamp } from "@/clamp";
+import { Box } from "@/spatial/box";
 import {
-  bound,
-  Bound,
+  Bounds,
   Corner,
   cornerLocations as cornerLocs,
-  Dimensions,
-  SignedDimensions,
-  toXY,
   XY,
-} from "./core";
-
-import { clamp } from "@/clamp";
+  CrudeDirection,
+  XYTransformT,
+  LooseXYT,
+  LooseBoundT,
+} from "@/spatial/core";
 
 export type ScaleBound = "domain" | "range";
 
 type ValueType = "position" | "dimension";
 
 type Operation = (
-  currScale: Bound | null,
+  currScale: Bounds | null,
   type: ValueType,
   number: number,
   reverse: boolean
 ) => OperationReturn;
 
-type OperationReturn = [Bound | null, number];
+type OperationReturn = [Bounds | null, number];
 
 interface TypedOperation extends Operation {
-  type: "translate" | "magnify" | "scale" | "invert" | "clamp";
+  type: "translate" | "magnify" | "scale" | "invert" | "clamp" | "re-bound";
 }
 
 const curriedTranslate =
@@ -51,7 +50,7 @@ const curriedMagnify =
     [currScale, reverse ? v / magnify : v * magnify];
 
 const curriedScale =
-  (bound: Bound): Operation =>
+  (bound: Bounds): Operation =>
   (currScale, type, v) => {
     if (currScale === null) return [bound, v];
     const { lower: prevLower, upper: prevUpper } = currScale;
@@ -63,6 +62,11 @@ const curriedScale =
     return [bound, nextV];
   };
 
+const curriedReBound =
+  (bound: Bounds): Operation =>
+  (currScale, type, v) =>
+    [bound, v];
+
 const curriedInvert = (): Operation => (currScale, type, v) => {
   if (currScale === null) throw new Error("cannot invert without bounds");
   if (type === "dimension") return [currScale, v];
@@ -71,7 +75,7 @@ const curriedInvert = (): Operation => (currScale, type, v) => {
 };
 
 const curriedClamp =
-  (bound: Bound): Operation =>
+  (bound: Bounds): Operation =>
   (currScale, type, v) => {
     if (currScale === null) return [currScale, v];
     const { lower, upper } = currScale;
@@ -81,7 +85,7 @@ const curriedClamp =
 
 export class Scale {
   ops: TypedOperation[] = [];
-  currBounds: Bound | null = null;
+  currBounds: Bounds | null = null;
   currType: ValueType | null = null;
   private reversed = false;
 
@@ -97,7 +101,7 @@ export class Scale {
     return new Scale().magnify(value);
   }
 
-  static scale(lowerOrBound: number | Bound, upper?: number): Scale {
+  static scale(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
     return new Scale().scale(lowerOrBound, upper);
   }
 
@@ -117,8 +121,8 @@ export class Scale {
     return next;
   }
 
-  scale(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = bound(lowerOrBound, upper);
+  scale(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
+    const b = new Bounds(lowerOrBound, upper);
     const next = this.new();
     const f = curriedScale(b) as TypedOperation;
     f.type = "scale";
@@ -126,11 +130,20 @@ export class Scale {
     return next;
   }
 
-  clamp(lowerOrBound: number | Bound, upper?: number): Scale {
-    const b = bound(lowerOrBound, upper);
+  clamp(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
+    const b = new Bounds(lowerOrBound, upper);
     const next = this.new();
     const f = curriedClamp(b) as TypedOperation;
     f.type = "clamp";
+    next.ops.push(f);
+    return next;
+  }
+
+  reBound(lowerOrBound: number | LooseBoundT, upper?: number): Scale {
+    const b = new Bounds(lowerOrBound, upper);
+    const next = this.new();
+    const f = curriedReBound(b) as TypedOperation;
+    f.type = "re-bound";
     next.ops.push(f);
     return next;
   }
@@ -192,6 +205,19 @@ export class Scale {
   }
 }
 
+export type XYScale = Record<CrudeDirection, Scale>;
+
+export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
+  scale: {
+    x: scale.x.dim(1),
+    y: scale.y.dim(1),
+  },
+  offset: {
+    x: scale.x.pos(0),
+    y: scale.y.pos(0),
+  },
+});
+
 export class BoxScale {
   x: Scale;
   y: Scale;
@@ -203,8 +229,16 @@ export class BoxScale {
     this.currRoot = null;
   }
 
-  static translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
+  static translate(xy: LooseXYT): BoxScale {
     return new BoxScale().translate(xy);
+  }
+
+  static translateX(x: number): BoxScale {
+    return new BoxScale().translateX(x);
+  }
+
+  static translateY(y: number): BoxScale {
+    return new BoxScale().translateY(y);
   }
 
   static clamp(box: Box): BoxScale {
@@ -219,11 +253,23 @@ export class BoxScale {
     return new BoxScale().scale(box);
   }
 
-  translate(xy: XY | Dimensions | SignedDimensions): BoxScale {
-    const _xy = toXY(xy);
+  translate(xy: LooseXYT): BoxScale {
+    const _xy = new XY(xy);
     const next = this.new();
     next.x = this.x.translate(_xy.x);
     next.y = this.y.translate(_xy.y);
+    return next;
+  }
+
+  translateX(x: number): BoxScale {
+    const next = this.new();
+    next.x = this.x.translate(x);
+    return next;
+  }
+
+  translateY(y: number): BoxScale {
+    const next = this.new();
+    next.y = this.y.translate(y);
     return next;
   }
 
@@ -244,15 +290,15 @@ export class BoxScale {
       if (prevX !== currX) next.x = next.x.invert();
       if (prevY !== currY) next.y = next.y.invert();
     }
-    next.x = next.x.scale(box.xBound);
-    next.y = next.y.scale(box.yBound);
+    next.x = next.x.scale(box.xBounds);
+    next.y = next.y.scale(box.yBounds);
     return next;
   }
 
   clamp(box: Box): BoxScale {
     const next = this.new();
-    next.x = this.x.clamp(box.xBound);
-    next.y = this.y.clamp(box.yBound);
+    next.x = this.x.clamp(box.xBounds);
+    next.y = this.y.clamp(box.yBounds);
     return next;
   }
 
@@ -264,8 +310,9 @@ export class BoxScale {
     return n;
   }
 
-  pos(xy: XY): XY {
-    return { x: this.x.pos(xy.x), y: this.y.pos(xy.y) };
+  pos(xy: LooseXYT): XY {
+    const xy_ = new XY(xy);
+    return new XY({ x: this.x.pos(xy_.x), y: this.y.pos(xy_.y) });
   }
 
   box(box: Box): Box {

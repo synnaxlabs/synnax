@@ -26,13 +26,13 @@ var _ = Describe("Switch", func() {
 			var (
 				ctx    signal.Context
 				cancel context.CancelFunc
-				input  Stream[int]
-				double Stream[int]
-				single Stream[int]
+				input  *Stream[int]
+				double *Stream[int]
+				single *Stream[int]
 				sw     *Switch[int]
 			)
 			BeforeEach(func() {
-				ctx, cancel = signal.TODO()
+				ctx, cancel = signal.Isolated()
 				input = NewStream[int](3)
 				double = NewStream[int](3)
 				single = NewStream[int](3)
@@ -47,7 +47,7 @@ var _ = Describe("Switch", func() {
 				cancel()
 			})
 			It("Should route values to the correct inlets", func() {
-				sw.ApplySwitch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					if i%2 == 0 {
 						return "single", true, nil
 					} else {
@@ -67,7 +67,7 @@ var _ = Describe("Switch", func() {
 				Expect(ok).To(BeFalse())
 			})
 			It("Should exit of the switch returns an error", func() {
-				sw.ApplySwitch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "", false, errors.New("test error")
 				}
 				sw.Flow(ctx, CloseInletsOnExit())
@@ -78,7 +78,7 @@ var _ = Describe("Switch", func() {
 				Expect(ctx.Wait()).To(MatchError("test error"))
 			})
 			It("Should return an error if the address can't be resolved", func() {
-				sw.ApplySwitch = func(ctx context.Context, i int) (address.Address, bool, error) {
+				sw.Switch = func(ctx context.Context, i int) (address.Address, bool, error) {
 					return "hello", true, nil
 				}
 				sw.Flow(ctx, CloseInletsOnExit(), WithAddress("toCoverThis"))
@@ -92,13 +92,13 @@ var _ = Describe("Switch", func() {
 		var (
 			ctx    signal.Context
 			cancel context.CancelFunc
-			input  Stream[[]int]
-			first  Stream[int]
-			second Stream[int]
+			input  *Stream[[]int]
+			first  *Stream[int]
+			second *Stream[int]
 			sw     *BatchSwitch[[]int, int]
 		)
 		BeforeEach(func() {
-			ctx, cancel = signal.TODO()
+			ctx, cancel = signal.Isolated()
 			input = NewStream[[]int](3)
 			first = NewStream[int](3)
 			first.SetInletAddress("first")
@@ -110,7 +110,7 @@ var _ = Describe("Switch", func() {
 			sw.OutTo(second)
 		})
 		It("Should route values to the correct inlets", func() {
-			sw.ApplySwitch = func(
+			sw.Switch = func(
 				ctx context.Context,
 				i []int,
 				o map[address.Address]int,
@@ -138,7 +138,7 @@ var _ = Describe("Switch", func() {
 			Expect(ok).To(BeFalse())
 		})
 		It("Should exit if the context is cancelled", func() {
-			sw.ApplySwitch = func(
+			sw.Switch = func(
 				ctx context.Context,
 				i []int,
 				o map[address.Address]int,

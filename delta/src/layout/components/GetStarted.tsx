@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Text, Space, Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -16,26 +18,32 @@ import { setNavdrawerVisible } from "../store";
 import { ClusterToolbar, connectClusterWindowLayout } from "@/cluster";
 import { createDocsLayout } from "@/docs";
 import { useLayoutPlacer } from "@/layout/hooks";
-import { VisToolbar } from "@/vis";
-import { createLineVis } from "@/vis/line";
+import { VisToolbar, createVis } from "@/vis";
 
-import "./GetStarted.css";
+import "@/layout/components/GetStarted.css";
 
-export const GetStarted = (): JSX.Element => {
+export const GetStarted = (): ReactElement => {
   const placer = useLayoutPlacer();
   const dispatch = useDispatch();
 
-  const handleCluster = (): void => {
+  // As a note, we need to stop propagation on these events so that we don't
+  // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
+  // select the new layout when we create it.
+
+  const handleCluster = (e: Event): void => {
+    e.stopPropagation();
     placer(connectClusterWindowLayout);
     dispatch(setNavdrawerVisible({ key: ClusterToolbar.key, value: true }));
   };
 
-  const handleVisualize = (): void => {
-    placer(createLineVis({}));
+  const handleVisualize = (e: Event): void => {
+    e.stopPropagation();
+    placer(createVis({}));
     dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 
-  const handleDocs = (): void => {
+  const handleDocs = (e: Event): void => {
+    e.stopPropagation();
     placer(createDocsLayout());
   };
 
@@ -47,7 +55,7 @@ export const GetStarted = (): JSX.Element => {
         <Button startIcon={<Icon.Cluster />} onClick={handleCluster} size="large">
           Connect a Cluster
         </Button>
-        <Button startIcon={<Icon.Visualize />} onClick={handleVisualize} size="large">
+        <Button startIcon={<Icon.Control />} onClick={handleVisualize} size="large">
           Create a Visualization
         </Button>
       </Space>

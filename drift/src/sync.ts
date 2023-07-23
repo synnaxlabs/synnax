@@ -1,11 +1,19 @@
-import { toXYEqual, unique } from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { log } from "./debug";
+import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
+import { Dimensions, unique } from "@synnaxlabs/x";
 
+import { log } from "@/debug";
 import { MainChecker, Manager, Properties } from "@/runtime";
 import { DriftState, setWindowProps, SetWindowPropsPayload } from "@/state";
 import { WindowState, MAIN_WINDOW, INITIAL_WINDOW_STATE, WindowProps } from "@/window";
-import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
 
@@ -52,8 +60,7 @@ export const syncInitial = async (
   const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
   await syncCurrent(initial, next, runtime, debug);
   // Make sure our redux store as up to date.
-  dispatch(setWindowProps({ label: runtime.label(), ...await runtime.getProps() }))
-
+  dispatch(setWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }));
 };
 
 export const sync = async (
@@ -106,16 +113,25 @@ export const syncCurrent = async (
   if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
     changes.push(["minimized", runtime.setMinimized(nextWin.minimized)]);
 
-  if (nextWin.minSize != null && !toXYEqual(nextWin.minSize, prevWin.minSize))
+  if (
+    nextWin.minSize != null &&
+    !new Dimensions(nextWin.minSize).equals(prevWin.minSize)
+  )
     changes.push(["minSize", runtime.setMinSize(nextWin.minSize)]);
 
-  if (nextWin.maxSize != null && !toXYEqual(nextWin.maxSize, prevWin.maxSize))
+  if (
+    nextWin.maxSize != null &&
+    !new Dimensions(nextWin.maxSize).equals(prevWin.maxSize)
+  )
     changes.push(["maxSize", runtime.setMaxSize(nextWin.maxSize)]);
 
-  if (nextWin.size != null && !toXYEqual(nextWin.size, prevWin.size))
+  if (nextWin.size != null && !new Dimensions(nextWin.size).equals(prevWin.size))
     changes.push(["size", runtime.setSize(nextWin.size)]);
 
-  if (nextWin.position != null && !toXYEqual(nextWin.position, prevWin.position))
+  if (
+    nextWin.position != null &&
+    !new Dimensions(nextWin.position).equals(prevWin.position)
+  )
     changes.push(["position", runtime.setPosition(nextWin.position)]);
 
   if (nextWin.focusCount !== prevWin.focusCount)

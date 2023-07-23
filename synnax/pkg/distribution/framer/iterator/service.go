@@ -11,12 +11,14 @@ package iterator
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -26,25 +28,24 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 type Config struct {
-	Keys   channel.Keys
-	Bounds telem.TimeRange
+	Keys   channel.Keys    `json:"keys" msgpack:"keys"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 type ServiceConfig struct {
-	TS            storage.StreamIterableTS
-	ChannelReader channel.Reader
+	alamos.Instrumentation
+	TS            *ts.DB
+	ChannelReader channel.Readable
 	HostResolver  aspen.HostResolver
 	Transport     Transport
-	Logger        *zap.Logger
 }
 
 var (
 	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{Logger: zap.NewNop()}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Override implements Config.
@@ -53,18 +54,17 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
-	cfg.Logger = override.Nil(cfg.Logger, other.Logger)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
 
 // Validate implements Config.
 func (cfg ServiceConfig) Validate() error {
-	v := validate.New("distribution.framer.iterator")
+	v := validate.New("distribution.framer.Iterator")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	validate.NotNil(v, "Resolver", cfg.HostResolver)
-	validate.NotNil(v, "Logger", cfg.Logger)
 	return v.Error()
 }
 
@@ -74,7 +74,7 @@ type Service struct {
 }
 
 func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	return &Service{
 		ServiceConfig: cfg,
 		server:        startServer(cfg),
@@ -88,21 +88,18 @@ const (
 	synchronizerAddr address.Address = "synchronizer"
 )
 
-func (s *Service) New(ctx context.Context, cfg Config) (Iterator, error) {
+func (s *Service) New(ctx context.Context, cfg Config) (*Iterator, error) {
 	stream, err := s.NewStream(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	sCtx, cancel := signal.Background(
-		signal.WithLogger(s.Logger),
-		signal.WithContextKey("iterator"),
-	)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	req := confluence.NewStream[Request]()
 	res := confluence.NewStream[Response]()
 	stream.InFrom(req)
 	stream.OutTo(res)
 	stream.Flow(sCtx, confluence.CloseInletsOnExit(), confluence.CancelOnExitErr())
-	return &iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
+	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
 }
 
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
@@ -111,8 +108,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	}
 
 	var (
-		hostID             = s.HostResolver.HostID()
-		batch              = proxy.NewBatchFactory[channel.Key](hostID).Batch(cfg.Keys)
+		hostID             = s.HostResolver.HostKey()
+		batch              = proxy.BatchFactory[channel.Key]{Host: hostID}.Batch(cfg.Keys)
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
@@ -163,7 +160,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeIDs())),
+		newSynchronizer(len(cfg.Keys.UniqueNodeKeys())),
 	)
 
 	plumber.MultiRouter[Response]{
@@ -180,11 +177,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 }
 
 func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
-	v := validate.New("distribution.framer.iterator")
+	v := validate.New("distribution.framer.Iterator")
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
-	exists, err := s.ChannelReader.NewRetrieve().WhereKeys(keys...).Exists(ctx)
+	q := s.ChannelReader.NewRetrieve().WhereKeys(keys...)
+	exists, err := q.Exists(ctx, nil)
 	if err != nil {
 		return err
 	}

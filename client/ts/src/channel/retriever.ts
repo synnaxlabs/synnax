@@ -8,73 +8,72 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelPayload, channelPayloadSchema } from "./payload";
+import { QueryError } from "..";
 
-import { ValidationError } from "@/errors";
-import { Transport } from "@/transport";
+import {
+  ChannelKey,
+  ChannelKeyOrName,
+  ChannelKeys,
+  ChannelKeysOrNames,
+  ChannelName,
+  ChannelNames,
+  ChannelParams,
+  ChannelPayload,
+  channelPayload,
+} from "@/channel/payload";
 
 const requestSchema = z.object({
-  nodeId: z.number().optional(),
-  keysOrNames: z.array(z.union([z.string().array(), z.string()])).optional(),
+  leaseholder: z.number().optional(),
+  keys: z.number().array().optional(),
+  names: z.string().array().optional(),
+  search: z.string().optional(),
 });
 
 type Request = z.infer<typeof requestSchema>;
 
-const responseSchema = z.object({
-  channels: channelPayloadSchema.array(),
+const resZ = z.object({
+  channels: channelPayload.array(),
 });
 
 export interface ChannelRetriever {
-  retrieve: ((keyOrName: string) => Promise<ChannelPayload>) &
-    ((...keysOrNames: Array<string | string[]>) => Promise<ChannelPayload[]>);
-  retrieveAll: () => Promise<ChannelPayload[]>;
+  retrieve: (channels: ChannelParams) => Promise<ChannelPayload[]>;
+  search: (term: string) => Promise<ChannelPayload[]>;
 }
 
 export class ClusterChannelRetriever implements ChannelRetriever {
   private static readonly ENDPOINT = "/channel/retrieve";
   private readonly client: UnaryClient;
 
-  constructor(transport: Transport) {
-    this.client = transport.getClient();
+  constructor(client: UnaryClient) {
+    this.client = client;
+  }
+
+  async search(term: string): Promise<ChannelPayload[]> {
+    return await this.execute({ search: term });
+  }
+
+  async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
+    const { variant, normalized } = analyzeChannelParams(channels);
+    return await this.execute({ [variant]: normalized });
   }
 
   private async execute(request: Request): Promise<ChannelPayload[]> {
     const [res, err] = await this.client.send(
       ClusterChannelRetriever.ENDPOINT,
       request,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      responseSchema
+      resZ
     );
     if (err != null) throw err;
-    return res?.channels as ChannelPayload[];
-  }
-
-  async retrieve(keyOrName: string): Promise<ChannelPayload>;
-
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<ChannelPayload[]>;
-
-  async retrieve(
-    ...keysOrNames: Array<string | string[]>
-  ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const res = await this.execute({ keysOrNames });
-    if (!single) return res;
-    if (res.length === 0) throw new ValidationError("Channel not found");
-    if (res.length > 1) throw new ValidationError("Multiple channels found");
-    return res[0];
-  }
-
-  async retrieveAll(): Promise<ChannelPayload[]> {
-    return await this.execute({});
+    return res.channels;
   }
 }
 
 export class CacheChannelRetriever implements ChannelRetriever {
-  private readonly cache: Map<string, ChannelPayload>;
-  private readonly namesToKeys: Map<string, string>;
+  private readonly cache: Map<number, ChannelPayload>;
+  private readonly namesToKeys: Map<string, number>;
   private readonly wrapped: ChannelRetriever;
 
   constructor(wrapped: ChannelRetriever) {
@@ -83,36 +82,74 @@ export class CacheChannelRetriever implements ChannelRetriever {
     this.wrapped = wrapped;
   }
 
-  async retrieve(keyOrName: string): Promise<ChannelPayload>;
-
-  async retrieve(...keysOrNames: Array<string | string[]>): Promise<ChannelPayload[]>;
-
-  async retrieve(
-    ...keysOrNames: Array<string | string[]>
-  ): Promise<ChannelPayload | ChannelPayload[]> {
-    const single = keysOrNames.length === 1 && typeof keysOrNames[0] === "string";
-    const flat = keysOrNames.flat();
-    const results: ChannelPayload[] = [];
-    const toFetch: string[] = [];
-    flat.forEach((keyOrName) => {
-      const key = this.namesToKeys.get(keyOrName) ?? keyOrName;
-      const channel = this.cache.get(key);
-      if (channel != null) results.push(channel);
-      else toFetch.push(key);
-    });
-    if (toFetch.length > 0) {
-      const fetched = await this.wrapped.retrieve(toFetch);
-      fetched.forEach((channel) => {
-        this.cache.set(channel.key, channel);
-        this.namesToKeys.set(channel.name, channel.key);
-      });
-      results.push(...fetched);
-    }
-    if (!single) return results;
-    return results[0];
+  async search(term: string): Promise<ChannelPayload[]> {
+    return await this.wrapped.search(term);
   }
 
-  async retrieveAll(): Promise<ChannelPayload[]> {
-    return await this.wrapped.retrieveAll();
+  async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
+    const { normalized } = analyzeChannelParams(channels);
+    const results: ChannelPayload[] = [];
+    const toFetch: ChannelKeysOrNames = [];
+    normalized.forEach((keyOrName) => {
+      const c = this.getFromCache(keyOrName);
+      if (c != null) results.push(c);
+      else toFetch.push(keyOrName as never);
+    });
+    if (toFetch.length === 0) return results;
+    const fetched = await this.wrapped.retrieve(toFetch);
+    this.updateCache(fetched);
+    return results.concat(fetched);
+  }
+
+  private updateCache(channels: ChannelPayload[]): void {
+    channels.forEach((channel) => {
+      this.cache.set(channel.key, channel);
+      this.namesToKeys.set(channel.name, channel.key);
+    });
+  }
+
+  private getFromCache(channel: ChannelKeyOrName): ChannelPayload | undefined {
+    const key = typeof channel === "number" ? channel : this.namesToKeys.get(channel);
+    if (key == null) return undefined;
+    return this.cache.get(key);
   }
 }
+
+export type ChannelParamAnalysisResult =
+  | {
+      single: true;
+      variant: "names";
+      normalized: ChannelNames;
+      actual: ChannelName;
+    }
+  | {
+      single: true;
+      variant: "keys";
+      normalized: ChannelKeys;
+      actual: ChannelKey;
+    }
+  | {
+      single: false;
+      variant: "keys";
+      normalized: ChannelKeys;
+      actual: ChannelKeys;
+    }
+  | {
+      single: false;
+      variant: "names";
+      normalized: ChannelNames;
+      actual: ChannelNames;
+    };
+
+export const analyzeChannelParams = (
+  channels: ChannelParams
+): ChannelParamAnalysisResult => {
+  const normal = toArray(channels) as ChannelKeysOrNames;
+  if (normal.length === 0) throw new QueryError("No channels provided");
+  return {
+    single: !Array.isArray(channels),
+    variant: typeof normal[0] === "number" ? "keys" : "names",
+    normalized: normal,
+    actual: channels,
+  } as const as ChannelParamAnalysisResult;
+};

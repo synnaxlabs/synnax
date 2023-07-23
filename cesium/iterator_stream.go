@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -20,14 +21,14 @@ import (
 // StreamIterator provides a streaming interface for iterating over a DB's segments
 // in time order. StreamIterator provides the underlying functionality for Iterator,
 // and has almost exactly the same semantics. The streaming interface is exposed
-// as a confluence Framer that can accept one input stream and one output stream.
+// as a confluence segment that can accept one input stream and one output stream.
 //
-// To read segments, issue an IteratorRequest to the StreamIterator's inlet. The
+// To read frames, issue an IteratorRequest to the StreamIterator's inlet. The
 // StreamIterator will respond by sending one or more IteratorResponse messages to
-// the outlet. All responses containing Framer data will have a type of
-// IteratorDataResponse and will contain one or more segments. The last response
+// the outlet. All responses containing frame data will have a type of
+// IteratorDataResponse and will contain one or more frames. The last response
 // for any request will have a type of IteratorAckResponse and will contain
-// the name of the command that was acknowledged, and incremented sequence number,
+// the name of the command that was acknowledged, an incremented sequence number,
 // and ack boolean indicating whether the command was successfully processed.
 //
 // To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
@@ -36,7 +37,7 @@ import (
 // provided to Flow.
 type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 
-// IteratorResponseVariant is the type of the response an iterator will return.
+// IteratorResponseVariant is the type of the response an Iterator will return.
 type IteratorResponseVariant uint8
 
 const (
@@ -48,7 +49,7 @@ const (
 	IteratorDataResponse
 )
 
-// IteratorCommand is an enumeration of commands that can be sent to an iterator.
+// IteratorCommand is an enumeration of commands that can be sent to an Iterator.
 type IteratorCommand uint8
 
 const (
@@ -89,7 +90,7 @@ type IteratorRequest struct {
 	Bounds telem.TimeRange
 }
 
-// IteratorResponse is a response containing segments satisfying a RetrieveP Query as
+// IteratorResponse is a response containing segments satisfying a RetrieveP Params as
 // well as any errors encountered during the retrieval.
 type IteratorResponse struct {
 	// Variant is the type of response being issued.
@@ -118,7 +119,7 @@ type streamIterator struct {
 
 type IteratorConfig struct {
 	Bounds   telem.TimeRange
-	Channels []string
+	Channels []core.ChannelKey
 }
 
 // Flow implements the confluence.Segment interface.
@@ -134,7 +135,7 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return s.close()
 				}
-				ok, err := s.exec(req)
+				ok, err := s.exec(ctx, req)
 				s.seqNum++
 				s.Out.Inlet() <- IteratorResponse{
 					Variant: IteratorAckResponse,
@@ -148,20 +149,20 @@ func (s *streamIterator) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (s *streamIterator) exec(req IteratorRequest) (ok bool, err error) {
+func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool, err error) {
 	switch req.Command {
 	case IterNext:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(req.Span) })
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
 	case IterPrev:
-		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(req.Span) })
+		ok = s.execWithOps(func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
 	case IterSeekFirst:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst() })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
 	case IterSeekLast:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast() })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
 	case IterSeekLE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(req.Stamp) })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
 	case IterSeekGE:
-		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(req.Stamp) })
+		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
 	case IterValid:
 		ok = s.execWithoutOps(func(i *unary.Iterator) bool { return i.Valid() })
 	case IterError:

@@ -7,129 +7,77 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StrictMode, useEffect, useState } from "react";
+import { ReactElement } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
-import { Logo } from "@synnaxlabs/media";
-import "@synnaxlabs/media/dist/style.css";
-import {
-  Theming,
-  Triggers,
-  Menu as PMenu,
-  Space,
-  Typography,
-  addOpacityToHex,
-  Nav,
-  Controls,
-} from "@synnaxlabs/pluto";
-import "@synnaxlabs/pluto/dist/style.css";
-import { appWindow } from "@tauri-apps/api/window";
+import { Menu as PMenu, Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
-import { ConnectCluster } from "@/cluster";
+import "./index.css";
+import { LinePlot } from "./line/LinePlot/LinePlot";
+import { PID } from "./pid/PID/PID";
+import { VisCanvas } from "./vis";
+import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
+import WorkerURL from "./worker?worker&url";
+
+import { ConnectCluster, useSelectCluster } from "@/cluster";
 import { Menu } from "@/components";
-import { DocsLayoutRenderer } from "@/docs";
+import { Docs } from "@/docs";
 import {
   LayoutRendererProvider,
   LayoutWindow,
   useThemeProvider,
   GetStarted,
-  useErrorThemeProvider,
 } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { store } from "@/store";
 import { useLoadTauriVersion } from "@/version";
-import { VisLayoutRenderer } from "@/vis";
 import { DefineRange } from "@/workspace";
 
-import "./index.css";
+import "@synnaxlabs/media/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
   connectCluster: ConnectCluster,
-  visualization: VisLayoutRenderer,
+  visualization: VisLayoutSelectorRenderer,
   defineRange: DefineRange,
   getStarted: GetStarted,
-  docs: DocsLayoutRenderer,
+  docs: Docs,
+  pid: PID,
+  vis: VisLayoutSelectorRenderer,
+  line: LinePlot,
 };
 
-export const DefaultContextMenu = (): JSX.Element => (
+export const DefaultContextMenu = (): ReactElement => (
   <PMenu>
     <Menu.Item.HardReload />
   </PMenu>
 );
 
-const MainUnderContext = (): JSX.Element => {
+const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
   const menuProps = PMenu.useContextMenu();
   useLoadTauriVersion();
+  const cluster = useSelectCluster();
   return (
-    <Theming.Provider {...theme}>
-      <Triggers.Provider>
+    <Pluto {...theme} workerEnabled connParams={cluster?.props} workerURL={WorkerURL}>
+      <VisCanvas>
         <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-          <LayoutRendererProvider value={layoutRenderers}>
-            <LayoutWindow />
-          </LayoutRendererProvider>
+          <LayoutWindow />
         </PMenu.ContextMenu>
-      </Triggers.Provider>
-    </Theming.Provider>
+      </VisCanvas>
+    </Pluto>
   );
 };
 
-const Main = (): JSX.Element | null => {
+const Main = (): ReactElement | null => {
   return (
-    <StrictMode>
-      <Provider store={store} errorContent={(e) => <ErrorBoundary err={e} />}>
+    <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
+      <LayoutRendererProvider value={layoutRenderers}>
         <MainUnderContext />
-      </Provider>
-    </StrictMode>
-  );
-};
-
-const ErrorBoundary = ({ err }: { err: Error }): JSX.Element => {
-  const theme = useErrorThemeProvider();
-  const handleClose = (): void => {
-    void appWindow.close();
-  };
-  return (
-    <Theming.Provider {...theme}>
-      <Nav.Bar location="top" data-tauri-drag-region size="6rem">
-        <Nav.Bar.Start className="delta-main-nav-top__start">
-          <Controls
-            visibleIfOS="MacOS"
-            disabled={["minimize", "maximize"]}
-            onClose={handleClose}
-          />
-        </Nav.Bar.Start>
-        <Nav.Bar.End>
-          <Controls visibleIfOS="Windows" />
-        </Nav.Bar.End>
-      </Nav.Bar>
-      <Space.Centered
-        size="large"
-        style={{ height: "calc(100vh - 6rem - var(--os-border-offset, 0px))" }}
-      >
-        <Logo
-          style={{
-            width: 200,
-            height: 200,
-          }}
-        />
-        <div
-          className="pluto--bordered"
-          style={{
-            borderColor: "var(--pluto-error-z)",
-            padding: "2rem",
-            borderRadius: "var(--pluto-border-radius)",
-            backgroundColor: addOpacityToHex(theme.theme.colors.error.m1, 20),
-          }}
-        >
-          <Typography.Text level="h4" style={{ width: 500, textAlign: "center" }}>
-            {JSON.stringify(err.message)}
-          </Typography.Text>
-        </div>
-      </Space.Centered>
-    </Theming.Provider>
+      </LayoutRendererProvider>
+    </Provider>
   );
 };
 

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
 	"testing"
 )
 
@@ -35,13 +34,12 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "channel Suite")
 }
 
-func provisionServices(logger *zap.Logger) (*mock.CoreBuilder, map[core.NodeID]channel.Service) {
+func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	var (
-		services = make(map[aspen.NodeID]channel.Service)
+		services = make(map[aspen.NodeKey]channel.Service)
 		net      = tmock.NewChannelNetwork()
 		builder  = mock.NewCoreBuilder(distribution.Config{
-			Logger:  logger,
-			Storage: storage.Config{MemBacked: config.BoolPointer(true)},
+			Storage: storage.Config{MemBacked: config.Bool(true)},
 		})
 		core1 = builder.New()
 		core2 = builder.New()

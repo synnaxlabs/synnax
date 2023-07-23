@@ -24,7 +24,7 @@ type validator struct {
 	keys      channel.Keys
 	responses struct {
 		confluence.AbstractUnarySource[Response]
-		confluence.EmptyFlow
+		confluence.NopFlow
 	}
 	confluence.AbstractLinear[Request, Request]
 	accumulatedError error
@@ -46,12 +46,20 @@ func (v *validator) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if v.accumulatedError != nil {
 					if req.Command == Error {
-						if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), Response{Command: Error, Err: v.accumulatedError}); err != nil {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: Error, Error: v.accumulatedError},
+						); err != nil {
 							return err
 						}
 						v.accumulatedError = nil
 					} else {
-						if err := signal.SendUnderContext(ctx, v.responses.Out.Inlet(), Response{Command: req.Command, Ack: false}); err != nil {
+						if err := signal.SendUnderContext(
+							ctx,
+							v.responses.Out.Inlet(),
+							Response{Command: req.Command, Ack: false},
+						); err != nil {
 							return err
 						}
 					}
@@ -92,7 +100,7 @@ func (v *validator) validate(req Request) error {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
 	if req.Command == Data {
-		missing, extra := v.keys.Difference(req.Frame.Keys())
+		missing, extra := v.keys.Difference(req.Frame.Keys)
 		if len(missing) > 0 || len(extra) > 0 {
 			return errors.Wrapf(validate.Error,
 				"invalid frame: missing keys: %v, has extra keys: %v",
@@ -101,7 +109,7 @@ func (v *validator) validate(req Request) error {
 			)
 		}
 		if !req.Frame.Even() {
-			return errors.Wrapf(validate.Error, "invalid frame: arrays have different lengths")
+			return errors.Wrapf(validate.Error, "invalid frame: series have different lengths")
 		}
 	}
 	return nil

@@ -7,40 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Space, Status } from "@synnaxlabs/pluto";
+import { ReactElement } from "react";
 
-import { VisIcon, VisToolbarTitle } from "./VisToolbarTitle";
+import { Icon } from "@synnaxlabs/media";
+import { Button, Space, Status, Text } from "@synnaxlabs/pluto";
+
+import { VisLayoutSelector } from "../VisLayoutSelector";
+
+import { VisToolbarTitle } from "./VisToolbarTitle";
 
 import { ToolbarHeader } from "@/components";
-import { NavDrawerItem } from "@/layout";
-import { LinePlotToolBar } from "@/vis/line";
-import { useSelectVisMeta } from "@/vis/store";
+import { NavDrawerItem, useLayoutPlacer, useSelectActiveMosaicLayout } from "@/layout";
+import { LinePlotToolBar } from "@/line/controls/LinePlotToolbar";
+import { PIDToolbar } from "@/pid/controls/PIDToolBar";
+import { createVis } from "@/vis/core";
 
-const NoVisContent = (): JSX.Element => (
+const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
   <Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-      No active visualization. Select a tab or create a new one.
-    </Status.Text.Centered>
+    <VisLayoutSelector layoutKey={layoutKey} />;
   </Space>
 );
 
-const Content = (): JSX.Element => {
-  const vis = useSelectVisMeta();
-  if (vis == null) return <NoVisContent />;
-  const { key, variant } = vis;
-  switch (variant) {
+const NoVis = (): ReactElement => {
+  const placer = useLayoutPlacer();
+  return (
+    <Space justify="spaceBetween" style={{ height: "100%" }} empty>
+      <ToolbarHeader>
+        <VisToolbarTitle />
+        <Space.Centered direction="x" size="small">
+          <Status.Text level="p" variant="disabled" hideIcon>
+            No visualization selected. Selecte a visualization or
+          </Status.Text>
+          <Button
+            startIcon={<Icon.Add />}
+            variant="outlined"
+            onClick={() => placer(createVis({}))}
+          >
+            create a new one
+          </Button>
+        </Space.Centered>
+      </ToolbarHeader>
+    </Space>
+  );
+};
+
+const Content = (): ReactElement => {
+  const layout = useSelectActiveMosaicLayout();
+  switch (layout?.type) {
+    case "pid":
+      return <PIDToolbar layoutKey={layout?.key} />;
+    case "line":
+      return <LinePlotToolBar layoutKey={layout?.key} />;
+    case "vis":
+      return <SelectVis layoutKey={layout?.key} />;
     default:
-      return <LinePlotToolBar layoutKey={key} />;
+      return <NoVis />;
   }
 };
 
 export const VisToolbar: NavDrawerItem = {
   key: "visualization",
   content: <Content />,
-  icon: <VisIcon />,
+  tooltip: "Visualize",
+  icon: <Icon.Visualize />,
   minSize: 125,
   maxSize: 250,
 };

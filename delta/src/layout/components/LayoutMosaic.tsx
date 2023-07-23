@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { ReactElement, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
-import type { Location } from "@synnaxlabs/x";
+import type { CrudeOuterLocation, Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useLayoutPlacer } from "../hooks";
@@ -20,24 +20,24 @@ import {
   moveLayoutMosaicTab,
   selectLayoutMosaicTab,
   resizeLayoutMosaicTab,
-  renameLayoutMosaicTab,
+  renameLayout,
   removeLayout,
 } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
 
-import { createLineVis } from "@/vis/line";
+import { createVis } from "@/vis";
 
 const emptyContent = <Logo.Watermark />;
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const LayoutMosaic = (): JSX.Element => {
+export const LayoutMosaic = (): ReactElement => {
   const dispatch = useDispatch();
   const mosaic = useSelectMosaic();
   const placer = useLayoutPlacer();
 
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: Location): void => {
+    (key: number, tabKey: string, loc: CrudeOuterLocation): void => {
       dispatch(moveLayoutMosaicTab({ key, tabKey, loc }));
     },
     [dispatch]
@@ -59,7 +59,7 @@ export const LayoutMosaic = (): JSX.Element => {
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
-      dispatch(renameLayoutMosaicTab({ tabKey, name }));
+      dispatch(renameLayout({ key: tabKey, name }));
     },
     [dispatch]
   );
@@ -74,7 +74,7 @@ export const LayoutMosaic = (): JSX.Element => {
 
   const handleCreate = useCallback(
     (mosaicKey: number) => {
-      placer(createLineVis({ tab: { mosaicKey } }));
+      placer(createVis({ tab: { mosaicKey } }));
     },
     [placer]
   );

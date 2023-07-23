@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo, LogoProps } from "./Logo";
+import { ReactElement } from "react";
 
-import "./LogoWatermark.css";
+import { Logo, LogoProps } from "@/Logo/Logo";
+
+import "@/Logo/LogoWatermark.css";
 
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the
@@ -17,7 +19,7 @@ import "./LogoWatermark.css";
  *
  * @param props - The same props as Logo.
  */
-export const LogoWatermark = (props: LogoProps): JSX.Element => (
+export const LogoWatermark = (props: LogoProps): ReactElement => (
   <div className="synnax-logo-watermark__container">
     <Logo className="synnax-logo-watermark" {...props} />
   </div>

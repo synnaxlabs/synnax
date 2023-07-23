@@ -9,8 +9,9 @@
 
 __version__ = "0.3.0"
 
-from .channel import Channel
-from .exceptions import (
+from synnax.ranger import Range
+from synnax.channel import Channel
+from synnax.exceptions import (
     AuthError,
     ContiguityError,
     Field,
@@ -21,10 +22,9 @@ from .exceptions import (
     UnexpectedError,
     ValidationError,
 )
-from freighter.exceptions import Unreachable
-from .options import SynnaxOptions
-from .synnax import Synnax
-from .telem import (
+from synnax.options import SynnaxOptions
+from synnax.synnax import Synnax
+from synnax.telem import (
     DataType,
     Density,
     Rate,
@@ -32,19 +32,18 @@ from .telem import (
     TimeRange,
     TimeSpan,
     TimeStamp,
-    UnparsedDataType,
-    UnparsedDensity,
-    UnparsedRate,
-    UnparsedTimeSpan,
-    UnparsedTimeStamp,
-    NumpyArray,
-    BinaryArray,
+    CrudeDataType,
+    CrudeDensity,
+    CrudeRate,
+    CrudeTimeSpan,
+    CrudeTimeStamp,
+    Series,
     convert_time_units,
 )
-from .framer import (
-    BinaryFrame,
-    NumpyFrame,
-    BufferedDataFrameWriter,
-    DataFrameWriter,
-    FrameWriter,
+from synnax.framer import (
+    Frame,
+    BufferedWriter,
+    Writer,
+    Iterator,
+    Streamer,
 )

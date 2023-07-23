@@ -10,26 +10,33 @@
 package cesium
 
 import (
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"strconv"
 )
 
-func Open(dirname string, opts ...Option) (DB, error) {
+func Open(dirname string, opts ...Option) (*DB, error) {
 	o := newOptions(dirname, opts...)
 	if err := openFS(o); err != nil {
 		return nil, err
 	}
 
-	sugLog := o.logger.Sugar()
-	sugLog.Infow("opening cesium time series engine", o.logArgs()...)
+	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
 	info, err := o.fs.List()
 	if err != nil {
 		return nil, err
 	}
-	_db := &cesium{options: o, dbs: make(map[string]unary.DB, len(info))}
+	_db := &DB{
+		options: o,
+		dbs:     make(map[core.ChannelKey]unary.DB, len(info)),
+		relay:   newRelay(o),
+	}
 	for _, i := range info {
-		if i.IsDir() && !_db.unaryIsOpen(i.Name()) {
-			if err = _db.openUnary(Channel{Key: i.Name()}); err != nil {
+		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
+		if i.IsDir() && !_db.unaryIsOpen(key) {
+			if err = _db.openUnary(Channel{Key: key}); err != nil {
 				return nil, err
 			}
 		}

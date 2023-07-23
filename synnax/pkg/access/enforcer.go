@@ -9,7 +9,10 @@
 
 package access
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+import (
+	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+)
 
 type Request struct {
 	Subject ontology.ID
@@ -18,5 +21,5 @@ type Request struct {
 }
 
 type Enforcer interface {
-	Enforce(req Request) error
+	Enforce(ctx context.Context, req Request) error
 }

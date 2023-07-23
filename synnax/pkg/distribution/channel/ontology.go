@@ -11,8 +11,12 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	changex "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/iter"
 )
 
 const ontologyType ontology.Type = "channel"
@@ -26,38 +30,66 @@ func OntologyID(k Key) ontology.ID {
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":      {Type: schema.String},
-		"name":     {Type: schema.String},
-		"nodeID":   {Type: schema.Uint32},
-		"rate":     {Type: schema.Float64},
-		"isIndex":  {Type: schema.Bool},
-		"index":    {Type: schema.String},
-		"dataType": {Type: schema.String},
+		"key":       {Type: schema.Uint32},
+		"name":      {Type: schema.String},
+		"node_key":  {Type: schema.Uint32},
+		"rate":      {Type: schema.Float64},
+		"is_index":  {Type: schema.Bool},
+		"index":     {Type: schema.String},
+		"data_type": {Type: schema.String},
 	},
+}
+
+func newResource(c Channel) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(c.Key()), c.Name)
+	schema.Set(e, "key", uint32(c.Key()))
+	schema.Set(e, "name", c.Name)
+	schema.Set(e, "node_key", uint32(c.Leaseholder))
+	schema.Set(e, "rate", float64(c.Rate))
+	schema.Set(e, "is_index", c.IsIndex)
+	schema.Set(e, "index", c.Index().String())
+	schema.Set(e, "data_type", string(c.DataType))
+	return e
 }
 
 var _ ontology.Service = (*service)(nil)
 
+type change = changex.Change[Key, Channel]
+
+// Schema implements ontology.Service.
 func (s *service) Schema() *schema.Schema { return _schema }
 
-func (s *service) RetrieveEntity(key string) (schema.Entity, error) {
-	k, err := ParseKey(key)
-	if err != nil {
-		return schema.Entity{}, err
-	}
+// RetrieveResource implements ontology.Service.
+func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+	k := MustParseKey(key)
 	var ch Channel
-	err = s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(context.TODO())
-	return newEntity(ch), err
+	err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
+	return newResource(ch), err
 }
 
-func newEntity(c Channel) schema.Entity {
-	e := schema.NewEntity(_schema, c.Name)
-	schema.Set(e, "key", c.Key().String())
-	schema.Set(e, "name", c.Name)
-	schema.Set(e, "nodeID", uint32(c.NodeID))
-	schema.Set(e, "rate", float64(c.Rate))
-	schema.Set(e, "isIndex", c.IsIndex)
-	schema.Set(e, "index", c.Index().String())
-	schema.Set(e, "dataType", string(c.DataType))
-	return e
+func translateChange(ch change) schema.Change {
+	return schema.Change{
+		Variant: ch.Variant,
+		Key:     OntologyID(ch.Key),
+		Value:   newResource(ch.Value),
+	}
+}
+
+// OnChange implements ontology.Service.
+func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
+		f(ctx, iter.NexterTranslator[change, schema.Change]{
+			Wrap:      reader,
+			Translate: translateChange,
+		})
+	}
+	gorp.Observe[Key, Channel](s.DB).OnChange(handleChange)
+}
+
+// OpenNexter implements ontology.Service.
+func (s *service) OpenNexter() iter.NexterCloser[schema.Resource] {
+	return iter.NexterCloserTranslator[Channel, schema.Resource]{
+		Wrap:      gorp.WrapReader[Key, Channel](s.DB).OpenNexter(),
+		Translate: newResource,
+	}
 }

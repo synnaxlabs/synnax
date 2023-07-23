@@ -25,30 +25,30 @@ var _ = Describe("Builder", func() {
 
 			builder := mock.NewBuilder()
 
-			coreOne := builder.New()
-			coreTwo := builder.New()
-			coreThree := builder.New()
+			coreOne := builder.New(ctx)
+			coreTwo := builder.New(ctx)
+			coreThree := builder.New(ctx)
 
-			Expect(coreOne.Cluster.HostID()).To(Equal(core.NodeID(1)))
-			Expect(coreTwo.Cluster.HostID()).To(Equal(core.NodeID(2)))
-			Expect(coreThree.Cluster.HostID()).To(Equal(core.NodeID(3)))
+			Expect(coreOne.Cluster.HostKey()).To(Equal(core.NodeKey(1)))
+			Expect(coreTwo.Cluster.HostKey()).To(Equal(core.NodeKey(2)))
+			Expect(coreThree.Cluster.HostKey()).To(Equal(core.NodeKey(3)))
 
 			ch := channel.Channel{
-				Name:     "SG_01",
-				DataType: telem.Float64T,
-				Rate:     25 * telem.Hz,
-				NodeID:   1,
+				Name:        "SG_01",
+				DataType:    telem.Float64T,
+				Rate:        25 * telem.Hz,
+				Leaseholder: 1,
 			}
 
-			Expect(coreOne.Channel.Create(&ch)).To(Succeed())
-			Expect(ch.Key().NodeID()).To(Equal(distribution.NodeID(1)))
+			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key().Leaseholder()).To(Equal(distribution.NodeKey(1)))
 
 			Eventually(func(g Gomega) {
 				var resCH channel.Channel
 				g.Expect(coreThree.Channel.NewRetrieve().
 					WhereKeys(ch.Key()).
 					Entry(&resCH).
-					Exec(ctx)).To(Succeed())
+					Exec(ctx, nil)).To(Succeed())
 
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
 			}).Should(Succeed())

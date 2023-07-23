@@ -10,28 +10,37 @@
 package node
 
 import (
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/version"
 	"strconv"
+
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/version"
 )
 
-type ID uint32
+type Key uint16
 
-func (i ID) Parse(str string) (ID, error) {
-	id, err := strconv.Atoi(str)
-	return ID(id), err
+func (k Key) Parse(str string) (Key, error) {
+	key, err := strconv.Atoi(str)
+	return Key(key), err
 }
 
 type Node struct {
-	ID        ID
+	Key       Key
 	Address   address.Address
 	State     State
 	Heartbeat version.Heartbeat
 }
 
-func (n Node) Digest() Digest { return Digest{ID: n.ID, Heartbeat: n.Heartbeat} }
+func (n Node) Digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }
+
+type Change = change.Change[Key, Node]
 
 type State uint32
+
+func BasicallyEqual(prev, next Node) bool {
+	prev.Heartbeat = next.Heartbeat
+	return prev == next
+}
 
 const (
 	StateHealthy State = iota
@@ -41,8 +50,8 @@ const (
 )
 
 type Digest struct {
-	ID        ID
+	Key       Key
 	Heartbeat version.Heartbeat
 }
 
-type Digests map[ID]Digest
+type Digests map[Key]Digest

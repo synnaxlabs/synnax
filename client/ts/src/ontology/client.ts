@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { OntologyRetriever } from "./retriever";
+import { OntologyRetriever } from "@/ontology/retriever";
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class OntologyClient extends OntologyRetriever {}

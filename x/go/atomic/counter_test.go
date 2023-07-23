@@ -27,9 +27,9 @@ var _ = Describe("SeqNum", func() {
 					defer wg.Done()
 					for i := 0; i < 1000; i++ {
 						if i == 0 {
-							c.Add()
+							c.Add(1)
 						} else if i == 1 {
-							c.Add(0, 1)
+							c.Add(1)
 						} else {
 							c.Add(1)
 						}

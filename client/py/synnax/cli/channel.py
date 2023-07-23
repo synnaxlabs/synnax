@@ -9,7 +9,7 @@
 
 import fnmatch
 
-from synnax import Channel
+from synnax.channel import Channel
 from synnax.cli.console.sugared import AskKwargs
 from synnax.cli.flow import Context
 
@@ -64,7 +64,7 @@ def select_channel(
     """
     _, i = ctx.console.select(
         type_=str,
-        columns=["name", "key", "data_type", "index", "rate", "node_id"],
+        columns=["name", "key", "data_type", "index", "rate", "leaseholder"],
         rows=[c.dict() for c in channels],
         **kwargs,
     )

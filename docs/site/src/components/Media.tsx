@@ -15,13 +15,13 @@ export interface VideoProps {
 
 const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
-export const Video = ({ id }: VideoProps): JSX.Element => {
+export const Video = ({ id }: VideoProps): ReactElement => {
   const theme = localStorage.getItem("theme") ?? "light";
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
   return <PVideo href={`${CDN_ROOT}/${id}-${modifier}.mp4`} loop autoPlay />;
 };
 
-export const Image = ({ id }: VideoProps): JSX.Element => {
+export const Image = ({ id }: VideoProps): ReactElement => {
   const theme = localStorage.getItem("theme") ?? "light";
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
   return <img src={`${CDN_ROOT}/${id}-${modifier}.png`} />;

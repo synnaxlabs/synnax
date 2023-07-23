@@ -61,8 +61,8 @@ o:
 // where network message types are different from the message types used by the
 // rest of a program.
 type TransformSender[I Value, M freighter.Payload] struct {
-	Sender freighter.StreamSenderCloser[M]
-	TransformFunc[I, M]
+	Sender    freighter.StreamSenderCloser[M]
+	Transform TransformFunc[I, M]
 	UnarySink[I]
 }
 
@@ -86,7 +86,7 @@ o:
 			if !ok {
 				break o
 			}
-			tRes, ok, tErr := s.TransformFunc.Transform(ctx, res)
+			tRes, ok, tErr := s.Transform(ctx, res)
 			if tErr != nil {
 				err = tErr
 				break o
@@ -200,7 +200,7 @@ func (c ClientTargetedSender[RQ, RS]) open(ctx context.Context, target address.A
 // on its merry way.
 type SwitchSender[M freighter.Payload] struct {
 	Sender TargetedSender[M]
-	SwitchFunc[M]
+	Switch SwitchFunc[M]
 	UnarySink[M]
 }
 
@@ -223,7 +223,7 @@ o:
 			if !ok {
 				break o
 			}
-			target, ok, swErr := sw.ApplySwitch(ctx, msg)
+			target, ok, swErr := sw.Switch(ctx, msg)
 			if !ok || swErr != nil {
 				err = swErr
 				break o
@@ -243,9 +243,8 @@ o:
 // and sends them on their merry way.
 type BatchSwitchSender[I, O freighter.Payload] struct {
 	Senders TargetedSender[O]
-	BatchSwitchFunc[I, O]
+	Switch  BatchSwitchFunc[I, O]
 	UnarySink[I]
-	TransientProvider
 }
 
 type TargetedSender[M freighter.Payload] interface {
@@ -275,15 +274,13 @@ o:
 			if !ok {
 				break o
 			}
-			if swErr := bsw.MaybeTransient(bsw.ApplySwitch(ctx, msg, addrMap)); swErr != nil {
-				err = swErr
-				break o
+			if err = bsw.Switch(ctx, msg, addrMap); err != nil {
+				return err
 			}
 			for target, batch := range addrMap {
 				sErr := bsw.Senders.Send(ctx, target, batch)
-				if sErr = bsw.MaybeTransient(sErr); sErr != nil {
-					err = sErr
-					break o
+				if sErr != nil {
+					return sErr
 				}
 			}
 		}

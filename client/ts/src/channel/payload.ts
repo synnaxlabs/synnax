@@ -7,43 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, UnparsedDataType, UnparsedRate } from "@synnaxlabs/x";
+import { DataType, Rate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const channelPayloadSchema = z.object({
-  key: z.string(),
-  rate: z.number().transform((n) => new Rate(n)),
-  dataType: z.string().transform((s) => new DataType(s)),
+export type ChannelKey = number;
+export type ChannelKeys = number[];
+export type ChannelName = string;
+export type ChannelNames = string[];
+export type ChannelKeyOrName = ChannelKey | ChannelName;
+export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
+export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
+
+export const channelPayload = z.object({
   name: z.string(),
-  nodeId: z.number().default(0).optional(),
-  index: z.string().default("").optional(),
-  isIndex: z.boolean().default(false).optional(),
+  key: z.number(),
+  rate: Rate.z,
+  dataType: DataType.z,
+  leaseholder: z.number(),
+  index: z.number(),
+  isIndex: z.boolean(),
 });
 
-export type ChannelPayload = z.infer<typeof channelPayloadSchema>;
+export type ChannelPayload = z.infer<typeof channelPayload>;
 
-export const unkeyedChannelPayloadSchema = channelPayloadSchema.extend({
-  key: z.string().optional(),
+export const newChannelPayload = channelPayload.extend({
+  key: z.number().optional(),
+  leaseholder: z.number().optional(),
+  index: z.number().optional(),
+  rate: Rate.z.optional(),
+  isIndex: z.boolean().optional(),
 });
 
-export type UnkeyedChannelPayload = z.infer<typeof unkeyedChannelPayloadSchema>;
+export type NewChannelPayload = z.input<typeof newChannelPayload>;
 
-export interface UnparsedChannel {
-  key?: string;
-  name: string;
-  dataType: UnparsedDataType;
-  rate?: UnparsedRate;
-  nodeId?: number;
-  index?: string;
-  isIndex?: boolean;
-}
-
-export const parseChannels = (channels: UnparsedChannel[]): UnkeyedChannelPayload[] =>
+export const parseChannels = (channels: NewChannelPayload[]): NewChannelPayload[] =>
   channels.map((channel) => ({
     name: channel.name,
     dataType: new DataType(channel.dataType),
     rate: new Rate(channel.rate ?? 0),
-    nodeId: channel.nodeId,
+    leaseholder: channel.leaseholder,
     index: channel.index,
     isIndex: channel.isIndex,
   }));

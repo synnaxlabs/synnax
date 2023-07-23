@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
-	var db cesium.DB
+	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 })

@@ -10,11 +10,9 @@
 package middleware_test
 
 import (
-	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/middleware"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type request struct {
@@ -27,18 +25,21 @@ type response struct {
 
 type myFirstMiddleware struct{}
 
+var _ middleware.Middleware[*request, *response] = &myFirstMiddleware{}
+
 func (m *myFirstMiddleware) Exec(
-	ctx context.Context,
 	req *request,
-	next func(context.Context, *request) (*response, error),
+	next func(*request) (*response, error),
 ) (*response, error) {
 	req.value = "request"
-	return next(ctx, req)
+	return next(req)
 }
 
 type myFinalizer struct{}
 
-func (m *myFinalizer) Finalize(ctx context.Context, req *request) (*response, error) {
+var _ middleware.Finalizer[*request, *response] = &myFinalizer{}
+
+func (m *myFinalizer) Finalize(req *request) (*response, error) {
 	return nil, nil
 }
 
@@ -49,21 +50,8 @@ var _ = Describe("ExecSequentially", func() {
 			&myFirstMiddleware{},
 		}
 		req := &request{}
-		_, err := chain.Exec(context.TODO(), req, &myFinalizer{})
+		_, err := chain.Exec(req, &myFinalizer{})
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
-	})
-	It("Should not execute middleware if the context is canceled", func() {
-		collector := &middleware.Collector[*request, *response]{}
-		collector.Use(
-			&myFirstMiddleware{},
-			&myFirstMiddleware{},
-		)
-		req := &request{}
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err := collector.Exec(ctx, req, &myFinalizer{})
-		Expect(err).To(HaveOccurredAs(context.Canceled))
-		Expect(req.value).To(Equal(""))
 	})
 })

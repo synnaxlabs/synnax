@@ -10,10 +10,12 @@
 package mock
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -23,8 +25,8 @@ import (
 type Network struct {
 	pledge     *fmock.Network[pledge.Request, pledge.Response]
 	cluster    *fmock.Network[gossip.Message, gossip.Message]
-	operations *fmock.Network[kv.BatchRequest, kv.BatchRequest]
-	lease      *fmock.Network[kv.BatchRequest, types.Nil]
+	operations *fmock.Network[kv.TxRequest, kv.TxRequest]
+	lease      *fmock.Network[kv.TxRequest, types.Nil]
 	feedback   *fmock.Network[kv.FeedbackMessage, types.Nil]
 }
 
@@ -32,8 +34,8 @@ func NewNetwork() *Network {
 	return &Network{
 		pledge:     fmock.NewNetwork[pledge.Request, pledge.Response](),
 		cluster:    fmock.NewNetwork[gossip.Message, gossip.Message](),
-		operations: fmock.NewNetwork[kv.BatchRequest, kv.BatchRequest](),
-		lease:      fmock.NewNetwork[kv.BatchRequest, types.Nil](),
+		operations: fmock.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		lease:      fmock.NewNetwork[kv.TxRequest, types.Nil](),
 		feedback:   fmock.NewNetwork[kv.FeedbackMessage, types.Nil](),
 	}
 }
@@ -47,10 +49,10 @@ type transport struct {
 	pledgeClient   *fmock.UnaryClient[pledge.Request, pledge.Response]
 	clusterServer  *fmock.UnaryServer[gossip.Message, gossip.Message]
 	clusterClient  *fmock.UnaryClient[gossip.Message, gossip.Message]
-	batchServer    *fmock.UnaryServer[kv.BatchRequest, kv.BatchRequest]
-	batchClient    *fmock.UnaryClient[kv.BatchRequest, kv.BatchRequest]
-	leaseServer    *fmock.UnaryServer[kv.BatchRequest, types.Nil]
-	leaseClient    *fmock.UnaryClient[kv.BatchRequest, types.Nil]
+	batchServer    *fmock.UnaryServer[kv.TxRequest, kv.TxRequest]
+	batchClient    *fmock.UnaryClient[kv.TxRequest, kv.TxRequest]
+	leaseServer    *fmock.UnaryServer[kv.TxRequest, types.Nil]
+	leaseClient    *fmock.UnaryClient[kv.TxRequest, types.Nil]
 	feedbackServer *fmock.UnaryServer[kv.FeedbackMessage, types.Nil]
 	feedbackClient *fmock.UnaryClient[kv.FeedbackMessage, types.Nil]
 }
@@ -89,3 +91,20 @@ func (t *transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer
 func (t *transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
 func (t *transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+
+func (t *transport) Use(middleware ...freighter.Middleware) {
+	t.pledgeClient.Use(middleware...)
+	t.pledgeServer.Use(middleware...)
+	t.clusterClient.Use(middleware...)
+	t.clusterServer.Use(middleware...)
+	t.batchClient.Use(middleware...)
+	t.batchServer.Use(middleware...)
+	t.leaseClient.Use(middleware...)
+	t.leaseServer.Use(middleware...)
+	t.feedbackClient.Use(middleware...)
+	t.feedbackServer.Use(middleware...)
+}
+
+func (t *transport) Report() alamos.Report {
+	return t.pledgeClient.Report()
+}

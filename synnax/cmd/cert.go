@@ -12,10 +12,10 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"go.uber.org/zap"
 )
 
 var certCmd = &cobra.Command{
@@ -29,11 +29,8 @@ var certCA = &cobra.Command{
 	Short: "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		l, err := configureLogging(viper.GetBool("verbose"))
-		if err != nil {
-			return err
-		}
-		factory, err := cert.NewFactory(buildCertFactoryConfig(l))
+		ins := configureInstrumentation()
+		factory, err := cert.NewFactory(buildCertFactoryConfig(ins))
 		if err != nil {
 			return err
 		}
@@ -46,16 +43,13 @@ var certNode = &cobra.Command{
 	Short: "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
-		l, err := configureLogging(viper.GetBool("verbose"))
-		if err != nil {
-			return err
-		}
+		ins := configureInstrumentation()
 		// convert hosts to addresses
 		addresses := make([]address.Address, len(hosts))
 		for i, host := range hosts {
 			addresses[i] = address.Address(host)
 		}
-		cfg := buildCertFactoryConfig(l)
+		cfg := buildCertFactoryConfig(ins)
 		cfg.Hosts = addresses
 		factory, err := cert.NewFactory(cfg)
 		if err != nil {
@@ -72,21 +66,21 @@ func init() {
 	certCmd.AddCommand(certNode)
 }
 
-func buildCertLoaderConfig(logger *zap.Logger) cert.LoaderConfig {
+func buildCertLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 	return cert.LoaderConfig{
-		CertsDir:     viper.GetString("certs-dir"),
-		CAKeyPath:    viper.GetString("ca-key"),
-		CACertPath:   viper.GetString("ca-cert"),
-		NodeKeyPath:  viper.GetString("node-key"),
-		NodeCertPath: viper.GetString("node-cert"),
-		Logger:       logger.Sugar(),
+		Instrumentation: ins,
+		CertsDir:        viper.GetString("certs-dir"),
+		CAKeyPath:       viper.GetString("ca-key"),
+		CACertPath:      viper.GetString("ca-cert"),
+		NodeKeyPath:     viper.GetString("node-key"),
+		NodeCertPath:    viper.GetString("node-cert"),
 	}
 }
 
-func buildCertFactoryConfig(logger *zap.Logger) cert.FactoryConfig {
+func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
 	return cert.FactoryConfig{
-		LoaderConfig:  buildCertLoaderConfig(logger),
-		AllowKeyReuse: config.BoolPointer(viper.GetBool("allow-key-reuse")),
+		LoaderConfig:  buildCertLoaderConfig(ins),
+		AllowKeyReuse: config.Bool(viper.GetBool("allow-key-reuse")),
 		KeySize:       viper.GetInt("key-size"),
 	}
 }

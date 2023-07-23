@@ -1,0 +1,74 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-tooltip {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    --tooltip-color: var(--pluto-gray-m3);
+    background-color: var(--tooltip-color);
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius);
+    padding: 1rem;
+}
+
+.pluto-tooltip::after {
+    content: " ";
+    position: absolute;
+    border-width: 1rem;
+    border-style: solid;
+}
+
+.pluto-tooltip.pluto--bottom::after {
+    bottom: 100%;
+    left: 50%;
+    border-color: transparent transparent var(--pluto-border-color) transparent;
+}
+
+.pluto-tooltip.pluto--top::after {
+    top: 100%;
+    left: 50%;
+    border-color: var(--pluto-border-color) transparent transparent transparent;
+}
+
+.pluto-tooltip.pluto--left::after {
+    top: 50%;
+    left: 100%;
+    margin-top: -5px;
+    border-color: transparent transparent transparent var(--pluto-border-color);
+}
+
+.pluto-tooltip.pluto--right::after {
+    top: 50%;
+    right: 100%;
+    margin-left: -5px;
+    margin-top: -5px;
+    border-color: transparent var(--pluto-border-color) transparent transparent;
+}
+
+.pluto-tooltip.pluto--left {
+    transform: translate(calc(-100% - 5px), -50%);
+}
+
+.pluto-tooltip.pluto--right {
+    margin-left: 5px;
+    transform: translateY(-50%);
+}
+
+.pluto-tooltip.pluto--top {
+    margin-bottom: 5px;
+    transform: translateX(-50%);
+}
+
+.pluto-tooltip.pluto--bottom {
+    margin-top: 5px;
+    transform: translateX(-50%);
+}

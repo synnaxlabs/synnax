@@ -27,7 +27,7 @@ export const OSDownloadButton = ({
   entries = [],
   name,
   ...props
-}: OSDownloadButtonProps): JSX.Element | null => {
+}: OSDownloadButtonProps): ReactElement | null => {
   const os = useOS();
   if (entries.length === 0) return null;
   let entry = entries.find((entry) => entry.os === os);

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { ReactElement, useEffect } from "react";
 
 import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, Space, useOS, applyCSSVars } from "@synnaxlabs/pluto";
+import { Nav, Space, useOS, CSS as PCSS } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
@@ -22,9 +22,9 @@ import { LayoutContent } from "./LayoutContent";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
 
-import "./LayoutWindow.css";
+import "@/layout/components/LayoutWindow.css";
 
-export const NavTop = (): JSX.Element => {
+export const NavTop = (): ReactElement => {
   const os = useOS();
   return (
     <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
@@ -39,7 +39,7 @@ export const NavTop = (): JSX.Element => {
   );
 };
 
-export const LayoutWindow = (): JSX.Element | null => {
+export const LayoutWindow = (): ReactElement | null => {
   const { label } = appWindow;
   const win = useSelectWindow(label);
   const layout = useSelectLayout(win?.key ?? "");
@@ -67,7 +67,7 @@ export const LayoutWindow = (): JSX.Element | null => {
 const applyWindowsBorders = (): void => {
   window.document.documentElement.style.boxSizing = "border-box";
   window.document.documentElement.style.border = "var(--pluto-border)";
-  applyCSSVars(window.document.documentElement, {
+  PCSS.applyVars(window.document.documentElement, {
     "--os-border-offset": "2px",
   });
 };

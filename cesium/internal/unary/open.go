@@ -10,19 +10,20 @@
 package unary
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/ranger"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Config is the configuration for opening a DB.
 type Config struct {
+	alamos.Instrumentation
 	// FS is where the database stores its files. This FS is assumed to be a directory
 	// where DB has exclusive read and write access.
 	FS xfs.FS
@@ -33,41 +34,37 @@ type Config struct {
 	// MetaECD is the encoder/decoder used to encode Channel information into the
 	// meta file.
 	MetaECD binary.EncoderDecoder
-	// Logger is the witness of it all.
-	Logger *zap.Logger
 }
 
 var (
 	_ config.Config[Config] = (*Config)(nil)
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		MetaECD: &binary.JSONIdentEncoderDecoder{},
-		Logger:  zap.NewNop(),
+		MetaECD: &binary.JSONEncoderDecoder{Pretty: true},
 	}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (cfg Config) Validate() error {
 	v := validate.New("cesium.unary")
-	validate.NotNil(v, "FS", c.FS)
-	validate.NotNil(v, "MetaECD", c.MetaECD)
-	validate.NotNil(v, "Logger", c.Logger)
+	validate.NotNil(v, "FS", cfg.FS)
+	validate.NotNil(v, "MetaECD", cfg.MetaECD)
 	return v.Error()
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
-	c.FS = override.Nil(c.FS, other.FS)
-	c.MetaECD = override.Nil(c.MetaECD, other.MetaECD)
-	if c.Channel.Key == "" {
-		c.Channel = other.Channel
+func (cfg Config) Override(other Config) Config {
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	cfg.MetaECD = override.Nil(cfg.MetaECD, other.MetaECD)
+	if cfg.Channel.Key == 0 {
+		cfg.Channel = other.Channel
 	}
-	c.Logger = override.Nil(c.Logger, other.Logger)
-	return c
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	return cfg
 }
 
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +72,13 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	rangerDB, err := ranger.Open(ranger.Config{FS: cfg.FS, Logger: cfg.Logger})
+	rangerDB, err := domain.Open(domain.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
 
 	db := &DB{Config: cfg, Ranger: rangerDB}
 	if cfg.Channel.IsIndex {
-		db._idx = &index.Ranger{DB: rangerDB, Logger: cfg.Logger}
-	} else if cfg.Channel.Index == "" {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate, Logger: cfg.Logger}
+		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
+	} else if cfg.Channel.Index == 0 {
+		db._idx = index.Rate{Rate: cfg.Channel.Rate}
 	}
 	return db, err
 }

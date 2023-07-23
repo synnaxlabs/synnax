@@ -26,8 +26,6 @@ jobs:
               - 'aspen/**'
               - 'x/**'
               - 'freighter/go/**'
-              # We also diff the client here because its used in tests
-              - 'client/go/**'
               - '.github/workflows/synnax.test.yaml'
 
       - name: Set Up Go

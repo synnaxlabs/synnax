@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.6.2"
+    "version": "0.7.0"
   },
   "tauri": {
     "macOSPrivateApi": true,
@@ -69,8 +69,8 @@
         "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": false,
-        "acceptFirstMouse": true
+        "visible": true,
+        "acceptFirstMouse": false
       }
     ]
   }

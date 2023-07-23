@@ -10,8 +10,12 @@
 package kv
 
 import (
+	"context"
+	"io"
+
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
@@ -19,71 +23,74 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// Writer is a writable key-value storeSink.
-type Writer interface {
-	// Writer represents the same interface to a typical key-value storeSink.
-	kvx.Writer
-}
-
-type (
-	// Reader is a readable key-value storeSink.
-	Reader = kvx.Reader
-)
-
-type (
-	BatchWriter = kvx.BatchWriter
-)
-
-// DB is a readable and writable key-value storeSink.
-type DB interface {
-	Writer
-	Reader
-	BatchWriter
-	alamos.Reporter
-}
-
-type kv struct {
+type DB struct {
 	kvx.DB
-	Config
+	kvx.Observable
+	config     Config
 	leaseAlloc *leaseAllocator
-	confluence.AbstractUnarySource[BatchRequest]
-	confluence.EmptyFlow
+	source     struct {
+		confluence.AbstractUnarySource[TxRequest]
+		confluence.NopFlow
+	}
+	shutdown io.Closer
 }
 
-// Set implements DB.
-func (k *kv) Set(key []byte, value []byte, maybeLease ...interface{}) error {
-	b := k.NewBatch()
-	if err := b.Set(key, value, maybeLease...); err != nil {
+var _ kvx.DB = (*DB)(nil)
+
+func (d *DB) Set(
+	ctx context.Context,
+	key, value []byte,
+	maybeLease ...interface{},
+) (err error) {
+	b := d.OpenTx()
+	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	if err = b.Set(ctx, key, value, maybeLease...); err != nil {
 		return err
 	}
-	return b.Commit()
+	err = b.Commit(ctx)
+	return
 }
 
-// Delete implements DB.
-func (k *kv) Delete(key []byte) error {
-	b := k.NewBatch()
-	if err := b.Delete(key); err != nil {
+func (d *DB) Delete(
+	ctx context.Context,
+	key []byte,
+	maybeLease ...interface{},
+) (err error) {
+	b := d.OpenTx()
+	defer func() { err = errors.CombineErrors(err, b.Close()) }()
+	if err = b.Delete(ctx, key, maybeLease...); err != nil {
 		return err
 	}
-	return b.Commit()
+	err = b.Commit(ctx)
+	return
 }
 
-func (k *kv) apply(b []BatchRequest) (err error) {
-	c := batchCoordinator{}
+func (d *DB) OpenTx() kvx.Tx {
+	return &tx{
+		Instrumentation: d.config.Instrumentation,
+		apply:           d.apply,
+		lease:           d.leaseAlloc,
+		Tx:              d.DB.OpenTx(),
+	}
+}
+
+func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) {
+	d.Observable.OnChange(f)
+}
+
+func (d *DB) apply(b []TxRequest) (err error) {
+	c := txCoordinator{}
 	for _, bd := range b {
 		c.add(&bd)
-		k.Out.Inlet() <- bd
+		d.source.Out.Inlet() <- bd
 	}
 	return c.wait()
 }
 
-func (k *kv) NewBatch() kvx.Batch {
-	return &batch{apply: k.apply, lease: k.leaseAlloc, Batch: k.DB.NewBatch()}
-}
-
-func (k *kv) Report() alamos.Report {
+func (d *DB) Report() alamos.Report {
 	return alamos.Report{
-		"engine": "aspen-pebble",
+		"engine":  "aspen",
+		"wrapped": d.DB.Report(),
 	}
 }
 
@@ -91,8 +98,10 @@ const (
 	versionFilterAddr     = "versionFilter"
 	versionAssignerAddr   = "versionAssigner"
 	persistAddr           = "persist"
+	persistDeltaAddr      = "persistDelta"
 	storeEmitterAddr      = "storeEmitter"
 	storeSinkAddr         = "storeSink"
+	observableAddr        = "observable"
 	operationSenderAddr   = "opSender"
 	operationReceiverAddr = "opReceiver"
 	feedbackSenderAddr    = "feedbackSender"
@@ -104,112 +113,152 @@ const (
 	executorAddr          = "executor"
 )
 
-func Open(ctx signal.Context, cfgs ...Config) (DB, error) {
-	cfg, err := config.OverrideAndValidate(DefaultConfig, cfgs...)
+func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	db := &kv{
-		Config:     cfg,
+
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	db_ := &DB{
+		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
+		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 
-	cfg.Logger.Infow("opening cluster kv", cfg.Report().LogArgs()...)
-
-	va, err := newVersionAssigner(cfg)
+	va, err := newVersionAssigner(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	db_.config.L.Info("opening cluster DB", db_.config.Report().ZapFields()...)
 
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[BatchRequest](pipe, executorAddr, db)
-	plumber.SetSource[BatchRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSource[TxRequest](pipe, executorAddr, &db_.source)
+	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
-	plumber.SetSource[BatchRequest](pipe, operationReceiverAddr, newOperationReceiver(cfg, st))
-	plumber.SetSegment[BatchRequest](
+	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, newOperationReceiver(cfg, st))
+	plumber.SetSegment[TxRequest](
 		pipe,
 		versionFilterAddr,
 		newVersionFilter(cfg, persistAddr, feedbackSenderAddr),
 	)
-	plumber.SetSegment[BatchRequest](pipe, versionAssignerAddr, va)
-	plumber.SetSink[BatchRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](pipe, persistAddr, newPersist(cfg.Engine))
-	plumber.SetSource[BatchRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
-	plumber.SetSink[BatchRequest](pipe, storeSinkAddr, newStoreSink(st))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSegment[TxRequest](pipe, versionAssignerAddr, va)
+	plumber.SetSink[TxRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](pipe, persistAddr, newPersist(cfg.Engine))
+	plumber.SetSource[TxRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
+	plumber.SetSink[TxRequest](pipe, storeSinkAddr, newStoreSink(st))
+	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		operationSenderAddr,
 		newOperationSender(cfg),
 	)
-	plumber.SetSink[BatchRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
-	plumber.SetSource[BatchRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
-	plumber.SetSegment[BatchRequest, BatchRequest](
+	plumber.SetSink[TxRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
+	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		recoveryTransformAddr,
 		newRecoveryTransform(cfg),
 	)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.SetSegment[TxRequest, TxRequest](
+		pipe,
+		persistDeltaAddr,
+		&confluence.DeltaMultiplier[TxRequest]{},
+	)
+
+	// We use a generator observable to generate a unique transaction reader for
+	// each handler in the observable chain. This is necessary because the transaction
+	// reader can be exhausted.
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, kvx.TxReader](
+		func(ctx context.Context, tx TxRequest) (func() kvx.TxReader, bool, error) {
+			return func() kvx.TxReader { return tx.reader() }, true, nil
+		})
+	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
+	db_.Observable = observable
+
+	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
 		SinkTargets:   []address.Address{leaseProxyAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{leaseProxyAddr},
 		SinkTargets:   []address.Address{versionAssignerAddr, leaseSenderAddr},
 		Stitch:        plumber.StitchWeave,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{operationReceiverAddr, operationSenderAddr},
 		SinkTargets:   []address.Address{versionFilterAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
+	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
 		SinkTargets:   []address.Address{persistAddr},
-		Capacity:      1,
 		Stitch:        plumber.StitchUnary,
+		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[TxRequest]{
+		SourceTarget: persistAddr,
+		SinkTarget:   persistDeltaAddr,
+		Capacity:     1,
+	}.MustRoute(pipe)
+
+	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: versionFilterAddr,
 		SinkTarget:   feedbackSenderAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: feedbackReceiverAddr,
 		SinkTarget:   recoveryTransformAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	plumber.MultiRouter[BatchRequest]{
-		SourceTargets: []address.Address{persistAddr, recoveryTransformAddr},
+	plumber.MultiRouter[TxRequest]{
+		SourceTargets: []address.Address{persistDeltaAddr, recoveryTransformAddr},
 		SinkTargets:   []address.Address{storeSinkAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      1,
 	}.MustRoute(pipe)
 
-	plumber.UnaryRouter[BatchRequest]{
+	plumber.UnaryRouter[TxRequest]{
+		SourceTarget: persistDeltaAddr,
+		SinkTarget:   observableAddr,
+		// Setting the capacity higher here allows us to unclog the pipeline in case
+		// we have a slow observer.
+		Capacity: 10,
+	}.MustRoute(pipe)
+
+	plumber.UnaryRouter[TxRequest]{
 		SourceTarget: storeEmitterAddr,
 		SinkTarget:   operationSenderAddr,
 		Capacity:     1,
 	}.MustRoute(pipe)
 
-	pipe.Flow(ctx)
+	pipe.Flow(sCtx)
 
-	return db, nil
+	return db_, nil
+}
+
+func (d *DB) Close() error {
+	if err := d.DB.Close(); err != nil {
+		return err
+	}
+	return d.shutdown.Close()
 }
