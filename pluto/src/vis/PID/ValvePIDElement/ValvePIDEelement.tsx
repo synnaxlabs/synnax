@@ -29,9 +29,9 @@ import {
   PIDElementFormProps,
   PIDElementSpec,
   StatefulPIDElementProps,
-} from "@/vis/pid/PIDElement";
+} from "@/vis/PID/PIDElement";
 
-import "@/vis/pid/ValvePIDElement/ValvePIDElement.css";
+import "@/vis/PID/ValvePIDElement/ValvePIDElement.css";
 
 export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
   telem: RangeNumerictelemProps;

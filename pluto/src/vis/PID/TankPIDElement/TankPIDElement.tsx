@@ -28,9 +28,9 @@ import {
   PIDElementFormProps,
   PIDElementSpec,
   StatefulPIDElementProps,
-} from "@/vis/pid/PIDElement";
+} from "@/vis/PID/PIDElement";
 
-import "@/vis/pid/TankPIDElement/TankPIDElement.css";
+import "@/vis/PID/TankPIDElement/TankPIDElement.css";
 
 export interface TankPIDElementProps extends Omit<TankProps, "telem"> {
   label: string;

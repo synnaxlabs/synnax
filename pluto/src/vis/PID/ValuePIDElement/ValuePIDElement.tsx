@@ -20,9 +20,9 @@ import {
   PIDElementFormProps,
   StatefulPIDElementProps,
   PIDElementSpec,
-} from "@/vis/pid/PIDElement";
+} from "@/vis/PID/PIDElement";
 
-import "@/vis/pid/ValuePIDElement/ValuePIDElement.css";
+import "@/vis/PID/ValuePIDElement/ValuePIDElement.css";
 
 export const ZERO_PROPS: ValuePIDElementProps = {
   label: "Value",
