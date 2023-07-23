@@ -42,8 +42,9 @@ var _ = Describe("Mock", func() {
 		Expect(builder.Cleanup()).To(Succeed())
 	},
 		Entry("Should open a three node memory backed distribution core"),
-		Entry("Should open a three node file-system backed distribution core", distribution.Config{
-			Storage: storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"},
-		}),
+		Entry("Should open a three node file-system backed distribution core",
+			distribution.Config{
+				Storage: storage.Config{MemBacked: config.Bool(false), Dirname: "./tmp"},
+			}),
 	)
 })

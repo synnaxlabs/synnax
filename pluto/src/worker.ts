@@ -22,7 +22,7 @@ import { Telem } from "@/telem/TelemProvider/aether";
 export const pluto = (): void => {
   // @ts-expect-error
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
-  onmessage = (e) => w.handle(e);
+  onmessage = w.handle.bind(w);
 
   const REGISTRY: AetherComponentRegistry = {
     ...AetherLinePlot.REGISTRY,
