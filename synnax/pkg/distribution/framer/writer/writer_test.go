@@ -41,23 +41,23 @@ var _ = Describe("TypedWriter", func() {
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 				}))
-				Expect(writer.Write(core.NewFrame(
-					s.keys,
-					[]telem.Series{
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
-					}),
+					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
 				Expect(writer.Error()).To(Succeed())
-				Expect(writer.Write(core.NewFrame(
-					s.keys,
-					[]telem.Series{
+				Expect(writer.Write(core.Frame{
+					Keys: s.keys,
+					Series: []telem.Series{
 						telem.NewArrayV[int64](1, 2, 3),
 						telem.NewArrayV[int64](3, 4, 5),
 						telem.NewArrayV[int64](5, 6, 7),
-					}),
+					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
 				Expect(writer.Error()).To(Succeed())
@@ -129,14 +129,14 @@ var _ = Describe("TypedWriter", func() {
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			Expect(writer.Write(core.NewFrame(
-				append(s.keys, channel.NewKey(12, 22)),
-				[]telem.Series{
+			Expect(writer.Write(core.Frame{
+				Keys: append(s.keys, channel.NewKey(12, 22)),
+				Series: []telem.Series{
 					telem.NewArrayV[int64](1, 2, 3),
 					telem.NewArrayV[int64](3, 4, 5),
 					telem.NewArrayV[int64](5, 6, 7),
 					telem.NewArrayV[int64](5, 6, 7),
-				}),
+				}},
 			)).To(BeTrue())
 			Expect(writer.Commit()).To(BeFalse())
 			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))

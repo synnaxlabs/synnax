@@ -13,7 +13,6 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/gorp"
@@ -107,13 +106,13 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(w.Register(ctx, creds)).To(Succeed())
 			err := w.UpdateUsername(ctx, creds, "old-user")
 			Expect(err).ToNot(BeNil())
-			logrus.Info(err)
 			Expect(errors.Is(errors.New("[auth] - username already registered"), err)).To(BeTrue())
 		})
 	})
 	Describe("UpdatePassword", func() {
-		FIt("Should update the users password", func() {
+		It("Should update the users password", func() {
 			w := authenticator.NewWriter(tx)
+			Expect(w.Register(ctx, creds)).To(Succeed())
 			var newPass password.Raw = "new-pass"
 			Expect(w.UpdatePassword(ctx, creds, newPass)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
