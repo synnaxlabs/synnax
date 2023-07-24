@@ -39,7 +39,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
   ({
     aetherKey,
     children,
-    resizeDebounce: debounce = 100,
+    resizeDebounce: debounce = 0,
     location = "bottom",
     label,
     labelLevel = "small",

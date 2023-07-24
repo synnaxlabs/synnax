@@ -126,7 +126,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
           position: box.topLeft,
         }));
       },
-      { debounce: 100 }
+      { debounce: 0 }
     );
 
     const font = Theming.useTypography(labelLevel);

@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { AetherComponent, AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
-import { RenderContext, RenderController } from "@/core/vis/render";
+import { RenderCleanup, RenderContext, RenderController } from "@/core/vis/render";
 
 const pidState = z.object({
   position: XY.z,
@@ -50,15 +50,13 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
   }
 
   afterDelete(): void {
-    const { renderCtx } = this.derived;
-    renderCtx.erase(new Box(this.prevState.region));
+    this.requestRender();
   }
 
-  async render(): Promise<void> {
+  async render(): Promise<RenderCleanup> {
+    if (this.deleted) return async () => {};
     const { renderCtx } = this.derived;
     const region = new Box(this.state.region);
-    const prevRegion = new Box(this.prevState.region);
-    renderCtx.eraseCanvas(prevRegion.isZero ? region : prevRegion);
     const clearScissor = renderCtx.scissorCanvas(region);
     try {
       await Promise.all(
@@ -75,10 +73,18 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
     } finally {
       clearScissor();
     }
+
+    return async () => {
+      renderCtx.eraseCanvas(new Box(this.prevState.region));
+    };
   }
 
   private requestRender(): void {
     const { renderCtx } = this.derived;
-    renderCtx.queue.push(this.key, this.render.bind(this));
+    renderCtx.queue.push({
+      key: this.key,
+      render: this.render.bind(this),
+      priority: "high",
+    });
   }
 }
