@@ -26,6 +26,8 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Compare, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { useUnmount } from "../hooks/useMount";
+
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useMemoCompare } from "@/core/memo";
@@ -191,6 +193,11 @@ const useAetherLifecycle = <S extends z.ZodTypeAny>({
       comms.current = null;
     };
   }, [type, path, onReceive, setState]);
+
+  useUnmount(() => {
+    comms.current?.delete();
+    comms.current = null;
+  });
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };

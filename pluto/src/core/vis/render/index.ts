@@ -11,3 +11,9 @@ export { RenderContext } from "@/core/vis/render/RenderContext";
 export { GLProgram } from "@/core/vis/render/GLProgram";
 export { RenderController } from "@/core/vis/render/RenderContext";
 export type { RequestRender } from "@/core/vis/render/RenderContext";
+export type {
+  RenderRequest,
+  RenderCleanup,
+  RenderFunction,
+  RenderPriority,
+} from "@/core/vis/render/RenderQueue";

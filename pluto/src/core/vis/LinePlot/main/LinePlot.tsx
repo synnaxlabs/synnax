@@ -110,7 +110,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   ({
     aetherKey,
     style,
-    resizeDebounce: debounce = 100,
+    resizeDebounce: debounce = 0,
     clearOverscan,
     children,
     ...props
