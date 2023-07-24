@@ -11,12 +11,16 @@ import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { LookupResult } from "../../Line/core";
-import { RenderPriority } from "../../render/RenderQueue";
 
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
-import { RenderController, RenderContext } from "@/core/vis/render";
+import {
+  RenderController,
+  RenderContext,
+  RenderCleanup,
+  RenderPriority,
+} from "@/core/vis/render";
 
 const linePlotState = z.object({
   plot: Box.z,
@@ -45,13 +49,13 @@ export class AetherLinePlot extends AetherComposite<
   }
 
   afterUpdate(): void {
-    RenderController.control(this.ctx, () => this.requestRender(this.region, "low"));
-    this.requestRender(this.prevRegion, "high");
+    RenderController.control(this.ctx, () => this.requestRender("low"));
+    this.requestRender("high");
   }
 
   afterDelete(): void {
-    const { ctx } = this.derived;
-    ctx.erase(this.region, this.clearOverScan);
+    console.log("DELETE");
+    this.requestRender("high");
   }
 
   private get plottingRegion(): Box {
@@ -60,10 +64,6 @@ export class AetherLinePlot extends AetherComposite<
 
   private get region(): Box {
     return new Box(this.state.container);
-  }
-
-  private get prevRegion(): Box {
-    return new Box(this.prevState.container);
   }
 
   private get viewport(): Box {
@@ -96,9 +96,9 @@ export class AetherLinePlot extends AetherComposite<
     ).flat();
   }
 
-  private async render(box: Box): Promise<void> {
+  private async render(): Promise<RenderCleanup> {
+    if (this.deleted) return async () => {};
     const { ctx } = this.derived;
-    ctx.erase(box, this.clearOverScan);
     const removeGlScissor = ctx.scissorGL(this.plottingRegion);
     const removeCanvasScissor = ctx.scissorCanvas(this.region);
     try {
@@ -118,10 +118,15 @@ export class AetherLinePlot extends AetherComposite<
       removeGlScissor();
       removeCanvasScissor();
     }
+    return async () => ctx.erase(new Box(this.prevState.container), this.clearOverScan);
   }
 
-  requestRender(erase: Box, priority: RenderPriority): void {
+  requestRender(priority: RenderPriority): void {
     const { ctx } = this.derived;
-    ctx.queue.push(this.key, async () => await this.render(erase), priority);
+    ctx.queue.push({
+      key: `${this.type}-${this.key}`,
+      render: this.render.bind(this),
+      priority,
+    });
   }
 }

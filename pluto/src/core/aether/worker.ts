@@ -193,6 +193,7 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
   private _derivedState: DS | undefined;
   private _state: z.output<S> | undefined;
   private _prevState: z.output<S> | undefined;
+  private _deleted: boolean = false;
 
   schema: S | undefined = undefined;
 
@@ -246,6 +247,10 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     return this._prevState;
   }
 
+  get deleted(): boolean {
+    return this._deleted;
+  }
+
   /**
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
@@ -268,6 +273,7 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
    */
   internalDelete(path: string[]): void {
     this.validatePath(path);
+    this._deleted = true;
     this.afterDelete();
   }
 

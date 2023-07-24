@@ -159,7 +159,12 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<K, E>): ReactElement | null => {
-  const style: CSSProperties = { width: col.cWidth, userSelect: "none", padding: 6 };
+  const style: CSSProperties = {
+    width: col.cWidth,
+    userSelect: "none",
+    padding: "1rem",
+    flexShrink: 0,
+  };
   if (col.render != null) return col.render({ key: col.key, entry, style });
   let rv: E[keyof E] | string;
   if (col.stringer != null) rv = col.stringer(entry);
@@ -185,7 +190,7 @@ const columnWidths = <
     else {
       const { width: labelWidth } = Text.dimensions(col.name, font);
       const { width: entryWidth } = Text.dimensions(le[col.key as keyof E], font);
-      col.cWidth = Math.max(labelWidth, entryWidth) * 1.5;
+      col.cWidth = Math.max(labelWidth, entryWidth) * 1.1;
     }
     return col;
   });

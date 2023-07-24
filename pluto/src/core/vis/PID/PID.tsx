@@ -173,7 +173,7 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const resizeRef = useResize(
       (box) => setState((prev) => ({ ...prev, region: box })),
-      {}
+      { debounce: 0 }
     );
 
     const handleViewport = useCallback(
