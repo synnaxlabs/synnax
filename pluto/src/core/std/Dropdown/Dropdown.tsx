@@ -119,8 +119,6 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
     const dialogStyle: CSSProperties = { ...pos.css };
     if (matchTriggerWidth) dialogStyle.width = width;
 
-    console.log(pos, loc, width);
-
     return (
       <Pack
         {...props}
