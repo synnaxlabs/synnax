@@ -15,7 +15,6 @@
 
 .pluto-select__input {
     flex-grow: 1;
-    z-index: 2;
 }
 
 .pluto-select-input.pluto-haul-drop-region > * {

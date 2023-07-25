@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 
-import { Location, CrudeOuterLocation } from "@synnaxlabs/x";
+import { Location, CrudeOuterLocation, CrudeDirection, Direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { withinSizeThreshold } from "../aether/axis";
@@ -27,6 +27,7 @@ export interface XAxisProps
   resizeDebounce?: number;
   label?: string;
   labelLevel?: TypographyLevel;
+  labelDirection?: CrudeDirection | Direction;
   onLabelChange?: (label: string) => void;
 }
 
@@ -39,6 +40,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
     location = "bottom",
     label,
     labelLevel = "small",
+    labelDirection,
     onLabelChange,
     ...props
   }): ReactElement => {
@@ -87,7 +89,11 @@ export const XAxis = Aether.wrap<XAxisProps>(
         <Space className="x-axis" style={gridStyle} justify="end" align="center">
           {showLabel && (
             <Text.MaybeEditable
-              className={CSS(CSS.BE("x-axis", "label"), CSS.loc(location))}
+              className={CSS(
+                CSS.BE("x-axis", "label"),
+                CSS.loc(location),
+                CSS.dir(labelDirection)
+              )}
               value={label as string}
               onChange={onLabelChange}
               level={labelLevel}

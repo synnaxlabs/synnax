@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { SelectButton } from "./SelectButton";
+
 import { Select as CoreSelect } from "@/core/std/Select/Select";
 import { SelectMultiple } from "@/core/std/Select/SelectMultiple";
 
@@ -36,6 +38,7 @@ interface SelectType extends CoreSelectType {
    * @param props.value - The currently selected value.
    */
   Multiple: typeof SelectMultiple;
+  Button: typeof SelectButton;
 }
 
 /**
@@ -58,3 +61,4 @@ interface SelectType extends CoreSelectType {
 export const Select = CoreSelect as SelectType;
 
 Select.Multiple = SelectMultiple;
+Select.Button = SelectButton;

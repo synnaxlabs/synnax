@@ -89,7 +89,7 @@ export const LayoutMosaic = (): ReactElement => {
       emptyContent={emptyContent}
       onRename={handleRename}
       onCreate={handleCreate}
-      size="small"
+      size="medium"
     >
       {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
     </PlutoMosaic>

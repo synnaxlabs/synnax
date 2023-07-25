@@ -130,11 +130,11 @@ export class AxisCanvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x - d.width - TICK_LINE_SIZE * 2,
-        p.y + tick.position + d.height / 2
+        p.y + tick.position + d.height / 3
       );
     });
 
-    return { size: maxTickSize.width + TICK_LINE_SIZE };
+    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
   drawRight(ctx: AxisProps): AxisRenderResult {
@@ -150,13 +150,17 @@ export class AxisCanvas implements Axis {
     ]);
     canvas.strokeStyle = this.state.color.hex;
     this.drawLine(p, p.translateY(size));
-    const maxTickSize = this.drawTicks(ticks, (_, tick) => {
+    const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
-      canvas.lineTo(p.x + 5, p.y + tick.position);
+      canvas.lineTo(p.x + TICK_LINE_SIZE, p.y + tick.position);
       canvas.stroke();
-      canvas.fillText(tick.label, p.x + 10, p.y + tick.position + 5);
+      canvas.fillText(
+        tick.label,
+        p.x + TICK_LINE_SIZE + 2,
+        p.y + tick.position + d.height / 3
+      );
     });
-    return { size: maxTickSize.width + TICK_LINE_SIZE };
+    return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
   private drawLine(start: XY, end: XY): void {

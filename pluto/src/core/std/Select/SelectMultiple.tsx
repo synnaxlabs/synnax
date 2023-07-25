@@ -35,7 +35,6 @@ import { SelectClearButton } from "@/core/std/Select/SelectClearButton";
 import { SelectList } from "@/core/std/Select/SelectList";
 import { Space } from "@/core/std/Space";
 import { Tag } from "@/core/std/Tag";
-import { Theming } from "@/core/theming";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/core/std/Select/SelectMultiple.css";
