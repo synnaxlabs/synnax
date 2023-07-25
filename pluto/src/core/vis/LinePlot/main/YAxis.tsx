@@ -10,7 +10,6 @@
 import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 
 import {
-  Optional,
   Location,
   CrudeOuterLocation,
   CrudeDirection,
@@ -22,9 +21,8 @@ import { z } from "zod";
 import { withinSizeThreshold } from "../aether/axis";
 
 import { Aether } from "@/core/aether/main";
-import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
-import { useMemoCompare, useResize } from "@/core/hooks";
+import { useMemoCompare } from "@/core/hooks";
 import { Space, SpaceProps, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
@@ -34,10 +32,7 @@ import "@/core/vis/LinePlot/main/YAxis.css";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Optional<
-      Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
-      "color" | "font" | "gridColor"
-    >,
+    Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
     Omit<SpaceProps, "color"> {
   label?: string;
   labelLevel?: TypographyLevel;
@@ -59,18 +54,14 @@ export const YAxis = Aether.wrap<YAxisProps>(
     labelSize: propsLabelSize,
     showGrid,
     type,
+    bounds,
     ...props
   }): ReactElement => {
-    const theme = Theming.use();
-
     const showLabel = (label?.length ?? 0) > 0;
 
     const memoProps = useMemoCompare(
       () => ({
-        gridColor: theme.colors.gray.m2,
         location,
-        font: Theming.fontString(theme, "small"),
-        color: color != null ? new Color(color) : theme.colors.gray.p2,
         showGrid,
         type,
       }),
@@ -93,7 +84,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
           }
         );
       },
-      [theme, propsLabelSize, type, showGrid]
+      [propsLabelSize, type, showGrid]
     );
 
     const prevLabelSize = useRef(0);
@@ -119,16 +110,6 @@ export const YAxis = Aether.wrap<YAxisProps>(
       "YAxis"
     );
 
-    const resizeRef = useResize(
-      (box) => {
-        setState((state) => ({
-          ...state,
-          position: box.topLeft,
-        }));
-      },
-      { debounce: 0 }
-    );
-
     const font = Theming.useTypography(labelLevel);
 
     useEffect(() => {
@@ -149,7 +130,6 @@ export const YAxis = Aether.wrap<YAxisProps>(
         <Space
           className="y-axis"
           style={gridStyle}
-          ref={resizeRef}
           align="start"
           justify="center"
           {...props}

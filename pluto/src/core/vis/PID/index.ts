@@ -15,6 +15,7 @@ export type {
   PIDNode,
   PIDEdge,
   PIDElementProps,
+  PIDViewport,
 } from "@/core/vis/PID/PID";
 
 type CorePIDType = typeof CorePID;

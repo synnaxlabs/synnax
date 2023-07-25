@@ -11,7 +11,7 @@ import "@fontsource-variable/inter";
 import { z } from "zod";
 
 import { Color } from "@/core/color";
-import { Typography } from "@/core/std";
+import { typographySpec } from "@/core/std/Typography/types";
 
 export const themeZ = z.object({
   name: z.string(),
@@ -56,14 +56,14 @@ export const themeZ = z.object({
   }),
   typography: z.object({
     family: z.string(),
-    h1: Typography.spec,
-    h2: Typography.spec,
-    h3: Typography.spec,
-    h4: Typography.spec,
-    h5: Typography.spec,
-    p: Typography.spec,
-    small: Typography.spec,
-    tiny: Typography.spec,
+    h1: typographySpec,
+    h2: typographySpec,
+    h3: typographySpec,
+    h4: typographySpec,
+    h5: typographySpec,
+    p: typographySpec,
+    small: typographySpec,
+    tiny: typographySpec,
   }),
 });
 

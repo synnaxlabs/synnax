@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-
-import { getOS } from "@/core/hooks";
+import { getOS } from "@synnaxlabs/x";
 
 const isWindows = getOS() === "Windows";
 

@@ -11,7 +11,7 @@ import { ReactElement, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
-import type { CrudeOuterLocation, Location } from "@synnaxlabs/x";
+import type { CrudeLocation, CrudeOuterLocation, Location } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useLayoutPlacer } from "../hooks";
@@ -37,7 +37,7 @@ export const LayoutMosaic = (): ReactElement => {
   const placer = useLayoutPlacer();
 
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: CrudeOuterLocation): void => {
+    (key: number, tabKey: string, loc: CrudeLocation): void => {
       dispatch(moveLayoutMosaicTab({ key, tabKey, loc }));
     },
     [dispatch]

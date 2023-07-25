@@ -50,14 +50,20 @@ export const LinePlotDataControls = ({
   const handleXChannelSelect = useCallback(
     (key: AxisKey, value: ChannelKey): void => {
       dispatch(
-        setLinePlotXChannel({ key: layoutKey, axisKey: key as XAxisKey, channel: value })
+        setLinePlotXChannel({
+          key: layoutKey,
+          axisKey: key as XAxisKey,
+          channel: value,
+        })
       );
     },
     [dispatch, layoutKey]
   );
 
   const handleRangeSelect = (key: XAxisKey, value: readonly string[]): void => {
-    dispatch(setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value as string[] }));
+    dispatch(
+      setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value as string[] })
+    );
   };
 
   return (
@@ -84,7 +90,6 @@ export const LinePlotDataControls = ({
           location="top"
           grow
         />
-
         <SelectAxisInputItem
           axis={"x1"}
           onChange={handleXChannelSelect}

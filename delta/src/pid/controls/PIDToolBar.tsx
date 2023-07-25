@@ -10,11 +10,15 @@
 import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
+import { Space, Status, Tab, Tabs, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectPIDToolbar } from "../store/selectors";
-import { PIDToolbarTab, setPIDActiveToolbarTab } from "../store/slice";
+import {
+  useSelectPID,
+  useSelectPIDEditable,
+  useSelectPIDToolbar,
+} from "../store/selectors";
+import { PIDToolbarTab, setPIDActiveToolbarTab, setPIDEditable } from "../store/slice";
 
 import { PIDElementPropertiesControls } from "./PIDElementPropertiesControls";
 import { PIDElements } from "./PIDElementsControls";
@@ -37,12 +41,38 @@ const TABS = [
   },
 ];
 
+interface PIDNotEditableContentProps extends PIDToolbarProps {}
+
+const PIDNotEditableContent = ({
+  layoutKey,
+}: PIDNotEditableContentProps): ReactElement => {
+  const dispatch = useDispatch();
+  return (
+    <Space.Centered direction="x" size="small">
+      <Status.Text variant="disabled" hideIcon>
+        PID is not editable. To make changes,
+      </Status.Text>
+      <Text.Link
+        onClick={(e) => {
+          e.stopPropagation();
+          dispatch(setPIDEditable({ layoutKey, editable: true }));
+        }}
+        level="p"
+      >
+        enable edit mode.
+      </Text.Link>
+    </Space.Centered>
+  );
+};
+
 export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   const { name } = useSelectRequiredLayout(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectPIDToolbar();
+  const editable = useSelectPIDEditable(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tab): ReactElement => {
+      if (!editable) return <PIDNotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "elements":
           return <PIDElements layoutKey={layoutKey} />;
@@ -50,7 +80,7 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
           return <PIDElementPropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey]
+    [layoutKey, editable]
   );
 
   const handleTabSelect = useCallback(

@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
 import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
-import { DeepKey, Location } from "@synnaxlabs/x";
+import { CrudeLocation, DeepKey, Location } from "@synnaxlabs/x";
 
 import { LayoutState } from "../types";
 
@@ -127,7 +127,7 @@ export type SetActiveThemePayload = string | undefined;
 interface MoveLayoutMosaicTabPayload {
   tabKey: string;
   key: number;
-  loc: Location;
+  loc: CrudeLocation;
 }
 interface ResizeLayoutMosaicTabPayload {
   key: number;
@@ -225,6 +225,7 @@ export const { actions, reducer: layoutReducer } = createSlice({
       state,
       { payload: { tabKey } }: PayloadAction<SelectLayoutMosaicTabPayload>
     ) => {
+      if (state.mosaic.activeTab === tabKey) return;
       state.mosaic.root = Mosaic.selectTab(state.mosaic.root, tabKey);
       state.mosaic.activeTab = tabKey;
     },

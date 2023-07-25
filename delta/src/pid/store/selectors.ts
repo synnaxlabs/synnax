@@ -79,3 +79,9 @@ export const selectPIDToolbar = (state: PIDStoreState): PIDToolbarState =>
 
 export const useSelectPIDToolbar = (): PIDToolbarState =>
   useMemoSelect(selectPIDToolbar, []);
+
+export const selectPIDEditable = (state: PIDStoreState, key: string): boolean =>
+  selectPID(state, key).editable;
+
+export const useSelectPIDEditable = (key: string): boolean =>
+  useMemoSelect((state: PIDStoreState) => selectPIDEditable(state, key), [key]);
