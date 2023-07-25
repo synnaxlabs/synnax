@@ -53,6 +53,14 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
     this.requestRender();
   }
 
+  get region(): Box {
+    return new Box(this.state.region);
+  }
+
+  get prevRegion(): Box {
+    return new Box(this.prevState.region);
+  }
+
   async render(): Promise<RenderCleanup> {
     if (this.deleted) return async () => {};
     const { renderCtx } = this.derived;
@@ -75,7 +83,7 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
     }
 
     return async () => {
-      renderCtx.eraseCanvas(new Box(this.prevState.region));
+      renderCtx.eraseCanvas(this.prevRegion.isZero ? this.region : this.prevRegion);
     };
   }
 

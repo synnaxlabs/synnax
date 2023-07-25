@@ -12,14 +12,17 @@ import {
   ReactElement,
   createContext,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 
+import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input";
 import { InputSwitchProps } from "@/core/std/Input/InputSwitch";
+import { AetherThemeProvider } from "@/core/theming/aether";
 import { convertThemeToCSSVars } from "@/core/theming/css";
 import { themeZ, Theme, ThemeSpec, themes } from "@/core/theming/theme";
 
@@ -83,30 +86,43 @@ export interface ThemeProviderProps
   extends PropsWithChildren<unknown>,
     Partial<ThemeContextValue> {}
 
-export const ThemeProvider = ({
-  children,
-  theme,
-  setTheme,
-  toggleTheme,
-}: ThemeProviderProps): ReactElement => {
-  let ret: UseThemeProviderReturn;
-  if (theme == null || toggleTheme == null || setTheme == null) {
-    ret = useThemeProvider({
-      themes,
-      defaultTheme: "synnaxLight",
+export const ThemeProvider = Aether.wrap<ThemeProviderProps>(
+  "ThemeProvider",
+  ({ children, theme, setTheme, toggleTheme, aetherKey }): ReactElement => {
+    let ret: UseThemeProviderReturn;
+    if (theme == null || toggleTheme == null || setTheme == null) {
+      ret = useThemeProvider({
+        themes,
+        defaultTheme: "synnaxLight",
+      });
+    } else {
+      ret = {
+        theme,
+        toggleTheme,
+        setTheme,
+      };
+    }
+    const [{ path }, , setAetherTheme] = Aether.use({
+      aetherKey,
+      type: AetherThemeProvider.TYPE,
+      schema: AetherThemeProvider.z,
+      initialState: { theme: ret.theme },
     });
-  } else {
-    ret = {
-      theme,
-      toggleTheme,
-      setTheme,
-    };
+
+    useEffect(() => {
+      setAetherTheme({ theme: ret.theme });
+    }, [ret.theme]);
+
+    useLayoutEffect(() => {
+      CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme));
+    }, [ret.theme]);
+    return (
+      <ThemeContext.Provider value={ret}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </ThemeContext.Provider>
+    );
   }
-  useLayoutEffect(() => {
-    CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme));
-  }, [ret.theme]);
-  return <ThemeContext.Provider value={ret}>{children}</ThemeContext.Provider>;
-};
+);
 
 export const ThemeSwitch = ({
   ...props

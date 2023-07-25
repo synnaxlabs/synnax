@@ -9,14 +9,13 @@
 
 import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 
-import { Optional, Location, CrudeOuterLocation } from "@synnaxlabs/x";
+import { Location, CrudeOuterLocation } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { withinSizeThreshold } from "../aether/axis";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
-import { useResize } from "@/core/hooks";
 import { Space, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
@@ -24,10 +23,7 @@ import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
 
 export interface XAxisProps
   extends PropsWithChildren,
-    Optional<
-      Omit<z.input<typeof AetherLinePlot.XAxis.z>, "position">,
-      "color" | "font" | "gridColor"
-    > {
+    Omit<z.input<typeof AetherLinePlot.XAxis.z>, "position"> {
   resizeDebounce?: number;
   label?: string;
   labelLevel?: TypographyLevel;
@@ -46,7 +42,6 @@ export const XAxis = Aether.wrap<XAxisProps>(
     onLabelChange,
     ...props
   }): ReactElement => {
-    const theme = Theming.use();
     const showLabel = (label?.length ?? 0) > 0;
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
@@ -54,9 +49,6 @@ export const XAxis = Aether.wrap<XAxisProps>(
       type: AetherLinePlot.XAxis.TYPE,
       schema: AetherLinePlot.XAxis.z,
       initialState: {
-        color: theme.colors.gray.p2,
-        gridColor: theme.colors.gray.m2,
-        font: Theming.fontString(theme, "small"),
         location,
         ...props,
       },
@@ -72,11 +64,6 @@ export const XAxis = Aether.wrap<XAxisProps>(
         order: "last",
       },
       "XAxis"
-    );
-
-    const resizeRef = useResize(
-      (box) => setState((p) => ({ ...p, position: box.topLeft })),
-      { debounce }
     );
 
     const font = Theming.useTypography(labelLevel);
@@ -97,13 +84,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
 
     return (
       <>
-        <Space
-          className="x-axis"
-          style={gridStyle}
-          ref={resizeRef}
-          justify="end"
-          align="center"
-        >
+        <Space className="x-axis" style={gridStyle} justify="end" align="center">
           {showLabel && (
             <Text.MaybeEditable
               className={CSS(CSS.BE("x-axis", "label"), CSS.loc(location))}

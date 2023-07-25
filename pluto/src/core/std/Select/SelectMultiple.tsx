@@ -168,7 +168,6 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
     select: { onSelect, clear },
   } = List.useContext<K, E>();
   const [value, setValue] = useState("");
-  const { theme } = Theming.useContext();
   const ref = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
@@ -183,8 +182,6 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
     setValue(v);
     onChange(v);
   };
-
-  const palette = theme.colors.visualization.palettes.default;
 
   return (
     <Pack
@@ -212,7 +209,7 @@ const SelectMultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E
             key: e.key,
             tagKey,
             entry: e,
-            color: palette[i % palette.length],
+            color: "var(--pluto-border-color)",
             onClose: () => onSelect?.(e.key),
             onDragStart: (ev) => onTagDragStart?.(ev, e.key),
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),

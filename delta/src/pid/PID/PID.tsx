@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useState } from "react";
+import { ReactElement, useCallback } from "react";
 
 import { PID as PPID, PIDProps, PIDElementProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { ELEMENTS } from "../elements";
 import { useSelectPID, useSelectPIDElementProps } from "../store/selectors";
-import { setPIDEdges, setPIDElementProps, setPIDNodes } from "../store/slice";
+import {
+  setPIDEdges,
+  setPIDEditable,
+  setPIDElementProps,
+  setPIDNodes,
+  setPIDViewport,
+} from "../store/slice";
 
 import { LayoutRenderer } from "@/layout";
 
@@ -24,10 +30,12 @@ const PIDElementRenderer = ({
   selected,
   layoutKey,
   editable,
-}: PIDElementProps & { layoutKey: string }): ReactElement => {
+}: PIDElementProps & { layoutKey: string }): ReactElement | null => {
+  const el = useSelectPIDElementProps(layoutKey, elementKey);
+  if (el == null) return null;
   const {
     props: { type, ...props },
-  } = useSelectPIDElementProps(layoutKey, elementKey);
+  } = el;
   const dispatch = useDispatch();
 
   const handleChange = useCallback(
@@ -53,18 +61,24 @@ const PIDElementRenderer = ({
 };
 
 export const PID: LayoutRenderer = ({ layoutKey }) => {
-  const vis = useSelectPID(layoutKey);
+  const pid = useSelectPID(layoutKey);
   const dispatch = useDispatch();
 
   const handleEdgesChange: PIDProps["onEdgesChange"] = (cbk) => {
-    dispatch(setPIDEdges({ layoutKey, edges: cbk(vis.edges) }));
+    dispatch(setPIDEdges({ layoutKey, edges: cbk(pid.edges) }));
   };
 
   const handleNodesChange: PIDProps["onNodesChange"] = (cbk) => {
-    dispatch(setPIDNodes({ layoutKey, nodes: cbk(vis.nodes) }));
+    dispatch(setPIDNodes({ layoutKey, nodes: cbk(pid.nodes) }));
   };
 
-  const [editable, handleEditableChange] = useState(vis.editable);
+  const handleViewportChange: PIDProps["onViewportChange"] = (vp) => {
+    dispatch(setPIDViewport({ layoutKey, viewport: vp }));
+  };
+
+  const handleEditableChange: PIDProps["onEditableChange"] = (cbk) => {
+    dispatch(setPIDEditable({ layoutKey, editable: cbk(pid.editable) }));
+  };
 
   const pidElementRenderer = useCallback(
     (props: PIDElementProps) => {
@@ -75,12 +89,14 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
 
   return (
     <PPID
-      edges={vis.edges}
-      nodes={vis.nodes}
+      onViewportChange={handleViewportChange}
+      edges={pid.edges}
+      nodes={pid.nodes}
+      viewport={pid.viewport}
       onEdgesChange={handleEdgesChange}
       onNodesChange={handleNodesChange}
       onEditableChange={handleEditableChange}
-      editable={editable}
+      editable={pid.editable}
     >
       {pidElementRenderer}
     </PPID>

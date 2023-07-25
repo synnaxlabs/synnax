@@ -104,7 +104,7 @@ const newStore = async (): Promise<RootStore> => {
     preloadedState,
     middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
     reducer,
-    enablePrerender: true,
+    enablePrerender: false,
   })) as RootStore;
 };
 
