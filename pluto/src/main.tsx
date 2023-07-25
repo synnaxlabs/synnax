@@ -58,15 +58,15 @@ export const Pluto = ({
               enabled={workerEnabled}
             >
               <Aether.Provider workerKey="vis">
-                <Theming.Provider
-                  theme={theme}
-                  toggleTheme={toggleTheme}
-                  setTheme={setTheme}
-                >
-                  <Client.Provider connParams={connParams}>
+                <Client.Provider connParams={connParams}>
+                  <Theming.Provider
+                    theme={theme}
+                    toggleTheme={toggleTheme}
+                    setTheme={setTheme}
+                  >
                     <TelemProvider>{children}</TelemProvider>
-                  </Client.Provider>
-                </Theming.Provider>
+                  </Theming.Provider>
+                </Client.Provider>
               </Aether.Provider>
             </Worker.Provider>
           </Haul.Provider>
