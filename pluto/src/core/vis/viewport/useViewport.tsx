@@ -16,7 +16,6 @@ import { useStateRef } from "@/core/hooks/useStateRef";
 import {
   Stage,
   Trigger,
-  TriggerCallback,
   TriggerDragCallback,
   Triggers,
   UseTriggerEvent,
@@ -215,6 +214,7 @@ export const useViewport = ({
     triggers: reducedPurgedTriggers,
     callback: handleKeyTrigger,
     loose: true,
+    region: canvasRef,
   });
 
   return {

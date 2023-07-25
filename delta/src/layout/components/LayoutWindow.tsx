@@ -9,18 +9,17 @@
 
 import { ReactElement, useEffect } from "react";
 
-import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
+import { setWindowDecorations, useSelectWindowKey } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, Space, useOS, CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
-import { useSelectLayout } from "../store";
-
 import { LayoutContent } from "./LayoutContent";
 
 import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
+import { useSelectLayout } from "@/layout/store";
 
 import "@/layout/components/LayoutWindow.css";
 
@@ -47,8 +46,8 @@ export const DefaultContextMenu = (): ReactElement => (
 
 export const LayoutWindow = (): ReactElement | null => {
   const { label } = appWindow;
-  const win = useSelectWindow(label);
-  const layout = useSelectLayout(win?.key ?? "");
+  const win = useSelectWindowKey(label);
+  const layout = useSelectLayout(win ?? "");
   const os = useOS();
   const dispatch = useDispatch();
   useEffect(() => {
