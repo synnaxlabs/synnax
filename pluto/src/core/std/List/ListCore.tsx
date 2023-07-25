@@ -9,7 +9,7 @@
 
 import { ComponentPropsWithoutRef, ReactElement, useRef } from "react";
 
-import { Bounds, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { CSS } from "@/core/css";
@@ -18,8 +18,6 @@ import { ListItemProps } from "@/core/std/List/types";
 import { RenderProp } from "@/util/renderProp";
 
 import "@/core/std/List/ListCore.css";
-
-import { vi } from "vitest";
 
 export interface ListVirtualCoreProps<
   K extends Key = Key,
@@ -85,7 +83,43 @@ const ListVirtualCore = <
   );
 };
 
-export const ListCore = {
+export const ListCore = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+>(
+  props: Omit<ComponentPropsWithoutRef<"div">, "children"> & {
+    children: RenderProp<ListItemProps<K, E>>;
+  }
+): ReactElement => {
+  const { data, emptyContent, columnar, hover, select } = useListContext<K, E>();
+
+  return (
+    <div className={CSS.BE("list", "container")} {...props}>
+      {data.length === 0 ? (
+        emptyContent
+      ) : (
+        <div>
+          {data.map((entry, index) =>
+            props.children({
+              key: entry.key,
+              index,
+              onSelect: select.onSelect,
+              entry,
+              columns: columnar.columns,
+              selected: select.value.includes(entry.key),
+              hovered: index === hover.value,
+              style: {},
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export type ListCoreBaseType = typeof ListCore;
+
+export interface ListCoreType extends ListCoreBaseType {
   /**
    * A virtualized list core.
    *
@@ -99,5 +133,7 @@ export const ListCore = {
    * implement the {@link ListItemProps} interface. The virtualizer will pass all props
    * satisfying this interface to the render props.
    */
-  Virtual: ListVirtualCore,
-};
+  Virtual: typeof ListVirtualCore;
+}
+
+ListCore.Virtual = ListVirtualCore;

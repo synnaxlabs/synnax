@@ -11,6 +11,7 @@ import { ReactElement, forwardRef, useCallback, useState } from "react";
 
 import { Bounds, CrudeBounds } from "@synnaxlabs/x";
 
+import { CSS } from "@/core/css";
 import { Input } from "@/core/std/Input/Input";
 import {
   InputDragButton,
@@ -46,6 +47,8 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       bounds = Bounds.INFINITE,
       resetValue,
       style,
+      variant = "outlined",
+      className,
       ...props
     },
     ref
@@ -75,6 +78,7 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
       <Input
         ref={ref}
         type="number"
+        variant={showDragHandle ? "outlined" : variant}
         value={value_.toString()}
         onChange={handleChange}
         style={showDragHandle ? undefined : style}
@@ -90,7 +94,11 @@ export const InputNumber = forwardRef<HTMLInputElement, InputNumberProps>(
 
     if (!showDragHandle) return input;
     return (
-      <Pack {...props} style={style}>
+      <Pack
+        {...props}
+        className={CSS(className, CSS.BM("input", variant))}
+        style={style}
+      >
         {input}
         <InputDragButton
           direction={dragDirection}

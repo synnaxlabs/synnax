@@ -10,18 +10,10 @@
 import { ReactElement } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
-import { Menu as PMenu, Pluto } from "@synnaxlabs/pluto";
+import { Pluto } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
-import "./index.css";
-import { LinePlot } from "./line/LinePlot/LinePlot";
-import { PID } from "./pid/PID/PID";
-import { VisCanvas } from "./vis";
-import { VisLayoutSelectorRenderer } from "./vis/components/VisLayoutSelector";
-import WorkerURL from "./worker?worker&url";
-
 import { ConnectCluster, useSelectCluster } from "@/cluster";
-import { Menu } from "@/components";
 import { Docs } from "@/docs";
 import {
   LayoutRendererProvider,
@@ -30,10 +22,16 @@ import {
   GetStarted,
 } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
+import { LinePlot } from "@/line/LinePlot/LinePlot";
+import { PID } from "@/pid/PID/PID";
 import { store } from "@/store";
 import { useLoadTauriVersion } from "@/version";
+import { VisCanvas } from "@/vis";
+import { VisLayoutSelectorRenderer } from "@/vis/components/VisLayoutSelector";
+import WorkerURL from "@/worker?worker&url";
 import { DefineRange } from "@/workspace";
 
+import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
@@ -49,23 +47,14 @@ const layoutRenderers = {
   line: LinePlot,
 };
 
-export const DefaultContextMenu = (): ReactElement => (
-  <PMenu>
-    <Menu.Item.HardReload />
-  </PMenu>
-);
-
 const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
-  const menuProps = PMenu.useContextMenu();
   useLoadTauriVersion();
   const cluster = useSelectCluster();
   return (
     <Pluto {...theme} workerEnabled connParams={cluster?.props} workerURL={WorkerURL}>
       <VisCanvas>
-        <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-          <LayoutWindow />
-        </PMenu.ContextMenu>
+        <LayoutWindow />
       </VisCanvas>
     </Pluto>
   );

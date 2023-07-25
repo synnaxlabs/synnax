@@ -49,4 +49,5 @@
 
 .pluto-list-col-header__item * {
     font-weight: normal;
+    color: var(--pluto-gray-p1);
 }

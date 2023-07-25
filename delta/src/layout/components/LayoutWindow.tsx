@@ -11,7 +11,7 @@ import { ReactElement, useEffect } from "react";
 
 import { useSelectWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, Space, useOS, CSS as PCSS } from "@synnaxlabs/pluto";
+import { Nav, Space, useOS, CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
@@ -19,7 +19,7 @@ import { useSelectLayout } from "../store";
 
 import { LayoutContent } from "./LayoutContent";
 
-import { Controls } from "@/components";
+import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 
 import "@/layout/components/LayoutWindow.css";
@@ -39,6 +39,12 @@ export const NavTop = (): ReactElement => {
   );
 };
 
+export const DefaultContextMenu = (): ReactElement => (
+  <PMenu>
+    <Menu.Item.HardReload />
+  </PMenu>
+);
+
 export const LayoutWindow = (): ReactElement | null => {
   const { label } = appWindow;
   const win = useSelectWindow(label);
@@ -53,14 +59,17 @@ export const LayoutWindow = (): ReactElement | null => {
   }, [os]);
   if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
+  const menuProps = PMenu.useContextMenu();
   return (
-    <Space
-      empty
-      className={CSS(CSS.B("main"), CSS.BM("main", os?.toLowerCase() as string))}
-    >
-      {layout?.window?.navTop === true && <NavTop />}
-      {content}
-    </Space>
+    <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
+      <Space
+        empty
+        className={CSS(CSS.B("main"), CSS.BM("main", os?.toLowerCase() as string))}
+      >
+        {layout?.window?.navTop === true && <NavTop />}
+        {content}
+      </Space>
+    </PMenu.ContextMenu>
   );
 };
 

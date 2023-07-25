@@ -155,6 +155,7 @@ const buildAxes = (vis: LinePlotState): AxisProps[] =>
         label: axis.label,
         type: "time",
         bounds: axis.bounds,
+        labelDirection: axis.labelDirection,
       };
     });
 

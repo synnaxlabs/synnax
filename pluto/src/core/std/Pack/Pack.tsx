@@ -27,6 +27,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     reverse = false,
     direction = "x",
     bordered = true,
+    rounded = true,
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
@@ -42,9 +43,10 @@ const CorePack = <E extends SpaceElementType = "div">(
       CSS.dir(direction),
       typeof size !== "number" && CSS.BM("pack", size),
       reverse && CSS.BM("pack", "reverse"),
-      bordered && CSS.BM("pack", "bordered"),
       className
     )}
+    bordered={bordered}
+    rounded={rounded}
     {...props}
     empty
   />

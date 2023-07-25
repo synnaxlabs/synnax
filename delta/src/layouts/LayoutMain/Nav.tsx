@@ -29,6 +29,7 @@ import { CLUSTER_COMMANDS } from "@/cluster/palette";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { createDocsLayout } from "@/docs";
+import { DOCS_COMMANDS } from "@/docs/palette";
 import {
   NavDrawerItem,
   NavdrawerLocation,
@@ -68,6 +69,7 @@ const COMMANDS = [
   ...PID_COMMANDS,
   ...WORKSPACE_COMMANDS,
   ...LAYOUT_COMMANDS,
+  ...DOCS_COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -112,13 +114,13 @@ export const NavTop = (): ReactElement => {
       </Nav.Bar.Content>
       <Nav.Bar.End className="delta-main-nav-top__end">
         <Button.Icon
-          size="small"
+          size="medium"
           onClick={handleDocs}
           tooltip={<Text level="small">Documentation</Text>}
         >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Button.Icon size="small" tooltip={<Text level="small">Settings</Text>}>
+        <Button.Icon size="medium" tooltip={<Text level="small">Settings</Text>}>
           <Icon.Settings />
         </Button.Icon>
         <Controls className="delta-controls--windows" visibleIfOS="Windows" />
@@ -138,6 +140,7 @@ export const NavMenu = ({
       <PMenu.Item.Icon
         key={key}
         itemKey={key}
+        size="large"
         tooltip={<Text level="small">{tooltip}</Text>}
       >
         {icon}

@@ -9,7 +9,7 @@
 
 import { ReactElement } from "react";
 
-import { Bounds, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { Bounds, Direction, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { TypographyLevel } from "@/core";
@@ -24,6 +24,7 @@ export const axisProps = z.object({
   id: z.string(),
   location: Location.strictOuterZ,
   label: z.string().optional(),
+  labelDirection: Direction.looseZ.optional(),
   bounds: Bounds.looseZ.optional(),
   color: Color.z.optional(),
   showGrid: z.boolean().optional(),

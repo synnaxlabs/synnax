@@ -84,7 +84,7 @@ export const syncInitial = async (
   await syncCurrent(initial, next, runtime, debug);
   // Make sure our redux store as up to date.
   dispatch(setWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }));
-  startcheckingFullScreen(dispatch, runtime);
+  // startcheckingFullScreen(dispatch, runtime);
 };
 
 export const sync = async (
