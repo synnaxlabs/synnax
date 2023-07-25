@@ -126,7 +126,7 @@ export const AetherProvider = ({
 
 export const useAetherContext = (): AetherContextValue => {
   const ctx = useContext(AetherContext);
-  if (ctx == null) throw new Error("useBobContext must be used within a BobProvider");
+  if (ctx == null) throw new Error("Aether.use must be used within an Aether.Provider");
   return ctx;
 };
 

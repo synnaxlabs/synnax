@@ -16,8 +16,10 @@
     z-index: 5;
 }
 
-.react-flow__selection {
-    background-color: var(--pluto-primary);
+.react-flow__selection,
+.react-flow__nodesselection-rect {
+    background-color: var(--pluto-primary-z-20) !important;
+    border: var(--pluto-border-width) dashed var(--pluto-primary-z-40) !important;
 }
 
 .react-flow__handle {

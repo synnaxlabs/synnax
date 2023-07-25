@@ -7,32 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Location, Scale, XY } from "@synnaxlabs/x";
+import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { LookupResult } from "../../Line/core";
 
+import { calculateAxisPosition, GridPositionMeta } from "./LinePlot";
+
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
+import { ThemeContext } from "@/core/theming/aether";
+import { fontString } from "@/core/theming/fontString";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
 import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
 import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
-const xAxisState = axisState.extend({
-  location: Location.strictYZ.optional().default("bottom"),
-  bound: Bounds.looseZ.optional(),
-  autoBoundPadding: z.number().optional().default(0.01),
-  size: z.number().optional().default(0),
-  position: XY.z.optional(),
-  labelSize: z.number().optional().default(0),
-});
+const xAxisState = axisState
+  .extend({
+    location: Location.strictYZ.optional().default("bottom"),
+    bound: Bounds.looseZ.optional(),
+    autoBoundPadding: z.number().optional().default(0.01),
+    size: z.number().optional().default(0),
+    labelSize: z.number().optional().default(0),
+  })
+  .partial({
+    color: true,
+    font: true,
+    gridColor: true,
+  });
 
 export interface XAxisProps {
   plottingRegion: Box;
   viewport: Box;
   region: Box;
+  grid: GridPositionMeta[];
 }
 
 interface Derived {
@@ -51,9 +61,13 @@ export class AetherXAxis extends AetherComposite<
 
   derive(): Derived {
     const renderCtx = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
     return {
       ctx: renderCtx,
       core: new AxisCanvas(renderCtx, {
+        color: theme.colors.gray.p2,
+        font: fontString(theme, "small"),
+        gridColor: theme.colors.gray.m2,
         ...this.state,
         size: this.state.size + this.state.labelSize,
       }),
@@ -65,28 +79,32 @@ export class AetherXAxis extends AetherComposite<
   }
 
   async render(props: XAxisProps): Promise<void> {
-    if (this.state.position == null) return;
     const [reversed, normal] = await this.scales(props);
-    await this.renderAxis(props, this.state.position, reversed);
+    await this.renderAxis(props, reversed);
     await this.renderYAxes(props, normal);
   }
 
-  private async renderAxis(ctx: XAxisProps, position: XY, scale: Scale): Promise<void> {
+  private async renderAxis(props: XAxisProps, scale: Scale): Promise<void> {
     const { core } = this.derived;
-    const { size } = core.render({ ...ctx, position, scale });
+    const { size } = core.render({
+      ...props,
+      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
+      scale,
+    });
     if (!withinSizeThreshold(this.state.size, size))
       this.setState((p) => ({ ...p, size }));
   }
 
-  private async renderYAxes(ctx: XAxisProps, scale: Scale): Promise<void> {
+  private async renderYAxes(props: XAxisProps, scale: Scale): Promise<void> {
     await Promise.all(
       this.children.map(
         async (el) =>
           await el.render({
-            plottingRegion: ctx.plottingRegion,
-            viewport: ctx.viewport,
+            grid: props.grid,
+            plottingRegion: props.plottingRegion,
+            viewport: props.viewport,
             scale,
-            region: ctx.region,
+            region: props.region,
           })
       )
     );
@@ -108,6 +126,7 @@ export class AetherXAxis extends AetherComposite<
           async (el) =>
             await el.lookupX(
               {
+                grid: props.grid,
                 plottingRegion: props.plottingRegion,
                 viewport: props.viewport,
                 scale: (await this.scales(props))[1],

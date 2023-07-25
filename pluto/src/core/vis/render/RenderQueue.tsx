@@ -40,19 +40,16 @@ export class RenderQueue {
   }
 
   async render(): Promise<void> {
-    if (Object.keys(this.queue).length > 0) console.log("Rendering");
     const queue = this.queue;
     const cleanup = this.cleanup;
     this.queue = {};
     for (const [k, f] of Object.entries(cleanup)) {
       if (k in queue) {
-        console.log("Cleaning up", k);
         await f();
         delete cleanup[k];
       }
     }
     for (const { key, render } of Object.values(queue)) {
-      console.log("Rendering", key);
       const cleanup = await render();
       this.cleanup[key] = cleanup;
     }

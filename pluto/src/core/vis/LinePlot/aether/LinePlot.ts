@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY } from "@synnaxlabs/x";
+import { Box, Compare, CrudeOuterLocation, Location, XY, order } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { LookupResult } from "../../Line/core";
@@ -21,6 +21,22 @@ import {
   RenderCleanup,
   RenderPriority,
 } from "@/core/vis/render";
+const gridPositionMeta = z.object({
+  key: z.string(),
+  size: z.number(),
+  order,
+  loc: Location.strictOuterZ,
+});
+
+export type GridPositionMeta = z.input<typeof gridPositionMeta>;
+
+export const filterAxisLoc = (
+  loc: CrudeOuterLocation,
+  grid: GridPositionMeta[]
+): GridPositionMeta[] =>
+  grid
+    .filter(({ loc: l }) => new Location(l).equals(loc))
+    .sort((a, b) => Compare.order(a.order, b.order));
 
 const linePlotState = z.object({
   plot: Box.z,
@@ -28,8 +44,8 @@ const linePlotState = z.object({
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
   error: z.string().optional(),
+  grid: z.array(gridPositionMeta),
 });
-
 interface Derived {
   ctx: RenderContext;
 }
@@ -54,7 +70,6 @@ export class AetherLinePlot extends AetherComposite<
   }
 
   afterDelete(): void {
-    console.log("DELETE");
     this.requestRender("high");
   }
 
@@ -88,6 +103,7 @@ export class AetherLinePlot extends AetherComposite<
                 plottingRegion: this.plottingRegion,
                 viewport: this.viewport,
                 region: this.region,
+                grid: this.state.grid,
               },
               x
             )
@@ -101,19 +117,22 @@ export class AetherLinePlot extends AetherComposite<
     const { ctx } = this.derived;
     const removeGlScissor = ctx.scissorGL(this.plottingRegion);
     const removeCanvasScissor = ctx.scissorCanvas(this.region);
+
     try {
       await Promise.all(
         this.childrenOfType(AetherXAxis.TYPE).map(
-          async (xAxis) =>
+          async (xAxis, i) =>
             await xAxis.render({
               plottingRegion: this.plottingRegion,
               viewport: this.viewport,
               region: this.region,
+              grid: this.state.grid,
             })
         )
       );
     } catch (e) {
       this.setState((p) => ({ ...p, error: (e as Error).message }));
+      throw e;
     } finally {
       removeGlScissor();
       removeCanvasScissor();
@@ -130,3 +149,26 @@ export class AetherLinePlot extends AetherComposite<
     });
   }
 }
+
+export const calculateAxisPosition = (
+  key: string,
+  grid: GridPositionMeta[],
+  plottingRegion: Box
+): XY => {
+  const axis = grid.find(({ key: k }) => k === key);
+  if (axis == null) return XY.ZERO;
+  const loc = new Location(axis.loc);
+  const axes = filterAxisLoc(loc.crude as CrudeOuterLocation, grid);
+  const index = axes.findIndex(({ key: k }) => k === key);
+  const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
+  switch (loc.crude) {
+    case "left":
+      return plottingRegion.topLeft.translateX(-offset - axis.size);
+    case "right":
+      return plottingRegion.topRight.translateX(offset);
+    case "top":
+      return plottingRegion.topLeft.translateY(-offset - axis.size);
+    default:
+      return plottingRegion.bottomLeft.translateY(offset);
+  }
+};

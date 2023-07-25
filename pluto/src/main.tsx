@@ -50,24 +50,28 @@ export const Pluto = ({
 }: PlutoProps): ReactElement => {
   return (
     <Alamos.Provider instrumentation={instrumentation}>
-      <Theming.Provider theme={theme} toggleTheme={toggleTheme} setTheme={setTheme}>
-        <Triggers.Provider>
-          <Tooltip.Config {...tooltip}>
-            <Haul.Provider>
-              <Worker.Provider
-                url={workerURL ?? DefaultWorkerURL}
-                enabled={workerEnabled}
-              >
-                <Aether.Provider workerKey="vis">
+      <Triggers.Provider>
+        <Tooltip.Config {...tooltip}>
+          <Haul.Provider>
+            <Worker.Provider
+              url={workerURL ?? DefaultWorkerURL}
+              enabled={workerEnabled}
+            >
+              <Aether.Provider workerKey="vis">
+                <Theming.Provider
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  setTheme={setTheme}
+                >
                   <Client.Provider connParams={connParams}>
                     <TelemProvider>{children}</TelemProvider>
                   </Client.Provider>
-                </Aether.Provider>
-              </Worker.Provider>
-            </Haul.Provider>
-          </Tooltip.Config>
-        </Triggers.Provider>
-      </Theming.Provider>
+                </Theming.Provider>
+              </Aether.Provider>
+            </Worker.Provider>
+          </Haul.Provider>
+        </Tooltip.Config>
+      </Triggers.Provider>
     </Alamos.Provider>
   );
 };

@@ -7,30 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Direction, Location, Scale, XY } from "@synnaxlabs/x";
+import { Bounds, Box, Direction, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { LineGL } from "../../Line/LineGL";
 import { AetherRule } from "../../Rule/aether";
 
+import { GridPositionMeta, calculateAxisPosition } from "./LinePlot";
+
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
+import { ThemeContext } from "@/core/theming/aether";
+import { fontString } from "@/core/theming/fontString";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineProps, LookupResult } from "@/core/vis/Line/core";
 import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
-const yAxisState = axisState.extend({
-  position: XY.z.optional(),
-  location: Location.strictXZ.optional().default("left"),
-  bounds: Bounds.looseZ.optional(),
-  autoBoundPadding: z.number().optional().default(0.05),
-  size: z.number().optional().default(0),
-  labelSize: z.number().optional().default(0),
-});
+const yAxisState = axisState
+  .extend({
+    location: Location.strictXZ.optional().default("left"),
+    bounds: Bounds.looseZ.optional(),
+    autoBoundPadding: z.number().optional().default(0.05),
+    size: z.number().optional().default(0),
+    labelSize: z.number().optional().default(0),
+  })
+  .partial({
+    color: true,
+    gridColor: true,
+    font: true,
+  });
 
 export interface YAxisProps {
+  grid: GridPositionMeta[];
   plottingRegion: Box;
   viewport: Box;
   region: Box;
@@ -53,9 +63,13 @@ export class AetherYAxis extends AetherComposite<
 
   derive(): Derived {
     const renderCtx = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
     return {
       ctx: renderCtx,
       core: new AxisCanvas(renderCtx, {
+        color: theme.colors.gray.p2,
+        font: fontString(theme, "small"),
+        gridColor: theme.colors.gray.m2,
         ...this.state,
         size: this.state.size + this.state.labelSize,
       }),
@@ -81,16 +95,19 @@ export class AetherYAxis extends AetherComposite<
   }
 
   async render(props: YAxisProps): Promise<void> {
-    if (this.state.position == null) return;
     const [normal, offset] = await this.scales(props);
-    this.renderAxis(props, this.state.position, normal);
+    this.renderAxis(props, normal);
     await this.renderLines(props, offset);
     await this.renderRules(props, normal);
   }
 
-  private renderAxis(props: YAxisProps, position: XY, scale: Scale): void {
+  private renderAxis(props: YAxisProps, scale: Scale): void {
     const { core } = this.derived;
-    const { size } = core.render({ ...props, position, scale });
+    const { size } = core.render({
+      ...props,
+      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
+      scale,
+    });
     if (!withinSizeThreshold(this.state.size, size))
       this.setState((p) => ({ ...p, size }));
   }

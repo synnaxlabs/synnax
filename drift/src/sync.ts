@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
-import { Dimensions, unique } from "@synnaxlabs/x";
+import { Dimensions, TimeSpan, unique, getOS } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { MainChecker, Manager, Properties } from "@/runtime";
@@ -32,6 +32,29 @@ const purgeWinStateToProps = (
     ...rest
   } = window;
   return rest;
+};
+
+const FULL_SCREEN_CHECK_INTERVAL = TimeSpan.seconds(1);
+
+// Tauri has weird latent behavior that means the fullscreen state of the window doesn't
+// stay synchronized correctly on MacOS, so we need to manually check the state
+// at a specified interval.
+const startcheckingFullScreen = (
+  d: Dispatch<PayloadAction<SetWindowPropsPayload>>,
+  runtime: RequiredRuntime
+): void => {
+  if (getOS() !== "MacOS") return;
+  let memoFullscreen = false;
+  setInterval(() => {
+    runtime
+      .getProps()
+      .then(({ fullscreen }) => {
+        if (fullscreen == null || memoFullscreen === fullscreen) return;
+        memoFullscreen = fullscreen;
+        d(setWindowProps({ label: runtime.label(), fullscreen }));
+      })
+      .catch(console.error);
+  }, FULL_SCREEN_CHECK_INTERVAL.milliseconds);
 };
 
 export const syncInitial = async (
@@ -61,6 +84,7 @@ export const syncInitial = async (
   await syncCurrent(initial, next, runtime, debug);
   // Make sure our redux store as up to date.
   dispatch(setWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }));
+  startcheckingFullScreen(dispatch, runtime);
 };
 
 export const sync = async (

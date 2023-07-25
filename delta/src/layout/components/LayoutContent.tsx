@@ -31,7 +31,7 @@ export const LayoutContent = memo(
     const handleClose = useLayoutRemover(layoutKey);
     const Renderer = useLayoutRenderer(p.type);
     if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
-    return <Renderer layoutKey={layoutKey} onClose={handleClose} />;
+    return <Renderer key={layoutKey} layoutKey={layoutKey} onClose={handleClose} />;
   }
 );
 LayoutContent.displayName = "LayoutContent";
