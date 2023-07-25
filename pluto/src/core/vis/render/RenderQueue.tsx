@@ -46,6 +46,7 @@ export class RenderQueue {
     for (const [k, f] of Object.entries(cleanup)) {
       if (k in queue) {
         await f();
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete cleanup[k];
       }
     }

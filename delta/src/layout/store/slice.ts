@@ -166,6 +166,7 @@ export const { actions, reducer: layoutReducer } = createSlice({
         [state.mosaic.root] = Mosaic.removeTab(state.mosaic.root, key);
 
       const mosaicTab = {
+        closable: true,
         ...tab,
         name,
         tabKey: key,
@@ -296,6 +297,7 @@ export const { actions, reducer: layoutReducer } = createSlice({
       )
         return;
       state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
+        closable: true,
         tabKey: "getStarted",
         name: "Get Started",
         editable: false,

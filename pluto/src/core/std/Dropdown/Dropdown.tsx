@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  CSSProperties,
   forwardRef,
   ReactElement,
   RefObject,
@@ -17,7 +18,7 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeYLocation, Location, CrudeLocation } from "@synnaxlabs/x";
+import { Box, CrudeYLocation, Location, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { useClickOutside, useResize } from "@/core/hooks";
@@ -42,8 +43,6 @@ export interface UseDropdownReturn {
   open: () => void;
   toggle: (vis?: boolean) => void;
 }
-
-const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
 
 export const useDropdown = (props?: UseDropdownProps): UseDropdownReturn => {
   const { initialVisible = false, onVisibleChange } = props ?? {};
@@ -71,7 +70,17 @@ export interface DropdownProps
   matchTriggerWidth?: boolean;
 }
 
-const DEFAULT_LOCATION: CrudeLocation = "bottom";
+interface State {
+  pos: XY;
+  loc: Location;
+  width: number;
+}
+
+const ZERO_STATE: State = {
+  pos: XY.ZERO,
+  loc: Location.top,
+  width: 0,
+};
 
 export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
   (
@@ -84,31 +93,33 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
       matchTriggerWidth = false,
       ...props
     }: DropdownProps,
-    ref
+    forwardedRef
   ): ReactElement => {
-    const [[loc, dim, width], setAutoStyle] = useState<
-      [CrudeYLocation, number, number]
-    >([location ?? DEFAULT_LOCATION, 0, 0]);
-    const handleResize = useCallback(
-      (box: Box) => {
-        const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
-        const distanceToTop = Math.abs(box.center.y - windowBox.top);
-        const distanceToBottom = Math.abs(box.center.x - windowBox.bottom);
-        const height = box.height;
-        const loc = location ?? (distanceToBottom > distanceToTop ? "bottom" : "top");
-        setAutoStyle([loc, height, box.width]);
-      },
-      [location]
-    );
-    const resizeRef = useResize(handleResize);
-    const combinedRef = useCombinedRefs(ref, resizeRef);
+    const ref = useRef<HTMLDivElement>(null);
+    const visibleRef = useRef(visible);
 
-    const dialogStyle = {
-      [`margin${capitalize(new Location(loc).inverse.crude)}`]: dim - 1,
-    };
-    if (matchTriggerWidth) {
-      dialogStyle.width = width;
-    }
+    const [{ pos, loc, width }, setState] = useState<State>(ZERO_STATE);
+
+    const calculatePosition = useCallback(() => {
+      if (ref.current == null) return;
+      const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
+      const box = new Box(ref.current);
+      const toTop = Math.abs(box.center.y - windowBox.top);
+      const toBottom = Math.abs(box.center.x - windowBox.bottom);
+      const loc = new Location(location ?? (toBottom > toTop ? "bottom" : "top"));
+      const pos = new XY(box.left, box.loc(loc));
+      setState({ pos, loc, width: box.width });
+    }, []);
+
+    if (visible && !visibleRef.current && ref.current != null) calculatePosition();
+    visibleRef.current = visible;
+
+    const resizeRef = useResize(calculatePosition);
+    const combinedRef = useCombinedRefs(forwardedRef, ref, resizeRef);
+    const dialogStyle: CSSProperties = { ...pos.css };
+    if (matchTriggerWidth) dialogStyle.width = width;
+
+    console.log(pos, loc, width);
 
     return (
       <Pack
@@ -116,7 +127,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
         ref={combinedRef}
         className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
         direction="y"
-        reverse={loc === "top"}
+        reverse={loc.equals("top")}
       >
         {children[0]}
         <Space

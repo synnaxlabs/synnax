@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-input--shadow .pluto-input__drag-btn {
+    opacity: 0;
+}
+
+.pluto-input--shadow:hover .pluto-input__drag-btn {
+    opacity: 1;
+}
+
 .pluto-input__drag-btn {
     cursor: move;
 }

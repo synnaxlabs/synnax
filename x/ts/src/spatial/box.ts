@@ -225,14 +225,15 @@ export class Box implements Stringer {
    * side of the box i.e. the x coordinate of the left side, the y coordinate of the
    * top side, etc.
    */
-  loc(loc: CrudeLocation): number {
-    const f = this.root.toLowerCase().includes(loc) ? Math.min : Math.max;
-    return Location.X_LOCATIONS.includes(loc as CrudeXLocation)
+  loc(loc: CrudeLocation | Location): number {
+    const loc_ = new Location(loc);
+    const f = this.root.toLowerCase().includes(loc_.crude) ? Math.min : Math.max;
+    return Location.X_LOCATIONS.includes(loc_.crude as CrudeXLocation)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
   }
 
-  locPoint(loc: CrudeLocation): XY {
+  locPoint(loc: CrudeLocation | Location): XY {
     const l = this.loc(loc);
     if (Location.X_LOCATIONS.includes(loc as CrudeXLocation))
       return new XY({ x: l, y: this.center.y });
