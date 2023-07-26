@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/pluto",
   "private": false,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -17,7 +17,6 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.0.5",
     "@hookform/resolvers": "^3.1.1",
-    "@juggle/resize-observer": "^3.4.0",
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
@@ -29,7 +28,6 @@
     "install": "^0.13.0",
     "mathjs": "^11.8.2",
     "nanoid": "^4.0.2",
-    "npm": "^9.8.0",
     "proxy-memoize": "^1.2.0",
     "react": "^18.2.0",
     "react-color": "^2.19.3",
@@ -40,6 +38,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.22.5",
+    "@juggle/resize-observer": "^3.4.0",
     "@storybook/addon-actions": "^7.0.23",
     "@storybook/addon-backgrounds": "^7.0.23",
     "@storybook/addon-docs": "^7.0.23",

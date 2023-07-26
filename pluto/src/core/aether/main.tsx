@@ -49,7 +49,12 @@ export interface AetherContextValue {
   ) => AetherCreateReturn;
 }
 
-export const AetherContext = createContext<AetherContextValue | null>(null);
+const ZERO_CONTEXT_VALUE = {
+  path: [],
+  create: () => ({ setState: () => {}, delete: () => {} }),
+};
+
+export const AetherContext = createContext<AetherContextValue>(ZERO_CONTEXT_VALUE);
 
 export interface AetherProviderProps extends PropsWithChildren {
   workerKey: string;
@@ -124,11 +129,7 @@ export const AetherProvider = ({
   );
 };
 
-export const useAetherContext = (): AetherContextValue => {
-  const ctx = useContext(AetherContext);
-  if (ctx == null) throw new Error("Aether.use must be used within an Aether.Provider");
-  return ctx;
-};
+export const useAetherContext = (): AetherContextValue => useContext(AetherContext);
 
 export interface UseAetherLifecycleReturn<S extends z.ZodTypeAny> {
   path: string[];
