@@ -9,7 +9,7 @@
 
 import { ReactElement } from "react";
 
-import { Tab, Tabs as PTabs } from "@synnaxlabs/pluto";
+import { Tab, Tabs as PTabs } from "@synnaxlabs/pluto/std";
 
 export type TabsProps = {
   tabs: Tab[];
