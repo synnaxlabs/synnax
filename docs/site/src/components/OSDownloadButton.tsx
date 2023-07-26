@@ -10,7 +10,7 @@
 import { useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, ButtonLinkProps, useOS, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Button, ButtonLinkProps } from "@synnaxlabs/pluto/std";
 import { OS } from "@synnaxlabs/x";
 
 export interface OSDownloadButtonEntry {
@@ -28,7 +28,7 @@ export const OSDownloadButton = ({
   name,
   ...props
 }: OSDownloadButtonProps): ReactElement | null => {
-  const os = useOS();
+  // const os = useOS();
   if (entries.length === 0) return null;
   let entry = entries.find((entry) => entry.os === os);
   if (entry == null) entry = entries[0];
@@ -67,11 +67,11 @@ const JSON_URL =
 export const DeltaDownloadButton = () => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
-  useAsyncEffect(async () => {
-    const response = await fetch(JSON_URL);
-    const updateFile = await response.json();
-    setUpdateFile(updateFile);
-  }, []);
+  // useAsyncEffect(async () => {
+  //   const response = await fetch(JSON_URL);
+  //   const updateFile = await response.json();
+  //   setUpdateFile(updateFile);
+  // }, []);
 
   if (updateFile == null) return null;
   return (
