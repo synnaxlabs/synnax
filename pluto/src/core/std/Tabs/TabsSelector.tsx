@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 
 import { CSS } from "@/core/css";
 import { Button } from "@/core/std/Button";
+import { Pack } from "@/core/std/Pack";
 import { Space, SpaceProps } from "@/core/std/Space";
 import { useTabsContext } from "@/core/std/Tabs/Tabs";
 import { Text } from "@/core/std/Typography";
@@ -95,7 +96,7 @@ const TabC = ({
   onDragStart,
   onDragEnd,
   onRename,
-  closable,
+  closable = true,
   icon,
   size,
   editable = true,
@@ -114,13 +115,13 @@ const TabC = ({
   const _onSelect = (): void => onSelect?.(tabKey);
 
   return (
-    <Space
+    <Pack
+      size={size}
       className={CSS(
-        CSS.size(size),
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "button", "uneditable"),
         CSS.selected(selected === tabKey),
-        closable === true && onClose != null && CSS.BEM(CLS, "button", "closable")
+        closable && onClose != null && CSS.BEM(CLS, "btn", "closable")
       )}
       draggable
       direction="x"
@@ -129,6 +130,8 @@ const TabC = ({
       onClick={_onSelect}
       onDragStart={ohandleDragStart}
       onDragEnd={handleDragEnd}
+      bordered={false}
+      rounded={false}
     >
       <TabName
         name={name}
@@ -137,16 +140,12 @@ const TabC = ({
         icon={icon}
         editable={editable}
       />
-      {onClose != null && (
-        <Button.Icon
-          size="small"
-          onClick={handleClose}
-          style={{ height: "3.5rem", padding: "1rem 0.75rem" }}
-        >
+      {closable && onClose != null && (
+        <Button.Icon onClick={handleClose}>
           <Icon.Close aria-label="pluto-tabs__close" />
         </Button.Icon>
       )}
-    </Space>
+    </Pack>
   );
 };
 

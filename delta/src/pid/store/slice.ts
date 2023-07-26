@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PIDEdge, PIDNode } from "@synnaxlabs/pluto";
+import { PIDEdge, PIDNode, PIDViewport } from "@synnaxlabs/pluto";
 import { Deep, XY } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -20,6 +20,7 @@ export type PIDNodeProps = object & {
 
 export interface PIDState {
   editable: boolean;
+  viewport: PIDViewport;
   nodes: PIDNode[];
   edges: PIDEdge[];
   props: Record<string, object>;
@@ -49,6 +50,7 @@ export const ZERO_PID_STATE: PIDState = {
   nodes: [],
   edges: [],
   props: {},
+  viewport: { position: XY.ZERO.crude, zoom: 1 },
   editable: true,
 };
 
@@ -56,6 +58,11 @@ export const ZERO_PID_SLICE_STATE: PIDSliceState = {
   toolbar: { activeTab: "elements" },
   pids: {},
 };
+
+export interface SetPIDViewportPayload {
+  layoutKey: string;
+  viewport: PIDViewport;
+}
 
 export interface AddPIDelementPayload {
   layoutKey: string;
@@ -87,6 +94,11 @@ export interface DeletePIDPayload {
   layoutKey: string;
 }
 
+export interface SetPIDEditablePayload {
+  layoutKey: string;
+  editable: boolean;
+}
+
 export interface SetPIDActiveToolbarTabPayload {
   tab: PIDToolbarTab;
 }
@@ -97,7 +109,7 @@ export const { actions, reducer: pidReducer } = createSlice({
   reducers: {
     createPID: (state, { payload }: PayloadAction<CreatePIDPayload>) => {
       const { key: layoutKey } = payload;
-      state.pids[layoutKey] = ZERO_PID_STATE;
+      state.pids[layoutKey] = { ...ZERO_PID_STATE };
     },
     deletePID: (state, { payload }: PayloadAction<DeletePIDPayload>) => {
       const { layoutKey } = payload;
@@ -107,6 +119,7 @@ export const { actions, reducer: pidReducer } = createSlice({
     addPIDelement: (state, { payload }: PayloadAction<AddPIDelementPayload>) => {
       const { layoutKey, key, props } = payload;
       const pid = state.pids[layoutKey];
+      if (!pid.editable) return;
       pid.nodes.push({
         key,
         selected: false,
@@ -120,6 +133,7 @@ export const { actions, reducer: pidReducer } = createSlice({
     ) => {
       const { layoutKey, key, props } = payload;
       const pid = state.pids[layoutKey];
+      if (!pid.editable) return;
       pid.props[key] = props;
     },
     setPIDNodes: (state, { payload }: PayloadAction<SetPIDNodesPayload>) => {
@@ -128,6 +142,7 @@ export const { actions, reducer: pidReducer } = createSlice({
       pid.nodes = nodes;
       const anySelected = nodes.some((node) => node.selected);
       if (anySelected) state.toolbar.activeTab = "properties";
+      else state.toolbar.activeTab = "elements";
     },
     setPIDEdges: (state, { payload }: PayloadAction<SetPIDEdgesPayload>) => {
       const { layoutKey, edges } = payload;
@@ -141,6 +156,16 @@ export const { actions, reducer: pidReducer } = createSlice({
       const { tab } = payload;
       state.toolbar.activeTab = tab;
     },
+    setPIDViewport: (state, { payload }: PayloadAction<SetPIDViewportPayload>) => {
+      const { layoutKey, viewport } = payload;
+      const pid = state.pids[layoutKey];
+      pid.viewport = viewport;
+    },
+    setPIDEditable: (state, { payload }: PayloadAction<SetPIDEditablePayload>) => {
+      const { layoutKey, editable } = payload;
+      const pid = state.pids[layoutKey];
+      pid.editable = editable;
+    },
   },
 });
 
@@ -150,6 +175,8 @@ export const {
   setPIDNodes,
   setPIDElementProps,
   setPIDActiveToolbarTab,
+  setPIDViewport,
+  setPIDEditable,
 } = actions;
 
 export type PIDAction = ReturnType<(typeof actions)[keyof typeof actions]>;

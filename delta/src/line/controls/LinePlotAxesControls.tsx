@@ -9,7 +9,7 @@
 
 import { ReactElement } from "react";
 
-import { Input, InputControl, Space } from "@synnaxlabs/pluto";
+import { Input, InputControl, Select, Space } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelectLinePlot } from "../store/selectors";
@@ -70,6 +70,10 @@ export const LinePlotAxisControls = ({
     onChange({ ...axis, bounds: { ...axis.bounds, upper: value } });
   };
 
+  const handleLabelDirectionChange: InputControl<"x" | "y">["onChange"] = (value) => {
+    onChange({ ...axis, labelDirection: value });
+  };
+
   return (
     <Space direction="x">
       <Input
@@ -88,6 +92,21 @@ export const LinePlotAxisControls = ({
         onChange={handleUpperBoundChange}
         resetValue={0}
         dragScale={AXES_BOUNDS_DRAG_SCALE}
+      />
+      <Select.Button
+        value={axis.labelDirection}
+        onChange={handleLabelDirectionChange}
+        entryRenderKey="label"
+        data={[
+          {
+            key: "x",
+            label: "X",
+          },
+          {
+            key: "y",
+            label: "Y",
+          },
+        ]}
       />
     </Space>
   );

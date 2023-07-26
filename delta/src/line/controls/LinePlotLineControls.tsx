@@ -88,9 +88,9 @@ export const LinePlotLinesControls = ({
           },
         ]}
       />
-      <List.Core.Virtual itemHeight={33} style={{ height: "calc(100% - 28px - 33px)" }}>
+      <List.Core style={{ height: "calc(100% - 28px)" }}>
         {(props) => <LinePlotLineControls onChange={handleChange} {...props} />}
-      </List.Core.Virtual>
+      </List.Core>
     </List>
   );
 };
@@ -126,6 +126,7 @@ const LinePlotLineControls = ({
         style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}
+        variant="shadow"
       />
       <Input.Numeric
         value={line.strokeWidth}
@@ -133,11 +134,13 @@ const LinePlotLineControls = ({
         dragScale={{ x: 0.1, y: 0.1 }}
         bounds={{ lower: 1, upper: 11 }}
         style={{ width: 140, marginRight: "2rem" }}
+        variant="shadow"
       />
       <Input.Numeric
         style={{ width: 100, marginRight: "2rem" }}
         value={line.downsample ?? 1}
         onChange={handleDownsampleChange}
+        variant="shadow"
         dragScale={{
           x: 0.1,
           y: 0.1,

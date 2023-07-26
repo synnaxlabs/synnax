@@ -9,21 +9,29 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack > * {
+.pluto-pack.pluto--bordered > * {
     border: var(--pluto-border-width) solid var(--pluto-gray-m1);
 }
 
+.pluto-pack.pluto--bordered {
+    border: none !important;
+}
+
+.pluto-pack.pluto--rounded {
+    --pluto-pack-br: var(--pluto-border-radius);
+}
+
 .pluto-pack {
-    --t: var(--pluto-border-radius) var(--pluto-border-radius) 0 0;
-    --b: 0 0 var(--pluto-border-radius) var(--pluto-border-radius);
-    --l: var(--pluto-border-radius) 0 0 var(--pluto-border-radius);
-    --r: 0 var(--pluto-border-radius) var(--pluto-border-radius) 0;
-    --tr: 0 var(--pluto-border-radius) 0 0;
-    --br: 0 0 var(--pluto-border-radius) 0;
-    --bl: 0 0 0 var(--pluto-border-radius);
-    --tl: var(--pluto-border-radius) 0 0 0;
+    --t: var(--pluto-pack-br) var(--pluto-pack-br) 0 0;
+    --b: 0 0 var(--pluto-pack-br) var(--pluto-pack-br);
+    --l: var(--pluto-pack-br) 0 0 var(--pluto-pack-br);
+    --r: 0 var(--pluto-pack-br) var(--pluto-pack-br) 0;
+    --tr: 0 var(--pluto-pack-br) 0 0;
+    --br: 0 0 var(--pluto-pack-br) 0;
+    --bl: 0 0 0 var(--pluto-pack-br);
+    --tl: var(--pluto-pack-br) 0 0 0;
     --pluto-pack--middle: 0 !important;
-    --all: var(--pluto-border-radius);
+    --all: var(--pluto-pack-br);
 }
 
 .pluto-pack.pluto--x {
@@ -65,8 +73,8 @@
 }
 
 .pluto-pack.pluto--y.pluto-pack--reverse {
-    --pluto-pack--first: 0 0 var(--pluto-border-radius) var(--pluto-border-radius) !important;
-    --pluto-pack--last: var(--pluto-border-radius) var(--pluto-border-radius) 0 0 !important;
+    --pluto-pack--first: 0 0 var(--pluto-pack-br) var(--pluto-pack-br) !important;
+    --pluto-pack--last: var(--pluto-pack-br) var(--pluto-pack-br) 0 0 !important;
     --pluto-pack--y-margin: 0 0 -1px 0 !important;
     --pluto-pack--y-first-x-first: var(--bl);
     --pluto-pack--y-first-x-last: var(--br);

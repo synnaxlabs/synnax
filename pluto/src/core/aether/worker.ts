@@ -119,8 +119,8 @@ export class AetherContext {
    */
   copyAndMerge(merge?: AetherContext): AetherContext {
     const cpy = new AetherContext(this.sender, this.registry, new Map());
-    this.providers.forEach((value, key) => cpy.providers.set(key, value));
     merge?.providers.forEach((value, key) => cpy.providers.set(key, value));
+    this.providers.forEach((value, key) => cpy.providers.set(key, value));
     cpy.changed = false;
     return cpy;
   }

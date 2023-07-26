@@ -9,3 +9,13 @@
 
 export const OperatingSystems = ["MacOS", "Windows", "Linux", "Docker"] as const;
 export type OS = typeof OperatingSystems[number];
+
+export const getOS = (force?: OS, default_: OS | null = null): OS | null => {
+  if (force != null) return force;
+  if (typeof window === "undefined") return null;
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  if (userAgent.includes("mac")) return "MacOS";
+  else if (userAgent.includes("win")) return "Windows";
+  else if (userAgent.includes("linux")) return "Linux";
+  return default_;
+};

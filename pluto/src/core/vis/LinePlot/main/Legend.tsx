@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEventHandler, ReactElement, useCallback, useRef, useState } from "react";
+import { ReactElement, memo, useCallback, useRef, useState } from "react";
 
 import { XY, CrudeXY, Box } from "@synnaxlabs/x";
 
@@ -30,79 +30,82 @@ export interface LegendProps
   onColorChange?: (id: string, color: Color) => void;
 }
 
-export const Legend = ({
-  className,
-  value,
-  onChange,
-  style,
-  onLabelChange,
-  onColorChange,
-  ...props
-}: LegendProps): ReactElement | null => {
-  const { lines } = useLinePlotContext("Legend");
-  const [position, setPosition] = Input.usePassthrough({
+export const Legend = memo(
+  ({
+    className,
     value,
     onChange,
-    initialValue: new XY(50, 50).crude,
-  });
-  const [pickerVisible, setPickerVisible] = useState(false);
-  useLinePlotContext("LegendPosition");
-  const positionRef = useRef(position);
-  if (position !== null) {
-    style = {
-      ...style,
-      ...new XY(position).css,
-    };
+    style,
+    onLabelChange,
+    onColorChange,
+    ...props
+  }: LegendProps): ReactElement | null => {
+    const { lines } = useLinePlotContext("Legend");
+    const [position, setPosition] = Input.usePassthrough({
+      value,
+      onChange,
+      initialValue: new XY(50, 50).crude,
+    });
+    const [pickerVisible, setPickerVisible] = useState(false);
+    useLinePlotContext("LegendPosition");
+    const positionRef = useRef(position);
+    if (position !== null) {
+      style = {
+        ...style,
+        ...new XY(position).css,
+      };
+    }
+
+    const handleCursorDragStart = useCursorDrag({
+      onMove: useCallback(
+        (box: Box) => {
+          if (!pickerVisible)
+            setPosition(new XY(positionRef.current).translate(box.signedDims));
+        },
+        [setPosition, pickerVisible]
+      ),
+      onEnd: useCallback(
+        (box: Box) => {
+          if (!pickerVisible)
+            positionRef.current = new XY(positionRef.current).translate(box.signedDims);
+        },
+        [pickerVisible]
+      ),
+    });
+
+    if (lines.length === 0) return null;
+
+    return (
+      <Space
+        className={CSS(className, CSS.B("legend"))}
+        bordered
+        rounded
+        style={style}
+        onDragStart={handleCursorDragStart}
+        draggable
+        {...props}
+        onDrag={preventDefault}
+        onDragEnd={preventDefault}
+        size="small"
+      >
+        {lines.map(({ key, color, label }) => (
+          <Space key={key} direction="x" align="center">
+            <ColorSwatch
+              value={color}
+              onChange={(c) => onColorChange?.(key, c)}
+              onVisibleChange={setPickerVisible}
+              size="tiny"
+            />
+            <Text.MaybeEditable
+              level="small"
+              value={label}
+              onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
+              noWrap
+            />
+          </Space>
+        ))}
+      </Space>
+    );
   }
-
-  const handleCursorDragStart = useCursorDrag({
-    onMove: useCallback(
-      (box: Box) => {
-        if (!pickerVisible)
-          setPosition(new XY(positionRef.current).translate(box.signedDims));
-      },
-      [setPosition, pickerVisible]
-    ),
-    onEnd: useCallback(
-      (box: Box) => {
-        if (!pickerVisible)
-          positionRef.current = new XY(positionRef.current).translate(box.signedDims);
-      },
-      [pickerVisible]
-    ),
-  });
-
-  if (lines.length === 0) return null;
-
-  return (
-    <Space
-      className={CSS(className, CSS.B("legend"))}
-      bordered
-      rounded
-      style={style}
-      onDragStart={handleCursorDragStart}
-      draggable
-      {...props}
-      onDrag={preventDefault}
-      onDragEnd={preventDefault}
-      size="small"
-    >
-      {lines.map(({ key, color, label }) => (
-        <Space key={key} direction="x" align="center">
-          <ColorSwatch
-            value={color}
-            onChange={(c) => onColorChange?.(key, c)}
-            onVisibleChange={setPickerVisible}
-            size="tiny"
-          />
-          <Text.MaybeEditable
-            level="small"
-            value={label}
-            onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
-            noWrap
-          />
-        </Space>
-      ))}
-    </Space>
-  );
-};
+);
+Legend.displayName = "Legend";
