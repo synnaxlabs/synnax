@@ -15,7 +15,7 @@ export default defineConfig({
   plugins: [lib({ name: "media" }), react()],
   build: {
     sourcemap: true,
-    minify: false,
+    minify: true,
     rollupOptions: {
       external: ["react", "react-dom"],
       output: {
@@ -24,7 +24,7 @@ export default defineConfig({
           "react-dom": "ReactDOM",
         },
       },
-    }
+    },
   },
   test: {
     globals: true,
