@@ -29,6 +29,10 @@ if (noHeader.value == "true") {
 }
 const theme = Astro.cookies.get("theme");
 vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
+
+// Define the OffscreenCanvas as a global
+// @ts-expect-error
+globalThis.OffscreenCanvas = () => {};
 ---
 
 <script>
