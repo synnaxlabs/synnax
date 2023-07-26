@@ -34,13 +34,13 @@ export interface TriggerContextValue {
   listen: TriggerListen;
 }
 
-const TriggerContext = createContext<TriggerContextValue | null>(null);
-
-export const useTriggerContext = (): TriggerContextValue => {
-  const ctx = useContext(TriggerContext);
-  if (ctx == null) throw new Error("TriggerContext not available");
-  return ctx;
+const ZERO_TRIGGER_CONTEXT: TriggerContextValue = {
+  listen: () => () => {},
 };
+
+const TriggerContext = createContext<TriggerContextValue>(ZERO_TRIGGER_CONTEXT);
+
+export const useTriggerContext = (): TriggerContextValue => useContext(TriggerContext);
 
 interface TriggerRefState {
   next: Trigger;
