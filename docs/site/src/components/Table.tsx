@@ -7,39 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import {
   convertRenderV,
   KeyedRenderableRecord,
-  Bound,
+  Bounds,
   Direction,
-  inBounds,
+  Key,
 } from "@synnaxlabs/x";
 
-export interface TableColumn<E extends KeyedRenderableRecord<E>> {
+export interface TableColumn<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   key: keyof E;
   name?: string;
   width?: number;
   type?: "code";
 }
 
-export interface TableHighlight<E extends KeyedRenderableRecord<E>> {
+export interface TableHighlight<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   key: string;
   columns?: Array<keyof E>;
-  rows?: Bound;
+  rows?: Bounds;
   color: string;
 }
 
-export interface TableProps<E extends KeyedRenderableRecord<E>> {
-  columns: Array<TableColumn<E>>;
+export interface TableProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+  columns: Array<TableColumn<K, E>>;
   data: E[];
-  highlights?: Array<TableHighlight<E>>;
+  highlights?: Array<TableHighlight<K, E>>;
 }
 
-export const Table = <E extends KeyedRenderableRecord<E>>({
+export const Table = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   columns,
   data,
   highlights = [],
-}: TableProps<E>): ReactElement => {
+}: TableProps<Key, E>): ReactElement => {
   return (
     <div style={{ overflowX: "auto", paddingLeft: 2 }}>
       <table>
@@ -54,7 +56,7 @@ export const Table = <E extends KeyedRenderableRecord<E>>({
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <TableRow<E>
+            <TableRow<K, E>
               key={i}
               columns={columns}
               data={row}
@@ -69,25 +71,25 @@ export const Table = <E extends KeyedRenderableRecord<E>>({
   );
 };
 
-interface TableRowProps<E extends KeyedRenderableRecord<E>> {
+interface TableRowProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   index: number;
   dataLength: number;
-  columns: Array<TableColumn<E>>;
+  columns: Array<TableColumn<K, E>>;
   data: E;
-  highlights: Array<TableHighlight<E>>;
+  highlights: Array<TableHighlight<K, E>>;
 }
 
-const TableRow = <E extends KeyedRenderableRecord<E>>({
+const TableRow = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   index,
   dataLength,
   columns,
   data,
   highlights,
-}: TableRowProps<E>): ReactElement => {
+}: TableRowProps<K, E>): ReactElement => {
   return (
     <tr>
       {columns.map((col) => (
-        <TableCell<E>
+        <TableCell<K, E>
           key={col.key as string}
           index={index}
           dataLength={dataLength}
@@ -100,21 +102,21 @@ const TableRow = <E extends KeyedRenderableRecord<E>>({
   );
 };
 
-interface TableCellProps<E extends KeyedRenderableRecord<E>> {
+interface TableCellProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   index: number;
   dataLength: number;
-  highlights: Array<TableHighlight<E>>;
+  highlights: Array<TableHighlight<K, E>>;
   data: E;
-  column: TableColumn<E>;
+  column: TableColumn<K, E>;
 }
 
-const TableCell = <E extends KeyedRenderableRecord<E>>({
+const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   index,
   dataLength,
   highlights,
   data,
   column,
-}: TableCellProps<E>): ReactElement | null => {
+}: TableCellProps<K, E>): ReactElement | null => {
   const endings = highlights.filter(({ rows, columns }) => {
     const rowValid = rows != null ? rows.upper === index : index === dataLength - 1;
     const colValid = columns != null ? columns.includes(column.key) : true;
@@ -131,7 +133,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
 
   const elements = [];
   if (upperColors.length > 0) {
-    const background = buildGradient(upperColors, "y", false);
+    const background = buildGradient(upperColors, Direction.y, false);
     elements.push(
       <div
         style={{
@@ -147,7 +149,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   }
 
   const left = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? inBounds(index, rows) : true;
+    const rowValid = rows != null ? rows.contains(index) : true;
     const colValid = columns != null ? columns[0] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
     return rowValid && colValid && !isEnd;
@@ -156,7 +158,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   const leftColors = left.map(({ color }) => color);
 
   if (leftColors.length > 0) {
-    const background = buildGradient(leftColors, "x", false);
+    const background = buildGradient(leftColors, Direction.x, false);
     elements.push(
       <div
         style={{
@@ -172,7 +174,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   }
 
   const right = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? inBounds(index, rows) : true;
+    const rowValid = rows != null ? rows.contains(index) : true;
     const colValid =
       columns != null ? columns[columns.length - 1] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
@@ -182,7 +184,7 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
   const rightColors = right.map(({ color }) => color);
 
   if (rightColors.length > 0) {
-    const background = buildGradient(rightColors, "x", true);
+    const background = buildGradient(rightColors, Direction.x, true);
     elements.push(
       <div
         style={{
@@ -197,7 +199,9 @@ const TableCell = <E extends KeyedRenderableRecord<E>>({
     );
   }
 
-  let content = convertRenderV(data[column.key]);
+  let content: ReactElement | string | number | undefined = convertRenderV(
+    data[column.key]
+  );
   if (column.type === "code") content = <code>{content}</code>;
 
   return (
@@ -220,13 +224,7 @@ const buildGradient = (
     return `${color} ${start}% ${end}%`;
   });
   let dir;
-  switch (direction) {
-    case "x":
-      dir = reverse ? "to right" : "to left";
-      break;
-    case "y":
-      dir = reverse ? "to top" : "to bottom";
-      break;
-  }
+  if (direction.isX) dir = reverse ? "to right" : "to left";
+  else dir = reverse ? "to top" : "to bottom";
   return `linear-gradient(${dir}, ${gradient.join(", ")})`;
 };

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Scale, TimeStamp } from "@synnaxlabs/x";
-import { scaleLinear, scaleTime } from "d3";
+import { scaleLinear, scaleTime } from "d3-scale";
 import { z } from "zod";
 
 export interface Tick {
