@@ -20,6 +20,7 @@ import {
   Deep,
   unique,
   toArray,
+  CrudeDirection,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -73,6 +74,7 @@ export const ZERO_VIEWPORT_STATE: ViewportState = {
 
 export interface AxisState {
   label?: string;
+  labelDirection: CrudeDirection;
   bounds: CrudeBounds;
   driven: boolean;
 }
@@ -119,8 +121,8 @@ const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
   label: "",
   position: 0,
   axis: "y1",
-  lineWidth: 1,
-  lineDash: 20,
+  lineWidth: 2,
+  lineDash: 3,
   units: "",
 };
 
@@ -173,6 +175,7 @@ export interface LinePlotState {
 
 export const ZERO_AXIS_STATE: AxisState = {
   label: "",
+  labelDirection: "x",
   driven: true,
   bounds: Bounds.ZERO.crude,
 };

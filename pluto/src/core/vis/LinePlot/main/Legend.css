@@ -18,6 +18,8 @@
     background-color: var(--pluto-background-color);
     max-height: 50%;
     overflow-y: auto;
+    overflow-x: hidden;
+    width: fit-content;
 }
 
 .pluto-legend__color {

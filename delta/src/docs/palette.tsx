@@ -8,11 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { getOS } from "@synnaxlabs/x";
 
-const isWindows = getOS() === "Windows";
+import { createDocsLayout } from "./layout";
 
-export const Symbols = {
-  Meta: isWindows ? Icon.Keyboard.Windows : Icon.Keyboard.Command,
-  Alt: isWindows ? Icon.Keyboard.Alt : Icon.Keyboard.Option,
+import { Command } from "@/palette/Palette";
+
+export const readTheDocsCommand: Command = {
+  key: "read-the-docs",
+  name: "Read the docs",
+  icon: <Icon.QuestionMark />,
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createDocsLayout()),
 };
+
+export const DOCS_COMMANDS = [readTheDocsCommand];

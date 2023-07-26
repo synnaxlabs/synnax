@@ -47,6 +47,11 @@ export interface PIDElementProps {
   editable: boolean;
 }
 
+export interface PIDViewport {
+  position: CrudeXY;
+  zoom: number;
+}
+
 export interface PIDEdge {
   key: string;
   source: string;
@@ -65,18 +70,23 @@ export interface UsePIDProps {
   allowEdit?: boolean;
   initialEdges: PIDEdge[];
   initialNodes: PIDNode[];
+  initialViewport?: PIDViewport;
 }
 
 export const usePID = ({
   initialNodes,
   initialEdges,
   allowEdit = true,
+  initialViewport = { position: XY.ZERO, zoom: 1 },
 }: UsePIDProps): UsePIDReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
   const [nodes, onNodesChange] = useState<PIDNode[]>(initialNodes);
   const [edges, onEdgesChange] = useState<PIDEdge[]>(initialEdges);
+  const [viewport, onViewportChange] = useState<PIDViewport>(initialViewport);
 
   return {
+    viewport,
+    onViewportChange,
     edges,
     nodes,
     onNodesChange,
@@ -93,6 +103,8 @@ export interface UsePIDReturn {
   onEdgesChange: (cbk: (prev: PIDEdge[]) => PIDEdge[]) => void;
   editable: boolean;
   onEditableChange: (cbk: (prev: boolean) => boolean) => void;
+  onViewportChange: (vp: PIDViewport) => void;
+  viewport: PIDViewport;
 }
 
 export interface PIDProps extends UsePIDReturn {
@@ -129,6 +141,16 @@ const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
     ...edge,
   }));
 
+const translateViewportForward = (viewport: PIDViewport): RFViewport => ({
+  ...viewport.position,
+  zoom: viewport.zoom,
+});
+
+const translateViewportBackward = (viewport: RFViewport): PIDViewport => ({
+  position: new XY(viewport).crude,
+  zoom: viewport.zoom,
+});
+
 const EDGE_TYPES = { default: RFSmoothStepEdge };
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -160,13 +182,15 @@ const PIDCore = Aether.wrap<PIDProps>(
     edges,
     onEditableChange,
     editable,
+    viewport,
+    onViewportChange,
   }): ReactElement => {
     const [{ path }, { error }, setState] = Aether.use({
       aetherKey,
       type: AetherPID.TYPE,
       schema: AetherPID.stateZ,
       initialState: {
-        position: XY.ZERO,
+        position: viewport.position,
         region: Box.ZERO,
       },
     });
@@ -176,11 +200,10 @@ const PIDCore = Aether.wrap<PIDProps>(
       { debounce: 0 }
     );
 
-    const handleViewport = useCallback(
-      (viewport: RFViewport): void =>
-        setState((prev) => ({ ...prev, position: viewport })),
-      []
-    );
+    const handleViewport = useCallback((viewport: RFViewport): void => {
+      setState((prev) => ({ ...prev, position: viewport }));
+      onViewportChange(translateViewportBackward(viewport));
+    }, []);
 
     useRFOnViewportChange({
       onStart: handleViewport,
@@ -262,7 +285,12 @@ const PIDCore = Aether.wrap<PIDProps>(
           onConnect={handleConnect}
           minZoom={1}
           maxZoom={1}
-          panOnScroll={true}
+          defaultViewport={translateViewportForward(viewport)}
+          panOnScroll
+          selectionOnDrag
+          panOnDrag={false}
+          selectionKeyCode={null}
+          panActivationKeyCode={"Shift"}
           proOptions={{
             hideAttribution: true,
           }}

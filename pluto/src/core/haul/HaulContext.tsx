@@ -147,7 +147,6 @@ export const useHaulDropRegion = ({
 
   const handleDragOver: DragEventHandler = useCallback(
     (e) => {
-      console.log(e);
       if (hauled.dragging.current.length === 0) return;
       const canDrop_ = canDrop(hauled.dragging.current);
       if (canDrop_) {

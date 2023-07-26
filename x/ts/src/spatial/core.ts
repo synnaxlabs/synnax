@@ -43,7 +43,7 @@ const signedDimensions = z.object({
   signedHeight: z.number(),
 });
 const position = z.enum(POSITIONS);
-const order = z.enum(ORDERS);
+export const order = z.enum(ORDERS);
 const corner = z.enum(CORNERS);
 const transform = z.object({ offset: z.number(), scale: z.number() });
 export const xyTransform = z.object({ offset: xy, scale: xy });

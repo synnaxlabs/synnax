@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { convertThemeToCSSVars } from "@/core/theming/css";
-import { fontString, useTypography } from "@/core/theming/font";
+import { useTypography } from "@/core/theming/font";
+import { fontString } from "@/core/theming/fontString";
 import { ThemeSpec, themeZ, themes } from "@/core/theming/theme";
 import {
   ThemeProvider,

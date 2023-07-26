@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
+import { PropsWithChildren, ReactElement, useEffect } from "react";
 
 import {
-  Optional,
   Location,
   CrudeOuterLocation,
-  CrudeDirection,
   Direction,
   Deep,
+  CrudeDirection,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { withinSizeThreshold } from "../aether/axis";
-
 import { Aether } from "@/core/aether/main";
-import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
-import { useMemoCompare, useResize } from "@/core/hooks";
+import { useMemoCompare } from "@/core/hooks";
 import { Space, SpaceProps, Text, TypographyLevel } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
@@ -34,15 +30,12 @@ import "@/core/vis/LinePlot/main/YAxis.css";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Optional<
-      Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
-      "color" | "font" | "gridColor"
-    >,
+    Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
     Omit<SpaceProps, "color"> {
   label?: string;
   labelLevel?: TypographyLevel;
   onLabelChange?: (label: string) => void;
-  labelDirection?: CrudeDirection;
+  labelDirection?: Direction | CrudeDirection;
 }
 
 export const YAxis = Aether.wrap<YAxisProps>(
@@ -59,24 +52,21 @@ export const YAxis = Aether.wrap<YAxisProps>(
     labelSize: propsLabelSize,
     showGrid,
     type,
+    bounds,
     ...props
   }): ReactElement => {
-    const theme = Theming.use();
-
     const showLabel = (label?.length ?? 0) > 0;
 
     const memoProps = useMemoCompare(
       () => ({
-        gridColor: theme.colors.gray.m2,
         location,
-        font: Theming.fontString(theme, "small"),
-        color: color != null ? new Color(color) : theme.colors.gray.p2,
         showGrid,
         type,
+        bounds,
       }),
       (
-        [, propsLabelSize, type, showGrid, color],
-        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor]
+        [, propsLabelSize, type, showGrid, color, bounds],
+        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds]
       ) => {
         return Deep.equal(
           {
@@ -84,19 +74,19 @@ export const YAxis = Aether.wrap<YAxisProps>(
             propsLabelSize,
             type,
             showGrid,
+            bounds,
           },
           {
             color: prevColor,
             propsLabelSize: prevPropsLabelSize,
             type: prevType,
             showGrid: prevShowGrid,
+            bounds: prevBounds,
           }
         );
       },
-      [theme, propsLabelSize, type, showGrid]
+      [propsLabelSize, type, showGrid, bounds]
     );
-
-    const prevLabelSize = useRef(0);
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
@@ -119,48 +109,30 @@ export const YAxis = Aether.wrap<YAxisProps>(
       "YAxis"
     );
 
-    const resizeRef = useResize(
-      (box) => {
-        setState((state) => ({
-          ...state,
-          position: box.topLeft,
-        }));
-      },
-      { debounce: 0 }
-    );
-
     const font = Theming.useTypography(labelLevel);
 
     useEffect(() => {
       if (label == null) return;
       const dims = Text.dimensions(label, font.toString());
-      const labelSize = dims[new Direction(labelDirection).dimension];
-      const prevSize = prevLabelSize.current;
-      if (!withinSizeThreshold(prevSize, labelSize)) {
-        setState((state) => ({
-          ...state,
-          labelSize,
-        }));
-      }
-    }, [label]);
+      let labelSize = dims[new Direction(labelDirection).dimension];
+      if (labelSize > 0) labelSize += 6;
+      setState((state) => ({
+        ...state,
+        labelSize,
+      }));
+    }, [label, labelDirection]);
 
     return (
       <>
         <Space
-          className="y-axis"
+          className={CSS(CSS.loc(location), CSS.B("y-axis"))}
           style={gridStyle}
-          ref={resizeRef}
-          align="start"
           justify="center"
           {...props}
         >
           {showLabel && (
             <Text.MaybeEditable
-              className={CSS(
-                CSS.BE("y-axis", "label"),
-                CSS.dir(labelDirection),
-                CSS.loc(location)
-              )}
+              className={CSS(CSS.BE("y-axis", "label"), CSS.dir(labelDirection))}
               value={label as string}
               onChange={onLabelChange}
               level={labelLevel}

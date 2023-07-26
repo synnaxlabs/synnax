@@ -12,11 +12,39 @@
 .pluto-tabs-selector__btn {
     margin-bottom: -1px;
     cursor: pointer;
-    padding: 0 2rem;
 }
 
-.pluto-tabs-selector__btn--closable {
-    padding: 0 2rem 0 3rem;
+.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon,
+.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon:hover {
+    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+}
+
+.pluto-tabs-selector__btn .pluto-btn-icon {
+    opacity: 0;
+}
+
+.pluto-tabs-selector__btn:hover .pluto-btn-icon,
+.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon {
+    opacity: 1;
+}
+
+.pluto-tabs-selector__btn .pluto-btn-icon > svg {
+    fill: var(--pluto-gray-p0);
+}
+
+.pluto-tabs-selector__btn--closable .pluto-text {
+    margin: 0 1rem 0 2.5rem !important;
+    padding: 0 0.25rem;
+}
+
+.pluto-tabs-selector__btn .pluto-text {
+    margin: 0 2rem;
+    padding: 0 0.25rem;
+    color: var(--pluto-gray-p0);
+}
+
+.pluto-tabs-selector__btn.pluto--selected .pluto-text {
+    color: var(--pluto-text-color);
 }
 
 .pluto-tabs-selector__btn--uneditable {
@@ -24,7 +52,7 @@
 }
 
 .pluto-tabs-selector__btn.pluto--selected {
-    border-bottom: 2px solid var(--pluto-primary-z);
+    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
 }
 
 .pluto-tabs-selector {
