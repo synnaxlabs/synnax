@@ -56,9 +56,9 @@ export const LayoutWindow = (): ReactElement | null => {
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
+  const menuProps = PMenu.useContextMenu();
   if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
-  const menuProps = PMenu.useContextMenu();
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Space
