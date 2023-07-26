@@ -96,7 +96,7 @@ const TabC = ({
   onDragStart,
   onDragEnd,
   onRename,
-  closable,
+  closable = true,
   icon,
   size,
   editable = true,
@@ -121,7 +121,7 @@ const TabC = ({
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "button", "uneditable"),
         CSS.selected(selected === tabKey),
-        closable === true && onClose != null && CSS.BEM(CLS, "btn", "closable")
+        closable && onClose != null && CSS.BEM(CLS, "btn", "closable")
       )}
       draggable
       direction="x"
@@ -140,7 +140,7 @@ const TabC = ({
         icon={icon}
         editable={editable}
       />
-      {closable === true && onClose != null && (
+      {closable && onClose != null && (
         <Button.Icon onClick={handleClose}>
           <Icon.Close aria-label="pluto-tabs__close" />
         </Button.Icon>
