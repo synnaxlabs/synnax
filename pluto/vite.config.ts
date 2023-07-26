@@ -15,9 +15,14 @@ export default defineConfig({
   plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
     lib: {
-      entry: [path.resolve(".", "src/index.ts"), path.resolve(".", "src/worker.ts")],
+      entry: {
+        index: path.resolve(".", "src/index.ts"),
+        worker: path.resolve(".", "src/worker.ts"),
+        std: path.resolve(".", "src/core/std/index.ts"),
+        theming: path.resolve(".", "src/core/theming/index.ts"),
+      },
     },
     rollupOptions: {
       external: ["react", "react-dom", "react-hook-form"],
