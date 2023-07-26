@@ -18,6 +18,7 @@
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
+    "@types/offscreencanvas": "^2019.7.0",
     "astro": "^2.1.2",
     "astro-embed": "^0.2.1",
     "astro-seo": "^0.7.1",
