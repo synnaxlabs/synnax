@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useCallback } from "react";
 
 import {
   LinePlot as PLinePlot,
@@ -71,37 +71,49 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     dispatch(renameLayout({ key: layoutKey, name }));
   };
 
-  const handleLineLabelChange = (key: string, label: string): void => {
-    dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, label }] }));
-  };
+  const handleLineLabelChange = useCallback(
+    (key: string, label: string): void => {
+      dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, label }] }));
+    },
+    [dispatch, layoutKey]
+  );
 
-  const handleLineColorChange = (key: string, color: Color): void => {
-    dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
-  };
+  const handleLineColorChange = useCallback(
+    (key: string, color: Color): void => {
+      dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
+    },
+    [dispatch, layoutKey]
+  );
 
-  const handleRulePositionChange = (key: string, position: number): void => {
-    dispatch(
-      setLinePlotRule({
-        key: layoutKey,
-        rule: {
-          key,
-          position,
-        },
-      })
-    );
-  };
+  const handleRulePositionChange = useCallback(
+    (key: string, position: number): void => {
+      dispatch(
+        setLinePlotRule({
+          key: layoutKey,
+          rule: {
+            key,
+            position,
+          },
+        })
+      );
+    },
+    [dispatch, layoutKey]
+  );
 
-  const handleRuleLabelChange = (key: string, label: string): void => {
-    dispatch(
-      setLinePlotRule({
-        key: layoutKey,
-        rule: {
-          key,
-          label,
-        },
-      })
-    );
-  };
+  const handleRuleLabelChange = useCallback(
+    (key: string, label: string): void => {
+      dispatch(
+        setLinePlotRule({
+          key: layoutKey,
+          rule: {
+            key,
+            label,
+          },
+        })
+      );
+    },
+    [dispatch, layoutKey]
+  );
 
   const rules = buildRules(vis);
   const propsLines = buildLines(vis, ranges);
@@ -143,6 +155,7 @@ const buildAxes = (vis: LinePlotState): AxisProps[] =>
         label: axis.label,
         type: "time",
         bounds: axis.bounds,
+        labelDirection: axis.labelDirection,
       };
     });
 

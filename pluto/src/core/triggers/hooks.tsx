@@ -45,19 +45,29 @@ export const useTrigger = ({
     return listen((e) => {
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
-      const [added, removed] = diff(nextMatches, prevMatches);
-      if (
-        added.length > 0 &&
-        (region == null ||
-          (region.current != null &&
-            new Box(region.current).contains(e.cursor) &&
-            e.target === region.current))
-      )
-        f?.({ stage: "start", triggers: added, cursor: e.cursor });
+      let [added, removed] = diff(nextMatches, prevMatches);
+      added = filterInRegion(e.target, e.cursor, added, region);
+      if (added.length > 0) f?.({ stage: "start", triggers: added, cursor: e.cursor });
       if (removed.length > 0)
         f?.({ stage: "end", triggers: removed, cursor: e.cursor });
     });
   }, [f, memoTriggers, listen, loose]);
+};
+
+const filterInRegion = (
+  target: HTMLElement,
+  cursor: XY,
+  added: Trigger[],
+  region?: RefObject<HTMLElement>
+): Trigger[] => {
+  if (region == null) return added;
+  if (region.current == null) return [];
+  const b = new Box(region.current);
+  return added.filter((t) => {
+    if (t.some((v) => v.includes("Mouse")))
+      return b.contains(cursor) && target === region.current;
+    return b.contains(cursor);
+  });
 };
 
 export interface UseTriggerHeldReturn {

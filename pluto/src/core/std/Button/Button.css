@@ -64,19 +64,19 @@
 }
 
 .pluto-btn--outlined:hover {
-    border-color: var(--pluto-gray-m0);
+    border-color: var(--pluto-gray-m0) !important;
 }
 
 .pluto-btn--outlined:hover * {
-    color: var(--pluto-gray-p1);
+    color: var(--pluto-gray-p1) !important;
 }
 
 .pluto-btn--outlined:active {
-    border-color: var(--pluto-gray-p1);
+    border-color: var(--pluto-gray-p1) !important;
 }
 
 .pluto-btn--outlined:active * {
-    color: var(--pluto-gray-p1);
+    color: var(--pluto-gray-p1) !important;
 }
 
 /* |||| TEXT |||| */
@@ -98,10 +98,11 @@
 
 .pluto-btn-icon {
     color: var(--pluto-text-color);
-    padding: 1rem;
     display: flex;
+    padding: 0 !important;
     justify-content: center;
     align-items: center;
+    aspect-ratio: 1;
 }
 
 .pluto-btn-icon:disabled svg * {
@@ -109,18 +110,7 @@
     stroke: var(--pluto-gray-m2);
 }
 
-.pluto--medium > svg {
-    font-size: 3rem;
-}
-
-.pluto--small > svg {
-    font-size: 2.5rem;
-}
-
-.pluto--tiny > svg {
-    font-size: 2rem;
-}
-
-.pluto--large > svg {
-    font-size: 4rem;
+.pluto-btn-icon > svg {
+    width: 60%;
+    height: 60%;
 }

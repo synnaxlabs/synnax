@@ -16,19 +16,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
-import {
-  Box,
-  Compare,
-  CrudeOrder,
-  CrudeOuterLocation,
-  Deep,
-  Location,
-} from "@synnaxlabs/x";
+import { Box, Deep, Location } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { GridPositionMeta, filterAxisLoc } from "../aether/LinePlot";
 
 import { Aether } from "@/core/aether/main";
 import { ColorT } from "@/core/color";
@@ -88,14 +84,6 @@ export interface LineMeta {
   label: string;
 }
 
-export interface GridPositionMeta {
-  key: string;
-  size: number;
-  order: CrudeOrder;
-  loc: CrudeOuterLocation;
-}
-
-type AxisState = GridPositionMeta[];
 type LineState = LineMeta[];
 
 export interface LinePlotProps
@@ -115,9 +103,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     children,
     ...props
   }): ReactElement => {
-    const [axes, setAxes] = useState<AxisState>([]);
     const [lines, setLines] = useState<LineState>([]);
-    const [{ path }, { error }, setState] = Aether.use({
+    const [{ path }, { error, grid }, setState] = Aether.use({
       aetherKey,
       type: AetherLinePlot.TYPE,
       schema: AetherLinePlot.z,
@@ -125,6 +112,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         plot: Box.ZERO,
         container: Box.ZERO,
         viewport: Box.DECIMAL,
+        grid: [],
         clearOverscan,
         ...props,
       },
@@ -150,7 +138,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     // the container is guaranteed to only resize if the plotting region does. This allows
     // us to save a window observer.
     const handleResize = useCallback(
-      (box: Box) =>
+      (box: Box) => {
         setState((prev) => {
           const { current: container } = containerRef;
           if (container == null) return prev;
@@ -159,35 +147,43 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
             plot: box,
             container: new Box(container),
           };
-        }),
-      []
+        });
+      },
+      [setState]
     );
 
     const resizeRef = useResize(handleResize, { debounce });
 
     const setAxis: LinePlotContextValue["setAxis"] = useCallback(
       (meta: GridPositionMeta) =>
-        setAxes((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
-      []
+        setState((prev) => ({
+          ...prev,
+          grid: [...prev.grid.filter(({ key }) => key !== meta.key), meta],
+        })),
+      [setState]
     );
 
     const removeAxis = useCallback(
-      (key: string) => setAxes((prev) => prev.filter(({ key: k }) => k !== key)),
-      []
+      (key: string) =>
+        setState((prev) => ({
+          ...prev,
+          grid: prev.grid.filter(({ key: k }) => k !== key),
+        })),
+      [setState]
     );
 
     const setLine = useCallback(
       (meta: LineMeta) =>
         setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
-      []
+      [setLines]
     );
 
     const removeLine = useCallback(
       (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-      []
+      [setLine]
     );
 
-    const grid = buildPlotGrid(axes);
+    const cssGrid = buildPlotGrid(grid);
 
     const viewportRefCallback = useCallback(
       (el: HTMLDivElement | null) => {
@@ -197,10 +193,15 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [viewportRef, resizeRef]
     );
 
+    const contextValue = useMemo<LinePlotContextValue>(
+      () => ({ lines, setAxis, removeAxis, setLine, removeLine }),
+      [lines, setAxis, removeAxis, setLine, removeLine]
+    );
+
     return (
       <div
         className={CSS.B("line-plot")}
-        style={{ ...style, ...grid }}
+        style={{ ...style, ...cssGrid }}
         ref={containerRef}
         {...props}
       >
@@ -209,9 +210,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
             {error}
           </Status.Text.Centered>
         )}
-        <LinePlotContext.Provider
-          value={{ lines, setAxis, removeAxis, setLine, removeLine }}
-        >
+        <LinePlotContext.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </LinePlotContext.Provider>
         <Viewport.Mask
@@ -224,24 +223,20 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   }
 );
 
-const buildPlotGrid = (axisCounts: AxisState): CSSProperties => {
+const buildPlotGrid = (grid: GridPositionMeta[]): CSSProperties => {
   const builder = CSS.newGridBuilder();
-  const filterAxisLoc = (loc: CrudeOuterLocation): AxisState =>
-    axisCounts
-      .filter(({ loc: l }) => l === loc)
-      .sort((a, b) => Compare.order(a.order, b.order));
-  filterAxisLoc("top").forEach(({ key, size }) =>
+  filterAxisLoc("top", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("bottom").forEach(({ key, size }) =>
+  filterAxisLoc("bottom", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
-  filterAxisLoc("left").forEach(({ key, size }) =>
+  filterAxisLoc("left", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("right").forEach(({ key, size }) =>
+  filterAxisLoc("right", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   return builder.build();
