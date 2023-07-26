@@ -21,8 +21,8 @@ const modifyTheme = (theme: Theme): Theme => {
   return m;
 };
 
-export const DARK = modifyTheme(Theming.themes.synnaxDark);
-export const LIGHT = modifyTheme(Theming.themes.synnaxLight);
+export const DARK = Theming.schema.parse(modifyTheme(Theming.themes.synnaxDark));
+export const LIGHT = Theming.schema.parse(modifyTheme(Theming.themes.synnaxLight));
 
 export const DEFAULT_THEME = Theming.themes.synnaxLight;
 
@@ -47,7 +47,10 @@ const THEME_ALTERNATES: Record<string, Theme> = {
 };
 
 const applyTheme = (theme: Theme): void => {
-  CSS.applyVars(window.document.documentElement, Theming.toCSSVars(theme));
+  CSS.applyVars(
+    window.document.documentElement,
+    Theming.toCSSVars(Theming.schema.parse(theme))
+  );
   localStorage.setItem("theme", theme.key);
 };
 
