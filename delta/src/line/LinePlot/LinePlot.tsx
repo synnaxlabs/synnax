@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { ReactElement, useCallback, useMemo } from "react";
 
 import {
   LinePlot as PLinePlot,
@@ -18,15 +18,20 @@ import {
   Color,
   RuleProps,
 } from "@synnaxlabs/pluto";
-import { TimeRange, unique } from "@synnaxlabs/x";
+import { Box, TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { renameLayout, useSelectRequiredLayout } from "@/layout";
-import { useSelectLinePlot, useSelectLinePlotRanges } from "@/line/store/selectors";
+import {
+  useSelectLinePlot,
+  useSelectLinePlotRanges,
+  useSelectLineViewportTriggers,
+} from "@/line/store/selectors";
 import {
   LinePlotState,
   setLinePlotLine,
   setLinePlotRule,
+  setLinePlotViewport,
   shouldDisplayAxis,
   typedLineKeyToString,
 } from "@/line/store/slice";
@@ -115,9 +120,31 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
+  const handleViewportChange = useCallback(
+    ({ box, stage }) => {
+      if (stage !== "end") return;
+      dispatch(
+        setLinePlotViewport({
+          layoutKey,
+          pan: box.bottomLeft.crude,
+          zoom: box.dims.crude,
+        })
+      );
+    },
+    [dispatch, layoutKey]
+  );
+
   const rules = buildRules(vis);
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
+
+  const triggers = useSelectLineViewportTriggers();
+
+  const initialViewport = useMemo(
+    () =>
+      new Box(vis.viewport.pan, vis.viewport.zoom).reRoot({ x: "left", y: "bottom" }),
+    []
+  );
 
   return (
     <PLinePlot
@@ -135,6 +162,9 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
       onLineLabelChange={handleLineLabelChange}
       onRulePositionChange={handleRulePositionChange}
       onRuleLabelChange={handleRuleLabelChange}
+      initialViewport={initialViewport}
+      onViewportChange={handleViewportChange}
+      viewportTriggers={triggers}
     />
   );
 };

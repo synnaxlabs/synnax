@@ -28,15 +28,6 @@ export interface StatusTextProps
   hideIcon?: boolean;
 }
 
-const statusVariantIcons: Record<StatusVariant, ReactElement> = {
-  info: <Icon.Info />,
-  warning: <Icon.Warning />,
-  error: <Icon.Close />,
-  success: <Icon.Check />,
-  loading: <Icon.Warning />,
-  disabled: <Icon.Warning />,
-};
-
 const statusVariantColors: Record<StatusVariant, ColorT> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",
@@ -55,7 +46,7 @@ const CoreStatusText = ({
   <Text.WithIcon
     color={statusVariantColors[variant]}
     level={level}
-    startIcon={!hideIcon && statusVariantIcons[variant]}
+    startIcon={!hideIcon && <Icon.Circle />}
     {...props}
   />
 );

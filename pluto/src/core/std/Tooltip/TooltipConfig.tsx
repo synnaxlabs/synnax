@@ -45,7 +45,7 @@ export const TooltipConfig = ({
   delay = TimeSpan.milliseconds(500),
   accelerate = true,
   acceleratedDelay = TimeSpan.milliseconds(50),
-  accelartionDuration = TimeSpan.seconds(10),
+  accelartionDuration = TimeSpan.seconds(5),
   children,
 }: TooltipConfigProps): ReactElement => {
   const [accelerating, setAccelerating] = useState(false);

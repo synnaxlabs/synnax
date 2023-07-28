@@ -9,9 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text-icon svg {
-    fill: var(--pluto-text-color);
+.pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
     stroke: var(--pluto-text-color);
+    fill: var(--pluto-text-color);
 }
 
 .pluto-text-icon--h1 svg {

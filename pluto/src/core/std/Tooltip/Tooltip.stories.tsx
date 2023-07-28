@@ -10,8 +10,10 @@
 import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
+import { XYLocation } from "@synnaxlabs/x";
 
 import { Button } from "../Button";
+import { Space } from "../Space";
 
 import { Tooltip } from "@/core/std/Tooltip";
 
@@ -21,10 +23,40 @@ const story: Meta<typeof Tooltip> = {
 };
 
 const Template = (): ReactElement => (
-  <Tooltip>
-    <p>Tooltip Content</p>
-    <Button>Button</Button>
-  </Tooltip>
+  <Space.Centered style={{ width: "100%", height: "100%" }}>
+    <Tooltip location={XYLocation.TOP_RIGHT.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.TOP_LEFT.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.BOTTOM_RIGHT.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.BOTTOM_LEFT.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.BOTTOM_CENTER.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.LEFT_CENTER.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.RIGHT_CENTER.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+    <Tooltip location={XYLocation.TOP_CENTER.crude}>
+      <p>Tooltip Conjent</p>
+      <Button>Button</Button>
+    </Tooltip>
+  </Space.Centered>
 );
 
 export const Primary: StoryFn<typeof Tooltip> = Template.bind({});

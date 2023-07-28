@@ -11,13 +11,12 @@ import { clamp } from "@/clamp";
 import { Box } from "@/spatial/box";
 import {
   Bounds,
-  Corner,
-  cornerLocations as cornerLocs,
   XY,
   CrudeDirection,
   XYTransformT,
   LooseXYT,
   LooseBoundT,
+  XYLocation,
 } from "@/spatial/core";
 
 export type ScaleBound = "domain" | "range";
@@ -221,7 +220,7 @@ export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
 export class BoxScale {
   x: Scale;
   y: Scale;
-  currRoot: Corner | null;
+  currRoot: XYLocation | null;
 
   constructor() {
     this.x = new Scale();
@@ -285,10 +284,8 @@ export class BoxScale {
     const prevRoot = this.currRoot;
     next.currRoot = box.root;
     if (prevRoot != null && prevRoot !== box.root) {
-      const [prevX, prevY] = cornerLocs(prevRoot);
-      const [currX, currY] = cornerLocs(box.root);
-      if (prevX !== currX) next.x = next.x.invert();
-      if (prevY !== currY) next.y = next.y.invert();
+      if (!prevRoot.x.equals(box.root.x)) next.x = next.x.invert();
+      if (!prevRoot.y.equals(box.root.y)) next.y = next.y.invert();
     }
     next.x = next.x.scale(box.xBounds);
     next.y = next.y.scale(box.yBounds);

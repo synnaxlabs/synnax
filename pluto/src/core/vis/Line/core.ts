@@ -16,6 +16,7 @@ import { xyTelemSourceProps } from "@/core/vis/telem";
 
 export const lineState = z.object({
   telem: xyTelemSourceProps,
+  label: z.string().optional(),
   color: Color.z,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
@@ -27,6 +28,8 @@ export type ParsedLineState = z.output<typeof lineState>;
 export interface LookupResult {
   position: XY;
   value: number;
+  color: Color;
+  label?: string;
 }
 
 export interface LineProps {

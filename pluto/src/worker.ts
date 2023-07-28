@@ -9,6 +9,8 @@
 
 import { RoutedWorker } from "@synnaxlabs/x";
 
+import { AetherTooltip } from "./core/vis/Tooltip/aether";
+
 import { AetherComponentRegistry, render } from "@/core/aether/worker";
 import { AetherThemeProvider } from "@/core/theming/aether";
 import { AetherCanvas } from "@/core/vis/Canvas/aether";
@@ -35,6 +37,7 @@ export const pluto = (): void => {
     [AetherPID.TYPE]: AetherPID,
     [AetherRule.TYPE]: AetherRule,
     [AetherThemeProvider.TYPE]: AetherThemeProvider,
+    [AetherTooltip.TYPE]: AetherTooltip,
   };
 
   render({

@@ -165,8 +165,11 @@ export const mouseButtonToKey = (button: number): Key => {
   return "MouseLeft";
 };
 
-export const match = (options: Trigger[], triggers: Trigger[]): boolean =>
-  filter(options, triggers).length > 0;
+export const match = (
+  options: Trigger[],
+  triggers: Trigger[],
+  loose = false
+): boolean => filter(options, triggers, loose).length > 0;
 
 export const filter = (
   options: Trigger[],

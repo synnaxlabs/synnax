@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UseViewportTriggers, Viewport, ViewportMode } from "@synnaxlabs/pluto";
+
 import { useMemoSelect } from "@/hooks";
 import {
   LinePlotState,
@@ -45,3 +47,18 @@ export const selectLineToolbar = (state: LineStoreState): LineToolbarState =>
 
 export const useSelectLineToolbar = (): LineToolbarState =>
   useMemoSelect(selectLineToolbar, []);
+
+export const selectLineViewportMode = (state: LineStoreState): ViewportMode =>
+  selectLineSliceState(state).mode;
+
+export const useSelectLineViewportMode = (): ViewportMode =>
+  useMemoSelect(selectLineViewportMode, []);
+
+export const selecLineViewportTriggers = (
+  state: LineStoreState
+): UseViewportTriggers => {
+  return Viewport.DEFAULT_TRIGGERS[selectLineViewportMode(state)];
+};
+
+export const useSelectLineViewportTriggers = (): UseViewportTriggers =>
+  useMemoSelect(selecLineViewportTriggers, []);

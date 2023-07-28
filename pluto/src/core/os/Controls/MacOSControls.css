@@ -14,9 +14,9 @@
 }
 
 .pluto-macos-control {
-    border-radius: 50%;
-    height: 12px;
-    width: 12px;
+    border-radius: 50% !important;
+    height: 12px !important;
+    width: 12px !important;
     border-width: 1px;
     border-style: solid;
     display: flex;

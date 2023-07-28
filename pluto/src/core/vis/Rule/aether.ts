@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Direction, Scale } from "@synnaxlabs/x";
+import { Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { RenderContext, RenderController } from "../render";
@@ -25,7 +25,7 @@ const ruleState = z.object({
 });
 
 export interface AetherRuleProps {
-  direction: Direction;
+  location: Location;
   scale: Scale;
   plottingRegion: Box;
   region: Box;
@@ -70,7 +70,8 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
 
   async render(props: AetherRuleProps): Promise<void> {
     const { renderCtx } = this.derived;
-    const { direction, plottingRegion } = props;
+    const { location, plottingRegion } = props;
+    const direction = location.direction;
     const { upper2d: canvas } = renderCtx;
 
     let pixelPos = this.updatePositions(props);
@@ -88,5 +89,19 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
       canvas.lineTo(plottingRegion.bottom, pixelPos);
     }
     canvas.stroke();
+
+    canvas.fillStyle = this.state.color.hex;
+    canvas.beginPath();
+    if (location.isLeft) {
+      canvas.moveTo(plottingRegion.left, pixelPos);
+      canvas.lineTo(plottingRegion.left - 5, pixelPos - 5);
+      canvas.lineTo(plottingRegion.left - 5, pixelPos + 5);
+    } else if (location.isRight) {
+      canvas.moveTo(plottingRegion.right, pixelPos);
+      canvas.lineTo(plottingRegion.right + 5, pixelPos - 5);
+      canvas.lineTo(plottingRegion.right + 5, pixelPos + 5);
+    }
+    canvas.closePath();
+    canvas.fill();
   }
 }
