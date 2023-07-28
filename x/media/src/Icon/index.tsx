@@ -36,6 +36,7 @@ import {
   FaWindows,
 } from "react-icons/fa";
 import { FiMenu } from "react-icons/fi";
+import { GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
@@ -60,9 +61,14 @@ import {
   MdKeyboardTab,
   MdKeyboardCommandKey,
   MdKeyboardOptionKey,
+  MdFiberManualRecord,
+  MdInsights,
+  MdLabel,
+  MdSquareFoot,
 } from "react-icons/md";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
+import { TbZoomFilled } from "react-icons/tb";
 
 const IconOS: Record<OS, React.ComponentType> = {
   Linux: FaLinux,
@@ -72,6 +78,7 @@ const IconOS: Record<OS, React.ComponentType> = {
 };
 
 export const Icon: IconType = {
+  Circle: MdFiberManualRecord,
   Edit: MdEdit,
   EditOff: MdEditOff,
   Add: HiOutlinePlus,
@@ -137,9 +144,15 @@ export const Icon: IconType = {
     Option: MdKeyboardOptionKey,
     Shift: BsShiftFill,
   },
+  Tooltip: MdInsights,
+  Annotate: MdLabel,
+  Zoom: TbZoomFilled,
+  Pan: GrPan,
+  Rule: MdSquareFoot,
 };
 
 export interface IconType {
+  Circle: React.ComponentType;
   Edit: React.ComponentType;
   EditOff: React.ComponentType;
   Add: React.ComponentType;
@@ -205,4 +218,9 @@ export interface IconType {
     Option: React.ComponentType;
     Shift: React.ComponentType;
   };
+  Zoom: React.ComponentType;
+  Pan: React.ComponentType;
+  Tooltip: React.ComponentType;
+  Annotate: React.ComponentType;
+  Rule: React.ComponentType;
 }

@@ -15,9 +15,7 @@ import { useLinePlotContext } from "./LinePlot";
 
 import { Aether } from "@/core/aether/main";
 
-export interface LineProps extends CoreLineProps {
-  label?: string;
-}
+export interface LineProps extends CoreLineProps {}
 
 export const Line = Aether.wrap<LineProps>(
   "Line",
@@ -31,6 +29,6 @@ export const Line = Aether.wrap<LineProps>(
       });
       return () => removeLine(aetherKey);
     }, [label, color]);
-    return <CoreLine aetherKey={aetherKey} color={color} {...props} />;
+    return <CoreLine aetherKey={aetherKey} color={color} label={label} {...props} />;
   }
 );

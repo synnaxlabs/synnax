@@ -13,62 +13,81 @@
     position: fixed;
     z-index: 1000;
     pointer-events: none;
-    --tooltip-color: var(--pluto-gray-m3);
-    background-color: var(--tooltip-color);
+    background-color: var(--pluto-gray-m3);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     padding: 1rem;
-}
 
-.pluto-tooltip::after {
-    content: " ";
-    position: absolute;
-    border-width: 1rem;
-    border-style: solid;
-}
+    &.pluto--center {
+        &.pluto--top {
+            transform: translate(-50%, calc(-100% - 1rem));
+        }
+        &.pluto--bottom {
+            transform: translate(-50%, 1rem);
+        }
+        &.pluto--left {
+            transform: translate(calc(-100% - 1rem), -50%);
+            &::after {
+                top: 50%;
+                left: 100%;
+                border-color: transparent transparent transparent
+                    var(--pluto-border-color);
+            }
+        }
+        &.pluto--right {
+            transform: translate(1rem, -50%);
+            &::after {
+                top: 50%;
+                right: 100%;
+                border-color: transparent var(--pluto-border-color) transparent
+                    transparent;
+            }
+        }
 
-.pluto-tooltip.pluto--bottom::after {
-    bottom: 100%;
-    left: 50%;
-    border-color: transparent transparent var(--pluto-border-color) transparent;
-}
+        &.pluto--top,
+        &.pluto--bottom {
+            &::after {
+                left: calc(50% - 1rem);
+            }
+        }
 
-.pluto-tooltip.pluto--top::after {
-    top: 100%;
-    left: 50%;
-    border-color: var(--pluto-border-color) transparent transparent transparent;
-}
+        &.pluto--left,
+        &.pluto--right {
+            &::after {
+                top: calc(50% - 1rem);
+            }
+        }
+    }
 
-.pluto-tooltip.pluto--left::after {
-    top: 50%;
-    left: 100%;
-    margin-top: -5px;
-    border-color: transparent transparent transparent var(--pluto-border-color);
-}
+    &.pluto--top {
+        &::after {
+            border-color: var(--pluto-border-color) transparent transparent transparent;
+            top: 100%;
+        }
+        &.pluto--right {
+            transform: translateY(calc(-100% - 1rem));
+        }
+        &.pluto--left {
+            transform: translate(-100%, calc(-100% - 1rem));
+        }
+    }
+    &.pluto--bottom {
+        &::after {
+            border-color: transparent transparent var(--pluto-border-color) transparent;
+            bottom: 100%;
+        }
+        &.pluto--right {
+            transform: translateY(1rem);
+        }
+        &.pluto--left {
+            transform: translate(-100%, 1rem);
+        }
+    }
 
-.pluto-tooltip.pluto--right::after {
-    top: 50%;
-    right: 100%;
-    margin-left: -5px;
-    margin-top: -5px;
-    border-color: transparent var(--pluto-border-color) transparent transparent;
-}
-
-.pluto-tooltip.pluto--left {
-    transform: translate(calc(-100% - 5px), -50%);
-}
-
-.pluto-tooltip.pluto--right {
-    margin-left: 5px;
-    transform: translateY(-50%);
-}
-
-.pluto-tooltip.pluto--top {
-    margin-bottom: 5px;
-    transform: translateX(-50%);
-}
-
-.pluto-tooltip.pluto--bottom {
-    margin-top: 5px;
-    transform: translateX(-50%);
+    &::after {
+        content: " ";
+        position: absolute;
+        border-width: 1rem;
+        border-style: solid;
+    }
 }

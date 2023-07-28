@@ -12,7 +12,6 @@ import { z } from "zod";
 import { Stringer } from "@/primitive";
 import {
   Dimensions,
-  Corner,
   XY,
   SignedDimensions,
   Bounds,
@@ -23,6 +22,9 @@ import {
   Direction,
   CrudeDimensions,
   CrudeLocation,
+  CrudeCornerXYLocation,
+  XYLocation,
+  LooseXYLocation,
 } from "@/spatial/core";
 
 const cssPos = z.union([z.number(), z.string()]);
@@ -42,7 +44,7 @@ const domRect = z.object({
 const box = z.object({
   one: XY.z,
   two: XY.z,
-  root: Location.strictCornerZ,
+  root: XYLocation.looseCornerZ,
 });
 const looseBox = z.union([
   cssBox,
@@ -50,7 +52,7 @@ const looseBox = z.union([
   z.object({
     one: XY.looseZ,
     two: XY.looseZ,
-    root: Location.strictCornerZ,
+    root: XYLocation.looseCornerZ,
   }),
 ]);
 
@@ -72,7 +74,7 @@ export type DOMRect = z.infer<typeof domRect>;
 export class Box implements Stringer {
   readonly one: XY;
   readonly two: XY;
-  readonly root: Corner;
+  readonly root: XYLocation;
 
   readonly isBox: true = true;
 
@@ -87,16 +89,16 @@ export class Box implements Stringer {
     second?: number | CrudeXY | CrudeDimensions | SignedDimensions,
     width: number = 0,
     height: number = 0,
-    coordinateRoot?: Corner
+    coordinateRoot?: CrudeCornerXYLocation | XYLocation
   ) {
     if (first instanceof Box) {
       this.one = first.one;
       this.two = first.two;
-      this.root = coordinateRoot ?? first.root;
+      this.root = new XYLocation(coordinateRoot ?? first.root);
       return;
     }
 
-    this.root = coordinateRoot ?? "topLeft";
+    this.root = new XYLocation(coordinateRoot ?? XYLocation.TOP_LEFT);
 
     if (typeof first === "number") {
       if (typeof second !== "number")
@@ -168,7 +170,7 @@ export class Box implements Stringer {
    */
   equals(box: Box): boolean {
     return (
-      this.one.equals(box.one) && this.two.equals(box.two) && this.root === box.root
+      this.one.equals(box.one) && this.two.equals(box.two) && this.root.equals(box.root)
     );
   }
 
@@ -207,17 +209,12 @@ export class Box implements Stringer {
   }
 
   /** @returns the pont corresponding to the given corner of the box. */
-  corner(corner: Corner): XY {
-    switch (corner) {
-      case "topLeft":
-        return new XY({ x: this.left, y: this.top });
-      case "bottomRight":
-        return new XY({ x: this.right, y: this.bottom });
-      case "topRight":
-        return new XY({ x: this.right, y: this.top });
-      case "bottomLeft":
-        return new XY({ x: this.left, y: this.bottom });
-    }
+  xyLoc(point: LooseXYLocation): XY {
+    const loc = new XYLocation(point);
+    return new XY({
+      x: loc.x.isCenter ? this.center.x : this.loc(loc.x),
+      y: loc.y.isCenter ? this.center.y : this.loc(loc.y),
+    });
   }
 
   /**
@@ -227,7 +224,7 @@ export class Box implements Stringer {
    */
   loc(loc: CrudeLocation | Location): number {
     const loc_ = new Location(loc);
-    const f = this.root.toLowerCase().includes(loc_.crude) ? Math.min : Math.max;
+    const f = this.root.toString().includes(loc_.crude) ? Math.min : Math.max;
     return Location.X_LOCATIONS.includes(loc_.crude as CrudeXLocation)
       ? f(this.one.x, this.two.x)
       : f(this.one.y, this.two.y);
@@ -261,19 +258,19 @@ export class Box implements Stringer {
   }
 
   get topLeft(): XY {
-    return this.corner("topLeft");
+    return this.xyLoc(XYLocation.TOP_LEFT);
   }
 
   get topRight(): XY {
-    return this.corner("topRight");
+    return this.xyLoc(XYLocation.TOP_RIGHT);
   }
 
   get bottomLeft(): XY {
-    return this.corner("bottomLeft");
+    return this.xyLoc(XYLocation.BOTTOM_LEFT);
   }
 
   get bottomRight(): XY {
-    return this.corner("bottomRight");
+    return this.xyLoc(XYLocation.BOTTOM_RIGHT);
   }
 
   get right(): number {
@@ -300,11 +297,11 @@ export class Box implements Stringer {
   }
 
   get x(): number {
-    return this.root.toLowerCase().includes("left") ? this.left : this.right;
+    return this.root.x.equals("left") ? this.left : this.right;
   }
 
   get y(): number {
-    return this.root.toLowerCase().includes("top") ? this.top : this.bottom;
+    return this.root.y.equals("top") ? this.top : this.bottom;
   }
 
   get xBounds(): Bounds {
@@ -315,7 +312,7 @@ export class Box implements Stringer {
     return new Bounds(this.one.y, this.two.y);
   }
 
-  copy(root?: Corner): Box {
+  copy(root?: CrudeCornerXYLocation): Box {
     return new Box(this.one, this.two, 0, 0, root ?? this.root);
   }
 
@@ -323,7 +320,7 @@ export class Box implements Stringer {
     return `Top Left: ${this.topLeft.x}, ${this.topLeft.y} Bottom Right: ${this.bottomRight.x}, ${this.bottomRight.y}`;
   }
 
-  reRoot(corner: Corner): Box {
+  reRoot(corner: CrudeCornerXYLocation): Box {
     return this.copy(corner);
   }
 
@@ -334,7 +331,7 @@ export class Box implements Stringer {
    * A box centered at (0,0) with a width and height of 1, and rooted in the
    * bottom left. Note that pixel space is typically rooted in the top left.
    */
-  static readonly DECIMAL = new Box(0, 0, 1, 1, "bottomLeft");
+  static readonly DECIMAL = new Box(0, 0, 1, 1, XYLocation.BOTTOM_LEFT);
 
   static readonly z = box.transform((b) => new Box(b));
 }

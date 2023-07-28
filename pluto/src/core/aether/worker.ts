@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { MainMessage, WorkerMessage } from "@/core/aether/message";
 import { SetStateArg, executeStateSetter } from "@/util/state";
+import { prettyParse } from "@/util/zod";
 
 type AetherUpdateVariant = "state" | "context";
 
@@ -222,7 +223,7 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
   setState(state: SetStateArg<z.input<S> | z.output<S>>): void {
     const nextState: z.input<S> = executeStateSetter(state, this._state);
     this._prevState = { ...this._state };
-    this._state = this._schema.parse(nextState);
+    this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.ctx.propagateState(this.key, nextState);
   }
 
@@ -259,7 +260,7 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
-      const state_ = this._schema.parse(state);
+      const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
       this._prevState = this._state ?? state_;
       this._state = state_;
     }

@@ -78,7 +78,7 @@ interface State {
 
 const ZERO_STATE: State = {
   pos: XY.ZERO,
-  loc: Location.top,
+  loc: Location.TOP,
   width: 0,
 };
 
