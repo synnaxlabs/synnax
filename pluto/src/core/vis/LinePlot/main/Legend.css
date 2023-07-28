@@ -20,9 +20,9 @@
     overflow-y: auto;
     overflow-x: hidden;
     width: fit-content;
-}
 
-.pluto-legend__color {
-    width: 3rem;
-    height: 2rem;
+    .pluto-color-swatch {
+        width: 3rem;
+        height: 2rem;
+    }
 }

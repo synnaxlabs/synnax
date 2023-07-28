@@ -10,10 +10,12 @@
 import { Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Draw2D } from "../draw2d";
 import { RenderContext, RenderController } from "../render";
 
 import { AetherLeaf } from "@/core/aether/worker";
 import { Color } from "@/core/color";
+import { ThemeContext } from "@/core/theming/aether";
 
 const ruleState = z.object({
   position: z.number(),
@@ -33,6 +35,7 @@ export interface AetherRuleProps {
 
 interface Derived {
   renderCtx: RenderContext;
+  draw: Draw2D;
 }
 
 export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
@@ -42,7 +45,9 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
   schema = AetherRule.stateZ;
 
   derive(): Derived {
-    return { renderCtx: RenderContext.use(this.ctx) };
+    const ctx = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
+    return { renderCtx: ctx, draw: new Draw2D(ctx.upper2d, theme) };
   }
 
   afterUpdate(): void {
@@ -73,22 +78,19 @@ export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
     const { location, plottingRegion } = props;
     const direction = location.direction;
     const { upper2d: canvas } = renderCtx;
+    const draw = this.derived.draw;
 
     let pixelPos = this.updatePositions(props);
     pixelPos += props.region.top;
 
-    canvas.strokeStyle = this.state.color.hex;
-    canvas.lineWidth = this.state.lineWidth;
-    canvas.setLineDash([this.state.lineDash]);
-    canvas.beginPath();
-    if (direction.isX) {
-      canvas.moveTo(plottingRegion.left, pixelPos);
-      canvas.lineTo(plottingRegion.right, pixelPos);
-    } else {
-      canvas.moveTo(plottingRegion.top, pixelPos);
-      canvas.lineTo(plottingRegion.bottom, pixelPos);
-    }
-    canvas.stroke();
+    draw.rule({
+      stroke: this.state.color,
+      lineWidth: this.state.lineWidth,
+      lineDash: this.state.lineDash,
+      direction,
+      region: plottingRegion,
+      position: pixelPos,
+    });
 
     canvas.fillStyle = this.state.color.hex;
     canvas.beginPath();

@@ -17,6 +17,8 @@ import {
   useAsyncEffect,
   Color,
   RuleProps,
+  Viewport,
+  UseViewportHandler,
 } from "@synnaxlabs/pluto";
 import { Box, TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -25,7 +27,7 @@ import { renameLayout, useSelectRequiredLayout } from "@/layout";
 import {
   useSelectLinePlot,
   useSelectLinePlotRanges,
-  useSelectLineViewportTriggers,
+  useSelectLineControlState,
 } from "@/line/store/selectors";
 import {
   LinePlotState,
@@ -41,6 +43,7 @@ import {
   MultiXAxisRecord,
   X_AXIS_KEYS,
   XAxisKey,
+  YAxisKey,
 } from "@/vis/axis";
 import { Range } from "@/workspace";
 
@@ -120,7 +123,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const handleViewportChange = useCallback(
+  const handleViewportChange: UseViewportHandler = useCallback(
     ({ box, stage }) => {
       if (stage !== "end") return;
       dispatch(
@@ -138,7 +141,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
 
-  const triggers = useSelectLineViewportTriggers();
+  const { mode, enableTooltip } = useSelectLineControlState();
+  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(
     () =>
@@ -165,6 +169,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
       initialViewport={initialViewport}
       onViewportChange={handleViewportChange}
       viewportTriggers={triggers}
+      enableTooltip={enableTooltip}
     />
   );
 };
@@ -202,7 +207,7 @@ const buildLines = (
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
               xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as AxisKey,
+              yAxis: yAxis as YAxisKey,
               range: range.key,
               channels: {
                 x: xChannel,

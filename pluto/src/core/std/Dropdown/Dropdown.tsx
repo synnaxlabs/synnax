@@ -128,18 +128,20 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
         reverse={loc.equals("top")}
       >
         {children[0]}
-        <Space
-          className={CSS(
-            CSS.BE("dropdown", "dialog"),
-            CSS.loc(loc),
-            CSS.visible(visible)
-          )}
-          role="dialog"
-          empty
-          style={dialogStyle}
-        >
-          {children[1]}
-        </Space>
+        {(keepMounted || visible) && (
+          <Space
+            className={CSS(
+              CSS.BE("dropdown", "dialog"),
+              CSS.loc(loc),
+              CSS.visible(visible)
+            )}
+            role="dialog"
+            empty
+            style={dialogStyle}
+          >
+            {children[1]}
+          </Space>
+        )}
       </Pack>
     );
   }

@@ -122,21 +122,15 @@ export class AetherLinePlot extends AetherComposite<
         )
       );
 
-      console.log(
-        this.prevState.container,
-        this.state.container,
-        this.prevState.container.equals(this.state.container)
+      await Promise.all(
+        this.childrenOfType<AetherTooltip>(AetherTooltip.TYPE).map(
+          async (tooltip) =>
+            await tooltip.render({
+              lookupX: this.lookupX.bind(this),
+              region: this.plottingRegion,
+            })
+        )
       );
-      if (this.prevState.container.equals(this.state.container))
-        await Promise.all(
-          this.childrenOfType<AetherTooltip>(AetherTooltip.TYPE).map(
-            async (tooltip) =>
-              await tooltip.render({
-                lookupX: this.lookupX.bind(this),
-                region: this.plottingRegion,
-              })
-          )
-        );
     } catch (e) {
       this.setState((p) => ({ ...p, error: (e as Error).message }));
       throw e;
