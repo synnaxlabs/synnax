@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@fontsource-variable/inter";
+
 import { convertThemeToCSSVars } from "@/core/theming/css";
 import { useTypography } from "@/core/theming/font";
 import { fontString } from "@/core/theming/fontString";

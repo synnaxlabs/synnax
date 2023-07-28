@@ -69,7 +69,8 @@ export class Color {
    *
    * @param color -
    */
-  static cssString(color: CrudeColor): string {
+  static cssString(color?: CrudeColor): string | undefined {
+    if (color == null) return undefined;
     const res = Color.z.safeParse(color);
     if (res.success) return res.data.rgbaCSS;
     if (typeof color === "string") return color;

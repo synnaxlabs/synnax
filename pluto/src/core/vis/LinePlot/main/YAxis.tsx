@@ -47,7 +47,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     label,
     labelLevel = "small",
     onLabelChange,
-    labelDirection = Direction.x,
+    labelDirection = Direction.X,
     color,
     labelSize: propsLabelSize,
     showGrid,

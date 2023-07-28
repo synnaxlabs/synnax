@@ -33,7 +33,7 @@ import { useUniqueKey } from "@/core/hooks/useUniqueKey";
 import { useMemoCompare } from "@/core/memo";
 import { Worker } from "@/core/worker";
 import { SetStateArg, isStateSetter } from "@/util/state";
-import { prettyParze as prettyParse } from "@/util/zod";
+import { prettyParse } from "@/util/zod";
 
 export interface AetherCreateReturn {
   setState: (state: any, transfer?: Transferable[]) => void;

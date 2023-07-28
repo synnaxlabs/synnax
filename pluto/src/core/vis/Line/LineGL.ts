@@ -150,31 +150,41 @@ export class LineGL
     const xData = await this.derived.telem.x(this.derived.prog.ctx.gl);
     let index: number = -1;
     let arr: number = -1;
-    xData.forEach((x, i) => {
-      const v = x.binarySearch(value);
+    xData.find((x, i) => {
+      const v = x.binarySearch(value - Number(x.sampleOffset));
       if (v !== -1 || v !== x.length) {
         index = v;
         arr = i;
       }
+      return v !== -1 || v !== x.length;
     });
+    if (index === -1 || arr === -1) {
+      return { value: NaN, position: new XY(0, 0), color: this.state.color };
+    }
     const xValue = await this.xValue(arr, index);
     const yValue = await this.yValue(arr, index);
     return {
       value: Number(yValue),
-      position: new XY(props.scale.x.pos(xValue), props.scale.y.pos(yValue)),
+      position: new XY(
+        props.scale.x.pos(xValue) * props.region.width,
+        props.scale.y.pos(yValue) * props.region.height
+      ),
+      color: this.state.color,
+      label: this.state.label,
     };
   }
 
   private async xValue(arr: number, index: number): Promise<number> {
     const { telem, prog } = this.derived;
     const xData = await telem.x(prog.ctx.gl);
-    return Number(xData[arr].data[index]);
+    return Number(xData[arr].data[index]) + Number(xData[arr].sampleOffset);
   }
 
   private async yValue(arr: number, index: number): Promise<number> {
     const { telem, prog } = this.derived;
     const yData = await telem.y(prog.ctx.gl);
-    return Number(yData[arr].data[index]);
+    if (yData[arr] === undefined) return NaN;
+    return Number(yData[arr].data[index]) + Number(yData[arr].sampleOffset);
   }
 
   async render(props: LineProps): Promise<void> {

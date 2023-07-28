@@ -9,9 +9,10 @@
 
 import { z } from "zod";
 
-export const prettyParze = <Z extends z.ZodTypeAny>(
+export const prettyParse = <Z extends z.ZodTypeAny>(
   schema: Z,
-  value: unknown
+  value: unknown,
+  prefix: string = ""
 ): z.infer<Z> => {
   try {
     return schema.parse(value);
@@ -24,7 +25,7 @@ export const prettyParze = <Z extends z.ZodTypeAny>(
           return `${err.path.join(".")}: ${err.message}`;
         }
       });
-      throw new Error(errors.join("\n"));
+      throw new Error(`${prefix} - ${errors.join("\n")}`);
     } else {
       throw e;
     }

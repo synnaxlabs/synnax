@@ -12,21 +12,20 @@
 .pluto-divider {
     background-color: var(--pluto-border-color);
     align-self: stretch;
+
+    &.pluto--x {
+        height: var(--pluto-border-width);
+
+        &.pluto-divider--padded {
+            margin: 0.5rem 0;
+        }
+    }
+
+    &.pluto--y {
+        width: var(--pluto-border-width);
+
+        &.pluto-divider--padded {
+            margin: 0 0.5rem;
+        }
+    }
 }
-
-.pluto-divider.pluto--x {
-    height: var(--pluto-border-width);
- }
-
-.pluto-divider.pluto--y {
-    width: var(--pluto-border-width);
-}
-
-.pluto-divider--padded.pluto--x {
-    margin: 0.5rem 0;
-}
-
-.pluto-divider--padded.pluto--y {
-    margin: 0 0.5rem;
-}
-

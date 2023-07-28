@@ -27,6 +27,8 @@ import {
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
+import "@synnaxlabs/media/dist/style.css";
+
 export interface PlutoProps
   extends PropsWithChildren,
     Partial<ThemeProviderProps>,

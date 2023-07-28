@@ -9,7 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { TypographyLevel } from "@synnaxlabs/pluto";
+import { TypographyLevel, ViewportMode } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -66,7 +66,7 @@ export interface ViewportState {
 }
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
-  zoom: Dimensions.ZERO.crude,
+  zoom: Dimensions.DECIMAL.crude,
   pan: XY.ZERO.crude,
 };
 
@@ -217,6 +217,7 @@ export interface LineToolbarState {
 }
 
 export interface LineSliceState {
+  mode: ViewportMode;
   toolbar: LineToolbarState;
   plots: Record<string, LinePlotState>;
 }
@@ -228,6 +229,7 @@ export interface LineStoreState {
 }
 
 export const ZERO_LINE_SLICE_STATE: LineSliceState = {
+  mode: "zoom",
   toolbar: {
     activeTab: "data",
   },
@@ -298,6 +300,10 @@ export interface SetLinePlotRulePayload {
 
 export interface SetActiveToolbarTabPayload {
   tab: LineToolbarTab;
+}
+
+export interface SetLineViewportModePayload {
+  mode: ViewportMode;
 }
 
 interface TypedLineKey {
@@ -465,6 +471,12 @@ export const { actions, reducer: lineReducer } = createSlice({
     ) => {
       state.toolbar.activeTab = payload.tab;
     },
+    setLineViewportMode: (
+      state,
+      { payload }: PayloadAction<SetLineViewportModePayload>
+    ) => {
+      state.mode = payload.mode;
+    },
   },
 });
 
@@ -481,6 +493,7 @@ export const {
   setLinePlotLegend,
   setLinePlotRule,
   setLineActiveToolbarTab,
+  setLineViewportMode,
 } = actions;
 
 export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;

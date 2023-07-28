@@ -13,8 +13,6 @@ import { z } from "zod";
 import { LineGL } from "../../Line/LineGL";
 import { AetherRule } from "../../Rule/aether";
 
-import { GridPositionMeta, calculateAxisPosition } from "./LinePlot";
-
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { ThemeContext } from "@/core/theming/aether";
@@ -22,7 +20,12 @@ import { fontString } from "@/core/theming/fontString";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { LineComponent, LineProps, LookupResult } from "@/core/vis/Line/core";
-import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
+import {
+  GridPositionMeta,
+  calculateGridPosition,
+  autoBounds,
+  withinSizeThreshold,
+} from "@/core/vis/LinePlot/aether/grid";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
 const yAxisState = axisState
@@ -105,7 +108,7 @@ export class AetherYAxis extends AetherComposite<
     const { core } = this.derived;
     const { size } = core.render({
       ...props,
-      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
+      position: calculateGridPosition(this.key, props.grid, props.plottingRegion),
       scale,
     });
     if (!withinSizeThreshold(this.state.size, size))
@@ -121,14 +124,20 @@ export class AetherYAxis extends AetherComposite<
   }
 
   private async renderRules(ctx: YAxisProps, scale: Scale): Promise<void> {
-    const clearScissor = this.derived.ctx.scissorCanvas(ctx.plottingRegion);
+    const scissorBox = new Box(
+      ctx.region.left,
+      ctx.plottingRegion.top,
+      ctx.region.width,
+      ctx.plottingRegion.height
+    );
+    const clearScissor = this.derived.ctx.scissorCanvas(scissorBox);
     await Promise.all(
       this.rules.map(
         async (el) =>
           await el.render({
             ...ctx,
             scale,
-            direction: Direction.x,
+            location: this.state.location,
           })
       )
     );
@@ -148,7 +157,10 @@ export class AetherYAxis extends AetherComposite<
       this.lines.map(
         async (el) =>
           await el.searchX(
-            { region: props.plottingRegion, scale: { x: normal, y: offset } },
+            {
+              region: props.plottingRegion,
+              scale: { x: props.scale, y: normal.reverse() },
+            },
             value
           )
       )

@@ -21,10 +21,8 @@ import {
   useState,
 } from "react";
 
-import { Box, Deep, Location } from "@synnaxlabs/x";
+import { Box, Deep, Location, XY } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { GridPositionMeta, filterAxisLoc } from "../aether/LinePlot";
 
 import { Aether } from "@/core/aether/main";
 import { ColorT } from "@/core/color";
@@ -33,7 +31,9 @@ import { useResize } from "@/core/hooks";
 import { useEffectCompare } from "@/core/hooks/useEffectCompare";
 import { Status } from "@/core/std";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
-import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
+import { GridPositionMeta, filterGridPositions } from "@/core/vis/LinePlot/aether/grid";
+import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
+import { UseViewportHandler, UseViewportProps, Viewport } from "@/core/vis/viewport";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
 
@@ -91,6 +91,9 @@ export interface LinePlotProps
     Pick<z.input<typeof AetherLinePlot.z>, "clearOverscan">,
     HTMLDivProps {
   resizeDebounce?: number;
+  initialViewport?: UseViewportProps["initial"];
+  onViewportChange?: UseViewportProps["onChange"];
+  viewportTriggers?: UseViewportProps["triggers"];
 }
 
 export const LinePlot = Aether.wrap<LinePlotProps>(
@@ -101,6 +104,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     resizeDebounce: debounce = 0,
     clearOverscan,
     children,
+    onViewportChange,
+    initialViewport = Box.DECIMAL,
+    viewportTriggers,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
@@ -111,25 +117,31 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       initialState: {
         plot: Box.ZERO,
         container: Box.ZERO,
-        viewport: Box.DECIMAL,
+        viewport: initialViewport,
         grid: [],
         clearOverscan,
         ...props,
       },
     });
 
-    const handleViewportChange = useCallback<UseViewportHandler>(
-      ({ mode, box }) =>
-        setState((prev) => {
-          if (["pan", "zoom", "zoomReset"].includes(mode as string))
-            return { ...prev, viewport: box };
-          return prev;
-        }),
-      []
-    );
+    const [cursor, setCursor] = useState<XY | null>(null);
+
+    const handleViewportChange = useCallback<UseViewportHandler>((args) => {
+      const { mode, box, cursor, stage } = args;
+      setState((prev) => {
+        if (["pan", "zoom", "zoomReset"].includes(mode as string))
+          return { ...prev, viewport: box };
+        return prev;
+      });
+      if (mode === "hover" && stage !== "end") setCursor(cursor);
+      else setCursor(null);
+      onViewportChange?.(args);
+    }, []);
 
     const { ref: viewportRef, ...viewportProps } = Viewport.use({
       onChange: handleViewportChange,
+      initial: initialViewport,
+      triggers: viewportTriggers,
     });
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -211,7 +223,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
           </Status.Text.Centered>
         )}
         <LinePlotContext.Provider value={contextValue}>
-          <Aether.Composite path={path}>{children}</Aether.Composite>
+          <Aether.Composite path={path}>
+            {children}
+            {cursor != null && <Tooltip position={cursor} />}
+          </Aether.Composite>
         </LinePlotContext.Provider>
         <Viewport.Mask
           className={CSS.BE("line-plot", "viewport")}
@@ -225,18 +240,18 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
 const buildPlotGrid = (grid: GridPositionMeta[]): CSSProperties => {
   const builder = CSS.newGridBuilder();
-  filterAxisLoc("top", grid).forEach(({ key, size }) =>
+  filterGridPositions("top", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("bottom", grid).forEach(({ key, size }) =>
+  filterGridPositions("bottom", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
-  filterAxisLoc("left", grid).forEach(({ key, size }) =>
+  filterGridPositions("left", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("right", grid).forEach(({ key, size }) =>
+  filterGridPositions("right", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   return builder.build();

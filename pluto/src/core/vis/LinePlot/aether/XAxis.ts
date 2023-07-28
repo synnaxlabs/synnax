@@ -12,15 +12,18 @@ import { z } from "zod";
 
 import { LookupResult } from "../../Line/core";
 
-import { calculateAxisPosition, GridPositionMeta } from "./LinePlot";
-
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { ThemeContext } from "@/core/theming/aether";
 import { fontString } from "@/core/theming/fontString";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
-import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
+import {
+  calculateGridPosition,
+  GridPositionMeta,
+  autoBounds,
+  withinSizeThreshold,
+} from "@/core/vis/LinePlot/aether/grid";
 import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
@@ -88,7 +91,7 @@ export class AetherXAxis extends AetherComposite<
     const { core } = this.derived;
     const { size } = core.render({
       ...props,
-      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
+      position: calculateGridPosition(this.key, props.grid, props.plottingRegion),
       scale,
     });
     if (!withinSizeThreshold(this.state.size, size))
@@ -120,6 +123,7 @@ export class AetherXAxis extends AetherComposite<
   }
 
   async lookupX(props: XAxisProps, xValue: number): Promise<LookupResult[]> {
+    const [reversed] = await this.scales(props);
     return (
       await Promise.all(
         this.children.flatMap(
@@ -132,7 +136,7 @@ export class AetherXAxis extends AetherComposite<
                 scale: (await this.scales(props))[1],
                 region: props.region,
               },
-              xValue
+              reversed.pos(xValue / props.plottingRegion.width)
             )
         )
       )
