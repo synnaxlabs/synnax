@@ -14,26 +14,25 @@ import { Button, ButtonProps } from "@/core/std/Button/Button";
 import { ButtonIcon } from "@/core/std/Button/ButtonIcon";
 import { InputControl } from "@/core/std/Input";
 
-import "@/core/std/Button/ButtonToggle.css";
+export interface ButtonToggleExtensionProps extends InputControl<boolean> {
+  checkedVariant?: ButtonProps["variant"];
+  uncheckedVariant?: ButtonProps["variant"];
+}
 
 const buttonToggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
     Base: FunctionComponent<E>
-  ): FunctionComponent<Omit<E, "value"> & InputControl<boolean>> =>
+  ): FunctionComponent<Omit<E, "value" | "onChange"> & ButtonToggleExtensionProps> =>
   // eslint-disable-next-line react/display-name
-  ({ value, ...props }) =>
+  ({ value, checkedVariant = "filled", uncheckedVariant = "outlined", ...props }) =>
     (
       // @ts-expect-error
       <Base
         {...props}
         checked={value}
         onClick={() => props.onChange(!value)}
-        className={CSS(
-          CSS.B("btn-toggle"),
-          value && CSS.BM("btn-toggle", "checked"),
-          props.className
-        )}
-        variant={value ? props.variant : "outlined"}
+        className={CSS(CSS.B("btn-toggle"), props.className)}
+        variant={value ? checkedVariant : uncheckedVariant}
       />
     );
 

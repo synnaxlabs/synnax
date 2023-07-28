@@ -216,8 +216,22 @@ export interface LineToolbarState {
   activeTab: LineToolbarTab;
 }
 
-export interface LineSliceState {
+export type ClickMode = "annotate" | "slope";
+
+export interface LineControlState {
+  clickMode: ClickMode | null;
+  enableTooltip: boolean;
   mode: ViewportMode;
+}
+
+export const ZERO_LINE_CONTROL_STATE: LineControlState = {
+  clickMode: null,
+  enableTooltip: true,
+  mode: "zoom",
+};
+
+export interface LineSliceState {
+  control: LineControlState;
   toolbar: LineToolbarState;
   plots: Record<string, LinePlotState>;
 }
@@ -229,7 +243,7 @@ export interface LineStoreState {
 }
 
 export const ZERO_LINE_SLICE_STATE: LineSliceState = {
-  mode: "zoom",
+  control: ZERO_LINE_CONTROL_STATE,
   toolbar: {
     activeTab: "data",
   },
@@ -302,8 +316,8 @@ export interface SetActiveToolbarTabPayload {
   tab: LineToolbarTab;
 }
 
-export interface SetLineViewportModePayload {
-  mode: ViewportMode;
+export interface SetLineControlStatePayload {
+  state: Partial<LineControlState>;
 }
 
 interface TypedLineKey {
@@ -471,11 +485,11 @@ export const { actions, reducer: lineReducer } = createSlice({
     ) => {
       state.toolbar.activeTab = payload.tab;
     },
-    setLineViewportMode: (
+    setLineControlState: (
       state,
-      { payload }: PayloadAction<SetLineViewportModePayload>
+      { payload }: PayloadAction<SetLineControlStatePayload>
     ) => {
-      state.mode = payload.mode;
+      state.control = { ...state.control, ...payload.state };
     },
   },
 });
@@ -493,7 +507,7 @@ export const {
   setLinePlotLegend,
   setLinePlotRule,
   setLineActiveToolbarTab,
-  setLineViewportMode,
+  setLineControlState,
 } = actions;
 
 export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;

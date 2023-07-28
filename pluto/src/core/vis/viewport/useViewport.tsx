@@ -36,7 +36,6 @@ export interface UseViewportTriggers {
   zoomReset?: Trigger[];
   pan?: Trigger[];
   select?: Trigger[];
-  hover?: Trigger[];
 }
 
 export interface UseViewportProps {
@@ -53,7 +52,7 @@ export interface UseViewportReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-export const VIEWPORT_MODES = ["zoom", "pan", "select", "zoomReset", "hover"] as const;
+export const VIEWPORT_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
 export type ViewportMode = typeof VIEWPORT_MODES[number];
 export const MASK_VIEWPORT_MODES: ViewportMode[] = ["zoom", "select"];
 
@@ -63,7 +62,6 @@ export const ZOOM_DEFAULT_TRIGGERS: UseViewportTriggers = {
   zoomReset: [["MouseLeft", "MouseLeft"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
-  hover: [[]],
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseViewportTriggers = {
@@ -72,7 +70,6 @@ export const PAN_DEFAULT_TRIGGERS: UseViewportTriggers = {
   zoom: [["MouseLeft", "Shift"]],
   zoomReset: [["MouseLeft", "MouseLeft"]],
   select: [["MouseLeft", "Alt"]],
-  hover: [["H"]],
 };
 
 export const SELECT_DEFAULT_TRIGGERS: UseViewportTriggers = {
@@ -81,7 +78,6 @@ export const SELECT_DEFAULT_TRIGGERS: UseViewportTriggers = {
   pan: [["MouseLeft", "Shift"]],
   zoom: [["MouseLeft", "Alt"]],
   zoomReset: [["MouseLeft", "MouseLeft"]],
-  hover: [["H"]],
 };
 
 export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {
@@ -89,7 +85,6 @@ export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {
   pan: PAN_DEFAULT_TRIGGERS,
   select: SELECT_DEFAULT_TRIGGERS,
   zoomReset: ZOOM_DEFAULT_TRIGGERS,
-  hover: ZOOM_DEFAULT_TRIGGERS,
 };
 
 const compareTriggers = (
@@ -160,50 +155,12 @@ export const useViewport = ({
       [initialTriggers]
     );
 
-  useEffect(() => {
-    if (
-      (triggerConfig.hover ?? []).every((t) => t.length > 0) ||
-      canvasRef.current == null
-    )
-      return;
-    canvasRef.current.addEventListener("mouseenter", () => {
-      onChange?.({
-        box: stateRef.current,
-        mode: "hover",
-        stage: "start",
-        cursor: XY.ZERO,
-      });
-      setMaskMode("hover");
-    });
-    canvasRef.current.addEventListener("mouseleave", () => {
-      if (maskMode === "hover")
-        onChange?.({
-          box: stateRef.current,
-          mode: "hover",
-          stage: "end",
-          cursor: XY.ZERO,
-        });
-      setMaskMode(defaultMode);
-    });
-    canvasRef.current.addEventListener("mousemove", (e) => {
-      onChange?.({
-        box: stateRef.current,
-        mode: "hover",
-        stage: "during",
-        cursor: new XY({ x: e.clientX, y: e.clientY }),
-      });
-    });
-  }, [triggerConfig]);
-
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
       const mode = determineMode(triggerConfig, triggers, defaultMode);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
-
-      if (mode === "hover")
-        return onChange?.({ box: stateRef.current, mode, stage, cursor });
 
       if (mode === "zoomReset") {
         setMaskBox(Box.ZERO);
@@ -324,7 +281,6 @@ const determineMode = (
   if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
     return "zoomReset";
   if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
-  if (config.hover != null && Triggers.match(config.hover, triggers)) return "hover";
   return defaultMode;
 };
 

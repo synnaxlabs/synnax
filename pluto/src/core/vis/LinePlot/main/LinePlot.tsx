@@ -21,7 +21,7 @@ import {
   useState,
 } from "react";
 
-import { Box, Deep, Location, XY } from "@synnaxlabs/x";
+import { Box, Deep, Location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Aether } from "@/core/aether/main";
@@ -32,7 +32,6 @@ import { useEffectCompare } from "@/core/hooks/useEffectCompare";
 import { Status } from "@/core/std";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { GridPositionMeta, filterGridPositions } from "@/core/vis/LinePlot/aether/grid";
-import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
 import { UseViewportHandler, UseViewportProps, Viewport } from "@/core/vis/viewport";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
@@ -124,17 +123,13 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       },
     });
 
-    const [cursor, setCursor] = useState<XY | null>(null);
-
     const handleViewportChange = useCallback<UseViewportHandler>((args) => {
-      const { mode, box, cursor, stage } = args;
+      const { mode, box } = args;
       setState((prev) => {
         if (["pan", "zoom", "zoomReset"].includes(mode as string))
           return { ...prev, viewport: box };
         return prev;
       });
-      if (mode === "hover" && stage !== "end") setCursor(cursor);
-      else setCursor(null);
       onViewportChange?.(args);
     }, []);
 
@@ -223,10 +218,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
           </Status.Text.Centered>
         )}
         <LinePlotContext.Provider value={contextValue}>
-          <Aether.Composite path={path}>
-            {children}
-            {cursor != null && <Tooltip position={cursor} />}
-          </Aether.Composite>
+          <Aether.Composite path={path}>{children}</Aether.Composite>
         </LinePlotContext.Provider>
         <Viewport.Mask
           className={CSS.BE("line-plot", "viewport")}

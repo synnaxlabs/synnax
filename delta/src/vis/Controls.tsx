@@ -7,33 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode, useState } from "react";
+import { ReactElement, ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button, Divider, Select, Space, Text, ViewportMode } from "@synnaxlabs/pluto";
 import { PiSelectionPlusBold } from "react-icons/pi";
 import { useDispatch } from "react-redux";
 
-import { useSelectLineViewportMode } from "@/line/store/selectors";
-import { setLineViewportMode } from "@/line/store/slice";
+import { useSelectLineControlState } from "@/line/store/selectors";
+import { ClickMode, setLineControlState } from "@/line/store/slice";
 
-export const Controls = () => {
-  const mode = useSelectLineViewportMode();
+export const Controls = (): ReactElement => {
+  const control = useSelectLineControlState();
   const d = useDispatch();
-  const [value, setValue] = useState("slope");
 
   const handleModeChange = (mode: ViewportMode): void => {
-    d(setLineViewportMode({ mode }));
+    d(setLineControlState({ state: { mode } }));
+  };
+
+  const handleClickModeChange = (clickMode: ClickMode): void => {
+    d(setLineControlState({ state: { clickMode } }));
+  };
+
+  const handleTooltipChange = (tooltip: boolean): void => {
+    d(setLineControlState({ state: { enableTooltip: tooltip } }));
   };
 
   return (
-    <Space style={{ paddingLeft: "2rem" }} direction="x">
+    <Space style={{ paddingLeft: "2rem" }} direction="x" size="small">
       <Select.Button<
         ViewportMode,
         { key: ViewportMode; icon: ReactElement; tooltip: ReactNode }
       >
         size="medium"
-        value={mode}
+        value={control.mode}
         onChange={handleModeChange}
         bordered={false}
         rounded={false}
@@ -76,6 +83,7 @@ export const Controls = () => {
         {({ title: _, entry, ...props }) => (
           <Button.Icon
             {...props}
+            key={entry.key}
             variant={props.selected ? "filled" : "text"}
             style={{}}
             size="medium"
@@ -87,26 +95,35 @@ export const Controls = () => {
         )}
       </Select.Button>
       <Divider />
-      <Select.Button<string, { key: string; icon: ReactElement; tooltip: ReactNode }>
-        value={value}
-        onChange={setValue}
+      <Button.ToggleIcon
+        value={control.enableTooltip}
+        onChange={handleTooltipChange}
+        checkedVariant="filled"
+        uncheckedVariant="text"
+        sharp
+        tooltip={
+          <Space direction="x" align="center">
+            <Text level="small">Tooltip</Text>
+            <Text.Keyboard level="small">Alt</Text.Keyboard>
+            <Text.Keyboard level="small">Click</Text.Keyboard>
+          </Space>
+        }
+      >
+        <Icon.Tooltip />
+      </Button.ToggleIcon>
+      <Divider />
+      <Select.Button<
+        ClickMode,
+        { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
+      >
+        value={control.clickMode as ClickMode}
+        onChange={handleClickModeChange}
         size="medium"
         bordered={false}
         rounded={false}
         entryRenderKey="icon"
         allowNone
         data={[
-          {
-            key: "tooltip",
-            icon: <Icon.Tooltip />,
-            tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Tooltip</Text>
-                <Text.Keyboard level="small">Alt</Text.Keyboard>
-                <Text.Keyboard level="small">Click</Text.Keyboard>
-              </Space>
-            ),
-          },
           {
             key: "slope",
             icon: <Icon.Rule />,
@@ -139,12 +156,12 @@ export const Controls = () => {
             style={{}}
             size="medium"
             tooltip={entry.tooltip}
+            tooltipLocation={{ x: "right", y: "top" }}
           >
             {entry.icon}
           </Button.Icon>
         )}
       </Select.Button>
-      <Divider />
     </Space>
   );
 };

@@ -61,17 +61,17 @@
             margin: var(--pluto-pack--x-margin);
         }
 
-        &.pluto--small > *:not(.pluto-pack) {
+        &.pluto-pack--small > *:not(.pluto-pack) {
             height: var(--pluto-height-small);
             line-height: var(--pluto-height-small);
         }
 
-        &.pluto--medium > *:not(.pluto-pack) {
+        &.pluto-pack--medium > *:not(.pluto-pack) {
             height: var(--pluto-height-medium);
             line-height: var(--pluto-height-medium);
         }
 
-        &.pluto--large > *:not(.pluto-pack) {
+        &.pluto-pack--large > *:not(.pluto-pack) {
             height: var(--pluto-height-large);
             line-height: var(--pluto-height-large);
         }
