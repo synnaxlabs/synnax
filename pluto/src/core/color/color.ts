@@ -153,6 +153,11 @@ export class Color {
     return this.rgba255[3];
   }
 
+  /** @returns true if all RGBA values are 0. */
+  get isZero(): boolean {
+    return this.equals(Color.ZERO);
+  }
+
   /**
    * Creates a new color with the given alpha.
    *

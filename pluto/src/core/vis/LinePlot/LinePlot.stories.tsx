@@ -99,6 +99,7 @@ const Example = (): ReactElement => {
           </LinePlot.YAxis>
         </LinePlot.XAxis>
         <LinePlot.Legend />
+        <Tooltip />
       </LinePlot>
     </Canvas>
   );

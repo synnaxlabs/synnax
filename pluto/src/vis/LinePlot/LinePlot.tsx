@@ -18,6 +18,7 @@ import {
   LinePlot as CoreLinePlot,
   LinePlotProps as CoreLinePlotProps,
 } from "@/core/vis/LinePlot";
+import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
 import { RangeTelem } from "@/telem/range/main";
 
 export const axisProps = z.object({
@@ -103,6 +104,8 @@ export interface LinePlotProps extends CoreLinePlotProps {
   onLineColorChange?: (id: string, value: Color) => void;
   onRuleLabelChange?: (id: string, value: string) => void;
   onRulePositionChange?: (id: string, value: number) => void;
+  enableTooltip?: boolean;
+  enableSlopeTool?: boolean;
 }
 
 export const LinePlot = ({
@@ -118,6 +121,8 @@ export const LinePlot = ({
   onRuleLabelChange,
   onRulePositionChange,
   rules: pRules,
+  enableTooltip = true,
+  enableSlopeTool = false,
   ...restProps
 }: LinePlotProps): ReactElement => {
   const { axes, lines, rules } = linePlotProps.parse({
@@ -156,6 +161,7 @@ export const LinePlot = ({
       {showTitle && (
         <CoreLinePlot.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
+      {enableTooltip && <Tooltip />}
     </CoreLinePlot>
   );
 };

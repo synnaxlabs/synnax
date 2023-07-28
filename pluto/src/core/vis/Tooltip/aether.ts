@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY } from "@synnaxlabs/x";
+import { Box, Direction, XY } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { Draw2D } from "../draw2d";
 
 import { AetherLeaf } from "@/core/aether/worker";
 import { Color } from "@/core/color";
@@ -17,12 +19,18 @@ import { LookupResult } from "@/core/vis/Line/core";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
 export const tooltipState = z.object({
-  position: XY.z,
+  position: XY.z.or(z.null()),
+  textColor: Color.z.optional().default(Color.ZERO),
+  backgroundColor: Color.z.optional().default(Color.ZERO),
+  borderColor: Color.z.optional().default(Color.ZERO),
+  ruleColor: Color.z.optional().default(Color.ZERO),
+  ruleStrokeWidth: z.number().optional().default(1),
+  ruleStrokeDash: z.number().default(0),
 });
 
 interface Derived {
   renderCtx: RenderContext;
-  color: Color;
+  draw: Draw2D;
 }
 
 export interface TooltipProps {
@@ -36,9 +44,17 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
   schema = AetherTooltip.stateZ;
 
   derive(): Derived {
+    const theme = ThemeContext.use(this.ctx);
+    if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
+    if (this.state.backgroundColor.isZero)
+      this.state.backgroundColor = theme.colors.gray.m2;
+    if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
+    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.m1;
+
+    const ctx = RenderContext.use(this.ctx);
     return {
-      renderCtx: RenderContext.use(this.ctx),
-      color: ThemeContext.use(this.ctx).colors.gray.m1,
+      renderCtx: ctx,
+      draw: new Draw2D(ctx.upper2d, theme),
     };
   }
 
@@ -51,54 +67,40 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
   }
 
   async render(props: TooltipProps): Promise<void> {
-    if (this.deleted) return;
-    const res = await props.lookupX(this.state.position.x - props.region.x);
+    if (this.deleted || this.state.position == null) return;
+    const pos = this.state.position.translate(props.region.topLeft.scale(-1));
+
+    const values = await props.lookupX(pos.x);
     const { region } = props;
 
-    const { renderCtx } = this.derived;
-    const { upper2d: canvas } = renderCtx;
+    const { draw } = this.derived;
 
-    canvas.strokeStyle = this.derived.color.hex;
-    canvas.lineWidth = 1;
+    const x = values.reduce((p, c) => p + c.position.x, 0) / values.length;
 
-    // Take the average of the x values
-    const x = res.reduce((p, c) => p + c.position.x, 0) / res.length;
-
-    canvas.beginPath();
-    canvas.moveTo(region.x + x, region.y);
-    canvas.lineTo(region.x + x, region.y + props.region.height);
-    canvas.stroke();
-
-    res.forEach((r) => {
-      canvas.fillStyle = r.color.setAlpha(0.5).hex;
-      canvas.beginPath();
-      canvas.arc(region.x + r.position.x, region.y + r.position.y, 6, 0, 2 * Math.PI);
-      canvas.fill();
-      // make a smaller, less transparent circle
-      canvas.fillStyle = r.color.setAlpha(0.8).hex;
-      canvas.beginPath();
-      canvas.arc(region.x + r.position.x, region.y + r.position.y, 3, 0, 2 * Math.PI);
-      canvas.fill();
+    draw.rule({
+      stroke: this.state.ruleColor,
+      lineWidth: this.state.ruleStrokeWidth,
+      lineDash: this.state.ruleStrokeDash,
+      direction: Direction.Y,
+      region,
+      position: region.left + x,
     });
 
-    const fontSize = 12;
-    canvas.font = `${fontSize}px monospace`;
-    canvas.fillStyle = "#ffffff";
-    canvas.textAlign = "left";
-    canvas.textBaseline = "top";
-    const textHeight = fontSize * 1.2;
-    const textWidth = 200;
-    const padding = 4;
-    canvas.fillText(`x: ${x.toFixed(2)}`, region.x + x + padding, region.y + padding);
-    res.forEach((r, i) => {
-      canvas.fillText(
-        `${r.label ?? ""}: ${r.value.toFixed(2)}`,
-        region.x + x + padding,
-        region.y + padding + textHeight * (i + 1),
-        textWidth
-      );
+    values.forEach((r) => {
+      const position = r.position.translate(region.topLeft);
+      draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
+      draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
+      draw.circle({ fill: this.state.textColor, radius: 2, position });
     });
-    // Draw a rectangle around the currend cursor position containing the
-    // current value for each item.
+
+    const text = values.map((r) => `${r.label ?? ""}: ${r.value.toFixed(2)}`);
+
+    draw.textContainer({
+      text,
+      position: this.state.position.translate([10, 10]),
+      direction: Direction.Y,
+      level: "small",
+      spacing: 1,
+    });
   }
 }
