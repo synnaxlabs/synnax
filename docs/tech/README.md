@@ -41,9 +41,14 @@ the architecture of the platform. The [architecture](architecture.md) document p
 a birds eye view of the fundamental design decisions we've made and how they've evolved
 into the current architecture.
 
-# 4 - Engineering Foundations
+# 4 - Setting up your Development Environment
 
-A lot can be learned while contributing to the codebase, but it's important to have a
-solid software engineering foundation. Different areas of the codebase require different
-types of expertise, and the [foundations](foundations.md) document provides insight into
-what we expect from incoming contributors.
+It's time to set up your development environment! Here are guides for [macos](setup-macos.md)
+and for [windows](setup-windows.md).
+
+# 5 - Engineering Foundations
+
+While there's a lot to be learned by actively contributing to the project, it's important
+to have solid software engineering foundations in place. The [foundations](foundations.md)
+document walks you through all the essential (and advanced) technologies and concepts
+you need to be familiar with when working on a specific area of the codebase.
