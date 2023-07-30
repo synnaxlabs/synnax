@@ -9,14 +9,14 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 0 - Product
+# 0 - Read About the Product
 
 Making meaningful contributions to Synnax starts with having a clear understanding of
 the product we're building. The best place to start is by reading our
 [thesis](product/thesis.md). This document defines the problem with the status quo and
 the approach we're taking to solve it.
 
-# 1 - Finding Something to Work On
+# 1 - Find Something to Work On
 
 The next best step is to start thinking about the area or feature you'd like to
 contribute to. There are a few ways to do this:
@@ -40,5 +40,14 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 3 - Technical
+# 2 - Review The Technical Documentation
 
+The Synnax [technical documentation](tech/README.md) is the best place to start learning
+about Synnax's architecture and codebase. The directory also includes a guide on
+setting up your development environment and how to learn the technical foundations to work
+on the project.
+
+# 3 - Star the Project!
+
+If you haven't already, please star the project on GitHub! This helps us grow our
+community and attract more contributors.

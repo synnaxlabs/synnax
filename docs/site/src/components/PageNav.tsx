@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Dropdown, Tree, TreeLeaf } from "@synnaxlabs/pluto";
+import { Button, Dropdown, Tree, TreeLeaf } from "@synnaxlabs/pluto/std";
 
 import { pages } from "@/pages/nav";
 

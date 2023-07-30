@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Video as PVideo } from "@synnaxlabs/pluto";
+import { Video as PVideo } from "@synnaxlabs/pluto/std";
 
 export interface VideoProps {
   id: string;
