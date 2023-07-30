@@ -124,6 +124,7 @@ export class Draw2D {
     const ctx = this.canvas;
     ctx.fillStyle = backgroundColor.hex;
     ctx.strokeStyle = borderColor.hex;
+    ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.beginPath();
     if (rounded)

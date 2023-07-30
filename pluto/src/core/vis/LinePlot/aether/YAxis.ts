@@ -33,6 +33,7 @@ const stateZ = axisState
     autoBoundPadding: z.number().optional().default(0.05),
     size: z.number().optional().default(0),
     labelSize: z.number().optional().default(0),
+    label: z.string().optional().default(""),
   })
   .partial({
     color: true,
@@ -132,9 +133,11 @@ export class AetherYAxis extends AetherComposite<
     const yDataToDecimalScale = await this.dataToDecimalScale(viewport);
     const dataToDecimalScale = new XYScale(xDataToDecimalScale, yDataToDecimalScale);
     const props: LineProps = { region: plot, dataToDecimalScale };
-    return await Promise.all(
-      this.lines.map(async (el) => await el.findByXValue(props, target))
-    );
+    return (
+      await Promise.all(
+        this.lines.map(async (el) => await el.findByXValue(props, target))
+      )
+    ).map((v) => ({ ...v, units: this.state.label }));
   }
 
   private async yBounds(): Promise<Bounds> {
