@@ -63,10 +63,11 @@ export const YAxis = Aether.wrap<YAxisProps>(
         showGrid,
         type,
         bounds,
+        label,
       }),
       (
-        [, propsLabelSize, type, showGrid, color, bounds],
-        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds]
+        [, propsLabelSize, type, showGrid, color, bounds, label],
+        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds, prevLabel]
       ) => {
         return Deep.equal(
           {
@@ -75,6 +76,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
             type,
             showGrid,
             bounds,
+            label,
           },
           {
             color: prevColor,
@@ -82,10 +84,11 @@ export const YAxis = Aether.wrap<YAxisProps>(
             type: prevType,
             showGrid: prevShowGrid,
             bounds: prevBounds,
+            label: prevLabel,
           }
         );
       },
-      [propsLabelSize, type, showGrid, bounds]
+      [propsLabelSize, type, showGrid, bounds, label]
     );
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
