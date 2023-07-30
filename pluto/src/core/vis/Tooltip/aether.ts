@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Direction, XY } from "@synnaxlabs/x";
+import { Box, Direction, XY, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Draw2D } from "../draw2d";
@@ -15,7 +15,7 @@ import { Draw2D } from "../draw2d";
 import { AetherLeaf } from "@/core/aether/worker";
 import { Color } from "@/core/color";
 import { ThemeContext } from "@/core/theming/aether";
-import { LookupResult } from "@/core/vis/Line/core";
+import { FindResult } from "@/core/vis/Line/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
 
 export const tooltipState = z.object({
@@ -28,22 +28,22 @@ export const tooltipState = z.object({
   ruleStrokeDash: z.number().default(0),
 });
 
-interface Derived {
-  renderCtx: RenderContext;
+interface InternalState {
+  render: RenderContext;
   draw: Draw2D;
 }
 
 export interface TooltipProps {
-  lookupX: (position: number) => Promise<LookupResult[]>;
+  findByXDecimal: (position: number) => Promise<FindResult[]>;
   region: Box;
 }
 
-export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
+export class AetherTooltip extends AetherLeaf<typeof tooltipState, InternalState> {
   static readonly TYPE = "tooltip";
   static readonly stateZ = tooltipState;
   schema = AetherTooltip.stateZ;
 
-  derive(): Derived {
+  afterUpdate(): void {
     const theme = ThemeContext.use(this.ctx);
     if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
     if (this.state.backgroundColor.isZero)
@@ -51,14 +51,8 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
     if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.m1;
 
-    const ctx = RenderContext.use(this.ctx);
-    return {
-      renderCtx: ctx,
-      draw: new Draw2D(ctx.upper2d, theme),
-    };
-  }
-
-  afterUpdate(): void {
+    this.internal.render = RenderContext.use(this.ctx);
+    this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
     RenderController.requestRender(this.ctx);
   }
 
@@ -68,14 +62,18 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
 
   async render(props: TooltipProps): Promise<void> {
     if (this.deleted || this.state.position == null) return;
-    const pos = this.state.position.translate(props.region.topLeft.scale(-1));
-
-    const values = await props.lookupX(pos.x);
     const { region } = props;
+    const scale = XYScale.scale(Box.DECIMAL).scale(region);
+    const reverseScale = XYScale.scale(region).scale(Box.DECIMAL);
+    const values = await props.findByXDecimal(
+      reverseScale.x.pos(this.state.position.x)
+    );
+    const { draw } = this.internal;
 
-    const { draw } = this.derived;
+    const avgXDecimal = values.reduce((p, c) => p + c.position.x, 0) / values.length;
 
-    const x = values.reduce((p, c) => p + c.position.x, 0) / values.length;
+    const rulePosition = scale.x.pos(avgXDecimal);
+    if (!region.xBounds.contains(rulePosition)) return;
 
     draw.rule({
       stroke: this.state.ruleColor,
@@ -83,17 +81,17 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, Derived> {
       lineDash: this.state.ruleStrokeDash,
       direction: Direction.Y,
       region,
-      position: region.left + x,
+      position: rulePosition,
     });
 
     values.forEach((r) => {
-      const position = r.position.translate(region.topLeft);
+      const position = scale.pos(r.position);
       draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
       draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
       draw.circle({ fill: this.state.textColor, radius: 2, position });
     });
 
-    const text = values.map((r) => `${r.label ?? ""}: ${r.value.toFixed(2)}`);
+    const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
 
     draw.textContainer({
       text,

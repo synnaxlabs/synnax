@@ -18,6 +18,7 @@ import {
   LinePlot as CoreLinePlot,
   LinePlotProps as CoreLinePlotProps,
 } from "@/core/vis/LinePlot";
+import { Measure } from "@/core/vis/Measure/Measure";
 import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
 import { RangeTelem } from "@/telem/range/main";
 
@@ -105,7 +106,7 @@ export interface LinePlotProps extends CoreLinePlotProps {
   onRuleLabelChange?: (id: string, value: string) => void;
   onRulePositionChange?: (id: string, value: number) => void;
   enableTooltip?: boolean;
-  enableSlopeTool?: boolean;
+  enableMeasure?: boolean;
 }
 
 export const LinePlot = ({
@@ -122,7 +123,7 @@ export const LinePlot = ({
   onRulePositionChange,
   rules: pRules,
   enableTooltip = true,
-  enableSlopeTool = false,
+  enableMeasure = false,
   ...restProps
 }: LinePlotProps): ReactElement => {
   const { axes, lines, rules } = linePlotProps.parse({
@@ -162,6 +163,7 @@ export const LinePlot = ({
         <CoreLinePlot.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
       {enableTooltip && <Tooltip />}
+      {enableMeasure && <Measure />}
     </CoreLinePlot>
   );
 };

@@ -125,7 +125,7 @@ export const Controls = (): ReactElement => {
         allowNone
         data={[
           {
-            key: "slope",
+            key: "measure",
             icon: <Icon.Rule />,
             tooltip: (
               <Space direction="x" align="center">

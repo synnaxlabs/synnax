@@ -12,7 +12,6 @@ import { Box } from "@/spatial/box";
 import {
   Bounds,
   XY,
-  CrudeDirection,
   XYTransformT,
   LooseXYT,
   LooseBoundT,
@@ -204,8 +203,6 @@ export class Scale {
   }
 }
 
-export type XYScale = Record<CrudeDirection, Scale>;
-
 export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
   scale: {
     x: scale.x.dim(1),
@@ -217,70 +214,78 @@ export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
   },
 });
 
-export class BoxScale {
+export class XYScale {
   x: Scale;
   y: Scale;
   currRoot: XYLocation | null;
 
-  constructor() {
-    this.x = new Scale();
-    this.y = new Scale();
-    this.currRoot = null;
+  constructor(
+    x: Scale = new Scale(),
+    y: Scale = new Scale(),
+    root: XYLocation | null = null
+  ) {
+    this.x = x;
+    this.y = y;
+    this.currRoot = root;
   }
 
-  static translate(xy: LooseXYT): BoxScale {
-    return new BoxScale().translate(xy);
+  static translate(xy: number | LooseXYT, y?: number): XYScale {
+    return new XYScale().translate(xy, y);
   }
 
-  static translateX(x: number): BoxScale {
-    return new BoxScale().translateX(x);
+  static translateX(x: number): XYScale {
+    return new XYScale().translateX(x);
   }
 
-  static translateY(y: number): BoxScale {
-    return new BoxScale().translateY(y);
+  static translateY(y: number): XYScale {
+    return new XYScale().translateY(y);
   }
 
-  static clamp(box: Box): BoxScale {
-    return new BoxScale().clamp(box);
+  static clamp(box: Box): XYScale {
+    return new XYScale().clamp(box);
   }
 
-  static magnify(xy: XY): BoxScale {
-    return new BoxScale().magnify(xy);
+  static magnify(xy: XY): XYScale {
+    return new XYScale().magnify(xy);
   }
 
-  static scale(box: Box): BoxScale {
-    return new BoxScale().scale(box);
+  static scale(box: Box): XYScale {
+    return new XYScale().scale(box);
   }
 
-  translate(xy: LooseXYT): BoxScale {
-    const _xy = new XY(xy);
-    const next = this.new();
+  static reBound(box: Box): XYScale {
+    return new XYScale().reBound(box);
+  }
+
+  translate(xy: number | LooseXYT, y?: number): XYScale {
+    const _xy = new XY(xy, y);
+    const next = this.copy();
     next.x = this.x.translate(_xy.x);
     next.y = this.y.translate(_xy.y);
     return next;
   }
 
-  translateX(x: number): BoxScale {
-    const next = this.new();
+  translateX(x: number): XYScale {
+    const next = this.copy();
     next.x = this.x.translate(x);
     return next;
   }
 
-  translateY(y: number): BoxScale {
-    const next = this.new();
+  translateY(y: number): XYScale {
+    const next = this.copy();
     next.y = this.y.translate(y);
     return next;
   }
 
-  magnify(xy: XY): BoxScale {
-    const next = this.new();
+  magnify(xy: XY): XYScale {
+    const next = this.copy();
     next.x = this.x.magnify(xy.x);
     next.y = this.y.magnify(xy.y);
     return next;
   }
 
-  scale(box: Box): BoxScale {
-    const next = this.new();
+  scale(box: Box): XYScale {
+    const next = this.copy();
     const prevRoot = this.currRoot;
     next.currRoot = box.root;
     if (prevRoot != null && prevRoot !== box.root) {
@@ -292,15 +297,22 @@ export class BoxScale {
     return next;
   }
 
-  clamp(box: Box): BoxScale {
-    const next = this.new();
+  reBound(box: Box): XYScale {
+    const next = this.copy();
+    next.x = this.x.reBound(box.xBounds);
+    next.y = this.y.reBound(box.yBounds);
+    return next;
+  }
+
+  clamp(box: Box): XYScale {
+    const next = this.copy();
     next.x = this.x.clamp(box.xBounds);
     next.y = this.y.clamp(box.yBounds);
     return next;
   }
 
-  private new(): BoxScale {
-    const n = new BoxScale();
+  copy(): XYScale {
+    const n = new XYScale();
     n.currRoot = this.currRoot;
     n.x = this.x;
     n.y = this.y;

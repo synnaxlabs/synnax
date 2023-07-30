@@ -14,8 +14,9 @@ import { AetherTooltip } from "./core/vis/Tooltip/aether";
 import { AetherComponentRegistry, render } from "@/core/aether/worker";
 import { AetherThemeProvider } from "@/core/theming/aether";
 import { AetherCanvas } from "@/core/vis/Canvas/aether";
-import { LineGL } from "@/core/vis/Line/LineGL";
+import { AetherLine } from "@/core/vis/Line/aether";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
+import { AetherMeasure } from "@/core/vis/Measure/aether";
 import { AetherPID } from "@/core/vis/PID/aether";
 import { AetherRule } from "@/core/vis/Rule/aether";
 import { AetherValue } from "@/core/vis/Value/aether";
@@ -31,13 +32,14 @@ export const pluto = (): void => {
     ...AetherLinePlot.REGISTRY,
     ...AetherCanvas.REGISTRY,
     [Telem.TYPE]: Telem,
-    [LineGL.TYPE]: LineGL,
+    [AetherLine.TYPE]: AetherLine,
     [AetherValue.TYPE]: AetherValue,
     [Valve.TYPE]: Valve,
     [AetherPID.TYPE]: AetherPID,
     [AetherRule.TYPE]: AetherRule,
     [AetherThemeProvider.TYPE]: AetherThemeProvider,
     [AetherTooltip.TYPE]: AetherTooltip,
+    [AetherMeasure.TYPE]: AetherMeasure,
   };
 
   render({

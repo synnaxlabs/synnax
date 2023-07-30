@@ -12,9 +12,10 @@ import { z } from "zod";
 
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
-import { LookupResult } from "@/core/vis/Line/core";
+import { FindResult } from "@/core/vis/Line/aether";
 import { gridPositionMeta } from "@/core/vis/LinePlot/aether/grid";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
+import { AetherMeasure } from "@/core/vis/Measure/aether";
 import {
   RenderController,
   RenderContext,
@@ -32,35 +33,31 @@ const linePlotState = z.object({
   grid: z.array(gridPositionMeta),
 });
 
-interface Derived {
-  ctx: RenderContext;
+interface InternalState {
+  render: RenderContext;
 }
+
+type Children = AetherXAxis | AetherTooltip | AetherMeasure;
 
 export class AetherLinePlot extends AetherComposite<
   typeof linePlotState,
-  Derived,
-  AetherXAxis | AetherTooltip
+  InternalState,
+  Children
 > {
   static readonly TYPE: string = CSS.B("LinePlot");
 
   static readonly z = linePlotState;
   schema = AetherLinePlot.z;
 
-  derive(): Derived {
-    return { ctx: RenderContext.use(this.ctx) };
-  }
-
   afterUpdate(): void {
+    this.internal.render = RenderContext.use(this.ctx);
     RenderController.control(this.ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
 
   afterDelete(): void {
+    this.internal.render = RenderContext.use(this.ctx);
     this.requestRender("high");
-  }
-
-  private get plottingRegion(): Box {
-    return new Box(this.state.plot);
   }
 
   private get clearRegion(): Box {
@@ -68,81 +65,88 @@ export class AetherLinePlot extends AetherComposite<
     return this.prevState.container;
   }
 
-  private get region(): Box {
-    return this.state.container;
+  async findByXDecimal(x: number): Promise<FindResult[]> {
+    const p = this.axes.flatMap(
+      async (xAxis) => await xAxis.findByXDecimal(this.state, x)
+    );
+    return (await Promise.all(p)).flat();
   }
 
-  private get viewport(): Box {
-    return this.state.viewport;
+  async findByXValue(x: number): Promise<FindResult[]> {
+    const p = this.axes.flatMap(
+      async (xAxis) => await xAxis.findByXValue(this.state, x)
+    );
+    return (await Promise.all(p)).flat();
   }
 
-  private get clearOverScan(): XY {
-    return new XY(
-      typeof this.state.clearOverscan === "number"
-        ? { x: this.state.clearOverscan, y: this.state.clearOverscan }
-        : this.state.clearOverscan
+  private get axes(): readonly AetherXAxis[] {
+    return this.childrenOfType<AetherXAxis>(AetherXAxis.TYPE);
+  }
+
+  private get tooltips(): readonly AetherTooltip[] {
+    return this.childrenOfType<AetherTooltip>(AetherTooltip.TYPE);
+  }
+
+  private get measures(): readonly AetherMeasure[] {
+    return this.childrenOfType<AetherMeasure>(AetherMeasure.TYPE);
+  }
+
+  private async renderAxes(): Promise<void> {
+    await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(this.state)));
+  }
+
+  private async renderTooltips(): Promise<void> {
+    const tooltipProps = {
+      findByXDecimal: this.findByXDecimal.bind(this),
+      region: this.state.plot,
+    };
+    await Promise.all(
+      this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps))
     );
   }
 
-  async lookupX(x: number): Promise<LookupResult[]> {
-    return (
-      await Promise.all(
-        this.childrenOfType<AetherXAxis>(AetherXAxis.TYPE).flatMap(
-          async (xAxis) =>
-            await xAxis.lookupX(
-              {
-                plottingRegion: this.plottingRegion,
-                viewport: this.viewport,
-                region: this.region,
-                grid: this.state.grid,
-              },
-              x
-            )
-        )
-      )
-    ).flat();
+  private async renderMeasures(): Promise<void> {
+    const measureProps = {
+      findByXDecimal: this.findByXDecimal.bind(this),
+      findByXValue: this.findByXValue.bind(this),
+      region: this.state.plot,
+    };
+    await Promise.all(
+      this.measures.map(async (measure) => await measure.render(measureProps))
+    );
   }
 
   private async render(): Promise<RenderCleanup> {
     if (this.deleted) return async () => {};
-    const { ctx } = this.derived;
-    const removeGlScissor = ctx.scissorGL(this.plottingRegion);
-    const removeCanvasScissor = ctx.scissorCanvas(this.region);
-
+    const { render: ctx } = this.internal;
+    const removeGlScissor = ctx.scissorGL(this.state.plot);
+    const removeCanvasScissor = ctx.scissorCanvas(this.state.container);
     try {
-      await Promise.all(
-        this.childrenOfType<AetherXAxis>(AetherXAxis.TYPE).map(
-          async (xAxis, i) =>
-            await xAxis.render({
-              plottingRegion: this.plottingRegion,
-              viewport: this.viewport,
-              region: this.region,
-              grid: this.state.grid,
-            })
-        )
-      );
-
-      await Promise.all(
-        this.childrenOfType<AetherTooltip>(AetherTooltip.TYPE).map(
-          async (tooltip) =>
-            await tooltip.render({
-              lookupX: this.lookupX.bind(this),
-              region: this.plottingRegion,
-            })
-        )
-      );
+      await this.renderAxes();
+      await this.renderTooltips();
+      await this.renderMeasures();
+      this.clearError();
     } catch (e) {
-      this.setState((p) => ({ ...p, error: (e as Error).message }));
-      throw e;
+      this.setError(e as Error);
     } finally {
       removeGlScissor();
       removeCanvasScissor();
     }
-    return async () => ctx.erase(new Box(this.clearRegion), this.clearOverScan);
+    return async () =>
+      ctx.erase(new Box(this.clearRegion), new XY(this.state.clearOverscan));
+  }
+
+  private setError(error: Error): void {
+    this.setState((p) => ({ ...p, error: error.message }));
+  }
+
+  private clearError(): void {
+    if (this.state.error == null) return;
+    this.setState((p) => ({ ...p, error: undefined }));
   }
 
   requestRender(priority: RenderPriority): void {
-    const { ctx } = this.derived;
+    const { render: ctx } = this.internal;
     ctx.queue.push({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),

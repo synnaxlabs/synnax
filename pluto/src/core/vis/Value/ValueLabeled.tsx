@@ -9,7 +9,7 @@
 
 import { ReactElement, useState } from "react";
 
-import { Box, BoxScale, XY } from "@synnaxlabs/x";
+import { Box, XYScale, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { DirectionTrigger, useResize } from "@/core/hooks";
@@ -47,7 +47,7 @@ export const ValueLabeled = ({
 
   let adjustedBox = box;
   if (position != null)
-    adjustedBox = BoxScale.translate(position)
+    adjustedBox = XYScale.translate(position)
       .translate(box.topLeft.scale(-1))
       .translateY(height)
       .box(box);

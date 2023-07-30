@@ -33,11 +33,12 @@ export const Tooltip = Aether.wrap<TooltipProps>(
     const ref = useRef<HTMLSpanElement>(null);
 
     const handleMove = useCallback(
-      (e: MouseEvent): void => {
-        setState({
-          position: new XY(e),
-        });
-      },
+      (e: MouseEvent): void => setState({ position: new XY(e) }),
+      [setState]
+    );
+
+    const handleLeave = useCallback(
+      (): void => setState({ position: null }),
       [setState]
     );
 
@@ -48,7 +49,11 @@ export const Tooltip = Aether.wrap<TooltipProps>(
       if (parent == null) return;
       // Bind a hover listener to the parent node
       parent.addEventListener("mousemove", handleMove);
-      return () => parent.removeEventListener("mousemove", handleMove);
+      parent.addEventListener("mouseleave", handleLeave);
+      return () => {
+        parent.removeEventListener("mousemove", handleMove);
+        parent.removeEventListener("mouseleave", handleLeave);
+      };
     }, [handleMove]);
 
     return <span ref={ref} />;

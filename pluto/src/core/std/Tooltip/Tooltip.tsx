@@ -100,17 +100,6 @@ export const Tooltip = ({
     const window = new Box(document.documentElement);
     const parse = Location.looseZ.safeParse(cornerOrLocation);
 
-    // Steps for determinining the tooltip location.
-    //
-    // Case 1: Parameter is a location.
-    //
-    //  1. Determine if the locations direction is x or y.
-    //  2. Determine the correct placement for the opposite direction.
-    //
-    // Case 2: Parameter is an XYLocation.
-    //
-    //  1. For each direction, if the tooltip is undefined, determine the correct placement.
-
     const chooseRemainingLocation = (first: Location): Location => {
       let preferences: CrudeLocation[];
       if (first.isCenter) {
