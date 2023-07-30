@@ -139,7 +139,28 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
     return [oneValue, twoValue];
   }
 
+  async renderHover(props: MeasureProps): Promise<void> {
+    if (this.state.hover == null) return;
+    const hover: XY = this.state.hover;
+
+    const scale = XYScale.scale(props.region).scale(Box.DECIMAL);
+    const scaledPos = scale.pos(hover);
+    const res = await props.findByXDecimal(scale.pos(hover).x);
+    if (res.length === 0) return;
+    const v = res.sort(
+      (a, b) => scaledPos.distanceTo(a.position) - scaledPos.distanceTo(b.position)
+    )[0];
+    const { draw } = this.internal;
+
+    draw.circle({
+      fill: v.color.setAlpha(0.5),
+      radius: 9,
+      position: scale.reverse().pos(v.position),
+    });
+  }
+
   async render(props: MeasureProps): Promise<void> {
+    await this.renderHover(props);
     const res = await this.find(props);
     if (res == null) return;
     const [oneValue, twoValue] = res;
@@ -159,8 +180,8 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
       lineWidth: strokeWidth,
     });
     draw.textContainer({
-      text: [(Math.trunc(yDist * 100) / 100).toString()],
-      direction: Direction.Y,
+      text: [`${yDist.toFixed(2)} ${oneValue.units ?? ""}`],
+      direction: Direction.X,
       position: new XY(onePos.x, (onePos.y + twoPos.y) / 2),
       level: "small",
     });
@@ -172,7 +193,7 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
       lineWidth: strokeWidth,
     });
     draw.textContainer({
-      text: [xDist.truncate(TimeSpan.NANOSECOND).toString()],
+      text: [xDist.truncate(TimeSpan.MILLISECOND).toString()],
       direction: Direction.X,
       position: new XY((onePos.x + twoPos.x) / 2, twoPos.y),
       level: "small",
@@ -185,10 +206,17 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
       lineWidth: strokeWidth,
     });
     draw.textContainer({
-      text: [slope.toString()],
+      text: [`${slope.toFixed(2)} ${oneValue.units ?? ""} / S`],
       direction: Direction.X,
       position: new XY((onePos.x + twoPos.x) / 2, (onePos.y + twoPos.y) / 2),
       level: "small",
     });
+    draw.circle({ fill: oneValue.color.setAlpha(0.5), radius: 8, position: onePos });
+    draw.circle({ fill: oneValue.color.setAlpha(0.8), radius: 5, position: onePos });
+    draw.circle({ fill: new Color("#ffffff"), radius: 2, position: onePos });
+
+    draw.circle({ fill: twoValue.color.setAlpha(0.5), radius: 8, position: twoPos });
+    draw.circle({ fill: twoValue.color.setAlpha(0.8), radius: 5, position: twoPos });
+    draw.circle({ fill: new Color("#ffffff"), radius: 2, position: twoPos });
   }
 }

@@ -67,11 +67,11 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
     if (parent == null) return;
     // Bind a hover listener to the parent node
     parent.addEventListener("click", handleClick);
-    // parent.addEventListener("mousemove", handleMove);
+    parent.addEventListener("mousemove", handleMove);
     parent.addEventListener("mouseleave", handleLeave);
     return () => {
       parent.removeEventListener("click", handleClick);
-      // parent.removeEventListener("mousemove", handleMove);
+      parent.removeEventListener("mousemove", handleMove);
     };
   }, [handleClick]);
 

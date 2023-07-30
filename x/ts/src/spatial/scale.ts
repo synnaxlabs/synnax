@@ -319,6 +319,13 @@ export class XYScale {
     return n;
   }
 
+  reverse(): XYScale {
+    const next = this.copy();
+    next.x = this.x.reverse();
+    next.y = this.y.reverse();
+    return next;
+  }
+
   pos(xy: LooseXYT): XY {
     const xy_ = new XY(xy);
     return new XY({ x: this.x.pos(xy_.x), y: this.y.pos(xy_.y) });
