@@ -498,6 +498,24 @@ export class XY {
     return this.x === o.x && this.y === o.y;
   }
 
+  /** @returns the distance between the point and given point */
+  distanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.sqrt(Math.pow(this.x - o.x, 2) + Math.pow(this.y - o.y, 2));
+  }
+
+  /** @returns the distance between the x coordinates of the point and given point */
+  xDistanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.abs(this.x - o.x);
+  }
+
+  /** @returns the distance beween the y coordinates of the point and given point */
+  yDistanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.abs(this.y - o.y);
+  }
+
   /**
    * @returns the XY represented as a couple, where the first item is the x coordinate,
    * and the second item is the y coordinate.
@@ -513,6 +531,11 @@ export class XY {
     return { left: this.x, top: this.y };
   }
 
+  /** @returns true if either the x or y coordinate is NaN */
+  get isNan(): boolean {
+    return isNaN(this.x) || isNaN(this.y);
+  }
+
   /** An x and y coordinate of zero */
   static readonly ZERO = new XY(0, 0);
 
@@ -521,6 +544,9 @@ export class XY {
 
   /** An x and y coordinate of infinity */
   static readonly INFINITE = new XY(Infinity, Infinity);
+
+  /** An x and y coordinate of NaN */
+  static readonly NAN = new XY(NaN, NaN);
 
   /**
    * A zod schema for parsing an XY. This schema is loose in that it will

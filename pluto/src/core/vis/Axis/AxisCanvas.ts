@@ -28,9 +28,9 @@ export class AxisCanvas implements Axis {
   state: ParsedAxisState;
   tickFactory: TickFactory;
 
-  constructor(ctx: RenderContext, props: ParsedAxisState) {
+  constructor(ctx: RenderContext, state: ParsedAxisState) {
     this.ctx = ctx;
-    this.state = props;
+    this.state = state;
     this.tickFactory = newTickFactory(this.state);
   }
 
@@ -59,7 +59,7 @@ export class AxisCanvas implements Axis {
 
   drawBottom(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
-    const { plottingRegion } = ctx;
+    const { plot: plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
     const p = ctx.position;
@@ -85,7 +85,7 @@ export class AxisCanvas implements Axis {
 
   drawTop(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
-    const { plottingRegion } = ctx;
+    const { plot: plottingRegion } = ctx;
     const size = plottingRegion.width;
     const gridSize = plottingRegion.height;
     const p = ctx.position.translateY(this.state.size);
@@ -112,7 +112,7 @@ export class AxisCanvas implements Axis {
 
   drawLeft(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
-    const { plottingRegion } = ctx;
+    const { plot: plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
     const p = ctx.position.translateX(this.state.size);
@@ -139,7 +139,7 @@ export class AxisCanvas implements Axis {
 
   drawRight(ctx: AxisProps): AxisRenderResult {
     const { lower2d: canvas } = this.ctx;
-    const { plottingRegion } = ctx;
+    const { plot: plottingRegion } = ctx;
     const size = plottingRegion.height;
     const gridSize = plottingRegion.width;
     const p = ctx.position;

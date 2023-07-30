@@ -42,16 +42,13 @@ export const autoBounds = (
   bounds: Bounds[],
   padding: number = 0.1,
   type: TickType
-): [Bounds, number] => {
-  if (bounds.length === 0) {
-    if (type === "linear") return [EMPTY_LINEAR_BOUNDS, 0];
-    return [EMPTY_TIME_BOUNDS, 0];
-  }
+): Bounds => {
+  if (bounds.length === 0)
+    return type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
   const { upper, lower } = Bounds.max(bounds);
-  if (upper === lower)
-    return [new Bounds({ lower: lower - 1, upper: upper + 1 }), lower];
+  if (upper === lower) return new Bounds({ lower: lower - 1, upper: upper + 1 });
   const _padding = (upper - lower) * padding;
-  return [new Bounds({ lower: lower - _padding, upper: upper + _padding }), lower];
+  return new Bounds({ lower: lower - _padding, upper: upper + _padding });
 };
 
 export const gridPositionMeta = z.object({
@@ -74,7 +71,7 @@ export const filterGridPositions = (
 export const calculateGridPosition = (
   key: string,
   grid: GridPositionMeta[],
-  plottingRegion: Box
+  plot: Box
 ): XY => {
   const axis = grid.find(({ key: k }) => k === key);
   if (axis == null) return XY.ZERO;
@@ -84,12 +81,12 @@ export const calculateGridPosition = (
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
   switch (loc.crude) {
     case "left":
-      return plottingRegion.topLeft.translateX(-offset - axis.size);
+      return plot.topLeft.translateX(-offset - axis.size);
     case "right":
-      return plottingRegion.topRight.translateX(offset);
+      return plot.topRight.translateX(offset);
     case "top":
-      return plottingRegion.topLeft.translateY(-offset - axis.size);
+      return plot.topLeft.translateY(-offset - axis.size);
     default:
-      return plottingRegion.bottomLeft.translateY(offset);
+      return plot.bottomLeft.translateY(offset);
   }
 };

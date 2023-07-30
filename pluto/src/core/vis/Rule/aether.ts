@@ -28,60 +28,56 @@ const ruleState = z.object({
 
 export interface AetherRuleProps {
   location: Location;
-  scale: Scale;
-  plottingRegion: Box;
-  region: Box;
+  decimalToDataScale: Scale;
+  plot: Box;
+  container: Box;
 }
 
-interface Derived {
+interface InternalState {
   renderCtx: RenderContext;
   draw: Draw2D;
 }
 
-export class AetherRule extends AetherLeaf<typeof ruleState, Derived> {
+export class AetherRule extends AetherLeaf<typeof ruleState, InternalState> {
   static readonly TYPE = "Rule";
   static readonly stateZ = ruleState;
 
   schema = AetherRule.stateZ;
 
-  derive(): Derived {
-    const ctx = RenderContext.use(this.ctx);
-    const theme = ThemeContext.use(this.ctx);
-    return { renderCtx: ctx, draw: new Draw2D(ctx.upper2d, theme) };
-  }
-
   afterUpdate(): void {
+    this.internal.renderCtx = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
+    this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
     RenderController.requestRender(this.ctx);
   }
 
-  afterDelete(): void {}
-
-  updatePositions({ scale, plottingRegion, region }: AetherRuleProps): number {
+  updatePositions({
+    decimalToDataScale: scale,
+    plot,
+    container,
+  }: AetherRuleProps): number {
     if (this.state.dragging) {
       const pos = scale.pos(
-        (this.state.pixelPosition - plottingRegion.top + region.top) /
-          plottingRegion.height
+        (this.state.pixelPosition - plot.top + container.top) / plot.height
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
     }
     const pixelPos =
-      scale.reverse().pos(this.state.position) * plottingRegion.height +
-      plottingRegion.top -
-      region.top;
+      scale.reverse().pos(this.state.position) * plot.height + plot.top - container.top;
     if (!isNaN(pixelPos)) this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
     return pixelPos;
   }
 
   async render(props: AetherRuleProps): Promise<void> {
-    const { renderCtx } = this.derived;
-    const { location, plottingRegion } = props;
+    const { renderCtx } = this.internal;
+    const { location, plot: plottingRegion } = props;
     const direction = location.direction;
     const { upper2d: canvas } = renderCtx;
-    const draw = this.derived.draw;
+    const draw = this.internal.draw;
 
     let pixelPos = this.updatePositions(props);
-    pixelPos += props.region.top;
+    pixelPos += props.container.top;
 
     draw.rule({
       stroke: this.state.color,

@@ -93,7 +93,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(400).valueOf()
+        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(300).valueOf()
       )
         next.push(key);
       const nextState: TriggerRefState = {
