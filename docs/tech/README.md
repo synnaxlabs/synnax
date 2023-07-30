@@ -38,4 +38,14 @@ of hardware generated telemetry to implement a performant database.
 Next, it's important to understand the architecture of the platform. This is covered
 in the [architecture](architecture.md) document.
 
-# 4 - Engineering Foundations
+# 4 - Setting up your Development Environment
+
+It's time to set up your development environment! Here are guides for [macos](setup-macos.md)
+and for [windows](setup-windows.md).
+
+# 5 - Engineering Foundations
+
+While there's a lot to be learned by actively contributing to the project, it's important
+to have solid software engineering foundations in place. The [foundations](foundations.md)
+document walks you through all the essential (and advanced) technologies and concepts
+you need to be familiar with when working on a specific area of the codebase.

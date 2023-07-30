@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Space, Header, Menu } from "@synnaxlabs/pluto";
+import { Space, Header, Menu } from "@synnaxlabs/pluto/std";
 import { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 

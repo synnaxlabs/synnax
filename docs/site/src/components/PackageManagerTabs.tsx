@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Tabs } from "@synnaxlabs/pluto";
+import { Tabs } from "@synnaxlabs/pluto/std";
 
 const TABS = [
   {
