@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Text, Header, Space } from "@synnaxlabs/pluto";
+import { Text, Header, Space } from "@synnaxlabs/pluto/std";
 
 import "./GetStartedChip.css";
 

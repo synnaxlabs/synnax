@@ -97,6 +97,14 @@
       "import": "./dist/worker.js",
       "require": "./dist/worker.cjs"
     },
+    "./std": {
+      "import": "./dist/std.js",
+      "require": "./dist/std.cjs"
+    },
+    "./theming": {
+      "import": "./dist/theming.js",
+      "require": "./dist/theming.cjs"
+    },
     "./dist/*": "./dist/*"
   },
   "readme": "ERROR: No README data found!",
