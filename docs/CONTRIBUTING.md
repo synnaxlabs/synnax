@@ -40,10 +40,7 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 2 - Review The Technical Documentation
+# 3 - Technical
 
-The Synnax [technical documentation](tech/README.md) is the best place to start learning
-about Synnax's architecture and codebase. The directory also includes a guide on
-setting up your development environment and how to learn the technical foundations to work
-on the project.
-
+If you haven't already, please star the project on GitHub! This helps us grow our
+community and attract more contributors.
