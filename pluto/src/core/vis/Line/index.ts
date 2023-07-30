@@ -9,4 +9,4 @@
 
 export { Line } from "@/core/vis/Line/Line";
 export type { LineProps } from "@/core/vis/Line/Line";
-export { LineGLProgramContext } from "@/core/vis/Line/LineGL";
+export { AetherLineContext as LineGLProgramContext } from "@/core/vis/Line/aether";

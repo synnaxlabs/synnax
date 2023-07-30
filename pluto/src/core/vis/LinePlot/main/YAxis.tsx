@@ -30,7 +30,7 @@ import "@/core/vis/LinePlot/main/YAxis.css";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
+    Omit<z.input<typeof AetherLinePlot.YAxis.stateZ>, "position" | "size">,
     Omit<SpaceProps, "color"> {
   label?: string;
   labelLevel?: TypographyLevel;
@@ -91,7 +91,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
       type: AetherLinePlot.YAxis.TYPE,
-      schema: AetherLinePlot.YAxis.z,
+      schema: AetherLinePlot.YAxis.stateZ,
       initialState: memoProps,
     });
 

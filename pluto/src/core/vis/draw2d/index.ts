@@ -15,10 +15,15 @@ import { TypographyLevel } from "@/core/std/Typography/types";
 import { fontString } from "@/core/theming/fontString";
 import { Theme } from "@/core/theming/theme";
 
-export interface Draw2DRuleProps {
+export interface Draw2DLineProps {
   stroke: Color;
   lineWidth: number;
   lineDash: number;
+  start: XY;
+  end: XY;
+}
+
+export interface Draw2DRuleProps extends Omit<Draw2DLineProps, "start" | "end"> {
   direction: Direction;
   region: Box;
   position: number;
@@ -38,6 +43,13 @@ export interface Draw2DContainerProps {
   borderRadius?: number;
   borderWidth?: number;
   backgroundColor?: Color;
+}
+
+export interface DrawTextProps {
+  text: string;
+  position: XY;
+  level: TypographyLevel;
+  direction: Direction;
 }
 
 export interface Draw2DMeasureTextContainerProps {
@@ -62,26 +74,28 @@ export class Draw2D {
     this.theme = theme;
   }
 
-  rule({
-    stroke,
-    lineWidth,
-    lineDash,
-    direction,
-    region,
-    position,
-  }: Draw2DRuleProps): void {
+  rule({ direction, region, position, ...props }: Draw2DRuleProps): void {
+    if (direction.isX)
+      return this.line({
+        start: new XY(region.left, position),
+        end: new XY(region.right, position),
+        ...props,
+      });
+    return this.line({
+      start: new XY(position, region.top),
+      end: new XY(position, region.bottom),
+      ...props,
+    });
+  }
+
+  line({ stroke, lineWidth, lineDash, start, end }: Draw2DLineProps): void {
     const ctx = this.canvas;
     ctx.strokeStyle = stroke.hex;
     ctx.lineWidth = lineWidth;
     ctx.setLineDash([lineDash]);
     ctx.beginPath();
-    if (direction.isX) {
-      ctx.moveTo(region.left, position);
-      ctx.lineTo(region.right, position);
-    } else {
-      ctx.moveTo(position, region.top);
-      ctx.lineTo(position, region.bottom);
-    }
+    ctx.moveTo(...start.couple);
+    ctx.lineTo(...end.couple);
     ctx.stroke();
   }
 

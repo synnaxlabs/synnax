@@ -216,7 +216,7 @@ export interface LineToolbarState {
   activeTab: LineToolbarTab;
 }
 
-export type ClickMode = "annotate" | "slope";
+export type ClickMode = "annotate" | "measure";
 
 export interface LineControlState {
   clickMode: ClickMode | null;

@@ -133,9 +133,9 @@ export class RenderContext {
    * in the canvas.
    */
   scaleRegion(box: Box): XYScale {
-    return {
+    return new XYScale(
       // Accept a value in decimal.
-      x: Scale.scale(0, 1)
+      Scale.scale(0, 1)
         // Turn it to pixels relative to the child width.
         .scale(box.width)
         // Translate the value to the left based on the parent and childs position.
@@ -145,7 +145,7 @@ export class RenderContext {
         // Rescale the value to clip space.
         .scale(-1, 1),
       // Accept a value in decimal.
-      y: Scale.scale(0, 1)
+      Scale.scale(0, 1)
         // Turn it to pixels relative to the child height.
         .scale(box.height)
         // Invert the scale since we read pixels from the top.
@@ -157,8 +157,8 @@ export class RenderContext {
         // Rescale the value to clip space.
         .scale(-1, 1)
         // Invert the scale since we read clip space from the bottom.
-        .invert(),
-    };
+        .invert()
+    );
   }
 
   /**

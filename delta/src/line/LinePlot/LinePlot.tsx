@@ -141,8 +141,10 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
 
-  const { mode, enableTooltip } = useSelectLineControlState();
+  const { mode, enableTooltip, clickMode } = useSelectLineControlState();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+
+  console.log(clickMode);
 
   const initialViewport = useMemo(
     () =>
@@ -170,6 +172,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
       onViewportChange={handleViewportChange}
       viewportTriggers={triggers}
       enableTooltip={enableTooltip}
+      enableMeasure={clickMode === "measure"}
     />
   );
 };

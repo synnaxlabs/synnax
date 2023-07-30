@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, BoxScale, Compare, CrudeDimensions } from "@synnaxlabs/x";
+import { Box, Dimensions, XY, XYScale, Compare, CrudeDimensions } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -196,7 +196,7 @@ export const useViewport = ({
       if (MASK_VIEWPORT_MODES.includes(mode)) {
         if (box.height < 5 && box.width < 5) return;
         return setMaskBox(
-          BoxScale.scale(canvas)
+          XYScale.scale(canvas)
             .clamp(canvas)
             .translate({
               x: -canvas.left,
@@ -254,13 +254,13 @@ export const useViewport = ({
   };
 };
 
-const scale = (prev: Box, canvas: Box): BoxScale =>
-  BoxScale.scale(canvas).clamp(canvas).scale(prev);
+const scale = (prev: Box, canvas: Box): XYScale =>
+  XYScale.scale(canvas).clamp(canvas).scale(prev);
 
 const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
   let dims = scale(prev, canvas).box(box).signedDims;
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return BoxScale.translate(dims).box(prev);
+  return XYScale.translate(dims).box(prev);
 };
 
 const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {

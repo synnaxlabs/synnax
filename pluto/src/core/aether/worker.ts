@@ -186,12 +186,14 @@ export class AetherContext {
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  */
-export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComponent {
+export class AetherLeaf<S extends z.ZodTypeAny, IS extends {} = {}>
+  implements AetherComponent
+{
   readonly type: string;
   readonly key: string;
 
   _ctx: AetherContext;
-  private _derivedState: DS | undefined;
+  private readonly _internalState: IS;
   private _state: z.output<S> | undefined;
   private _prevState: z.output<S> | undefined;
   private _deleted: boolean = false;
@@ -202,6 +204,7 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     this.type = u.type;
     this.key = u.path[0];
     this._ctx = u.ctx;
+    this._internalState = {} as unknown as IS;
   }
 
   private get _schema(): S {
@@ -239,8 +242,8 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     return this._state;
   }
 
-  get derived(): DS {
-    return this._derivedState as DS;
+  get internal(): IS {
+    return this._internalState;
   }
 
   /** @returns the previous state of the component. */
@@ -264,7 +267,6 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
       this._prevState = this._state ?? state_;
       this._state = state_;
     }
-    this._derivedState = this.derive();
     this.afterUpdate();
   }
 
@@ -276,17 +278,6 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
     this.validatePath(path);
     this._deleted = true;
     this.afterDelete();
-  }
-
-  /**
-   * Derive is optionally defined by a subclass, allowing the component to compute
-   * a derived state based on its current state as the component updates. Both the
-   * current state, previous state, and context are available to the component.
-   *
-   * @returns The derived state, if any.
-   */
-  derive(): DS {
-    return undefined as DS;
   }
 
   /**
@@ -329,10 +320,10 @@ export class AetherLeaf<S extends z.ZodTypeAny, DS = void> implements AetherComp
  */
 export class AetherComposite<
     S extends z.ZodTypeAny,
-    DS = void,
+    IS extends {} = {},
     C extends AetherComponent = AetherComponent
   >
-  extends AetherLeaf<S, DS>
+  extends AetherLeaf<S, IS>
   implements AetherComponent
 {
   _children: C[];
@@ -446,11 +437,13 @@ export class AetherComposite<
   /**
    * Finds all children of the component with the given type
    *
-   * @param type - the type of the children to find
+   * @param types - the type of the children to find
    * @returns an array of all children of the component with the given type
    */
-  childrenOfType<T extends C = C>(type: T["type"]): readonly T[] {
-    return this.children.filter((c) => c.type === type) as unknown as readonly T[];
+  childrenOfType<T extends C = C>(...types: Array<T["type"]>): readonly T[] {
+    return this.children.filter((c) =>
+      types.includes(c.type)
+    ) as unknown as readonly T[];
   }
 }
 
