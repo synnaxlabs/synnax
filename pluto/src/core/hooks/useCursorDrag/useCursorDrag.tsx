@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { DragEvent, useCallback } from "react";
 
 import { Box, ClientXYT, XY } from "@synnaxlabs/x";
 
@@ -19,9 +19,7 @@ export interface UseCursorDragProps {
   onEnd?: (box: Box, mouseKey: TriggerKey) => void;
 }
 
-export type UseCursorDragStart = (
-  e: ClientXYT & { button: number; preventDefault: () => void }
-) => void;
+export type UseCursorDragStart = (e: DragEvent) => void;
 
 export const useCursorDrag = ({
   onMove,

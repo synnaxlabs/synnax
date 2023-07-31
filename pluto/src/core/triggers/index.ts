@@ -18,6 +18,7 @@ import {
   eventTriggerKey as eventKey,
   diff,
   determineTriggerMode,
+  reduceTriggerConfig,
 } from "@/core/triggers/triggers";
 import { TriggersProvider } from "@/core/triggers/TriggersContext";
 import { TriggerStatus } from "@/core/triggers/TriggerStatus";
@@ -51,4 +52,5 @@ export const Triggers = {
   keyboardKey,
   eventKey,
   determineMode: determineTriggerMode,
+  reduceConfig: reduceTriggerConfig,
 };

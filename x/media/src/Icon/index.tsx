@@ -69,7 +69,7 @@ import {
 } from "react-icons/md";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import { TbZoomFilled } from "react-icons/tb";
+import { TbZoomFilled, TbZoomReset } from "react-icons/tb";
 
 const IconOS: Record<OS, React.ComponentType> = {
   Linux: FaLinux,
@@ -151,6 +151,7 @@ export const Icon: IconType = {
   Zoom: TbZoomFilled,
   Pan: GrPan,
   Rule: MdSquareFoot,
+  ZoomReset: TbZoomReset,
 };
 
 export interface IconType {
@@ -226,4 +227,5 @@ export interface IconType {
   Tooltip: React.ComponentType;
   Annotate: React.ComponentType;
   Rule: React.ComponentType;
+  ZoomReset: React.ComponentType;
 }

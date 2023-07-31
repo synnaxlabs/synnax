@@ -63,7 +63,6 @@ export const themeZ = z.object({
     h5: typographySpec,
     p: typographySpec,
     small: typographySpec,
-    tiny: typographySpec,
   }),
 });
 
@@ -170,12 +169,7 @@ const synnaxBase: ThemeSpec = {
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2 + 1 / 3,
-    },
-    tiny: {
-      size: 1.75,
-      weight: 300,
-      lineHeight: 2,
+      lineHeight: 2.5,
     },
   },
 };

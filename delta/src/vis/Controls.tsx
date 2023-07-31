@@ -10,15 +10,30 @@
 import { ReactElement, ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Divider, Select, Space, Text, ViewportMode } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Divider,
+  Select,
+  Space,
+  Text,
+  Typography,
+  ViewportMode,
+} from "@synnaxlabs/pluto";
+import { XYLocation } from "@synnaxlabs/x";
 import { PiSelectionPlusBold } from "react-icons/pi";
 import { useDispatch } from "react-redux";
 
+import { useSelectActiveMosaicTabKey } from "@/layout";
 import { useSelectLineControlState } from "@/line/store/selectors";
-import { ClickMode, setLineControlState } from "@/line/store/slice";
+import {
+  ClickMode,
+  setLineControlState,
+  setLinePlotViewport,
+} from "@/line/store/slice";
 
 export const Controls = (): ReactElement => {
   const control = useSelectLineControlState();
+  const vis = useSelectActiveMosaicTabKey();
   const d = useDispatch();
 
   const handleModeChange = (mode: ViewportMode): void => {
@@ -31,6 +46,10 @@ export const Controls = (): ReactElement => {
 
   const handleTooltipChange = (tooltip: boolean): void => {
     d(setLineControlState({ state: { enableTooltip: tooltip } }));
+  };
+
+  const handleZoomReset = (): void => {
+    if (vis != null) d(setLinePlotViewport({ layoutKey: vis }));
   };
 
   return (
@@ -85,7 +104,6 @@ export const Controls = (): ReactElement => {
             {...props}
             key={entry.key}
             variant={props.selected ? "filled" : "text"}
-            style={{}}
             size="medium"
             tooltip={entry.tooltip}
             tooltipLocation={{ x: "right", y: "top" }}
@@ -94,6 +112,24 @@ export const Controls = (): ReactElement => {
           </Button.Icon>
         )}
       </Select.Button>
+      <Button.Icon
+        onClick={handleZoomReset}
+        variant="text"
+        tooltipLocation={{ x: "right", y: "top" }}
+        tooltip={
+          <Space direction="x" align="center">
+            <Text level="small">Reset Zoom</Text>
+            <Text.Keyboard level="small">
+              <Typography.Symbols.Meta />
+            </Text.Keyboard>
+            <Text.Keyboard level="small">Click</Text.Keyboard>
+          </Space>
+        }
+        size="medium"
+      >
+        <Icon.ZoomReset />
+      </Button.Icon>
+
       <Divider />
       <Button.ToggleIcon
         value={control.enableTooltip}
@@ -103,9 +139,7 @@ export const Controls = (): ReactElement => {
         sharp
         tooltip={
           <Space direction="x" align="center">
-            <Text level="small">Tooltip</Text>
-            <Text.Keyboard level="small">Alt</Text.Keyboard>
-            <Text.Keyboard level="small">Click</Text.Keyboard>
+            <Text level="small">Show Tooltip on Hover</Text>
           </Space>
         }
       >
