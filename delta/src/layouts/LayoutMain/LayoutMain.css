@@ -7,14 +7,49 @@
  * As of the Change Date specified in that file, in accordance with the Business Source
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
+    position: relative;
  */
 
 .delta-main-fixed--y {
-    height: calc(100vh - 4.5rem - 6rem - var(--os-border-offset, 0px));
+    height: 100%;
+}
+
+html {
+    background: none !important;
+}
+
+.delta-background {
+    position: fixed;
+    height: calc(100vh) !important;
+    width: calc(100vw) !important;
+    background: var(--pluto-background-color);
+    z-index: -10;
+}
+
+.delta-main--maximized {
+    .delta-border,
+    .delta-background {
+        border-radius: 0px;
+    }
+}
+
+.delta-border,
+.delta-background {
+    border-radius: 8px;
+}
+
+.delta-border {
+    position: fixed;
+    height: calc(100vh) !important;
+    width: calc(100vw) !important;
+    z-index: 1000;
+    pointer-events: none;
+    border: var(--pluto-border);
+    border-style: outset;
 }
 
 .delta-main-fixed--x {
-    width: calc(100vw - 8rem - 8rem - var(--os-border-offset, 0px));
+    width: 100%;
 }
 
 .delta-main--driving {

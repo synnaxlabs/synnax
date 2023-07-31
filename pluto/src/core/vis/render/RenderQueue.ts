@@ -20,7 +20,6 @@ export type RenderPriority = "high" | "low";
 export class RenderQueue {
   queue: Record<string, RenderRequest>;
   cleanup: Record<string, RenderCleanup>;
-  counter = 0;
 
   constructor() {
     this.queue = {};
@@ -50,8 +49,6 @@ export class RenderQueue {
   }
 
   async render(): Promise<void> {
-    console.log(navigator.userAgent);
-    this.counter += 1;
     const queue = this.queue;
     const cleanup = this.cleanup;
     this.queue = {};

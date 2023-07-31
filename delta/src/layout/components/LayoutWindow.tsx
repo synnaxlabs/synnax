@@ -9,7 +9,11 @@
 
 import { ReactElement, useEffect } from "react";
 
-import { setWindowDecorations, useSelectWindowKey } from "@synnaxlabs/drift";
+import {
+  setWindowDecorations,
+  useSelectWindowAttribute,
+  useSelectWindowKey,
+} from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, Space, useOS, CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
@@ -52,30 +56,29 @@ export const LayoutWindow = (): ReactElement | null => {
   const dispatch = useDispatch();
   useEffect(() => {
     if (os === "Windows") {
-      applyWindowsBorders();
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
   const menuProps = PMenu.useContextMenu();
+  const maximized = useSelectWindowAttribute(label, "maximized") ?? false;
+  console.log(maximized);
   if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Space
         empty
-        className={CSS(CSS.B("main"), CSS.BM("main", os?.toLowerCase() as string))}
+        className={CSS(
+          CSS.B("main"),
+          CSS.BM("main", os?.toLowerCase() as string),
+          maximized && CSS.BM("main", "maximized")
+        )}
       >
         {layout?.window?.navTop === true && <NavTop />}
         {content}
+        <div className="delta-background" />
+        <div className="delta-border" />
       </Space>
     </PMenu.ContextMenu>
   );
-};
-
-const applyWindowsBorders = (): void => {
-  window.document.documentElement.style.boxSizing = "border-box";
-  window.document.documentElement.style.border = "var(--pluto-border)";
-  PCSS.applyVars(window.document.documentElement, {
-    "--os-border-offset": "2px",
-  });
 };
