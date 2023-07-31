@@ -13,7 +13,7 @@ import { z } from "zod";
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { FindResult } from "@/core/vis/Line/aether";
-import { gridPositionMeta } from "@/core/vis/LinePlot/aether/grid";
+import { calculatePlotBox, gridPositionMeta } from "@/core/vis/LinePlot/aether/grid";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { AetherMeasure } from "@/core/vis/Measure/aether";
 import {
@@ -25,7 +25,6 @@ import {
 import { AetherTooltip } from "@/core/vis/Tooltip/aether";
 
 const linePlotState = z.object({
-  plot: Box.z,
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
@@ -46,8 +45,8 @@ export class AetherLinePlot extends AetherComposite<
 > {
   static readonly TYPE: string = CSS.B("LinePlot");
 
-  static readonly z = linePlotState;
-  schema = AetherLinePlot.z;
+  static readonly stateZ = linePlotState;
+  schema = AetherLinePlot.stateZ;
 
   afterUpdate(): void {
     this.internal.render = RenderContext.use(this.ctx);
@@ -66,16 +65,14 @@ export class AetherLinePlot extends AetherComposite<
   }
 
   async findByXDecimal(x: number): Promise<FindResult[]> {
-    const p = this.axes.flatMap(
-      async (xAxis) => await xAxis.findByXDecimal(this.state, x)
-    );
+    const props = { ...this.state, plot: this.calculatePlot() };
+    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
     return (await Promise.all(p)).flat();
   }
 
   async findByXValue(x: number): Promise<FindResult[]> {
-    const p = this.axes.flatMap(
-      async (xAxis) => await xAxis.findByXValue(this.state, x)
-    );
+    const props = { ...this.state, plot: this.calculatePlot() };
+    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXValue(props, x));
     return (await Promise.all(p)).flat();
   }
 
@@ -91,40 +88,46 @@ export class AetherLinePlot extends AetherComposite<
     return this.childrenOfType<AetherMeasure>(AetherMeasure.TYPE);
   }
 
-  private async renderAxes(): Promise<void> {
-    await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(this.state)));
+  private async renderAxes(plot: Box): Promise<void> {
+    const p = { ...this.state, plot };
+    await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
-  private async renderTooltips(): Promise<void> {
+  private async renderTooltips(plot: Box): Promise<void> {
     const tooltipProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
-      region: this.state.plot,
+      region: plot,
     };
     await Promise.all(
       this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps))
     );
   }
 
-  private async renderMeasures(): Promise<void> {
+  private async renderMeasures(region: Box): Promise<void> {
     const measureProps = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
-      region: this.state.plot,
+      region,
     };
     await Promise.all(
       this.measures.map(async (measure) => await measure.render(measureProps))
     );
   }
 
+  private calculatePlot(): Box {
+    return calculatePlotBox(this.state.grid, this.state.container);
+  }
+
   private async render(): Promise<RenderCleanup> {
     if (this.deleted) return async () => {};
+    const plot = this.calculatePlot();
     const { render: ctx } = this.internal;
-    const removeGlScissor = ctx.scissorGL(this.state.plot);
+    const removeGlScissor = ctx.scissorGL(plot);
     const removeCanvasScissor = ctx.scissorCanvas(this.state.container);
     try {
-      await this.renderAxes();
-      await this.renderTooltips();
-      await this.renderMeasures();
+      await this.renderAxes(plot);
+      await this.renderTooltips(plot);
+      await this.renderMeasures(plot);
       this.clearError();
     } catch (e) {
       this.setError(e as Error);

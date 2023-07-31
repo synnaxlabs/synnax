@@ -66,7 +66,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot style={{ padding: "1rem" }}>
+      <LinePlot>
         <LinePlot.XAxis
           type="linear"
           label={xLabel}
@@ -95,7 +95,7 @@ const Example = (): ReactElement => {
               label="Line 3"
               downsample={10}
             />
-            {/* <LinePlot.Rule position={0} color="#000000" /> */}
+            <LinePlot.Viewport />
           </LinePlot.YAxis>
         </LinePlot.XAxis>
         <LinePlot.Legend />

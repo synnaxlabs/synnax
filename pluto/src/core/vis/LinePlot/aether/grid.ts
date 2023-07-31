@@ -71,22 +71,43 @@ export const filterGridPositions = (
 export const calculateGridPosition = (
   key: string,
   grid: GridPositionMeta[],
-  plot: Box
+  container: Box
 ): XY => {
   const axis = grid.find(({ key: k }) => k === key);
   if (axis == null) return XY.ZERO;
   const loc = new Location(axis.loc);
   const axes = filterGridPositions(loc.crude as CrudeOuterLocation, grid);
+  const otherAxes = filterGridPositions(
+    loc.direction.inverse.location.crude as CrudeOuterLocation,
+    grid
+  );
   const index = axes.findIndex(({ key: k }) => k === key);
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
+  const otherOffset = otherAxes.reduce((acc, { size }) => acc + size, 0);
   switch (loc.crude) {
     case "left":
-      return plot.topLeft.translateX(-offset - axis.size);
+      return container.topLeft.translate(offset, otherOffset);
     case "right":
-      return plot.topRight.translateX(offset);
+      return container.topRight.translate(offset - axis.size, otherOffset);
     case "top":
-      return plot.topLeft.translateY(-offset - axis.size);
+      return container.topLeft.translate(offset, otherOffset);
     default:
-      return plot.bottomLeft.translateY(offset);
+      return container.bottomLeft.translate(otherOffset, offset - axis.size);
   }
+};
+
+export const calculatePlotBox = (grid: GridPositionMeta[], container: Box): Box => {
+  const left = filterGridPositions("left", grid);
+  const right = filterGridPositions("right", grid);
+  const top = filterGridPositions("top", grid);
+  const bottom = filterGridPositions("bottom", grid);
+  const leftWidth = left.reduce((acc, { size }) => acc + size, 0);
+  const rightWidth = right.reduce((acc, { size }) => acc + size, 0);
+  const topWidth = top.reduce((acc, { size }) => acc + size, 0);
+  const bottomWidth = bottom.reduce((acc, { size }) => acc + size, 0);
+  return new Box(
+    container.topLeft.translate(leftWidth, topWidth),
+    container.width - leftWidth - rightWidth,
+    container.height - topWidth - bottomWidth
+  );
 };

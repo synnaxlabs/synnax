@@ -31,6 +31,8 @@ export const tooltipState = z.object({
 interface InternalState {
   render: RenderContext;
   draw: Draw2D;
+  dotColor: Color;
+  dotColorContrast: Color;
 }
 
 export interface TooltipProps {
@@ -49,7 +51,9 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, InternalState
     if (this.state.backgroundColor.isZero)
       this.state.backgroundColor = theme.colors.gray.m2;
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
-    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.m1;
+    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.m0;
+    this.internal.dotColor = theme.colors.text;
+    this.internal.dotColorContrast = theme.colors.textContrast;
 
     this.internal.render = RenderContext.use(this.ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
@@ -88,7 +92,14 @@ export class AetherTooltip extends AetherLeaf<typeof tooltipState, InternalState
       const position = scale.pos(r.position);
       draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
       draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
-      draw.circle({ fill: this.state.textColor, radius: 2, position });
+      draw.circle({
+        fill: r.color.pickByContrast(
+          this.internal.dotColor,
+          this.internal.dotColorContrast
+        ),
+        radius: 2,
+        position,
+      });
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);

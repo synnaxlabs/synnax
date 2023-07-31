@@ -9,10 +9,10 @@
 
 import { ReactElement } from "react";
 
-import { Bounds, Direction, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { Bounds, Box, Direction, Location, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { TypographyLevel } from "@/core";
+import { TypographyLevel, UseViewportProps } from "@/core";
 import { Color } from "@/core/color";
 import {
   LinePlot as CoreLinePlot,
@@ -107,6 +107,9 @@ export interface LinePlotProps extends CoreLinePlotProps {
   onRulePositionChange?: (id: string, value: number) => void;
   enableTooltip?: boolean;
   enableMeasure?: boolean;
+  initialViewport?: UseViewportProps["initial"];
+  onViewportChange?: UseViewportProps["onChange"];
+  viewportTriggers?: UseViewportProps["triggers"];
 }
 
 export const LinePlot = ({
@@ -124,6 +127,9 @@ export const LinePlot = ({
   rules: pRules,
   enableTooltip = true,
   enableMeasure = false,
+  initialViewport = Box.DECIMAL,
+  onViewportChange,
+  viewportTriggers,
   ...restProps
 }: LinePlotProps): ReactElement => {
   const { axes, lines, rules } = linePlotProps.parse({
@@ -162,8 +168,14 @@ export const LinePlot = ({
       {showTitle && (
         <CoreLinePlot.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
-      {enableTooltip && <Tooltip />}
-      {enableMeasure && <Measure />}
+      <CoreLinePlot.Viewport
+        initial={initialViewport}
+        onChange={onViewportChange}
+        triggers={viewportTriggers}
+      >
+        {enableTooltip && <Tooltip />}
+        {enableMeasure && <Measure />}
+      </CoreLinePlot.Viewport>
     </CoreLinePlot>
   );
 };

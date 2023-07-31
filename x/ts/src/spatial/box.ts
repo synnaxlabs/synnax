@@ -312,7 +312,7 @@ export class Box implements Stringer {
     return new Bounds(this.one.y, this.two.y);
   }
 
-  copy(root?: CrudeCornerXYLocation): Box {
+  copy(root?: CrudeCornerXYLocation | XYLocation): Box {
     return new Box(this.one, this.two, 0, 0, root ?? this.root);
   }
 
@@ -320,7 +320,7 @@ export class Box implements Stringer {
     return `Top Left: ${this.topLeft.x}, ${this.topLeft.y} Bottom Right: ${this.bottomRight.x}, ${this.bottomRight.y}`;
   }
 
-  reRoot(corner: CrudeCornerXYLocation): Box {
+  reRoot(corner: CrudeCornerXYLocation | XYLocation): Box {
     return this.copy(corner);
   }
 

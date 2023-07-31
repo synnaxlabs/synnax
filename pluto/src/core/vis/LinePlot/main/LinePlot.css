@@ -10,6 +10,7 @@
  */
 
 .pluto-line-plot {
+    padding: 0 !important;
     position: relative;
     width: 100%;
     height: 100%;

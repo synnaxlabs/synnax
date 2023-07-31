@@ -177,7 +177,8 @@ export const filter = (
   loose = false
 ): Trigger[] => {
   const f = compareF(loose);
-  return options.filter((o) => triggers.some((t) => f(o, t) === 0));
+  const res = options.filter((o) => triggers.some((t) => f(o, t) === 0));
+  return res;
 };
 
 export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
