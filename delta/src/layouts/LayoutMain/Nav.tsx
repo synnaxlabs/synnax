@@ -60,8 +60,8 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
 ];
 
 const DEFAULT_TRIGGER: PaletteTriggerConfig = {
-  resource: [["Meta", "P"]],
-  command: [["Meta", "Shift", "P"]],
+  resource: [["Control", "P"]],
+  command: [["Control", "Shift", "P"]],
 };
 
 const COMMANDS = [

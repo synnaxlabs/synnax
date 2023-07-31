@@ -26,6 +26,7 @@ import {
   eventTriggerKey,
   Trigger,
   TriggerCallback,
+  match,
 } from "@/core/triggers/triggers";
 
 type TriggerListen = (callback: TriggerCallback) => Destructor;
@@ -56,9 +57,14 @@ const ZERO_TRIGGER_STATE: TriggerRefState = {
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
 
-export interface TriggersProviderProps extends PropsWithChildren {}
+export interface TriggersProviderProps extends PropsWithChildren {
+  preventDefaultOn?: Trigger[];
+}
 
-export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElement => {
+export const TriggersProvider = ({
+  children,
+  preventDefaultOn,
+}: TriggersProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<XY>(XY.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
@@ -101,6 +107,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
         prev: prev.next,
         last: new TimeStamp(),
       };
+      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
       updateListeners(nextState, e.target as HTMLElement);
       return nextState;
     });
@@ -108,6 +115,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = eventTriggerKey(e);
+    if (key === "P") e.preventDefault();
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prevS) => {
@@ -120,6 +128,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
         next,
         prev,
       };
+      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
       updateListeners(nextS, e.target as HTMLElement);
       return nextS;
     });
@@ -173,3 +182,6 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
     <TriggerContext.Provider value={{ listen }}>{children}</TriggerContext.Provider>
   );
 };
+
+const shouldPreventDefault = (t: Trigger, preventDefaultOn?: Trigger[]): boolean =>
+  preventDefaultOn != null && match([t], preventDefaultOn);

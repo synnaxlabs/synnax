@@ -17,6 +17,7 @@ import {
   mouseButtonTriggerKey as mouseKey,
   eventTriggerKey as eventKey,
   diff,
+  determineTriggerMode,
 } from "@/core/triggers/triggers";
 import { TriggersProvider } from "@/core/triggers/TriggersContext";
 import { TriggerStatus } from "@/core/triggers/TriggerStatus";
@@ -49,4 +50,5 @@ export const Triggers = {
   mouseKey,
   keyboardKey,
   eventKey,
+  determineMode: determineTriggerMode,
 };
