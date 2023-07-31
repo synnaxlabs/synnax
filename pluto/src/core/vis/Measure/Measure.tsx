@@ -11,18 +11,26 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { XY } from "@synnaxlabs/x";
 
-import { useLinePlotViewport } from "../LinePlot/main/LinePlot";
-import { UseViewportHandler } from "../viewport";
-
-import { AetherMeasure } from "./aether";
-
 import { Aether } from "@/core/aether/main";
-import { Trigger, Triggers } from "@/core/triggers";
+import { Triggers } from "@/core/triggers";
+import { TriggerConfig } from "@/core/triggers/triggers";
+import { useLinePlotViewport } from "@/core/vis/LinePlot/main/LinePlot";
+import { AetherMeasure } from "@/core/vis/Measure/aether";
+import { UseViewportHandler } from "@/core/vis/viewport";
+
+type MeasureClickMode = "one" | "two" | "clear" | "empty";
+
+const MEASURE_TRIGGERS: TriggerConfig<MeasureClickMode> = {
+  defaultMode: "empty",
+  one: [["1"]],
+  two: [["2"]],
+  clear: [["Shift"]],
+  empty: [[]],
+};
+
+const REDUCED_MEASURE_TRIGGERS = Triggers.reduceConfig(MEASURE_TRIGGERS);
 
 export interface MeasureProps {}
-
-const ONE_TRIGGER: Trigger = ["1"];
-const TWO_TRIGGER: Trigger = ["2"];
 
 export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   const [, , setState] = Aether.use({
@@ -39,17 +47,22 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   const ref = useRef<HTMLSpanElement>(null);
 
   const triggers = Triggers.useHeldRef({
-    triggers: [ONE_TRIGGER, TWO_TRIGGER],
+    triggers: REDUCED_MEASURE_TRIGGERS,
     loose: true,
   });
 
   const handleClick: UseViewportHandler = useCallback(
     ({ mode, cursor }): void => {
       if (mode === "click") {
-        if (Triggers.match([ONE_TRIGGER], triggers.current.triggers, true))
-          setState((p) => ({ ...p, one: cursor }));
-        else if (Triggers.match([TWO_TRIGGER], triggers.current.triggers, true))
-          setState((p) => ({ ...p, two: cursor }));
+        const measureMode = Triggers.determineMode<MeasureClickMode>(
+          MEASURE_TRIGGERS,
+          triggers.current.triggers,
+          true
+        );
+        if (["one", "two"].includes(measureMode))
+          return setState((p) => ({ ...p, [measureMode]: cursor }));
+        else if (measureMode === "clear")
+          setState((p) => ({ ...p, one: null, two: null }));
         else
           setState((p) => ({
             ...p,

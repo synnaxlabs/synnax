@@ -3,6 +3,7 @@ import { PropsWithChildren, ReactElement, useCallback, useEffect } from "react";
 import { Box, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
+import { useEffectCompare } from "@/core/hooks/useEffectCompare";
 import { useLinePlotContext } from "@/core/vis/LinePlot/main/LinePlot";
 import {
   UseViewportProps,
@@ -10,7 +11,7 @@ import {
   UseViewportEvent,
 } from "@/core/vis/viewport";
 
-export interface ViewportProps extends PropsWithChildren<{}>, UseViewportProps { }
+export interface ViewportProps extends PropsWithChildren<{}>, UseViewportProps {}
 
 export const Viewport = ({
   children,
@@ -20,7 +21,9 @@ export const Viewport = ({
 }: ViewportProps): ReactElement => {
   const { setViewport } = useLinePlotContext("Viewport");
 
-  useEffect(() => setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" }), [setViewport]);
+  useEffect(() => {
+    setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" });
+  }, [setViewport, initial]);
 
   const updateViewport = useCallback(
     (e: UseViewportEvent): void => {

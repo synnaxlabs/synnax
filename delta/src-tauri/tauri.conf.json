@@ -71,7 +71,7 @@
         "minHeight": 375,
         "visible": true,
         "acceptFirstMouse": false,
-        "transparent": true
+        "transparent": false
       }
     ]
   }

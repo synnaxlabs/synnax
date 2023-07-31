@@ -157,7 +157,7 @@ export const Legend = memo(
               value={color}
               onChange={(c) => onColorChange?.(key, c)}
               onVisibleChange={setPickerVisible}
-              size="tiny"
+              size="small"
             />
             <Text.MaybeEditable
               level="small"

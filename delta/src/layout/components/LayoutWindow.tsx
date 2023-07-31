@@ -61,7 +61,6 @@ export const LayoutWindow = (): ReactElement | null => {
   }, [os]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(label, "maximized") ?? false;
-  console.log(maximized);
   if (layout == null) return null;
   const content = <LayoutContent layoutKey={layout.key} />;
   return (

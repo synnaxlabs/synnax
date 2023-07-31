@@ -19,6 +19,7 @@ import {
   RuleProps,
   Viewport,
   UseViewportHandler,
+  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { Box, TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -33,8 +34,8 @@ import {
   LinePlotState,
   setLinePlotLine,
   setLinePlotRule,
-  setLinePlotViewport,
   shouldDisplayAxis,
+  storeLinePlotViewport,
   typedLineKeyToString,
 } from "@/line/store/slice";
 import {
@@ -123,17 +124,18 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const handleViewportChange: UseViewportHandler = useCallback(
+  const handleViewportChange: UseViewportHandler = useDebouncedCallback(
     ({ box, stage }) => {
       if (stage !== "end") return;
       dispatch(
-        setLinePlotViewport({
+        storeLinePlotViewport({
           layoutKey,
           pan: box.bottomLeft.crude,
           zoom: box.dims.crude,
         })
       );
     },
+    100,
     [dispatch, layoutKey]
   );
 
@@ -147,7 +149,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const initialViewport = useMemo(
     () =>
       new Box(vis.viewport.pan, vis.viewport.zoom).reRoot({ x: "left", y: "bottom" }),
-    []
+    [vis.viewport.counter]
   );
 
   return (
