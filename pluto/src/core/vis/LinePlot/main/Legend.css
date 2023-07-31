@@ -12,15 +12,12 @@
 .pluto-legend {
     position: absolute;
     cursor: grabbing;
-    top: 15px;
-    left: 15px;
     padding: 1rem;
     background-color: var(--pluto-background-color);
     max-height: 50%;
     overflow-y: auto;
     overflow-x: hidden;
     width: fit-content;
-
     .pluto-color-swatch {
         width: 3rem;
         height: 2rem;

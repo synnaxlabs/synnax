@@ -11,11 +11,18 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { XY } from "@synnaxlabs/x";
 
+import { useLinePlotViewport } from "../LinePlot/main/LinePlot";
+import { UseViewportHandler } from "../viewport";
+
 import { AetherMeasure } from "./aether";
 
 import { Aether } from "@/core/aether/main";
+import { Trigger, Triggers } from "@/core/triggers";
 
 export interface MeasureProps {}
+
+const ONE_TRIGGER: Trigger = ["1"];
+const TWO_TRIGGER: Trigger = ["2"];
 
 export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   const [, , setState] = Aether.use({
@@ -31,16 +38,30 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
 
   const ref = useRef<HTMLSpanElement>(null);
 
-  const handleClick = useCallback(
-    (e: MouseEvent): void => {
-      setState((p) => ({
-        ...p,
-        one: p.one === null ? new XY(e) : p.one,
-        two: p.one !== null ? new XY(e) : p.two,
-      }));
+  const triggers = Triggers.useHeldRef({
+    triggers: [ONE_TRIGGER, TWO_TRIGGER],
+    loose: true,
+  });
+
+  const handleClick: UseViewportHandler = useCallback(
+    ({ mode, cursor }): void => {
+      if (mode === "click") {
+        if (Triggers.match([ONE_TRIGGER], triggers.current.triggers, true))
+          setState((p) => ({ ...p, one: cursor }));
+        else if (Triggers.match([TWO_TRIGGER], triggers.current.triggers, true))
+          setState((p) => ({ ...p, two: cursor }));
+        else
+          setState((p) => ({
+            ...p,
+            one: p.one === null ? cursor : p.one,
+            two: p.one !== null ? cursor : p.two,
+          }));
+      }
     },
-    [setState]
+    [setState, triggers]
   );
+
+  useLinePlotViewport(handleClick);
 
   const handleMove = useCallback(
     (e: MouseEvent): void => {
@@ -60,17 +81,14 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   }, [setState]);
 
   useEffect(() => {
-    console.log("SOG");
     if (ref.current === null) return;
     // Select the parent node of the tooltip
     const parent = ref.current.parentElement;
     if (parent == null) return;
     // Bind a hover listener to the parent node
-    parent.addEventListener("click", handleClick);
     parent.addEventListener("mousemove", handleMove);
     parent.addEventListener("mouseleave", handleLeave);
     return () => {
-      parent.removeEventListener("click", handleClick);
       parent.removeEventListener("mousemove", handleMove);
     };
   }, [handleClick]);

@@ -19,7 +19,7 @@ import { axisState } from "@/core/vis/Axis/core";
 import { AetherLine, LineProps, FindResult } from "@/core/vis/Line/aether";
 import {
   GridPositionMeta,
-  calculateGridPosition as gridPosition,
+  calculateGridPosition,
   autoBounds,
   withinSizeThreshold,
 } from "@/core/vis/LinePlot/aether/grid";
@@ -92,9 +92,12 @@ export class AetherYAxis extends AetherComposite<
     await this.renderRules(props, decimalToDataScale);
   }
 
-  private renderAxis({ grid, plot }: YAxisProps, decimalToDataScale: Scale): void {
+  private renderAxis(
+    { grid, plot, container }: YAxisProps,
+    decimalToDataScale: Scale
+  ): void {
     const { core } = this.internal;
-    const position = gridPosition(this.key, grid, plot);
+    const position = calculateGridPosition(this.key, grid, container);
     const { size: currentSize } = this.state;
     const props = { plot, position, decimalToDataScale };
     const { size: nextSize } = core.render(props);

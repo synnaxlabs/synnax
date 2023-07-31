@@ -144,8 +144,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const { mode, enableTooltip, clickMode } = useSelectLineControlState();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  console.log(clickMode);
-
   const initialViewport = useMemo(
     () =>
       new Box(vis.viewport.pan, vis.viewport.zoom).reRoot({ x: "left", y: "bottom" }),
@@ -153,27 +151,28 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 
   return (
-    <PLinePlot
-      title={name}
-      style={{ padding: "2rem" }}
-      axes={axes}
-      lines={propsLines}
-      rules={rules}
-      clearOverscan={{ x: 5, y: 10 }}
-      onTitleChange={handleTitleRename}
-      titleLevel={vis.title.level}
-      showTitle={vis.title.visible}
-      showLegend={vis.legend.visible}
-      onLineColorChange={handleLineColorChange}
-      onLineLabelChange={handleLineLabelChange}
-      onRulePositionChange={handleRulePositionChange}
-      onRuleLabelChange={handleRuleLabelChange}
-      initialViewport={initialViewport}
-      onViewportChange={handleViewportChange}
-      viewportTriggers={triggers}
-      enableTooltip={enableTooltip}
-      enableMeasure={clickMode === "measure"}
-    />
+    <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
+      <PLinePlot
+        title={name}
+        axes={axes}
+        lines={propsLines}
+        rules={rules}
+        clearOverscan={{ x: 5, y: 10 }}
+        onTitleChange={handleTitleRename}
+        titleLevel={vis.title.level}
+        showTitle={vis.title.visible}
+        showLegend={vis.legend.visible}
+        onLineColorChange={handleLineColorChange}
+        onLineLabelChange={handleLineLabelChange}
+        onRulePositionChange={handleRulePositionChange}
+        onRuleLabelChange={handleRuleLabelChange}
+        initialViewport={initialViewport}
+        onViewportChange={handleViewportChange}
+        viewportTriggers={triggers}
+        enableTooltip={enableTooltip}
+        enableMeasure={clickMode === "measure"}
+      />
+    </div>
   );
 };
 

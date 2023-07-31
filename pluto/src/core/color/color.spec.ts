@@ -100,4 +100,37 @@ describe("Color", () => {
       });
     });
   });
+  describe("luminance", () => {
+    const tests: Array<[string, number]> = [
+      ["#000000", 0],
+      ["#ffffff", 1],
+    ];
+    tests.forEach(([hex, expected]) => {
+      test(hex, () => {
+        const color = new Color(hex);
+        expect(color.luminance).toBeCloseTo(expected);
+      });
+    });
+  });
+  describe("contrast", () => {
+    const tests: Array<[string, string, number]> = [
+      ["#000000", "#ffffff", 3],
+      ["#ffffff", "#000000", 3],
+      ["#000000", "#000000", 1],
+      ["#ffffff", "#ffffff", 1],
+    ];
+    tests.forEach(([hex1, hex2, expected]) => {
+      test(`${hex1} ${hex2}`, () => {
+        const color1 = new Color(hex1);
+        const color2 = new Color(hex2);
+        expect(color1.contrast(color2)).toBeCloseTo(expected);
+      });
+    });
+    test("pick color with highest contrast", () => {
+      const color = new Color("#000000");
+      const color1 = new Color("#ffffff");
+      const color2 = new Color("#0000ff");
+      expect(color.pickByContrast(color1, color2)).toEqual(color1);
+    });
+  });
 });

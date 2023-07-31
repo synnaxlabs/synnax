@@ -28,6 +28,7 @@ const MODE_CURSORS: Record<ViewportMode, CSSProperties["cursor"]> = {
   zoom: "crosshair",
   pan: "grab",
   zoomReset: "crosshair",
+  click: "pointer",
 };
 
 export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(

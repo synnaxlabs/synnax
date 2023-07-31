@@ -44,6 +44,7 @@ export const themeZ = z.object({
     black: Color.z,
     background: Color.z,
     text: Color.z,
+    textContrast: Color.z,
     logo: z.string(),
   }),
   sizes: z.object({
@@ -124,6 +125,7 @@ const synnaxBase: ThemeSpec = {
     black,
     background: white,
     text: new Color(black).setAlpha(0.85).hex,
+    textContrast: new Color(white).setAlpha(0.85).hex,
   },
   sizes: {
     base: baseSize,
@@ -204,6 +206,7 @@ export const synnaxDark: ThemeSpec = {
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: new Color(synnaxBase.colors.white).setAlpha(0.9).hex,
+    textContrast: new Color(synnaxBase.colors.black).setAlpha(0.9).hex,
   },
 };
 

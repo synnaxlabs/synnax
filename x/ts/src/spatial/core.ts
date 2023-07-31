@@ -486,8 +486,8 @@ export class XY {
   }
 
   /** @returns an XY coordinate translated by the given x and y values */
-  translate(xy: LooseXYT): XY {
-    const t = new XY(xy);
+  translate(x: LooseXYT | number, y?: number): XY {
+    const t = new XY(x, y);
     return new XY(this.x + t.x, this.y + t.y);
   }
 
@@ -529,6 +529,14 @@ export class XY {
    */
   get css(): { left: number; top: number } {
     return { left: this.x, top: this.y };
+  }
+
+  /**
+   * @returns the XY in css percentage coordinate form, assuming the XY is a percentage
+   * expressed as a decimal.
+   */
+  get percentCSS(): { left: string; top: string } {
+    return { left: `${this.x * 100}%`, top: `${this.y * 100}%` };
   }
 
   /** @returns true if either the x or y coordinate is NaN */
