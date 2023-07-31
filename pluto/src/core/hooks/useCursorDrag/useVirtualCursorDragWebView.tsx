@@ -14,12 +14,12 @@ import { XY, Box } from "@synnaxlabs/x";
 import { UseVirtualCursorDragProps } from "./types";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
-import { Triggers, Key } from "@/core/triggers";
+import { Triggers, TriggerKey } from "@/core/triggers";
 
 interface RefState {
   start: XY;
   current: XY;
-  mouseKey: Key;
+  mouseKey: TriggerKey;
   cursor: HTMLElement | null;
 }
 

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, XYScale, Compare, CrudeDimensions } from "@synnaxlabs/x";
+import { Box, Dimensions, XY, XYScale, CrudeDimensions } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/core/hooks";
 import { useStateRef } from "@/core/hooks/useStateRef";
@@ -20,6 +20,12 @@ import {
   Triggers,
   UseTriggerEvent,
 } from "@/core/triggers";
+import {
+  TriggerConfig,
+  compareTriggerConfigs,
+  determineTriggerMode,
+  reduceTriggerConfig,
+} from "@/core/triggers/triggers";
 
 export interface UseViewportEvent {
   box: Box;
@@ -30,13 +36,7 @@ export interface UseViewportEvent {
 
 export type UseViewportHandler = (e: UseViewportEvent) => void;
 
-export interface UseViewportTriggers {
-  defaultMode?: ViewportMode;
-  zoom?: Trigger[];
-  zoomReset?: Trigger[];
-  pan?: Trigger[];
-  select?: Trigger[];
-}
+export type UseViewportTriggers = TriggerConfig<ViewportTriggerMode>;
 
 export interface UseViewportProps {
   triggers?: UseViewportTriggers;
@@ -52,8 +52,12 @@ export interface UseViewportReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-export const VIEWPORT_MODES = ["zoom", "pan", "select", "zoomReset", "click"] as const;
-export type ViewportMode = typeof VIEWPORT_MODES[number];
+type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
+
+const VIEWPORT_TRIGGER_MDOES = ["zoom", "pan", "select", "zoomReset"] as const;
+export const VIEWPORT_MODES = [...VIEWPORT_TRIGGER_MDOES, "click"] as const;
+export type ViewportMode = StringLiteral<typeof VIEWPORT_MODES[number]>;
+type ViewportTriggerMode = StringLiteral<typeof VIEWPORT_TRIGGER_MDOES[number]>;
 export const MASK_VIEWPORT_MODES: ViewportMode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseViewportTriggers = {
@@ -88,36 +92,22 @@ export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {
   click: ZOOM_DEFAULT_TRIGGERS,
 };
 
-const compareTriggers = (
-  [a]: [UseViewportTriggers | undefined],
-  [b]: [UseViewportTriggers | undefined]
-): boolean => {
-  if (a == null && b == null) return true;
-  if (a == null || b == null) return false;
-  if (a.defaultMode !== b.defaultMode) return false;
-  const v = Object.entries(a)
-    .filter(([k]) => k !== "defaultMode")
-    .every(([key, value]: [string, Trigger[]]) => {
-      const old = b[key as keyof UseViewportTriggers] as Trigger[];
-      if (value.length !== old.length) return false;
-      return value.every(
-        (value, i) => Compare.primitiveArrays(value, old[i]) === Compare.equal
-      );
-    });
-  return v;
-};
-
-const purgeMouseTriggers = (triggers: UseViewportTriggers): UseViewportTriggers =>
-  Object.fromEntries(
-    Object.entries(triggers)
-      .filter(([key]) => key !== "defaultMode")
-      .map(([key, value]: [string, Trigger[]]) => [
+const purgeMouseTriggers = (triggers: UseViewportTriggers): UseViewportTriggers => {
+  const e = Object.entries(triggers) as Array<
+    [ViewportTriggerMode | "defaultMode", Trigger[]]
+  >;
+  return Object.fromEntries(
+    e.map(([key, value]: [string, Trigger[]]) => {
+      if (key === "defaultMode") return [key, value];
+      return [
         key,
         value
           .map((t) => t.filter((k) => k !== "MouseLeft"))
           .filter((t) => t.length > 0),
-      ])
-  );
+      ];
+    })
+  ) as unknown as UseViewportTriggers;
+};
 
 export const useViewport = ({
   onChange,
@@ -152,14 +142,14 @@ export const useViewport = ({
           reduceTriggerConfig(mouseTriggers),
         ];
       },
-      compareTriggers,
+      compareTriggerConfigs,
       [initialTriggers]
     );
 
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
-      const mode = determineMode(triggerConfig, triggers, defaultMode);
+      const mode = determineTriggerMode<ViewportTriggerMode>(triggerConfig, triggers);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
 
@@ -236,7 +226,7 @@ export const useViewport = ({
   const handleKeyTrigger = useCallback(
     ({ triggers, stage }: UseTriggerEvent) => {
       if (stage === "end") return setMaskMode(defaultMode);
-      const mode = determineMode(purgedTriggers, triggers, defaultMode);
+      const mode = determineTriggerMode<ViewportTriggerMode>(purgedTriggers, triggers);
       if (mode == null) return;
       setMaskMode(mode);
     },
@@ -273,21 +263,3 @@ const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
     return new Box(parent.left, box.top, parent.width, box.height);
   return box;
 };
-
-const determineMode = (
-  config: UseViewportTriggers,
-  triggers: Trigger[],
-  defaultMode: ViewportMode
-): ViewportMode => {
-  if (config.pan != null && Triggers.match(config.pan, triggers)) return "pan";
-  if (config.select != null && Triggers.match(config.select, triggers)) return "select";
-  if (config.zoomReset != null && Triggers.match(config.zoomReset, triggers))
-    return "zoomReset";
-  if (config.zoom != null && Triggers.match(config.zoom, triggers)) return "zoom";
-  return defaultMode;
-};
-
-const reduceTriggerConfig = (config: UseViewportTriggers): Trigger[] =>
-  Object.values(config)
-    .filter((a) => Array.isArray(a))
-    .flat();

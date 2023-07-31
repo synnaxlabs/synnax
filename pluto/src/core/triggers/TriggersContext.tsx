@@ -21,9 +21,9 @@ import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 import {
-  MouseKey,
-  MOUSE_KEYS,
-  parseEventKey,
+  MouseKeyTrigger,
+  MOUSE_TRIGGER_KEYS,
+  eventTriggerKey,
   Trigger,
   TriggerCallback,
 } from "@/core/triggers/triggers";
@@ -82,7 +82,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
   );
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const key = parseEventKey(e);
+    const key = eventTriggerKey(e);
     // We prevent the default behavior of arrow keys to prevent scrolling and movement
     // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
@@ -107,12 +107,12 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const key = parseEventKey(e);
+    const key = eventTriggerKey(e);
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prevS) => {
       const next = prevS.next.filter(
-        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey)
+        (k) => k !== key && !MOUSE_TRIGGER_KEYS.includes(k as MouseKeyTrigger)
       );
       const prev = prevS.next;
       const nextS: TriggerRefState = {
