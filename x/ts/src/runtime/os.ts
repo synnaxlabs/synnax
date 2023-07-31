@@ -10,12 +10,26 @@
 export const OperatingSystems = ["MacOS", "Windows", "Linux", "Docker"] as const;
 export type OS = typeof OperatingSystems[number];
 
-export const getOS = (force?: OS, default_: OS | null = null): OS | null => {
-  if (force != null) return force;
-  if (typeof window === "undefined") return null;
+export interface GetOSProps {
+  force?: OS;
+  default?: OS;
+}
+
+let os: OS | undefined;
+
+const evalOS = (): OS | undefined => {
+  if (typeof window === "undefined") return undefined;
   const userAgent = window.navigator.userAgent.toLowerCase();
   if (userAgent.includes("mac")) return "MacOS";
   else if (userAgent.includes("win")) return "Windows";
   else if (userAgent.includes("linux")) return "Linux";
-  return default_;
+  return undefined;
+};
+
+export const getOS = (props: GetOSProps = {}): OS | undefined => {
+  const { force, default: default_ } = props;
+  if (force != null) return force;
+  if (os != null) return os;
+  os = evalOS();
+  return os ?? default_;
 };

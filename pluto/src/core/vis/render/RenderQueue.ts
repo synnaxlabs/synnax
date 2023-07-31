@@ -20,13 +20,20 @@ export type RenderPriority = "high" | "low";
 export class RenderQueue {
   queue: Record<string, RenderRequest>;
   cleanup: Record<string, RenderCleanup>;
+  counter = 0;
 
   constructor() {
     this.queue = {};
     this.cleanup = {};
-    requestAnimationFrame(() => {
-      void this.render();
-    });
+
+    void this.startRenderLoop();
+  }
+
+  async startRenderLoop(): Promise<void> {
+    do {
+      await this.render();
+      await this.sleep();
+    } while (true);
   }
 
   push(req: RenderRequest): void {
@@ -35,11 +42,16 @@ export class RenderQueue {
       this.queue[req.key] = req;
       return;
     }
-    if (existing.priority === "high" && req.priority !== "high") return;
     this.queue[req.key] = req;
   }
 
+  async sleep(): Promise<number> {
+    return await new Promise(requestAnimationFrame);
+  }
+
   async render(): Promise<void> {
+    console.log(navigator.userAgent);
+    this.counter += 1;
     const queue = this.queue;
     const cleanup = this.cleanup;
     this.queue = {};
@@ -54,9 +66,5 @@ export class RenderQueue {
       const cleanup = await render();
       this.cleanup[key] = cleanup;
     }
-
-    requestAnimationFrame(() => {
-      void this.render();
-    });
   }
 }

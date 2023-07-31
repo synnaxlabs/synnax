@@ -9,6 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
+import { TriggerConfig } from "./triggers";
+
 import { Triggers } from ".";
 
 describe("Triggers", () => {
@@ -128,6 +130,30 @@ describe("Triggers", () => {
   describe("match", () => {
     it("should match the trigger correctly", () => {
       expect(Triggers.match);
+    });
+  });
+  describe("Config", () => {
+    describe("determineMode", () => {
+      it("should select the matching mode with the highest complexity", () => {
+        const config: TriggerConfig<"a" | "b"> = {
+          defaultMode: "a",
+          a: [["Shift"]],
+          b: [["Shift", "Control"]],
+        };
+        expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
+        expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
+      });
+      it("should correctly match loose trigers", () => {
+        const config: TriggerConfig<"a" | "b"> = {
+          defaultMode: "a",
+          a: [["Shift"]],
+          b: [["Shift", "Control"]],
+        };
+        expect(Triggers.determineMode(config, [["Shift", "Control"]], true)).toEqual(
+          "b"
+        );
+        expect(Triggers.determineMode(config, [["Shift"]], true)).toEqual("a");
+      });
     });
   });
 });

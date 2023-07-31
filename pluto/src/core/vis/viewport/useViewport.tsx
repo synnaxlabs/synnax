@@ -63,7 +63,7 @@ export const MASK_VIEWPORT_MODES: ViewportMode[] = ["zoom", "select"];
 export const ZOOM_DEFAULT_TRIGGERS: UseViewportTriggers = {
   defaultMode: "zoom",
   zoom: [["MouseLeft"]],
-  zoomReset: [["MouseLeft", "Meta"]],
+  zoomReset: [["MouseLeft", "Control"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
 };
@@ -72,7 +72,7 @@ export const PAN_DEFAULT_TRIGGERS: UseViewportTriggers = {
   defaultMode: "pan",
   pan: [["MouseLeft"]],
   zoom: [["MouseLeft", "Shift"]],
-  zoomReset: [["MouseLeft", "Meta"]],
+  zoomReset: [["MouseLeft", "Control"]],
   select: [["MouseLeft", "Alt"]],
 };
 
@@ -81,7 +81,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseViewportTriggers = {
   select: [["MouseLeft"]],
   pan: [["MouseLeft", "Shift"]],
   zoom: [["MouseLeft", "Alt"]],
-  zoomReset: [["MouseLeft", "Meta"]],
+  zoomReset: [["MouseLeft", "Control"]],
 };
 
 export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {

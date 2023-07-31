@@ -107,5 +107,6 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
+    "eslint.workingDirectories": [{"mode": "auto"}],
   }
 }
