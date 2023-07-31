@@ -9,21 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
- .delta-main {
-    height: calc(100vh - var(--os-border-offset, 0px));
-    width: calc(100vw - var(--os-border-offset, 0px));
- }
-
- .delta-controls--windows button {
-    height: 100% !important;
-    border-radius: 0 !important;
-    border-bottom: none;
-    border-top: none;
-    padding: 1.5rem;
+.delta-main {
+    height: 100%;
+    width: 100%;
+    border-radius: 8px;
 }
 
-.delta-controls--windows button:last-child {
-    border-right: none;
+.pluto-navbar.pluto--top {
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+}
+
+.pluto-navbar.pluto--bottom {
+    border-radius: 0 0 8px 8px;
+}
+
+.delta-controls--windows button {
+    height: 100% !important;
+    border-radius: 0 !important;
+    padding: 1.5rem;
+    border: none !important;
 }
 
 .delta-controls--windows {

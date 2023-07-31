@@ -43,5 +43,6 @@ export {
   useWindowLifecycle,
   useSelectWindow,
   useSelectWindowKey,
+  useSelectWindowAttribute,
 } from "@/react";
 export { TauriRuntime } from "@/tauri";

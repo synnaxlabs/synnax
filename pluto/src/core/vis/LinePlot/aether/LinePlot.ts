@@ -10,6 +10,8 @@
 import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Eraser } from "../../render/Eraser";
+
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { FindResult } from "@/core/vis/Line/aether";
@@ -44,6 +46,7 @@ export class AetherLinePlot extends AetherComposite<
   Children
 > {
   static readonly TYPE: string = CSS.B("LinePlot");
+  readonly eraser: Eraser = new Eraser();
 
   static readonly stateZ = linePlotState;
   schema = AetherLinePlot.stateZ;
@@ -135,8 +138,15 @@ export class AetherLinePlot extends AetherComposite<
       removeGlScissor();
       removeCanvasScissor();
     }
-    return async () =>
-      ctx.erase(new Box(this.clearRegion), new XY(this.state.clearOverscan));
+    return async () => {
+      console.log(this.key);
+      this.eraser.erase(
+        this.internal.render,
+        this.state.container,
+        this.prevState.container,
+        new XY(this.state.clearOverscan)
+      );
+    };
   }
 
   private setError(error: Error): void {
