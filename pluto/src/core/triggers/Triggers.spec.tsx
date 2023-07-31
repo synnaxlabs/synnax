@@ -125,4 +125,9 @@ describe("Triggers", () => {
       });
     });
   });
+  describe("match", () => {
+    it("should match the trigger correctly", () => {
+      expect(Triggers.match);
+    });
+  });
 });

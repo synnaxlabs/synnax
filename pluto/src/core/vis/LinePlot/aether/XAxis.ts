@@ -92,8 +92,8 @@ export class AetherXAxis extends AetherComposite<
     decimalToDataScale: Scale
   ): Promise<void> {
     const { core } = this.internal;
-    const { grid, plot } = props;
-    const position = calculateGridPosition(this.key, grid, plot);
+    const { grid, container } = props;
+    const position = calculateGridPosition(this.key, grid, container);
     const p = { ...props, position, decimalToDataScale };
     const { size } = core.render(p);
     if (!withinSizeThreshold(this.state.size, size))

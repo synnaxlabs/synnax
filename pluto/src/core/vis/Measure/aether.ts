@@ -64,6 +64,10 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
     RenderController.requestRender(this.ctx);
   }
 
+  afterDelete(): void {
+    RenderController.requestRender(this.ctx);
+  }
+
   get verticalLineColor(): Color {
     if (this.state.color instanceof Color) {
       if (!this.state.color.isZero) return this.state.color;
@@ -160,6 +164,7 @@ export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState
   }
 
   async render(props: MeasureProps): Promise<void> {
+    if (this.deleted) return;
     await this.renderHover(props);
     const res = await this.find(props);
     if (res == null) return;

@@ -74,9 +74,8 @@ const curriedInvert = (): Operation => (currScale, type, v) => {
 
 const curriedClamp =
   (bound: Bounds): Operation =>
-  (currScale, type, v) => {
-    if (currScale === null) return [currScale, v];
-    const { lower, upper } = currScale;
+  (currScale, _, v) => {
+    const { lower, upper } = bound;
     v = clamp(v, lower, upper);
     return [currScale, v];
   };
@@ -181,7 +180,7 @@ export class Scale {
   reverse(): Scale {
     const scale = this.new();
     scale.ops.reverse();
-    // switch the order of the operations to place scale operation 'BEFORE' the subsequent
+    // Switch the order of the operations to place scale operation 'BEFORE' the subsequent
     // non - scale operations for example, if we have a reversed [scale A, scale B,
     // translate A, magnify, translate B, scale C] we want to reverse it to [scale C,
     // scale B, translate B, magnify, translate A, scale A]

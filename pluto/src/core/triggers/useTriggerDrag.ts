@@ -27,12 +27,14 @@ export interface UseTriggerDragProps {
   bound: RefObject<HTMLElement>;
   triggers?: Trigger[];
   onDrag: TriggerDragCallback;
+  loose?: boolean;
 }
 
 export const useTriggerDrag = ({
   onDrag,
   triggers = [["MouseLeft"], ["MouseRight"]],
   bound,
+  loose = false,
 }: UseTriggerDragProps): void => {
   const triggerRef = useRef<UseTriggerEvent | null>(null);
   const startLoc = useRef<XY>(XY.ZERO);
@@ -67,5 +69,5 @@ export const useTriggerDrag = ({
     },
     [onDrag]
   );
-  useTrigger({ triggers, callback: handleTrigger, region: bound });
+  useTrigger({ triggers, callback: handleTrigger, region: bound, loose });
 };

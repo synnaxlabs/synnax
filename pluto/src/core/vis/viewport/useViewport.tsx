@@ -52,14 +52,14 @@ export interface UseViewportReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-export const VIEWPORT_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
+export const VIEWPORT_MODES = ["zoom", "pan", "select", "zoomReset", "click"] as const;
 export type ViewportMode = typeof VIEWPORT_MODES[number];
 export const MASK_VIEWPORT_MODES: ViewportMode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseViewportTriggers = {
   defaultMode: "zoom",
   zoom: [["MouseLeft"]],
-  zoomReset: [["MouseLeft", "MouseLeft"]],
+  zoomReset: [["MouseLeft", "Meta"]],
   pan: [["MouseLeft", "Shift"]],
   select: [["MouseLeft", "Alt"]],
 };
@@ -68,7 +68,7 @@ export const PAN_DEFAULT_TRIGGERS: UseViewportTriggers = {
   defaultMode: "pan",
   pan: [["MouseLeft"]],
   zoom: [["MouseLeft", "Shift"]],
-  zoomReset: [["MouseLeft", "MouseLeft"]],
+  zoomReset: [["MouseLeft", "Meta"]],
   select: [["MouseLeft", "Alt"]],
 };
 
@@ -77,7 +77,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseViewportTriggers = {
   select: [["MouseLeft"]],
   pan: [["MouseLeft", "Shift"]],
   zoom: [["MouseLeft", "Alt"]],
-  zoomReset: [["MouseLeft", "MouseLeft"]],
+  zoomReset: [["MouseLeft", "Meta"]],
 };
 
 export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {
@@ -85,6 +85,7 @@ export const DEFAULT_TRIGGERS: Record<ViewportMode, UseViewportTriggers> = {
   pan: PAN_DEFAULT_TRIGGERS,
   select: SELECT_DEFAULT_TRIGGERS,
   zoomReset: ZOOM_DEFAULT_TRIGGERS,
+  click: ZOOM_DEFAULT_TRIGGERS,
 };
 
 const compareTriggers = (
@@ -172,6 +173,7 @@ export const useViewport = ({
         // This prevents clicks from being registered as a drag
         if (box.width < 5 && box.height < 5) {
           if (mode === "zoom") setMaskBox(Box.ZERO);
+          onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
         }
         return setStateRef((prev) => {
@@ -228,6 +230,7 @@ export const useViewport = ({
     bound: canvasRef,
     onDrag: handleDrag,
     triggers: reducedTriggerConfig,
+    loose: true,
   });
 
   const handleKeyTrigger = useCallback(
@@ -243,7 +246,7 @@ export const useViewport = ({
   Triggers.use({
     triggers: reducedPurgedTriggers,
     callback: handleKeyTrigger,
-    loose: true,
+    // loose: true,
     region: canvasRef,
   });
 
@@ -285,4 +288,6 @@ const determineMode = (
 };
 
 const reduceTriggerConfig = (config: UseViewportTriggers): Trigger[] =>
-  Object.values(config).flat();
+  Object.values(config)
+    .filter((a) => Array.isArray(a))
+    .flat();
