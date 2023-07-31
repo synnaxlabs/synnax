@@ -139,7 +139,6 @@ export class AetherLinePlot extends AetherComposite<
       removeCanvasScissor();
     }
     return async () => {
-      console.log(this.key);
       this.eraser.erase(
         this.internal.render,
         this.state.container,

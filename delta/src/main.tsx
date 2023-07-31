@@ -51,6 +51,7 @@ const layoutRenderers = {
 const PREVENT_DEFAULT_TRIGGERS: Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
+  ["Control", "MouseLeft"],
 ];
 
 const triggersProps: TriggersProviderProps = {

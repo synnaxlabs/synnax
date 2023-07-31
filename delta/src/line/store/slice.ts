@@ -61,11 +61,13 @@ const ZERO_LEGEND_STATE = {
 // |||||| VIEWPORT ||||||
 
 export interface ViewportState {
+  counter: number;
   zoom: CrudeDimensions;
   pan: CrudeXY;
 }
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
+  counter: 0,
   zoom: Dimensions.DECIMAL.crude,
   pan: XY.ZERO.crude,
 };
@@ -256,7 +258,12 @@ export interface DeleteLinePlotPayload {
   layoutKey: string;
 }
 
-export interface SetLinePlotViewportPayload extends ViewportState {
+export interface SetLinePlotViewportPayload
+  extends Partial<Omit<ViewportState, "counter">> {
+  layoutKey: string;
+}
+
+export interface StoreLinePlotViewportPayload extends Omit<ViewportState, "counter"> {
   layoutKey: string;
 }
 
@@ -400,6 +407,16 @@ export const { actions, reducer: lineReducer } = createSlice({
       state,
       { payload }: PayloadAction<SetLinePlotViewportPayload>
     ) => {
+      state.plots[payload.layoutKey].viewport = {
+        ...ZERO_VIEWPORT_STATE,
+        ...payload,
+        counter: state.plots[payload.layoutKey].viewport.counter + 1,
+      };
+    },
+    storeLinePlotViewport: (
+      state,
+      { payload }: PayloadAction<StoreLinePlotViewportPayload>
+    ) => {
       state.plots[payload.layoutKey].viewport = payload;
     },
     setLinePlotYChannels: (
@@ -508,6 +525,7 @@ export const {
   setLinePlotRule,
   setLineActiveToolbarTab,
   setLineControlState,
+  storeLinePlotViewport,
 } = actions;
 
 export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;

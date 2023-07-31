@@ -26,6 +26,12 @@ html {
     z-index: -10;
 }
 
+.delta-main--macos {
+    .delta-border {
+        display: none;
+    }
+}
+
 .delta-main--maximized {
     .delta-border,
     .delta-background {
