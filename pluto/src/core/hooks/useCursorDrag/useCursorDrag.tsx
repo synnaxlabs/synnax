@@ -11,12 +11,12 @@ import { useCallback } from "react";
 
 import { Box, ClientXYT, XY } from "@synnaxlabs/x";
 
-import { Triggers, Key } from "@/core/triggers";
+import { Triggers, TriggerKey } from "@/core/triggers";
 
 export interface UseCursorDragProps {
-  onStart?: (loc: XY, mouseKey: Key) => void;
-  onMove?: (box: Box, mouseKey: Key) => void;
-  onEnd?: (box: Box, mouseKey: Key) => void;
+  onStart?: (loc: XY, mouseKey: TriggerKey) => void;
+  onMove?: (box: Box, mouseKey: TriggerKey) => void;
+  onEnd?: (box: Box, mouseKey: TriggerKey) => void;
 }
 
 export type UseCursorDragStart = (

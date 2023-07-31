@@ -111,7 +111,7 @@ export const Compare = {
   primitiveArrays,
   unorderedPrimitiveArrays,
   order,
-  equal: 0,
-  lessThan: -1,
-  greaterThan: 1,
+  EQUAL: 0,
+  LESS_THAN: -1,
+  GREATER_THAN: 1,
 };
