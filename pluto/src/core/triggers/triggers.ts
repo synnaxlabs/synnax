@@ -72,7 +72,6 @@ export const TRIGGER_KEYS = [
   "X",
   "Y",
   "Z",
-  "Meta",
   "ContextMenu",
   "F1",
   "F2",
@@ -153,7 +152,7 @@ export const eventTriggerKey = (e: KeyboardEvent | MouseEvent): TriggerKey =>
 
 // Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
 // as Triggers is location agnostic.
-const INCLUDES_KEYS: TriggerKey[] = ["Meta", "Control", "Alt", "Shift"];
+const INCLUDES_KEYS: TriggerKey[] = ["Control", "Alt", "Shift"];
 
 /**
  * Parses the TriggerKey from the provided KeyboardEvent.
@@ -164,6 +163,7 @@ const INCLUDES_KEYS: TriggerKey[] = ["Meta", "Control", "Alt", "Shift"];
 export const keyboardTriggerKey = (e: KeyboardEvent): TriggerKey => {
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as TriggerKey;
+  if (e.code.includes("Meta")) return "Control";
   const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
   if (includeKey != null) return includeKey;
   return e.code as TriggerKey;
@@ -200,7 +200,7 @@ export const filter = (
 export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
   source.filter(
     (t) =>
-      !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) === Compare.equal)
+      !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) === Compare.EQUAL)
   );
 
 export const diff = (
@@ -237,8 +237,9 @@ export const determineTriggerMode = <K extends string | number | symbol>(
   const e = Object.entries(config).filter(
     ([k]) => k !== "defaultMode"
   ) as unknown as Array<[K, Trigger[]]>;
-  const complexitySorted = e.sort(([, a], [, b]) => b.length - a.length);
-  const match_ = complexitySorted.find(([, v]) => match(v, triggers, loose));
+  const flat = e.map(([k, v]) => v.map((t) => [k, t])).flat() as Array<[K, Trigger]>;
+  const complexitySorted = flat.sort(([, a], [, b]) => b.length - a.length);
+  const match_ = complexitySorted.find(([, v]) => match([v], triggers, loose));
   if (match_ != null) return match_[0];
   return config.defaultMode;
 };

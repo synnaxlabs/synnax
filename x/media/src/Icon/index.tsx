@@ -65,6 +65,7 @@ import {
   MdInsights,
   MdLabel,
   MdSquareFoot,
+  MdKeyboardControlKey,
 } from "react-icons/md";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
@@ -134,6 +135,7 @@ export const Icon: IconType = {
     Backspace: MdKeyboardBackspace,
     Capslock: MdKeyboardCapslock,
     Hide: MdKeyboardHide,
+    Control: MdKeyboardControlKey,
     Arrow: {
       Up: MdKeyboardArrowUp,
       Down: MdKeyboardArrowDown,
@@ -208,6 +210,7 @@ export interface IconType {
     Backspace: React.ComponentType;
     Capslock: React.ComponentType;
     Hide: React.ComponentType;
+    Control: React.ComponentType;
     Arrow: {
       Up: React.ComponentType;
       Down: React.ComponentType;
