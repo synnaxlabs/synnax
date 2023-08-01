@@ -12,14 +12,25 @@
 .synnax-logo--auto {
     --logo-color: var(--pluto-logo-color, #ffffff);
     --text-color: var(--pluto-text-color, #ffffff);
-}
 
-.synnax-logo--auto path {
-    fill: var(--logo-color);
-}
+    &:not(.synnax-logo--loader) {
+        & path {
+            fill: var(--logo-color);
+        }
+        & text {
+            font-size: 252px;
+            fill: var(--text-color);
+            font-family: Roboto-Regular, Roboto, sans-serif;
+        }
+    }
 
-.synnax-logo--auto text {
-    font-size: 252px;
-    fill: var(--text-color);
-    font-family: Roboto-Regular, Roboto, sans-serif;
+    &.synnax-logo--loader {
+        & path {
+            fill: var(--pluto-background-color);
+        }
+
+        & feFlood {
+            flood-color: var(--pluto-gray-p2);
+        }
+    }
 }

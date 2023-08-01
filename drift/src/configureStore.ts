@@ -16,9 +16,9 @@ import type {
 } from "@reduxjs/toolkit";
 import { configureStore as base } from "@reduxjs/toolkit";
 
-import { listen } from "./listener";
-import { Middlewares, configureMiddleware } from "./middleware";
-import { Runtime } from "./runtime";
+import { listen } from "@/listener";
+import { Middlewares, configureMiddleware } from "@/middleware";
+import { Runtime } from "@/runtime";
 import {
   DriftAction,
   PreloadedState,
@@ -27,9 +27,9 @@ import {
   setWindowStage,
   closeWindow,
   setConfig,
-} from "./state";
-import { syncInitial } from "./sync";
-import { MAIN_WINDOW, WindowProps } from "./window";
+} from "@/state";
+import { syncInitial } from "@/sync";
+import { MAIN_WINDOW, WindowProps } from "@/window";
 
 export type Enhancers = readonly StoreEnhancer[];
 
@@ -58,6 +58,14 @@ export interface ConfigureStoreOptions<
  *
  * @param options.runtime - The core runtime of the application. This should
  * be chosen based on the platform you are running on (Tauri, Electron, etc.).
+ * @param options.debug - If true, drift will log debug information to the
+ * console. @default false
+ * @param props.enablePrerender - If true, drift will create an invisible, prerendered
+ * window before it is needed. While it adds an additional process to your application,
+ * it also dramatically reduces the time it takes to open a new window. @default true
+ * @param props.defaultWindowProps - A partial set of window props to merge with
+ * the props passed to drift.createWindow. This is useful for setting default window
+ * properties, especially with prerendering. @default {}
  * @param options - The standard Redux Toolkit configureStore options.
  *
  * @returns A !PROMISE! that resolves to a Redux store. This is necessary because

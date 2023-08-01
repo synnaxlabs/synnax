@@ -56,6 +56,7 @@ export const LayoutWindow = (): ReactElement | null => {
   const dispatch = useDispatch();
   useEffect(() => {
     if (os === "Windows") {
+      applyWindowsBorders();
       dispatch(setWindowDecorations({ value: false }));
     }
   }, [os]);
@@ -81,3 +82,5 @@ export const LayoutWindow = (): ReactElement | null => {
     </PMenu.ContextMenu>
   );
 };
+
+
