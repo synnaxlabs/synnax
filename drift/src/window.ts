@@ -47,7 +47,7 @@ export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {
 export const INITIAL_PRERENDER_WINDOW_STATE: WindowState = {
   ...INITIAL_WINDOW_STATE,
   key: PRERENDER_WINDOW,
-  visible: true,
+  visible: false,
 };
 
 /** State of a window managed by drift  */
