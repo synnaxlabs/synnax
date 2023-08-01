@@ -10,14 +10,14 @@
 import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { Aether } from "@/core/aether/main";
-import { Color, ColorT } from "@/core/color";
+import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Valve as WorkerValve, valveState } from "@/core/vis/Valve/aether";
 
 import "@/core/vis/Valve/Valve.css";
 
 export interface ValveProps extends Omit<ComponentPropsWithoutRef<"button">, "color"> {
-  color?: ColorT;
+  color?: CrudeColor;
   label?: string;
 }
 

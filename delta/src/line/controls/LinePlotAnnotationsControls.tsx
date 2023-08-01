@@ -23,9 +23,10 @@ import {
   componentRenderProp,
   Select,
   InputNumberProps,
-  ColorT,
+  CrudeColor,
   ColorSwatchProps,
 } from "@synnaxlabs/pluto";
+import { CrudeColor } from "@synnaxlabs/pluto/dist/core/color/color";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
@@ -189,10 +190,10 @@ export const LinePlotAnnotationsControls = ({
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
-          <Input.Item<ColorT, Color, ColorSwatchProps>
+          <Input.Item<CrudeColor, Color, ColorSwatchProps>
             label="Color"
             onChange={handleColorChange}
-            value={selectedRule.color}
+            value={new Color(selectedRule.color)}
           >
             {componentRenderProp(ColorSwatch)}
           </Input.Item>

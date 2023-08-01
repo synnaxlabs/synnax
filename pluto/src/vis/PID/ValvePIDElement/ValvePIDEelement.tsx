@@ -16,7 +16,7 @@ import {
   Color,
   ColorSwatch,
   ColorSwatchProps,
-  ColorT,
+  CrudeColor,
   Input,
   Space,
   Text,
@@ -36,7 +36,7 @@ import "@/vis/PID/ValvePIDElement/ValvePIDElement.css";
 export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
   telem: RangeNumerictelemProps;
   label: string;
-  color: ColorT;
+  color: CrudeColor;
 }
 
 const ValvePIDElement = ({
@@ -91,7 +91,7 @@ const ValvePIDElementForm = ({
           value={value.label}
           onChange={handleLabelChange}
         />
-        <Input.Item<ColorT, Color, ColorSwatchProps>
+        <Input.Item<CrudeColor, Color, ColorSwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}

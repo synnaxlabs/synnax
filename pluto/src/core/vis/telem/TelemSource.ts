@@ -106,13 +106,13 @@ export interface NumericTelemSource {
   onChange: (f: () => void) => void;
 }
 
-export const colorTelemSourceProps = telemSourceProps.extend({
+export const CrudeColorelemSourceProps = telemSourceProps.extend({
   variant: z.literal("color"),
 });
 
-export type ColorTelemSourceProps = z.infer<typeof colorTelemSourceProps>;
+export type CrudeColorelemSourceProps = z.infer<typeof CrudeColorelemSourceProps>;
 
-export interface ColorTelemSource {
+export interface CrudeColorelemSource {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
 }

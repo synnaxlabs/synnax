@@ -17,7 +17,7 @@ import {
   Color,
   ColorSwatch,
   ColorSwatchProps,
-  ColorT,
+  CrudeColor,
   Input,
   InputNumberProps,
   Space,
@@ -106,7 +106,7 @@ const TankPIDElementForm = ({
         >
           {componentRenderProp(Input.Numeric)}
         </Input.Item>
-        <Input.Item<ColorT, Color, ColorSwatchProps>
+        <Input.Item<CrudeColor, Color, ColorSwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}
