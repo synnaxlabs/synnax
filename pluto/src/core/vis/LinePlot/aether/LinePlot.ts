@@ -126,7 +126,10 @@ export class AetherLinePlot extends AetherComposite<
     const plot = this.calculatePlot();
     const { render: ctx } = this.internal;
     const removeGlScissor = ctx.scissorGL(plot);
-    const removeCanvasScissor = ctx.scissorCanvas(this.state.container);
+    const removeCanvasScissor = ctx.scissorCanvas(
+      this.state.container,
+      new XY(this.state.clearOverscan).scale(0.5)
+    );
     try {
       await this.renderAxes(plot);
       await this.renderTooltips(plot);

@@ -10,11 +10,11 @@
  */
 
 .pluto-divider {
-    background-color: var(--pluto-border-color);
     align-self: stretch;
 
     &.pluto--x {
-        height: var(--pluto-border-width);
+        height: 0;
+        border-top: var(--pluto-border);
 
         &.pluto-divider--padded {
             margin: 0.5rem 0;
@@ -22,7 +22,8 @@
     }
 
     &.pluto--y {
-        width: var(--pluto-border-width);
+        width: 0;
+        border-right: var(--pluto-border);
 
         &.pluto-divider--padded {
             margin: 0 0.5rem;

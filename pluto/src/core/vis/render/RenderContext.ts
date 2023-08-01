@@ -168,8 +168,9 @@ export class RenderContext {
    * pixel space relative to the screen.
    * @returns a destructor that must be called to remove the scissor.
    */
-  scissorGL(region: Box): Destructor {
+  scissorGL(region: Box, overscan: XY = XY.ZERO): Destructor {
     this.gl.enable(this.gl.SCISSOR_TEST);
+    region = applyOverscan(region, overscan);
     this.gl.scissor(
       (region.left - this.region.left) * this.dpr,
       (this.region.bottom - region.bottom) * this.dpr,
@@ -179,9 +180,9 @@ export class RenderContext {
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
-  scissor(region: Box): Destructor {
-    const lower = this.scissorGL(region);
-    const upper = this.scissorCanvas(region);
+  scissor(region: Box, overscan: XY = XY.ZERO): Destructor {
+    const lower = this.scissorGL(region, overscan);
+    const upper = this.scissorCanvas(region, overscan);
     return () => {
       lower();
       upper();
@@ -204,20 +205,15 @@ export class RenderContext {
 
   eraseGL(box: Box, overscan: XY = XY.ZERO): void {
     const { gl } = this;
-    const os = new Box(
-      box.left - overscan.x,
-      box.top - overscan.y,
-      box.width + overscan.x * 2,
-      box.height + overscan.y * 2
-    );
-    const removeScissor = this.scissorGL(os);
+    const removeScissor = this.scissorGL(applyOverscan(box, overscan));
     gl.clearColor(...Color.ZERO.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     removeScissor();
   }
 
-  scissorCanvas(region: Box): Destructor {
+  scissorCanvas(region: Box, overscan: XY = XY.ZERO): Destructor {
     const p = new Path2D();
+    region = applyOverscan(region, overscan);
     p.rect(...region.topLeft.couple, ...region.dims.couple);
     this.upper2d.save();
     this.lower2d.save();
@@ -239,12 +235,7 @@ export class RenderContext {
     box: Box,
     overscan: XY = XY.ZERO
   ): void {
-    const os = new Box(
-      box.left - overscan.x,
-      box.top - overscan.y,
-      box.width + overscan.x * 2,
-      box.height + overscan.y * 2
-    );
+    const os = applyOverscan(box, overscan);
     c.clearRect(...os.topLeft.couple, ...os.dims.couple);
   }
 }
@@ -276,3 +267,11 @@ export class RenderController {
     this.useRequest(ctx)();
   }
 }
+
+const applyOverscan = (box: Box, overscan: XY): Box =>
+  new Box(
+    box.left - overscan.x,
+    box.top - overscan.y,
+    box.width + overscan.x * 2,
+    box.height + overscan.y * 2
+  );
