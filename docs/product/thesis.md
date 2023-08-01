@@ -94,21 +94,6 @@ Research into user experience design has made great strides in recent years, and
 improvements have yet to find themselves in the world of industrial control and data
 acquisition.
 
-# 3 - The Opportunity
-
-## 3.0 - Cloud Native Computing
-
-## 3.1 - Big Data and Artificial Intelligence
-
-## 3.2 - Open Source
-
-**Cloud native computing has revolutionized the way we work with data**
-
-**Big data and artificial intelligence are the most important asset for the modern
-enterprise**
-
-**Open source software is the new standard for quality**
-
 # 3 - The Solution
 
 At the highest level, Synnax’s only role is to make the readings of an instrument
@@ -144,7 +129,3 @@ for analysis
 ## 4.3 - Device Interfaces
 
 ## 4.4 - Framework for Real-Time Operation
-
-4 - Hypotheses
-
-5 - Ideal Customer Profile

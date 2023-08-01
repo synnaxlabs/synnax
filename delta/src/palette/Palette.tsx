@@ -42,6 +42,7 @@ import {
   Typography,
   Space,
   TypographyLevel,
+  Pack,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
@@ -50,6 +51,7 @@ import { CSS } from "@/css";
 import { LayoutPlacer, useLayoutPlacer } from "@/layout";
 import { createLinePlot } from "@/line/store/slice";
 import { ResourceType } from "@/resources/resources";
+import { RootStore } from "@/store";
 
 import "@/palette/Palette.css";
 
@@ -141,6 +143,7 @@ export const Palette = ({
           ref={dropdown.ref}
           visible={dropdown.visible}
           className={CSS.B("palette")}
+          location="bottom"
           matchTriggerWidth
         >
           <PaletteInput

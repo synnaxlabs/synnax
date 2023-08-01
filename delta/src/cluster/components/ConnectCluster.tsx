@@ -21,7 +21,6 @@ import {
   componentRenderProp,
 } from "@synnaxlabs/pluto";
 import type { InputSwitchProps } from "@synnaxlabs/pluto";
-import { nanoid } from "nanoid";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
@@ -46,6 +45,7 @@ export const connectClusterWindowLayout: LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
+    transparent: true,
   },
 };
 
@@ -74,11 +74,10 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
       setCluster({
         key: state.clusterKey,
         name,
-        state,
         props: data as SynnaxProps,
       })
     );
-    dispatch(setActiveCluster(state.clusterKey as string));
+    dispatch(setActiveCluster(state.clusterKey));
     onClose();
   });
 
@@ -87,7 +86,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
       const valid = await trigger();
       if (!valid) return;
       const state = await testConnection(getValues() as SynnaxProps);
-      setConnState(state.className);
+      setConnState(state);
     })();
   };
 

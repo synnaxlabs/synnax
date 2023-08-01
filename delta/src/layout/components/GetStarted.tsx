@@ -10,7 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Space, Button } from "@synnaxlabs/pluto";
+import { Text, Space, Button, ButtonProps, TextLinkProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { setNavdrawerVisible } from "../store";
@@ -30,19 +30,19 @@ export const GetStarted = (): ReactElement => {
   // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
   // select the new layout when we create it.
 
-  const handleCluster = (e: Event): void => {
+  const handleCluster: ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(connectClusterWindowLayout);
     dispatch(setNavdrawerVisible({ key: ClusterToolbar.key, value: true }));
   };
 
-  const handleVisualize = (e: Event): void => {
+  const handleVisualize: ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(createVis({}));
     dispatch(setNavdrawerVisible({ key: VisToolbar.key, value: true }));
   };
 
-  const handleDocs = (e: Event): void => {
+  const handleDocs: TextLinkProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(createDocsLayout());
   };

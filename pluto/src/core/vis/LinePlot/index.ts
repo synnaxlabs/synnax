@@ -10,6 +10,7 @@ import { Legend } from "@/core/vis/LinePlot/main/Legend";
 import { Line } from "@/core/vis/LinePlot/main/Line";
 import { LinePlot as CoreLinePlot } from "@/core/vis/LinePlot/main/LinePlot";
 import { Title } from "@/core/vis/LinePlot/main/Title";
+import { Viewport } from "@/core/vis/LinePlot/main/Viewport";
 import { XAxis } from "@/core/vis/LinePlot/main/XAxis";
 import { YAxis } from "@/core/vis/LinePlot/main/YAxis";
 import { Rule } from "@/core/vis/Rule";
@@ -25,6 +26,7 @@ interface LinePlotType extends CoreLinePlotType {
   Legend: typeof Legend;
   Title: typeof Title;
   Rule: typeof Rule;
+  Viewport: typeof Viewport;
 }
 
 export const LinePlot = CoreLinePlot as LinePlotType;
@@ -35,3 +37,4 @@ LinePlot.Line = Line;
 LinePlot.Legend = Legend;
 LinePlot.Title = Title;
 LinePlot.Rule = Rule;
+LinePlot.Viewport = Viewport;

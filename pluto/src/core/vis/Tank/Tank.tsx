@@ -12,14 +12,14 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 import { CrudeDimensions } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
-import { Color, ColorT } from "@/core/color";
+import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 
 import "@/core/vis/Tank/Tank.css";
 
 export interface TankProps extends Omit<ComponentPropsWithoutRef<"div">, "color"> {
   dimensions: CrudeDimensions;
-  color: ColorT;
+  color: CrudeColor;
 }
 
 export const Tank = Aether.wrap<TankProps>(

@@ -16,7 +16,8 @@ The purpose of this document, and the entire `docs/tech` directory, is to:
    **deeper explanations are provided in directories related to specific components.**
 2. Provide a guide for **navigating the codebase**, and to explain the rationale behind
    the design decisions made.
-3. Establish **clear standards on the quality of code we expect**, and to provide references
+3. Establish **clear standards on the quality of code we expect**, and to provide
+   references
    to make it easier to adhere to these standards.
 4. Put in place the **software engineering foundations** required to work on a project
    with this level of complexity, and to provide a reference for developing these
@@ -35,8 +36,10 @@ of hardware generated telemetry to implement a performant database.
 
 # 3 - Architecture
 
-Next, it's important to understand the architecture of the platform. This is covered
-in the [architecture](architecture.md) document.
+After you have a solid grasp on Synnax's high level concepts, it's time to read about
+the architecture of the platform. The [architecture](architecture.md) document provides
+a birds eye view of the fundamental design decisions we've made and how they've evolved
+into the current architecture.
 
 # 4 - Setting up your Development Environment
 

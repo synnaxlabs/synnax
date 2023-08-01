@@ -23,3 +23,4 @@ export * from "@/core/vis/PID";
 export * from "@/core/color/ColorPicker";
 export * from "@/core/color/ColorSwatch";
 export * from "@/core/alamos";
+export * from "@/core/vis/viewport";

@@ -36,7 +36,7 @@ export interface TickFactoryContext {
   /**
    * Scale takes a value in decimal space and returns the corresponding data value.
    */
-  scale: Scale;
+  decimalToDataScale: Scale;
   /**
    * Size is the length of the axis in pixels.
    */
@@ -55,7 +55,7 @@ class TimeTickFactory implements TickFactory {
     this.props = props;
   }
 
-  generate({ scale, size }: TickFactoryContext): Tick[] {
+  generate({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
     const range = [0, size];
     const domain = [
       new TimeStamp(scale.pos(0)).date(),
@@ -99,7 +99,7 @@ class LinearTickFactory implements TickFactory {
     this.props = props;
   }
 
-  generate({ scale, size }: TickFactoryContext): Tick[] {
+  generate({ decimalToDataScale: scale, size }: TickFactoryContext): Tick[] {
     const range = [0, size];
     const domain = [scale.pos(0), scale.pos(1)];
     const d3Scale = scaleLinear().domain(domain).range(range);

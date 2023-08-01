@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { ReactElement, useCallback, useMemo } from "react";
 
 import {
   LinePlot as PLinePlot,
@@ -17,17 +17,25 @@ import {
   useAsyncEffect,
   Color,
   RuleProps,
+  Viewport,
+  UseViewportHandler,
+  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { TimeRange, unique } from "@synnaxlabs/x";
+import { Box, TimeRange, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { renameLayout, useSelectRequiredLayout } from "@/layout";
-import { useSelectLinePlot, useSelectLinePlotRanges } from "@/line/store/selectors";
+import {
+  useSelectLinePlot,
+  useSelectLinePlotRanges,
+  useSelectLineControlState,
+} from "@/line/store/selectors";
 import {
   LinePlotState,
   setLinePlotLine,
   setLinePlotRule,
   shouldDisplayAxis,
+  storeLinePlotViewport,
   typedLineKeyToString,
 } from "@/line/store/slice";
 import {
@@ -36,6 +44,7 @@ import {
   MultiXAxisRecord,
   X_AXIS_KEYS,
   XAxisKey,
+  YAxisKey,
 } from "@/vis/axis";
 import { Range } from "@/workspace";
 
@@ -115,27 +124,57 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
+  const handleViewportChange: UseViewportHandler = useDebouncedCallback(
+    ({ box, stage }) => {
+      if (stage !== "end") return;
+      dispatch(
+        storeLinePlotViewport({
+          layoutKey,
+          pan: box.bottomLeft.crude,
+          zoom: box.dims.crude,
+        })
+      );
+    },
+    100,
+    [dispatch, layoutKey]
+  );
+
   const rules = buildRules(vis);
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
 
+  const { mode, enableTooltip, clickMode } = useSelectLineControlState();
+  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+
+  const initialViewport = useMemo(
+    () =>
+      new Box(vis.viewport.pan, vis.viewport.zoom).reRoot({ x: "left", y: "bottom" }),
+    [vis.viewport.counter]
+  );
+
   return (
-    <PLinePlot
-      title={name}
-      style={{ padding: "2rem" }}
-      axes={axes}
-      lines={propsLines}
-      rules={rules}
-      clearOverscan={{ x: 5, y: 10 }}
-      onTitleChange={handleTitleRename}
-      titleLevel={vis.title.level}
-      showTitle={vis.title.visible}
-      showLegend={vis.legend.visible}
-      onLineColorChange={handleLineColorChange}
-      onLineLabelChange={handleLineLabelChange}
-      onRulePositionChange={handleRulePositionChange}
-      onRuleLabelChange={handleRuleLabelChange}
-    />
+    <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
+      <PLinePlot
+        title={name}
+        axes={axes}
+        lines={propsLines}
+        rules={rules}
+        clearOverscan={{ x: 5, y: 10 }}
+        onTitleChange={handleTitleRename}
+        titleLevel={vis.title.level}
+        showTitle={vis.title.visible}
+        showLegend={vis.legend.visible}
+        onLineColorChange={handleLineColorChange}
+        onLineLabelChange={handleLineLabelChange}
+        onRulePositionChange={handleRulePositionChange}
+        onRuleLabelChange={handleRuleLabelChange}
+        initialViewport={initialViewport}
+        onViewportChange={handleViewportChange}
+        viewportTriggers={triggers}
+        enableTooltip={enableTooltip}
+        enableMeasure={clickMode === "measure"}
+      />
+    </div>
   );
 };
 
@@ -172,7 +211,7 @@ const buildLines = (
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
               xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as AxisKey,
+              yAxis: yAxis as YAxisKey,
               range: range.key,
               channels: {
                 x: xChannel,

@@ -29,10 +29,15 @@ import {
 /** The Slice State */
 export interface DriftState {
   label: string;
-  prerenderEnabled: boolean;
+  config: DriftConfig;
   windows: Record<string, WindowState>;
   labelKeys: Record<string, string>;
   keyLabels: Record<string, string>;
+}
+
+export interface DriftConfig {
+  enablePrerender: boolean;
+  defaultWindowProps: Omit<WindowProps, "key">;
 }
 
 /** State of a store with a drift slice */
@@ -92,7 +97,7 @@ export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
 export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
 export type SetWindowErrorPaylod = KeyPayload & { message: string };
 export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
-export type SetPrererenderEnabledPayload = BooleanPayload;
+export type SetConfigPayload = Partial<DriftConfig>;
 
 /** Type representing all possible actions that are drift related. */
 export type DriftPayload =
@@ -119,14 +124,17 @@ export type DriftPayload =
   | SetWindowTitlePayload
   | FocusWindowPayload
   | SetWindowDecorationsPayload
-  | SetPrererenderEnabledPayload;
+  | SetConfigPayload;
 
 /** Type representing all possible actions that are drift related. */
 export type DriftAction = PayloadAction<DriftPayload>;
 
 export const initialState: DriftState = {
   label: MAIN_WINDOW,
-  prerenderEnabled: true,
+  config: {
+    enablePrerender: true,
+    defaultWindowProps: {},
+  },
   windows: {
     main: {
       ...INITIAL_WINDOW_STATE,
@@ -203,19 +211,17 @@ const slice = createSlice({
   name: DRIFT_SLICE_NAME,
   initialState,
   reducers: {
-    setPrererenderEnabled: (
-      s: DriftState,
-      a: PayloadAction<SetPrererenderEnabledPayload>
-    ) => {
-      s.prerenderEnabled = a.payload.value;
-      if (s.prerenderEnabled) return;
+    setConfig: (s: DriftState, a: PayloadAction<SetConfigPayload>) => {
+      s.config = { ...s.config, ...a.payload };
+      if (s.config.enablePrerender) return;
+      // If we've disabled prerendering, remove all prerendered windows
       s.windows = Object.fromEntries(
         Object.entries(s.windows).filter(([, v]) => v.reserved)
       );
     },
     setWindowLabel: (s: DriftState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
-      if (s.label !== MAIN_WINDOW && !s.prerenderEnabled) return;
+      if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
       const prerenderLabel = nanoid();
       s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
     },
@@ -249,6 +255,8 @@ const slice = createSlice({
           ...available,
           visible: true,
           reserved: true,
+          focusCount: 1,
+          focus: true,
           ...payload,
         };
         s.labelKeys[availableLabel] = payload.key;
@@ -256,6 +264,7 @@ const slice = createSlice({
       } else {
         // If we don't, just create the window directly.
         s.windows[label] = {
+          ...s.config.defaultWindowProps,
           ...INITIAL_WINDOW_STATE,
           ...payload,
           reserved: true,
@@ -264,8 +273,11 @@ const slice = createSlice({
         s.keyLabels[key] = label;
       }
 
-      if (s.prerenderEnabled)
-        s.windows[prerenderLabel] = Deep.copy(INITIAL_PRERENDER_WINDOW_STATE);
+      if (s.config.enablePrerender)
+        s.windows[prerenderLabel] = Deep.copy({
+          ...s.config.defaultWindowProps,
+          ...INITIAL_PRERENDER_WINDOW_STATE,
+        });
     },
     setWindowStage: assertLabel<SetWindowStatePayload>((s, a) => {
       s.windows[a.payload.label].stage = a.payload.stage;
@@ -326,7 +338,7 @@ const slice = createSlice({
 export const {
   reducer,
   actions: {
-    setPrererenderEnabled,
+    setConfig,
     setWindowProps,
     setWindowLabel,
     createWindow,

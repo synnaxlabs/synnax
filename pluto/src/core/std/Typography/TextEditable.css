@@ -14,14 +14,14 @@
     user-select: text;
     -webkit-user-select: text;
     padding: 0.25rem 0;
-}
 
-.pluto-text--editable:focus {
-    border: var(--pluto-border-width) solid var(--pluto-primary-z);
-    z-index: 2;
-    border-radius: var(--pluto-border-radius);
-    outline: none;
-    display: inline-block;
-    cursor: text;
-    padding: 0.25rem 1rem;
+    &:focus {
+        border: var(--pluto-border-width) solid var(--pluto-primary-z);
+        z-index: 2;
+        border-radius: var(--pluto-border-radius);
+        outline: none;
+        display: inline-block;
+        cursor: text;
+        padding: 0.25rem 1rem;
+    }
 }

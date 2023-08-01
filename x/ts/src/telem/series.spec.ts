@@ -65,6 +65,24 @@ describe("Series", () => {
     });
   });
 
+  test("at", () => {
+    it("should return the value at the given index and add the sample offset", () => {
+      const arr = new Series(
+        new Float32Array([1, 2, 3]),
+        DataType.FLOAT32,
+        undefined,
+        2
+      );
+      expect(arr.at(0)).toEqual(3);
+      expect(arr.at(1)).toEqual(4);
+      expect(arr.at(2)).toEqual(5);
+    });
+    it("should return undefined when the index is out of bounds", () => {
+      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      expect(arr.at(3)).toBeUndefined();
+    });
+  });
+
   describe("slice", () => {
     it("should slice a lazy array", () => {
       const a = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);

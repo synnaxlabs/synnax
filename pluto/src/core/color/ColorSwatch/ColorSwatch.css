@@ -14,19 +14,7 @@
 }
 
 .pluto-color-swatch {
-    --width-modifier: 1.5;
     border-radius: var(--pluto-border-radius);
     border: none !important;
-}
-
-.pluto-color-swatch.pluto--small {
-    width: calc(var(--pluto-height-small) * var(--width-modifier));
-}
-
-.pluto-color-swatch.pluto--medium {
-    width: calc(var(--pluto-height-medium) * var(--width-modifier));
-}
-
-.pluto-color-swatch.pluto--large {
-    width: calc(var(--pluto-height-large) * var(--width-modifier));
+    aspect-ratio: 1.5;
 }

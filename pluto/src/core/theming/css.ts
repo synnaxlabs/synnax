@@ -70,9 +70,6 @@ export const convertThemeToCSSVars = (
     "small-size": unitProperty(theme.typography.small.size, "rem"),
     "small-weight": theme.typography.small.weight,
     "small-line-height": unitProperty(theme.typography.small.lineHeight, "rem"),
-    "tiny-size": unitProperty(theme.typography.tiny.size, "rem"),
-    "tiny-weight": theme.typography.tiny.weight,
-    "tiny-line-height": unitProperty(theme.typography.tiny.lineHeight, "rem"),
   }).reduce<Record<string, number | string | undefined>>(
     (acc, [key, value]) => ({
       ...acc,

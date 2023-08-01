@@ -12,27 +12,24 @@
 .pluto-btn {
     transition: 0.15s background-color;
     margin: 0;
-}
-
-.pluto-btn:disabled {
-    user-select: none;
-    background-color: var(--pluto-gray-m2);
-}
-
-.pluto-btn:disabled:hover {
-    background-color: var(--pluto-gray-m2);
-}
-
-.pluto-btn {
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
     padding: 0 2rem;
     font-family: var(--pluto-font-family);
-}
 
-.pluto-btn:active,
-.pluto-btn:hover {
-    z-index: 12;
+    &:disabled {
+        user-select: none;
+        background-color: var(--pluto-gray-m2);
+    }
+
+    &:disabled:hover {
+        background-color: var(--pluto-gray-m2);
+    }
+
+    &:active,
+    &:hover {
+        z-index: 12;
+    }
 }
 
 /* |||| FILLED |||| */
@@ -40,20 +37,25 @@
 .pluto-btn--filled {
     background-color: var(--pluto-primary-z);
     border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+
+    & * {
+        color: var(--pluto-white);
+    }
+
+    &:hover {
+        background-color: var(--pluto-primary-p1);
+        border-color: var(--pluto-primary-p1);
+    }
+
+    &:active {
+        background-color: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1);
+    }
 }
 
-.pluto-btn--filled * {
-    color: var(--pluto-white);
-}
-
-.pluto-btn--filled:hover {
-    background-color: var(--pluto-primary-p1);
-    border-color: var(--pluto-primary-p1);
-}
-
-.pluto-btn--filled:active {
-    background-color: var(--pluto-primary-m1);
-    border-color: var(--pluto-primary-m1);
+.pluto-btn--filled path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-white) !important;
+    fill: var(--pluto-white) !important;
 }
 
 /* |||| OUTLINED |||| */
@@ -61,22 +63,26 @@
 .pluto-btn--outlined {
     background: none;
     border: var(--pluto-border-width) solid var(--pluto-border-color);
+
+    &:hover {
+        border-color: var(--pluto-gray-m0) !important;
+        * {
+            color: var(--pluto-gray-p1) !important;
+        }
+    }
+
+    &:active {
+        border-color: var(--pluto-gray-p1) !important;
+
+        * {
+            color: var(--pluto-gray-p1) !important;
+        }
+    }
 }
 
-.pluto-btn--outlined:hover {
-    border-color: var(--pluto-gray-m0) !important;
-}
-
-.pluto-btn--outlined:hover * {
-    color: var(--pluto-gray-p1) !important;
-}
-
-.pluto-btn--outlined:active {
-    border-color: var(--pluto-gray-p1) !important;
-}
-
-.pluto-btn--outlined:active * {
-    color: var(--pluto-gray-p1) !important;
+.pluto-btn--outlined path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-gray-p1) !important;
+    fill: var(--pluto-gray-p1) !important;
 }
 
 /* |||| TEXT |||| */
@@ -84,30 +90,32 @@
 .pluto-btn--text {
     background: none;
     border: none;
+
+    &:hover {
+        background-color: var(--pluto-gray-m2);
+    }
+
+    & * {
+        color: var(--pluto-text-color);
+    }
+
+    &:active {
+        background-color: var(--pluto-gray-m2);
+    }
 }
 
-.pluto-btn--text:hover {
-    background-color: var(--pluto-gray-m2);
-}
-
-.pluto-btn--text:active {
-    background-color: var(--pluto-gray-m2);
+.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-text-color) !important;
 }
 
 /* |||| ICON |||| */
 
 .pluto-btn-icon {
-    color: var(--pluto-text-color);
     display: flex;
     padding: 0 !important;
     justify-content: center;
     align-items: center;
     aspect-ratio: 1;
-}
-
-.pluto-btn-icon:disabled svg * {
-    fill: var(--pluto-gray-m2);
-    stroke: var(--pluto-gray-m2);
 }
 
 .pluto-btn-icon > svg {

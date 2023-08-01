@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useViewport } from "./useViewport";
-import { ViewportMask } from "./ViewportMask";
+import { useViewport, DEFAULT_TRIGGERS } from "@/core/vis/viewport/useViewport";
+import { ViewportMask } from "@/core/vis/viewport/ViewportMask";
+
 export type {
   UseViewportProps,
   UseViewportReturn,
   UseViewportTriggers,
   UseViewportHandler,
   UseViewportEvent,
-} from "./useViewport";
-export type { ViewportMaskProps } from "./ViewportMask";
+  ViewportMode,
+} from "@/core/vis/viewport/useViewport";
+export type { ViewportMaskProps } from "@/core/vis/viewport/ViewportMask";
 
 export const Viewport = {
   use: useViewport,
   Mask: ViewportMask,
+  DEFAULT_TRIGGERS,
 };

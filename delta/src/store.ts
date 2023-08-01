@@ -15,6 +15,7 @@ import {
   configureStore,
   DRIFT_SLICE_NAME,
   DriftState,
+  WindowProps,
 } from "@synnaxlabs/drift";
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
@@ -95,6 +96,10 @@ export type Payload = Action["payload"];
 
 export type RootStore = Store<RootState, Action>;
 
+const DEFAULT_WINDOW_PROPS: Omit<WindowProps, "key"> = {
+  transparent: true,
+};
+
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await openPersist<RootState>({
     exclude: PERSIST_EXCLUDE,
@@ -105,6 +110,7 @@ const newStore = async (): Promise<RootStore> => {
     middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
     reducer,
     enablePrerender: true,
+    defaultWindowProps: DEFAULT_WINDOW_PROPS,
   })) as RootStore;
 };
 

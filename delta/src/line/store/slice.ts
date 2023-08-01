@@ -9,7 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { TypographyLevel } from "@synnaxlabs/pluto";
+import { TypographyLevel, ViewportMode } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -61,12 +61,14 @@ const ZERO_LEGEND_STATE = {
 // |||||| VIEWPORT ||||||
 
 export interface ViewportState {
+  counter: number;
   zoom: CrudeDimensions;
   pan: CrudeXY;
 }
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
-  zoom: Dimensions.ZERO.crude,
+  counter: 0,
+  zoom: Dimensions.DECIMAL.crude,
   pan: XY.ZERO.crude,
 };
 
@@ -216,7 +218,22 @@ export interface LineToolbarState {
   activeTab: LineToolbarTab;
 }
 
+export type ClickMode = "annotate" | "measure";
+
+export interface LineControlState {
+  clickMode: ClickMode | null;
+  enableTooltip: boolean;
+  mode: ViewportMode;
+}
+
+export const ZERO_LINE_CONTROL_STATE: LineControlState = {
+  clickMode: null,
+  enableTooltip: true,
+  mode: "zoom",
+};
+
 export interface LineSliceState {
+  control: LineControlState;
   toolbar: LineToolbarState;
   plots: Record<string, LinePlotState>;
 }
@@ -228,6 +245,7 @@ export interface LineStoreState {
 }
 
 export const ZERO_LINE_SLICE_STATE: LineSliceState = {
+  control: ZERO_LINE_CONTROL_STATE,
   toolbar: {
     activeTab: "data",
   },
@@ -240,7 +258,12 @@ export interface DeleteLinePlotPayload {
   layoutKey: string;
 }
 
-export interface SetLinePlotViewportPayload extends ViewportState {
+export interface SetLinePlotViewportPayload
+  extends Partial<Omit<ViewportState, "counter">> {
+  layoutKey: string;
+}
+
+export interface StoreLinePlotViewportPayload extends Omit<ViewportState, "counter"> {
   layoutKey: string;
 }
 
@@ -298,6 +321,10 @@ export interface SetLinePlotRulePayload {
 
 export interface SetActiveToolbarTabPayload {
   tab: LineToolbarTab;
+}
+
+export interface SetLineControlStatePayload {
+  state: Partial<LineControlState>;
 }
 
 interface TypedLineKey {
@@ -379,6 +406,16 @@ export const { actions, reducer: lineReducer } = createSlice({
     setLinePlotViewport: (
       state,
       { payload }: PayloadAction<SetLinePlotViewportPayload>
+    ) => {
+      state.plots[payload.layoutKey].viewport = {
+        ...ZERO_VIEWPORT_STATE,
+        ...payload,
+        counter: state.plots[payload.layoutKey].viewport.counter + 1,
+      };
+    },
+    storeLinePlotViewport: (
+      state,
+      { payload }: PayloadAction<StoreLinePlotViewportPayload>
     ) => {
       state.plots[payload.layoutKey].viewport = payload;
     },
@@ -465,6 +502,12 @@ export const { actions, reducer: lineReducer } = createSlice({
     ) => {
       state.toolbar.activeTab = payload.tab;
     },
+    setLineControlState: (
+      state,
+      { payload }: PayloadAction<SetLineControlStatePayload>
+    ) => {
+      state.control = { ...state.control, ...payload.state };
+    },
   },
 });
 
@@ -481,6 +524,8 @@ export const {
   setLinePlotLegend,
   setLinePlotRule,
   setLineActiveToolbarTab,
+  setLineControlState,
+  storeLinePlotViewport,
 } = actions;
 
 export type LineAction = ReturnType<(typeof actions)[keyof typeof actions]>;

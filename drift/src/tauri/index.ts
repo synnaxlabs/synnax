@@ -113,6 +113,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     const { size, minSize, maxSize, position, ...rest } = props;
+    console.log(rest.transparent);
     const w = new WebviewWindow(label, {
       x: position?.x,
       y: position?.y,

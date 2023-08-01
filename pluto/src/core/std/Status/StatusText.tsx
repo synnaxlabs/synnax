@@ -11,7 +11,7 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { ColorT } from "@/core/color";
+import { CrudeColor } from "@/core/color";
 import { Space } from "@/core/std/Space";
 import { StatusVariant } from "@/core/std/Status/types";
 import { Text, TextProps, TypographyLevel } from "@/core/std/Typography";
@@ -28,16 +28,7 @@ export interface StatusTextProps
   hideIcon?: boolean;
 }
 
-const statusVariantIcons: Record<StatusVariant, ReactElement> = {
-  info: <Icon.Info />,
-  warning: <Icon.Warning />,
-  error: <Icon.Close />,
-  success: <Icon.Check />,
-  loading: <Icon.Warning />,
-  disabled: <Icon.Warning />,
-};
-
-const statusVariantColors: Record<StatusVariant, ColorT> = {
+const statusVariantColors: Record<StatusVariant, CrudeColor> = {
   info: "var(--pluto-text-color)",
   error: "var(--pluto-error-z)",
   warning: "var(--pluto-text-color)",
@@ -55,7 +46,7 @@ const CoreStatusText = ({
   <Text.WithIcon
     color={statusVariantColors[variant]}
     level={level}
-    startIcon={!hideIcon && statusVariantIcons[variant]}
+    startIcon={!hideIcon && <Icon.Circle />}
     {...props}
   />
 );

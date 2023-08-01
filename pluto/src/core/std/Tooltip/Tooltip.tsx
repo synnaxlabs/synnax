@@ -20,7 +20,21 @@ import {
   useState,
 } from "react";
 
-import { Box, CrudeOuterLocation, CrudeTimeSpan, TimeSpan, XY } from "@synnaxlabs/x";
+import {
+  Box,
+  CrudeLocation,
+  CrudeOuterLocation,
+  CrudeTimeSpan,
+  CrudeXLocation,
+  CrudeXYLocation,
+  CrudeYLocation,
+  Dimensions,
+  Location,
+  TimeSpan,
+  XY,
+  XYLocation,
+} from "@synnaxlabs/x";
+import { createPortal } from "react-dom";
 
 import { CSS } from "@/core/css";
 import { useTooltipConfig } from "@/core/std/Tooltip/TooltipConfig";
@@ -30,32 +44,50 @@ import "@/core/std/Tooltip/Tooltip.css";
 export interface TooltipProps
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
-  location?: CrudeOuterLocation;
+  location?: CrudeOuterLocation | Partial<CrudeXYLocation>;
   hide?: boolean;
   children: [ReactNode, ReactElement];
 }
 
 interface State {
-  location: CrudeOuterLocation;
+  location: XYLocation;
   position: XY;
+  elDims: Dimensions;
 }
 
-const SIZE_THRESHOLD = 200;
+const SIZE_THRESHOLD = 150;
 
-const LOCATION_PREFERENCES: CrudeOuterLocation[] = ["right", "left", "bottom", "top"];
+const Y_LOCATION_PREFERENCES: CrudeYLocation[] = ["top", "bottom"];
+const X_LOCATION_PREFERENCES: CrudeXLocation[] = ["left", "right"];
+const OUTER_LOCATION_PREFERENCES: CrudeOuterLocation[] = [
+  ...X_LOCATION_PREFERENCES,
+  ...Y_LOCATION_PREFERENCES,
+];
+const LOCATION_PREFERENCES: CrudeLocation[] = [...OUTER_LOCATION_PREFERENCES, "center"];
 
-const getLocation = (container: Box, window: Box): CrudeOuterLocation => {
-  for (const location of LOCATION_PREFERENCES) {
+const LOCATION_TRANSLATIONS: Record<string, (xy: XY, container: Box) => XY> = {
+  [XYLocation.TOP_RIGHT.toString()]: (xy, c) => xy.translateX(-c.width),
+  [XYLocation.TOP_LEFT.toString()]: (xy, c) => xy.translateX(c.width),
+  [XYLocation.BOTTOM_RIGHT.toString()]: (xy, c) => xy.translateX(-c.width),
+  [XYLocation.BOTTOM_LEFT.toString()]: (xy, c) => xy.translateX(c.width),
+};
+
+const bestLocation = <C extends CrudeLocation>(
+  container: Box,
+  window: Box,
+  options: C[]
+): C => {
+  for (const location of options) {
     const distance = Math.abs(window.loc(location) - container.loc(location));
     if (distance > SIZE_THRESHOLD) return location;
   }
-  return LOCATION_PREFERENCES[0];
+  return options[0];
 };
 
 export const Tooltip = ({
   delay,
   children,
-  location: propsLocation,
+  location: cornerOrLocation,
   hide = false,
 }: TooltipProps): ReactElement => {
   const config = useTooltipConfig();
@@ -66,12 +98,49 @@ export const Tooltip = ({
   const handleVisibleChange = (e: MouseEvent, visible: boolean): void => {
     if (!visible || hide) return setState(null);
     config.startAccelerating();
-    const conainer = new Box(e.target as HTMLElement);
+    const container = new Box(e.target as HTMLElement);
     const window = new Box(document.documentElement);
-    const location = propsLocation ?? getLocation(conainer, window);
+    const parse = Location.looseZ.safeParse(cornerOrLocation);
+
+    const chooseRemainingLocation = (first: Location): Location => {
+      let preferences: CrudeLocation[];
+      if (first.isCenter) {
+        preferences = OUTER_LOCATION_PREFERENCES;
+      } else if (first.isX) preferences = ["center", ...Y_LOCATION_PREFERENCES];
+      else preferences = ["center", ...X_LOCATION_PREFERENCES];
+      return new Location(bestLocation(container, window, preferences));
+    };
+
+    let xy: XYLocation = XYLocation.CENTER;
+    if (parse.success) {
+      xy = new XYLocation(parse.data, chooseRemainingLocation(parse.data));
+    } else if (cornerOrLocation != null) {
+      const v = cornerOrLocation as Partial<CrudeXYLocation>;
+      if (v.x == null && v.y != null)
+        v.x = chooseRemainingLocation(new Location(v.y)).crude as CrudeXLocation;
+      else if (v.y == null && v.x != null)
+        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+      else if (v.x == null && v.y == null) {
+        v.x = new Location(bestLocation(container, window, LOCATION_PREFERENCES))
+          .crude as CrudeXLocation;
+        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+      }
+      xy = new XYLocation(v as CrudeXYLocation);
+    } else {
+      const chosen = new Location(
+        bestLocation(container, window, LOCATION_PREFERENCES)
+      );
+      xy = new XYLocation(chosen, chooseRemainingLocation(chosen));
+    }
+
+    let pos = container.xyLoc(xy);
+    const translate = LOCATION_TRANSLATIONS[xy.toString()];
+    if (translate != null) pos = translate(pos, container);
+
     setState({
-      location,
-      position: conainer.locPoint(location),
+      location: xy,
+      position: pos,
+      elDims: container.dims,
     });
   };
 
@@ -93,14 +162,24 @@ export const Tooltip = ({
 
   return (
     <>
-      {state != null && (
-        <div
-          className={CSS(CSS.B("tooltip"), CSS.loc(state.location))}
-          style={{ ...state.position.css }}
-        >
-          {tip}
-        </div>
-      )}
+      {state != null &&
+        createPortal(
+          <div
+            className={CSS(
+              CSS.B("tooltip"),
+              CSS.loc(state.location.x),
+              CSS.loc(state.location.y)
+            )}
+            style={{
+              ...state.position.css,
+              // @ts-expect-error
+              "--el-width": CSS.px(state.elDims.width),
+            }}
+          >
+            {tip}
+          </div>,
+          document.body
+        )}
       {cloneElement(children_, {
         onMouseEnter: handleMouseEnter,
         onMouseLeave: handleMouseLeave,

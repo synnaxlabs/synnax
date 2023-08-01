@@ -9,16 +9,9 @@
 
 import { z } from "zod";
 
-export const CORNER_LOCATIONS: Record<Corner, [CrudeXLocation, CrudeYLocation]> = {
-  topLeft: ["left", "top"],
-  topRight: ["right", "top"],
-  bottomLeft: ["left", "bottom"],
-  bottomRight: ["right", "bottom"],
-};
-
 export const POSITIONS = ["start", "center", "end"] as const;
 export const ORDERS = ["first", "last"] as const;
-export const CORNERS = ["topLeft", "topRight", "bottomLeft", "bottomRight"] as const;
+
 const DIRECTIONS = ["x", "y"] as const;
 const Y_LOCATIONS = ["top", "bottom"] as const;
 const X_LOCATIONS = ["left", "right"] as const;
@@ -28,56 +21,82 @@ const LOCATIONS = [...OUTER_LOCATIONS, "center"] as const;
 
 const stringValueOf = z.instanceof(String);
 const numberCouple = z.tuple([z.number(), z.number()]);
-const direction = z.enum(["x", "y"]);
-const yDirection = z.literal("y");
-const xDirection = z.literal("x");
-const yLocation = z.enum(Y_LOCATIONS);
-const xLocation = z.enum(X_LOCATIONS);
-const outerLocation = z.enum(OUTER_LOCATIONS);
-const location = z.enum(LOCATIONS);
-const xy = z.object({ x: z.number(), y: z.number() });
-const clientXY = z.object({ clientX: z.number(), clientY: z.number() });
-const dimensions = z.object({ width: z.number(), height: z.number() });
-const signedDimensions = z.object({
+const crudeDirection = z.enum(["x", "y"]);
+const crudeYDirection = z.literal("y");
+const crudeXDirection = z.literal("x");
+const crudeYLocation = z.enum(Y_LOCATIONS);
+const crudeXLocation = z.enum(X_LOCATIONS);
+const crudeCenterLocation = z.literal(CENTER_LOCATION);
+const crudeOuterLocation = z.enum(OUTER_LOCATIONS);
+const crudeLocation = z.enum(LOCATIONS);
+const crudeXY = z.object({ x: z.number(), y: z.number() });
+const crudeClientXY = z.object({ clientX: z.number(), clientY: z.number() });
+const crudeDimensions = z.object({ width: z.number(), height: z.number() });
+const crudeSignedDimensions = z.object({
   signedWidth: z.number(),
   signedHeight: z.number(),
 });
-const position = z.enum(POSITIONS);
-export const order = z.enum(ORDERS);
-const corner = z.enum(CORNERS);
-const transform = z.object({ offset: z.number(), scale: z.number() });
-export const xyTransform = z.object({ offset: xy, scale: xy });
-const bounds = z.object({ lower: z.number(), upper: z.number() });
-const dimension = z.enum(["width", "height"]);
+const crudePosition = z.enum(POSITIONS);
+export const crudeOrder = z.enum(ORDERS);
+const crudeTransform = z.object({ offset: z.number(), scale: z.number() });
+export const crudeXYTransform = z.object({ offset: crudeXY, scale: crudeXY });
+const crudeBounds = z.object({ lower: z.number(), upper: z.number() });
+const crudeDimension = z.enum(["width", "height"]);
+const crudeXYCornerLocation = z.object({
+  x: crudeXLocation,
+  y: crudeYLocation,
+});
+const crudeXYLocation = z.object({
+  x: z.union([crudeXLocation, crudeCenterLocation]),
+  y: z.union([crudeYLocation, crudeCenterLocation]),
+});
 
-const looseDirection = z.union([direction, location, stringValueOf]);
-const looseYLocation = z.union([yLocation, yDirection]);
-const looseXLocation = z.union([xLocation, xDirection]);
-const looseOuterLocation = z.union([outerLocation, direction]);
-const looseXY = z.union([xy, clientXY, dimensions, signedDimensions, numberCouple]);
-const looseLocation = looseDirection;
-const looseBoundZ = z.union([bounds, numberCouple]);
+const looseDirection = z.union([crudeDirection, crudeLocation, stringValueOf]);
+const looseYLocation = z.union([crudeYLocation, crudeYDirection, stringValueOf]);
+const looseXLocation = z.union([crudeXLocation, crudeXDirection, stringValueOf]);
+const looseOuterLocation = z.union([looseXLocation, looseYLocation, crudeDirection]);
+const looseXY = z.union([
+  crudeXY,
+  crudeClientXY,
+  crudeDimensions,
+  crudeSignedDimensions,
+  numberCouple,
+]);
+const looseLocation = z.union([crudeLocation, looseOuterLocation, looseDirection]);
+const looseBounds = z.union([crudeBounds, numberCouple]);
 const looseXYTransform = z.object({ offset: looseXY, scale: looseXY });
-const looseDimensions = z.union([dimensions, signedDimensions, xy, numberCouple]);
+const looseDimensions = z.union([
+  crudeDimensions,
+  crudeSignedDimensions,
+  crudeXY,
+  numberCouple,
+]);
+const looseXYCornerLocation = z.object({
+  x: looseXLocation,
+  y: looseYLocation,
+});
+const looseXYLocation = z.object({
+  x: z.union([looseXLocation, crudeCenterLocation]),
+  y: z.union([looseYLocation, crudeCenterLocation]),
+});
 
 export type NumberCouple = z.infer<typeof numberCouple>;
-export type CrudeYLocation = z.infer<typeof yLocation>;
-export type CrudeXLocation = z.infer<typeof xLocation>;
-export type CrudeOuterLocation = z.infer<typeof outerLocation>;
+export type CrudeYLocation = z.infer<typeof crudeYLocation>;
+export type CrudeXLocation = z.infer<typeof crudeXLocation>;
+export type CrudeOuterLocation = z.infer<typeof crudeOuterLocation>;
 export type CrudeCenterLocation = typeof CENTER_LOCATION;
-export type CrudeLocation = z.infer<typeof location>;
-export type CrudeDirection = z.infer<typeof direction>;
-export type CrudeXY = z.infer<typeof xy>;
-export type CrudeDimensions = z.infer<typeof dimensions>;
-export type SignedDimensions = z.infer<typeof signedDimensions>;
-export type CrudeBounds = z.input<typeof bounds>;
-export type CrudePosition = z.infer<typeof position>;
-export type CrudeOrder = z.infer<typeof order>;
-export type Corner = z.infer<typeof corner>;
-export type Dimension = z.infer<typeof dimension>;
-export type XYTransformT = z.infer<typeof xyTransform>;
-export type ClientXYT = z.infer<typeof clientXY>;
-export type TransformT = z.infer<typeof transform>;
+export type CrudeLocation = z.infer<typeof crudeLocation>;
+export type CrudeDirection = z.infer<typeof crudeDirection>;
+export type CrudeXY = z.infer<typeof crudeXY>;
+export type CrudeDimensions = z.infer<typeof crudeDimensions>;
+export type SignedDimensions = z.infer<typeof crudeSignedDimensions>;
+export type CrudeBounds = z.input<typeof crudeBounds>;
+export type CrudePosition = z.infer<typeof crudePosition>;
+export type CrudeOrder = z.infer<typeof crudeOrder>;
+export type Dimension = z.infer<typeof crudeDimension>;
+export type XYTransformT = z.infer<typeof crudeXYTransform>;
+export type ClientXYT = z.infer<typeof crudeClientXY>;
+export type TransformT = z.infer<typeof crudeTransform>;
 
 export type LooseXYT = z.input<typeof looseXY>;
 export type LooseCrudeYLocation = z.infer<typeof looseYLocation>;
@@ -85,16 +104,18 @@ export type LooseCrudeXLocation = z.infer<typeof looseXLocation>;
 export type LooseXYTransformT = z.infer<typeof looseXYTransform>;
 export type LooseOuterLocation = z.infer<typeof looseOuterLocation>;
 export type LooseDimensionsT = z.infer<typeof looseDimensions>;
-export type LooseBoundT = z.infer<typeof looseBoundZ>;
+export type LooseBoundT = z.infer<typeof looseBounds>;
+export type CrudeXYLocation = z.infer<typeof crudeXYLocation>;
+export type CrudeCornerXYLocation = z.infer<typeof crudeXYCornerLocation>;
+
 /**
  * Location and Direction classes don't satisfy their primitive type interface,
  * so we need to include them in the loose type.
  */
 export type LooseDirectionT = z.infer<typeof looseDirection> | Direction;
 export type LooseLocationT = z.infer<typeof looseLocation> | Location;
-
-export const cornerLocations = (corner: Corner): [CrudeXLocation, CrudeYLocation] =>
-  CORNER_LOCATIONS[corner];
+export type LooseXYLocation = z.infer<typeof looseXYLocation> | XYLocation;
+export type LooseXYCornerLocation = z.infer<typeof looseXYCornerLocation> | XYLocation;
 
 /**
  * A direction on the screen: "x" or "y".
@@ -144,10 +165,10 @@ export class Direction extends String {
   }
 
   /** The "x" direction. */
-  static readonly x = new Direction("x");
+  static readonly X = new Direction("x");
 
   /** The "y" direction. */
-  static readonly y = new Direction("y");
+  static readonly Y = new Direction("y");
 
   /** A list of all the direction options. */
   static readonly DIRECTIONS = DIRECTIONS;
@@ -159,7 +180,7 @@ export class Direction extends String {
   static readonly looseZ = looseDirection.transform((v) => new Direction(v));
 
   /** A Zod schema to parse a strict direction i.e. either "x" or "y". */
-  static readonly strictZ = direction.transform((v) => new Direction(v));
+  static readonly strictZ = crudeDirection.transform((v) => new Direction(v));
 
   /** Returns true if the provided value can be parsed as a direction. */
   static isValid(other: any): boolean {
@@ -235,24 +256,45 @@ export class Location extends String {
   /**
    * @returns true if the location is a center location i.e. "center".
    */
-  get isCenter(): boolean {
-    return this.crude === "center";
+
+  static isValid(other: any): boolean {
+    return Location.looseZ.safeParse(other).success;
   }
 
   /** The "top" location. */
-  static readonly top = new Location("top");
+  static readonly TOP = new Location("top");
+
+  get isTop(): boolean {
+    return this.equals("top");
+  }
 
   /** The "bottom" location. */
-  static readonly bottom = new Location("bottom");
+  static readonly BOTTOM = new Location("bottom");
+
+  get isBottom(): boolean {
+    return this.equals("bottom");
+  }
 
   /** The "left" location. */
-  static readonly left = new Location("left");
+  static readonly LEFT = new Location("left");
+
+  get isLeft(): boolean {
+    return this.equals("left");
+  }
 
   /** The "right" location. */
-  static readonly right = new Location("right");
+  static readonly RIGHT = new Location("right");
+
+  get isRight(): boolean {
+    return this.equals("right");
+  }
 
   /** The "center" location. */
-  static readonly center = new Location("center");
+  static readonly CENTER = new Location("center");
+
+  get isCenter(): boolean {
+    return this.equals("center");
+  }
 
   /**
    * A list of all locations represented by the "x" direction i.e. "left" and "right".
@@ -273,18 +315,13 @@ export class Location extends String {
    * A zod schema to parse a strict location i.e. one of "top", "bottom", "left",
    * "right",
    */
-  static readonly strictZ = location.transform((v) => new Location(v));
+  static readonly strictZ = crudeLocation.transform((v) => new Location(v));
 
   /**
    * A zod schema to parse a loose location i.e. any type that can be converted
    * to a location.
    */
   static readonly looseZ = looseLocation.transform((v) => new Location(v));
-
-  /**
-   * A zod schema to parse a corner i.e. one of "topLeft", "topRight", "bottomLeft",
-   */
-  static readonly strictCornerZ = corner;
 
   private static readonly locationOrValue = stringValueOf;
   //   // z.instanceof(Location),
@@ -294,7 +331,7 @@ export class Location extends String {
   /**
    * A zod schema to parse an X location i.e. one of "left" or "right".
    */
-  static readonly strictXZ = xLocation
+  static readonly strictXZ = crudeXLocation
     .or(Location.locationOrValue)
     .transform((v) => new Location(v))
     .refine((l) => l.isX);
@@ -302,7 +339,7 @@ export class Location extends String {
   /**
    * A zod schema to parse a Y location i.e. one of "top" or "bottom".
    */
-  static readonly strictYZ = yLocation
+  static readonly strictYZ = crudeYLocation
     .or(Location.locationOrValue)
     .transform((v) => new Location(v))
     .refine((l) => l.isY);
@@ -311,7 +348,7 @@ export class Location extends String {
    * A zod schema to parse an outer location i.e. one of "top", "bottom", "left",
    * "right".
    */
-  static readonly strictOuterZ = outerLocation
+  static readonly strictOuterZ = crudeOuterLocation
     .or(Location.locationOrValue)
     .transform((v) => new Location(v))
     .refine((l) => l.isOuter);
@@ -323,6 +360,67 @@ export class Location extends String {
     right: "left",
     center: "center",
   };
+}
+
+export class XYLocation {
+  x: Location;
+  y: Location;
+
+  constructor(
+    x: LooseLocationT | LooseXYLocation | Location | XYLocation,
+    y?: LooseLocationT
+  ) {
+    let one: Location;
+    let two: Location;
+    if ((typeof x === "object" && "x" in x) || x instanceof XYLocation) {
+      one = new Location(x.x);
+      two = new Location(x.y);
+    } else {
+      one = new Location(x);
+      two = new Location(y ?? x);
+    }
+    if (one.direction.equals(two.direction) && !one.isCenter && !two.isCenter)
+      throw new Error(
+        `[XYLocation] - encountered two locations with the same direction: ${one.toString()} - ${two.toString()}`
+      );
+    if (one.isCenter) {
+      if (two.isX) [this.x, this.y] = [two, one];
+      else [this.x, this.y] = [one, two];
+    } else if (two.isCenter) {
+      if (one.isX) [this.x, this.y] = [one, two];
+      else [this.x, this.y] = [two, one];
+    } else if (one.isX) [this.x, this.y] = [one, two];
+    else [this.x, this.y] = [two, one];
+  }
+
+  equals(other: LooseXYLocation): boolean {
+    const o = new XYLocation(other);
+    return this.x.equals(o.x) && this.y.equals(o.y);
+  }
+
+  toString(): string {
+    return `${this.x.valueOf()}-${this.y.valueOf()}`;
+  }
+
+  get crude(): CrudeXYLocation {
+    return { x: this.x.crude as CrudeXLocation, y: this.y.crude as CrudeYLocation };
+  }
+
+  static readonly TOP_LEFT = new XYLocation("left", "top");
+  static readonly TOP_RIGHT = new XYLocation("right", "top");
+  static readonly BOTTOM_LEFT = new XYLocation("left", "bottom");
+  static readonly BOTTOM_RIGHT = new XYLocation("right", "bottom");
+  static readonly CENTER = new XYLocation("center", "center");
+  static readonly TOP_CENTER = new XYLocation("center", "top");
+  static readonly BOTTOM_CENTER = new XYLocation("center", "bottom");
+  static readonly LEFT_CENTER = new XYLocation("left", "center");
+  static readonly RIGHT_CENTER = new XYLocation("right", "center");
+
+  static readonly z = crudeXYLocation.transform((v) => new XYLocation(v));
+  static readonly cornerZ = crudeXYCornerLocation.transform((v) => new XYLocation(v));
+  static readonly looseCornerZ = looseXYCornerLocation
+    .transform((v) => new XYLocation(v))
+    .or(z.instanceof(XYLocation));
 }
 
 /**
@@ -388,8 +486,8 @@ export class XY {
   }
 
   /** @returns an XY coordinate translated by the given x and y values */
-  translate(xy: LooseXYT): XY {
-    const t = new XY(xy);
+  translate(x: LooseXYT | number, y?: number): XY {
+    const t = new XY(x, y);
     return new XY(this.x + t.x, this.y + t.y);
   }
 
@@ -398,6 +496,24 @@ export class XY {
     if (other == null) return false;
     const o = new XY(other, y);
     return this.x === o.x && this.y === o.y;
+  }
+
+  /** @returns the distance between the point and given point */
+  distanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.sqrt(Math.pow(this.x - o.x, 2) + Math.pow(this.y - o.y, 2));
+  }
+
+  /** @returns the distance between the x coordinates of the point and given point */
+  xDistanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.abs(this.x - o.x);
+  }
+
+  /** @returns the distance beween the y coordinates of the point and given point */
+  yDistanceTo(other: LooseXYT): number {
+    const o = new XY(other);
+    return Math.abs(this.y - o.y);
   }
 
   /**
@@ -415,6 +531,19 @@ export class XY {
     return { left: this.x, top: this.y };
   }
 
+  /**
+   * @returns the XY in css percentage coordinate form, assuming the XY is a percentage
+   * expressed as a decimal.
+   */
+  get percentCSS(): { left: string; top: string } {
+    return { left: `${this.x * 100}%`, top: `${this.y * 100}%` };
+  }
+
+  /** @returns true if either the x or y coordinate is NaN */
+  get isNan(): boolean {
+    return isNaN(this.x) || isNaN(this.y);
+  }
+
   /** An x and y coordinate of zero */
   static readonly ZERO = new XY(0, 0);
 
@@ -423,6 +552,9 @@ export class XY {
 
   /** An x and y coordinate of infinity */
   static readonly INFINITE = new XY(Infinity, Infinity);
+
+  /** An x and y coordinate of NaN */
+  static readonly NAN = new XY(NaN, NaN);
 
   /**
    * A zod schema for parsing an XY. This schema is loose in that it will
@@ -435,7 +567,7 @@ export class XY {
    * A zod schema for parsing an XY. This schema is strict in that it will
    * only accept an XY as an input.
    */
-  static readonly z = xy.transform((v) => new XY(v));
+  static readonly z = crudeXY.transform((v) => new XY(v));
 }
 
 /**
@@ -626,11 +758,11 @@ export class Bounds {
    * accept and convert a variety of inputs into a bound. If you only want to accept
    * strict bounds, use strictZ.
    */
-  static readonly looseZ = looseBoundZ.transform((v) => new Bounds(v));
+  static readonly looseZ = looseBounds.transform((v) => new Bounds(v));
 
   /**
    * strictZ is a zod schema for parsing a bound. This schema is strict in that it will
    * only accept a bound as an input.
    * */
-  static readonly strictZ = bounds.transform((v) => new Bounds(v));
+  static readonly strictZ = crudeBounds.transform((v) => new Bounds(v));
 }

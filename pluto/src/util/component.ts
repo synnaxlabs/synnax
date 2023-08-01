@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export const ComponentSizes = ["tiny", "small", "medium", "large"] as const;
+export const ComponentSizes = ["small", "medium", "large"] as const;
 export const componentSize = z.enum(ComponentSizes);
 export type ComponentSize = z.infer<typeof componentSize>;
 

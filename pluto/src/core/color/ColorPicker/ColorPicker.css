@@ -15,36 +15,33 @@
     box-shadow: none !important;
     padding: 1rem !important;
     background: none !important;
-}
 
-.pluto-color-picker * {
-    font-size: var(--pluto-small-size) !important;
-    font-weight: var(--pluto-small-font-weight) !important;
-    line-height: var(--pluto-small-line-height) !important;
-}
+    & input {
+        border: var(--pluto-border) !important;
+        width: 100% !important;
+        background: none !important;
+        box-shadow: none !important;
+        border-radius: var(--pluto-border-radius) !important;
+        color: var(--pluto-text-color) !important;
+    }
 
-.pluto-color-picker > div:first-child {
-    border-radius: var(--pluto-border-radius);
-}
+    & label {
+        color: var(--pluto-gray-p0) !important;
+        padding-top: 1rem !important;
+        padding-bottom: 0 !important;
+    }
 
-.pluto-color-picker > div:nth-child(2) > div:first-child > div {
-    border-radius: var(--pluto-border-radius);
-}
+    & * {
+        font-size: var(--pluto-small-size) !important;
+        font-weight: var(--pluto-small-font-weight) !important;
+        line-height: var(--pluto-small-line-height) !important;
+    }
 
-.pluto-color-picker input {
-    border: var(--pluto-border) !important;
-    width: 100% !important;
-    background: none !important;
-    box-shadow: none !important;
-    border-radius: var(--pluto-border-radius) !important;
-}
+    > div:first-child {
+        border-radius: var(--pluto-border-radius);
+    }
 
-.pluto-color-picker input {
-    color: var(--pluto-text-color) !important;
-}
-
-.pluto-color-picker label {
-    color: var(--pluto-gray-p0) !important;
-    padding-top: 1rem !important;
-    padding-bottom: 0 !important;
+    > div:nth-child(2) > div:first-child > div {
+        border-radius: var(--pluto-border-radius);
+    }
 }

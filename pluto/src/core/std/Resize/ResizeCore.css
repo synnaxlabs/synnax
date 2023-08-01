@@ -12,46 +12,46 @@
 .pluto-resize {
     --resize-panel-handle-size: calc(var(--pluto-border-width) * 5);
     position: relative;
+
+    &.pluto--left > .pluto-resize__handle {
+        right: 0;
+        top: 0;
+    }
+
+    &.pluto--right > .pluto-resize__handle {
+        left: 0;
+        top: 0;
+    }
+
+    &.pluto--top > .pluto-resize__handle {
+        left: 0;
+        bottom: 0;
+    }
+
+    &.pluto--bottom > .pluto-resize__handle {
+        left: 0;
+        top: 0;
+    }
+
+    &.pluto--x > .pluto-resize__handle {
+        width: var(--resize-panel-handle-size);
+        height: 100%;
+        cursor: col-resize;
+    }
+
+    &.pluto--y > .pluto-resize__handle {
+        height: var(--resize-panel-handle-size);
+        width: 100%;
+        cursor: row-resize;
+    }
+
+    &.pluto--collapsed > .pluto-resize__handle {
+        border-color: var(--pluto-primary-p1);
+        border-width: 2px;
+    }
 }
 
 .pluto-resize__handle {
     position: absolute;
     z-index: 8;
-}
-
-.pluto-resize.pluto--left > .pluto-resize__handle {
-    right: 0;
-    top: 0;
-}
-
-.pluto-resize.pluto--right > .pluto-resize__handle {
-    left: 0;
-    top: 0;
-}
-
-.pluto-resize.pluto--top > .pluto-resize__handle {
-    left: 0;
-    bottom: 0;
-}
-
-.pluto-resize.pluto--bottom > .pluto-resize__handle {
-    left: 0;
-    top: 0;
-}
-
-.pluto-resize.pluto--x > .pluto-resize__handle {
-    width: var(--resize-panel-handle-size);
-    height: 100%;
-    cursor: col-resize;
-}
-
-.pluto-resize.pluto--y > .pluto-resize__handle {
-    height: var(--resize-panel-handle-size);
-    width: 100%;
-    cursor: row-resize;
-}
-
-.pluto-resize.pluto--collapsed > .pluto-resize__handle {
-    border-color: var(--pluto-primary-p1);
-    border-width: 2px;
 }

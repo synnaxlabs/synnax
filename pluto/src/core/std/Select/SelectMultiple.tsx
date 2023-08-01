@@ -24,7 +24,7 @@ import {
   Compare,
 } from "@synnaxlabs/x";
 
-import { ColorT } from "@/core/color";
+import { CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { useAsyncEffect } from "@/core/hooks";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
@@ -81,7 +81,7 @@ export const SelectMultiple = <
   useAsyncEffect(async () => {
     const selectedKeys = selected.map((v) => v.key);
     if (value.length === 0) return setSelected([]);
-    if (Compare.primitiveArrays(selectedKeys, value) === Compare.equal) return;
+    if (Compare.primitiveArrays(selectedKeys, value) === Compare.EQUAL) return;
     const e = searchMode
       ? await searcher.retrieve(value as K[])
       : data?.filter((v) => value.includes(v.key)) ?? [];
@@ -224,7 +224,7 @@ interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<
   key: K;
   tagKey: keyof E;
   entry: E;
-  color: ColorT;
+  color: CrudeColor;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
