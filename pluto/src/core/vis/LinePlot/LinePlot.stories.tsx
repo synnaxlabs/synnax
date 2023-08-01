@@ -14,6 +14,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Canvas } from "../Canvas";
 
 import { LinePlot } from "@/core/vis/LinePlot";
+import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
 import { Telem } from "@/telem";
 
 const story: Meta<typeof LinePlot> = {
@@ -30,15 +31,15 @@ const yData = Float32Array.from(
   { length: LENGTH },
   (_, i) => Math.sin(i / DIV) * MULT + Math.random()
 );
-const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i);
+const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.25);
 const yData2 = Float32Array.from(
   { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 2
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 200
 );
-const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i);
+const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.5);
 const yData3 = Float32Array.from(
   { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 4
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400
 );
 const Example = (): ReactElement => {
   const telem = Telem.Static.useXY({
@@ -65,7 +66,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot style={{ padding: "1rem" }}>
+      <LinePlot>
         <LinePlot.XAxis
           type="linear"
           label={xLabel}
@@ -77,7 +78,7 @@ const Example = (): ReactElement => {
             type="linear"
             label={label}
             onLabelChange={setLabel}
-            location="left"
+            location="right"
             showGrid
           >
             <LinePlot.Line telem={telem} color="#F733FF" strokeWidth={2} label="Line" />
@@ -94,9 +95,11 @@ const Example = (): ReactElement => {
               label="Line 3"
               downsample={10}
             />
+            <LinePlot.Viewport />
           </LinePlot.YAxis>
         </LinePlot.XAxis>
         <LinePlot.Legend />
+        <Tooltip />
       </LinePlot>
     </Canvas>
   );

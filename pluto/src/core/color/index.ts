@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { Color } from "@/core/color/color";
-export type { CrudeColor as ColorT, Hex, RGBA } from "@/core/color/color";
+export type { CrudeColor, Hex, RGBA } from "@/core/color/color";

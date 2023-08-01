@@ -13,6 +13,6 @@ import { getOS } from "@synnaxlabs/x";
 const isWindows = getOS() === "Windows";
 
 export const Symbols = {
-  Meta: isWindows ? Icon.Keyboard.Windows : Icon.Keyboard.Command,
+  Meta: isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command,
   Alt: isWindows ? Icon.Keyboard.Alt : Icon.Keyboard.Option,
 };

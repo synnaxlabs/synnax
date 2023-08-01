@@ -10,7 +10,7 @@
 import { ReactElement, useState } from "react";
 
 import { Meta } from "@storybook/react";
-import { Box, BoxScale } from "@synnaxlabs/x";
+import { Box, XYScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
@@ -56,7 +56,7 @@ export const Basic = (): ReactElement => {
 export default story;
 
 const ZoomMiniMap = ({ box }: { box: Box }): ReactElement => {
-  const scaled = BoxScale.scale(Box.DECIMAL)
+  const scaled = XYScale.scale(Box.DECIMAL)
     .scale(new Box(0, 0, 400, 400))
     .box(box)
     .reRoot("topLeft");

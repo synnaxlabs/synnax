@@ -261,7 +261,7 @@ export interface NumericTelemSource {
     value: () => Promise<number>;
 }
 
-export interface ColorTelemSource {
+export interface CrudeColorelemSource {
     value: () => Promise<Color>;
 }
 
@@ -290,3 +290,24 @@ proxy objects that implement the above interfaces to call specific methods on th
 client. This prevents us from overloading the client with implementing too much
 functionality, and gives us close control over the lifecycle of telemetry arrays stored
 in the cache.
+
+## 5.2 - Scaling and Offsets
+
+One of the key challenges I encountered with the previous visualization architecture
+was developing a robust system for scaling, translating, and offsetting data for
+rendering.
+
+1. Value in screen pixel space
+2. Value in clip space
+3. Value in data space
+
+Storing a stateful value in decimal space should be used when an entity should remain
+in the same position with respect to the plot viewport.
+
+Storing a stateful value in screen pixel space should be used when an entity should
+remain in the same position with respect to the screen.
+
+Storing a stateful value in value space should be used when an entity should remain
+in the same position with respect to the data.
+
+Measure - store the value in decimal space.

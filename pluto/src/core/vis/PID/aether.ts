@@ -28,22 +28,21 @@ export interface PIDElement extends AetherComponent {
   render: (props: PIDElementProps) => Promise<void>;
 }
 
-interface Derived {
-  renderCtx: RenderContext;
+interface InternalState {
+  render: RenderContext;
 }
 
-export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElement> {
+export class AetherPID extends AetherComposite<
+  typeof pidState,
+  InternalState,
+  PIDElement
+> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidState;
   schema = AetherPID.stateZ;
 
-  derive(): Derived {
-    return {
-      renderCtx: RenderContext.use(this.ctx),
-    };
-  }
-
   afterUpdate(): void {
+    this.internal.render = RenderContext.use(this.ctx);
     RenderController.control(this.ctx, () => this.requestRender());
     this.requestRender();
     if (this.state.error != null) this.setState((p) => ({ ...p, error: undefined }));
@@ -63,7 +62,7 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
 
   async render(): Promise<RenderCleanup> {
     if (this.deleted) return async () => {};
-    const { renderCtx } = this.derived;
+    const { render: renderCtx } = this.internal;
     const region = new Box(this.state.region);
     const clearScissor = renderCtx.scissorCanvas(region);
     try {
@@ -88,7 +87,7 @@ export class AetherPID extends AetherComposite<typeof pidState, Derived, PIDElem
   }
 
   private requestRender(): void {
-    const { renderCtx } = this.derived;
+    const { render: renderCtx } = this.internal;
     renderCtx.queue.push({
       key: this.key,
       render: this.render.bind(this),

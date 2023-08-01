@@ -35,49 +35,50 @@ export interface ValueProps {
   position: XY;
 }
 
-interface Derived {
-  renderCtx: RenderContext;
+interface InternalState {
+  render: RenderContext;
   telem: NumericTelemSource;
   cleanupTelem: Destructor;
   requestRender: (() => void) | null;
 }
 
 export class AetherValue
-  extends AetherLeaf<typeof valueState, Derived>
+  extends AetherLeaf<typeof valueState, InternalState>
   implements PIDElement
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
   schema = AetherValue.z;
 
-  derive(): Derived {
-    return {
-      ...TelemContext.use(this.ctx, this.key, this.state.telem),
-      renderCtx: RenderContext.use(this.ctx),
-      requestRender: RenderController.useOptionalRequest(this.ctx),
-    };
-  }
-
   afterUpdate(): void {
-    this.derived.telem.onChange(() => this.requestRender());
+    this.internal.render = RenderContext.use(this.ctx);
+    const { telem, cleanupTelem } = TelemContext.use<NumericTelemSource>(
+      this.ctx,
+      this.key,
+      this.state.telem
+    );
+    this.internal.telem = telem;
+    this.internal.cleanupTelem = cleanupTelem;
+    this.internal.telem.onChange(() => this.requestRender());
+    this.internal.requestRender = RenderController.useOptionalRequest(this.ctx);
     this.requestRender();
   }
 
   afterDelete(): void {
-    const { requestRender, cleanupTelem, renderCtx } = this.derived;
+    const { requestRender, cleanupTelem, render: renderCtx } = this.internal;
     cleanupTelem();
     if (requestRender == null) renderCtx.erase(new Box(this.state.box));
     else requestRender();
   }
 
   private requestRender(): void {
-    const { requestRender } = this.derived;
+    const { requestRender } = this.internal;
     if (requestRender != null) requestRender();
     else void this.render();
   }
 
   async render(props?: ValueProps): Promise<void> {
-    const { renderCtx, telem } = this.derived;
+    const { render: renderCtx, telem } = this.internal;
     const box = new Box(this.state.box);
     if (box.isZero) return;
     const { lower2d: canvas } = renderCtx;

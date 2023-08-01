@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Direction, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, Box, Location, Scale, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { LineGL } from "../../Line/LineGL";
-import { AetherRule } from "../../Rule/aether";
-
-import { GridPositionMeta, calculateAxisPosition } from "./LinePlot";
 
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
@@ -21,17 +16,24 @@ import { ThemeContext } from "@/core/theming/aether";
 import { fontString } from "@/core/theming/fontString";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
-import { LineComponent, LineProps, LookupResult } from "@/core/vis/Line/core";
-import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
-import { RenderContext, RenderController } from "@/core/vis/render";
+import { AetherLine, LineProps, FindResult } from "@/core/vis/Line/aether";
+import {
+  GridPositionMeta,
+  calculateGridPosition,
+  autoBounds,
+  withinSizeThreshold,
+} from "@/core/vis/LinePlot/aether/grid";
+import { RenderContext } from "@/core/vis/render";
+import { AetherRule } from "@/core/vis/Rule/aether";
 
-const yAxisState = axisState
+const stateZ = axisState
   .extend({
     location: Location.strictXZ.optional().default("left"),
     bounds: Bounds.looseZ.optional(),
     autoBoundPadding: z.number().optional().default(0.05),
     size: z.number().optional().default(0),
     labelSize: z.number().optional().default(0),
+    label: z.string().optional().default(""),
   })
   .partial({
     color: true,
@@ -41,51 +43,38 @@ const yAxisState = axisState
 
 export interface YAxisProps {
   grid: GridPositionMeta[];
-  plottingRegion: Box;
+  plot: Box;
   viewport: Box;
-  region: Box;
-  scale: Scale;
+  container: Box;
+  xDataToDecimalScale: Scale;
 }
 
-interface Derived {
-  ctx: RenderContext;
+interface InternalState {
+  render: RenderContext;
   core: Axis;
 }
 
+type Children = AetherLine | AetherRule;
+
 export class AetherYAxis extends AetherComposite<
-  typeof yAxisState,
-  Derived,
-  LineComponent | AetherRule
+  typeof stateZ,
+  InternalState,
+  Children
 > {
   static readonly TYPE = CSS.BE("line-plot", "y-axis");
-  static readonly z = yAxisState;
-  schema = AetherYAxis.z;
-
-  derive(): Derived {
-    const renderCtx = RenderContext.use(this.ctx);
-    const theme = ThemeContext.use(this.ctx);
-    return {
-      ctx: renderCtx,
-      core: new AxisCanvas(renderCtx, {
-        color: theme.colors.gray.p2,
-        font: fontString(theme, "small"),
-        gridColor: theme.colors.gray.m2,
-        ...this.state,
-        size: this.state.size + this.state.labelSize,
-      }),
-    };
-  }
+  static readonly stateZ = stateZ;
+  schema = AetherYAxis.stateZ;
 
   afterUpdate(): void {
-    RenderController.requestRender(this.ctx);
-  }
-
-  get lines(): readonly LineComponent[] {
-    return this.childrenOfType(LineGL.TYPE);
-  }
-
-  get rules(): readonly AetherRule[] {
-    return this.childrenOfType(AetherRule.TYPE);
+    this.internal.render = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
+    this.internal.core = new AxisCanvas(this.internal.render, {
+      color: theme.colors.gray.p2,
+      font: fontString(theme, "small"),
+      gridColor: theme.colors.gray.m2,
+      ...this.state,
+      size: this.state.size + this.state.labelSize,
+    });
   }
 
   async xBounds(): Promise<Bounds> {
@@ -95,79 +84,85 @@ export class AetherYAxis extends AetherComposite<
   }
 
   async render(props: YAxisProps): Promise<void> {
-    const [normal, offset] = await this.scales(props);
-    this.renderAxis(props, normal);
-    await this.renderLines(props, offset);
-    await this.renderRules(props, normal);
+    const dataToDecimalScale = await this.dataToDecimalScale(props.viewport);
+    // We need to invert scale because the y-axis is inverted in decimal space.
+    const decimalToDataScale = dataToDecimalScale.invert().reverse();
+    this.renderAxis(props, decimalToDataScale);
+    await this.renderLines(props, dataToDecimalScale);
+    await this.renderRules(props, decimalToDataScale);
   }
 
-  private renderAxis(props: YAxisProps, scale: Scale): void {
-    const { core } = this.derived;
-    const { size } = core.render({
-      ...props,
-      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
-      scale,
-    });
-    if (!withinSizeThreshold(this.state.size, size))
-      this.setState((p) => ({ ...p, size }));
+  private renderAxis(
+    { grid, plot, container }: YAxisProps,
+    decimalToDataScale: Scale
+  ): void {
+    const { core } = this.internal;
+    const position = calculateGridPosition(this.key, grid, container);
+    const { size: currentSize } = this.state;
+    const props = { plot, position, decimalToDataScale };
+    const { size: nextSize } = core.render(props);
+    if (!withinSizeThreshold(currentSize, nextSize))
+      this.setState((p) => ({ ...p, size: nextSize }));
   }
 
-  private async renderLines(ctx: YAxisProps, scale: Scale): Promise<void> {
-    const lineCtx: LineProps = {
-      region: ctx.plottingRegion,
-      scale: { x: ctx.scale, y: scale },
+  private async renderLines(
+    { xDataToDecimalScale: xScale, plot }: YAxisProps,
+    yScale: Scale
+  ): Promise<void> {
+    const props: LineProps = {
+      region: plot,
+      dataToDecimalScale: new XYScale(xScale, yScale),
     };
-    await Promise.all(this.lines.map(async (el) => el.render(lineCtx)));
+    await Promise.all(this.lines.map(async (el) => await el.render(props)));
   }
 
-  private async renderRules(ctx: YAxisProps, scale: Scale): Promise<void> {
-    const clearScissor = this.derived.ctx.scissorCanvas(ctx.plottingRegion);
-    await Promise.all(
-      this.rules.map(
-        async (el) =>
-          await el.render({
-            ...ctx,
-            scale,
-            direction: Direction.x,
-          })
-      )
-    );
+  private async renderRules(
+    { container, plot }: YAxisProps,
+    decimalToDataScale: Scale
+  ): Promise<void> {
+    const { location } = this.state;
+    const { render } = this.internal;
+    const scissor = new Box(container.left, plot.top, container.width, plot.height);
+    const clearScissor = render.scissorCanvas(scissor);
+    const props = { container, plot, decimalToDataScale, location };
+    await Promise.all(this.rules.map(async (el) => await el.render(props)));
     clearScissor();
   }
 
-  private async yBounds(): Promise<[Bounds, number]> {
+  async findByXValue(
+    { xDataToDecimalScale, plot, viewport }: YAxisProps,
+    target: number
+  ): Promise<FindResult[]> {
+    const yDataToDecimalScale = await this.dataToDecimalScale(viewport);
+    const dataToDecimalScale = new XYScale(xDataToDecimalScale, yDataToDecimalScale);
+    const props: LineProps = { region: plot, dataToDecimalScale };
+    return (
+      await Promise.all(
+        this.lines.map(async (el) => await el.findByXValue(props, target))
+      )
+    ).map((v) => ({ ...v, units: this.state.label }));
+  }
+
+  private async yBounds(): Promise<Bounds> {
     if (this.state.bounds != null && !this.state.bounds.isZero)
-      return [this.state.bounds, this.state.bounds.lower];
+      return this.state.bounds;
     const bounds = await Promise.all(this.lines.map(async (el) => await el.yBounds()));
     return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
   }
 
-  async lookupX(props: YAxisProps, value: number): Promise<LookupResult[]> {
-    const [normal, offset] = await this.scales(props);
-    return await Promise.all(
-      this.lines.map(
-        async (el) =>
-          await el.searchX(
-            { region: props.plottingRegion, scale: { x: normal, y: offset } },
-            value
-          )
-      )
-    );
+  private async dataToDecimalScale(viewport: Box): Promise<Scale> {
+    const bounds = await this.yBounds();
+    return Scale.scale(bounds)
+      .scale(1)
+      .translate(-viewport.y)
+      .magnify(1 / viewport.height);
   }
 
-  private async scales(ctx: YAxisProps): Promise<[Scale, Scale]> {
-    const [bound] = await this.yBounds();
-    return [
-      Scale.scale(bound)
-        .scale(1)
-        .translate(-ctx.viewport.y)
-        .magnify(1 / ctx.viewport.height)
-        .invert()
-        .reverse(),
-      Scale.scale(bound)
-        .scale(1)
-        .translate(-ctx.viewport.y)
-        .magnify(1 / ctx.viewport.height),
-    ];
+  private get lines(): readonly AetherLine[] {
+    return this.childrenOfType(AetherLine.TYPE);
+  }
+
+  private get rules(): readonly AetherRule[] {
+    return this.childrenOfType(AetherRule.TYPE);
   }
 }

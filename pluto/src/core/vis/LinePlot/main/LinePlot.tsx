@@ -16,24 +16,25 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { Box, Deep, Location } from "@synnaxlabs/x";
+import { Box, Deep, Destructor, Location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { GridPositionMeta, filterAxisLoc } from "../aether/LinePlot";
+import { UseViewportEvent, UseViewportHandler } from "../../viewport";
 
 import { Aether } from "@/core/aether/main";
-import { ColorT } from "@/core/color";
+import { CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { useEffectCompare } from "@/core/hooks/useEffectCompare";
 import { Status } from "@/core/std";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
-import { UseViewportHandler, Viewport } from "@/core/vis/viewport";
+import { GridPositionMeta, filterGridPositions } from "@/core/vis/LinePlot/aether/grid";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
 
@@ -45,9 +46,21 @@ export interface LinePlotContextValue {
   setLine: (meta: LineMeta) => void;
   removeLine: (key: string) => void;
   lines: LineMeta[];
+  setViewport: (viewport: UseViewportEvent) => void;
+  addViewportHandler: (handler: UseViewportHandler) => Destructor;
 }
 
 const LinePlotContext = createContext<LinePlotContextValue | null>(null);
+
+export const useLinePlotViewport = (handle: UseViewportHandler): void => {
+  const ctx = useContext(LinePlotContext);
+  if (ctx == null)
+    throw new Error(
+      "Cannot use useLinePlotViewportHandler as a non-child of LinePlot."
+    );
+  const { addViewportHandler } = ctx;
+  useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
+};
 
 export const useLinePlotContext = (component: string): LinePlotContextValue => {
   const ctx = useContext(LinePlotContext);
@@ -80,7 +93,7 @@ export const useGridPosition = (
 
 export interface LineMeta {
   key: string;
-  color: ColorT;
+  color: CrudeColor;
   label: string;
 }
 
@@ -88,7 +101,7 @@ type LineState = LineMeta[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof AetherLinePlot.z>, "clearOverscan">,
+    Pick<z.input<typeof AetherLinePlot.stateZ>, "clearOverscan">,
     HTMLDivProps {
   resizeDebounce?: number;
 }
@@ -107,9 +120,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const [{ path }, { error, grid }, setState] = Aether.use({
       aetherKey,
       type: AetherLinePlot.TYPE,
-      schema: AetherLinePlot.z,
+      schema: AetherLinePlot.stateZ,
       initialState: {
-        plot: Box.ZERO,
         container: Box.ZERO,
         viewport: Box.DECIMAL,
         grid: [],
@@ -117,42 +129,38 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         ...props,
       },
     });
+    const viewportHandlers = useRef<Map<UseViewportHandler, null>>(new Map());
 
-    const handleViewportChange = useCallback<UseViewportHandler>(
-      ({ mode, box }) =>
+    const addViewporHandler = useCallback(
+      (handler: UseViewportHandler) => {
+        viewportHandlers.current.set(handler, null);
+        return () => viewportHandlers.current.delete(handler);
+      },
+      [viewportHandlers]
+    );
+
+    const setViewport: UseViewportHandler = useCallback(
+      (args) => {
+        const { mode, box } = args;
         setState((prev) => {
           if (["pan", "zoom", "zoomReset"].includes(mode as string))
             return { ...prev, viewport: box };
           return prev;
-        }),
-      []
+        });
+        viewportHandlers.current.forEach((_, handler) => handler(args));
+      },
+      [setState]
     );
-
-    const { ref: viewportRef, ...viewportProps } = Viewport.use({
-      onChange: handleViewportChange,
-    });
-
-    const containerRef = useRef<HTMLDivElement>(null);
 
     // We use a single resize handler for both the container and plotting region because
     // the container is guaranteed to only resize if the plotting region does. This allows
     // us to save a window observer.
     const handleResize = useCallback(
-      (box: Box) => {
-        setState((prev) => {
-          const { current: container } = containerRef;
-          if (container == null) return prev;
-          return {
-            ...prev,
-            plot: box,
-            container: new Box(container),
-          };
-        });
-      },
+      (container: Box) => setState((prev) => ({ ...prev, container })),
       [setState]
     );
 
-    const resizeRef = useResize(handleResize, { debounce });
+    const ref = useResize(handleResize, { debounce });
 
     const setAxis: LinePlotContextValue["setAxis"] = useCallback(
       (meta: GridPositionMeta) =>
@@ -185,24 +193,24 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     const cssGrid = buildPlotGrid(grid);
 
-    const viewportRefCallback = useCallback(
-      (el: HTMLDivElement | null) => {
-        viewportRef.current = el;
-        resizeRef(el);
-      },
-      [viewportRef, resizeRef]
-    );
-
     const contextValue = useMemo<LinePlotContextValue>(
-      () => ({ lines, setAxis, removeAxis, setLine, removeLine }),
-      [lines, setAxis, removeAxis, setLine, removeLine]
+      () => ({
+        lines,
+        setAxis,
+        removeAxis,
+        setLine,
+        removeLine,
+        setViewport,
+        addViewportHandler: addViewporHandler,
+      }),
+      [lines, setAxis, removeAxis, setLine, removeLine, setViewport]
     );
 
     return (
       <div
         className={CSS.B("line-plot")}
         style={{ ...style, ...cssGrid }}
-        ref={containerRef}
+        ref={ref}
         {...props}
       >
         {error != null && (
@@ -213,11 +221,6 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         <LinePlotContext.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </LinePlotContext.Provider>
-        <Viewport.Mask
-          className={CSS.BE("line-plot", "viewport")}
-          {...viewportProps}
-          ref={viewportRefCallback}
-        />
       </div>
     );
   }
@@ -225,18 +228,18 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
 const buildPlotGrid = (grid: GridPositionMeta[]): CSSProperties => {
   const builder = CSS.newGridBuilder();
-  filterAxisLoc("top", grid).forEach(({ key, size }) =>
+  filterGridPositions("top", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("bottom", grid).forEach(({ key, size }) =>
+  filterGridPositions("bottom", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
   );
-  filterAxisLoc("left", grid).forEach(({ key, size }) =>
+  filterGridPositions("left", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterAxisLoc("right", grid).forEach(({ key, size }) =>
+  filterGridPositions("right", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
   );
   return builder.build();

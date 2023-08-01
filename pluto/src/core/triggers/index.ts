@@ -8,23 +8,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useTrigger, useTriggerHeld, useTriggerHeldRef } from "./hooks";
+import { useTrigger, useTriggerHeld, useTriggerHeldRef } from "@/core/triggers/hooks";
 import {
-  keyboardToKey as keyboardKey,
+  keyboardTriggerKey as keyboardKey,
   match,
   filter,
   purge,
-  mouseButtonToKey as mouseKey,
-  parseEventKey as eventKey,
+  mouseButtonTriggerKey as mouseKey,
+  eventTriggerKey as eventKey,
   diff,
-} from "./triggers";
-import { TriggersProvider } from "./TriggersContext";
-import { TriggerStatus } from "./TriggerStatus";
-import { useTriggerDrag } from "./useTriggerDrag";
-export type { TriggersProviderProps } from "./TriggersContext";
-export type { Trigger, Key, Stage, TriggerEvent, TriggerCallback } from "./triggers";
-export type { TriggerDragEvent, TriggerDragCallback } from "./useTriggerDrag";
-export type { UseTriggerEvent } from "./hooks";
+  determineTriggerMode,
+  reduceTriggerConfig,
+} from "@/core/triggers/triggers";
+import { TriggersProvider } from "@/core/triggers/TriggersContext";
+import { TriggerStatus } from "@/core/triggers/TriggerStatus";
+import { useTriggerDrag } from "@/core/triggers/useTriggerDrag";
+export type { TriggersProviderProps } from "@/core/triggers/TriggersContext";
+export type {
+  Trigger,
+  TriggerKey,
+  Stage,
+  TriggerEvent,
+  TriggerCallback,
+} from "@/core/triggers/triggers";
+export type {
+  TriggerDragEvent,
+  TriggerDragCallback,
+} from "@/core/triggers/useTriggerDrag";
+export type { UseTriggerEvent } from "@/core/triggers/hooks";
 
 export const Triggers = {
   Provider: TriggersProvider,
@@ -40,4 +51,6 @@ export const Triggers = {
   mouseKey,
   keyboardKey,
   eventKey,
+  determineMode: determineTriggerMode,
+  reduceConfig: reduceTriggerConfig,
 };

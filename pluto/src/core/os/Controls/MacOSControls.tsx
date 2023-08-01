@@ -11,7 +11,8 @@ import { ReactElement } from "react";
 
 import { CSS } from "@/core/css";
 import { OSControlsProps } from "@/core/os/Controls/types";
-import { Button, ButtonIconProps, Space } from "@/core/std";
+import { ButtonIconProps, Space } from "@/core/std";
+import { ComponentSize } from "@/util/component";
 
 import "@/core/os/Controls/MacOSControls.css";
 
@@ -123,9 +124,10 @@ const TrafficLight = ({
   className,
   ...props
 }: MacOSTrafficLightProps): ReactElement => (
-  <Button.Icon
+  <button
     className={CSS(CSS.B("macos-control"), className)}
     tabIndex={-1}
+    size={"" as ComponentSize}
     {...props}
   />
 );

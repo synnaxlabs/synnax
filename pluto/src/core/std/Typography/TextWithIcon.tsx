@@ -9,7 +9,7 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
-import { ColorT } from "@/core/color";
+import { Color } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Divider } from "@/core/std/Divider";
 import { Space, SpaceProps, SpaceElementType } from "@/core/std/Space";
@@ -39,11 +39,12 @@ export const TextWithIcon = <
   startIcon,
   endIcon,
   children,
-  color,
+  color: crudeColor,
   className,
   noWrap = false,
   ...props
 }: TextWithIconProps<E, L>): ReactElement => {
+  const color = Color.cssString(crudeColor);
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
@@ -76,13 +77,14 @@ export const TextWithIcon = <
 
 const formatIcons = (
   icon: false | ReactElement | ReactElement[],
-  color?: ColorT
+  color?: string
 ): ReactElement[] => {
   if (icon === false) return [];
   return (Children.toArray(icon) as ReactElement[]).map((icon) =>
     cloneElement(icon, {
       ...icon.props,
-      style: { fill: color, ...icon.props.style },
+      color,
+      style: { ...icon.props.style },
     })
   );
 };

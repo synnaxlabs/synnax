@@ -48,7 +48,7 @@ export interface AccordionProps
   data: AccordionEntry[];
 }
 
-const DIRECTION = Direction.y;
+const DIRECTION = Direction.Y;
 const MIN_SIZE = 28;
 const COLLAPSED_THRESHOLD = 32;
 const EXPAND_THRESHOLD = 40;
@@ -136,11 +136,7 @@ const AccordionEntryC = ({
   );
   return (
     <>
-      <Header
-        level="p"
-        className={CSS(CSS.BE("accordion", "header"), CSS.expanded(expanded))}
-        empty
-      >
+      <Header level="p" className={CSS.expanded(expanded)} empty>
         <Header.Title.Button startIcon={icon} onClick={() => onExpand(index)}>
           {name}
         </Header.Title.Button>

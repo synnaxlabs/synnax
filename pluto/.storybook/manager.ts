@@ -106,11 +106,6 @@ const synnaxBase = {
       weight: "regular",
       lineHeight: 2 + 1 / 3,
     },
-    tiny: {
-      size: 1.75,
-      weight: 300,
-      lineHeight: 2,
-    },
   },
 };
 

@@ -9,6 +9,10 @@
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import {
+  UseSelectMultipleProps,
+  useSelectMultiple,
+} from "@/core/hooks/useSelectMultiple";
 import { Button, ButtonProps } from "@/core/std/Button";
 import { InputControl } from "@/core/std/Input";
 import { Pack, PackProps } from "@/core/std/Pack";
@@ -27,7 +31,8 @@ export interface SelectButtonProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends InputControl<K>,
-    Omit<PackProps, "children" | "onChange"> {
+    Omit<PackProps, "children" | "onChange">,
+    Pick<UseSelectMultipleProps, "allowNone" | "allowMultiple"> {
   children?: RenderProp<SelectButtonOptionProps<K, E>>;
   entryRenderKey: keyof E;
   data: E[];
@@ -41,14 +46,24 @@ export const SelectButton = <
   value,
   onChange,
   entryRenderKey,
+  allowNone = false,
+  allowMultiple = false,
   data,
   ...props
 }: SelectButtonProps<K, E>): JSX.Element => {
+  const { onSelect } = useSelectMultiple({
+    allowMultiple,
+    allowNone,
+    data,
+    value: [value],
+    onChange: ([v]) => onChange(v),
+  });
+
   return (
     <Pack {...props}>
       {data.map((e) => {
         return children({
-          onClick: () => onChange(e.key),
+          onClick: () => onSelect(e.key),
           selected: e.key === value,
           entry: e,
           title: e[entryRenderKey],

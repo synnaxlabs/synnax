@@ -9,7 +9,7 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import { Box, positionInCenter } from "@/spatial";
+import { Box, CrudeLocation, CrudeXY, XYLocation, positionInCenter } from "@/spatial";
 
 describe("Box", () => {
   describe("construction", () => {
@@ -47,6 +47,81 @@ describe("Box", () => {
       expect(b.topRight).toEqual({ x: 10, y: 0 });
       expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
       expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+    });
+  });
+  describe("zod schema", () => {
+    const CASES: Array<[string, unknown]> = [
+      [
+        "raw string root",
+        {
+          root: { x: "left", y: "top" },
+          one: { x: 0, y: 0 },
+          two: { x: 10, y: 10 },
+        },
+      ],
+      [
+        "string instance root",
+        {
+          root: { x: String("left"), y: String("top") },
+          one: { x: 0, y: 0 },
+          two: { x: 10, y: 10 },
+        },
+      ],
+    ];
+    CASES.forEach(([title, value]) => {
+      it(`should parse ${title}`, () => {
+        expect(() => Box.z.parse(value)).not.toThrow();
+      });
+    });
+  });
+  describe("properties", () => {
+    const b = new Box(20, 30, 40, 50);
+    describe("loc", () => {
+      const v: CrudeLocation[] = ["left", "right", "top", "bottom"];
+      const expected: number[] = [20, 60, 30, 80];
+      v.forEach((v, i) => {
+        test(`loc-${v}`, () => {
+          expect(b.loc(v)).toEqual(expected[i]);
+        });
+      });
+    });
+    describe("xyLoc", () => {
+      const v: XYLocation[] = [
+        XYLocation.BOTTOM_CENTER,
+        XYLocation.LEFT_CENTER,
+        XYLocation.RIGHT_CENTER,
+        XYLocation.TOP_CENTER,
+        XYLocation.BOTTOM_LEFT,
+        XYLocation.BOTTOM_RIGHT,
+        XYLocation.TOP_LEFT,
+        XYLocation.TOP_RIGHT,
+      ];
+      const expected: CrudeXY[] = [
+        { x: 40, y: 80 },
+        { x: 20, y: 55 },
+        { x: 60, y: 55 },
+        { x: 40, y: 30 },
+        { x: 20, y: 80 },
+        { x: 60, y: 80 },
+        { x: 20, y: 30 },
+        { x: 60, y: 30 },
+      ];
+      v.forEach((v, i) => {
+        test(`xyLoc-${v.toString()}`, () => {
+          expect(b.xyLoc(v)).toEqual(expected[i]);
+        });
+      });
+    });
+  });
+  describe("equality", () => {
+    it("should be equal to itself", () => {
+      const b = new Box(0, 0, 10, 10);
+      expect(b.equals(b)).toBe(true);
+    });
+    it("should be equal to a box with the same values", () => {
+      const b = new Box(0, 0, 10, 10);
+      const b2 = new Box(0, 0, 10, 10);
+      expect(b.equals(b2)).toBe(true);
     });
   });
   describe("positionInCenterOf", () => {

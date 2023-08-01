@@ -21,9 +21,6 @@ export interface AxisRenderResult {
   size: number;
 }
 
-export const Y_AXIS_SIZE = 40;
-export const X_AXIS_SIZE = 20;
-
 export const axisState = tickFactoryProps.extend({
   color: Color.z,
   type: tickType,
@@ -38,7 +35,7 @@ export type AxisState = z.input<typeof axisState>;
 export type ParsedAxisState = z.output<typeof axisState>;
 
 export interface AxisProps extends Omit<TickFactoryContext, "size"> {
-  plottingRegion: Box;
+  plot: Box;
   position: XY;
 }
 

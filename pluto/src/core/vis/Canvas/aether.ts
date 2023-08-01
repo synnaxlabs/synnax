@@ -12,7 +12,7 @@ import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AetherComponentRegistry, AetherComposite } from "@/core/aether/worker";
-import { LineGLProgramContext } from "@/core/vis/Line/LineGL";
+import { AetherLineContext } from "@/core/vis/Line/aether";
 import { RenderContext } from "@/core/vis/render";
 
 const canvasState = z.object({
@@ -55,7 +55,7 @@ export class AetherCanvas extends AetherComposite<typeof canvasState> {
         lower2dCanvas,
         upper2dCanvas
       );
-      LineGLProgramContext.create(this.ctx);
+      AetherLineContext.create(this.ctx);
       this.setState((p) => ({
         ...p,
         bootstrap: false,

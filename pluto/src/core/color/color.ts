@@ -69,7 +69,8 @@ export class Color {
    *
    * @param color -
    */
-  static cssString(color: CrudeColor): string {
+  static cssString(color?: CrudeColor): string | undefined {
+    if (color == null) return undefined;
     const res = Color.z.safeParse(color);
     if (res.success) return res.data.rgbaCSS;
     if (typeof color === "string") return color;
@@ -124,12 +125,11 @@ export class Color {
    * and the alpha value between 0 and 1.
    */
   get rgba1(): RGBA {
-    return [
-      this.rgba255[0] / 255,
-      this.rgba255[1] / 255,
-      this.rgba255[2] / 255,
-      this.rgba255[3],
-    ];
+    return [...this.rgb1, this.rgba255[3]];
+  }
+
+  get rgb1(): RGB {
+    return [this.rgba255[0] / 255, this.rgba255[1] / 255, this.rgba255[2] / 255];
   }
 
   /** @returns the red value of the color, between 0 and 255. */
@@ -152,6 +152,11 @@ export class Color {
     return this.rgba255[3];
   }
 
+  /** @returns true if all RGBA values are 0. */
+  get isZero(): boolean {
+    return this.equals(Color.ZERO);
+  }
+
   /**
    * Creates a new color with the given alpha.
    *
@@ -165,6 +170,38 @@ export class Color {
       throw new Error(`Color opacity must be between 0 and 100, got ${alpha}`);
     if (alpha > 1) alpha = alpha / 100;
     return new Color([r, g, b, alpha]);
+  }
+
+  /**
+   * @returns the luminance of the color, between 0 and 1.
+   */
+  get luminance(): number {
+    const [r, g, b] = this.rgb1.map((v) => {
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return Number((0.2126 * r + 0.7152 * g + 0.0722 * b).toFixed(3));
+  }
+
+  /**
+   * @returns the contrast ratio between this color and the given color. The contrast
+   * ratio is a number between 1 and 21, where 1 is the lowest contrast and 21 is the
+   * @param other
+   * @returns
+   */
+  contrast(other: CrudeColor): number {
+    const other_ = new Color(other);
+    const l1 = this.luminance;
+    const l2 = other_.luminance;
+    return (Math.max(l1, l2) + 0.5) / (Math.min(l1, l2) + 0.5);
+  }
+
+  pickByContrast(...colors: CrudeColor[]): Color {
+    if (colors.length === 0)
+      throw new Error("[Color.pickByContrast] - must provide at least one color");
+    const [best] = colors
+      .map((c) => new Color(c))
+      .sort((a, b) => this.contrast(b) - this.contrast(a));
+    return best;
   }
 
   /** A totally zero color with no alpha. */

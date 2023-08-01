@@ -10,19 +10,20 @@
 import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { LookupResult } from "../../Line/core";
-
-import { calculateAxisPosition, GridPositionMeta } from "./LinePlot";
-
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
 import { ThemeContext } from "@/core/theming/aether";
 import { fontString } from "@/core/theming/fontString";
 import { AxisCanvas } from "@/core/vis/Axis/AxisCanvas";
 import { Axis, axisState } from "@/core/vis/Axis/core";
-import { autoBounds, withinSizeThreshold } from "@/core/vis/LinePlot/aether/axis";
-import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";
-import { RenderContext, RenderController } from "@/core/vis/render";
+import { FindResult } from "@/core/vis/Line/aether";
+import {
+  calculateGridPosition,
+  autoBounds,
+  withinSizeThreshold,
+} from "@/core/vis/LinePlot/aether/grid";
+import { AetherYAxis, YAxisProps } from "@/core/vis/LinePlot/aether/YAxis";
+import { RenderContext } from "@/core/vis/render";
 
 const xAxisState = axisState
   .extend({
@@ -38,124 +39,88 @@ const xAxisState = axisState
     gridColor: true,
   });
 
-export interface XAxisProps {
-  plottingRegion: Box;
+export interface XAxisProps extends Omit<YAxisProps, "xDataToDecimalScale"> {
   viewport: Box;
-  region: Box;
-  grid: GridPositionMeta[];
 }
 
-interface Derived {
+interface InternalState {
   ctx: RenderContext;
   core: Axis;
 }
 
 export class AetherXAxis extends AetherComposite<
   typeof xAxisState,
-  Derived,
+  InternalState,
   AetherYAxis
 > {
   static readonly TYPE = CSS.BE("line-plot", "x-axis");
   static readonly z = xAxisState;
   schema = AetherXAxis.z;
 
-  derive(): Derived {
-    const renderCtx = RenderContext.use(this.ctx);
-    const theme = ThemeContext.use(this.ctx);
-    return {
-      ctx: renderCtx,
-      core: new AxisCanvas(renderCtx, {
-        color: theme.colors.gray.p2,
-        font: fontString(theme, "small"),
-        gridColor: theme.colors.gray.m2,
-        ...this.state,
-        size: this.state.size + this.state.labelSize,
-      }),
-    };
-  }
-
   afterUpdate(): void {
-    RenderController.requestRender(this.ctx);
+    this.internal.ctx = RenderContext.use(this.ctx);
+    const theme = ThemeContext.use(this.ctx);
+    this.internal.core = new AxisCanvas(this.internal.ctx, {
+      color: theme.colors.gray.p2,
+      font: fontString(theme, "small"),
+      gridColor: theme.colors.gray.m2,
+      ...this.state,
+      size: this.state.size + this.state.labelSize,
+    });
   }
 
   async render(props: XAxisProps): Promise<void> {
-    const [reversed, normal] = await this.scales(props);
-    await this.renderAxis(props, reversed);
-    await this.renderYAxes(props, normal);
+    const dataToDecimal = await this.dataToDecimalScale(props.viewport);
+    await this.renderAxis(props, dataToDecimal.reverse());
+    await this.renderYAxes(props, dataToDecimal);
   }
 
-  private async renderAxis(props: XAxisProps, scale: Scale): Promise<void> {
-    const { core } = this.derived;
-    const { size } = core.render({
-      ...props,
-      position: calculateAxisPosition(this.key, props.grid, props.plottingRegion),
-      scale,
-    });
+  async findByXDecimal(props: XAxisProps, target: number): Promise<FindResult[]> {
+    const scale = await this.dataToDecimalScale(props.viewport);
+    return await this.findByXValue(props, scale.reverse().pos(target));
+  }
+
+  async findByXValue(props: XAxisProps, target: number): Promise<FindResult[]> {
+    const xDataToDecimalScale = await this.dataToDecimalScale(props.viewport);
+    const p = { ...props, xDataToDecimalScale };
+    const prom = this.children.map(async (el) => await el.findByXValue(p, target));
+    return (await Promise.all(prom)).flat();
+  }
+
+  private async renderAxis(
+    props: XAxisProps,
+    decimalToDataScale: Scale
+  ): Promise<void> {
+    const { core } = this.internal;
+    const { grid, container } = props;
+    const position = calculateGridPosition(this.key, grid, container);
+    const p = { ...props, position, decimalToDataScale };
+    const { size } = core.render(p);
     if (!withinSizeThreshold(this.state.size, size))
       this.setState((p) => ({ ...p, size }));
   }
 
-  private async renderYAxes(props: XAxisProps, scale: Scale): Promise<void> {
-    await Promise.all(
-      this.children.map(
-        async (el) =>
-          await el.render({
-            grid: props.grid,
-            plottingRegion: props.plottingRegion,
-            viewport: props.viewport,
-            scale,
-            region: props.region,
-          })
-      )
-    );
+  private async renderYAxes(
+    props: XAxisProps,
+    xDataToDecimalScale: Scale
+  ): Promise<void> {
+    const p = { ...props, xDataToDecimalScale };
+    await Promise.all(this.children.map(async (el) => await el.render(p)));
   }
 
-  async xBounds(): Promise<[Bounds, number]> {
-    if (this.state.bound != null && !this.state.bound.isZero)
-      return [this.state.bound, this.state.bound.lower];
+  private async xBounds(): Promise<Bounds> {
+    if (this.state.bound != null && !this.state.bound.isZero) return this.state.bound;
     const bounds = (
       await Promise.all(this.children.map(async (el) => await el.xBounds()))
     ).filter((b) => b.isFinite);
     return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
   }
 
-  async lookupX(props: XAxisProps, xValue: number): Promise<LookupResult[]> {
-    return (
-      await Promise.all(
-        this.children.flatMap(
-          async (el) =>
-            await el.lookupX(
-              {
-                grid: props.grid,
-                plottingRegion: props.plottingRegion,
-                viewport: props.viewport,
-                scale: (await this.scales(props))[1],
-                region: props.region,
-              },
-              xValue
-            )
-        )
-      )
-    ).flat();
+  private async dataToDecimalScale(viewport: Box): Promise<Scale> {
+    const bounds = await this.xBounds();
+    return Scale.scale(bounds)
+      .scale(1)
+      .translate(-viewport.x)
+      .magnify(1 / viewport.width);
   }
-
-  private async scales(ctx: XAxisProps): Promise<[Scale, Scale]> {
-    const [bounds] = await this.xBounds();
-    return [
-      Scale.scale(bounds)
-        .scale(1)
-        .translate(-ctx.viewport.x)
-        .magnify(1 / ctx.viewport.width)
-        .reverse(),
-      Scale.scale(bounds)
-        .scale(1)
-        .translate(-ctx.viewport.x)
-        .magnify(1 / ctx.viewport.width),
-    ];
-  }
-}
-
-export interface XAxisLookupResult {
-  position: number;
-  yResults: LookupResult[];
 }
