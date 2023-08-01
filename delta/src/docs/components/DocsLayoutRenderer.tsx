@@ -20,6 +20,8 @@ import { LayoutRenderer } from "@/layout";
 
 import "@/docs/components/DocsLayoutRenderer.css";
 
+import { Logo } from "@synnaxlabs/media";
+
 const DOCS_HOST = new URL({
   host: "docs.synnaxlabs.com",
   port: 443,
@@ -38,6 +40,8 @@ export const Docs: LayoutRenderer = memo(() => {
     triggers: [["MouseLeft"]],
     loose: true,
   });
+
+  const [loaded, setLoaded] = useState(false);
 
   const { theme } = Theming.useContext();
 
@@ -69,7 +73,8 @@ export const Docs: LayoutRenderer = memo(() => {
 
   return (
     <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
-      <iframe src={url.toString()} />
+      {!loaded && <Logo.Watermark variant="loader" />}
+      <iframe src={url.toString()} onLoad={() => setLoaded(true)} />
     </div>
   );
 });
