@@ -11,6 +11,8 @@ package search
 
 import (
 	"context"
+	"github.com/blevesearch/bleve/search/query"
+	"strings"
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
@@ -106,9 +108,9 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	defer span.End()
 	dm := bleve.NewDocumentMapping()
 	dm.AddFieldMappingsAt("Name", bleve.NewTextFieldMapping())
-	//for k, f := range sch.Fields {
-	//	dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
-	//}
+	for k, f := range sch.Fields {
+		dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
+	}
 	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
 
@@ -119,11 +121,21 @@ type Request struct {
 
 func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
-	q := bleve.NewFuzzyQuery(req.Term)
-	q.SetFuzziness(2)
+	// Split the term into words
+
+	words := strings.Split(req.Term, " ")
+
+	q := bleve.NewDisjunctionQuery(lo.FlatMap(words, func(word string, _ int) []query.Query {
+		q := bleve.NewFuzzyQuery(word)
+		q.SetFuzziness(1)
+		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9_]*" + word + "[a-zA-Z0-9_]*")
+		q3 := bleve.NewPrefixQuery(word)
+		return []query.Query{q, q2, q3}
+	})...)
 	search_ := bleve.NewSearchRequest(q)
-	search_.Fields = []string{"*"}
+	search_.Fields = []string{"Name"}
 	search_.Size = 100
+	search_.SortBy([]string{"-_score"})
 	searchResults, err := s.idx.SearchInContext(ctx, search_)
 	if err != nil {
 		return nil, span.EndWith(err)

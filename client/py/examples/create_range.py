@@ -15,6 +15,6 @@ client = sy.Synnax(
 )
 
 range = client.ranges.create(
-    name="Range",
+    name="My Range with a Very Strange Name",
     time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
 )
