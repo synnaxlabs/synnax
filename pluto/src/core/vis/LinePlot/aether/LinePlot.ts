@@ -7,141 +7,161 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Compare, CrudeOuterLocation, Location, XY, order } from "@synnaxlabs/x";
+import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { LookupResult } from "../../Line/core";
+import { Eraser } from "../../render/Eraser";
 
 import { AetherComposite } from "@/core/aether/worker";
 import { CSS } from "@/core/css";
+import { FindResult } from "@/core/vis/Line/aether";
+import { calculatePlotBox, gridPositionMeta } from "@/core/vis/LinePlot/aether/grid";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
+import { AetherMeasure } from "@/core/vis/Measure/aether";
 import {
   RenderController,
   RenderContext,
   RenderCleanup,
   RenderPriority,
 } from "@/core/vis/render";
-const gridPositionMeta = z.object({
-  key: z.string(),
-  size: z.number(),
-  order,
-  loc: Location.strictOuterZ,
-});
-
-export type GridPositionMeta = z.input<typeof gridPositionMeta>;
-
-export const filterAxisLoc = (
-  loc: CrudeOuterLocation,
-  grid: GridPositionMeta[]
-): GridPositionMeta[] =>
-  grid
-    .filter(({ loc: l }) => new Location(l).equals(loc))
-    .sort((a, b) => Compare.order(a.order, b.order));
+import { AetherTooltip } from "@/core/vis/Tooltip/aether";
 
 const linePlotState = z.object({
-  plot: Box.z,
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
   error: z.string().optional(),
   grid: z.array(gridPositionMeta),
 });
-interface Derived {
-  ctx: RenderContext;
+
+interface InternalState {
+  render: RenderContext;
 }
+
+type Children = AetherXAxis | AetherTooltip | AetherMeasure;
 
 export class AetherLinePlot extends AetherComposite<
   typeof linePlotState,
-  Derived,
-  AetherXAxis
+  InternalState,
+  Children
 > {
   static readonly TYPE: string = CSS.B("LinePlot");
+  readonly eraser: Eraser = new Eraser();
 
-  static readonly z = linePlotState;
-  schema = AetherLinePlot.z;
-
-  derive(): Derived {
-    return { ctx: RenderContext.use(this.ctx) };
-  }
+  static readonly stateZ = linePlotState;
+  schema = AetherLinePlot.stateZ;
 
   afterUpdate(): void {
+    this.internal.render = RenderContext.use(this.ctx);
     RenderController.control(this.ctx, () => this.requestRender("low"));
     this.requestRender("high");
   }
 
   afterDelete(): void {
+    this.internal.render = RenderContext.use(this.ctx);
     this.requestRender("high");
   }
 
-  private get plottingRegion(): Box {
-    return new Box(this.state.plot);
+  private get clearRegion(): Box {
+    if (this.deleted) return this.state.container;
+    return this.prevState.container;
   }
 
-  private get region(): Box {
-    return new Box(this.state.container);
+  async findByXDecimal(x: number): Promise<FindResult[]> {
+    const props = { ...this.state, plot: this.calculatePlot() };
+    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXDecimal(props, x));
+    return (await Promise.all(p)).flat();
   }
 
-  private get viewport(): Box {
-    return new Box(this.state.viewport);
+  async findByXValue(x: number): Promise<FindResult[]> {
+    const props = { ...this.state, plot: this.calculatePlot() };
+    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXValue(props, x));
+    return (await Promise.all(p)).flat();
   }
 
-  private get clearOverScan(): XY {
-    return new XY(
-      typeof this.state.clearOverscan === "number"
-        ? { x: this.state.clearOverscan, y: this.state.clearOverscan }
-        : this.state.clearOverscan
+  private get axes(): readonly AetherXAxis[] {
+    return this.childrenOfType<AetherXAxis>(AetherXAxis.TYPE);
+  }
+
+  private get tooltips(): readonly AetherTooltip[] {
+    return this.childrenOfType<AetherTooltip>(AetherTooltip.TYPE);
+  }
+
+  private get measures(): readonly AetherMeasure[] {
+    return this.childrenOfType<AetherMeasure>(AetherMeasure.TYPE);
+  }
+
+  private async renderAxes(plot: Box): Promise<void> {
+    const p = { ...this.state, plot };
+    await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
+  }
+
+  private async renderTooltips(plot: Box): Promise<void> {
+    const tooltipProps = {
+      findByXDecimal: this.findByXDecimal.bind(this),
+      region: plot,
+    };
+    await Promise.all(
+      this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps))
     );
   }
 
-  async lookupX(x: number): Promise<LookupResult[]> {
-    return (
-      await Promise.all(
-        this.childrenOfType(AetherXAxis.TYPE).flatMap(
-          async (xAxis) =>
-            await xAxis.lookupX(
-              {
-                plottingRegion: this.plottingRegion,
-                viewport: this.viewport,
-                region: this.region,
-                grid: this.state.grid,
-              },
-              x
-            )
-        )
-      )
-    ).flat();
+  private async renderMeasures(region: Box): Promise<void> {
+    const measureProps = {
+      findByXDecimal: this.findByXDecimal.bind(this),
+      findByXValue: this.findByXValue.bind(this),
+      region,
+    };
+    await Promise.all(
+      this.measures.map(async (measure) => await measure.render(measureProps))
+    );
+  }
+
+  private calculatePlot(): Box {
+    return calculatePlotBox(this.state.grid, this.state.container);
   }
 
   private async render(): Promise<RenderCleanup> {
     if (this.deleted) return async () => {};
-    const { ctx } = this.derived;
-    const removeGlScissor = ctx.scissorGL(this.plottingRegion);
-    const removeCanvasScissor = ctx.scissorCanvas(this.region);
-
+    const plot = this.calculatePlot();
+    const { render: ctx } = this.internal;
+    const removeGlScissor = ctx.scissorGL(plot);
+    const removeCanvasScissor = ctx.scissorCanvas(
+      this.state.container,
+      new XY(this.state.clearOverscan).scale(0.5)
+    );
     try {
-      await Promise.all(
-        this.childrenOfType(AetherXAxis.TYPE).map(
-          async (xAxis, i) =>
-            await xAxis.render({
-              plottingRegion: this.plottingRegion,
-              viewport: this.viewport,
-              region: this.region,
-              grid: this.state.grid,
-            })
-        )
-      );
+      await this.renderAxes(plot);
+      await this.renderTooltips(plot);
+      await this.renderMeasures(plot);
+      this.clearError();
     } catch (e) {
-      this.setState((p) => ({ ...p, error: (e as Error).message }));
-      throw e;
+      this.setError(e as Error);
     } finally {
       removeGlScissor();
       removeCanvasScissor();
     }
-    return async () => ctx.erase(new Box(this.prevState.container), this.clearOverScan);
+    return async () => {
+      this.eraser.erase(
+        this.internal.render,
+        this.state.container,
+        this.prevState.container,
+        new XY(this.state.clearOverscan)
+      );
+    };
+  }
+
+  private setError(error: Error): void {
+    this.setState((p) => ({ ...p, error: error.message }));
+  }
+
+  private clearError(): void {
+    if (this.state.error == null) return;
+    this.setState((p) => ({ ...p, error: undefined }));
   }
 
   requestRender(priority: RenderPriority): void {
-    const { ctx } = this.derived;
+    const { render: ctx } = this.internal;
     ctx.queue.push({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
@@ -149,26 +169,3 @@ export class AetherLinePlot extends AetherComposite<
     });
   }
 }
-
-export const calculateAxisPosition = (
-  key: string,
-  grid: GridPositionMeta[],
-  plottingRegion: Box
-): XY => {
-  const axis = grid.find(({ key: k }) => k === key);
-  if (axis == null) return XY.ZERO;
-  const loc = new Location(axis.loc);
-  const axes = filterAxisLoc(loc.crude as CrudeOuterLocation, grid);
-  const index = axes.findIndex(({ key: k }) => k === key);
-  const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
-  switch (loc.crude) {
-    case "left":
-      return plottingRegion.topLeft.translateX(-offset - axis.size);
-    case "right":
-      return plottingRegion.topRight.translateX(offset);
-    case "top":
-      return plottingRegion.topLeft.translateY(-offset - axis.size);
-    default:
-      return plottingRegion.bottomLeft.translateY(offset);
-  }
-};

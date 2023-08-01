@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
-import { Dimensions, TimeSpan, unique, getOS } from "@synnaxlabs/x";
+import { Dimensions, unique } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { MainChecker, Manager, Properties } from "@/runtime";
@@ -20,6 +20,7 @@ type RequiredRuntime = Manager & MainChecker & Properties;
 const purgeWinStateToProps = (
   window: WindowState & { prerenderLabel?: string }
 ): Omit<WindowProps, "key"> => {
+  console.log(window.transparent);
   const {
     centerCount,
     processCount,
@@ -32,29 +33,6 @@ const purgeWinStateToProps = (
     ...rest
   } = window;
   return rest;
-};
-
-const FULL_SCREEN_CHECK_INTERVAL = TimeSpan.seconds(1);
-
-// Tauri has weird latent behavior that means the fullscreen state of the window doesn't
-// stay synchronized correctly on MacOS, so we need to manually check the state
-// at a specified interval.
-const startcheckingFullScreen = (
-  d: Dispatch<PayloadAction<SetWindowPropsPayload>>,
-  runtime: RequiredRuntime
-): void => {
-  if (getOS() !== "MacOS") return;
-  let memoFullscreen = false;
-  setInterval(() => {
-    runtime
-      .getProps()
-      .then(({ fullscreen }) => {
-        if (fullscreen == null || memoFullscreen === fullscreen) return;
-        memoFullscreen = fullscreen;
-        d(setWindowProps({ label: runtime.label(), fullscreen }));
-      })
-      .catch(console.error);
-  }, FULL_SCREEN_CHECK_INTERVAL.milliseconds);
 };
 
 export const syncInitial = async (
@@ -159,7 +137,7 @@ export const syncCurrent = async (
     changes.push(["position", runtime.setPosition(nextWin.position)]);
 
   if (nextWin.focusCount !== prevWin.focusCount)
-    changes.push(["focus", runtime.focus()], ["setVisible", runtime.setVisible(true)]);
+    changes.push(["setVisible", runtime.setVisible(true)], ["focus", runtime.focus()]);
 
   if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
     changes.push(["resizable", runtime.setResizable(nextWin.resizable)]);

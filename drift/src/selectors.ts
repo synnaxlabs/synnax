@@ -27,3 +27,12 @@ export const selectWindow = (
 
 export const selectWindowKey = (state: StoreState, label: string): string | null =>
   selectDriftState(state).labelKeys[label];
+
+export const selectWindowAttribute = <K extends keyof WindowState>(
+  state: StoreState,
+  keyOrLabel: string,
+  attr: K
+): WindowState[K] | null => {
+  const win = selectWindow(state, keyOrLabel);
+  return win != null ? win[attr] : null;
+};

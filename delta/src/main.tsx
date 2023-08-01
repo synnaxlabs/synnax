@@ -10,7 +10,8 @@
 import { ReactElement } from "react";
 
 import { Provider } from "@synnaxlabs/drift";
-import { Pluto } from "@synnaxlabs/pluto";
+import { Pluto, Trigger } from "@synnaxlabs/pluto";
+import { TriggersProviderProps } from "@synnaxlabs/pluto/src/core/triggers/TriggersContext";
 import ReactDOM from "react-dom/client";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";
@@ -47,12 +48,28 @@ const layoutRenderers = {
   line: LinePlot,
 };
 
+const PREVENT_DEFAULT_TRIGGERS: Trigger[] = [
+  ["Control", "P"],
+  ["Control", "Shift", "P"],
+  ["Control", "MouseLeft"],
+];
+
+const triggersProps: TriggersProviderProps = {
+  preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
+};
+
 const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
   useLoadTauriVersion();
   const cluster = useSelectCluster();
   return (
-    <Pluto {...theme} workerEnabled connParams={cluster?.props} workerURL={WorkerURL}>
+    <Pluto
+      {...theme}
+      workerEnabled
+      connParams={cluster?.props}
+      workerURL={WorkerURL}
+      triggers={triggersProps}
+    >
       <VisCanvas>
         <LayoutWindow />
       </VisCanvas>

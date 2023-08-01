@@ -37,6 +37,9 @@ func Open(
 		return nil, err
 	}
 	d.transportCloser, err = configureTransport(ctx, o)
+	if err != nil {
+		return nil, err
+	}
 	d.Cluster, err = cluster.Open(ctx, o.cluster)
 	if err != nil {
 		return nil, err

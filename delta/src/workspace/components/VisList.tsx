@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { List, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -28,13 +30,13 @@ export const VisList = (): ReactElement => {
     d(selectLayoutMosaicTab({ tabKey: key }));
   };
   return (
-    <List<RenderableLayout> data={layouts}>
+    <List<string, RenderableLayout> data={layouts}>
       <List.Selector
         value={activeLayout != null ? [activeLayout] : []}
         onChange={handleSelect}
         allowMultiple={false}
       />
-      <List.Column.Header<RenderableLayout>
+      <List.Column.Header<string, RenderableLayout>
         columns={[
           {
             key: "name",
@@ -44,7 +46,7 @@ export const VisList = (): ReactElement => {
                 level="p"
                 style={style}
                 onChange={(name) => {
-                  d(renameLayout({ tabKey: entry.key, name }));
+                  d(renameLayout({ key: entry.key, name }));
                 }}
                 value={entry.name}
               />

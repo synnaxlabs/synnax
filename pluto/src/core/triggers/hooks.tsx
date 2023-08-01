@@ -9,7 +9,9 @@
 
 import { MutableRefObject, RefObject, useCallback, useEffect, useState } from "react";
 
-import { Box, Compare, XY, unique } from "@synnaxlabs/x";
+import { Box, Compare, XY, unique, OS } from "@synnaxlabs/x";
+
+import { useOS } from "../hooks";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 import { useMemoCompare } from "@/core/memo";
@@ -27,6 +29,7 @@ export interface UseTriggerProps {
   callback?: (e: UseTriggerEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
+  os?: OS;
 }
 
 export const useTrigger = ({
@@ -34,6 +37,7 @@ export const useTrigger = ({
   callback: f,
   region,
   loose,
+  os: propsOS,
 }: UseTriggerProps): void => {
   const { listen } = useTriggerContext();
   const memoTriggers = useMemoCompare(
@@ -41,6 +45,9 @@ export const useTrigger = ({
     ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === 0,
     [triggers]
   );
+
+  const os = useOS({ default: propsOS });
+
   useEffect(() => {
     return listen((e) => {
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);

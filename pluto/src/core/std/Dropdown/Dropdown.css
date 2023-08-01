@@ -17,25 +17,23 @@
     background-color: var(--pluto-gray-m3);
     max-height: 360px;
     position: fixed;
-}
 
-.pluto-dropdown__dialog.pluto--top {
-    transform: translateY(calc(-100% + 1px));
-    -webkit-transform: translateY(calc(-100% + 1px));
-}
+    &.pluto--top {
+        transform: translateY(calc(-100% + 1px));
+    }
 
-.pluto-dropdown__dialog.pluto--bottom {
-    transform: translateY(-1px);
-    -webkit-transform: translateY(-1px);
-}
+    &.pluto--bottom {
+        transform: translateY(-1px);
+    }
 
-.pluto-dropdown__dialog.pluto--hidden {
-    opacity: 0;
-    z-index: -1;
-    pointer-events: none;
-    height: 0;
-}
+    &.pluto--hidden {
+        opacity: 0;
+        z-index: -1;
+        pointer-events: none;
+        height: 0;
+    }
 
-.pluto-dropdown__dialog.pluto--visible {
-    z-index: 10;
+    &.pluto--visible {
+        z-index: 10;
+    }
 }

@@ -46,6 +46,7 @@ import { ResourcesToolbar } from "@/resources";
 import { resourceTypes } from "@/resources/resources";
 import { VersionBadge } from "@/version";
 import { VisToolbar } from "@/vis";
+import { Controls as VisControls } from "@/vis/Controls";
 import { WorkspaceToolbar } from "@/workspace";
 import { WORKSPACE_COMMANDS } from "@/workspace/palettte";
 
@@ -59,8 +60,8 @@ export const NAV_DRAWERS: NavDrawerItem[] = [
 ];
 
 const DEFAULT_TRIGGER: PaletteTriggerConfig = {
-  resource: [["Meta", "P"]],
-  command: [["Meta", "Shift", "P"]],
+  resource: [["Control", "P"]],
+  command: [["Control", "Shift", "P"]],
 };
 
 const COMMANDS = [
@@ -99,7 +100,9 @@ export const NavTop = (): ReactElement => {
     <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
       <Nav.Bar.Start className="delta-main-nav-top__start">
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
-        {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
+        {os === "Windows" && (
+          <Logo className="delta-main-nav-top__logo" variant="loader" />
+        )}
       </Nav.Bar.Start>
       <Nav.Bar.Content
         style={{
@@ -201,6 +204,9 @@ export const NavRight = (): ReactElement | null => {
 export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
+      <Nav.Bar.Start>
+        <VisControls />
+      </Nav.Bar.Start>
       <Nav.Bar.End className="delta-main-nav-bottom__end">
         <Triggers.Status variant="info" />
         <Divider />

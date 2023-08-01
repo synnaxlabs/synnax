@@ -16,9 +16,9 @@ import type {
 } from "@reduxjs/toolkit";
 import { configureStore as base } from "@reduxjs/toolkit";
 
-import { listen } from "./listener";
-import { Middlewares, configureMiddleware } from "./middleware";
-import { Runtime } from "./runtime";
+import { listen } from "@/listener";
+import { Middlewares, configureMiddleware } from "@/middleware";
+import { Runtime } from "@/runtime";
 import {
   DriftAction,
   PreloadedState,
@@ -26,10 +26,10 @@ import {
   setWindowLabel,
   setWindowStage,
   closeWindow,
-  setPrererenderEnabled,
-} from "./state";
-import { syncInitial } from "./sync";
-import { MAIN_WINDOW } from "./window";
+  setConfig,
+} from "@/state";
+import { syncInitial } from "@/sync";
+import { MAIN_WINDOW, WindowProps } from "@/window";
 
 export type Enhancers = readonly StoreEnhancer[];
 
@@ -47,6 +47,7 @@ export interface ConfigureStoreOptions<
   debug?: boolean;
   preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
   enablePrerender?: boolean;
+  defaultWindowProps?: Omit<WindowProps, "key">;
 }
 
 /**
@@ -57,6 +58,14 @@ export interface ConfigureStoreOptions<
  *
  * @param options.runtime - The core runtime of the application. This should
  * be chosen based on the platform you are running on (Tauri, Electron, etc.).
+ * @param options.debug - If true, drift will log debug information to the
+ * console. @default false
+ * @param props.enablePrerender - If true, drift will create an invisible, prerendered
+ * window before it is needed. While it adds an additional process to your application,
+ * it also dramatically reduces the time it takes to open a new window. @default true
+ * @param props.defaultWindowProps - A partial set of window props to merge with
+ * the props passed to drift.createWindow. This is useful for setting default window
+ * properties, especially with prerendering. @default {}
  * @param options - The standard Redux Toolkit configureStore options.
  *
  * @returns A !PROMISE! that resolves to a Redux store. This is necessary because
@@ -75,6 +84,7 @@ export const configureStore = async <
   middleware,
   debug = false,
   enablePrerender = true,
+  defaultWindowProps,
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
@@ -86,7 +96,7 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  store.dispatch(setPrererenderEnabled({ value: enablePrerender }));
+  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));

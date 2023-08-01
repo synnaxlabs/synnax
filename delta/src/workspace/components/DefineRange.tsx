@@ -45,6 +45,7 @@ export const rangeWindowLayout: LayoutState = {
     resizable: false,
     size: { height: 410, width: 625 },
     navTop: true,
+    transparent: true,
   },
 };
 

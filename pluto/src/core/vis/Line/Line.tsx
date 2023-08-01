@@ -13,8 +13,7 @@ import { Deep, Optional } from "@synnaxlabs/x";
 
 import { Aether } from "@/core/aether/main";
 import { useMemoCompare } from "@/core/memo";
-import { lineState, LineState } from "@/core/vis/Line/core";
-import { LineGL } from "@/core/vis/Line/LineGL";
+import { AetherLine, lineState, LineState } from "@/core/vis/Line/aether";
 
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}
 
@@ -23,7 +22,7 @@ export const Line = Aether.wrap<LineProps>(
   ({ aetherKey, ...props }): ReactElement | null => {
     const [, , setState] = Aether.use({
       aetherKey,
-      type: LineGL.TYPE,
+      type: AetherLine.TYPE,
       schema: lineState,
       initialState: props,
     });

@@ -168,11 +168,11 @@ const crossHairA = (px: number): number => px;
 const crossHairB = (px: number): number => 1 - px;
 
 const insertLocation = ({ px, py }: { px: number; py: number }): Location => {
-  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return Location.center;
+  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return Location.CENTER;
   const [aY, bY] = [crossHairA(px), crossHairB(px)];
-  if (py > aY && py > bY) return Location.bottom;
-  if (py < aY && py < bY) return Location.top;
-  if (py > aY && py < bY) return Location.left;
-  if (py < aY && py > bY) return Location.right;
+  if (py > aY && py > bY) return Location.BOTTOM;
+  if (py < aY && py < bY) return Location.TOP;
+  if (py > aY && py < bY) return Location.LEFT;
+  if (py < aY && py > bY) return Location.RIGHT;
   throw new Error("[bug] - invalid insert position");
 };

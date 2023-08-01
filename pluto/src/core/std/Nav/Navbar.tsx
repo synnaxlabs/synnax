@@ -35,6 +35,7 @@ const CoreNavbar = ({
         CSS.B("navbar"),
         CSS.bordered(location.inverse.crude),
         CSS.dir(location.direction.inverse),
+        CSS.loc(location),
         className
       )}
       direction={location.direction.inverse}

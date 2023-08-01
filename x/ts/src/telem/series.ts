@@ -280,6 +280,12 @@ export class Series {
     return addSamples(this.max, -this.min);
   }
 
+  at(index: number): SampleValue {
+    const v = this.data[index];
+    if (v == null) return undefined as any;
+    return addSamples(v, this.sampleOffset);
+  }
+
   /**
    * @returns the index of the first sample that is greater than or equal to the given value.
    * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
@@ -291,7 +297,7 @@ export class Series {
     const compare = Compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = compare(this.data[mid], value);
+      const cmp = compare(this.at(mid), value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;

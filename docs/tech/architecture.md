@@ -36,7 +36,7 @@ the cluster.
 
 Synnax Server's architecture is **layered**. Each layer (there are four) extends the
 layer below it to augment its functionality. The core principle behind layered design
-is that layers below are *unaware* of layers above i.e. function calls and type access
+is that layers below are _unaware_ of layers above i.e. function calls and type access
 can only be made from layers above to layers below, and not vice versa. **We follow
 this principle with extreme rigor**. Synnax Server has four layers, which we'll cover
 in the following sections. Each layer has additional guidelines for what types of code
@@ -46,7 +46,7 @@ belong in it.
 
 The storage layer is the foundation of the engine, and is responsible for reading
 and writing [telemetry](telemetry.md) and corresponding meta-data to and from-disk.
-It is, with few exceptions, the *only* layer that interacts with the disk.
+It is, with few exceptions, the _only_ layer that interacts with the disk.
 
 The storage layer implements two types of storage engines: key-value and time-series.
 We use the key-value engine to store meta-data (channel definitions, users, etc.) and
@@ -87,9 +87,9 @@ sets without loading them all into memory at once.
 
 If you're interested in reading more about cesium, check out the following RFC's:
 
-- [001 - Cesium Segment Storage](rfc/0001-220517-cesium-segment-storage.md)
-- [008 - Cesium Columnar Storage](rfc/0008-221012-cesium-columnar.md)
-- [0010 - Frame Specifications](rfc/0010-230104-frame-spec.md)
+-   [001 - Cesium Segment Storage](rfc/0001-220517-cesium-segment-storage.md)
+-   [008 - Cesium Columnar Storage](rfc/0008-221012-cesium-columnar.md)
+-   [0010 - Frame Specifications](rfc/0010-230104-frame-spec.md)
 
 ### 1.3 - Layer 2 - Distribution
 
@@ -104,7 +104,6 @@ The distribution layer exposes a similar interface to the storage layer, providi
 both an eventually consistent, cluster-wide meta-data store and a time-series engine. It
 also exposes information about the cluster, such as the number of nodes, the health of
 each node, and the addresses of reachable nodes.
-
 
 #### 1.3.1 - Aspen - Cluster Membership, State Synchronization and Distributed Key-Value Storage
 
@@ -131,7 +130,7 @@ underlying key-value store.
 
 If you're interested in reading more about Aspen, check out the following RFC's:
 
-- [0002 - Aspen Distributed Storage](rfc/0002-220518-aspen-distributed-storage.md)
+-   [0002 - Aspen Distributed Storage](rfc/0002-220518-aspen-distributed-storage.md)
 
 #### 1.3.2 - Framer - Distributed Time-Series Storage
 
@@ -146,7 +145,7 @@ accordingly.
 If you're interested in reading more about distributed frame reads and writes, check
 out the following RFC's:
 
-- [0003 - Segment Distribution](rfc/0003-220604-segment-distribution.md)
+-   [0003 - Segment Distribution](rfc/0003-220604-segment-distribution.md)
 
 ### 1.3 - Layer 3 - Service
 

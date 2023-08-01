@@ -21,11 +21,12 @@ import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/core/hooks/useStateRef";
 import {
-  MouseKey,
-  MOUSE_KEYS,
-  parseEventKey,
+  MouseKeyTrigger,
+  MOUSE_TRIGGER_KEYS,
+  eventTriggerKey,
   Trigger,
   TriggerCallback,
+  match,
 } from "@/core/triggers/triggers";
 
 type TriggerListen = (callback: TriggerCallback) => Destructor;
@@ -56,9 +57,14 @@ const ZERO_TRIGGER_STATE: TriggerRefState = {
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
 
-export interface TriggersProviderProps extends PropsWithChildren {}
+export interface TriggersProviderProps extends PropsWithChildren {
+  preventDefaultOn?: Trigger[];
+}
 
-export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElement => {
+export const TriggersProvider = ({
+  children,
+  preventDefaultOn,
+}: TriggersProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
   const cursor = useRef<XY>(XY.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
@@ -82,7 +88,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
   );
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const key = parseEventKey(e);
+    const key = eventTriggerKey(e);
     // We prevent the default behavior of arrow keys to prevent scrolling and movement
     // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
@@ -93,7 +99,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(400).valueOf()
+        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(300).valueOf()
       )
         next.push(key);
       const nextState: TriggerRefState = {
@@ -101,18 +107,20 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
         prev: prev.next,
         last: new TimeStamp(),
       };
+      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
       updateListeners(nextState, e.target as HTMLElement);
       return nextState;
     });
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
-    const key = parseEventKey(e);
+    const key = eventTriggerKey(e);
+    if (key === "P") e.preventDefault();
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prevS) => {
       const next = prevS.next.filter(
-        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey)
+        (k) => k !== key && !MOUSE_TRIGGER_KEYS.includes(k as MouseKeyTrigger)
       );
       const prev = prevS.next;
       const nextS: TriggerRefState = {
@@ -120,6 +128,7 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
         next,
         prev,
       };
+      if (shouldPreventDefault(next, preventDefaultOn)) e.preventDefault();
       updateListeners(nextS, e.target as HTMLElement);
       return nextS;
     });
@@ -173,3 +182,6 @@ export const TriggersProvider = ({ children }: TriggersProviderProps): ReactElem
     <TriggerContext.Provider value={{ listen }}>{children}</TriggerContext.Provider>
   );
 };
+
+const shouldPreventDefault = (t: Trigger, preventDefaultOn?: Trigger[]): boolean =>
+  preventDefaultOn != null && match([t], preventDefaultOn);

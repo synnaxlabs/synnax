@@ -29,7 +29,6 @@ export type TypographySpec = z.infer<typeof typographySpec>;
 
 /* Standardizes the typography levels for components of different sizes */
 export const ComponentSizeTypographyLevels: Record<ComponentSize, TypographyLevel> = {
-  tiny: "small",
   small: "small",
   medium: "p",
   large: "h4",
@@ -42,5 +41,5 @@ export const TypographyLevelComponentSizes: Record<TypographyLevel, ComponentSiz
   h4: "medium",
   h5: "small",
   p: "medium",
-  small: "tiny",
+  small: "small",
 };

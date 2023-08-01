@@ -30,7 +30,7 @@ import "@/core/vis/LinePlot/main/YAxis.css";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Omit<z.input<typeof AetherLinePlot.YAxis.z>, "position" | "size">,
+    Omit<z.input<typeof AetherLinePlot.YAxis.stateZ>, "position" | "size">,
     Omit<SpaceProps, "color"> {
   label?: string;
   labelLevel?: TypographyLevel;
@@ -47,7 +47,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     label,
     labelLevel = "small",
     onLabelChange,
-    labelDirection = Direction.x,
+    labelDirection = Direction.X,
     color,
     labelSize: propsLabelSize,
     showGrid,
@@ -63,10 +63,11 @@ export const YAxis = Aether.wrap<YAxisProps>(
         showGrid,
         type,
         bounds,
+        label,
       }),
       (
-        [, propsLabelSize, type, showGrid, color, bounds],
-        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds]
+        [, propsLabelSize, type, showGrid, color, bounds, label],
+        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds, prevLabel]
       ) => {
         return Deep.equal(
           {
@@ -75,6 +76,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
             type,
             showGrid,
             bounds,
+            label,
           },
           {
             color: prevColor,
@@ -82,16 +84,17 @@ export const YAxis = Aether.wrap<YAxisProps>(
             type: prevType,
             showGrid: prevShowGrid,
             bounds: prevBounds,
+            label: prevLabel,
           }
         );
       },
-      [propsLabelSize, type, showGrid, bounds]
+      [propsLabelSize, type, showGrid, bounds, label]
     );
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
       type: AetherLinePlot.YAxis.TYPE,
-      schema: AetherLinePlot.YAxis.z,
+      schema: AetherLinePlot.YAxis.stateZ,
       initialState: memoProps,
     });
 

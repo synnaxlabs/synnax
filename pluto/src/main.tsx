@@ -24,8 +24,11 @@ import {
   Worker,
   Tooltip,
   TooltipConfigProps,
+  TriggersProviderProps,
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
+
+import "@synnaxlabs/media/dist/style.css";
 
 export interface PlutoProps
   extends PropsWithChildren,
@@ -35,6 +38,7 @@ export interface PlutoProps
   workerURL?: URL;
   instrumentation?: Instrumentation;
   tooltip?: TooltipConfigProps;
+  triggers?: TriggersProviderProps;
 }
 
 export const Pluto = ({
@@ -47,10 +51,11 @@ export const Pluto = ({
   setTheme,
   tooltip,
   instrumentation,
+  triggers,
 }: PlutoProps): ReactElement => {
   return (
     <Alamos.Provider instrumentation={instrumentation}>
-      <Triggers.Provider>
+      <Triggers.Provider {...triggers}>
         <Tooltip.Config {...tooltip}>
           <Haul.Provider>
             <Worker.Provider

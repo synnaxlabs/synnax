@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@fontsource-variable/inter";
 import { z } from "zod";
 
 import { Color } from "@/core/color";
@@ -45,6 +44,7 @@ export const themeZ = z.object({
     black: Color.z,
     background: Color.z,
     text: Color.z,
+    textContrast: Color.z,
     logo: z.string(),
   }),
   sizes: z.object({
@@ -63,7 +63,6 @@ export const themeZ = z.object({
     h5: typographySpec,
     p: typographySpec,
     small: typographySpec,
-    tiny: typographySpec,
   }),
 });
 
@@ -125,6 +124,7 @@ const synnaxBase: ThemeSpec = {
     black,
     background: white,
     text: new Color(black).setAlpha(0.85).hex,
+    textContrast: new Color(white).setAlpha(0.85).hex,
   },
   sizes: {
     base: baseSize,
@@ -169,12 +169,7 @@ const synnaxBase: ThemeSpec = {
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2 + 1 / 3,
-    },
-    tiny: {
-      size: 1.75,
-      weight: 300,
-      lineHeight: 2,
+      lineHeight: 2.5,
     },
   },
 };
@@ -205,6 +200,7 @@ export const synnaxDark: ThemeSpec = {
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
     text: new Color(synnaxBase.colors.white).setAlpha(0.9).hex,
+    textContrast: new Color(synnaxBase.colors.black).setAlpha(0.9).hex,
   },
 };
 

@@ -39,6 +39,7 @@ export interface CSSType extends BEM {
   applyVars: typeof applyCSSVars;
   newGridBuilder: () => CSSGridBuilder;
   dropRegion: (active: boolean) => false | string;
+  px: (value: number) => string;
 }
 
 const newCSS = (prefix: string): CSSType => {
@@ -63,6 +64,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.applyVars = applyCSSVars;
   CSS.newGridBuilder = () => new CSSGridBuilder();
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
+  CSS.px = (value: number) => `${value}px`;
   return CSS;
 };
 

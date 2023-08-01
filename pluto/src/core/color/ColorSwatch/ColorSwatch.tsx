@@ -54,6 +54,7 @@ export const ColorSwatch = ({
       visible={visible}
       ref={ref}
       className={CSS.BE("color-swatch", "dropdown")}
+      keepMounted={false}
     >
       {swatch}
       <ColorPicker value={value} onChange={onChange} />

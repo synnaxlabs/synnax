@@ -11,7 +11,7 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Color, ColorT } from "@/core/color";
+import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Button } from "@/core/std/Button";
 import { Typography, Text, TextProps } from "@/core/std/Typography";
@@ -22,7 +22,7 @@ import "@/core/std/Tag/Tag.css";
 export interface TagProps extends Omit<TextProps, "level" | "size" | "wrap"> {
   icon?: ReactElement;
   onClose?: () => void;
-  color?: ColorT;
+  color?: CrudeColor;
   size?: ComponentSize;
   variant?: "filled" | "outlined";
 }

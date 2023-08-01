@@ -7,18 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ReactElement } from "react";
+
 import { Text } from "@synnaxlabs/pluto";
-import type { TextProps } from "@synnaxlabs/pluto";
+import type { TextProps, TypographyLevel } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 
 import { useSelectVersion } from "@/version/store";
 
-type VersionBadgeProps = Optional<TextProps, "level">;
+type VersionBadgeProps<L extends TypographyLevel> = Optional<TextProps<L>, "level">;
 
-export const VersionBadge = ({
+export const VersionBadge = <L extends TypographyLevel>({
   level = "p",
   ...props
-}: VersionBadgeProps): ReactElement => {
+}: VersionBadgeProps<L>): ReactElement => {
   const v = useSelectVersion();
   return (
     <Text level={level} {...props}>

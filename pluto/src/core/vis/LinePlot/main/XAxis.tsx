@@ -12,7 +12,7 @@ import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 import { Location, CrudeOuterLocation, CrudeDirection, Direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { withinSizeThreshold } from "../aether/axis";
+import { withinSizeThreshold } from "../aether/grid";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
