@@ -160,7 +160,7 @@ export const syncCurrent = async (
     changes.push(["position", runtime.setPosition(nextWin.position)]);
 
   if (nextWin.focusCount !== prevWin.focusCount)
-    changes.push(["focus", runtime.focus()], ["setVisible", runtime.setVisible(true)]);
+    changes.push(["setVisible", runtime.setVisible(true)], ["focus", runtime.focus()]);
 
   if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
     changes.push(["resizable", runtime.setResizable(nextWin.resizable)]);

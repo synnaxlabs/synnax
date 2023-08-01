@@ -213,6 +213,8 @@ const slice = createSlice({
   reducers: {
     setConfig: (s: DriftState, a: PayloadAction<SetConfigPayload>) => {
       s.config = { ...s.config, ...a.payload };
+      if (s.config.enablePrerender) return;
+      // If we've disabled prerendering, remove all prerendered windows
       s.windows = Object.fromEntries(
         Object.entries(s.windows).filter(([, v]) => v.reserved)
       );
@@ -253,6 +255,8 @@ const slice = createSlice({
           ...available,
           visible: true,
           reserved: true,
+          focusCount: 1,
+          focus: true,
           ...payload,
         };
         s.labelKeys[availableLabel] = payload.key;
