@@ -62,10 +62,10 @@ describe("Button", () => {
       expect(label).toBeTruthy();
       const button = label.parentElement as HTMLElement;
       expect(button).toBeTruthy();
-      expect(button.className).not.toContain("checked");
+      expect(button.className).not.toContain("filled");
       await userEvent.click(label);
       expect(onChange).toHaveBeenCalled();
-      expect(button.className).toContain("checked");
+      expect(button.className).toContain("filled");
     });
   });
 });

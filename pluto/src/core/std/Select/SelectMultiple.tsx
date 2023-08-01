@@ -24,7 +24,7 @@ import {
   Compare,
 } from "@synnaxlabs/x";
 
-import { ColorT } from "@/core/color";
+import { CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { useAsyncEffect } from "@/core/hooks";
 import { Dropdown, DropdownProps } from "@/core/std/Dropdown";
@@ -224,7 +224,7 @@ interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<
   key: K;
   tagKey: keyof E;
   entry: E;
-  color: ColorT;
+  color: CrudeColor;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
