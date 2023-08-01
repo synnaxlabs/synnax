@@ -100,7 +100,9 @@ export const NavTop = (): ReactElement => {
     <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
       <Nav.Bar.Start className="delta-main-nav-top__start">
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
-        {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
+        {os === "Windows" && (
+          <Logo className="delta-main-nav-top__logo" variant="loader" />
+        )}
       </Nav.Bar.Start>
       <Nav.Bar.Content
         style={{

@@ -110,7 +110,6 @@ const newStore = async (): Promise<RootStore> => {
     middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
     reducer,
     enablePrerender: true,
-    debug: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   })) as RootStore;
 };
