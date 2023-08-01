@@ -28,7 +28,7 @@ import { z } from "zod";
 import { UseViewportEvent, UseViewportHandler } from "../../viewport";
 
 import { Aether } from "@/core/aether/main";
-import { ColorT } from "@/core/color";
+import { CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { useEffectCompare } from "@/core/hooks/useEffectCompare";
@@ -93,7 +93,7 @@ export const useGridPosition = (
 
 export interface LineMeta {
   key: string;
-  color: ColorT;
+  color: CrudeColor;
   label: string;
 }
 

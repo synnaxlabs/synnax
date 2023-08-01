@@ -22,18 +22,18 @@ export const exampleProps = z.object({
   x: z.number(),
 });
 
-interface ExampleLeafDerived {
+interface InternalState {
   contextValue: number;
 }
 
-class ExampleLeaf extends AetherLeaf<typeof exampleProps, ExampleLeafDerived> {
+class ExampleLeaf extends AetherLeaf<typeof exampleProps, InternalState> {
   updatef = vi.fn();
   deletef = vi.fn();
   schema = exampleProps;
 
-  derive(): ExampleLeafDerived {
+  afterUpdate(): void {
     this.updatef(this.ctx);
-    return { contextValue: this.ctx.getOptional("key") ?? 0 };
+    this.internal.contextValue = this.ctx.getOptional("key") ?? 0;
   }
 
   afterDelete(): void {
@@ -43,7 +43,7 @@ class ExampleLeaf extends AetherLeaf<typeof exampleProps, ExampleLeafDerived> {
 
 class ExampleComposite extends AetherComposite<
   typeof exampleProps,
-  void,
+  {},
   ExampleLeaf | ContextSetterComposite
 > {
   updatef = vi.fn();
@@ -51,7 +51,7 @@ class ExampleComposite extends AetherComposite<
 
   schema = exampleProps;
 
-  derive(): void {
+  afterUpdate(): void {
     this.updatef(this.ctx);
   }
 
@@ -70,7 +70,7 @@ class ContextSetterComposite extends AetherComposite<
 
   schema = exampleProps;
 
-  derive(): void {
+  afterUpdate(): void {
     this.updatef(this.ctx);
     this.ctx.set("key", this.state.x);
   }

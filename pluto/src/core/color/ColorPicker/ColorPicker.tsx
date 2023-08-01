@@ -11,15 +11,14 @@ import { ComponentPropsWithoutRef, ReactElement, useEffect, useRef } from "react
 
 import { SketchPicker, ColorResult } from "react-color";
 
-import { Color, ColorT } from "@/core/color";
+import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { InputControl } from "@/core/std";
-import { stopPropagation } from "@/util/event";
 
 import "@/core/color/ColorPicker/ColorPicker.css";
 
 export interface ColorPickerProps
-  extends InputControl<ColorT, Color>,
+  extends InputControl<CrudeColor, Color>,
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {}
 
 export const ColorPicker = ({

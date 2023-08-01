@@ -9,7 +9,7 @@
 
 import { ForwardedRef, forwardRef, ReactElement } from "react";
 
-import { Color, ColorT } from "@/core/color";
+import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
 import { Generic, GenericProps } from "@/core/std/Generic";
 import { TypographyLevel } from "@/core/std/Typography/types";
@@ -22,7 +22,7 @@ export interface CoreTextProps<L extends TypographyLevel = "h1"> {
   /* The text to display */
   children?: string | number;
   /* The color of the text */
-  color?: ColorT;
+  color?: CrudeColor;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
 }

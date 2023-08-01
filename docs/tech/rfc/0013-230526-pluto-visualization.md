@@ -261,7 +261,7 @@ export interface NumericTelemSource {
     value: () => Promise<number>;
 }
 
-export interface ColorTelemSource {
+export interface CrudeColorelemSource {
     value: () => Promise<Color>;
 }
 

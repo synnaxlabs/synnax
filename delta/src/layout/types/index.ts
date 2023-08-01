@@ -51,7 +51,7 @@ export interface LayoutState {
    * Properties used when the layout is placed in a tab. If the location is 'window',
    * these properties are ignored.
    */
-  tab?: LayoutTabProps;
+  tab?: Partial<LayoutTabProps>;
 }
 
 export type RenderableLayout = Omit<LayoutState, "window">;
