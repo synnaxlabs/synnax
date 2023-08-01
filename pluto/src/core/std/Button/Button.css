@@ -38,7 +38,7 @@
     background-color: var(--pluto-primary-z);
     border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
 
-    * {
+    & * {
         color: var(--pluto-white);
     }
 
@@ -95,7 +95,7 @@
         background-color: var(--pluto-gray-m2);
     }
 
-    * {
+    & * {
         color: var(--pluto-text-color);
     }
 

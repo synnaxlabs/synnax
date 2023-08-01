@@ -28,6 +28,7 @@ import {
   CrudeXLocation,
   CrudeXYLocation,
   CrudeYLocation,
+  Dimensions,
   Location,
   TimeSpan,
   XY,
@@ -51,6 +52,7 @@ export interface TooltipProps
 interface State {
   location: XYLocation;
   position: XY;
+  elDims: Dimensions;
 }
 
 const SIZE_THRESHOLD = 150;
@@ -138,6 +140,7 @@ export const Tooltip = ({
     setState({
       location: xy,
       position: pos,
+      elDims: container.dims,
     });
   };
 
@@ -167,7 +170,11 @@ export const Tooltip = ({
               CSS.loc(state.location.x),
               CSS.loc(state.location.y)
             )}
-            style={{ ...state.position.css }}
+            style={{
+              ...state.position.css,
+              // @ts-expect-error
+              "--el-width": CSS.px(state.elDims.width),
+            }}
           >
             {tip}
           </div>,

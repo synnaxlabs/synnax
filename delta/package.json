@@ -4,8 +4,8 @@
   "version": "0.7.6",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev & pnpm kill",
-    "kill": "zsh ~/Desktop/synnaxlabs/synnax/delta/scripts/kill-dev.zsh",
+    "dev": "tauri dev",
+    "kill": "bash ~/Desktop/synnaxlabs/synnax/delta/scripts/kill-dev.zsh",
     "build": "tauri build",
     "dev-vite": "vite",
     "build-vite": "vite build",

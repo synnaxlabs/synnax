@@ -12,7 +12,7 @@ rust-version = "1.57"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "^1.2.1", features = [] }
+tauri-build = { version = "^1.4", features = [] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
@@ -21,10 +21,13 @@ objc = "0.2.7"
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "^1.2.4", features = ["api-all", "macos-private-api", "updater"] }
+tauri = { version = "^1.4", features = ["api-all", "updater"] }
 ctrlc = "3.2.4"
 sled = "0.34.7"
 home = "0.5.4"
+
+[patch.crates-io]
+tao = { git = "https://github.com/tauri-apps/tao", branch = "v0.16" }
 
 [features]
 # by default Tauri runs in production mode

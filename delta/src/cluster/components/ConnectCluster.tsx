@@ -46,6 +46,7 @@ export const connectClusterWindowLayout: LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
+    transparent: true,
   },
 };
 
@@ -78,7 +79,7 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
         props: data as SynnaxProps,
       })
     );
-    dispatch(setActiveCluster(state.clusterKey as string));
+    dispatch(setActiveCluster(state.clusterKey));
     onClose();
   });
 

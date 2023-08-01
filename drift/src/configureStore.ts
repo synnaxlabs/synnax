@@ -26,10 +26,10 @@ import {
   setWindowLabel,
   setWindowStage,
   closeWindow,
-  setPrererenderEnabled,
+  setConfig,
 } from "./state";
 import { syncInitial } from "./sync";
-import { MAIN_WINDOW } from "./window";
+import { MAIN_WINDOW, WindowProps } from "./window";
 
 export type Enhancers = readonly StoreEnhancer[];
 
@@ -47,6 +47,7 @@ export interface ConfigureStoreOptions<
   debug?: boolean;
   preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
   enablePrerender?: boolean;
+  defaultWindowProps?: Omit<WindowProps, "key">;
 }
 
 /**
@@ -75,6 +76,7 @@ export const configureStore = async <
   middleware,
   debug = false,
   enablePrerender = true,
+  defaultWindowProps,
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
   // eslint-disable-next-line prefer-const
@@ -86,7 +88,7 @@ export const configureStore = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  store.dispatch(setPrererenderEnabled({ value: enablePrerender }));
+  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
