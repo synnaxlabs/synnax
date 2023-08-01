@@ -28,7 +28,6 @@
         &.pluto--left {
             transform: translate(calc(-100% - 1rem), -50%);
             &::after {
-                top: 50%;
                 left: 100%;
                 border-color: transparent transparent transparent
                     var(--pluto-border-color);
@@ -37,7 +36,6 @@
         &.pluto--right {
             transform: translate(1rem, -50%);
             &::after {
-                top: 50%;
                 right: 100%;
                 border-color: transparent var(--pluto-border-color) transparent
                     transparent;
@@ -59,6 +57,18 @@
         }
     }
 
+    &.pluto--left {
+        &::after {
+            right: calc(var(--el-width) / 2 - 1rem);
+        }
+    }
+
+    &.pluto--right {
+        &::after {
+            left: calc(var(--el-width) / 2 - 1rem);
+        }
+    }
+
     &.pluto--top {
         &::after {
             border-color: var(--pluto-border-color) transparent transparent transparent;
@@ -71,6 +81,7 @@
             transform: translate(-100%, calc(-100% - 1rem));
         }
     }
+
     &.pluto--bottom {
         &::after {
             border-color: transparent transparent var(--pluto-border-color) transparent;

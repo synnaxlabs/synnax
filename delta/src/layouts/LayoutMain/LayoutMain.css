@@ -11,51 +11,10 @@
  */
 
 .delta-main-fixed--y {
-    height: 100%;
+    height: calc(100vh - 6rem - 4.5rem);
 }
-
-html {
-    background: none !important;
-}
-
-.delta-background {
-    position: fixed;
-    height: calc(100vh) !important;
-    width: calc(100vw) !important;
-    background: var(--pluto-background-color);
-    z-index: -10;
-}
-
-.delta-main--macos {
-    .delta-border {
-        display: none;
-    }
-}
-
-.delta-main--maximized {
-    .delta-border,
-    .delta-background {
-        border-radius: 0px;
-    }
-}
-
-.delta-border,
-.delta-background {
-    border-radius: 8px;
-}
-
-.delta-border {
-    position: fixed;
-    height: calc(100vh) !important;
-    width: calc(100vw) !important;
-    z-index: 1000;
-    pointer-events: none;
-    border: var(--pluto-border);
-    border-style: outset;
-}
-
 .delta-main-fixed--x {
-    width: 100%;
+    width: calc(100vw - 8rem - 8rem);
 }
 
 .delta-main--driving {
