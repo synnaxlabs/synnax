@@ -38,6 +38,9 @@ class ChannelPayload(Payload):
     is_index: bool = False
     index: ChannelKey = 0
 
+    def __str__(self):
+        return f"Channel {self.name}"
+
 
 @dataclass
 class NormalizedChannelParams:

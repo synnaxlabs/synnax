@@ -47,7 +47,7 @@ class BackwardFrameAdapter:
         if self.__adapter is None:
             return fr
         keys = [
-            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.labels
+            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.columns
         ]
         return Frame(keys=keys, series=fr.series)
 
@@ -87,7 +87,7 @@ class ForwardFrameAdapter:
         if self.__adapter is None:
             return fr
         keys = [
-            self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.labels
+            self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.columns
         ]
 
         return Frame(keys=keys, series=fr.series)

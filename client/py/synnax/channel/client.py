@@ -59,7 +59,7 @@ class Channel(ChannelPayload):
         leaseholder: int = 0,
         key: ChannelKey = 0,
         _frame_client: FrameClient | None = None,
-    ):
+    ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
         call client.channels.create(channel).
@@ -123,7 +123,7 @@ class Channel(ChannelPayload):
         tr = TimeRange(start_or_range, end)
         return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: CrudeTimeStamp, data: ndarray | Series):
+    def write(self, start: CrudeTimeStamp, data: ndarray | Series) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
@@ -140,17 +140,11 @@ class Channel(ChannelPayload):
             )
         return self.___frame_client
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.key)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self.key == other.key
-
-    def __str__(self):
-        base = f"{self.name} ({self.data_type})"
-        if self.rate != 0:
-            base += f" @ {self.rate}Hz"
-        return base
 
     def to_payload(self) -> ChannelPayload:
         return ChannelPayload(
