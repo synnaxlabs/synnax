@@ -47,48 +47,55 @@ class FramePayload(Payload):
         super().__init__(series=series, keys=keys)
 
 
-LabeledBy = Literal["keys", "names", None]
+_ColumnTypeT = Literal["keys", "names", None]
 
 
-def labeled_by(labels: ChannelParams) -> LabeledBy:
-    if len(labels) == 0:
-        return None
-    first = normalize(labels)[0]
-    if isinstance(first, ChannelKey):
-        return "keys"
-    return "names"
+class ColumnType:
+    v: _ColumnTypeT
 
+    def __init__(self, v: _ColumnTypeT):
+        self.v = v
 
-def labeled_by_equal(first: LabeledBy, second: LabeledBy) -> bool:
-    return first is None or second is None or first == second
+    @classmethod
+    def from_channel_params(cls, columns: ChannelParams) -> ColumnType:
+        if len(columns) == 0:
+            return cls(None)
+        first = normalize(columns)[0]
+        if isinstance(first, ChannelKey):
+            return cls("keys")
+        return cls("names")
+
+    def __eq__(self, other: _ColumnTypeT):
+        c = ColumnType(other)
+        return self.v is None or c.v is None or c.v == self.v
 
 
 class Frame:
-    labels: ChannelKeys | ChannelNames
+    columns: ChannelKeys | ChannelNames
     series: list[Series] = Field(default_factory=list)
 
     def __init__(
         self,
         keys: ChannelKeys
-        | ChannelNames
-        | DataFrame
-        | Frame
-        | FramePayload
-        | None = None,
+              | ChannelNames
+              | DataFrame
+              | Frame
+              | FramePayload
+              | None = None,
         series: list[Series] | None = None,
     ):
         if isinstance(keys, Frame):
-            self.labels = keys.labels
+            self.columns = keys.columns
             self.series = keys.series
         elif isinstance(keys, FramePayload):
-            self.labels = keys.keys
+            self.columns = keys.keys
             self.series = keys.series
         elif isinstance(keys, DataFrame):
-            self.labels = keys.columns.to_list()
-            self.series = [Series(data=keys[k]) for k in self.labels]
+            self.columns = keys.columns.to_list()
+            self.series = [Series(data=keys[k]) for k in self.columns]
         else:
             self.series = series or list()
-            self.labels = keys or list()
+            self.columns = keys or list()
 
     def __str__(self) -> str:
         return self.to_df().__str__()
@@ -99,7 +106,7 @@ class Frame:
         if self.series is None:
             return self
 
-        keys = self.labels
+        keys = self.columns
         unique_keys = list(set(keys))
 
         next_arrays = []
@@ -124,12 +131,12 @@ class Frame:
             next_arrays.append(combined)
 
         self.series = next_arrays
-        self.labels = unique_keys
+        self.columns = unique_keys
         return self
 
     @property
-    def labeled_by(self) -> LabeledBy:
-        return labeled_by(self.labels)
+    def col_type(self) -> ColumnType:
+        return ColumnType.from_channel_params(self.columns)
 
     @overload
     def append(self, label: ChannelKey | ChannelName, array: Series) -> None:
@@ -145,29 +152,30 @@ class Frame:
         array: Series | None = None,
     ) -> None:
         if isinstance(key_or_frame, Frame):
-            if not labeled_by_equal(self.labeled_by, key_or_frame.labeled_by):
+            if self.col_type != key_or_frame.col_type:
                 raise ValidationError(
                     f"""
-                    Cannot append frame with different label type {self.labeled_by} != {key_or_frame.labeled_by}
+                    Cannot append frame with different label type
+                    {self.col_type} != {key_or_frame.col_type}
                 """
                 )
             self.series.extend(key_or_frame.series)
-            self.labels.extend(key_or_frame.labels)
+            self.columns.extend(key_or_frame.columns)
         else:
             if array is None:
                 raise ValidationError("Cannot append key without array")
-            if not labeled_by_equal(self.labeled_by, labeled_by([key_or_frame])):
+            if self.col_type != ColumnType.from_channel_params([key_or_frame]):
                 raise ValidationError("Cannot append array with different label type")
             self.series.append(array)
-            self.labels.append(key_or_frame)
+            self.columns.append(key_or_frame)
 
     def items(
         self,
     ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
-        return zip(self.labels, self.series)
+        return zip(self.columns, self.series)
 
     def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
-        return self.series[self.labels.index(key)]
+        return self.series[self.columns.index(key)]
 
     def get(
         self, key: ChannelKey | ChannelName, default: Series | None = None
@@ -178,11 +186,11 @@ class Frame:
             return default
 
     def to_payload(self):
-        if self.labeled_by == "names":
+        if self.col_type == "names":
             raise ValidationError(
                 "Cannot convert a frame labeled by names to a payload"
             )
-        return FramePayload(keys=self.labels, series=self.series)
+        return FramePayload(keys=self.columns, series=self.series)
 
     def to_df(self) -> DataFrame:
         return DataFrame({k: s for k, s in self.items()})

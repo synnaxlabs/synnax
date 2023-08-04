@@ -210,19 +210,19 @@ class TestTimeRange:
         """Should return true if the ranges overlap but a smaller range is not contained"""
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 1500)
-        assert not tr.contains_range(tr2)
+        assert not tr.contains(tr2)
 
     def test_range_contains_range(self):
         """Should return true if the ranges overlap and the smaller range is contained"""
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 900)
-        assert tr.contains_range(tr2)
+        assert tr.contains(tr2)
 
     def test_range_contains_equal(self):
         """Should return true if the ranges are equal"""
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(0, 1000)
-        assert tr.contains_range(tr2)
+        assert tr.contains(tr2)
 
     def test_range_overlaps(self):
         """Should return true if the ranges overlap"""

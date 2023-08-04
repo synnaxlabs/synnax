@@ -9,8 +9,10 @@
 
 from __future__ import annotations
 
+from math import trunc
+
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args
+from typing import TypeAlias, Union, get_args, TypeVar, overload
 from numpy.typing import DTypeLike
 
 import numpy as np
@@ -18,7 +20,28 @@ import pandas as pd
 from freighter import Payload
 from pydantic import BaseModel
 
-from .exceptions import ContiguityError
+from synnax.exceptions import ContiguityError
+
+T = TypeVar("T")
+
+
+def _validate_options_contains(value: T, options: list[T]) -> None:
+    if not any(value == o for o in options):
+        raise ValueError(f"""
+            Invalid divisor argument for remainder. Divisor must be one of the following
+            options:
+            {[o.__str__() for o in options]}
+            """)
+
+
+def _semantic_mod(value: T, divisor: T, options: list[T]) -> T:
+    _validate_options_contains(divisor, options)
+    return value % divisor
+
+
+def _semantic_trunc(value: T, span: T, options: list[T]) -> T:
+    _validate_options_contains(span, options)
+    return trunc(value / span) * span
 
 
 class TimeStamp(int):
@@ -248,28 +271,177 @@ class TimeSpan(int):
     def __repr__(self) -> str:
         return f"TimeSpan({super().__repr__()})"
 
-    def delta(self) -> timedelta:
-        """Returns the TimeSpan represented as a timedelta object.
-        :return: a timedelta object
-        """
-        return timedelta(seconds=self.seconds())
+    def __str__(self) -> str:
+        tot_days = self.trunc(TimeSpan.DAY)
+        tot_hours = self.trunc(TimeSpan.HOUR)
+        tot_minutes = self.trunc(TimeSpan.MINUTE)
+        tot_seconds = self.trunc(TimeSpan.SECOND)
+        tot_milliseconds = self.trunc(TimeSpan.MILLISECOND)
+        tot_micros = self.trunc(TimeSpan.MICROSECOND)
+        tot_nanos = self.trunc(TimeSpan.NANOSECOND)
+        days = tot_days
+        hours = tot_hours.sub(tot_days)
+        minutes = tot_minutes.sub(tot_hours)
+        seconds = tot_seconds.sub(tot_minutes)
+        milliseconds = tot_milliseconds.sub(tot_seconds)
+        microseconds = tot_micros.sub(tot_milliseconds)
+        nanoseconds = tot_nanos.sub(tot_micros)
 
+        v = ""
+        if not days == 0:
+            v += f"{days.days}d "
+        if not hours == 0:
+            v += f"{hours.hours}h "
+        if not minutes == 0:
+            v += f"{minutes.minutes}m "
+        if not seconds == 0:
+            v += f"{seconds.seconds}s "
+        if not milliseconds == 0:
+            v += f"{milliseconds.milliseconds}ms "
+        if not microseconds == 0:
+            v += f"${microseconds.microseconds}µs "
+        if not nanoseconds == 0:
+            v += f"{nanoseconds.nanoseconds}ns"
+        return v.strip()
+
+    @property
+    def days(self) -> float:
+        """:returns: The decimal number of days in the TimeSpan, including fractional
+        days.
+        """
+        return float(self / TimeSpan.DAY)
+
+    @property
+    def days_int(self) -> int:
+        """:returns:  The integer number of days in the TimeSpan, NOT including
+        fractional days.
+        """
+        return int(self / TimeSpan.DAY)
+
+    @property
+    def hours(self) -> float:
+        """:returns: The decimal number of hours in the TimeSpan, including fractional
+        hours.
+        """
+        return float(self / TimeSpan.HOUR)
+
+    @property
+    def hours_int(self) -> int:
+        """:returns:  The integer number of hours in the TimeSpan, NOT including
+        fractional hours.
+        """
+        return int(self / TimeSpan.DAY)
+
+    @property
+    def minutes(self) -> float:
+        """:returns: The decimal number of minutes in the TimeSpan, including fractional
+        minutes.
+        """
+        return float(self / TimeSpan.MINUTE)
+
+    @property
+    def minutes_int(self) -> int:
+        """:returns:  THe integer number of minutes in the TimeSpan, NOT including
+        fractional minutes.
+        """
+        return int(self / TimeSpan.MINUTE)
+
+    @property
     def seconds(self) -> float:
-        """Returns the TimeSpan represented as a number of seconds.
-        :return: a number of seconds
+        """:returns: The decimal number of seconds in the TimeSpan, including fractional
+        seconds.
         """
         return float(self / TimeSpan.SECOND)
 
+    @property
+    def seconds_int(self) -> int:
+        """:returns: The integer number of seconds in the TimeSpan, NOT including
+        fractional seconds.
+        """
+        return int(self / TimeSpan.SECOND)
+
+    @property
+    def milliseconds(self) -> float:
+        """:returns: The decimal number of milliseconds in the TimeSpan, including the
+        fractional milliseconds.
+        """
+        return float(self / TimeSpan.MILLISECOND)
+
+    @property
+    def milliseconds_int(self) -> int:
+        """:returns: The integer number of milliseconds in the TimeSpan, NOT including
+        fractional milliseconds.
+        """
+        return int(self / TimeSpan.MILLISECOND)
+
+    @property
+    def microseconds(self) -> float:
+        """:returns:  The decimal number of microseconds in the TimeSpan, including
+        the fractional microseconds.
+        """
+        return float(self / TimeSpan.MICROSECOND)
+
+    @property
+    def microseconds_int(self) -> int:
+        """:returns:  The integer number of microseconds in the TimeSpan, NOT including
+        fractional microseconds.
+        """
+        return int(self / TimeSpan.MICROSECOND)
+
+    @property
+    def nanoseconds(self) -> int:
+        """:returns: The integer number of nanoseconds in the TimeSpan.
+        """
+        return int(self / TimeSpan.NANOSECOND)
+
+    def trunc(self, span: CrudeTimeSpan) -> TimeSpan:
+        """Truncates the TimeSpan to the nearest integer multiple of the given span.
+
+        For example,
+
+        (TimeSpan.DAY + TimeSpan.HOUR + TimeSpan.SECOND).trunc(TimeSpan.DAY)
+
+        would return
+
+        TimeSpan.DAY
+
+        :param span: The TimeSpan to truncate by. The span MUST be one of TimeSpan.DAY,
+        TimeSpan.HOUR, TimeSpan.SECOND, TimeSpan.MILLISECOND, TimeSpan.MICROSECOND,
+        TimeSpan.NANOSECOND
+        """
+        return _semantic_trunc(self, TimeSpan(span), list(self.UNITS.values()))
+
+    def mod(self, span: CrudeTimeSpan) -> TimeSpan:
+        """Calculates the remainder of the TimeSpan using the given span.
+
+        For example,
+
+        (TimeSpan.DAY + TimeSpan.HOUR).trunc(TimeSpan.DAY)
+
+        would return
+
+        TimeSpan.HOUR
+
+        :param span: The TimeSpan to divide by for the remainder. The span MUST be one
+        of TimeSpan.DAY, TimeSpan.HOUR, TimeSpan.SECOND, TimeSpan.MILLISECOND,
+        TimeSpan.MICROSECOND, TimeSpan.NANOSECOND
+        """
+        return _semantic_mod(self, TimeSpan(span), list(self.UNITS.values()))
+
+    def delta(self) -> timedelta:
+        """:return: The TimeSpan represented as a datetime.timedelta.
+        """
+        return timedelta(seconds=self.seconds)
+
     def is_zero(self) -> bool:
-        """Returns true if the TimeSpan is zero.
-        :return: True if the TimeSpan is zero, False otherwise
+        """:return: True if the TimeSpan is zero, False otherwise
         """
         return self == 0
 
     def add(self, ts: CrudeTimeSpan) -> TimeSpan:
-        """Returns a new TimeSpan that is the sum of the two TimeSpans.
-        :param ts: the second TimeSpan
-        :return: a new TimeSpan that is the sum of the two TimeSpans
+        """Adds the TimesSpan and given TimeSpan.
+        :param ts: The second TimeSpan
+        :return: A new TimeSpan that is the sum of the two TimeSpans
         """
         return TimeSpan(super().__add__(TimeSpan(ts)))
 
@@ -305,7 +477,7 @@ class TimeSpan(int):
         return super().__le__(TimeSpan(other))
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, get_args(CrudeTimeSpan)):
+        if isinstance(other, get_args(CrudeTimeSpan)):
             return NotImplemented
         return super().__eq__(TimeSpan(other))
 
@@ -324,6 +496,8 @@ class TimeSpan(int):
     DAY: TimeSpan
     DAY_UNITS: str
     MAX: TimeSpan
+    MIN: TimeSpan
+    ZERO: TimeSpan
     UNITS: dict[str, TimeSpan]
 
 
@@ -340,6 +514,8 @@ TimeSpan.MINUTE_UNITS = "m"
 TimeSpan.HOUR = TimeSpan(60) * TimeSpan.MINUTE
 TimeSpan.HOUR_UNITS = "h"
 TimeSpan.MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
+TimeSpan.MIN = TimeSpan(0)
+TimeSpan.ZERO = TimeSpan(0)
 TimeSpan.UNITS = {
     TimeSpan.NANOSECOND_UNITS: TimeSpan.NANOSECOND,
     TimeSpan.MICROSECOND_UNITS: TimeSpan.MICROSECOND,
@@ -350,7 +526,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2**63 - 1)
+TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
 
 
 def convert_time_units(data: np.ndarray, _from: str, to: str):
@@ -477,6 +653,7 @@ class TimeRange(BaseModel):
             return cls(**v)
         return cls(start=v[0], end=v[1])
 
+    @property
     def span(self) -> TimeSpan:
         return TimeSpan(self.end - self.start)
 
@@ -485,8 +662,9 @@ class TimeRange(BaseModel):
             return self.swap()
         return self
 
+    @property
     def is_zero(self) -> bool:
-        return self.span().is_zero()
+        return self.span.is_zero()
 
     def bound_by(self, otr: TimeRange) -> TimeRange:
         if otr.start.after(self.start):
@@ -499,28 +677,45 @@ class TimeRange(BaseModel):
             self.start = otr.end
         return self
 
-    def contains_stamp(self, ts: TimeStamp) -> bool:
-        return ts.after_eq(self.start) and ts.before(self.end)
+    def contains(self, value: TimeRange | CrudeTimeStamp) -> bool:
+        """Checks if the TimeRange contains the given TimeRange or TimeStamp. If
+        value is a TimeRange, it is considered contained if value's start is after or
+        equal to the TimeRange start and value's end is before or equal to the TimeRange
+        end. This means that two equal time ranges contain each other.
 
-    def contains_range(self, tr: TimeRange) -> bool:
-        return self.start.before_eq(tr.start) and self.end.after_eq(tr.end)
+        If the value is a TimeStamp, it is considered contained if value is after
+        or equal to the TimeRange start and value is STRICTLY before the TimeRange end.
+
+        :param value: The TimeRange or TimeStamp to check.
+        """
+        if isinstance(value, TimeRange):
+            return value.start.after_eq(self.start) and value.end.before_eq(self.end)
+        pv = TimeStamp(value)
+        return pv.after_eq(self.start) and pv.before(self.end)
 
     def overlaps_with(self, tr: TimeRange) -> bool:
-        return (
-            self.contains_stamp(tr.start)
-            or self.contains_stamp(tr.end)
-            or tr.contains_range(self)
-        )
+        """:returns: True if the time ranges overlap.
+        :param tr: The time range to compare against.
+        """
+        return self == tr or self.contains(tr.end) or tr.contains(self)
 
     def swap(self) -> TimeRange:
+        """:returns: A new TimeRange with the start and end values swapped. Note that
+        this may make the TimeRange invalid.
+        """
         self.start, self.end = self.end, self.start
         return self
 
     def is_valid(self) -> bool:
-        return self.span() >= TimeSpan(0)
+        """:returns: True if the TimeRange start is before or equal to the TimeRange end.
+        """
+        return self.span >= TimeSpan.ZERO
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.start) + " - " + str(self.end)
+
+    def __eq__(self, other: TimeRange) -> bool:
+        return self.start == other.start and self.end == other.end
 
     # Assigning these values to None prevents pydantic
     # from throwing a nasty missing attribute error.
@@ -624,7 +819,6 @@ class DataType(str):
     @property
     def np(self) -> np.dtype:
         """Converts a built-in DataType to a numpy type Scalar Type
-        :param _raise: If True, raises a TypeError if the DataType is not a numpy type.
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)

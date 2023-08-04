@@ -119,4 +119,4 @@ class RangeClient:
         return self.__sugar(_ranges)
 
     def __sugar(self, ranges: list[RangePayload]):
-        return [Range(**r.dict(), _frame_client=self.__frame_client) for r in ranges]
+        return [Range(**r.dict(), __frame_client=self.__frame_client) for r in ranges]
