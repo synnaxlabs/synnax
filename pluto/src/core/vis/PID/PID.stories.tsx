@@ -11,9 +11,9 @@ import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Text } from "@/core/std";
 import { Canvas } from "@/core/vis/Canvas/Canvas";
 import { PID } from "@/core/vis/PID";
+import { ValvePIDElementSpec } from "@/vis/PID/ValvePIDElement";
 
 const story: Meta<typeof PID> = {
   title: "Core/Vis/PID",
@@ -33,12 +33,19 @@ const Example = (): ReactElement => {
       {
         key: "2",
         position: {
-          x: 200,
+          x: 500,
           y: 200,
         },
       },
     ],
-    initialEdges: [],
+    initialEdges: [
+      {
+        key: "dog",
+        source: "1",
+        target: "2",
+        points: [],
+      },
+    ],
   });
   const [v, setV] = useState("dog");
   return (
@@ -49,11 +56,7 @@ const Example = (): ReactElement => {
         position: "fixed",
       }}
     >
-      <PID {...props}>
-        {({ elementKey: key, selected }) => {
-          return <Text.Editable value={v} onChange={setV} level="h4" />;
-        }}
-      </PID>
+      <PID {...props}>{ValvePIDElementSpec.Element}</PID>
     </Canvas>
   );
 };

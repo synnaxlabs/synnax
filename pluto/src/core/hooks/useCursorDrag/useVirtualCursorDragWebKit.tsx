@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { DragEvent, useEffect } from "react";
 
 import { XY, Box } from "@synnaxlabs/x";
 
@@ -40,7 +40,7 @@ export const useVirtualCursorDragWebKit = ({
     const handleMove = (e: MouseEvent): void => {
       const next = new XY(e);
       const { mouseKey, start } = stateRef.current;
-      onMove?.(new Box(start, next), mouseKey);
+      onMove?.(new Box(start, next), mouseKey, e);
     };
 
     const handleDown = (e: PointerEvent): void => {
@@ -49,7 +49,7 @@ export const useVirtualCursorDragWebKit = ({
       const start = new XY(e);
       const mouseKey = Triggers.eventKey(e);
       setRef({ start, mouseKey });
-      onStart?.(start, mouseKey);
+      onStart?.(start, mouseKey, e as unknown as DragEvent);
       el.addEventListener("pointerup", handleUp, { once: true });
     };
     el.addEventListener("pointerdown", handleDown);
@@ -58,7 +58,7 @@ export const useVirtualCursorDragWebKit = ({
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
-      onEnd?.(new Box(start, new XY(e)), mouseKey);
+      onEnd?.(new Box(start, new XY(e)), mouseKey, e as unknown as MouseEvent);
     };
 
     return () => el.removeEventListener("pointerdown", handleDown);

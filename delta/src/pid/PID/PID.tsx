@@ -64,21 +64,33 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
   const pid = useSelectPID(layoutKey);
   const dispatch = useDispatch();
 
-  const handleEdgesChange: PIDProps["onEdgesChange"] = (cbk) => {
-    dispatch(setPIDEdges({ layoutKey, edges: cbk(pid.edges) }));
-  };
+  const handleEdgesChange: PIDProps["onEdgesChange"] = useCallback(
+    (edges) => {
+      dispatch(setPIDEdges({ layoutKey, edges }));
+    },
+    [dispatch, layoutKey]
+  );
 
-  const handleNodesChange: PIDProps["onNodesChange"] = (cbk) => {
-    dispatch(setPIDNodes({ layoutKey, nodes: cbk(pid.nodes) }));
-  };
+  const handleNodesChange: PIDProps["onNodesChange"] = useCallback(
+    (nodes) => {
+      dispatch(setPIDNodes({ layoutKey, nodes }));
+    },
+    [dispatch, layoutKey]
+  );
 
-  const handleViewportChange: PIDProps["onViewportChange"] = (vp) => {
-    dispatch(setPIDViewport({ layoutKey, viewport: vp }));
-  };
+  const handleViewportChange: PIDProps["onViewportChange"] = useCallback(
+    (vp) => {
+      dispatch(setPIDViewport({ layoutKey, viewport: vp }));
+    },
+    [layoutKey]
+  );
 
-  const handleEditableChange: PIDProps["onEditableChange"] = (cbk) => {
-    dispatch(setPIDEditable({ layoutKey, editable: cbk(pid.editable) }));
-  };
+  const handleEditableChange: PIDProps["onEditableChange"] = useCallback(
+    (cbk) => {
+      dispatch(setPIDEditable({ layoutKey, editable: cbk(pid.editable) }));
+    },
+    [layoutKey, pid.editable]
+  );
 
   const pidElementRenderer = useCallback(
     (props: PIDElementProps) => {
