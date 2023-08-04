@@ -26,7 +26,6 @@ import {
   CrudeColor,
   ColorSwatchProps,
 } from "@synnaxlabs/pluto";
-import { CrudeColor } from "@synnaxlabs/pluto/dist/core/color/color";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 

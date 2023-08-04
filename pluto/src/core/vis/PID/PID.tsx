@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useState } from "react";
+import { ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Box, CrudeXY, XY } from "@synnaxlabs/x";
@@ -29,6 +29,8 @@ import ReactFlow, {
   ReactFlowProps,
   useReactFlow,
 } from "reactflow";
+
+import { Edge } from "./Edge";
 
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
@@ -58,6 +60,7 @@ export interface PIDEdge {
   target: string;
   sourceHandle?: string | null;
   targetHandle?: string | null;
+  points: CrudeXY[];
 }
 
 export interface PIDNode {
@@ -99,8 +102,8 @@ export const usePID = ({
 export interface UsePIDReturn {
   edges: PIDEdge[];
   nodes: PIDNode[];
-  onNodesChange: (cbk: (prev: PIDNode[]) => PIDNode[]) => void;
-  onEdgesChange: (cbk: (prev: PIDEdge[]) => PIDEdge[]) => void;
+  onNodesChange: (nodes: PIDNode[]) => void;
+  onEdgesChange: (edges: PIDEdge[]) => void;
   editable: boolean;
   onEditableChange: (cbk: (prev: boolean) => boolean) => void;
   onViewportChange: (vp: PIDViewport) => void;
@@ -123,8 +126,9 @@ const translateNodesForward = (
   }));
 
 const translateEdgesForward = (edges: PIDEdge[]): RFEdge[] =>
-  edges.map((edge) => ({
+  edges.map(({ points, ...edge }) => ({
     id: edge.key,
+    data: { points },
     ...edge,
   }));
 
@@ -138,6 +142,7 @@ const translateNodesBackward = (nodes: RFNode[]): PIDNode[] =>
 const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
   edges.map((edge) => ({
     key: edge.id,
+    points: edge.data?.points ?? [],
     ...edge,
   }));
 
@@ -150,8 +155,6 @@ const translateViewportBackward = (viewport: RFViewport): PIDViewport => ({
   position: new XY(viewport).crude,
   zoom: viewport.zoom,
 });
-
-const EDGE_TYPES = { default: RFSmoothStepEdge };
 
 const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
@@ -224,17 +227,25 @@ const PIDCore = Aether.wrap<PIDProps>(
     );
 
     const nodeTypes = useMemo(() => ({ custom: Node }), []);
-    const edges_ = useMemo(() => translateEdgesForward(edges), [edges]);
-    const nodes_ = useMemo(
-      () => translateNodesForward(nodes, editable),
-      [nodes, editable]
-    );
+    const edgesRef = useRef(edges);
+    const edges_ = useMemo(() => {
+      edgesRef.current = edges;
+      return translateEdgesForward(edges);
+    }, [edges]);
+    const nodesRef = useRef(nodes);
+    const nodes_ = useMemo(() => {
+      nodesRef.current = nodes;
+      return translateNodesForward(nodes, editable);
+    }, [nodes, editable]);
 
     const handleNodesChange = useCallback(
       (changes: RFNodeChange[]) =>
-        onNodesChange((prev) =>
+        onNodesChange(
           translateNodesBackward(
-            rfApplyNodeChanges(changes, translateNodesForward(prev, editable))
+            rfApplyNodeChanges(
+              changes,
+              translateNodesForward(nodesRef.current, editable)
+            )
           )
         ),
       [onNodesChange, editable]
@@ -242,9 +253,9 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const handleEdgesChange = useCallback(
       (changes: RFEdgeChange[]) =>
-        onEdgesChange((prev) =>
+        onEdgesChange(
           translateEdgesBackward(
-            rfApplyEdgeChanges(changes, translateEdgesForward(prev))
+            rfApplyEdgeChanges(changes, translateEdgesForward(edgesRef.current))
           )
         ),
       [onEdgesChange]
@@ -252,9 +263,22 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const handleConnect = useCallback(
       (conn: RFConnection) =>
-        onEdgesChange((prev) =>
-          translateEdgesBackward(rfAddEdge(conn, translateEdgesForward(prev)))
+        onEdgesChange(
+          translateEdgesBackward(
+            rfAddEdge(conn, translateEdgesForward(edgesRef.current))
+          )
         ),
+      [onEdgesChange]
+    );
+
+    const handleEdgePointsChange = useCallback(
+      (id: string, points: CrudeXY[]) => {
+        const next = [...edgesRef.current];
+        const index = next.findIndex((e) => e.key === id);
+        if (index === -1) return;
+        next[index] = { ...next[index], points };
+        onEdgesChange(next);
+      },
       [onEdgesChange]
     );
 
@@ -272,9 +296,26 @@ const PIDCore = Aether.wrap<PIDProps>(
       );
     }
 
+    const EDGE_TYPES = useMemo(
+      () => ({
+        default: (props: any) => {
+          return (
+            <Edge
+              {...props}
+              editable={props.data.editable}
+              points={props.data.points}
+              onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
+            />
+          );
+        },
+      }),
+      [handleEdgePointsChange]
+    );
+
     return (
       <Aether.Composite path={path}>
         <ReactFlow
+          className={CSS(CSS.editable(editable))}
           nodes={nodes_}
           edges={edges_}
           nodeTypes={nodeTypes}
@@ -286,11 +327,13 @@ const PIDCore = Aether.wrap<PIDProps>(
           minZoom={1}
           maxZoom={1}
           defaultViewport={translateViewportForward(viewport)}
+          snapToGrid={true}
           panOnScroll
           selectionOnDrag
           panOnDrag={false}
           selectionKeyCode={null}
           panActivationKeyCode={"Shift"}
+          snapGrid={[5, 5]}
           proOptions={{
             hideAttribution: true,
           }}

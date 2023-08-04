@@ -14,9 +14,9 @@ import { Box, ClientXYT, XY } from "@synnaxlabs/x";
 import { Triggers, TriggerKey } from "@/core/triggers";
 
 export interface UseCursorDragProps {
-  onStart?: (loc: XY, mouseKey: TriggerKey) => void;
-  onMove?: (box: Box, mouseKey: TriggerKey) => void;
-  onEnd?: (box: Box, mouseKey: TriggerKey) => void;
+  onStart?: (loc: XY, mouseKey: TriggerKey, e: DragEvent) => void;
+  onMove?: (box: Box, mouseKey: TriggerKey, e: MouseEvent) => void;
+  onEnd?: (box: Box, mouseKey: TriggerKey, e: MouseEvent) => void;
 }
 
 export type UseCursorDragStart = (e: DragEvent) => void;
@@ -31,17 +31,17 @@ export const useCursorDrag = ({
       e.preventDefault();
       const startLoc = new XY(e);
       const mouseKey = Triggers.mouseKey(e.button);
-      onStart?.(startLoc, mouseKey);
-      const handleMove = (e: ClientXYT & { buttons: number }): void => {
+      onStart?.(startLoc, mouseKey, e);
+      const handleMove = (e: MouseEvent): void => {
         if (e.buttons === 0) return handleUp(e);
         const next = new XY(e);
-        onMove?.(new Box(startLoc, next), mouseKey);
+        onMove?.(new Box(startLoc, next), mouseKey, e);
       };
       window.addEventListener("mousemove", handleMove);
       const handleUp = (e: ClientXYT): void => {
         window.removeEventListener("mousemove", handleMove);
         const next = new XY(e);
-        onEnd?.(new Box(startLoc, next), mouseKey);
+        onEnd?.(new Box(startLoc, next), mouseKey, e as MouseEvent);
       };
       window.addEventListener("mouseup", handleUp, { once: true });
     },

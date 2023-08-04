@@ -13,7 +13,7 @@ import clsx, { ClassValue } from "clsx";
 
 const CoreBEM = clsx;
 
-type CoreBEMType = typeof CoreBEM;
+type CoreBEMType = typeof clsx["clsx"];
 
 export interface BEM extends CoreBEMType {
   B: (block: string) => string;
