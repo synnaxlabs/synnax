@@ -19,7 +19,6 @@ import ReactFlow, {
   applyNodeChanges as rfApplyNodeChanges,
   addEdge as rfAddEdge,
   Background as RFBackground,
-  SmoothStepEdge as RFSmoothStepEdge,
   Node as RFNode,
   Edge as RFEdge,
   NodeProps as RFNodeProps,
@@ -30,13 +29,12 @@ import ReactFlow, {
   useReactFlow,
 } from "reactflow";
 
-import { Edge } from "./Edge";
-
 import { Aether } from "@/core/aether/main";
 import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { Button, Pack, Status } from "@/core/std";
 import { AetherPID } from "@/core/vis/PID/aether";
+import { Edge } from "@/core/vis/PID/Edge";
 import { RenderProp } from "@/util/renderProp";
 
 import "@/core/vis/PID/PID.css";
