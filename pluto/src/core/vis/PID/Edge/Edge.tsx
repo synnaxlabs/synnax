@@ -12,16 +12,15 @@ import { DragEvent, Fragment, ReactElement, useCallback, useRef } from "react";
 import { XY, CrudeXY, Box } from "@synnaxlabs/x";
 import { BaseEdge, EdgeProps as RFEdgeProps } from "reactflow";
 
-import {
-  adjustToSourceOrTarget,
-  handleDrag,
-  calculateLineDirection,
-} from "./edgeUtils";
-
 import { CSS } from "@/core/css";
 import { useCombinedStateAndRef } from "@/core/hooks/useCombinedStateAndRef";
 import { useCursorDrag } from "@/core/hooks/useCursorDrag";
 import { TriggerKey } from "@/core/triggers/triggers";
+import {
+  adjustToSourceOrTarget,
+  handleDrag,
+  calculateLineDirection,
+} from "@/core/vis/PID/Edge/edgeUtils";
 
 import "@/core/vis/PID/Edge.css";
 
