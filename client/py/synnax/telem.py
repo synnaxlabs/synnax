@@ -9,10 +9,11 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from math import trunc
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args, TypeVar, overload
+from typing import TypeAlias, Union, get_args, TypeVar
 from numpy.typing import DTypeLike
 
 import numpy as np
@@ -22,55 +23,29 @@ from pydantic import BaseModel
 
 from synnax.exceptions import ContiguityError
 
-T = TypeVar("T")
-
-
-def _validate_options_contains(value: T, options: list[T]) -> None:
-    if not any(value == o for o in options):
-        raise ValueError(f"""
-            Invalid divisor argument for remainder. Divisor must be one of the following
-            options:
-            {[o.__str__() for o in options]}
-            """)
-
-
-def _semantic_mod(value: T, divisor: T, options: list[T]) -> T:
-    _validate_options_contains(divisor, options)
-    return value % divisor
-
-
-def _semantic_trunc(value: T, span: T, options: list[T]) -> T:
-    _validate_options_contains(span, options)
-    return trunc(value / span) * span
-
 
 class TimeStamp(int):
     """TimeStamp represents a 64 bit nanosecond-precision UTC timestamp. The TimeStamp
     constructor accepts a variety of types and will attempt to convert them to a
     TimeStamp. The following types are supported:
 
-    * TimeStamp - returns the TimeStamp.
-    * TimeSpan - treats the TimeSpan as a duration since the Unix epoch in UTC.
-    * pd.TimeStamp - converts the pandas TimeStamp to a TimeStamp. If the timestamp is
-    not timezone aware, it is assumed to be in the local timezone.
-    * datetime - converts the datetime to a TimeStamp.  If the datetime is not timezone
-    aware, it is assumed to be in the local timezone.
-    * timedelta - treats the timedelta as a duration since the Unix epoch in UTC.
-    * np.datetime64 - treats the numpy datetime64 as a duration since the Unix epoch in
-    UTC.
-    * int - treats the int as a nanosecond duration since the Unix epoch and in UTC.
-    TimeStamp.
-
-    :param value: An unparsed timestamp value that can be converted to a TimeStamp.
+    * TimeStamp - Returns a copy of the TimeStamp.
+    * TimeSpan - Treats the TimeSpan as a duration since the Unix epoch in UTC.
+    * pd.TimeStamp - Converts the pandas TimeStamp to a TimeStamp. If the timestamp is
+        not timezone aware, it is assumed to be in the local timezone.
+    * datetime - Converts the datetime to a TimeStamp.  If the datetime is not timezone
+        aware, it is assumed to be in the local timezone.
+    * timedelta - Treats the timedelta as a duration since the Unix epoch in UTC.
+    * np.datetime64 - Treats the datetime64 as a duration since the Unix epoch in UTC.
+    * int - Treats the int as a nanosecond duration since the Unix epoch in UTC.
     """
 
-    def __new__(cls, value: CrudeTimeStamp, *args, **kwargs):
+    def __new__(cls, value: CrudeTimeStamp):
         if isinstance(value, TimeStamp):
             return value
         if isinstance(value, TimeSpan):
             value = int(value)
         elif isinstance(value, pd.Timestamp):
-            # Convert the timestamp to a timezone aware datetime
             value = int(
                 float(TimeSpan.SECOND) * value.to_pydatetime().astimezone().timestamp()
             )
@@ -87,117 +62,83 @@ class TimeStamp(int):
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
 
-        return super().__new__(cls, value, *args, **kwargs)
-
-    def __init__(self, value: CrudeTimeStamp, *args, **kwargs):
-        pass
+        return super().__new__(cls, value)
 
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation"""
         yield cls.validate
 
     @classmethod
     def validate(cls, v):
+        """Implemented for pydantic validation"""
         return cls(v)
 
     @classmethod
     def now(cls) -> TimeStamp:
-        """:returns : the current time as a TimeStamp."""
+        """:returns: the current time as a TimeStamp."""
         return TimeStamp(datetime.now())
 
-    @classmethod
-    def since(cls, ts: CrudeTimeStamp) -> TimeSpan:
-        """:returns the amount of time elapsed since the given TimeStamp."""
-        return TimeStamp.now().span(ts)
-
     def span(self, other: CrudeTimeStamp) -> TimeSpan:
-        """:returns: the TimeSpan between two timestamps. This span is guaranteed to be
+        """:returns: The TimeSpan between two timestamps. This span is guaranteed to be
         positive.
         """
-        return TimeRange(self, other).make_valid().span()
+        return TimeRange(self, other).make_valid().span
 
-    def datetime(self, tzinfo: tzinfo | None = None) -> datetime:
-        """Returns the TimeStamp represented as a timezone aware datetime object.
-
-        :param tzinfo: the timezone to use for the datetime. If None, the local timezone
-        is used.
-        :return: a datetime object
+    def datetime(self, tz: tzinfo | None = None) -> datetime:
+        """:returns: The TimeStamp represented as a timezone aware datetime object.
+        :param tz: The timezone to use for the datetime. If not provided, the local
+        timezone is used.
         """
         return (
             datetime.utcfromtimestamp(self / TimeSpan.SECOND)
             .replace(tzinfo=timezone.utc)
-            .astimezone(tzinfo)
+            .astimezone(tz)
         )
 
-    def is_zero(self) -> bool:
-        """Checks if the timestamp is the Unix epoch.
-        :return: True if the TimeStamp is zero, False otherwise
-        """
-        return self == 0
-
     def after(self, ts: CrudeTimeStamp) -> bool:
-        """Returns true if the TimeStamp is after the given TimeStamp.
-        :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is after the given TimeStamp, False otherwise
+        """:returns: True if the TimeStamp is strictly after the given TimeStamp.
+        :param ts: The TimeStamp to compare to.
+
         """
         return super().__gt__(TimeStamp(ts))
 
     def after_eq(self, ts: CrudeTimeStamp) -> bool:
-        """Returns true if the TimeStamp is after or equal to the given TimeStamp.
-        :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is after or equal to the given TimeStamp an d False
-        otherwise.
+        """:return: True if the TimeStamp is after or equal to the given TimeStamp.
+        :param ts: The TimeStamp to compare to.
         """
         return super().__ge__(TimeStamp(ts))
 
     def before(self, ts: CrudeTimeStamp) -> bool:
-        """Returns true if the TimeStamp is before the given TimeStamp.
-        :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is before the given TimeStamp, False otherwise
+        """:returns: True if the TimeStamp is strictly before the given TimeStamp.
+        :param ts: The TimeStamp to compare to.
         """
         return super().__lt__(TimeStamp(ts))
 
     def before_eq(self, ts: CrudeTimeStamp) -> bool:
-        """Returns true if the TimeStamp is before or equal to the given TimeStamp.
-        :param ts: the TimeStamp to compare to
-        :return: True if the TimeStamp is before or equal to the given TimeStamp, and False
-        otherwise.
+        """:returns: True if the TimeStamp is before or equal to the given TimeStamp.
+        :param ts: The TimeStamp to compare to.
         """
         return super().__le__(TimeStamp(ts))
 
     def span_range(self, span: TimeSpan) -> TimeRange:
-        """Returns a TimeRange that spans the given TimeSpan.
-        :param span: the TimeSpan to span
-        :return: a TimeRange that spans the given TimeSpan
+        """:returns: A TimeRange that spans the given TimeSpan
+        :param span: The TimeSpan.
         """
         return TimeRange(self, self + span).make_valid()
 
     def range(self, ts: CrudeTimeStamp) -> TimeRange:
-        """Returns a new TimeRange spanning the provided time stamps
-        :param ts: the second time stamp
-        :return: a new TimeRange spanning the provided time stamps
+        """:return: A new TimeRange spanning the TimeStamp and provided TimeStamp. This
+        TimeRange is guaranteed to be valid i.e. start before or equal to end.
+        :param ts: The second time stamp
         """
         return TimeRange(self, TimeStamp(ts)).make_valid()
 
-    def add(self, ts: CrudeTimeStamp) -> TimeStamp:
-        """Returns a new TimeStamp that is the sum of the two TimeStamps.
-        :param ts: the second TimeStamp
-        :return: a new TimeStamp that is the sum of the two TimeStamps
-        """
-        return TimeStamp(super().__add__(TimeStamp(ts)))
-
-    def sub(self, ts: CrudeTimeStamp) -> TimeStamp:
-        """Returns a new TimeStamp that is the difference of the two TimeStamps.
-        :param ts: the second TimeStamp
-        :return: a new TimeStamp that is the difference of the two TimeStamps
-        """
-        return TimeStamp(super().__sub__(TimeStamp(ts)))
-
     def __add__(self, rhs: CrudeTimeStamp) -> TimeStamp:
-        return self.add(rhs)
+        return TimeStamp(super().__add__(TimeStamp(rhs)))
 
     def __sub__(self, rhs: CrudeTimeStamp) -> TimeStamp:
-        return self.sub(rhs)
+        return TimeStamp(super().__sub__(TimeStamp(rhs)))
 
     def __lt__(self, rhs: CrudeTimeStamp) -> bool:
         return self.before(rhs)
@@ -220,25 +161,28 @@ class TimeStamp(int):
         return self.datetime().isoformat()
 
     MIN: TimeStamp
+    """The minimum possible value of a TimeStamp"""
     MAX: TimeStamp
+    """The maximum possible value of a TimeStamp"""
     ZERO: TimeStamp
+    """The zero value of a TimeStamp"""
 
 
 class TimeSpan(int):
-    """TimeSpan represents a 64 bit nanosecond-precision duration. The TimeSpan constructor
-    accepts a variety of different types and will attempt to convert them to a TimeSpan.
-    The following types are supported:
+    """TimeSpan represents a 64 bit nanosecond-precision duration. The TimeSpan
+    constructor accepts a variety of different types and will attempt to convert them
+    to a TimeSpan. The supported types are parsed as follows:
 
-    * int: the number of nanoseconds.
-    * np.int64: the number of nanoseconds.
-    * TimeSpan: returns a copy of the TimeSpan.
-    * TimeStamp: the difference between the TimeStamp and the Unix epoch
-    * timedelta: the duration of the timedelta.
-    * pands.Timedelta: the duration of the Timedelta.
-    * np.timedelta64: the duration of the timedelta.
+    * int - The number of nanoseconds.
+    * np.int64 - The number of nanoseconds.
+    * TimeSpan - Creates a copy of the TimeSpan.
+    * TimeStamp - The difference between the TimeStamp and the Unix epoch
+    * timedelta - The duration of the timedelta.
+    * pands.Timedelta - The duration of the Timedelta.
+    * np.timedelta64 - The duration of the timedelta64.
     """
 
-    def __new__(cls, value: CrudeTimeSpan, *args, **kwargs):
+    def __new__(cls, value: CrudeTimeSpan):
         if isinstance(value, int):
             return super().__new__(cls, value)
         elif isinstance(value, TimeSpan):
@@ -257,16 +201,21 @@ class TimeSpan(int):
 
         return super().__new__(cls, value)
 
-    def __init__(self, value: CrudeTimeSpan, *args, **kwargs):
-        pass
-
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
         yield cls.validate
 
     @classmethod
     def validate(cls, value):
+        """Implemented for pydantic validation. Should not be used externally."""
         return cls(value)
+
+    @classmethod
+    def since(cls, ts: CrudeTimeStamp) -> TimeSpan:
+        """:returns: a TimeStamp representing the amount of time elapsed since the given
+        TimeStamp."""
+        return TimeStamp.now().span(ts)
 
     def __repr__(self) -> str:
         return f"TimeSpan({super().__repr__()})"
@@ -276,32 +225,32 @@ class TimeSpan(int):
         tot_hours = self.trunc(TimeSpan.HOUR)
         tot_minutes = self.trunc(TimeSpan.MINUTE)
         tot_seconds = self.trunc(TimeSpan.SECOND)
-        tot_milliseconds = self.trunc(TimeSpan.MILLISECOND)
+        tot_millis = self.trunc(TimeSpan.MILLISECOND)
         tot_micros = self.trunc(TimeSpan.MICROSECOND)
         tot_nanos = self.trunc(TimeSpan.NANOSECOND)
         days = tot_days
-        hours = tot_hours.sub(tot_days)
-        minutes = tot_minutes.sub(tot_hours)
-        seconds = tot_seconds.sub(tot_minutes)
-        milliseconds = tot_milliseconds.sub(tot_seconds)
-        microseconds = tot_micros.sub(tot_milliseconds)
-        nanoseconds = tot_nanos.sub(tot_micros)
+        hours = tot_hours - tot_days
+        minutes = tot_minutes - tot_hours
+        seconds = tot_seconds - tot_minutes
+        millis = tot_millis - tot_seconds
+        micros = tot_micros - tot_millis
+        nanos = tot_nanos - tot_micros
 
         v = ""
-        if not days == 0:
+        if days != 0:
             v += f"{days.days}d "
-        if not hours == 0:
+        if hours != 0:
             v += f"{hours.hours}h "
-        if not minutes == 0:
+        if minutes != 0:
             v += f"{minutes.minutes}m "
-        if not seconds == 0:
+        if seconds != 0:
             v += f"{seconds.seconds}s "
-        if not milliseconds == 0:
-            v += f"{milliseconds.milliseconds}ms "
-        if not microseconds == 0:
-            v += f"${microseconds.microseconds}µs "
-        if not nanoseconds == 0:
-            v += f"{nanoseconds.nanoseconds}ns"
+        if millis != 0:
+            v += f"{millis.milliseconds}ms "
+        if micros != 0:
+            v += f"${micros.microseconds}µs "
+        if nanos != 0:
+            v += f"{nanos.nanoseconds}ns"
         return v.strip()
 
     @property
@@ -327,7 +276,7 @@ class TimeSpan(int):
 
     @property
     def hours_int(self) -> int:
-        """:returns:  The integer number of hours in the TimeSpan, NOT including
+        """:returns: The integer number of hours in the TimeSpan, NOT including
         fractional hours.
         """
         return int(self / TimeSpan.DAY)
@@ -341,7 +290,7 @@ class TimeSpan(int):
 
     @property
     def minutes_int(self) -> int:
-        """:returns:  THe integer number of minutes in the TimeSpan, NOT including
+        """:returns: The integer number of minutes in the TimeSpan, NOT including
         fractional minutes.
         """
         return int(self / TimeSpan.MINUTE)
@@ -376,22 +325,21 @@ class TimeSpan(int):
 
     @property
     def microseconds(self) -> float:
-        """:returns:  The decimal number of microseconds in the TimeSpan, including
+        """:returns: The decimal number of microseconds in the TimeSpan, including
         the fractional microseconds.
         """
         return float(self / TimeSpan.MICROSECOND)
 
     @property
     def microseconds_int(self) -> int:
-        """:returns:  The integer number of microseconds in the TimeSpan, NOT including
+        """:returns: The integer number of microseconds in the TimeSpan, NOT including
         fractional microseconds.
         """
         return int(self / TimeSpan.MICROSECOND)
 
     @property
     def nanoseconds(self) -> int:
-        """:returns: The integer number of nanoseconds in the TimeSpan.
-        """
+        """:returns: The integer number of nanoseconds in the TimeSpan."""
         return int(self / TimeSpan.NANOSECOND)
 
     def trunc(self, span: CrudeTimeSpan) -> TimeSpan:
@@ -428,77 +376,75 @@ class TimeSpan(int):
         """
         return _semantic_mod(self, TimeSpan(span), list(self.UNITS.values()))
 
-    def delta(self) -> timedelta:
-        """:return: The TimeSpan represented as a datetime.timedelta.
-        """
+    @property
+    def timedelta(self) -> timedelta:
+        """:returns: The TimeSpan represented as a datetime.timedelta."""
         return timedelta(seconds=self.seconds)
 
-    def is_zero(self) -> bool:
-        """:return: True if the TimeSpan is zero, False otherwise
-        """
-        return self == 0
+    def __add__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return TimeSpan(super().__add__(TimeSpan(rhs)))
 
-    def add(self, ts: CrudeTimeSpan) -> TimeSpan:
-        """Adds the TimesSpan and given TimeSpan.
-        :param ts: The second TimeSpan
-        :return: A new TimeSpan that is the sum of the two TimeSpans
-        """
-        return TimeSpan(super().__add__(TimeSpan(ts)))
+    def __sub__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return TimeSpan(super().__sub__(TimeSpan(rhs)))
 
-    def sub(self, ts: CrudeTimeSpan) -> TimeSpan:
-        """Returns a new TimeSpan that is the difference of the two TimeSpans.
-        :param ts: the second TimeSpan
-        :return: a new TimeSpan that is the difference of the two TimeSpans
-        """
-        return TimeSpan(super().__sub__(TimeSpan(ts)))
+    def __mul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return TimeSpan(super().__mul__(TimeSpan(rhs)))
 
-    def __add__(self, other: CrudeTimeSpan) -> TimeSpan:
-        return self.add(other)
+    def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return self.__mul__(rhs)
 
-    def __sub__(self, other: CrudeTimeSpan) -> TimeSpan:
-        return self.sub(other)
+    def __gt__(self, rhs: CrudeTimeSpan) -> bool:
+        return super().__gt__(TimeSpan(rhs))
 
-    def __mul__(self, other: CrudeTimeSpan) -> TimeSpan:
-        return TimeSpan(super().__mul__(TimeSpan(other)))
+    def __ge__(self, rhs: CrudeTimeSpan) -> bool:
+        return super().__ge__(TimeSpan(rhs))
 
-    def __rmul__(self, other: CrudeTimeSpan) -> TimeSpan:
-        return self.__mul__(other)
+    def __lt__(self, rhs: CrudeTimeSpan) -> bool:
+        return super().__lt__(TimeSpan(rhs))
 
-    def __gt__(self, other: CrudeTimeSpan) -> bool:
-        return super().__gt__(TimeSpan(other))
+    def __le__(self, rhs: CrudeTimeSpan) -> bool:
+        return super().__le__(TimeSpan(rhs))
 
-    def __ge__(self, other: CrudeTimeSpan) -> bool:
-        return super().__ge__(TimeSpan(other))
-
-    def __lt__(self, other: CrudeTimeSpan) -> bool:
-        return super().__lt__(TimeSpan(other))
-
-    def __le__(self, other: CrudeTimeSpan) -> bool:
-        return super().__le__(TimeSpan(other))
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, get_args(CrudeTimeSpan)):
+    def __eq__(self, rhs: object) -> bool:
+        if not isinstance(rhs, get_args(CrudeTimeSpan)):
             return NotImplemented
-        return super().__eq__(TimeSpan(other))
+        return super().__eq__(int(TimeSpan(rhs)))
 
     NANOSECOND: TimeSpan
+    """A nanosecond."""
     NANOSECOND_UNITS: str
+    """The unit string for nanoseconds: 'ns'."""
     MICROSECOND: TimeSpan
+    """A microsecond."""
     MICROSECOND_UNITS: str
+    """The unit string for microseconds: 'us'."""
     MILLISECOND: TimeSpan
+    """A millisecond."""
     MILLISECOND_UNITS: str
+    """The unit string for milliseconds: 'ms'."""
     SECOND: TimeSpan
+    """A second."""
     SECOND_UNITS: str
+    """The unit string for seconds: 's'."""
     MINUTE: TimeSpan
+    """A minute."""
     MINUTE_UNITS: str
+    """The unit string for minutes: 'm'."""
     HOUR: TimeSpan
+    """An hour."""
     HOUR_UNITS: str
+    """The unit string for hours: 'h'."""
     DAY: TimeSpan
+    """A day."""
     DAY_UNITS: str
+    """The unit string for days: 'd'."""
     MAX: TimeSpan
+    """The maximum possible value for a TimeSpan"""
     MIN: TimeSpan
+    """The minimum possible value for a TimeSpan"""
     ZERO: TimeSpan
-    UNITS: dict[str, TimeSpan]
+    """A dictionary mapping unit string to its corresponding TimeSan"""
+    UNITS: dict[TimeSpanUnits, TimeSpan]
 
 
 TimeSpan.NANOSECOND = TimeSpan(1)
@@ -513,6 +459,8 @@ TimeSpan.MINUTE = TimeSpan(60) * TimeSpan.SECOND
 TimeSpan.MINUTE_UNITS = "m"
 TimeSpan.HOUR = TimeSpan(60) * TimeSpan.MINUTE
 TimeSpan.HOUR_UNITS = "h"
+TimeSpan.DAY = 24 * TimeSpan.HOUR
+TimeSpan.DAY_UNITS = "d"
 TimeSpan.MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 TimeSpan.MIN = TimeSpan(0)
 TimeSpan.ZERO = TimeSpan(0)
@@ -523,21 +471,25 @@ TimeSpan.UNITS = {
     TimeSpan.SECOND_UNITS: TimeSpan.SECOND,
     TimeSpan.MINUTE_UNITS: TimeSpan.MINUTE,
     TimeSpan.HOUR_UNITS: TimeSpan.HOUR,
+    TimeSpan.DAY_UNITS: TimeSpan.DAY,
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
+
+TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
-def convert_time_units(data: np.ndarray, _from: str, to: str):
+def convert_time_units(data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits):
     """Converts the data from one time unit to another.
-    :param data: the data to convert
+
+    :param data: the numpy array to convert.
     :param _from: the units of the data
     :param to: the units to convert to
     :return: the data in the new units
     """
     if _from == "iso":
-        data = datetime.fromisoformat(data).timestamp()
+        data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
         f = TimeSpan.SECOND
     else:
         f = TimeSpan.UNITS.get(_from, None)
@@ -556,7 +508,7 @@ def convert_time_units(data: np.ndarray, _from: str, to: str):
 
 
 class Rate(float):
-    """Rate represents a data rate in Hz"""
+    """Rate represents a data rate measured in Hz."""
 
     def __new__(cls, value: CrudeRate):
         if isinstance(value, float):
@@ -564,50 +516,57 @@ class Rate(float):
         if isinstance(value, Rate):
             return value
         if isinstance(value, TimeSpan):
-            value = 1 / value.seconds()
+            value = 1 / value.seconds
         elif isinstance(value, int):
             value = float(value)
         else:
             raise TypeError(f"Cannot convert {type(value)} to Rate")
         return super().__new__(cls, value)
 
-    def __init__(self, value: CrudeRate):
-        pass
-
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
         yield cls.validate
 
     @classmethod
     def validate(cls, v):
+        """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
+    @property
     def period(self) -> TimeSpan:
-        """Returns the period of the rate as a TimeSpan"""
+        """:returns: the period of the rate as a TimeSpan"""
         return TimeSpan(int(1 / self * float(TimeSpan.SECOND)))
 
     def sample_count(self, time_span: CrudeTimeSpan) -> int:
-        """Returns the number of samples in the given TimeSpan at this rate"""
-        return int(TimeSpan(time_span).seconds() * self)
+        """:returns: the number of samples in the given TimeSpan at this rate"""
+        return int(TimeSpan(time_span).seconds * self)
 
     def byte_size(self, time_span: CrudeTimeSpan, density: Density) -> Size:
-        """Calculates the amount of bytes occupied by the given TimeSpan at the given
-        rate and sample density."""
+        """:returns: the amount of bytes occupied by the given TimeSpan at this rate
+        and the given sample density.
+
+        :param time_span: TimeSpan - A crude TimeSpan representing the size of the
+        data set in time.
+        :param density: Density - The sample density of the data.
+        """
         return Size(self.sample_count(time_span) * int(density))
 
     def span(self, sample_count: int) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of samples at this
-        rate."""
-        return self.period() * sample_count
+        """:returns: the TimeSpan that corresponds to the given number of samples at
+        this rate."""
+        return self.period * sample_count
 
     def size_span(self, size: Size, density: Density) -> TimeSpan:
-        """Returns the TimeSpan that corresponds to the given number of bytes at this
-        rate and sample density."""
+        """:returns: the TimeSpan that corresponds to the given number of bytes at this
+        rate and the given sample density."""
         if size % density != 0:
             raise ContiguityError(f"Size {size} is not a multiple of density {density}")
         return self.span(int(size / density))
 
     def __str__(self):
+        if self < 1:
+            return f"{self.period} per cycle"
         return str(int(self)) + "Hz"
 
     def __repr__(self):
@@ -617,8 +576,11 @@ class Rate(float):
         return Rate(super().__mul__(Rate(other)))
 
     HZ: Rate
+    """One Hz."""
     KHZ: Rate
+    """One kHz"""
     MHZ: Rate
+    """One MHz"""
 
 
 Rate.HZ = Rate(1)
@@ -627,14 +589,31 @@ Rate.MHZ = Rate(1000) * Rate.KHZ
 
 
 class TimeRange(BaseModel):
+    """TimeRange is a range of time marked by a start and end TimeStamp. A TimeRange
+    is start inclusive and end exclusive.
+    """
+
     start: TimeStamp
+    """The starting TimeStamp of the TimeRange.
+
+    Note that this value is not guaranteed to be before or equal to the ending value.
+    To ensure that this is the case, call TimeRange.make_valid().
+
+    In most cases, operations should treat start as inclusive.
+    """
     end: TimeStamp
+    """The ending TimeStamp of the TimeRange.
+
+    Note that this value is not guaranteed to be after or equal to the ending value. To
+    ensure that this is the case, call TimeRange.make_valid()
+
+    In most cases, operations should treat end as exclsuive.
+    """
 
     def __init__(
         self,
         start: CrudeTimeStamp | TimeRange,
         end: CrudeTimeStamp | None = None,
-        **kwargs,
     ):
         if isinstance(start, TimeRange):
             start, end = start.start, start.end
@@ -643,10 +622,12 @@ class TimeRange(BaseModel):
 
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
         yield cls.validate
 
     @classmethod
     def validate(cls, v):
+        """Implemented for pydantic validation. Should not be used externally."""
         if isinstance(v, TimeRange):
             return cls(v.start, v.end)
         elif isinstance(v, dict):
@@ -655,27 +636,34 @@ class TimeRange(BaseModel):
 
     @property
     def span(self) -> TimeSpan:
+        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""
         return TimeSpan(self.end - self.start)
 
     def make_valid(self) -> TimeRange:
-        if not self.is_valid():
-            return self.swap()
-        return self
+        """:returns: A copy of the Time Range with its start and end swapped if the
+        TimeRange is invalid (i.e. its start is after its end). Otherwise, returns the
+        TimeRange itself.
+        """
+        return self.swap() if not self.valid else self
 
-    @property
-    def is_zero(self) -> bool:
-        return self.span.is_zero()
+    def clamp(self, bound: TimeRange) -> TimeRange:
+        """Clamps a copy of the TimeRange and returns it, restricting its start and end
+        to within the given bound TimeRange. The clamping is performed in a manner such
+        that bound.contains(clamped) is guaranteed to return True.
 
-    def bound_by(self, otr: TimeRange) -> TimeRange:
-        if otr.start.after(self.start):
-            self.start = otr.start
-        if otr.start.after(self.end):
-            self.end = otr.start
-        if otr.end.before(self.end):
-            self.end = otr.end
-        if otr.end.before(self.start):
-            self.start = otr.end
-        return self
+        :param bound: The TimeRange to clamp by.
+        :returns: The clamped TimeRange.
+        """
+        copy = self.copy()
+        if bound.start.after(self.start):
+            copy.start = bound.start
+        if bound.start.after(self.end):
+            copy.end = bound.start
+        if bound.end.before(self.end):
+            copy.end = bound.end
+        if bound.end.before(self.start):
+            copy.start = bound.end
+        return copy
 
     def contains(self, value: TimeRange | CrudeTimeStamp) -> bool:
         """Checks if the TimeRange contains the given TimeRange or TimeStamp. If
@@ -703,12 +691,15 @@ class TimeRange(BaseModel):
         """:returns: A new TimeRange with the start and end values swapped. Note that
         this may make the TimeRange invalid.
         """
-        self.start, self.end = self.end, self.start
-        return self
+        self.copy()
+        return TimeRange(start=self.end, end=self.start)
 
-    def is_valid(self) -> bool:
-        """:returns: True if the TimeRange start is before or equal to the TimeRange end.
-        """
+    def copy(self, *args, **kwargs) -> TimeRange:
+        return TimeRange(start=self.start, end=self.end)
+
+    @property
+    def valid(self) -> bool:
+        """:returns: True if the TimeRange start is before or equal to the TimeRange end."""
         return self.span >= TimeSpan.ZERO
 
     def __str__(self) -> str:
@@ -719,9 +710,17 @@ class TimeRange(BaseModel):
 
     # Assigning these values to None prevents pydantic
     # from throwing a nasty missing attribute error.
+
     MAX: TimeRange = None  # type: ignore
+    """The maximum possible TimeRange, starting at TimeStamp.MIN and ending
+    a TimeStamp.MAX
+    """
     MIN: TimeRange = None  # type: ignore
+    """The minimum possible TimeRange, starting at TimeStamp.MAX and ending at
+    TimeStamp.MIN. Note that this TimeRange is invalid.
+    """
     ZERO: TimeRange = None  # type: ignore
+    """A TimeRange starting and ending at the unix epoch in UTC (TimeStamp.ZERO)."""
 
 
 TimeRange.MAX = TimeRange(TimeStamp.MIN, TimeStamp.MAX)
@@ -730,6 +729,8 @@ TimeRange.ZERO = TimeRange(0, 0)
 
 
 class Density(int):
+    """Density is the number of bytes contained in a single sample."""
+
     def __new__(cls, value: CrudeDensity):
         if isinstance(value, Density):
             return value
@@ -737,28 +738,33 @@ class Density(int):
             return super().__new__(cls, value)
         raise TypeError(f"Cannot convert {type(value)} to Density")
 
-    def __init__(self, value):
-        pass
-
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
         yield cls.validate
 
     @classmethod
     def validate(cls, v):
+        """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
-    def sample_count(self, byte_length: int) -> int:
-        return int(byte_length / self)
+    def sample_count(self, size: UnparsedSize) -> int:
+        """:returns: The number of contained in the given byte Size."""
+        return int(size / self)
 
     def __repr__(self):
         return f"Density({super().__repr__()})"
 
     UNKNOWN: Density
+    """An unknown density, represented as a ZERO value."""
     BIT64: Density
+    """A density of 64 bits or 8 bytes per sample."""
     BIT32: Density
+    """A density of 32 bits or 4 bytes per sample."""
     BIT16: Density
+    """A density of 16 bits of 2 bytes per sample."""
     BIT8: Density
+    """A density of 8 bits or 1 bytes per sample."""
 
 
 Density.UNKNOWN = Density(0)
@@ -788,7 +794,7 @@ Size.GIGABYTE = Size(1024) * Size.MEGABYTE
 
 
 class DataType(str):
-    """DataType represents a data type as a string"""
+    """DataType represents a data type as a string."""
 
     def __new__(cls, value: CrudeDataType):
         if isinstance(value, DataType):
@@ -801,19 +807,19 @@ class DataType(str):
                 return value
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
-    def __init__(self, value: CrudeDataType):
-        pass
-
     @classmethod
     def __get_validators__(cls):
+        """Implemented for pydantic validation. Should not be used externally."""
         yield cls.validate
 
     @classmethod
     def validate(cls, v):
+        """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
     @classmethod
     def __modify_schema__(cls, field_schema):
+        """Implemented for pydantic validation. Should not be used externally."""
         field_schema.update(type="string")
 
     @property
@@ -828,13 +834,13 @@ class DataType(str):
 
     @property
     def density(self) -> Density:
+        """:returns: The density of the DataType. If the density can't be determined,
+        returns Density.UNKNOWN.
+        """
         return DataType._DENSITIES.get(self, Density.UNKNOWN)
 
     def __repr__(self):
         return f"DataType({super().__repr__()})"
-
-    def string(self):
-        return str(self)
 
     UNKNOWN: DataType
     TIMESTAMP: DataType
@@ -849,8 +855,8 @@ class DataType(str):
     UINT16: DataType
     UINT8: DataType
     ALL: tuple[DataType, ...]
-    _TO_NUMPY: dict[DataType, np.dtype]
-    _FROM_NUMPY: dict[np.dtype, DataType]
+    _TO_NUMPY: dict[DataType, DTypeLike]
+    _FROM_NUMPY: dict[DTypeLike, DataType]
     _DENSITIES: dict[DataType, Density]
 
 
@@ -962,10 +968,18 @@ class Series(Payload):
         arbitrary_types_allowed = True
 
     def __array__(self) -> np.ndarray:
+        """Implemented to that the Series can be passed around as a numpy array. See
+        https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
+        """
         return np.frombuffer(self.data, dtype=self.data_type.np)
 
     def __getitem__(self, index: int) -> float:
         return self.__array__()[index]
+
+    @property
+    def size(self) -> Size:
+        """:returns: A Size representing the number of bytes in the Series' data."""
+        return Size(len(self.data))
 
     def astype(self, data_type: DataType) -> Series:
         return Series(
@@ -982,3 +996,27 @@ class Series(Payload):
 
     def to_datetime(self) -> list[datetime]:
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
+
+
+T = TypeVar("T")
+
+
+def _validate_options_contains(value: T, options: list[T]) -> None:
+    if not any(value == o for o in options):
+        raise ValueError(
+            f"""
+            Invalid divisor argument for remainder f"{int(value)}. Divisor must be one
+            of the following options:
+            {[o for o in options]}
+            """
+        )
+
+
+def _semantic_mod(value: T, divisor: T, options: list[T]) -> T:
+    _validate_options_contains(divisor, options)
+    return value % divisor
+
+
+def _semantic_trunc(value: T, span: T, options: list[T]) -> T:
+    _validate_options_contains(span, options)
+    return trunc(value / span) * span

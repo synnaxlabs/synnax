@@ -11,7 +11,7 @@ from alamos import Instrumentation, NOOP
 from freighter import URL
 
 from synnax.auth import AuthenticationClient
-from synnax.channel import ChannelClient, ChannelRetriever
+from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
 from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
@@ -28,15 +28,15 @@ class Synnax(FrameClient):
 
     If using the python client for data analysis/personal use, the easiest way to
     connect is to use the `synnax login` command, which will prompt and securely
-    store your credentials. The py can then be initialized without parameters. When
+    store your credentials. The client can then be initialized without parameters. When
     using the client in a production environment, it's best to provide the connection
     parameter as arguments loaded from a configuration or environment variable.
 
     After running the synnax login command::
-        py = Synnax()
+        client = Synnax()
 
     Without running the synnax login command::
-        py = Synnax(
+        client = Synnax(
             host="synnax.example.com",
             port=9090,
             username="synnax",
@@ -63,14 +63,14 @@ class Synnax(FrameClient):
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
     ):
-        """Creates a new py. Connection parameters can be provided as arguments, or,
-        if none are provided, the py will attempt to load them from the Synnax
+        """Creates a new client. Connection parameters can be provided as arguments, or,
+        if none are provided, the client will attempt to load them from the Synnax
         configuration file (~/.synnax/config.json) as well as credentials stored in the
         operating system's keychain.
 
-        If using the py for data analysis/personal use, the easiest way to connect
+        If using the client for data analysis/personal use, the easiest way to connect
         is to use the `synnax login` command, which will prompt and securely store your
-        credentials. The py can then be initialized without parameters.
+        credentials. The client can then be initialized without parameters.
 
         :param host: Hostname of a node in the Synnax cluster.
         :param port: Port of the node.
@@ -96,10 +96,15 @@ class Synnax(FrameClient):
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
-        self.ranges = RangeClient(self, range_creator, range_retriever)
+        self.ranges = RangeClient(
+            frame_client=self,
+            channel_retriever=ch_retriever,
+            range_creator=range_creator,
+            range_retriever=range_retriever,
+        )
 
     def close(self):
-        """Shuts down the py and closes all connections. All open iterators or
+        """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
         # No-op for now, we'll definitely add cleanup logic in the future, so it's

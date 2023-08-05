@@ -9,6 +9,7 @@
 
 from typing import overload
 
+from synnax.channel.retrieve import ChannelRetriever
 from synnax.framer.client import FrameClient
 from synnax.ranger.retrieve import RangeRetriever
 from synnax.ranger.create import RangeCreator
@@ -28,6 +29,7 @@ from synnax.exceptions import QueryError
 
 class RangeClient:
     __frame_client: FrameClient
+    __channel_retriever: ChannelRetriever
     __retriever: RangeRetriever
     __creator: RangeCreator
 
@@ -36,10 +38,12 @@ class RangeClient:
         frame_client: FrameClient,
         creator: RangeCreator,
         retriever: RangeRetriever,
+        channel_retriever: ChannelRetriever,
     ) -> None:
         self.__frame_client = frame_client
         self.__creator = creator
         self.__retriever = retriever
+        self.__channel_retriever = channel_retriever
 
     @overload
     def create(
@@ -119,4 +123,11 @@ class RangeClient:
         return self.__sugar(_ranges)
 
     def __sugar(self, ranges: list[RangePayload]):
-        return [Range(**r.dict(), __frame_client=self.__frame_client) for r in ranges]
+        return [
+            Range(
+                **r.dict(),
+                __frame_client=self.__frame_client,
+                __channel_retriever=self.__channel_retriever,
+            )
+            for r in ranges
+        ]

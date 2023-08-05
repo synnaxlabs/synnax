@@ -76,26 +76,26 @@ class Frame:
 
     def __init__(
         self,
-        keys: ChannelKeys
-              | ChannelNames
-              | DataFrame
-              | Frame
-              | FramePayload
-              | None = None,
+        columns_or_data: ChannelKeys
+        | ChannelNames
+        | DataFrame
+        | Frame
+        | FramePayload
+        | None = None,
         series: list[Series] | None = None,
     ):
-        if isinstance(keys, Frame):
-            self.columns = keys.columns
-            self.series = keys.series
-        elif isinstance(keys, FramePayload):
-            self.columns = keys.keys
-            self.series = keys.series
-        elif isinstance(keys, DataFrame):
-            self.columns = keys.columns.to_list()
-            self.series = [Series(data=keys[k]) for k in self.columns]
+        if isinstance(columns_or_data, Frame):
+            self.columns = columns_or_data.columns
+            self.series = columns_or_data.series
+        elif isinstance(columns_or_data, FramePayload):
+            self.columns = columns_or_data.keys
+            self.series = columns_or_data.series
+        elif isinstance(columns_or_data, DataFrame):
+            self.columns = columns_or_data.columns.to_list()
+            self.series = [Series(data=columns_or_data[k]) for k in self.columns]
         else:
             self.series = series or list()
-            self.columns = keys or list()
+            self.columns = columns_or_data or list()
 
     def __str__(self) -> str:
         return self.to_df().__str__()

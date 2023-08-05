@@ -27,6 +27,8 @@ from synnax import (
     CrudeTimeSpan,
     Size,
     CrudeRate,
+    convert_time_units,
+    TimeSpanUnits,
 )
 
 _now = TimeStamp.now()
@@ -81,11 +83,6 @@ class TestTimeStamp:
         with pytest.raises(TypeError):
             TimeStamp("dog")  # type: ignore
 
-    def test_is_zero(self):
-        """Should return true if the timestamp is zero"""
-        ts = TimeStamp(0)
-        assert ts.is_zero()
-
     def test_after_false(self):
         """Should return true if the timestamp is after the given timestamp"""
         ts = TimeStamp(1000)
@@ -97,7 +94,8 @@ class TestTimeStamp:
         assert ts > TimeSpan.MICROSECOND
 
     def test_after_eq_after(self):
-        """Should return true if the timestamp is after or equal to the given timestamp"""
+        """Should return true if the timestamp is after or equal to the given
+        timestamp"""
         ts = TimeStamp(1000)
         assert ts >= TimeSpan.MICROSECOND
 
@@ -143,19 +141,19 @@ class TestTimeStamp:
         ts1 = TimeStamp(1000)
         ts2 = TimeSpan(2000)
         range = ts1.span_range(ts2)
-        assert range.span() == 2 * TimeSpan.MICROSECOND
+        assert range.span == 2 * TimeSpan.MICROSECOND
 
     def test_range(self):
         """Should return a range of timestamps between two timestamps"""
         ts1 = TimeStamp(1000)
         ts2 = TimeStamp(2000)
         range = ts1.range(ts2)
-        assert range.span() == TimeSpan.MICROSECOND
+        assert range.span == TimeSpan.MICROSECOND
 
     def test_datetime(self):
         """Should correctly convert the TimeStamp to a datetime in local time."""
         ts1 = TimeStamp(1645562510000000000)
-        assert ts1.datetime(tzinfo=timezone.utc) == datetime(
+        assert ts1.datetime(tz=timezone.utc) == datetime(
             2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
         )
 
@@ -173,38 +171,33 @@ class TestTimeRange:
     def test_span(self):
         """Should return a valid TimeSpan"""
         tr = TimeRange(0, 1000)
-        assert tr.span() == TimeSpan(1000)
-
-    def test_is_zero(self):
-        """Should return true if the range is zero"""
-        tr = TimeRange(0, 0)
-        assert tr.is_zero()
+        assert tr.span == TimeSpan(1000)
 
     def test_bound_by(self):
         """Should return a bound version of the range"""
         tr = TimeRange(0, 1000)
-        bound = tr.bound_by(TimeRange(100, 500))
-        assert bound.span() == 400 * TimeSpan.NANOSECOND
+        bound = tr.clamp(TimeRange(100, 500))
+        assert bound.span == 400 * TimeSpan.NANOSECOND
 
     def test_contains_stamp(self):
         """Should return true if the range contains a timestamp"""
         tr = TimeRange(0, 1000)
-        assert tr.contains_stamp(TimeStamp(500))
+        assert tr.contains(TimeStamp(500))
 
     def test_doesnt_contain_stamp(self):
         """Should return false if the range doesn't contain a timestamp"""
         tr = TimeRange(0, 1000)
-        assert not tr.contains_stamp(TimeStamp(1500))
+        assert not tr.contains(TimeStamp(1500))
 
     def test_stamp_contains_end_of_range(self):
         """Should return false if the timestamp is the same as the end of the range"""
         tr = TimeRange(0, 1000)
-        assert not tr.contains_stamp(TimeStamp(1000))
+        assert not tr.contains(TimeStamp(1000))
 
     def test_stamp_contains_start_of_range(self):
         """Should return true if the timestamp is the same as the start of the range"""
         tr = TimeRange(0, 1000)
-        assert tr.contains_stamp(TimeStamp(0))
+        assert tr.contains(TimeStamp(0))
 
     def test_range_not_contains_range(self):
         """Should return true if the ranges overlap but a smaller range is not contained"""
@@ -245,12 +238,12 @@ class TestTimeRange:
     def test_range_valid(self):
         """Should return true if the range is valid"""
         tr = TimeRange(0, 1000)
-        assert tr.is_valid()
+        assert tr.valid
 
     def test_range_invalid(self):
         """Should return false if the range is invalid"""
         tr = TimeRange(1000, 0)
-        assert not tr.is_valid()
+        assert not tr.valid
 
     def test_range_swap(self):
         """Should swap the start and end times"""
@@ -262,6 +255,13 @@ class TestTimeRange:
 
 @pytest.mark.telem
 class TestTimeSpan:
+    def test_since(self):
+        """Should return the TimeSpan since the given timestamp"""
+        now = TimeStamp.now()
+        one_sec_ago = now - 1 * TimeSpan.SECOND
+        assert TimeSpan.since(one_sec_ago) < 1002 * TimeSpan.MILLISECOND
+        assert TimeSpan.since(one_sec_ago) > 998 * TimeSpan.MILLISECOND
+
     @pytest.mark.parametrize(
         "unparsed, expected",
         [
@@ -277,15 +277,11 @@ class TestTimeSpan:
 
     def test_seconds(self):
         """Should return the number of seconds in the timespan"""
-        assert TimeSpan.SECOND.seconds() == 1
-
-    def test_is_zero(self):
-        """Should return true if the span is zero"""
-        assert TimeSpan(0).is_zero()
+        assert TimeSpan.SECOND.seconds == 1
 
     def test_delta(self):
         """Should return a timedelta"""
-        assert TimeSpan.SECOND.delta() == timedelta(seconds=1)
+        assert TimeSpan.SECOND.timedelta == timedelta(seconds=1)
 
     def test_add(self):
         """Should correctly add two time spans"""
@@ -364,3 +360,21 @@ class TestDataType:
     def test_string(self):
         """Should return the string representation of the data type"""
         assert str(DataType.INT8) == "int8"
+
+
+@pytest.mark.telem
+@pytest.mark.parametrize(
+    "data, from_, to, expected",
+    [
+        (np.array([1, 2, 3]), "s", "ms", 1000),
+        (np.array([1, 2, 3]), "ms", "ms", 1),
+        (np.array([TimeStamp(0).datetime().isoformat()]), "iso", "ns", 0),
+    ],
+)
+def test_convert_time_units(
+    data: np.ndarray,
+    from_: TimeSpanUnits,
+    to: TimeSpanUnits,
+    expected: int | float,
+):
+    assert convert_time_units(data, from_, to)[0] == expected

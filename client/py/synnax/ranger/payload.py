@@ -21,8 +21,8 @@ from synnax.util.normalize import normalize
 
 
 class RangePayload(Payload):
-    """Network transportable payload representing a range.
-    """
+    """Network transportable payload representing a range."""
+
     key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
