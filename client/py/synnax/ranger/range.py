@@ -58,9 +58,11 @@ class RangeChannel(ChannelPayload):
 
 class Range(RangePayload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
-    time range, and uniquely generated key. See https://docs.synnaxlabs.com/concepts/read-ranges
-    for an introduction to ranges and hwo they work.
+    time range, and uniquely generated key. See
+    https://docs.synnaxlabs.com/concepts/read-range for an introduction to ranges and
+    how they work.
     """
+
     __frame_client: FrameClient | None = PrivateAttr(None)
     __channel_retriever: ChannelRetriever | None = PrivateAttr(None)
 
@@ -100,14 +102,10 @@ class Range(RangePayload):
 
     def __getattr__(self, name: str) -> RangeChannel:
         ch = self.__channel_retriever.retrieve(self)
-        return RangePayload(
-            rng=self,
-            frame_client=self.__frame_client,
-            payload=ch
-        )
+        return RangePayload(rng=self, frame_client=self.__frame_client, payload=ch)
 
     def __getitem__(self, name: str) -> RangeChannel:
-        return self.read(name)
+        return self.__getattr__(name)
 
     @overload
     def read(self, params: ChannelKey | ChannelName) -> Series:
@@ -127,8 +125,4 @@ class Range(RangePayload):
         )
 
     def to_payload(self) -> RangePayload:
-        return RangePayload(
-            name=self.name,
-            time_range=self.time_range,
-            key=self.key,
-        )
+        return RangePayload(name=self.name, time_range=self.time_range, key=self.key)

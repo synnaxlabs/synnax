@@ -111,7 +111,7 @@ class FrameClient:
         :returns: None.
         """
         with self.new_writer(start, to, strict=strict) as w:
-            w.write(Frame(keys=[to], series=[Series(data)]))
+            w.write(Frame(columns_or_data=[to], series=[Series(data)]))
             ts, ok = w.commit()
             return ts
 

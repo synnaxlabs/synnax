@@ -39,6 +39,7 @@ from synnax.telem import (
     CrudeTimeStamp,
     Series,
     convert_time_units,
+    TimeSpanUnits,
 )
 from synnax.framer import (
     Frame,

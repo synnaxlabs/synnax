@@ -49,7 +49,7 @@ class BackwardFrameAdapter:
         keys = [
             self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.columns
         ]
-        return Frame(keys=keys, series=fr.series)
+        return Frame(columns_or_data=keys, series=fr.series)
 
 
 class ForwardFrameAdapter:
@@ -90,4 +90,4 @@ class ForwardFrameAdapter:
             self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.columns
         ]
 
-        return Frame(keys=keys, series=fr.series)
+        return Frame(columns_or_data=keys, series=fr.series)
