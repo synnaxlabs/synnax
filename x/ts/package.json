@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "js-convert-case": "^4.2.0",
+    "msgpackr": "^1.9.5",
     "zod": "3.21.4"
   },
   "devDependencies": {

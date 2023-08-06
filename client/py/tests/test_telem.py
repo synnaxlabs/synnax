@@ -42,7 +42,7 @@ class TestTimeStamp:
         assert now.datetime() > datetime.now().astimezone()
 
     @pytest.mark.parametrize(
-        "unparsed, expected",
+        "crude, expected",
         [
             (1000, 1000),
             (TimeSpan.MILLISECOND * 2500, 2500000000),
@@ -72,11 +72,12 @@ class TestTimeStamp:
                 ),
                 TimeStamp(1645562510000000000),
             ),
+            (np.int64(1000), TimeStamp(1 * TimeSpan.MICROSECOND)),
         ],
     )
-    def test_init(self, unparsed: CrudeTimeStamp, expected: TimeStamp):
+    def test_init(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
-        assert TimeStamp(unparsed) == expected
+        assert TimeStamp(crude) == expected
 
     def test_invalid_init(self):
         """Should raise an exception if the timestamp is invalid"""
@@ -156,6 +157,16 @@ class TestTimeStamp:
         assert ts1.datetime(tz=timezone.utc) == datetime(
             2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
         )
+
+    def test_mod(self):
+        """Should correctly return the remainder of a standard TimeStamp divisor"""
+        ts1 = TimeStamp(1 * TimeSpan.DAY + 1 * TimeSpan.HOUR)
+        assert ts1.mod(TimeSpan.DAY) == (1 * TimeSpan.HOUR)
+
+    def test_trunc(self):
+        """Should correctly return the truncation of a standard TimeSpan divisor"""
+        ts1 = TimeStamp(1 * TimeSpan.DAY + 1 * TimeSpan.HOUR)
+        assert ts1.trunc(TimeSpan.DAY) == (1 * TimeSpan.DAY)
 
 
 @pytest.mark.telem
@@ -263,17 +274,19 @@ class TestTimeSpan:
         assert TimeSpan.since(one_sec_ago) > 998 * TimeSpan.MILLISECOND
 
     @pytest.mark.parametrize(
-        "unparsed, expected",
+        "crude, expected",
         [
             (1000, TimeSpan.MICROSECOND),
             (timedelta(microseconds=1000), 1000 * TimeSpan.MICROSECOND),
             (TimeStamp(1000), TimeSpan.MICROSECOND),
             (np.timedelta64(1000, "us"), 1000 * TimeSpan.MICROSECOND),
-            (pd.Timedelta(1000, "us"), 1000 * TimeSpan.MICROSECOND),
+            (pd.Timedelta(1000, "ms"), 1000 * TimeSpan.MILLISECOND),
+            (TimeSpan.MICROSECOND * 1000, TimeSpan.MICROSECOND * 1000),
+            (np.int64(1000), 1 * TimeSpan.MICROSECOND),
         ],
     )
-    def test_init(self, unparsed: CrudeTimeSpan, expected: TimeSpan):
-        assert TimeSpan(unparsed) == expected
+    def test_init(self, crude: CrudeTimeSpan, expected: TimeSpan):
+        assert TimeSpan(crude) == expected
 
     def test_seconds(self):
         """Should return the number of seconds in the timespan"""
@@ -303,17 +316,33 @@ class TestTimeSpan:
         """Should correctly compare two time spans"""
         assert TimeSpan.NANOSECOND <= TimeSpan.MICROSECOND
 
-
-class TestRate:
     @pytest.mark.parametrize(
-        "unparsed, expected",
+        "span, expected",
         [
-            (1000, Rate(1000.0)),
-            (TimeSpan.SECOND, Rate(1.0)),
+            (
+                1 * TimeSpan.DAY + 10 * TimeSpan.MINUTE + 100 * TimeSpan.MILLISECOND,
+                "1d 10m 100ms",
+            ),
+            (10 * TimeSpan.HOUR + 10 * TimeSpan.NANOSECOND, "10h 10ns"),
+            (TimeSpan.ZERO, "0ns"),
         ],
     )
-    def test_init(self, unparsed: CrudeRate, expected: Rate):
-        assert Rate(unparsed) == expected
+    def test_str(self, span, expected):
+        """Should correctly display the TimeSpan as a human-readable string"""
+        assert str(span) == expected
+
+
+@pytest.mark.telem
+class TestRate:
+    @pytest.mark.parametrize(
+        "crude, expected",
+        [
+            (TimeSpan.MILLISECOND, Rate(1000)),
+            (1000, Rate(1000.0)),
+        ],
+    )
+    def test_init(self, crude: CrudeRate, expected: Rate):
+        assert Rate(crude) == expected
 
     def test_invalid_init(self):
         """Should raise an exception if the rate is invalid"""
@@ -341,7 +370,7 @@ class TestRate:
 @pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
-        "unparsed, expected",
+        "crude, expected",
         [
             (np.int8, DataType.INT8),
             (np.int16, DataType.INT16),
@@ -349,8 +378,8 @@ class TestDataType:
             ("int64", DataType.INT64),
         ],
     )
-    def test_init(self, unparsed: CrudeDataType, expected: DataType):
-        assert DataType(unparsed) == expected
+    def test_init(self, crude: CrudeDataType, expected: DataType):
+        assert DataType(crude) == expected
 
     def test_invalid_init(self):
         """Should raise an exception if the data type is invalid"""
@@ -360,6 +389,14 @@ class TestDataType:
     def test_string(self):
         """Should return the string representation of the data type"""
         assert str(DataType.INT8) == "int8"
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [(DataType.INT8, np.dtype(np.int8)), (DataType.FLOAT32, np.dtype(np.float32))],
+    )
+    def test_np(self, value, expected):
+        """Should return the correct numpy representation of the data type"""
+        assert value.np == expected
 
 
 @pytest.mark.telem
