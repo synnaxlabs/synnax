@@ -79,6 +79,37 @@ class TimeStamp(int):
         """:returns: the current time as a TimeStamp."""
         return TimeStamp(datetime.now())
 
+    def mod(self, span: CrudeTimeSpan) -> TimeStamp:
+        """Calculates the Remainder of the TimeStamp using the given span. This is
+        useful to extract a semantic 'part of the TimeSpan'. For example, if we only
+        wanted to extract only the part of the TimeStamp that doesn't include days, we
+        could do:
+
+        TimeStamp(TimeSpan.DAY + TimeSpan.HOUR).mod(TimeSpan.DAY)
+
+        would return
+
+        (TimeStamp.HOUR)
+
+        :param span: The TimeSpan to divide by for the remainder.
+        """
+        return TimeStamp(TimeSpan(self).mod(span))
+
+    def trunc(self, span: CrudeTimeSpan) -> TimeStamp:
+        """Truncates the TimeSpan to the nearst integer multiple of the given span.
+
+        For example,
+
+        (TimeSpan.DAY + TimeSpan.HOUR + TimeSpan.SECOND).trunc(TimeSpan.DAY)
+
+        would return
+
+        TimeSpan.DAY
+
+        :param span: The TimeSpan to truncate by.
+        """
+        return TimeStamp(TimeSpan(self).trunc(span))
+
     def span(self, other: CrudeTimeStamp) -> TimeSpan:
         """:returns: The TimeSpan between two timestamps. This span is guaranteed to be
         positive.
@@ -183,19 +214,13 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
-        if isinstance(value, int):
+        if isinstance(value, (int, np.int64)):
             return super().__new__(cls, value)
-        elif isinstance(value, TimeSpan):
-            return value
 
         if isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
-        elif isinstance(value, pd.Timedelta):
-            value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
             value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
-        elif isinstance(value, np.int64):
-            value = int(value)
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
 
@@ -238,19 +263,19 @@ class TimeSpan(int):
 
         v = ""
         if days != 0:
-            v += f"{days.days}d "
+            v += f"{days.days_int}{TimeSpan.DAY_UNITS} "
         if hours != 0:
-            v += f"{hours.hours}h "
+            v += f"{hours.hours_int}{TimeSpan.HOUR_UNITS} "
         if minutes != 0:
-            v += f"{minutes.minutes}m "
+            v += f"{minutes.minutes_int}{TimeSpan.MINUTE_UNITS} "
         if seconds != 0:
-            v += f"{seconds.seconds}s "
+            v += f"{seconds.seconds_int}{TimeSpan.SECOND_UNITS} "
         if millis != 0:
-            v += f"{millis.milliseconds}ms "
+            v += f"{millis.milliseconds_int}{TimeSpan.MILLISECOND_UNITS} "
         if micros != 0:
-            v += f"${micros.microseconds}µs "
-        if nanos != 0:
-            v += f"{nanos.nanoseconds}ns"
+            v += f"${micros.microseconds_int}{TimeSpan.MICROSECOND_UNITS} "
+        if nanos != 0 or len(v) == 0:
+            v += f"{nanos.nanoseconds}{TimeSpan.NANOSECOND_UNITS}"
         return v.strip()
 
     @property
@@ -279,7 +304,7 @@ class TimeSpan(int):
         """:returns: The integer number of hours in the TimeSpan, NOT including
         fractional hours.
         """
-        return int(self / TimeSpan.DAY)
+        return int(self / TimeSpan.HOUR)
 
     @property
     def minutes(self) -> float:
@@ -353,28 +378,24 @@ class TimeSpan(int):
 
         TimeSpan.DAY
 
-        :param span: The TimeSpan to truncate by. The span MUST be one of TimeSpan.DAY,
-        TimeSpan.HOUR, TimeSpan.SECOND, TimeSpan.MILLISECOND, TimeSpan.MICROSECOND,
-        TimeSpan.NANOSECOND
+        :param span: The TimeSpan to truncate by.
         """
-        return _semantic_trunc(self, TimeSpan(span), list(self.UNITS.values()))
+        return trunc(self / span) * span
 
     def mod(self, span: CrudeTimeSpan) -> TimeSpan:
         """Calculates the remainder of the TimeSpan using the given span.
 
         For example,
 
-        (TimeSpan.DAY + TimeSpan.HOUR).trunc(TimeSpan.DAY)
+        (TimeSpan.DAY + TimeSpan.HOUR).mod(TimeSpan.DAY)
 
         would return
 
         TimeSpan.HOUR
 
-        :param span: The TimeSpan to divide by for the remainder. The span MUST be one
-        of TimeSpan.DAY, TimeSpan.HOUR, TimeSpan.SECOND, TimeSpan.MILLISECOND,
-        TimeSpan.MICROSECOND, TimeSpan.NANOSECOND
+        :param span: The TimeSpan to divide by for the remainder.
         """
-        return _semantic_mod(self, TimeSpan(span), list(self.UNITS.values()))
+        return self % span
 
     @property
     def timedelta(self) -> timedelta:
@@ -513,8 +534,6 @@ class Rate(float):
     def __new__(cls, value: CrudeRate):
         if isinstance(value, float):
             return super().__new__(cls, value)
-        if isinstance(value, Rate):
-            return value
         if isinstance(value, TimeSpan):
             value = 1 / value.seconds
         elif isinstance(value, int):
@@ -607,7 +626,7 @@ class TimeRange(BaseModel):
     Note that this value is not guaranteed to be after or equal to the ending value. To
     ensure that this is the case, call TimeRange.make_valid()
 
-    In most cases, operations should treat end as exclsuive.
+    In most cases, operations should treat end as exclusive.
     """
 
     def __init__(
@@ -695,11 +714,14 @@ class TimeRange(BaseModel):
         return TimeRange(start=self.end, end=self.start)
 
     def copy(self, *args, **kwargs) -> TimeRange:
+        """:returns: A copy of the time range."""
         return TimeRange(start=self.start, end=self.end)
 
     @property
     def valid(self) -> bool:
-        """:returns: True if the TimeRange start is before or equal to the TimeRange end."""
+        """:returns: True if the TimeRange start is before or equal to the TimeRange
+        end.
+        """
         return self.span >= TimeSpan.ZERO
 
     def __str__(self) -> str:
@@ -931,92 +953,3 @@ DataType._DENSITIES = {
     DataType.UINT16: Density.BIT16,
     DataType.UINT8: Density.BIT8,
 }
-
-
-class Series(Payload):
-    time_range: TimeRange | None = None
-    data_type: DataType
-    data: bytes
-
-    def __len__(self) -> int:
-        return self.data_type.density.sample_count(len(self.data))
-
-    def __init__(
-        self,
-        data: bytes | pd.Series | np.ndarray | Series,
-        data_type: CrudeDataType | None = None,
-        time_range: TimeRange | None = None,
-    ):
-        if isinstance(data, Series):
-            data_type = data.data_type if data_type is None else data_type
-            data_ = data.data
-            time_range = data.time_range if time_range is None else time_range
-        elif isinstance(data, pd.Series):
-            data_type = DataType(data.dtype if data_type is None else data_type)
-            data_ = data.to_numpy(dtype=data_type.np).tobytes()
-        elif isinstance(data, np.ndarray):
-            data_type = DataType(data.dtype if data_type is None else data_type)
-            data_ = data.tobytes()
-        else:
-            if data_type is None:
-                raise ValueError("data_type must be specified if a buffer is given")
-            data_type = DataType(data_type)
-            data_ = data
-        super().__init__(data_type=data_type, data=data_, time_range=time_range)
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def __array__(self) -> np.ndarray:
-        """Implemented to that the Series can be passed around as a numpy array. See
-        https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
-        """
-        return np.frombuffer(self.data, dtype=self.data_type.np)
-
-    def __getitem__(self, index: int) -> float:
-        return self.__array__()[index]
-
-    @property
-    def size(self) -> Size:
-        """:returns: A Size representing the number of bytes in the Series' data."""
-        return Size(len(self.data))
-
-    def astype(self, data_type: DataType) -> Series:
-        return Series(
-            data=self.__array__().astype(data_type.np),
-            data_type=data_type,
-            time_range=self.time_range,
-        )
-
-    def to_numpy(self) -> np.ndarray:
-        return self.__array__()
-
-    def to_list(self) -> list:
-        return self.__array__().tolist()
-
-    def to_datetime(self) -> list[datetime]:
-        return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
-
-
-T = TypeVar("T")
-
-
-def _validate_options_contains(value: T, options: list[T]) -> None:
-    if not any(value == o for o in options):
-        raise ValueError(
-            f"""
-            Invalid divisor argument for remainder f"{int(value)}. Divisor must be one
-            of the following options:
-            {[o for o in options]}
-            """
-        )
-
-
-def _semantic_mod(value: T, divisor: T, options: list[T]) -> T:
-    _validate_options_contains(divisor, options)
-    return value % divisor
-
-
-def _semantic_trunc(value: T, span: T, options: list[T]) -> T:
-    _validate_options_contains(span, options)
-    return trunc(value / span) * span

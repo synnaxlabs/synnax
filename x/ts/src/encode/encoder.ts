@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Case } from "@synnaxlabs/x";
 import { addExtension, pack, unpack } from "msgpackr";
 import { ZodSchema, z } from "zod";
+
+import { Case } from "@/case";
 
 /**
  * CustomTypeEncoder is an interface for a class that needs to transform its

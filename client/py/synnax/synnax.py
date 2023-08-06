@@ -99,8 +99,8 @@ class Synnax(FrameClient):
         self.ranges = RangeClient(
             frame_client=self,
             channel_retriever=ch_retriever,
-            range_creator=range_creator,
-            range_retriever=range_retriever,
+            creator=range_creator,
+            retriever=range_retriever,
         )
 
     def close(self):

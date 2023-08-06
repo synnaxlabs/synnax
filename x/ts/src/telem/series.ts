@@ -39,8 +39,8 @@ interface GL {
 const FULL_BUFFER = -1;
 
 /**
- * A strongly typed array of telemetry samples backed
- * by an underlying binary buffer.
+ * Series is a strongly typed array of telemetry samples backed by an underlying binary
+ * buffer.
  */
 export class Series {
   /** The data type of the array */

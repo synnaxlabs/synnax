@@ -10,9 +10,9 @@
 import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { Channel } from "../channel";
-import { newClient } from "../setupspecs";
-import { randomTypedArray } from "../util/telem";
+import { Channel } from "@/channel";
+import { newClient } from "@/setupspecs";
+import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
@@ -31,7 +31,7 @@ describe("Writer", () => {
       const ch = await newChannel();
       const writer = await client.telem.newWriter(0, ch.key);
       try {
-        await writer.write(ch.key, randomTypedArray(10, ch.dataType));
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
         await writer.commit();
       } finally {
         await writer.close();
@@ -42,7 +42,7 @@ describe("Writer", () => {
   describe("Client", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();
-      const data = randomTypedArray(10, ch.dataType);
+      const data = randomSeries(10, ch.dataType);
       await client.telem.write(ch.key, TimeStamp.seconds(1), data);
       const res = await client.telem.read(TimeRange.MAX, ch.key);
       expect(res.length).toEqual(data.length);

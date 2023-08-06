@@ -25,7 +25,7 @@ describe("Frame", () => {
           ]
         );
         expect(f.length).toEqual(9);
-        expect(f.labeledBy).toEqual("name");
+        expect(f.colType).toEqual("name");
       });
 
       test("from an array of channel keys and an array of arrays", () => {
@@ -38,31 +38,31 @@ describe("Frame", () => {
           ]
         );
         expect(f.length).toEqual(9);
-        expect(f.labeledBy).toEqual("key");
+        expect(f.colType).toEqual("key");
       });
 
       test("from a single name and an array of arrays", () => {
         const f = new Frame("a", [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
-        expect(f.labeledBy).toEqual("name");
+        expect(f.colType).toEqual("name");
       });
 
       test("from a single key and an array of arrays", () => {
         const f = new Frame(12, [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
-        expect(f.labeledBy).toEqual("key");
+        expect(f.colType).toEqual("key");
       });
 
       test("from a single key and a single array", () => {
         const f = new Frame(12, new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
-        expect(f.labeledBy).toEqual("key");
+        expect(f.colType).toEqual("key");
       });
 
       test("from a single name and a single array", () => {
         const f = new Frame("a", new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
-        expect(f.labeledBy).toEqual("name");
+        expect(f.colType).toEqual("name");
       });
 
       test("from payload", () => {
@@ -76,7 +76,7 @@ describe("Frame", () => {
           ],
         });
         expect(f.length.valueOf()).toEqual(3);
-        expect(f.labels.length).toEqual(1);
+        expect(f.columns.length).toEqual(1);
         expect(f.series.length).toEqual(1);
       });
 
@@ -85,14 +85,14 @@ describe("Frame", () => {
           a: new Series(new Float32Array([1, 2, 3])),
         });
         expect(f.length.valueOf()).toEqual(3);
-        expect(f.labels.length).toEqual(1);
+        expect(f.columns.length).toEqual(1);
         expect(f.series.length).toEqual(1);
       });
 
       test("from map", () => {
         const f = new Frame(new Map([[12, new Series(new Float32Array([1, 2, 3]))]]));
         expect(f.length).toEqual(3);
-        expect(f.labels.length).toEqual(1);
+        expect(f.columns.length).toEqual(1);
         expect(f.series.length).toEqual(1);
       });
     });
@@ -276,7 +276,7 @@ describe("Frame", () => {
             ],
           ])
         );
-        expect(f.filter((k) => k === 12).labels).toEqual([12]);
+        expect(f.filter((k) => k === 12).columns).toEqual([12]);
       });
     });
   });

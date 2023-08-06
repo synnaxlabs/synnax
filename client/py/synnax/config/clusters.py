@@ -30,7 +30,7 @@ class ClustersConfig:
             return
         opts = c["options"]
         pwd = keyring.get_password("synnax", key)
-        pwd = "" if pwd is None else pwd
+        pwd = pwd or ""
         return ClusterConfig(options=SynnaxOptions(**opts, password=pwd))
 
     def set(self, c: ClusterConfig, key: str = "default"):
