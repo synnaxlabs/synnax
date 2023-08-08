@@ -23,7 +23,7 @@ from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
 from synnax.channel.payload import ChannelKeys
-from synnax.exceptions import Field, ValidationError
+from synnax.exceptions import Field, ValidationError, UnexpectedError
 from synnax.framer.adapter import ForwardFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType
@@ -225,7 +225,7 @@ class Writer:
 
     def __prep_data_types(self, frame: Frame):
         for i, (label, series) in enumerate(frame.items()):
-            ch = self.__adapter.retriever.retrieve(label)[0]
+            ch = self.__adapter.retriever.retrieve(label)[0] # type: ignore
             if series.data_type != ch.data_type:
                 if (
                     not np_can_cast(series.data_type.np, ch.data_type.np)
@@ -234,7 +234,7 @@ class Writer:
                     raise ValidationError(
                         Field(
                             str(label),
-                            f"""label {label} has type {series.dtype} but channel {ch.key}
+                            f"""label {label} has type {series.data_type} but channel {ch.key}
                                             expects type {ch.data_type}""",
                         )
                     )
@@ -293,7 +293,7 @@ class BufferedWriter(io.DataFrameWriter):
     def _exceeds_any(self) -> bool:
         return (
             len(self._buf) * len(self._buf.columns) >= self.size_threshold
-            or TimeStamp.since(self.last_flush) >= self.time_threshold
+            or TimeSpan.since(self.last_flush) >= self.time_threshold
         )
 
     def __flush(self):

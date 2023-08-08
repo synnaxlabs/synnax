@@ -263,7 +263,7 @@ class ChannelClient:
     ) -> list[Channel]:
         ...
 
-    def retrieve(self, params: ChannelParams) -> Channel | list[Channel]:
+    def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -290,16 +290,16 @@ class ChannelClient:
         containing the retrieved channels and the keys or names of the channels that were
         not found.
         """
-        normal = normalize_channel_params(params)
-        res = self._retriever.retrieve(params)
+        normal = normalize_channel_params(channel)
+        res = self._retriever.retrieve(channel)
         sug = self.__sugar(res)
         if not normal.single:
             return sug
 
         if len(res) == 0:
-            raise QueryError(f"Channel matching {params} not found.")
+            raise QueryError(f"Channel matching {channel} not found.")
         elif len(res) > 1:
-            raise QueryError(f"Multiple channels matching {params} found.")
+            raise QueryError(f"Multiple channels matching {channel} found.")
         return sug[0]
 
     def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:

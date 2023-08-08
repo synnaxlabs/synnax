@@ -126,8 +126,8 @@ class RangeClient:
         return [
             Range(
                 **r.dict(),
-                __frame_client=self.__frame_client,
-                __channel_retriever=self.__channel_retriever,
+                _frame_client=self.__frame_client,
+                _channel_retriever=self.__channel_retriever,
             )
             for r in ranges
         ]
