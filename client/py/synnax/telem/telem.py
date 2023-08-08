@@ -53,10 +53,8 @@ class TimeStamp(int):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
             value = int(pd.Timestamp(value).value)
-        elif isinstance(value, np.int64) or isinstance(value, np.float64):
+        elif isinstance(value, (int, float, np.integer, np.floating)):
             value = int(value)
-        elif isinstance(value, int):
-            return super().__new__(cls, int(value))
         else:
             raise TypeError(f"Cannot convert {type(value)} to TimeStamp")
 
@@ -212,7 +210,7 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
-        if isinstance(value, (int, np.int64, float)):
+        if isinstance(value, (int, np.integer, np.floating, float)):
             return super().__new__(cls, value)
 
         if isinstance(value, timedelta):
@@ -378,7 +376,7 @@ class TimeSpan(int):
 
         :param span: The TimeSpan to truncate by.
         """
-        return trunc(self / span) * span
+        return TimeSpan(trunc(self / span) * span)
 
     def mod(self, span: CrudeTimeSpan) -> TimeSpan:
         """Calculates the remainder of the TimeSpan using the given span.
@@ -433,7 +431,7 @@ class TimeSpan(int):
     def __eq__(self, rhs: object) -> bool:
         if not isinstance(rhs, get_args(CrudeTimeSpan)):
             return NotImplemented
-        return super().__eq__(int(TimeSpan(rhs)))
+        return super().__eq__(int(TimeSpan(cast(CrudeTimeSpan, rhs))))
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
@@ -484,7 +482,7 @@ TimeSpan.MINUTE = TimeSpan(60) * TimeSpan.SECOND
 TimeSpan.MINUTE_UNITS = "m"
 TimeSpan.HOUR = TimeSpan(60) * TimeSpan.MINUTE
 TimeSpan.HOUR_UNITS = "h"
-TimeSpan.DAY = 24 * TimeSpan.HOUR
+TimeSpan.DAY = TimeSpan.HOUR * 24
 TimeSpan.DAY_UNITS = "d"
 TimeSpan.MAX = TimeSpan(0xFFFFFFFFFFFFFFFF)
 TimeSpan.MIN = TimeSpan(0)
