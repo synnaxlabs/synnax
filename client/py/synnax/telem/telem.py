@@ -75,22 +75,6 @@ class TimeStamp(int):
         """:returns: the current time as a TimeStamp."""
         return TimeStamp(datetime.now())
 
-    def mod(self, span: CrudeTimeSpan) -> TimeStamp:
-        """Calculates the Remainder of the TimeStamp using the given span. This is
-        useful to extract a semantic 'part of the TimeSpan'. For example, if we only
-        wanted to extract only the part of the TimeStamp that doesn't include days, we
-        could do:
-
-        TimeStamp(TimeSpan.DAY + TimeSpan.HOUR).mod(TimeSpan.DAY)
-
-        would return
-
-        (TimeStamp.HOUR)
-
-        :param span: The TimeSpan to divide by for the remainder.
-        """
-        return TimeStamp(TimeSpan(self).mod(span))
-
     def trunc(self, span: CrudeTimeSpan) -> TimeStamp:
         """Truncates the TimeSpan to the nearst integer multiple of the given span.
 
@@ -210,16 +194,12 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
-        if isinstance(value, (int, np.integer, np.floating, float)):
-            return super().__new__(cls, value)
-
         if isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
             value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
-        else:
+        elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
-
         return super().__new__(cls, value)
 
     @classmethod
@@ -279,7 +259,7 @@ class TimeSpan(int):
         """:returns: The decimal number of days in the TimeSpan, including fractional
         days.
         """
-        return float(self / TimeSpan.DAY)
+        return float(self) / float(TimeSpan.DAY)
 
     @property
     def days_int(self) -> int:
@@ -293,7 +273,7 @@ class TimeSpan(int):
         """:returns: The decimal number of hours in the TimeSpan, including fractional
         hours.
         """
-        return float(self / TimeSpan.HOUR)
+        return float(self) / float(TimeSpan.HOUR)
 
     @property
     def hours_int(self) -> int:
@@ -307,7 +287,7 @@ class TimeSpan(int):
         """:returns: The decimal number of minutes in the TimeSpan, including fractional
         minutes.
         """
-        return float(self / TimeSpan.MINUTE)
+        return float(self) / float(TimeSpan.MINUTE)
 
     @property
     def minutes_int(self) -> int:
@@ -321,7 +301,7 @@ class TimeSpan(int):
         """:returns: The decimal number of seconds in the TimeSpan, including fractional
         seconds.
         """
-        return float(self / TimeSpan.SECOND)
+        return float(self) / float(TimeSpan.SECOND)
 
     @property
     def seconds_int(self) -> int:
@@ -335,7 +315,7 @@ class TimeSpan(int):
         """:returns: The decimal number of milliseconds in the TimeSpan, including the
         fractional milliseconds.
         """
-        return float(self / TimeSpan.MILLISECOND)
+        return float(self) / float(TimeSpan.MILLISECOND)
 
     @property
     def milliseconds_int(self) -> int:
@@ -349,7 +329,7 @@ class TimeSpan(int):
         """:returns: The decimal number of microseconds in the TimeSpan, including
         the fractional microseconds.
         """
-        return float(self / TimeSpan.MICROSECOND)
+        return float(self) / float(TimeSpan.MICROSECOND)
 
     @property
     def microseconds_int(self) -> int:
@@ -377,21 +357,6 @@ class TimeSpan(int):
         :param span: The TimeSpan to truncate by.
         """
         return TimeSpan(trunc(self / span) * span)
-
-    def mod(self, span: CrudeTimeSpan) -> TimeSpan:
-        """Calculates the remainder of the TimeSpan using the given span.
-
-        For example,
-
-        (TimeSpan.DAY + TimeSpan.HOUR).mod(TimeSpan.DAY)
-
-        would return
-
-        TimeSpan.HOUR
-
-        :param span: The TimeSpan to divide by for the remainder.
-        """
-        return self % span
 
     @property
     def timedelta(self) -> timedelta:
@@ -498,7 +463,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
@@ -658,8 +623,7 @@ class TimeRange(BaseModel):
 
     @property
     def span(self) -> TimeSpan:
-        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange.
-        """
+        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""
         return TimeSpan(self.end - self.start)
 
     def make_valid(self) -> TimeRange:
@@ -776,7 +740,7 @@ class Density(int):
         """Implemented for pydantic validation. Should not be used externally."""
         return cls(v)
 
-    def sample_count(self, size: UnparsedSize) -> int:
+    def sample_count(self, size: CrudeSize) -> int:
         """:returns: The number of contained in the given byte Size."""
         return int(size / self)
 
@@ -803,22 +767,112 @@ Density.BIT8 = Density(1)
 
 
 class Size(int):
-    def __str__(self):
-        return super(Size, self).__str__() + "B"
-
-    def __mul__(self, rhs: UnparsedSize):
+    def __mul__(self, rhs: CrudeSize) -> Size:
         return Size(super(Size, self).__mul__(Size(rhs)))
 
+    def __str__(self) -> str:
+        tot_gb = self.trunc(Size.GB)
+        tot_mb = self.trunc(Size.MB)
+        tot_kb = self.trunc(Size.KB)
+        tot_b = self.trunc(Size.BYTE)
+        gb = tot_gb
+        mb = tot_mb - tot_gb
+        kb = tot_kb - tot_mb
+        b = tot_b - tot_kb
+
+        v = ""
+        if gb != 0:
+            v += f"{gb.gb_int}{Size.GB_UNITS} "
+        if mb != 0:
+            v += f"{mb.mb_int}{Size.MB_UNITS} "
+        if kb != 0:
+            v += f"{kb.kb_int}{Size.KB_UNITS} "
+        if b != 0 or len(v) == 0:
+            v += f"{b.bytes}{Size.BYTE_UNITS} "
+        return v.strip()
+
+    @property
+    def gb(self) -> float:
+        """:returns: The decimal number of gigabytes in the Size, including
+        fractional gigabytes"""
+        return float(self / Size.GB)
+
+    @property
+    def gb_int(self) -> int:
+        """:returns: The integer number of gigabytes in the Size, NOT including
+        fractional gigabytes"""
+        return int(self / Size.GB)
+
+    @property
+    def mb(self) -> float:
+        """:returns: The decimal number of megabytes in the Size, including
+        fractional gigabytes"""
+        return float(self / Size.MB)
+
+    @property
+    def mb_int(self) -> int:
+        """:returns: The integer number of megabytes in the Size, NOT including
+        fractional gigabytes"""
+        return int(self / Size.MB)
+
+    @property
+    def kb(self) -> float:
+        """:returns: The decimal number of kilobytes in the Size, including
+        fractional gigabytes"""
+        return float(self / Size.KB)
+
+    @property
+    def kb_int(self) -> int:
+        """:returns: The integer number of kilobytes in the Size, NOT including
+        fractional gigabytes"""
+        return int(self / Size.GB)
+
+    @property
+    def bytes(self) -> int:
+        """:returns: The number of bytes in the Size."""
+        return int(self)
+
+    def trunc(self, size: CrudeSize) -> Size:
+        """Truncates the Size to th nearest integer of hte given size.
+
+        For example,
+
+        (Size.GIGABYTE + Size.MEGABYTE).trunc(Size.GIGABYTE)
+
+        would return
+
+        Size.GIGABYTE
+
+        :param size: The Size to truncate by.
+        """
+        return Size(trunc(self / size) * size)
+
+    def __sub__(self, rhs: CrudeSize) -> Size:
+        return Size(int(self) - Size(rhs))
+
+    def __add__(self, rhs: CrudeSize) -> Size:
+        return Size(int(self) + Size(rhs))
+
     BYTE: Size
-    KILOBYTE: Size
-    MEGABYTE: Size
-    GIGABYTE: Size
+    BYTE_UNITS: SizeUnits
+    KB: Size
+    KB_UNITS: SizeUnits
+    MB: Size
+    MB_UNITS: SizeUnits
+    GB: Size
+    GB_UNITS: SizeUnits
 
 
 Size.BYTE = Size(1)
-Size.KILOBYTE = Size(1024) * Size.BYTE
-Size.MEGABYTE = Size(1024) * Size.KILOBYTE
-Size.GIGABYTE = Size(1024) * Size.MEGABYTE
+Size.BYTE_UNITS = "b"
+Size.KB = Size(1024) * Size.BYTE
+Size.KB_UNITS = "kb"
+Size.MB = Size(1024) * Size.KB
+Size.MB_UNITS = "mb"
+Size.GB = Size(1024) * Size.MB
+Size.GB_UNITS = "gb"
+
+SizeUnits = ["gb", "mb", "kb", "b"]
 
 
 class DataType(str):
@@ -913,27 +967,16 @@ DataType.ALL = (
     DataType.UINT8,
 )
 
-CrudeTimeStamp: TypeAlias = Union[
-    int,
-    TimeStamp,
-    TimeSpan,
-    datetime,
-    timedelta,
-    np.datetime64,
-    np.int64,
-]
-CrudeTimeSpan: TypeAlias = Union[
-    int,
-    float,
-    TimeSpan,
-    TimeStamp,
-    timedelta,
-    np.timedelta64,
-]
+CrudeTimeStamp: TypeAlias = (
+    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64
+)
+CrudeTimeSpan: TypeAlias = (
+    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
+)
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
 CrudeDataType: TypeAlias = DTypeLike | DataType | str
-UnparsedSize: TypeAlias = int | Size
+CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {
     DataType.FLOAT64: np.dtype(np.float64),

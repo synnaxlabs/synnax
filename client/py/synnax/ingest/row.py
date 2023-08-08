@@ -43,7 +43,7 @@ class RowIngestionEngine:
         reader: RowFileReader,
         channels: list[Channel],
         start: TimeStamp,
-        soft_mem_limit: int = 10 * Size.MEGABYTE,
+        soft_mem_limit: int = 10 * Size.MB,
     ):
         self.channels = channels
         self.idx_grouped = {ch: list() for ch in channels if ch.is_index}

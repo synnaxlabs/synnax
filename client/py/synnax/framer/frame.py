@@ -47,13 +47,13 @@ class FramePayload(Payload):
         super().__init__(series=series, keys=keys)
 
 
-_ColumnTypeT = Literal["keys", "names", None]
+CrudeColumnType = Literal["keys", "names", None]
 
 
 class ColumnType:
-    v: _ColumnTypeT
+    v: CrudeColumnType
 
-    def __init__(self, v: _ColumnTypeT):
+    def __init__(self, v: CrudeColumnType):
         self.v = v
 
     @classmethod
@@ -67,10 +67,10 @@ class ColumnType:
         return cls("names")
 
     def __eq__(self, rhs: object):
-        if not isinstance(rhs, get_args(_ColumnTypeT)):
-            return False
-        c = ColumnType(cast(_ColumnTypeT, rhs))
-        return self.v is None or c.v is None or c.v == self.v
+        if rhs is None or rhs == "keys" or rhs == "names":
+            c = ColumnType(cast(CrudeColumnType, rhs))
+            return self.v is None or c.v is None or c.v == self.v
+        return False
 
 
 class Frame:
@@ -80,12 +80,12 @@ class Frame:
     def __init__(
         self,
         columns_or_data: ChannelKeys
-                         | ChannelNames
-                         | DataFrame
-                         | Frame
-                         | FramePayload
-                         | dict[ChannelKey, TypedCrudeSeries]
-                         | None = None,
+        | ChannelNames
+        | DataFrame
+        | Frame
+        | FramePayload
+        | dict[ChannelKey, TypedCrudeSeries]
+        | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(columns_or_data, Frame):
@@ -106,10 +106,12 @@ class Frame:
             self.series = series or list[Series]()
             self.columns = columns_or_data or list[ChannelKey]()
         else:
-            raise ValueError(f"""
+            raise ValueError(
+                f"""
                 [Frame] - invalid construction arguments. Received {columns_or_data}
                 and {series}.
-            """)
+            """
+            )
 
     def __str__(self) -> str:
         return self.to_df().__str__()
@@ -145,7 +147,8 @@ class Frame:
             if array is None:
                 raise ValidationError("Cannot append key without array")
             if self.col_type != ColumnType.from_channel_params(
-                [col_or_frame]):  # type: ignore
+                [col_or_frame]
+            ):  # type: ignore
                 raise ValidationError("Cannot append array with different label type")
             self.series.append(array)
             self.columns.append(col_or_frame)  # type: ignore
@@ -153,10 +156,10 @@ class Frame:
     def items(
         self,
     ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
-        return zip(self.columns, self.series) # type: ignore
+        return zip(self.columns, self.series)  # type: ignore
 
     def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
-        return self.series[self.columns.index(key)] # type: ignore
+        return self.series[self.columns.index(key)]  # type: ignore
 
     def get(
         self, key: ChannelKey | ChannelName, default: Series | None = None
