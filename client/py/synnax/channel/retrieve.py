@@ -9,9 +9,7 @@
 
 from __future__ import annotations
 
-
-from typing import Protocol
-
+from typing import Protocol, cast
 
 from alamos import Instrumentation, trace, NOOP
 from freighter import Payload, UnaryClient
@@ -22,6 +20,8 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelKey,
     ChannelName,
+    ChannelKeys,
+    ChannelNames
 )
 
 
@@ -65,7 +65,7 @@ class ClusterChannelRetriever:
         params: ChannelKey | ChannelName,
     ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
-        return self.__execute(_Request(**{normal.variant: normal.params}))
+        return self.__execute(_Request(**{normal.variant: normal.params})) # type: ignore
 
     def __execute(
         self,
@@ -97,9 +97,10 @@ class CacheChannelRetriever:
         return self
 
     def __get(self, param: ChannelKey | ChannelName) -> ChannelPayload | None:
-        if isinstance(param, int):
+        if isinstance(param, ChannelKey):
             return self.__channels.get(param)
-        return self.__channels.get(self.__names_to_keys.get(param))
+        key = self.__names_to_keys.get(param)
+        return None if key is None else self.__channels.get(key)
 
     def __set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
@@ -110,11 +111,11 @@ class CacheChannelRetriever:
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
         results = list()
-        to_retrieve = list()
+        to_retrieve: ChannelKeys | ChannelNames = list()  # type: ignore
         for p in normal.params:
             ch = self.__get(p)
             if ch is None:
-                to_retrieve.append(p)
+                to_retrieve.append(p) # type: ignore
             else:
                 results.append(ch)
 

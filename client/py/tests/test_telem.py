@@ -101,7 +101,8 @@ class TestTimeStamp:
         assert ts >= TimeSpan.MICROSECOND
 
     def test_after_eq_before(self):
-        """Should return true if the timestamp is after or equal to the given timestamp"""
+        """Should return true if the timestamp is after or equal to the given timestamp
+        """
         ts = TimeStamp(100)
         assert not ts >= TimeSpan.MICROSECOND
 
@@ -116,12 +117,14 @@ class TestTimeStamp:
         assert ts < TimeSpan.MICROSECOND
 
     def test_before_eq_before(self):
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given timestamp
+        """
         ts = TimeStamp(100)
         assert ts <= TimeSpan.MICROSECOND
 
     def test_before_eq_after(self):
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given timestamp
+        """
         ts = TimeStamp(1000)
         assert ts <= TimeSpan.MICROSECOND
 
@@ -138,18 +141,18 @@ class TestTimeStamp:
         assert ts == TimeStamp(1000)
 
     def test_span_range(self):
-        """Should return a range of timestamps between two timestamps"""
+        """Should return a rng of timestamps between two timestamps"""
         ts1 = TimeStamp(1000)
         ts2 = TimeSpan(2000)
-        range = ts1.span_range(ts2)
-        assert range.span == 2 * TimeSpan.MICROSECOND
+        rng = ts1.span_range(ts2)
+        assert rng.span == 2 * TimeSpan.MICROSECOND
 
     def test_range(self):
-        """Should return a range of timestamps between two timestamps"""
+        """Should return a rng of timestamps between two timestamps"""
         ts1 = TimeStamp(1000)
         ts2 = TimeStamp(2000)
-        range = ts1.range(ts2)
-        assert range.span == TimeSpan.MICROSECOND
+        rng = ts1.range(ts2)
+        assert rng.span == TimeSpan.MICROSECOND
 
     def test_datetime(self):
         """Should correctly convert the TimeStamp to a datetime in local time."""
@@ -211,13 +214,15 @@ class TestTimeRange:
         assert tr.contains(TimeStamp(0))
 
     def test_range_not_contains_range(self):
-        """Should return true if the ranges overlap but a smaller range is not contained"""
+        """Should return true if the ranges overlap but a smaller range is not contained
+        """
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
     def test_range_contains_range(self):
-        """Should return true if the ranges overlap and the smaller range is contained"""
+        """Should return true if the ranges overlap and the smaller range is contained
+        """
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 900)
         assert tr.contains(tr2)
@@ -362,7 +367,8 @@ class TestRate:
         assert Rate(1.0).size_span(Size(40), Density.BIT64) == 5 * TimeSpan.SECOND
 
     def test_byte_span_invalid(self):
-        """Should raise a contiguity error if the size is not a multiple of the density"""
+        """Should raise a contiguity error if the size is not a multiple of the density
+        """
         with pytest.raises(ContiguityError):
             Rate(1.0).size_span(Size(41), Density.BIT64)
 

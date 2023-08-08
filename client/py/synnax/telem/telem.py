@@ -9,16 +9,14 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast, TypeAlias, Union, get_args
 from math import trunc
 
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import TypeAlias, Union, get_args, TypeVar
 from numpy.typing import DTypeLike
 
 import numpy as np
 import pandas as pd
-from freighter import Payload
 from pydantic import BaseModel
 
 from synnax.exceptions import ContiguityError
@@ -184,9 +182,9 @@ class TimeStamp(int):
         return self.after(rhs)
 
     def __eq__(self, rhs: object) -> bool:
-        if isinstance(rhs, get_args(CrudeTimeStamp)):
-            return super().__eq__(TimeStamp(rhs))
-        return NotImplemented
+        if not isinstance(rhs, get_args(CrudeTimeStamp)):
+            return False
+        return super().__eq__(TimeStamp(cast(CrudeTimeStamp, rhs)))
 
     def __str__(self) -> str:
         return self.datetime().isoformat()
@@ -214,7 +212,7 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
-        if isinstance(value, (int, np.int64)):
+        if isinstance(value, (int, np.int64, float)):
             return super().__new__(cls, value)
 
         if isinstance(value, timedelta):
@@ -411,6 +409,12 @@ class TimeSpan(int):
     def __mul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__mul__(TimeSpan(rhs)))
 
+    def __truediv__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return TimeSpan(super().__truediv__(TimeSpan(rhs)))
+
+    def __mod__(self, rhs: CrudeTimeSpan) -> TimeSpan:
+        return TimeSpan(super().__mod__(TimeSpan(rhs)))
+
     def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return self.__mul__(rhs)
 
@@ -433,31 +437,31 @@ class TimeSpan(int):
 
     NANOSECOND: TimeSpan
     """A nanosecond."""
-    NANOSECOND_UNITS: str
+    NANOSECOND_UNITS: TimeSpanUnits
     """The unit string for nanoseconds: 'ns'."""
     MICROSECOND: TimeSpan
     """A microsecond."""
-    MICROSECOND_UNITS: str
+    MICROSECOND_UNITS: TimeSpanUnits
     """The unit string for microseconds: 'us'."""
     MILLISECOND: TimeSpan
     """A millisecond."""
-    MILLISECOND_UNITS: str
+    MILLISECOND_UNITS: TimeSpanUnits
     """The unit string for milliseconds: 'ms'."""
     SECOND: TimeSpan
     """A second."""
-    SECOND_UNITS: str
+    SECOND_UNITS: TimeSpanUnits
     """The unit string for seconds: 's'."""
     MINUTE: TimeSpan
     """A minute."""
-    MINUTE_UNITS: str
+    MINUTE_UNITS: TimeSpanUnits
     """The unit string for minutes: 'm'."""
     HOUR: TimeSpan
     """An hour."""
-    HOUR_UNITS: str
+    HOUR_UNITS: TimeSpanUnits
     """The unit string for hours: 'h'."""
     DAY: TimeSpan
     """A day."""
-    DAY_UNITS: str
+    DAY_UNITS: TimeSpanUnits
     """The unit string for days: 'd'."""
     MAX: TimeSpan
     """The maximum possible value for a TimeSpan"""
@@ -496,7 +500,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2**63 - 1)
+TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
@@ -513,11 +517,11 @@ def convert_time_units(data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
         data = np.array([datetime.fromisoformat(v).timestamp() for v in data])
         f = TimeSpan.SECOND
     else:
-        f = TimeSpan.UNITS.get(_from, None)
-    if f is None:
+        f = TimeSpan.UNITS.get(_from, TimeSpan.ZERO)
+    if f == 0:
         raise ValueError(f"Invalid input time unit {_from}")
-    t = TimeSpan.UNITS.get(to, None)
-    if t is None:
+    t = TimeSpan.UNITS.get(to, TimeSpan.ZERO)
+    if t == 0:
         raise ValueError(f"Invalid output time unit {to}")
 
     converted = data * f / t
@@ -591,8 +595,8 @@ class Rate(float):
     def __repr__(self):
         return f"Rate({super().__repr__()} Hz)"
 
-    def __mul__(self, other: CrudeRate) -> Rate:
-        return Rate(super().__mul__(Rate(other)))
+    def __mul__(self, rhs: CrudeRate) -> Rate:
+        return Rate(super().__mul__(Rate(rhs)))
 
     HZ: Rate
     """One Hz."""
@@ -635,7 +639,8 @@ class TimeRange(BaseModel):
         end: CrudeTimeStamp | None = None,
     ):
         if isinstance(start, TimeRange):
-            start, end = start.start, start.end
+            start_ = cast(TimeRange, start)
+            start, end = start_.start, start_.end
         end = start if end is None else end
         super().__init__(start=TimeStamp(start), end=TimeStamp(end))
 
@@ -655,7 +660,8 @@ class TimeRange(BaseModel):
 
     @property
     def span(self) -> TimeSpan:
-        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""
+        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange.
+        """
         return TimeSpan(self.end - self.start)
 
     def make_valid(self) -> TimeRange:
@@ -727,8 +733,10 @@ class TimeRange(BaseModel):
     def __str__(self) -> str:
         return str(self.start) + " - " + str(self.end)
 
-    def __eq__(self, other: TimeRange) -> bool:
-        return self.start == other.start and self.end == other.end
+    def __eq__(self, rhs: object) -> bool:
+        if not isinstance(rhs, TimeRange):
+            return False
+        return self.start == rhs.start and self.end == rhs.end
 
     # Assigning these values to None prevents pydantic
     # from throwing a nasty missing attribute error.
@@ -800,8 +808,8 @@ class Size(int):
     def __str__(self):
         return super(Size, self).__str__() + "B"
 
-    def __mul__(self, other: UnparsedSize):
-        return Size(super(Size, self).__mul__(Size(other)))
+    def __mul__(self, rhs: UnparsedSize):
+        return Size(super(Size, self).__mul__(Size(rhs)))
 
     BYTE: Size
     KILOBYTE: Size
@@ -852,7 +860,7 @@ class DataType(str):
         npt = DataType._TO_NUMPY.get(self, None)
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
-        return npt
+        return cast(np.dtype, npt)
 
     @property
     def density(self) -> Density:
@@ -917,7 +925,10 @@ CrudeTimeStamp: TypeAlias = Union[
     np.int64,
 ]
 CrudeTimeSpan: TypeAlias = Union[
-    int | TimeSpan | TimeStamp,
+    int,
+    float,
+    TimeSpan,
+    TimeStamp,
     timedelta,
     np.timedelta64,
 ]

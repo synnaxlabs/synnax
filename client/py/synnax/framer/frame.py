@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload
+from typing import Literal, overload, get_args, cast
 
 from pandas import DataFrame
 
@@ -58,15 +58,18 @@ class ColumnType:
 
     @classmethod
     def from_channel_params(cls, columns: ChannelParams) -> ColumnType:
-        if len(columns) == 0:
+        normal = normalize(columns)
+        if len(normal) == 0:
             return cls(None)
-        first = normalize(columns)[0]
+        first = normal[0]
         if isinstance(first, ChannelKey):
             return cls("keys")
         return cls("names")
 
-    def __eq__(self, other: _ColumnTypeT):
-        c = ColumnType(other)
+    def __eq__(self, rhs: object):
+        if not isinstance(rhs, get_args(_ColumnTypeT)):
+            return False
+        c = ColumnType(cast(_ColumnTypeT, rhs))
         return self.v is None or c.v is None or c.v == self.v
 
 
@@ -77,12 +80,12 @@ class Frame:
     def __init__(
         self,
         columns_or_data: ChannelKeys
-        | ChannelNames
-        | DataFrame
-        | Frame
-        | FramePayload
-        | dict[ChannelKey, TypedCrudeSeries]
-        | None = None,
+                         | ChannelNames
+                         | DataFrame
+                         | Frame
+                         | FramePayload
+                         | dict[ChannelKey, TypedCrudeSeries]
+                         | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(columns_or_data, Frame):
@@ -100,8 +103,8 @@ class Frame:
         elif (series is None or isinstance(series, list)) and (
             columns_or_data is None or isinstance(columns_or_data, list)
         ):
-            self.series = series or list()
-            self.columns = columns_or_data or list()
+            self.series = series or list[Series]()
+            self.columns = columns_or_data or list[ChannelKey]()
         else:
             raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {columns_or_data}
@@ -116,43 +119,44 @@ class Frame:
         return ColumnType.from_channel_params(self.columns)
 
     @overload
-    def append(self, label: ChannelKey | ChannelName, array: Series) -> None:
+    def append(self, col_or_frame: ChannelKey | ChannelName, array: Series) -> None:
         ...
 
     @overload
-    def append(self, frame: Frame) -> None:
+    def append(self, col_or_frame: Frame) -> None:
         ...
 
     def append(
         self,
-        key_or_frame: ChannelKey | ChannelName | Frame,
+        col_or_frame: ChannelKey | ChannelName | Frame,
         array: Series | None = None,
     ) -> None:
-        if isinstance(key_or_frame, Frame):
-            if self.col_type != key_or_frame.col_type:
+        if isinstance(col_or_frame, Frame):
+            if self.col_type != col_or_frame.col_type:
                 raise ValidationError(
                     f"""
                     Cannot append frame with different label type
-                    {self.col_type} != {key_or_frame.col_type}
+                    {self.col_type} != {col_or_frame.col_type}
                 """
                 )
-            self.series.extend(key_or_frame.series)
-            self.columns.extend(key_or_frame.columns)
+            self.series.extend(col_or_frame.series)  # type: ignore
+            self.columns.extend(col_or_frame.columns)  # type: ignore
         else:
             if array is None:
                 raise ValidationError("Cannot append key without array")
-            if self.col_type != ColumnType.from_channel_params([key_or_frame]):
+            if self.col_type != ColumnType.from_channel_params(
+                [col_or_frame]):  # type: ignore
                 raise ValidationError("Cannot append array with different label type")
             self.series.append(array)
-            self.columns.append(key_or_frame)
+            self.columns.append(col_or_frame)  # type: ignore
 
     def items(
         self,
     ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
-        return zip(self.columns, self.series)
+        return zip(self.columns, self.series) # type: ignore
 
     def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
-        return self.series[self.columns.index(key)]
+        return self.series[self.columns.index(key)] # type: ignore
 
     def get(
         self, key: ChannelKey | ChannelName, default: Series | None = None

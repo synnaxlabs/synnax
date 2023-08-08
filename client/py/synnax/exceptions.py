@@ -46,15 +46,15 @@ class ValidationError(Exception):
 
     fields: list[Field]
 
-    def __init__(self, fieldsOrMessage: list[dict] | str | Field):
-        if isinstance(fieldsOrMessage, Field):
-            self.fields = [fieldsOrMessage]
-            super(ValidationError, self).__init__(fieldsOrMessage.message)
-        elif isinstance(fieldsOrMessage, str):
+    def __init__(self, fields_or_message: list[dict] | str | Field):
+        if isinstance(fields_or_message, Field):
+            self.fields = [fields_or_message]
+            super(ValidationError, self).__init__(fields_or_message.message)
+        elif isinstance(fields_or_message, str):
             self.fields = list()
-            super(ValidationError, self).__init__(fieldsOrMessage)
+            super(ValidationError, self).__init__(fields_or_message)
         else:
-            self.fields = [Field(f["field"], f["message"]) for f in fieldsOrMessage]
+            self.fields = [Field(f["field"], f["message"]) for f in fields_or_message]
             super(ValidationError, self).__init__(self.__str__())
 
     def __str__(self):
@@ -153,7 +153,7 @@ def parse_payload(pld: APIExceptionPayload) -> Exception | None:
         return UnexpectedError(pld.error)
 
     if pld.type == APIErrorType.VALIDATION.value:
-        return ValidationError(pld.error)
+        return ValidationError([pld.error])
 
     if pld.type == APIErrorType.QUERY.value:
         return QueryError(pld.error["message"])
@@ -164,7 +164,7 @@ def parse_payload(pld: APIExceptionPayload) -> Exception | None:
     return Exception("unable to parse error")
 
 
-def _decode(encoded: str) -> Exception:
+def _decode(encoded: str) -> Exception | None:
     dct = json.loads(encoded)
     pld = APIExceptionPayload(**dct)
     return parse_payload(pld)

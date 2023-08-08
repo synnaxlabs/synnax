@@ -35,7 +35,7 @@ class CSVReader(CSVMatcher):  # type: ignore
     _skip_rows: int
 
     # Doing a protocol implementation check here because
-    # it's hard for pyright to handle factories that retun
+    # it's hard for pyright to handle factories that return
     # protocol classes.
     def _(self) -> RowFileReader:
         return self
@@ -158,7 +158,7 @@ class CSVWriter(CSVMatcher):  # type: ignore
         self._header = True
 
     # Doing a protocol implementation check here because
-    # it's hard for pyright to handle factories that retun
+    # it's hard for pyright to handle factories that return
     # protocol classes.
     def _(self) -> FileWriter:
         return self

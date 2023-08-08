@@ -27,7 +27,7 @@ class ClustersConfig:
     def get(self, key: str = "default") -> ClusterConfig | None:
         c = self.internal.get(f"clusters.{key}")
         if c is None:
-            return
+            return None
         opts = c["options"]
         pwd = keyring.get_password("synnax", key)
         pwd = pwd or ""

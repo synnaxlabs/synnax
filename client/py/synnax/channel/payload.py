@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
 from dataclasses import dataclass
 
@@ -20,8 +20,8 @@ from synnax.util.normalize import normalize
 
 ChannelKey = int
 ChannelName = str
-ChannelKeys = tuple[int] | list[int]
-ChannelNames = tuple[str] | list[str]
+ChannelKeys = list[int]
+ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
 
 
@@ -43,21 +43,35 @@ class ChannelPayload(Payload):
 
 
 @dataclass
-class NormalizedChannelParams:
+class NormalizedChannelKeyResult:
     single: bool
-    variant: Literal["keys", "names"]
-    params: ChannelNames | ChannelKeys
+    variant: Literal["keys"]
+    params: ChannelKeys
+
+
+@dataclass
+class NormalizedChannelNameResult:
+    single: bool
+    variant: Literal["names"]
+    params: ChannelNames
 
 
 def normalize_channel_params(
     params: ChannelParams,
-) -> NormalizedChannelParams:
+) -> NormalizedChannelKeyResult | NormalizedChannelNameResult:
     """Determine if a list of keys or names is a single key or name."""
     normalized = normalize(params)
     if len(normalized) == 0:
         raise ValueError("no keys or names provided")
-    return NormalizedChannelParams(
-        single=isinstance(params, (str, int)),
-        variant="keys" if isinstance(normalized[0], int) else "names",
-        params=normalized,
+    single = isinstance(params, (ChannelKey, ChannelName))
+    if isinstance(normalized[0], str):
+        return NormalizedChannelNameResult(
+            single=single,
+            variant="names",
+            params=cast(ChannelNames, normalized),
+        )
+    return NormalizedChannelKeyResult(
+        single=single,
+        variant="keys",
+        params=cast(ChannelKeys, normalized),
     )
