@@ -50,7 +50,7 @@ class Transport:
         self.stream_async = WebsocketClient(
             base_url=self.url,
             encoder=MsgpackEncoder(),
-            max_message_size=int(Size.MEGABYTE * 5),
+            max_message_size=int(Size.MB * 5),
             secure=secure,
             open_timeout=open_timeout.seconds,
             ping_interval=keep_alive.seconds,

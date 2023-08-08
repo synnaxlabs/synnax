@@ -75,7 +75,7 @@ class TestTimeStamp:
             (np.int64(1000), TimeStamp(1 * TimeSpan.MICROSECOND)),
         ],
     )
-    def test_init(self, crude: CrudeTimeStamp, expected: TimeStamp):
+    def test_construction(self, crude: CrudeTimeStamp, expected: TimeStamp):
         """Should initialize a timestamp from a variety of types"""
         assert TimeStamp(crude) == expected
 
@@ -101,8 +101,7 @@ class TestTimeStamp:
         assert ts >= TimeSpan.MICROSECOND
 
     def test_after_eq_before(self):
-        """Should return true if the timestamp is after or equal to the given timestamp
-        """
+        """Should return true if the timestamp is after or equal to the given timestamp"""
         ts = TimeStamp(100)
         assert not ts >= TimeSpan.MICROSECOND
 
@@ -117,14 +116,12 @@ class TestTimeStamp:
         assert ts < TimeSpan.MICROSECOND
 
     def test_before_eq_before(self):
-        """Should return true if the timestamp is before or equal to the given timestamp
-        """
+        """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = TimeStamp(100)
         assert ts <= TimeSpan.MICROSECOND
 
     def test_before_eq_after(self):
-        """Should return true if the timestamp is before or equal to the given timestamp
-        """
+        """Should return true if the timestamp is before or equal to the given timestamp"""
         ts = TimeStamp(1000)
         assert ts <= TimeSpan.MICROSECOND
 
@@ -161,11 +158,6 @@ class TestTimeStamp:
             2022, 2, 22, 20, 41, 50, tzinfo=timezone.utc
         )
 
-    def test_mod(self):
-        """Should correctly return the remainder of a standard TimeStamp divisor"""
-        ts1 = TimeStamp(1 * TimeSpan.DAY + 1 * TimeSpan.HOUR)
-        assert ts1.mod(TimeSpan.DAY) == (1 * TimeSpan.HOUR)
-
     def test_trunc(self):
         """Should correctly return the truncation of a standard TimeSpan divisor"""
         ts1 = TimeStamp(1 * TimeSpan.DAY + 1 * TimeSpan.HOUR)
@@ -174,7 +166,7 @@ class TestTimeStamp:
 
 @pytest.mark.telem
 class TestTimeRange:
-    def test_init_from_datetime(self):
+    def test_construction_from_datetime(self):
         """Should initialize a TimeRange from a datetime"""
         dt = datetime(2020, 1, 1, 0, 0, 0).astimezone()
         dt2 = datetime(2021, 1, 1, 0, 0, 0).astimezone()
@@ -214,15 +206,13 @@ class TestTimeRange:
         assert tr.contains(TimeStamp(0))
 
     def test_range_not_contains_range(self):
-        """Should return true if the ranges overlap but a smaller range is not contained
-        """
+        """Should return true if the ranges overlap but a smaller range is not contained"""
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
     def test_range_contains_range(self):
-        """Should return true if the ranges overlap and the smaller range is contained
-        """
+        """Should return true if the ranges overlap and the smaller range is contained"""
         tr = TimeRange(0, 1000)
         tr2 = TimeRange(500, 900)
         assert tr.contains(tr2)
@@ -290,7 +280,7 @@ class TestTimeSpan:
             (np.int64(1000), 1 * TimeSpan.MICROSECOND),
         ],
     )
-    def test_init(self, crude: CrudeTimeSpan, expected: TimeSpan):
+    def test_construction(self, crude: CrudeTimeSpan, expected: TimeSpan):
         assert TimeSpan(crude) == expected
 
     def test_seconds(self):
@@ -346,7 +336,7 @@ class TestRate:
             (1000, Rate(1000.0)),
         ],
     )
-    def test_init(self, crude: CrudeRate, expected: Rate):
+    def test_construction(self, crude: CrudeRate, expected: Rate):
         assert Rate(crude) == expected
 
     def test_invalid_init(self):
@@ -367,8 +357,7 @@ class TestRate:
         assert Rate(1.0).size_span(Size(40), Density.BIT64) == 5 * TimeSpan.SECOND
 
     def test_byte_span_invalid(self):
-        """Should raise a contiguity error if the size is not a multiple of the density
-        """
+        """Should raise a contiguity error if the size is not a multiple of the density"""
         with pytest.raises(ContiguityError):
             Rate(1.0).size_span(Size(41), Density.BIT64)
 
@@ -384,7 +373,7 @@ class TestDataType:
             ("int64", DataType.INT64),
         ],
     )
-    def test_init(self, crude: CrudeDataType, expected: DataType):
+    def test_construction(self, crude: CrudeDataType, expected: DataType):
         assert DataType(crude) == expected
 
     def test_invalid_init(self):
@@ -403,6 +392,25 @@ class TestDataType:
     def test_np(self, value, expected):
         """Should return the correct numpy representation of the data type"""
         assert value.np == expected
+
+
+@pytest.mark.telem
+class TestSize:
+    @pytest.mark.parametrize(
+        "crude, expected", [(1, Size.BYTE), (1.0, Size.BYTE), (Size.BYTE, Size.BYTE)]
+    )
+    def test_construction(self, crude, expected):
+        assert Size(crude) == expected
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            (Size.GB + Size.MB * 500, "1gb 500mb"),
+            (Size.GB * 0, "0b")
+        ]
+    )
+    def test_str(self, value, expected):
+        assert str(value) == expected
 
 
 @pytest.mark.telem

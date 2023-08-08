@@ -21,7 +21,7 @@ from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelKeys,
-    ChannelNames
+    ChannelNames,
 )
 
 
@@ -65,7 +65,7 @@ class ClusterChannelRetriever:
         params: ChannelKey | ChannelName,
     ) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
-        return self.__execute(_Request(**{normal.variant: normal.params})) # type: ignore
+        return self.__execute(_Request(**{normal.variant: normal.params}))  # type: ignore
 
     def __execute(
         self,
@@ -115,7 +115,7 @@ class CacheChannelRetriever:
         for p in normal.params:
             ch = self.__get(p)
             if ch is None:
-                to_retrieve.append(p) # type: ignore
+                to_retrieve.append(p)  # type: ignore
             else:
                 results.append(ch)
 

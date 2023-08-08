@@ -57,8 +57,10 @@ class RangeChannel(ChannelPayload):
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
 
 
-_RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been created.
-Please call client.ranges.create(range) before attempting to read from a range.""")
+_RANGE_NOT_CREATED = QueryError(
+    """Cannot read from a range that has not been created.
+Please call client.ranges.create(range) before attempting to read from a range."""
+)
 
 
 class Range(RangePayload):
