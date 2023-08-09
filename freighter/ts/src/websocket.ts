@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { RUNTIME, URL, buildQueryString } from "@synnaxlabs/x";
+import type { EncoderDecoder } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import type { EncoderDecoder } from "@/encoder";
 import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { MiddlewareCollector, Context } from "@/middleware";

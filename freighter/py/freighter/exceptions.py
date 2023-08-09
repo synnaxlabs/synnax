@@ -86,7 +86,7 @@ def encode_exception(exc: Exception) -> ExceptionPayload:
     return REGISTRY.encode(exc)
 
 
-def decode_exception(encoded: ExceptionPayload) -> Exception | None:
+def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
     """Decode decodes an error payload into an exception. If a custom decoder can be found
     for the error type, it will be used. Otherwise, a generic Exception containing the
     error data is returned.
@@ -94,7 +94,7 @@ def decode_exception(encoded: ExceptionPayload) -> Exception | None:
     :param encoded: The encoded error payload.
     :return: The decoded exception.
     """
-    return REGISTRY.decode(encoded)
+    return None if encoded is None else REGISTRY.decode(encoded)
 
 
 class Unreachable(Exception):

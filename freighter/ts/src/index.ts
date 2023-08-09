@@ -12,8 +12,9 @@ export {
   JSONEncoderDecoder,
   MsgpackEncoderDecoder,
   registerCustomTypeEncoder,
-} from "@/encoder";
-export type { EncoderDecoder } from "@/encoder";
+} from "@synnaxlabs/x";
+
+export type { EncoderDecoder } from "@synnaxlabs/x";
 export {
   BaseTypedError,
   decodeError,
