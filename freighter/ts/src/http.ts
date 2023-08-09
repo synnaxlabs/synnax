@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RUNTIME, URL } from "@synnaxlabs/x";
+import { RUNTIME, URL, EncoderDecoder } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { EncoderDecoder } from "@/encoder";
 import { errorZ, decodeError, Unreachable } from "@/errors";
 import { Context, MiddlewareCollector } from "@/middleware";
 import { UnaryClient } from "@/unary";

@@ -69,7 +69,7 @@ export class AetherYAxis extends AetherComposite<
     this.internal.render = RenderContext.use(this.ctx);
     const theme = ThemeContext.use(this.ctx);
     this.internal.core = new AxisCanvas(this.internal.render, {
-      color: theme.colors.gray.p2,
+      color: theme.colors.gray.p1,
       font: fontString(theme, "small"),
       gridColor: theme.colors.gray.m2,
       ...this.state,

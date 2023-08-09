@@ -19,7 +19,6 @@ from synnax.framer.frame import FramePayload
 @pytest.mark.telem
 class TestFrame:
     def test_construction_from_cols_and_series(self):
-        print(isinstance(["big", "red", "dog"], list))
         f = sy.Frame(["big", "red", "dog"], [np.array([1, 2, 3]), np.array([4, 5, 6])])
         assert f.col_type == "names"
         assert f["big"][0] == 1
