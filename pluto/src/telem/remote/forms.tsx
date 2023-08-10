@@ -13,7 +13,7 @@ import { ChannelKey } from "@synnaxlabs/client";
 
 import { ChannelSelect, ChannelSelectProps } from "@/channel";
 import { Input, InputControl } from "@/core";
-import { RangeNumerictelemProps } from "@/telem/range/aether";
+import { RangeNumerictelemProps } from "@/telem/remote/aether";
 import { componentRenderProp } from "@/util/renderProp";
 
 export interface RangeNumericTelemFormProps

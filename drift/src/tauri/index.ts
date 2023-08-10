@@ -8,13 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import {
-  CrudeDimensions,
-  CrudeXY,
-  debounce as debounceF,
-  Dimensions,
-  XY,
-} from "@synnaxlabs/x";
+import { CrudeDimensions, CrudeXY, debounce as debounceF } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
 import {
@@ -113,7 +107,6 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     const { size, minSize, maxSize, position, ...rest } = props;
-    console.log(rest.transparent);
     const w = new WebviewWindow(label, {
       x: position?.x,
       y: position?.y,
@@ -305,9 +298,15 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
 const parsePosition = async (
   position: PhysicalPosition,
   scaleFactor: number
-): Promise<CrudeXY> => new XY(position.toLogical(scaleFactor)).crude;
+): Promise<CrudeXY> => {
+  const logical = position.toLogical(scaleFactor);
+  return { x: logical.x, y: logical.y };
+};
 
 const parseSize = async (
   size: PhysicalSize,
   scaleFactor: number
-): Promise<CrudeDimensions> => new Dimensions(size.toLogical(scaleFactor)).crude;
+): Promise<CrudeDimensions> => {
+  const logical = size.toLogical(scaleFactor);
+  return { width: logical.width, height: logical.height };
+};

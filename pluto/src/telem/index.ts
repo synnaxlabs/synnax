@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RangeTelem } from "@/telem/range/main";
+import { RangeTelem } from "@/telem/remote/main";
 import { StaticTelem } from "@/telem/static/main";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 

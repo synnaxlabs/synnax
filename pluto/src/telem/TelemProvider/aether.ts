@@ -16,7 +16,7 @@ import { TelemSourceProps } from "@/core/vis/telem/TelemSource";
 import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
-import { RangeTelemFactory } from "@/telem/range/aether";
+import { RangeTelemFactory } from "@/telem/remote/aether";
 import { StaticTelemFactory } from "@/telem/static/aether";
 
 export const telemState = z.object({
@@ -26,30 +26,24 @@ export const telemState = z.object({
 export type TelemState = z.input<typeof telemState>;
 
 export class Telem extends AetherComposite<typeof telemState> {
-  factory: CompoundTelemFactory;
   readonly telem: Map<string, ModifiableTelemSourceMeta> = new Map();
-  client: ClientProxy;
+  client: ClientProxy = new ClientProxy()
+  factory: CompoundTelemFactory = new CompoundTelemFactory([
+    new StaticTelemFactory(),
+    new RangeTelemFactory(this.client)
+  ])
+
 
   static readonly TYPE = "telem";
   static readonly z = telemState;
   schema = Telem.z;
 
-  constructor(update: AetherUpdate) {
-    super(update);
-    TelemContext.set(update.ctx, this);
-    this.client = new ClientProxy();
-    this.factory = new CompoundTelemFactory([
-      new StaticTelemFactory(),
-      new RangeTelemFactory(this.client),
-    ]);
-  }
-
   get<T>(key: string, props: TelemSourceProps): UseTelemResult<T> {
     // try to get the source
-    let source = this.telem.get(key);
-    if (source != null) source?.setProps(props.props);
-    else source = this.newSource(key, props.type, props.props);
-    return { telem: source as T, cleanupTelem: () => this.remove(key) };
+    let telem = this.telem.get(key);
+    if (telem != null) telem.setProps(props.props);
+    else telem = this.newSource(key, props.type, props.props);
+    return { telem: telem as T, cleanupTelem: () => this.remove(key) };
   }
 
   private remove(key: string): void {

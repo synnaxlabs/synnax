@@ -23,7 +23,6 @@ const transferrable = z.union([
  * to the telemetry source on the worker thread.
  */
 export const telemSourceProps = z.object({
-  variant: z.string(),
   type: z.string(),
   props: z.any(),
   transfer: z.array(transferrable).optional(),
@@ -35,18 +34,6 @@ export const telemSourceProps = z.object({
  * to the telemetry source on the worker thread.
  */
 export type TelemSourceProps = z.infer<typeof telemSourceProps>;
-
-/**
- * Meta data for telemetry source that provides X and Y correlated data.
- */
-export const xyTelemSourceProps = telemSourceProps.extend({
-  variant: z.literal("xy"),
-});
-
-/**
- * Meta data for telemetry source that provides X and Y correlated data.
- */
-export type XYTelemSourceProps = z.infer<typeof xyTelemSourceProps>;
 
 /**
  * A telemetry source that provides X and Y correlated data.
@@ -95,44 +82,20 @@ export interface XYTelemSource {
   onChange: (f: () => void) => void;
 }
 
-export const numericTelemSourceProps = telemSourceProps.extend({
-  variant: z.literal("numeric"),
-});
-
-export type NumericTelemSourceProps = z.infer<typeof numericTelemSourceProps>;
-
 export interface NumericTelemSource {
   value: () => Promise<number>;
   onChange: (f: () => void) => void;
 }
 
-export const CrudeColorelemSourceProps = telemSourceProps.extend({
-  variant: z.literal("color"),
-});
-
-export type CrudeColorelemSourceProps = z.infer<typeof CrudeColorelemSourceProps>;
-
-export interface CrudeColorelemSource {
+export interface ColorTelemSource {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
 }
-
-export const booleanTelemSourceProps = telemSourceProps.extend({
-  variant: z.literal("boolean"),
-});
-
-export type BooleanTelemSinkMeta = z.infer<typeof booleanTelemSourceProps>;
 
 export interface BooleanTelemSource {
   value: () => Promise<boolean>;
   onChange: (f: () => void) => void;
 }
-
-export const booleanTelemSinkProps = telemSourceProps.extend({
-  variant: z.literal("boolean"),
-});
-
-export type BooleanTelemSinkProps = z.infer<typeof booleanTelemSinkProps>;
 
 export interface BooleanTelemSink {
   set: (value: boolean) => void;

@@ -10,11 +10,11 @@
 import { ReactElement } from "react";
 
 import {
-  useSelectWindow,
   setWindowMaximized,
   setWindowMinimized,
   setWindowFullscreen,
 } from "@synnaxlabs/drift";
+import { useSelectWindow } from "@synnaxlabs/drift/react";
 import {
   Controls as PControls,
   ControlVariant,

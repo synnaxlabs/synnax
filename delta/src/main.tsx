@@ -9,9 +9,8 @@
 
 import { ReactElement } from "react";
 
-import { Provider } from "@synnaxlabs/drift";
-import { Pluto, Trigger } from "@synnaxlabs/pluto";
-import { TriggersProviderProps } from "@synnaxlabs/pluto/src/core/triggers/TriggersContext";
+import { Provider } from "@synnaxlabs/drift/react";
+import { Pluto, Trigger, TriggersProviderProps } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";

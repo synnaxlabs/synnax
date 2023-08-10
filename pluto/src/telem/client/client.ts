@@ -15,20 +15,25 @@ import {
   Streamer,
   Synnax,
 } from "@synnaxlabs/client";
-import { Compare, Series, TimeRange } from "@synnaxlabs/x";
+import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
 
 import { ChannelCache } from "@/telem/client/cache";
 
-export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
+export type StreamHandler = (data: Record<ChannelKey, ReadResponse>) => void;
 
-export interface Client {
-  readonly core: Synnax;
-  read: (
-    tr: TimeRange,
-    channels: ChannelKeys
-  ) => Promise<Record<ChannelKey, ReadResponse>>;
-  setStreamHandler: (handler: StreamHandler, keys: ChannelKeys) => void;
-  removeStreamHandler: (handler: StreamHandler) => void;
+export interface ChannelClient {
+  retrieveChannel: (key: ChannelKey) => Promise<Channel>;
+}
+
+export interface StaticClient {
+  read: (tr: TimeRange, keys: ChannelKeys) => Promise<Record<ChannelKey, ReadResponse>>;
+}
+
+export interface StreamClient {
+  stream: (handler: StreamHandler, keys: ChannelKeys) => Promise<Destructor>;
+}
+
+export interface Client extends ChannelClient, StaticClient, StreamClient {
   close: () => void;
 }
 
@@ -39,13 +44,13 @@ export class ClientProxy implements Client {
     this._client = null;
   }
 
+  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+    return await this.client.retrieveChannel(key);
+  }
+
   swap(client: Client | null): void {
     this._client?.close();
     this._client = client;
-  }
-
-  get core(): Synnax {
-    return this.client.core;
   }
 
   private get client(): Client {
@@ -60,12 +65,8 @@ export class ClientProxy implements Client {
     return await this.client.read(tr, channels);
   }
 
-  setStreamHandler(handler: StreamHandler, keys: ChannelKeys): void {
-    this.client.setStreamHandler(handler, keys);
-  }
-
-  removeStreamHandler(handler: StreamHandler): void {
-    this.client.removeStreamHandler(handler);
+  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+    return await this.client.stream(handler, keys);
   }
 
   close(): void {
@@ -86,6 +87,10 @@ export class BaseClient implements Client {
     this.listeners = new Map();
   }
 
+  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+    return await this.core.channels.retrieve(key);
+  }
+
   /**
    * Reads telemetry from the given channels for the given time range.
    *
@@ -97,6 +102,7 @@ export class BaseClient implements Client {
    * i.e. the same number of Seriess where each Series has the same length.
    * It's up to the caller to normalize the data shape if necessary.
    */
+
   async read(
     tr: TimeRange,
     channels: ChannelKeys
@@ -142,7 +148,7 @@ export class BaseClient implements Client {
     return responses;
   }
 
-  async setStreamHandler(handler: StreamHandler, keys: ChannelKeys): Promise<void> {
+  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
     this.listeners.set(handler, keys);
     const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
     for (const key of keys) {
@@ -151,9 +157,10 @@ export class BaseClient implements Client {
     }
     handler(dynamicBuffs);
     void this.updateStreamer();
+    return () => this.removeStreamHandler(handler);
   }
 
-  removeStreamHandler(handler: StreamHandler): void {
+  private removeStreamHandler(handler: StreamHandler): void {
     this.listeners.delete(handler);
     void this.updateStreamer();
   }
@@ -174,6 +181,7 @@ export class BaseClient implements Client {
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
+      this._streamer?.close();
       this._streamer = null;
     }
 

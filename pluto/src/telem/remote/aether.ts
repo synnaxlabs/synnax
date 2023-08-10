@@ -53,92 +53,6 @@ const rangeXYTelemCoreProps = z.object({
   y: z.number(),
 });
 
-class RangeXYTelemCore {
-  key: string;
-  variant = "xy";
-  client: Client;
-  valid: boolean = false;
-  handler: (() => void) | null = null;
-  _x: Series[] = [];
-  _y: Series[] = [];
-
-  constructor(key: string, client: Client) {
-    this.key = key;
-    this.client = client;
-  }
-
-  invalidate(): void {
-    this.valid = false;
-    this.handler?.();
-  }
-
-  acquire(gl?: GLBufferController): void {
-    this._x?.forEach((x) => x.acquire(gl));
-    this._y?.forEach((y) => y.acquire(gl));
-  }
-
-  async x(gl?: GLBufferController): Promise<Series[]> {
-    const x = this._x;
-    if (gl != null) x.forEach((x) => x.updateGLBuffer(gl));
-    return x;
-  }
-
-  async y(gl?: GLBufferController): Promise<Series[]> {
-    const y = this._y;
-    if (gl != null) y.forEach((y) => y.updateGLBuffer(gl));
-    return y;
-  }
-
-  async xBounds(): Promise<Bounds> {
-    const x = await this.x();
-    return Bounds.max(x.map((x) => x.bounds));
-  }
-
-  async yBounds(): Promise<Bounds> {
-    const y = await this.y();
-    return Bounds.max(y.map((y) => y.bounds));
-  }
-
-  async retrieveChannels(
-    y: number,
-    x?: number
-  ): Promise<{ y: Channel; x: Channel | null }> {
-    const yChan = await this.client.core.channels.retrieve(y);
-    if (x == null) x = yChan.index;
-    return {
-      y: yChan,
-      x: x === 0 ? null : await this.client.core.channels.retrieve(x),
-    };
-  }
-
-  async readFixed(tr: TimeRange, y: number, x?: number): Promise<void> {
-    const { x: xChan } = await this.retrieveChannels(y, x);
-    const toRead = [y];
-    if (xChan != null) toRead.push(xChan.key);
-    const d = await this.client.read(tr, toRead);
-    const rate = d[y].channel.rate;
-    this._y = d[y].data;
-    // We need to generate a time array because the channel is rate based.
-    const mustGenerate = toRead.length === 1;
-    if (mustGenerate) {
-      this._x = this._y.map((arr) =>
-        Series.generateTimestamps(arr.length, rate, tr.start)
-      );
-    } else {
-      this._x = d[x as number].data;
-    }
-  }
-
-  onChange(f: () => void): void {
-    this.handler = f;
-  }
-
-  cleanup(): void {
-    this._x = [];
-    this._y = [];
-  }
-}
-
 export const rangeXYTelemProps = rangeXYTelemCoreProps.extend({
   timeRange: TimeRange.z,
 });
@@ -155,6 +69,9 @@ export class RangeXYTelem extends RangeXYTelemCore implements XYTelemSource {
     this.key = key;
     this.props = rangeXYTelemProps.parse(props_);
   }
+  xBounds: () => Promise<Bounds>;
+  yBounds: () => Promise<Bounds>;
+  onChange: (f: () => void) => void;
 
   async read(gl?: GLBufferController): Promise<void> {
     const { x, y, timeRange } = this.props;
@@ -206,6 +123,9 @@ export class DynamicRangeXYTelem extends RangeXYTelemCore implements XYTelemSour
     this.props = dynamicRangeXYTelemProps.parse(props_);
     this.key = key;
   }
+  xBounds: () => Promise<Bounds>;
+  yBounds: () => Promise<Bounds>;
+  onChange: (f: () => void) => void;
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
@@ -339,7 +259,7 @@ export class RangeNumericTelem
       }
       this.handler?.();
     };
-    this.client.setStreamHandler(this.streamHandler, [channel]);
+    this.client.stream(this.streamHandler, [channel]);
   }
 
   onChange(f: () => void): void {

@@ -10,10 +10,10 @@
 import { ReactElement, useEffect } from "react";
 
 import {
-  setWindowDecorations,
   useSelectWindowAttribute,
   useSelectWindowKey,
-} from "@synnaxlabs/drift";
+} from "@synnaxlabs/drift/react";
+  import {setWindowDecorations} from "@synnaxlabs/drift";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, Space, useOS, CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
