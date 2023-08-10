@@ -20,7 +20,7 @@ import {
 } from "@/core/vis/LinePlot";
 import { Measure } from "@/core/vis/Measure/Measure";
 import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
-import { RangeTelem } from "@/telem/range/main";
+import { RangeTelem } from "@/telem/remote/main";
 
 export const axisProps = z.object({
   id: z.string(),

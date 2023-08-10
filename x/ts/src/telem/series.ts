@@ -56,7 +56,7 @@ export class Series {
    */
   private readonly gl: GL;
   /** The underlying data. */
-  private readonly _data: ArrayBuffer;
+  private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   /** A cached minimum value. */
   private _min?: SampleValue;
@@ -65,7 +65,7 @@ export class Series {
   /** The write position of the buffer. */
   private pos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
-  private refCount: number = 0;
+  private _refCount: number = 0;
 
   static alloc(
     length: number,
@@ -97,6 +97,10 @@ export class Series {
     return new Series(data, DataType.TIMESTAMP, tr);
   }
 
+  get refCount(): number {
+    return this._refCount;
+  }
+
   constructor(
     data: ArrayBuffer | NativeTypedArray,
     dataType?: CrudeDataType,
@@ -125,14 +129,15 @@ export class Series {
   }
 
   acquire(gl?: GLBufferController): void {
-    this.refCount++;
+    this._refCount++;
     if (gl != null) this.updateGLBuffer(gl);
   }
 
-  release(gl?: GLBufferController): void {
-    this.refCount--;
-    if (this.refCount === 0 && gl != null) this.maybeGarbageCollectGLBuffer(gl);
-    else if (this.refCount < 0)
+  release(): void {
+    this._refCount--;
+    if (this._refCount === 0 && this.gl.control != null)
+      this.maybeGarbageCollectGLBuffer(this.gl.control);
+    else if (this._refCount < 0)
       throw new Error("cannot release an array with a negative reference count");
   }
 
@@ -140,7 +145,7 @@ export class Series {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
 
-    // We've filled the entire underlying buffer.
+    // We've filled the entire underlying buffer
     if (this.pos === FULL_BUFFER) return 0;
     const available = this.cap - this.pos;
 
@@ -306,6 +311,7 @@ export class Series {
   }
 
   updateGLBuffer(gl: GLBufferController): void {
+    this.gl.control = gl;
     if (!this.dataType.equals(DataType.FLOAT32))
       throw new Error("Only FLOAT32 arrays can be used in WebGL");
     const { buffer, bufferUsage, prevBuffer } = this.gl;

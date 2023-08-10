@@ -23,7 +23,7 @@ const snakeKeys = <T>(entity: T): Record<string, T[keyof T]> =>
 const camelKeys = <T extends UnknownRecord<T>>(entity: T): Record<string, T[keyof T]> =>
   _camelKeys(entity, options) as Record<string, T[keyof T]>;
 
-export const Case = {
-  toSnake: snakeKeys,
-  toCamel: camelKeys,
-};
+export namespace Case {
+  export const toSnake = snakeKeys;
+  export const toCamel = camelKeys;
+}

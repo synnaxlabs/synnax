@@ -3,7 +3,7 @@
 **Feature Name**: Pluto Visualization <br />
 **Start Date**: 2023-05-30 <br />
 **Authors**: Emiliano Bonilla <br />
-**Status**: Draft <br />
+**Status**: Released <br />
 
 # 0 - Summary
 
@@ -14,9 +14,15 @@ The current design is also highly monolithic and tightly coupled. In this RFC I 
 a new architecture for Synnax's visualization system, implementing a modular
 component based framework that shifts the responsibility of data fetching and rendering
 completely off of the main thread. The goal is to keep the user facing API 'reacty'
-while leveraging all the benefits of shifting the heavy lifting to a worker thread.
+while leveraging all the benefits of moving heavy lifting to a worker thread.
 
 # 1 - Vocabulary
+
+**Pluto** - The Synnax React component library. Source code available [here](../../../pluto).
+**Telemetry** - Data samples received from sensors and sent to actuators; typically
+stored on Synnax server. More details available [here](../../../pluto).
+**Series** - A strongly typed collection of telemetry samples over a time range. The
+fundamental unit of data transfer in Synnax server.
 
 # 2 - Motivation
 

@@ -14,8 +14,8 @@ import { Handle, Position } from "reactflow";
 import { CSS, Input } from "@/core";
 import { ValueLabeled, ValueLabeledProps } from "@/core/vis/Value/ValueLabeled";
 import { Telem } from "@/telem";
-import { RangeNumerictelemProps as RangeNumericTelemProps } from "@/telem/range/aether";
-import { RangeNumericTelemForm } from "@/telem/range/forms";
+import { RangeNumerictelemProps as RangeNumericTelemProps } from "@/telem/remote/aether";
+import { RangeNumericTelemForm } from "@/telem/remote/forms";
 import {
   PIDElementFormProps,
   StatefulPIDElementProps,

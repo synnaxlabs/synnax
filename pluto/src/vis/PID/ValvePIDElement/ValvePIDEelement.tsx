@@ -22,8 +22,8 @@ import {
   Text,
 } from "@/core";
 import { Valve, ValveProps } from "@/core/vis/Valve/Valve";
-import { RangeNumerictelemProps } from "@/telem/range/aether";
-import { RangeNumericTelemForm } from "@/telem/range/forms";
+import { RangeNumerictelemProps } from "@/telem/remote/aether";
+import { RangeNumericTelemForm } from "@/telem/remote/forms";
 import { componentRenderProp } from "@/util/renderProp";
 import {
   PIDElementFormProps,

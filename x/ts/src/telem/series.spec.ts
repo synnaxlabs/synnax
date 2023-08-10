@@ -235,4 +235,18 @@ describe("Series", () => {
       expect(new Float32Array(buf)[2]).toEqual(3);
     });
   });
+
+  describe("acquire", () => {
+    it("should increase the reference count and buffer gl data", () => {
+      const s = new Series(new Float32Array([1, 2, 3]));
+      expect(s.refCount).toEqual(0);
+      const control = new MockGLBufferController();
+      s.acquire(control);
+      expect(s.refCount).toEqual(1);
+      expect(control.createBufferMock).toHaveBeenCalled();
+      s.release();
+      expect(s.refCount).toEqual(0);
+      expect(control.deleteBufferMock).toHaveBeenCalled();
+    });
+  });
 });

@@ -10,7 +10,7 @@
 import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { DynamicCache } from "./dynamic";
+import { DynamicCache } from "@/telem/client/cache/dynamic";
 
 describe("DynamicCache", () => {
   describe("write", () => {

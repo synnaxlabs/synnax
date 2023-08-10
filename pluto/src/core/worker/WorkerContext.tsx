@@ -13,7 +13,6 @@ import {
   createContext,
   memo,
   useContext,
-  useEffect,
   useState,
 } from "react";
 

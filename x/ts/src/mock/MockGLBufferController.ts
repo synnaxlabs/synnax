@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
+import { vi, Mock } from "vitest";
 
-import { GLBufferController } from "..";
+import { GLBufferController } from "@/telem/gl";
 
 export class MockGLBufferController implements GLBufferController {
   ARRAY_BUFFER: number = 1;
@@ -20,14 +20,16 @@ export class MockGLBufferController implements GLBufferController {
   counter: number = 0;
   buffers: Record<number, ArrayBuffer> = {};
 
-  createBufferMock = vi.fn();
-  bufferDataMock = vi.fn();
-  bufferSubDataMock = vi.fn();
-  bindBufferMock = vi.fn();
+  createBufferMock: Mock<[], WebGLBuffer | null> = vi.fn();
+  bufferDataMock: Mock<[number, ArrayBufferLike | number, number]> = vi.fn();
+  bufferSubDataMock: Mock<[number, number, ArrayBufferLike]> = vi.fn();
+  bindBufferMock: Mock<[number, WebGLBuffer | null]> = vi.fn();
+  deleteBufferMock: Mock<[WebGLBuffer | null]> = vi.fn();
 
   deleteBuffer(buffer: WebGLBuffer | null): void {
     // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     if (buffer != null) delete this.buffers[buffer as number];
+    this.deleteBufferMock(buffer);
   }
 
   createBuffer(): WebGLBuffer | null {
@@ -46,7 +48,7 @@ export class MockGLBufferController implements GLBufferController {
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
     else this.buffers[this.targets[target]] = dataOrSize;
 
-    this.bufferDataMock(target, dataOrSize, usage);
+    this.bufferDataMock(target, dataOrSize as any, usage);
   }
 
   bindBuffer(target: number, buffer: WebGLBuffer | null): void {

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast, TypeAlias, Union, get_args
+from typing import Literal, cast, TypeAlias, get_args
 from math import trunc
 
 from datetime import datetime, timedelta, timezone, tzinfo
@@ -249,7 +249,7 @@ class TimeSpan(int):
         if millis != 0:
             v += f"{millis.milliseconds_int}{TimeSpan.MILLISECOND_UNITS} "
         if micros != 0:
-            v += f"${micros.microseconds_int}{TimeSpan.MICROSECOND_UNITS} "
+            v += f"{micros.microseconds_int}{TimeSpan.MICROSECOND_UNITS} "
         if nanos != 0 or len(v) == 0:
             v += f"{nanos.nanoseconds}{TimeSpan.NANOSECOND_UNITS}"
         return v.strip()

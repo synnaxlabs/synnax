@@ -20,7 +20,6 @@ type RequiredRuntime = Manager & MainChecker & Properties;
 const purgeWinStateToProps = (
   window: WindowState & { prerenderLabel?: string }
 ): Omit<WindowProps, "key"> => {
-  console.log(window.transparent);
   const {
     centerCount,
     processCount,
