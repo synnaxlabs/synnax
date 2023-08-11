@@ -68,9 +68,8 @@
         "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": false,
-        "acceptFirstMouse": false,
-        "transparent": true
+        "visible": true,
+        "acceptFirstMouse": false
       }
     ]
   }

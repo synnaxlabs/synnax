@@ -40,7 +40,7 @@ const Example = (): ReactElement => {
   );
 };
 
-export const Primary: StoryFn<typeof Value> = () => <Example />;
+export const Primary: StoryFn<typeof Valve> = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

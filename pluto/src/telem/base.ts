@@ -15,9 +15,10 @@ import { prettyParse } from "@/util/zod";
 
 export class TelemMeta<P extends z.ZodTypeAny> {
   key: string;
-  _props: z.output<P> | undefined = undefined;
-  _prevProps: z.output<P> | undefined = undefined;
+  _props: z.output<P> | null = null;
+  _prevProps: z.output<P> | null = null;
   schema: P | undefined = undefined;
+  notify: (() => void) | null = null;
 
   constructor(key: string) {
     this.key = key;
@@ -54,7 +55,17 @@ export class TelemMeta<P extends z.ZodTypeAny> {
     this._prevProps = p ?? this._props;
   }
 
+  onChange(f: () => void): void {
+    this.notify = f;
+  }
+
   get propsDeepEqual(): boolean {
     return Deep.equal(this.prevProps, this.props);
+  }
+
+  cleanup(): void {
+    this.notify = null;
+    this._prevProps = null;
+    this._props = null;
   }
 }

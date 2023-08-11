@@ -11,6 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
 import { Range } from "./types";
+import { TimeSpan } from "@synnaxlabs/x";
 
 export interface WorkspaceSliceState {
   activeRange: string | null;
@@ -25,7 +26,14 @@ export const WORKSPACE_SLICE_NAME = "workspace";
 
 export const initialState: WorkspaceSliceState = {
   activeRange: null,
-  ranges: {},
+  ranges: {
+    "dog": {
+      key: "dog",
+      name: "Dog",
+      variant: "dynamic",
+      span: Number(TimeSpan.seconds(10)),
+    }
+  },
 };
 
 type AddRangePayload = Range;

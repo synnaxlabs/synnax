@@ -25,13 +25,13 @@ import { Color } from "@/core/color";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
 import { GLProgram, RenderContext, RenderController } from "@/core/vis/render";
-import { XYTelemSource, xyTelemSourceProps } from "@/core/vis/telem";
+import { XYTelemSource, telemSourceProps } from "@/core/vis/telem";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
 
 const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export const lineState = z.object({
-  telem: xyTelemSourceProps,
+  telem: telemSourceProps,
   label: z.string().optional(),
   color: Color.z,
   strokeWidth: z.number().default(1),
@@ -216,7 +216,9 @@ export class AetherLine extends AetherLeaf<typeof lineState, InternalState> {
     const yData = await telem.y(prog.ctx.gl);
     xData.forEach((x, i) => {
       const y = yData[i];
-      if (y == null || x.length === 0 || y.length === 0) return;
+      if (y == null || x.length === 0 || y.length === 0) {
+        return;
+      }
       const p = { ...props, dataToDecimalScale: offsetScale(scale, x, y) };
       const count = prog.bindPropsAndState(p, this.state);
       prog.draw(x, y, count, downsample);

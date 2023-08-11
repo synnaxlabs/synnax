@@ -10,7 +10,7 @@
 import { ReactElement } from "react";
 
 import { Meta } from "@storybook/react";
-import { TimeRange } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { Canvas } from "@/core";
 import { LinePlot, AxisProps, LineProps } from "@/vis/LinePlot";
@@ -25,18 +25,21 @@ const AXES: AxisProps[] = [
     id: "x",
     location: "bottom",
     label: "Time",
+    type: "time",
   },
   {
     id: "y",
     location: "left",
     label: "Value",
+    type: "linear"
   },
 ];
 
 const LINES: LineProps[] = [
   {
-    variant: "static",
-    range: TimeRange.MAX,
+    id: "0",
+    variant: "dynamic",
+    span: TimeSpan.seconds(5),
     axes: {
       x: "x",
       y: "y",
@@ -61,8 +64,7 @@ export const Primary = (): ReactElement => {
         left: 0,
       }}
     >
-      <div style={{ height: "50%" }}></div>
-      <LinePlot axes={AXES} lines={LINES} style={{ height: "50%" }} />
+      <LinePlot axes={AXES} lines={LINES} />
     </Canvas>
   );
 };

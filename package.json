@@ -63,5 +63,13 @@
     },
     "engines": {
         "node": ">=18"
+    },
+    "pnpm": {
+        "overrides": {
+            "vite": "4.3.9",
+            "vite-tsconfig-paths": "^4.2.0",
+            "vite-plugin-dts": "^2.3.0",
+            "typescript": "^5.1.6"
+        }
     }
 }

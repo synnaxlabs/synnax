@@ -7,9 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export interface Range {
+import { CrudeTimeRange, CrudeTimeSpan } from "@synnaxlabs/x";
+
+interface BaseRange {
   name: string;
   key: string;
-  start: number;
-  end: number;
 }
+
+export type StaticRange = BaseRange & {
+  variant: "static";
+  timeRange: CrudeTimeRange;
+}
+
+export type DynamicRange = BaseRange & {
+  variant: "dynamic";
+  span: CrudeTimeSpan;
+}
+
+export type Range  = StaticRange | DynamicRange;

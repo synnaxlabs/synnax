@@ -14,12 +14,7 @@ export default defineConfig({
   plugins: [lib({ name: "x" })],
   build: {
     sourcemap: true,
-    minify: "terser",
-    terserOptions: {
-      format: {
-        comments: false,
-      }
-    }
+    minify: true,
   },
   test: {
     globals: true,

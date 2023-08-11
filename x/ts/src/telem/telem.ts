@@ -1174,7 +1174,7 @@ export type CrudeDataType = DataType | string | NativeTypedArray;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | Number;
 export type SizeT = number;
-export interface TimeRangeT {
+export interface CrudeTimeRange {
   start: TimeStampT;
   end: TimeStampT;
 }

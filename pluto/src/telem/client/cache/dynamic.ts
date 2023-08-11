@@ -66,7 +66,7 @@ export class DynamicCache {
       length,
       DataType.FLOAT32,
       start.spanRange(TimeStamp.MAX),
-      this.dataType.equals(DataType.TIMESTAMP) ? -start.valueOf() : 0
+      this.dataType.equals(DataType.TIMESTAMP) ? start.valueOf() : 0
     );
   }
 

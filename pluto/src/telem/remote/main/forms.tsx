@@ -13,16 +13,12 @@ import { ChannelKey } from "@synnaxlabs/client";
 
 import { ChannelSelect, ChannelSelectProps } from "@/channel";
 import { Input, InputControl } from "@/core";
-import { RangeNumerictelemProps } from "@/telem/remote/aether";
+import { NumericProps } from "@/telem/remote/aether/numeric";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface RangeNumericTelemFormProps
-  extends InputControl<RangeNumerictelemProps> {}
+export interface NumericFormProps extends InputControl<NumericProps> {}
 
-export const RangeNumericTelemForm = ({
-  value,
-  onChange,
-}: RangeNumericTelemFormProps): ReactElement => {
+export const NumericForm = ({ value, onChange }: NumericFormProps): ReactElement => {
   const handleChannelChange = (channel: ChannelKey): void =>
     onChange({ ...value, channel });
 

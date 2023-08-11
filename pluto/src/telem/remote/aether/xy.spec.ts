@@ -16,7 +16,7 @@ import {
   Series,
   TimeRange,
 } from "@synnaxlabs/client";
-import { Bounds, Destructor, MockGLBufferController, TimeSpan } from "@synnaxlabs/x";
+import { Bounds, Destructor, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { XYTelemSource } from "@/core/vis/telem";
@@ -29,6 +29,7 @@ import {
 } from "@/telem/client/client";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
 import { DynamicXY, DynamicXYProps, XY, XYProps } from "@/telem/remote/aether/xy";
+import { MockGLBufferController } from "@/mock/MockGLBufferController";
 
 const X_CHANNEL = new Channel({
   name: "time",
