@@ -82,6 +82,11 @@ class XYCore<
     return Bounds.max(y.map((y) => y.bounds));
   }
 
+  updateBuffers(gl: GLBufferController): void {
+    this._x.forEach((x) => x.updateGLBuffer(gl));
+    this._y.forEach((y) => y.updateGLBuffer(gl));
+  }
+
   async retrieveChannels(
     y: number,
     x?: number
@@ -183,11 +188,13 @@ export class DynamicXY
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
+    if (gl != null) this.updateBuffers(gl);
     return await super.x(gl);
   }
 
   async y(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
+    if (gl != null) this.updateBuffers(gl);
     return await super.y(gl);
   }
 

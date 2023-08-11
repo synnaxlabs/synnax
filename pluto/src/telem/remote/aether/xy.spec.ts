@@ -16,14 +16,19 @@ import {
   Series,
   TimeRange,
 } from "@synnaxlabs/client";
-import { Bounds, MockGLBufferController } from "@synnaxlabs/x";
+import { Bounds, Destructor, MockGLBufferController, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { XY, XYProps } from "./xy";
-
 import { XYTelemSource } from "@/core/vis/telem";
-import { StaticClient, ChannelClient, ReadResponse } from "@/telem/client/client";
+import {
+  StaticClient,
+  ChannelClient,
+  ReadResponse,
+  Client,
+  StreamHandler,
+} from "@/telem/client/client";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
+import { DynamicXY, DynamicXYProps, XY, XYProps } from "@/telem/remote/aether/xy";
 
 const X_CHANNEL = new Channel({
   name: "time",
@@ -54,60 +59,63 @@ const CHANNELS: Record<ChannelKey, Channel> = {
   [Y_CHANNEL_ALT.key]: Y_CHANNEL_ALT,
 };
 
-class MockClient implements StaticClient, ChannelClient {
-  data: Record<ChannelKey, ReadResponse>;
-  retrieveChannelMock = vi.fn();
-  readMock = vi.fn();
-
-  constructor() {
-    const X_CHANNEL_DATA = new Series(
-      new Float32Array([1, 2, 3]),
-      X_CHANNEL.dataType,
-      new TimeRange(0, 10)
-    );
-    const Y_CHANNEL_DATA = new Series(
-      new Float32Array([3, 4, 5]),
-      Y_CHANNEL.dataType,
-      new TimeRange(0, 10)
-    );
-    const Y_CHANNEL_ALT_DATA = new Series(
-      new Float32Array([6, 7, 8]),
-      Y_CHANNEL_ALT.dataType,
-      new TimeRange(0, 10)
-    );
-
-    this.data = {
-      [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, [X_CHANNEL_DATA]),
-      [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, [Y_CHANNEL_DATA]),
-      [Y_CHANNEL_ALT.key]: new ReadResponse(Y_CHANNEL_ALT, [Y_CHANNEL_ALT_DATA]),
-    };
-  }
-
-  async retrieveChannel(key: number): Promise<Channel> {
-    this.retrieveChannelMock(key);
-    const ch = CHANNELS[key];
-    if (ch == null) throw new QueryError(`Channel ${key} does not exist`);
-    return ch;
-  }
-
-  async read(tr: TimeRange, keys: ChannelKeys): Promise<Record<number, ReadResponse>> {
-    const res: Record<ChannelKey, ReadResponse> = {};
-    keys.forEach((key) => {
-      res[key] = this.data[key];
-    });
-    this.readMock(tr, keys);
-    return res;
-  }
-}
-
-const PROPS: XYProps = {
-  timeRange: TimeRange.MAX,
-  x: X_CHANNEL.key,
-  y: Y_CHANNEL.key,
-};
-
 describe("XY", () => {
   describe("Static", () => {
+    class MockClient implements StaticClient, ChannelClient {
+      data: Record<ChannelKey, ReadResponse>;
+      retrieveChannelMock = vi.fn();
+      readMock = vi.fn();
+
+      constructor() {
+        const X_CHANNEL_DATA = new Series(
+          new Float32Array([1, 2, 3]),
+          X_CHANNEL.dataType,
+          new TimeRange(0, 10)
+        );
+        const Y_CHANNEL_DATA = new Series(
+          new Float32Array([3, 4, 5]),
+          Y_CHANNEL.dataType,
+          new TimeRange(0, 10)
+        );
+        const Y_CHANNEL_ALT_DATA = new Series(
+          new Float32Array([6, 7, 8]),
+          Y_CHANNEL_ALT.dataType,
+          new TimeRange(0, 10)
+        );
+
+        this.data = {
+          [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, [X_CHANNEL_DATA]),
+          [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, [Y_CHANNEL_DATA]),
+          [Y_CHANNEL_ALT.key]: new ReadResponse(Y_CHANNEL_ALT, [Y_CHANNEL_ALT_DATA]),
+        };
+      }
+
+      async retrieveChannel(key: number): Promise<Channel> {
+        this.retrieveChannelMock(key);
+        const ch = CHANNELS[key];
+        if (ch == null) throw new QueryError(`Channel ${key} does not exist`);
+        return ch;
+      }
+
+      async read(
+        tr: TimeRange,
+        keys: ChannelKeys
+      ): Promise<Record<number, ReadResponse>> {
+        const res: Record<ChannelKey, ReadResponse> = {};
+        keys.forEach((key) => {
+          res[key] = this.data[key];
+        });
+        this.readMock(tr, keys);
+        return res;
+      }
+    }
+
+    const PROPS: XYProps = {
+      timeRange: TimeRange.MAX,
+      x: X_CHANNEL.key,
+      y: Y_CHANNEL.key,
+    };
+
     let telem: XYTelemSource & ModifiableTelemSourceMeta;
     let client: MockClient;
     beforeEach(() => {
@@ -207,6 +215,67 @@ describe("XY", () => {
         expect(d2).toHaveLength(1);
         expect(client.readMock).not.toHaveBeenCalled();
         expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+      });
+    });
+  });
+  describe("Dynamic", () => {
+    class MockClient implements Client {
+      handler: StreamHandler | undefined = undefined;
+
+      async retrieveChannel(key: number): Promise<Channel> {
+        return CHANNELS[key];
+      }
+
+      async read(
+        tr: TimeRange,
+        keys: ChannelKeys
+      ): Promise<Record<number, ReadResponse>> {
+        return {
+          [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, []),
+          [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, []),
+        };
+      }
+
+      async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+        this.handler = handler;
+        return () => {
+          this.handler = undefined;
+        };
+      }
+
+      close(): void {}
+    }
+
+    const PROPS: DynamicXYProps = {
+      x: 1,
+      y: 2,
+      span: TimeSpan.MAX,
+    };
+
+    let telem: XYTelemSource & ModifiableTelemSourceMeta;
+    let client: MockClient;
+    beforeEach(() => {
+      client = new MockClient();
+      telem = new DynamicXY("1", client);
+      telem.setProps(PROPS);
+    });
+
+    describe("read", () => {
+      it("should bind a stream handler on data request", async () => {
+        const control = new MockGLBufferController();
+        await telem.x(control);
+        expect(client.handler).toBeDefined();
+      });
+      it("should update its internal buffer when the stream handler changes", async () => {
+        const control = new MockGLBufferController();
+        await telem.x(control);
+        client.handler?.({
+          1: new ReadResponse(X_CHANNEL, [new Series(new Float32Array([1, 2, 3]))]),
+          2: new ReadResponse(Y_CHANNEL, [new Series(new Float32Array([4, 5, 6]))]),
+        });
+        control.createBufferMock.mockReset();
+        await telem.x(control);
+        expect(control.createBufferMock).toHaveBeenCalledTimes(2);
       });
     });
   });
