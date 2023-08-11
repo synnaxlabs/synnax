@@ -192,7 +192,7 @@ const buildAxes = (vis: LinePlotState): AxisProps[] =>
         id: key,
         location: axisLocation(key as AxisKey),
         label: axis.label,
-        type: "time",
+        type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
         bounds: axis.bounds,
         labelDirection: axis.labelDirection,
       };
@@ -208,6 +208,15 @@ const buildLines = (
         .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
           const xChannel = vis.channels[xAxis as XAxisKey];
+          const variantArg = range.variant == "dynamic" ? {
+            variant: range.variant,
+            span: range.span,
+          } : {
+            variant: range.variant,
+            timeRange: range.timeRange
+          };
+
+
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
               xAxis: xAxis as XAxisKey,
@@ -231,7 +240,6 @@ const buildLines = (
                 line.strokeWidth === 0
                   ? 1
                   : line.strokeWidth,
-              variant: "static",
               key,
               color: line.color === "" ? "#000000" : line.color,
               axes: {
@@ -242,7 +250,7 @@ const buildLines = (
                 x: xChannel,
                 y: channel,
               },
-              range: new TimeRange(range.start, range.end),
+              ...variantArg
             };
             return v;
           });

@@ -10,13 +10,13 @@
 import { Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { AetherComposite, AetherUpdate } from "@/core/aether/worker";
+import { AetherComposite } from "@/core/aether/worker";
 import { TelemContext, UseTelemResult } from "@/core/vis/telem/TelemContext";
 import { TelemSourceProps } from "@/core/vis/telem/TelemSource";
 import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
 import { ModifiableTelemSourceMeta } from "@/telem/meta";
-import { RangeTelemFactory } from "@/telem/remote/aether";
+import { AetherRemoteTelem } from "@/telem/remote/aether";
 import { StaticTelemFactory } from "@/telem/static/aether";
 
 export const telemState = z.object({
@@ -27,12 +27,11 @@ export type TelemState = z.input<typeof telemState>;
 
 export class Telem extends AetherComposite<typeof telemState> {
   readonly telem: Map<string, ModifiableTelemSourceMeta> = new Map();
-  client: ClientProxy = new ClientProxy()
+  client: ClientProxy = new ClientProxy();
   factory: CompoundTelemFactory = new CompoundTelemFactory([
     new StaticTelemFactory(),
-    new RangeTelemFactory(this.client)
-  ])
-
+    new AetherRemoteTelem.Factory(this.client),
+  ]);
 
   static readonly TYPE = "telem";
   static readonly z = telemState;

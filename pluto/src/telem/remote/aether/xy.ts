@@ -39,7 +39,6 @@ class XYCore<
 > extends TelemMeta<P> {
   client: C;
   valid: boolean = false;
-  notify: (() => void) | null = null;
   _x: Series[] = [];
   _y: Series[] = [];
 
@@ -62,13 +61,13 @@ class XYCore<
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     const x = this._x;
-    if (gl != null) x.forEach((x) => x.updateGLBuffer(gl));
+    if (gl != null) x.slice(-1).forEach((x) => x.updateGLBuffer(gl));
     return x;
   }
 
   async y(gl?: GLBufferController): Promise<Series[]> {
     const y = this._y;
-    if (gl != null) y.forEach((y) => y.updateGLBuffer(gl));
+    if (gl != null) y.slice(-1).forEach((y) => y.updateGLBuffer(gl));
     return y;
   }
 
@@ -83,8 +82,8 @@ class XYCore<
   }
 
   updateBuffers(gl: GLBufferController): void {
-    this._x.forEach((x) => x.updateGLBuffer(gl));
-    this._y.forEach((y) => y.updateGLBuffer(gl));
+    this._x.slice(-1).forEach((x) => x.updateGLBuffer(gl));
+    this._y.slice(-1).forEach((y) => y.updateGLBuffer(gl));
   }
 
   async retrieveChannels(
@@ -115,10 +114,6 @@ class XYCore<
     } else this._x = d[x as number].data;
   }
 
-  onChange(notify: () => void): void {
-    this.notify = notify;
-  }
-
   setProps(props: any): void {
     super.setProps(props);
     if (!this.propsDeepEqual) this.invalidate();
@@ -134,10 +129,10 @@ class XYCore<
 
   cleanup(): void {
     this.release();
-    this.notify = null;
     this.valid = false;
     this._x = [];
     this._y = [];
+    super.cleanup();
   }
 }
 
@@ -188,13 +183,11 @@ export class DynamicXY
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
-    if (gl != null) this.updateBuffers(gl);
     return await super.x(gl);
   }
 
   async y(gl?: GLBufferController): Promise<Series[]> {
     if (!this.valid) await this.read(gl);
-    if (gl != null) this.updateBuffers(gl);
     return await super.y(gl);
   }
 
@@ -212,14 +205,17 @@ export class DynamicXY
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     const handler: StreamHandler = (data) => {
       const yd = data[y.key];
-      if (yd == null) return;
-      yd.data.forEach((arr) => arr.acquire());
-      this._y?.push(...yd.data);
+      if (yd.data.length != 0) {
+        console.log("NEW Y")
+        yd.data.forEach((arr) => arr.acquire());
+        this._y?.push(...yd.data);
+      }
       if (x != null) {
         const xd = data[x.key];
-        if (xd == null) return;
-        xd.data.forEach((arr) => arr.acquire());
-        this._x?.push(...xd.data);
+        if (xd.data.length !== 0) {
+          xd.data.forEach((arr) => arr.acquire());
+          this._x?.push(...xd.data);
+        }
       } else {
         this._x?.push(
           ...yd.data.map((arr) =>

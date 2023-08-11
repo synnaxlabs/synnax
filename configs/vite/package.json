@@ -16,17 +16,18 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.1.3",
-    "vite": "^4.3.9",
-    "vite-plugin-dts": "^2.3.0",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.9",
+    "vite-plugin-dts": "^3.5.1",
     "vite-tsconfig-paths": "^4.2.0"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "peerDependencies": {
-    "vite": "^4.3.9",
-    "vite-plugin-dts": "^2.3.0",
-    "vite-tsconfig-paths": "^4.2.0"
+    "vite": "^4.4.9",
+    "vite-plugin-dts": "^3.5.1",
+    "vite-tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.6"
   }
 }

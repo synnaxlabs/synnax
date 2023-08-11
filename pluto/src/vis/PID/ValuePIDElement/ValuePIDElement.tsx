@@ -14,8 +14,7 @@ import { Handle, Position } from "reactflow";
 import { CSS, Input } from "@/core";
 import { ValueLabeled, ValueLabeledProps } from "@/core/vis/Value/ValueLabeled";
 import { Telem } from "@/telem";
-import { RangeNumerictelemProps as RangeNumericTelemProps } from "@/telem/remote/aether";
-import { RangeNumericTelemForm } from "@/telem/remote/forms";
+import { RemoteTelemNumericProps, RemoteTelem } from "@/telem/remote/main";
 import {
   PIDElementFormProps,
   StatefulPIDElementProps,
@@ -34,7 +33,7 @@ export const ZERO_PROPS: ValuePIDElementProps = {
 };
 
 export interface ValuePIDElementProps extends Omit<ValueLabeledProps, "telem"> {
-  telem: RangeNumericTelemProps;
+  telem: RemoteTelemNumericProps;
 }
 
 const ValuePIDElement = ({
@@ -74,7 +73,7 @@ const ValuePIDElementForm = ({
   value,
   onChange,
 }: PIDElementFormProps<ValuePIDElementProps>): ReactElement => {
-  const handleTelemChange = (telem: RangeNumericTelemProps): void => {
+  const handleTelemChange = (telem: RemoteTelemNumericProps): void => {
     onChange({ ...value, telem });
   };
 
@@ -98,7 +97,7 @@ const ValuePIDElementForm = ({
         value={value.units}
         onChange={handleUnitsChange}
       />
-      <RangeNumericTelemForm value={value.telem} onChange={handleTelemChange} />
+      <RemoteTelem.Form.Numeric value={value.telem} onChange={handleTelemChange} />
     </>
   );
 };

@@ -16,14 +16,11 @@ import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { PIDElement } from "@/core/vis/PID/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
 import { TelemContext } from "@/core/vis/telem/TelemContext";
-import {
-  NumericTelemSource,
-  numericTelemSourceProps,
-} from "@/core/vis/telem/TelemSource";
+import { NumericTelemSource, telemSourceProps } from "@/core/vis/telem/TelemSource";
 
 const valueState = z.object({
   box: Box.z,
-  telem: numericTelemSourceProps,
+  telem: telemSourceProps,
   units: z.string(),
   font: z.string(),
   color: Color.z,

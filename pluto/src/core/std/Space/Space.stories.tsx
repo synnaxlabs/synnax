@@ -45,7 +45,7 @@ const Template: StoryFn<typeof Space> = (args: SpaceProps) => (
   </Space>
 );
 
-export const Basic = Template.bind({});
+export const Basic: StoryFn = Template.bind({});
 Basic.args = {
   direction: "y",
   size: "medium",

@@ -20,7 +20,7 @@ import {
 } from "@/core/vis/LinePlot";
 import { Measure } from "@/core/vis/Measure/Measure";
 import { Tooltip } from "@/core/vis/Tooltip/Tooltip";
-import { RangeTelem } from "@/telem/remote/main";
+import { RemoteTelem } from "@/telem/remote/main";
 
 export const axisProps = z.object({
   id: z.string(),
@@ -30,6 +30,7 @@ export const axisProps = z.object({
   bounds: Bounds.looseZ.optional(),
   color: Color.z.optional(),
   showGrid: z.boolean().optional(),
+  type: z.union([z.literal("time"), z.literal("linear")]),
 });
 
 export type AxisProps = z.input<typeof axisProps>;
@@ -46,7 +47,7 @@ export const coreLineProps = z.object({
     y: z.number(),
   }),
   color: Color.z,
-  strokeWidth: z.number().optional(),
+  strokeWidth: z.number().optional().default(1),
   label: z.string().optional(),
   downsample: z.number().optional(),
 });
@@ -201,7 +202,7 @@ const XAxis = ({
 }: XAxisProps): ReactElement => {
   const _rules = rules?.filter((r) => r.axis === props.id);
   return (
-    <CoreLinePlot.XAxis type="time" {...props} showGrid={showGrid ?? index === 0}>
+    <CoreLinePlot.XAxis {...props} showGrid={showGrid ?? index === 0}>
       {yAxes.map((a, i) => {
         const lines_ = lines.filter((l) => l.axes.y === a.id);
         const rules_ = rules?.filter((r) => r.axis === a.id);
@@ -247,7 +248,7 @@ const YAxis = ({
   ...props
 }: YAxisProps): ReactElement => {
   return (
-    <CoreLinePlot.YAxis type="linear" {...props}>
+    <CoreLinePlot.YAxis {...props}>
       {lines.map((l) =>
         l.variant === "static" ? (
           <StaticLine key={lineKey(l)} {...l} />
@@ -273,7 +274,7 @@ const DynamicLine = ({
   channels: { x, y },
   ...props
 }: ParsedDynamicLineProps): ReactElement => {
-  const telem = RangeTelem.useDynamicXY({ span, x, y });
+  const telem = RemoteTelem.useDynamicXY({ span, x, y });
   return <CoreLinePlot.Line telem={telem} {...props} />;
 };
 
@@ -283,6 +284,6 @@ const StaticLine = ({
   channels: { x, y },
   ...props
 }: ParsedStaticLineProps): ReactElement => {
-  const telem = RangeTelem.useXY({ timeRange: range, x, y });
+  const telem = RemoteTelem.useXY({ timeRange: range, x, y });
   return <CoreLinePlot.Line aetherKey={id} telem={telem} {...props} />;
 };

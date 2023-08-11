@@ -21,11 +21,6 @@ export default defineConfig({
         tauri: path.resolve(".", "src/tauri/index.ts")
       },
     },
-    terserOptions: {
-      format: {
-        comments: false
-      }
-    }
     rollupOptions: {
       external: [
         "react",

@@ -11,8 +11,7 @@ import { useMemo } from "react";
 
 import { Rate } from "@synnaxlabs/x";
 
-import { XYTelemSourceProps } from "@/core/vis/telem";
-import { NumericTelemSourceProps } from "@/core/vis/telem/TelemSource";
+import { TelemSourceProps } from "@/core/vis/telem";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
@@ -21,20 +20,19 @@ import {
   StaticXYTelemProps,
 } from "@/telem/static/aether";
 
-const useStaticXYTelem = (props: StaticXYTelemProps): XYTelemSourceProps => {
+const useStaticXYTelem = (props: StaticXYTelemProps): TelemSourceProps => {
   const transfer = useMemo(
     () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
     [props]
   );
   return {
-    variant: "xy",
     type: StaticXYTelem.TYPE,
     props,
     transfer,
   };
 };
 
-const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceProps => {
+const useIterativeXYTelem = (props: IterativeXYTelemProps): TelemSourceProps => {
   return useMemo(
     () => ({
       variant: "xy",
@@ -49,10 +47,9 @@ const useIterativeXYTelem = (props: IterativeXYTelemProps): XYTelemSourceProps =
   );
 };
 
-const usePointTelem = (value: number): NumericTelemSourceProps => {
+const usePointTelem = (value: number): TelemSourceProps => {
   return {
     type: StaticPointTelem.TYPE,
-    variant: "numeric",
     props: value,
   };
 };

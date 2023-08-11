@@ -11,12 +11,12 @@ import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
 import {
   reducer as driftReducer,
-  TauriRuntime,
   configureStore,
   DRIFT_SLICE_NAME,
   DriftState,
   WindowProps,
 } from "@synnaxlabs/drift";
+import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 

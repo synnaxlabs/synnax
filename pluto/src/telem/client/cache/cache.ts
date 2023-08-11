@@ -26,7 +26,7 @@ export class ChannelCache {
 
   writeDynamic(series: Series[]): Series[] {
     const flushed = this.dynamic.write(series);
-    if (flushed.length > 0)
+    if (flushed.length > 0) {
       this.static.write(
         new TimeRange(
           flushed[0].timeRange.start,
@@ -34,6 +34,8 @@ export class ChannelCache {
         ),
         flushed
       );
+      flushed.push(this.dynamic.buffer)
+    }
     return flushed;
   }
 

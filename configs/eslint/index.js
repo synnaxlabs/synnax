@@ -74,6 +74,7 @@ module.exports = {
         "import/no-default-export": "warn",
         "react/prop-types": "off",
         "prettier/prettier": "error",
+        "@typescript-eslint/no-namespace": "off",
     },
     settings: {
         "import/resolver": {

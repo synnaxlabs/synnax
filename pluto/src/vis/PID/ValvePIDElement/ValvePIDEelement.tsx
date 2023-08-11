@@ -22,8 +22,7 @@ import {
   Text,
 } from "@/core";
 import { Valve, ValveProps } from "@/core/vis/Valve/Valve";
-import { RangeNumerictelemProps } from "@/telem/remote/aether";
-import { RangeNumericTelemForm } from "@/telem/remote/forms";
+import { RemoteTelem, RemoteTelemNumericProps } from "@/telem/remote/main";
 import { componentRenderProp } from "@/util/renderProp";
 import {
   PIDElementFormProps,
@@ -34,7 +33,7 @@ import {
 import "@/vis/PID/ValvePIDElement/ValvePIDElement.css";
 
 export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
-  telem: RangeNumerictelemProps;
+  telem: RemoteTelemNumericProps;
   label: string;
   color: CrudeColor;
 }
@@ -77,7 +76,7 @@ const ValvePIDElementForm = ({
 }: PIDElementFormProps<ValvePIDElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
 
-  const handleTelemChange = (telem: RangeNumerictelemProps): void =>
+  const handleTelemChange = (telem: RemoteTelemNumericProps): void =>
     onChange({ ...value, telem });
 
   const handleColorChange = (color: Color): void =>
@@ -100,7 +99,7 @@ const ValvePIDElementForm = ({
           {componentRenderProp(ColorSwatch)}
         </Input.Item>
       </Space>
-      <RangeNumericTelemForm value={value.telem} onChange={handleTelemChange} />
+      <RemoteTelem.Form.Numeric value={value.telem} onChange={handleTelemChange} />
     </>
   );
 };
