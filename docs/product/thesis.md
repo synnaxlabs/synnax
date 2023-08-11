@@ -29,7 +29,7 @@ deliver better solutions faster.
 
 **Data lies at the core of this process**. From initial design and testing to long term
 operational deployment, the information teams create and collect plays a role in every
-decision. The faster teams can acquire, analyze, and act on this data, the faster they
+decision. The faster they can acquire, analyze, and act on this data, the faster they
 can improve.
 
 Existing data acquisition and control (DAQ) systems pay little attention to the
