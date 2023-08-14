@@ -44,28 +44,23 @@ const ValuePIDElement = ({
   className,
   ...props
 }: StatefulPIDElementProps<ValuePIDElementProps>): ReactElement => {
-  const telem = Telem.Range.useNumeric(pTelem);
+  const telem = Telem.Remote.useNumeric(pTelem);
   const onLabelChange = (label: string): void => {
     onChange({ ...props, label, telem: pTelem });
   };
 
   return (
-    <>
-      {editable && (
-        <>
-          <Handle position={Position.Top} type="source" id="top" />
-          <Handle position={Position.Left} type="target" id="left" />
-          <Handle position={Position.Right} type="source" id="right" />
-          <Handle position={Position.Bottom} type="target" id="bottom" />
-        </>
-      )}
-      <ValueLabeled
-        className={CSS(className, CSS.B("value-pid-element"), CSS.selected(selected))}
-        {...props}
-        telem={telem}
-        onLabelChange={onLabelChange}
-      />
-    </>
+    <ValueLabeled
+      className={CSS(className, CSS.B("value-pid-element"), CSS.selected(selected))}
+      {...props}
+      telem={telem}
+      onLabelChange={onLabelChange}
+    >
+      <Handle position={Position.Top} type="source" id="top" />
+      <Handle position={Position.Left} type="target" id="left" />
+      <Handle position={Position.Right} type="source" id="right" />
+      <Handle position={Position.Bottom} type="target" id="bottom" />
+    </ValueLabeled>
   );
 };
 

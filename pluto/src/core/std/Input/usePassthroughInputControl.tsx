@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 
-import { InputControl, InputValue, PartialInputControl } from "./types";
+import { InputControl, InputValue, OptionalInputControl } from "./types";
 
 export const usePassThroughInputControl = <
   I extends InputValue = InputValue,
@@ -18,7 +18,7 @@ export const usePassThroughInputControl = <
   value,
   onChange,
   initialValue,
-}: PartialInputControl<I, O> & { initialValue: I }): [
+}: OptionalInputControl<I, O> & { initialValue: I }): [
   InputControl<I, O>["value"],
   InputControl<I, O>["onChange"]
 ] => {

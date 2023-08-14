@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
-
-import { LayoutState } from "../types";
+import { DriftStoreState, selectWindow } from "@synnaxlabs/drift";
+import type { Hauled, MosaicNode, Theme } from "@synnaxlabs/pluto";
 
 import {
   LayoutSliceState,
@@ -20,6 +19,7 @@ import {
 } from "./slice";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
+import { LayoutState } from "@/layout/types";
 
 /**
  * Selects the layout state.
@@ -64,15 +64,22 @@ export const useSelectRequiredLayout = (key: string): LayoutState => {
  * @param state - The store state.
  * @returns The central layout mosaic.
  */
-export const selectMosaic = (state: LayoutStoreState): MosaicNode =>
-  selectLayoutState(state).mosaic.root;
+export const selectMosaic = (
+  state: LayoutStoreState & DriftStoreState,
+  windowKey?: string
+): [string, MosaicNode] => {
+  const win = selectWindow(state, windowKey);
+  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
+  return [win.key, selectLayoutState(state).mosaics[win.key].root];
+};
 
 /**
  * Selects the central layout mosaic from the store.
  *
  * @returns The central layout mosaic.
  */
-export const useSelectMosaic = (): MosaicNode => useMemoSelect(selectMosaic, []);
+export const useSelectMosaic = (): [string, MosaicNode] =>
+  useMemoSelect(selectMosaic, []);
 
 /**
  * Selects the active theme key from the store.
@@ -135,16 +142,23 @@ export const selectNavDrawer = (
 export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
   useMemoSelect((state: LayoutStoreState) => selectNavDrawer(state, loc), [loc]);
 
-export const selectActiveMosaicTabKey = (state: LayoutStoreState): string | null =>
-  selectLayoutState(state).mosaic.activeTab;
+export const selectActiveMosaicTabKey = (
+  state: LayoutStoreState & DriftStoreState,
+  windowKey?: string
+): string | null => {
+  const win = selectWindow(state, windowKey);
+  if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
+  return selectLayoutState(state).mosaics[win.key].activeTab;
+};
 
 export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
 
 export const selectActiveMosaicLayout = (
-  state: LayoutStoreState
+  state: LayoutStoreState & DriftStoreState,
+  windowKey?: string
 ): LayoutState | undefined => {
-  const activeTabKey = selectActiveMosaicTabKey(state);
+  const activeTabKey = selectActiveMosaicTabKey(state, windowKey);
   if (activeTabKey == null) return undefined;
   return selectLayout(state, activeTabKey);
 };
@@ -152,3 +166,8 @@ export const selectActiveMosaicLayout = (
 export const useSelectActiveMosaicLayout = (): LayoutState | undefined => {
   return useMemoSelect(selectActiveMosaicLayout, []);
 };
+
+export const selectHauling = (state: LayoutStoreState): Hauled[] =>
+  selectLayoutState(state).hauling;
+
+export const useSelectHauling = (): Hauled[] => useMemoSelect(selectHauling, []);

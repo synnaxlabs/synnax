@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast, TypeAlias, get_args
+from typing import Literal, cast, TypeAlias, get_args, ClassVar
 from math import trunc
 
 from datetime import datetime, timedelta, timezone, tzinfo
@@ -600,6 +600,8 @@ class TimeRange(BaseModel):
         self,
         start: CrudeTimeStamp | TimeRange,
         end: CrudeTimeStamp | None = None,
+        *args,
+        **kwargs
     ):
         if isinstance(start, TimeRange):
             start_ = cast(TimeRange, start)
@@ -703,15 +705,15 @@ class TimeRange(BaseModel):
     # Assigning these values to None prevents pydantic
     # from throwing a nasty missing attribute error.
 
-    MAX: TimeRange = None  # type: ignore
+    MAX: ClassVar[TimeRange] = None  # type: ignore
     """The maximum possible TimeRange, starting at TimeStamp.MIN and ending
     a TimeStamp.MAX
     """
-    MIN: TimeRange = None  # type: ignore
+    MIN: ClassVar[TimeRange] = None  # type: ignore
     """The minimum possible TimeRange, starting at TimeStamp.MAX and ending at
     TimeStamp.MIN. Note that this TimeRange is invalid.
     """
-    ZERO: TimeRange = None  # type: ignore
+    ZERO: ClassVar[TimeRange] = None  # type: ignore
     """A TimeRange starting and ending at the unix epoch in UTC (TimeStamp.ZERO)."""
 
 

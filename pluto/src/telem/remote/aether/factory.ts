@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Telem, TelemSpec } from "@/core/vis/telem";
 import { Client } from "@/telem/client";
 import { TelemFactory } from "@/telem/factory";
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
 import { Numeric } from "@/telem/remote/aether/numeric";
 import { DynamicXY, XY } from "@/telem/remote/aether/xy";
 
-type Constructor = new (key: string, client: Client) => ModifiableTelemSourceMeta;
+type Constructor = new (key: string, client: Client) => Telem;
 
 export class Factory implements TelemFactory {
   type = "range";
@@ -29,12 +29,10 @@ export class Factory implements TelemFactory {
     [Numeric.TYPE]: Numeric,
   };
 
-  create(key: string, type: string, props: any): ModifiableTelemSourceMeta | null {
-    if (!(type in Factory.REGISTRY)) {
-      throw new Error(`[Remote.Factory] - Unknown telemtype ${type}`);
-    }
-    const t = new Factory.REGISTRY[type](key, this.client);
-    t.setProps(props);
+  create(key: string, props: TelemSpec): Telem | null {
+    if (!(props.type in Factory.REGISTRY)) return null;
+    const t = new Factory.REGISTRY[props.type](key, this.client);
+    t.setProps(props.props);
     return t;
   }
 }

@@ -79,17 +79,17 @@ export const ChannelSelectMultiple = ({
       </Status.Text.Centered>
     );
 
-  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+  const { onDragOver, onDrop } = Haul.useDrop({
     canDrop: useCallback((hauled) => canDrop(hauled, value), [value]),
     onDrop: useCallback(
       ([channel]) => onChange(unique([...value, channel.key as ChannelKey])),
       [onChange, value]
     ),
   });
+  const { startDrag, endDrag } = Haul.useDrag();
+  const dragging = Haul.dragging.useState();
 
-  const { startDrag, endDrag, dragging } = Haul.useState();
-
-  const handleDrop = useCallback(
+  const handleSuccessfulDrop = useCallback(
     (dragging: Hauled[]) => {
       onChange(value.filter((key) => !dragging.some((h) => h.key === key)));
     },
@@ -98,15 +98,14 @@ export const ChannelSelectMultiple = ({
 
   const onDragStart = useCallback(
     (_: DragEvent<HTMLDivElement>, key: ChannelKey) =>
-      startDrag([{ key, type: "channel" }], handleDrop),
-    [startDrag, handleDrop]
+      startDrag([{ key, type: "channel" }], handleSuccessfulDrop),
+    [startDrag, handleSuccessfulDrop]
   );
 
   return (
     <Select.Multiple
       className={CSS(className, CSS.dropRegion(canDrop(dragging, value)))}
       value={value}
-      onDragLeave={onDragLeave}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onTagDragStart={onDragStart}
@@ -154,14 +153,15 @@ export const ChannelSelect = ({
       </Status.Text.Centered>
     );
 
-  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+  const { onDragOver, onDrop } = Haul.useDrop({
     canDrop: useCallback((hauled) => canDrop(hauled, [value]), [value]),
     onDrop: useCallback(([channel]) => onChange(channel.key as ChannelKey), [onChange]),
   });
 
-  const { startDrag, endDrag, dragging } = Haul.useState();
+  const { startDrag, endDrag } = Haul.useDrag();
+  const dragging = Haul.dragging.useState();
   const onDragStart = useCallback(() => {
-    startDrag([{ type: "channel", key: value }], () => {});
+    startDrag([{ type: "channel", key: value }]);
   }, [startDrag, value]);
 
   return (
@@ -170,7 +170,6 @@ export const ChannelSelect = ({
       value={value}
       onDragStart={onDragStart}
       onDragEnd={endDrag}
-      onDragLeave={onDragLeave}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onChange={onChange}

@@ -61,13 +61,13 @@ class XYCore<
 
   async x(gl?: GLBufferController): Promise<Series[]> {
     const x = this._x;
-    if (gl != null) x.slice(-1).forEach((x) => x.updateGLBuffer(gl));
+    if (gl != null) this.updateBuffers(gl);
     return x;
   }
 
   async y(gl?: GLBufferController): Promise<Series[]> {
     const y = this._y;
-    if (gl != null) y.slice(-1).forEach((y) => y.updateGLBuffer(gl));
+    if (gl != null) this.updateBuffers(gl);
     return y;
   }
 
@@ -82,8 +82,8 @@ class XYCore<
   }
 
   updateBuffers(gl: GLBufferController): void {
-    this._x.slice(-1).forEach((x) => x.updateGLBuffer(gl));
-    this._y.slice(-1).forEach((y) => y.updateGLBuffer(gl));
+    this._x.forEach((x) => x.updateGLBuffer(gl));
+    this._y.forEach((y) => y.updateGLBuffer(gl));
   }
 
   async retrieveChannels(
@@ -205,8 +205,7 @@ export class DynamicXY
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     const handler: StreamHandler = (data) => {
       const yd = data[y.key];
-      if (yd.data.length != 0) {
-        console.log("NEW Y")
+      if (yd.data.length !== 0) {
         yd.data.forEach((arr) => arr.acquire());
         this._y?.push(...yd.data);
       }

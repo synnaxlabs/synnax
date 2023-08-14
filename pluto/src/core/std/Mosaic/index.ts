@@ -16,6 +16,7 @@ import {
   selectMosaicTab,
   renameMosaicTab,
   autoSelectTabs,
+  mosaicIsEmpty,
 } from "./mosaicTree";
 import { useMosaic } from "./useMosaic";
 export type { UseMosaicProps, UseMosaicReturn } from "./useMosaic";
@@ -97,6 +98,10 @@ export interface MosaicType extends CoreMosaicType {
    * @returns A shallow copy of the root with all nodes having a selection.
    */
   autoSelectTabs: typeof autoSelectTabs;
+  /***
+   * @returns True if the given mosaic node is empty, false otherwise.
+   */
+  isEmpty: typeof mosaicIsEmpty;
 }
 
 /***
@@ -123,3 +128,5 @@ Mosaic.selectTab = selectMosaicTab;
 Mosaic.moveTab = moveMosaicTab;
 Mosaic.resizeNode = resizeMosaicNode;
 Mosaic.renameTab = renameMosaicTab;
+Mosaic.autoSelectTabs = autoSelectTabs;
+Mosaic.isEmpty = mosaicIsEmpty;

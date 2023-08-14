@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Pluto, Trigger, TriggersProviderProps } from "@synnaxlabs/pluto";
+import {
+  Pluto,
+  Trigger,
+  TriggersProviderProps,
+  Hauled,
+  PureUseState,
+} from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
+import { useDispatch } from "react-redux";
 
 import { ConnectCluster, useSelectCluster } from "@/cluster";
 import { Docs } from "@/docs";
@@ -20,6 +27,9 @@ import {
   LayoutWindow,
   useThemeProvider,
   GetStarted,
+  LayoutMosaic,
+  useSelectHauling,
+  setHauled,
 } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/line/LinePlot/LinePlot";
@@ -45,6 +55,7 @@ const layoutRenderers = {
   pid: PID,
   vis: VisLayoutSelectorRenderer,
   line: LinePlot,
+  mosaic: LayoutMosaic,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Trigger[] = [
@@ -61,6 +72,19 @@ const MainUnderContext = (): ReactElement => {
   const theme = useThemeProvider();
   useLoadTauriVersion();
   const cluster = useSelectCluster();
+
+  const useHaulState: PureUseState<Hauled[]> = () => {
+    const hauled = useSelectHauling();
+    const dispatch = useDispatch();
+    const onHauledChange = useCallback(
+      (hauled: Hauled[]) => {
+        dispatch(setHauled({ hauling: hauled }));
+      },
+      [dispatch]
+    );
+    return [hauled, onHauledChange];
+  };
+
   return (
     <Pluto
       {...theme}
@@ -68,6 +92,7 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster?.props}
       workerURL={WorkerURL}
       triggers={triggersProps}
+      haul={{ useState: useHaulState }}
     >
       <VisCanvas>
         <LayoutWindow />

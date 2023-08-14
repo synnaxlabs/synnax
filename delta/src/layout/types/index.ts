@@ -22,6 +22,7 @@ export type LayoutPlacementLocation = "window" | "mosaic";
  * an external window. The key of a layout must be unique.
  */
 export interface LayoutState {
+  windowKey: string;
   /** A unique key for the layout */
   key: string;
   /**

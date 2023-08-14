@@ -7,42 +7,50 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, synnaxPropsZ, UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { AetherClient } from "@/client/aether";
 import { AetherComposite } from "@/core/aether/worker";
-import { TelemContext, UseTelemResult } from "@/core/vis/telem/TelemContext";
-import { TelemSourceProps } from "@/core/vis/telem/TelemSource";
+import {
+  Telem,
+  TelemSpec,
+  TelemContext,
+  UseTelemResult,
+  TelemProvider,
+} from "@/core/vis/telem";
+import { AetherBooleanTelem } from "@/telem/bool/aether";
 import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory } from "@/telem/factory";
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
 import { AetherRemoteTelem } from "@/telem/remote/aether";
-import { StaticTelemFactory } from "@/telem/static/aether";
+import { AetherStaticTelem } from "@/telem/static/aether";
 
-export const telemState = z.object({
-  props: synnaxPropsZ.optional(),
-});
+export const aetherTelemProviderState = z.object({});
 
-export type TelemState = z.input<typeof telemState>;
+export type AetherTelemProviderState = z.input<typeof aetherTelemProviderState>;
 
-export class Telem extends AetherComposite<typeof telemState> {
-  readonly telem: Map<string, ModifiableTelemSourceMeta> = new Map();
+export class AetherTelemProvider
+  extends AetherComposite<typeof aetherTelemProviderState>
+  implements TelemProvider
+{
+  readonly telem: Map<string, Telem> = new Map();
   client: ClientProxy = new ClientProxy();
   factory: CompoundTelemFactory = new CompoundTelemFactory([
-    new StaticTelemFactory(),
+    new AetherBooleanTelem.Factory(),
+    new AetherStaticTelem.Factory(),
     new AetherRemoteTelem.Factory(this.client),
   ]);
 
-  static readonly TYPE = "telem";
-  static readonly z = telemState;
-  schema = Telem.z;
+  static readonly TYPE = "TelemProvider";
+  static readonly z = aetherTelemProviderState;
+  schema = AetherTelemProvider.z;
 
-  get<T>(key: string, props: TelemSourceProps): UseTelemResult<T> {
+  use<T>(key: string, spec: TelemSpec): UseTelemResult<T> {
     // try to get the source
     let telem = this.telem.get(key);
-    if (telem != null) telem.setProps(props.props);
-    else telem = this.newSource(key, props.type, props.props);
-    return { telem: telem as T, cleanupTelem: () => this.remove(key) };
+    if (telem != null) telem.setProps(spec.props);
+    else telem = this.create(key, spec);
+    return [telem as T, () => this.remove(key)];
   }
 
   private remove(key: string): void {
@@ -51,20 +59,19 @@ export class Telem extends AetherComposite<typeof telemState> {
   }
 
   afterUpdate(): void {
-    if (this.state.props == null) this.client.swap(null);
-    else this.client.swap(new BaseClient(new Synnax(this.state.props)));
+    const client = AetherClient.Context.use(this.ctx);
+    this.client.swap(new BaseClient(client));
     this.telem.forEach((t) => t.invalidate());
     return TelemContext.set(this.ctx, this);
   }
 
-  newSource<T>(key: string, type: string, props: any): T {
-    const source = this.factory.create(key, type, props);
-    if (source == null) {
+  create<T>(key: string, spec: TelemSpec): T {
+    const telem = this.factory.create(key, spec, this.factory);
+    if (telem == null)
       throw new UnexpectedError(
-        `Telemetry service could not find a source for type ${type}`
+        `Telemetry service could not find a source for type ${spec.type}`
       );
-    }
-    this.telem.set(key, source);
-    return source as T;
+    this.telem.set(key, telem);
+    return telem as T;
   }
 }

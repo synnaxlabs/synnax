@@ -1,11 +1,11 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2023 synnax labs, inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// use of this software is governed by the business source license included in the file
+// licenses/bsl.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
+// as of the change date specified in that file, in accordance with the business source
+// license, use of this software will be governed by the apache license, version 2.0,
+// included in the file licenses/apl.txt.
 
 import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -22,8 +22,9 @@ const transferrable = z.union([
  * to the underlying telemetry source, and is intended for use as a main thread proxy
  * to the telemetry source on the worker thread.
  */
-export const telemSourceProps = z.object({
+export const telemSpec = z.object({
   type: z.string(),
+  variant: z.string(),
   props: z.any(),
   transfer: z.array(transferrable).optional(),
 });
@@ -33,12 +34,24 @@ export const telemSourceProps = z.object({
  * to the underlying telemetry source, and is intended for use as a main thread proxy
  * to the telemetry source on the worker thread.
  */
-export type TelemSourceProps = z.infer<typeof telemSourceProps>;
+export type TelemSpec = z.infer<typeof telemSpec>;
+
+export const xyTelemSourceSpec = telemSpec.extend({
+  variant: z.literal("xy-source"),
+});
+
+export type XYTelemSourceSpec = z.infer<typeof xyTelemSourceSpec>;
+
+export interface Telem {
+  setProps: (props: any) => void;
+  cleanup: () => void;
+  invalidate: () => void;
+}
 
 /**
  * A telemetry source that provides X and Y correlated data.
  */
-export interface XYTelemSource {
+export interface XYTelemSource extends Telem {
   /**
    * Resolves data for the X axis.
    *
@@ -82,21 +95,53 @@ export interface XYTelemSource {
   onChange: (f: () => void) => void;
 }
 
-export interface NumericTelemSource {
+export const numericTelemSourceSpec = telemSpec.extend({
+  variant: z.literal("numeric-source"),
+});
+
+export type NumericTelemSourceSpec = z.infer<typeof numericTelemSourceSpec>;
+
+export interface NumericTelemSource extends Telem {
   value: () => Promise<number>;
   onChange: (f: () => void) => void;
 }
 
-export interface ColorTelemSource {
+export const colorTelemSourceSpec = telemSpec.extend({
+  variant: z.literal("color-source"),
+});
+
+export type ColorTelemSourceSpec = z.infer<typeof colorTelemSourceSpec>;
+
+export interface ColorTelemSource extends Telem {
   value: () => Promise<Color>;
   onChange: (f: () => void) => void;
 }
 
-export interface BooleanTelemSource {
+export const booleanTelemSourceSpec = telemSpec.extend({
+  variant: z.literal("boolean-source"),
+});
+
+export type BooleanTelemSourceSpec = z.infer<typeof booleanTelemSourceSpec>;
+
+export interface BooleanTelemSource extends Telem {
   value: () => Promise<boolean>;
   onChange: (f: () => void) => void;
 }
 
-export interface BooleanTelemSink {
-  set: (value: boolean) => void;
+export const booleanTelemSinkSpec = telemSpec.extend({
+  variant: z.literal("boolean-sink"),
+});
+
+export interface BooleanTelemSink extends Telem {
+  set: (value: boolean) => Promise<void>;
 }
+
+export type BooleanTelemSinkSpec = z.infer<typeof booleanTelemSinkSpec>;
+
+export interface NumericTelemSink extends Telem {
+  set: (value: number) => Promise<void>;
+}
+
+export const numericTelemSinkSpec = telemSpec.extend({
+  variant: z.literal("numeric-sink"),
+});

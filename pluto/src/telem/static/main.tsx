@@ -15,7 +15,7 @@ import { TelemSourceProps } from "@/core/vis/telem";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,
-  StaticPointTelem,
+  StaticNumericTelem,
   StaticXYTelem,
   StaticXYTelemProps,
 } from "@/telem/static/aether";
@@ -49,7 +49,7 @@ const useIterativeXYTelem = (props: IterativeXYTelemProps): TelemSourceProps => 
 
 const usePointTelem = (value: number): TelemSourceProps => {
   return {
-    type: StaticPointTelem.TYPE,
+    type: StaticNumericTelem.TYPE,
     props: value,
   };
 };

@@ -31,6 +31,29 @@ export {
   setWindowDecorations,
   DRIFT_SLICE_NAME,
 } from "@/state";
-export type { StoreState as DriftStoreState, DriftState, DriftAction } from "@/state";
+export type {
+  StoreState as DriftStoreState,
+  DriftState,
+  DriftAction,
+  CloseWindowPayload,
+  CreateWindowPayload,
+  SetWindowMinimizedPayload,
+  SetWindowMaximizedPayload,
+  SetWindowVisiblePayload,
+  SetWindowPositionPayload,
+  SetWindowSizePayload,
+  SetWindowAlwaysOnTopPayload,
+  SetWindowMinSizePayload,
+  SetWindowMaxSizePayload,
+  SetWindowResizablePayload,
+  SetWindowTitlePayload,
+  SetWindowSkipTaskbarPayload,
+} from "@/state";
 export type { WindowProps, WindowStage, WindowState } from "@/window";
 export { MAIN_WINDOW } from "@/window";
+export {
+  selectWindow,
+  selectWindowKey,
+  selectWindowAttribute,
+  selectDriftState,
+} from "@/selectors";

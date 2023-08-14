@@ -48,7 +48,7 @@ const initialTree: MosaicNode = {
 
 export const Primary: StoryFn<typeof Mosaic> = () => {
   const props = Mosaic.use({ initialTree, allowRename: true });
-  return <Mosaic {...props} />;
+  return <Mosaic {...props}>{() => <h1>Dog</h1>}</Mosaic>;
 };
 
 // eslint-disable-next-line import/no-default-export

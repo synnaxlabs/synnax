@@ -42,14 +42,17 @@ import {
   Typography,
   Space,
   TypographyLevel,
-  Pack,
 } from "@synnaxlabs/pluto";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { LayoutPlacer, useLayoutPlacer } from "@/layout";
-import { createLinePlot } from "@/line/store/slice";
+import {
+  LayoutPlacer,
+  createLayoutMosaicWindow,
+  moveLayoutMosaicTab,
+  useLayoutPlacer,
+} from "@/layout";
 import { ResourceType } from "@/resources/resources";
 import { RootStore } from "@/store";
 
@@ -309,19 +312,19 @@ export const PaletteInput = ({
   );
 
   const placer = useLayoutPlacer();
+  const d = useDispatch();
 
-  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+  const { onDragOver, onDrop } = Haul.useDrop({
     canDrop,
     onDrop: useCallback(
       ([item]) => {
-        placer(
-          createLinePlot({
-            key: item.key as string,
-            location: "window",
-            window: {
-              navTop: true,
-              size: { height: 600, width: 900 },
-            },
+        const { key } = placer(createLayoutMosaicWindow());
+        d(
+          moveLayoutMosaicTab({
+            windowKey: key,
+            key: 1,
+            tabKey: item.key as string,
+            loc: "center",
           })
         );
       },
@@ -329,14 +332,13 @@ export const PaletteInput = ({
     ),
   });
 
-  const { dragging } = Haul.useState();
+  const dragging = Haul.dragging.useState();
 
   return (
     <Input
       className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
       placeholder="Search Synnax"
-      onDragLeave={onDragLeave}
       onDragOver={onDragOver}
       onDrop={onDrop}
       centerPlaceholder

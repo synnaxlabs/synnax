@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { ReactElement, memo, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
-import type { CrudeLocation, CrudeOuterLocation, Location } from "@synnaxlabs/x";
+import type { CrudeLocation } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useLayoutPlacer } from "../hooks";
@@ -31,16 +31,16 @@ import { createVis } from "@/vis";
 const emptyContent = <Logo.Watermark />;
 
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const LayoutMosaic = (): ReactElement => {
+export const LayoutMosaic = memo((): ReactElement => {
   const dispatch = useDispatch();
-  const mosaic = useSelectMosaic();
+  const [windowKey, mosaic] = useSelectMosaic();
   const placer = useLayoutPlacer();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: CrudeLocation): void => {
-      dispatch(moveLayoutMosaicTab({ key, tabKey, loc }));
+      dispatch(moveLayoutMosaicTab({ key, tabKey, loc, windowKey }));
     },
-    [dispatch]
+    [dispatch, windowKey]
   );
 
   const handleClose = useCallback(
@@ -66,10 +66,10 @@ export const LayoutMosaic = (): ReactElement => {
 
   const handleResize = useDebouncedCallback(
     (key, size) => {
-      dispatch(resizeLayoutMosaicTab({ key, size }));
+      dispatch(resizeLayoutMosaicTab({ key, size, windowKey }));
     },
     100,
-    [dispatch]
+    [dispatch, windowKey]
   );
 
   const handleCreate = useCallback(
@@ -91,7 +91,8 @@ export const LayoutMosaic = (): ReactElement => {
       onCreate={handleCreate}
       size="medium"
     >
-      {(tab) => <LayoutContent layoutKey={tab.tabKey} />}
+      {(tab) => <LayoutContent key={tab.tabKey} layoutKey={tab.tabKey} />}
     </PlutoMosaic>
   );
-};
+});
+LayoutMosaic.displayName = "LayoutMosaic";

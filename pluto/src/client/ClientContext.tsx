@@ -18,6 +18,10 @@ import {
 
 import { ConnectionState, Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
 
+import { Aether } from "..";
+
+import { AetherClientProvider } from "./aether";
+
 interface ClientContextValue {
   client: Synnax | null;
   state: ConnectionState;
@@ -39,43 +43,57 @@ export interface ClientProviderProps extends PropsWithChildren {
 
 const ZERO_STATE = { client: null, state: Synnax.connectivity.DEFAULT };
 
-export const ClientProvider = ({
-  connParams,
-  children,
-}: ClientProviderProps): ReactElement => {
-  const [state, setState] = useState<ClientContextValue>({ ...ZERO_STATE });
+export const ClientProvider = Aether.wrap<ClientProviderProps>(
+  AetherClientProvider.TYPE,
+  ({ aetherKey, connParams, children }): ReactElement => {
+    const [state, setState] = useState<ClientContextValue>({ ...ZERO_STATE });
 
-  useEffect(() => {
-    if (state.client != null) state.client.close();
-    if (connParams == null) return setState({ ...ZERO_STATE });
-
-    const client = new Synnax({
-      ...connParams,
-      connectivityPollFrequency: TimeSpan.seconds(5),
+    const [{ path }, , setAetherState] = Aether.use({
+      aetherKey,
+      type: AetherClientProvider.TYPE,
+      schema: AetherClientProvider.stateZ,
+      initialState: { props: connParams },
     });
-    client.connectivity
-      .check()
-      .then((state) => {
-        if (state.status !== "connected") return;
+
+    useEffect(() => {
+      if (state.client != null) state.client.close();
+      if (connParams == null) return setState({ ...ZERO_STATE });
+
+      const client = new Synnax({
+        ...connParams,
+        connectivityPollFrequency: TimeSpan.seconds(5),
+      });
+      client.connectivity
+        .check()
+        .then((state) => {
+          if (state.status !== "connected") return;
+          setState((c) => {
+            if (c.client != null) c.client.close();
+            return { client, state };
+          });
+        })
+        .catch(console.error);
+
+      client.connectivity.onChange((s) =>
         setState((c) => {
-          if (c.client != null) c.client.close();
-          return { client, state };
-        });
-      })
-      .catch(console.error);
+          if (c.client == null) return { ...ZERO_STATE };
+          return { client, state: s };
+        })
+      );
 
-    client.connectivity.onChange((s) =>
-      setState((c) => {
-        if (c.client == null) return { ...ZERO_STATE };
-        return { client, state: s };
-      })
+      setAetherState({ props: connParams });
+
+      return () => {
+        client.close();
+        setState({ ...ZERO_STATE });
+        setAetherState({ props: undefined });
+      };
+    }, [connParams]);
+
+    return (
+      <ClientContext.Provider value={state}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </ClientContext.Provider>
     );
-
-    return () => {
-      client.close();
-      setState({ ...ZERO_STATE });
-    };
-  }, [connParams]);
-
-  return <ClientContext.Provider value={state}>{children}</ClientContext.Provider>;
-};
+  }
+);

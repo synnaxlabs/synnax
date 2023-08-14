@@ -70,7 +70,7 @@ export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.output<typeof themeZ>;
 
 const white: string = "#FFFFFF";
-const black: string = "#171716";
+const black: string = "#121212";
 const fontFamily = "'Inter Variable', sans-serif";
 const baseSize: number = 6;
 

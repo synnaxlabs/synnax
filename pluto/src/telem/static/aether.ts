@@ -18,22 +18,20 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { XYTelemSource } from "@/core/vis/telem";
-import { NumericTelemSource } from "@/core/vis/telem/TelemSource";
+import { XYTelemSource, NumericTelemSource, Telem, TelemSpec } from "@/core/vis/telem";
 import { TelemFactory } from "@/telem/factory";
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
 
 export class StaticTelemFactory implements TelemFactory {
   type = "static";
 
-  create(key: string, type: string, props: any): ModifiableTelemSourceMeta | null {
-    switch (type) {
+  create(key: string, props: TelemSpec): Telem | null {
+    switch (props.type) {
       case StaticXYTelem.TYPE:
         return new StaticXYTelem(key, props);
       case IterativeXYTelem.TYPE:
         return new IterativeXYTelem(key, props);
-      case StaticPointTelem.TYPE:
-        return new StaticPointTelem(key, props);
+      case StaticNumericTelem.TYPE:
+        return new StaticNumericTelem(key, props);
       default:
         return null;
     }
@@ -202,11 +200,11 @@ export class IterativeXYTelem extends StaticXYTelemCore implements XYTelemSource
   }
 }
 
-export const staticPointTelemProps = z.number();
+export const staticNumericTelemProps = z.number();
 
-export type StaticPointTelemProps = z.infer<typeof staticPointTelemProps>;
+export type StaticNumericTelemProps = z.infer<typeof staticNumericTelemProps>;
 
-export class StaticPointTelem implements NumericTelemSource {
+export class StaticNumericTelem implements NumericTelemSource {
   static readonly TYPE = "static-point";
 
   variant = "numeric";
@@ -216,11 +214,11 @@ export class StaticPointTelem implements NumericTelemSource {
 
   constructor(key: string, props_: any) {
     this.key = key;
-    this._value = staticPointTelemProps.parse(props_);
+    this._value = staticNumericTelemProps.parse(props_);
   }
 
   setProps(props_: any): void {
-    this._value = staticPointTelemProps.parse(props_);
+    this._value = staticNumericTelemProps.parse(props_);
   }
 
   async value(): Promise<number> {
@@ -235,3 +233,10 @@ export class StaticPointTelem implements NumericTelemSource {
 
   invalidate(): void {}
 }
+
+export const AetherStaticTelem = {
+  Factory: StaticTelemFactory,
+  Numeric: StaticNumericTelem,
+  XY: StaticXYTelem,
+  IterativeXY: IterativeXYTelem,
+};

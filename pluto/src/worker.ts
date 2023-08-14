@@ -20,7 +20,7 @@ import { AetherMeasure } from "@/core/vis/Measure/aether";
 import { AetherPID } from "@/core/vis/PID/aether";
 import { AetherRule } from "@/core/vis/Rule/aether";
 import { AetherValue } from "@/core/vis/Value/aether";
-import { Valve } from "@/core/vis/Valve/aether";
+import { AetherValve } from "@/core/vis/Valve/aether";
 import { Telem } from "@/telem/TelemProvider/aether";
 
 export const pluto = (): void => {
@@ -34,7 +34,7 @@ export const pluto = (): void => {
     [Telem.TYPE]: Telem,
     [AetherLine.TYPE]: AetherLine,
     [AetherValue.TYPE]: AetherValue,
-    [Valve.TYPE]: Valve,
+    [AetherValve.TYPE]: AetherValve,
     [AetherPID.TYPE]: AetherPID,
     [AetherRule.TYPE]: AetherRule,
     [AetherThemeProvider.TYPE]: AetherThemeProvider,

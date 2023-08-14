@@ -15,12 +15,15 @@ import { Color } from "@/core/color";
 import { textDimensions } from "@/core/std/Typography/textDimensions";
 import { PIDElement } from "@/core/vis/PID/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
-import { TelemContext } from "@/core/vis/telem/TelemContext";
-import { NumericTelemSource, telemSourceProps } from "@/core/vis/telem/TelemSource";
+import {
+  NumericTelemSource,
+  numericTelemSourceSpec,
+  TelemContext,
+} from "@/core/vis/telem";
 
 const valueState = z.object({
   box: Box.z,
-  telem: telemSourceProps,
+  telem: numericTelemSourceSpec,
   units: z.string(),
   font: z.string(),
   color: Color.z,
@@ -49,7 +52,7 @@ export class AetherValue
 
   afterUpdate(): void {
     this.internal.render = RenderContext.use(this.ctx);
-    const { telem, cleanupTelem } = TelemContext.use<NumericTelemSource>(
+    const [telem, cleanupTelem] = TelemContext.use<NumericTelemSource>(
       this.ctx,
       this.key,
       this.state.telem

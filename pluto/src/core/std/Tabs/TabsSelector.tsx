@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { DragEventHandler, MouseEventHandler, ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
@@ -101,18 +101,25 @@ const TabC = ({
   size,
   editable = true,
 }: TabSelectorButtonProps): ReactElement => {
-  const ohandleDragStart = (e: React.DragEvent<HTMLDivElement>): void =>
-    onDragStart?.(e, { tabKey, name });
+  const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
+    (e) => onDragStart?.(e, { tabKey, name }),
+    [onDragStart, tabKey, name]
+  );
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>): void =>
-    onDragEnd?.(e, { tabKey, name });
+  const handleDragEnd: DragEventHandler<HTMLDivElement> = useCallback(
+    (e) => onDragEnd?.(e, { tabKey, name }),
+    [onDragEnd, tabKey, name]
+  );
 
-  const handleClose = (e: React.MouseEvent<HTMLButtonElement>): void => {
-    e.stopPropagation();
-    onClose?.(tabKey);
-  };
+  const handleClose: MouseEventHandler<HTMLButtonElement> = useCallback(
+    (e) => {
+      e.stopPropagation();
+      onClose?.(tabKey);
+    },
+    [onClose, tabKey]
+  );
 
-  const _onSelect = (): void => onSelect?.(tabKey);
+  const _onSelect = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
 
   return (
     <Pack
@@ -128,7 +135,7 @@ const TabC = ({
       justify="center"
       align="center"
       onClick={_onSelect}
-      onDragStart={ohandleDragStart}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       bordered={false}
       rounded={false}

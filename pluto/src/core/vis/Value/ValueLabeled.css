@@ -13,3 +13,9 @@
     width: fit-content;
     min-width: 100px;
 }
+
+.pluto-value {
+    border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
+    border-radius: var(--pluto-border-radius);
+    position: relative;
+}

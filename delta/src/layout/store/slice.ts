@@ -9,11 +9,13 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { MosaicNode, Theme } from "@synnaxlabs/pluto";
-import { CrudeLocation, DeepKey, Location } from "@synnaxlabs/x";
+import type { Hauled, MosaicNode, Theme } from "@synnaxlabs/pluto";
+import { CrudeLocation, DeepKey } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 
-import { LayoutState } from "../types";
+import { LayoutState } from "@/layout/types";
 
 /** The state of the layout slice */
 export interface LayoutSliceState {
@@ -28,7 +30,8 @@ export interface LayoutSliceState {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, LayoutState>;
-  mosaic: MosaicState;
+  hauling: Hauled[];
+  mosaics: Record<string, MosaicState>;
   nav: NavState;
   alreadyCheckedGetStarted: boolean;
 }
@@ -76,8 +79,17 @@ export const MAIN_LAYOUT: LayoutState = {
   key: "main",
   type: "main",
   location: "window",
+  windowKey: MAIN_WINDOW,
   window: {
     navTop: false,
+  },
+};
+
+const ZERO_MOSAIC_STATE: MosaicState = {
+  activeTab: null,
+  root: {
+    key: 1,
+    tabs: [],
   },
 };
 
@@ -88,13 +100,10 @@ const INITIAL_STATE: LayoutSliceState = {
   layouts: {
     main: MAIN_LAYOUT,
   },
-  mosaic: {
-    activeTab: null,
-    root: {
-      key: 1,
-      tabs: [],
-    },
+  mosaics: {
+    main: ZERO_MOSAIC_STATE,
   },
+  hauling: [],
   nav: {
     drawers: {
       left: {
@@ -124,12 +133,14 @@ export type RemoveLayoutPayload = string;
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string | undefined;
 
-interface MoveLayoutMosaicTabPayload {
+export interface MoveLayoutMosaicTabPayload {
   tabKey: string;
+  windowKey?: string;
   key: number;
   loc: CrudeLocation;
 }
 interface ResizeLayoutMosaicTabPayload {
+  windowKey: string;
   key: number;
   size: number;
 }
@@ -144,6 +155,9 @@ interface RenameLayoutPayload {
 interface ResizeNavdrawerPayload {
   location: NavdrawerLocation;
   size: number;
+}
+interface SetHaulingPayload {
+  hauling: Hauled[];
 }
 
 interface SetNavdrawerVisiblePayload {
@@ -160,10 +174,15 @@ export const { actions, reducer: layoutReducer } = createSlice({
       const { key, location, name, tab } = layout;
 
       const prev = state.layouts[key];
+      const mosaic = state.mosaics[layout.windowKey];
+
+      if (layout.type === MOSAIC_WINDOW_TYPE) {
+        state.mosaics[key] = ZERO_MOSAIC_STATE;
+      }
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        [state.mosaic.root] = Mosaic.removeTab(state.mosaic.root, key);
+        [mosaic.root] = Mosaic.removeTab(mosaic.root, key);
 
       const mosaicTab = {
         closable: true,
@@ -176,65 +195,92 @@ export const { actions, reducer: layoutReducer } = createSlice({
 
       // If we're moving to a mosaic, insert a tab.
       if (prev?.location !== "mosaic" && location === "mosaic") {
-        state.mosaic.root = Mosaic.insertTab(
-          state.mosaic.root,
+        mosaic.root = Mosaic.insertTab(
+          mosaic.root,
           mosaicTab,
           tab?.location,
           tab?.mosaicKey
         );
-        state.mosaic.activeTab = key;
+        mosaic.activeTab = key;
       }
 
       // If the tab already exists and its in the mosaic, make it the active tab
       // and select it. Also rename it.
       if (prev?.location === "mosaic" && location === "mosaic") {
-        state.mosaic.activeTab = key;
-        state.mosaic.root = Mosaic.renameTab(
-          Mosaic.selectTab(state.mosaic.root, key),
-          key,
-          name
-        );
+        mosaic.activeTab = key;
+        mosaic.root = Mosaic.renameTab(Mosaic.selectTab(mosaic.root, key), key, name);
       }
 
       state.layouts[key] = layout;
+      state.mosaics[layout.windowKey] = mosaic;
+    },
+    setHauled: (state, { payload: { hauling } }: PayloadAction<SetHaulingPayload>) => {
+      state.hauling = hauling;
     },
     removeLayout: (
       state,
       { payload: contentKey }: PayloadAction<RemoveLayoutPayload>
     ) => {
       const layout = state.layouts[contentKey];
-      if (layout == null) return;
+      const mosaic = state.mosaics[layout.windowKey];
+      if (layout == null || mosaic == null) return;
       const { location } = layout;
 
-      if (location === "mosaic") {
-        [state.mosaic.root, state.mosaic.activeTab] = Mosaic.removeTab(
-          state.mosaic.root,
-          contentKey
-        );
-      }
+      if (location === "mosaic")
+        [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
 
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.layouts[contentKey];
+      state.mosaics[layout.windowKey] = mosaic;
     },
     moveLayoutMosaicTab: (
       state,
-      { payload: { tabKey, key, loc } }: PayloadAction<MoveLayoutMosaicTabPayload>
+      {
+        payload: { tabKey, windowKey, key, loc },
+      }: PayloadAction<MoveLayoutMosaicTabPayload>
     ) => {
-      [state.mosaic.root] = Mosaic.moveTab(state.mosaic.root, tabKey, loc, key);
+      const layout = state.layouts[tabKey];
+      const prevWindowKey = layout.windowKey;
+      if (windowKey == null || prevWindowKey === windowKey) {
+        const mosaic = state.mosaics[prevWindowKey];
+        [mosaic.root] = Mosaic.moveTab(mosaic.root, tabKey, loc, key);
+        state.mosaics[prevWindowKey] = mosaic;
+        return;
+      }
+      const prevMosaic = state.mosaics[prevWindowKey];
+      [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
+      state.mosaics[prevWindowKey] = prevMosaic;
+      const mosaic = state.mosaics[windowKey];
+      state.layouts[tabKey].windowKey = windowKey;
+
+      const mosaicTab = {
+        closable: true,
+        ...layout.tab,
+        name: layout.name,
+        tabKey: layout.key,
+      };
+
+      mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
+      state.mosaics[windowKey] = mosaic;
     },
     selectLayoutMosaicTab: (
       state,
       { payload: { tabKey } }: PayloadAction<SelectLayoutMosaicTabPayload>
     ) => {
-      if (state.mosaic.activeTab === tabKey) return;
-      state.mosaic.root = Mosaic.selectTab(state.mosaic.root, tabKey);
-      state.mosaic.activeTab = tabKey;
+      const { windowKey } = state.layouts[tabKey];
+      const mosaic = state.mosaics[windowKey];
+      if (mosaic.activeTab === tabKey) return;
+      mosaic.root = Mosaic.selectTab(mosaic.root, tabKey);
+      mosaic.activeTab = tabKey;
+      state.mosaics[windowKey] = mosaic;
     },
     resizeLayoutMosaicTab: (
       state,
-      { payload: { key, size } }: PayloadAction<ResizeLayoutMosaicTabPayload>
+      { payload: { key, size, windowKey } }: PayloadAction<ResizeLayoutMosaicTabPayload>
     ) => {
-      state.mosaic.root = Mosaic.resizeNode(state.mosaic.root, key, size);
+      const mosaic = state.mosaics[windowKey];
+      mosaic.root = Mosaic.resizeNode(mosaic.root, key, size);
+      state.mosaics[windowKey] = mosaic;
     },
     renameLayout: (
       state,
@@ -242,8 +288,10 @@ export const { actions, reducer: layoutReducer } = createSlice({
     ) => {
       if (name.length === 0) return;
       const layout = state.layouts[tabKey];
+      const mosaic = state.mosaics[layout.windowKey];
       if (layout != null) layout.name = name;
-      state.mosaic.root = Mosaic.renameTab(state.mosaic.root, tabKey, name);
+      mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
+      state.mosaics[layout.windowKey] = mosaic;
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
       if (key != null) state.activeTheme = key;
@@ -296,17 +344,21 @@ export const { actions, reducer: layoutReducer } = createSlice({
         checkedGetStarted
       )
         return;
-      state.mosaic.root = Mosaic.insertTab(state.mosaic.root, {
-        closable: true,
-        tabKey: "getStarted",
-        name: "Get Started",
-        editable: false,
-      });
+      state.mosaics[MAIN_WINDOW].root = Mosaic.insertTab(
+        state.mosaics[MAIN_WINDOW].root,
+        {
+          closable: true,
+          tabKey: "getStarted",
+          name: "Get Started",
+          editable: false,
+        }
+      );
       state.layouts.getStarted = {
         name: "Get Started",
         key: "getStarted",
         location: "mosaic",
         type: "getStarted",
+        windowKey: MAIN_WINDOW,
       };
     },
   },
@@ -324,7 +376,20 @@ export const {
   resizeNavdrawer,
   setNavdrawerVisible,
   maybeCreateGetStartedTab,
+  setHauled,
 } = actions;
 
 export type LayoutAction = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LayoutPayload = LayoutAction["payload"];
+
+const MOSAIC_WINDOW_TYPE = "mosaic";
+
+export const createLayoutMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
+  key: nanoid(),
+  name: "Mosaic",
+  type: MOSAIC_WINDOW_TYPE,
+  location: "window",
+  window: {
+    navTop: true,
+  },
+});

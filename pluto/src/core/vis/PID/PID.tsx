@@ -313,7 +313,7 @@ const PIDCore = Aether.wrap<PIDProps>(
     return (
       <Aether.Composite path={path}>
         <ReactFlow
-          className={CSS(CSS.editable(editable))}
+          className={CSS(CSS.B("pid"), CSS.editable(editable))}
           nodes={nodes_}
           edges={edges_}
           nodeTypes={nodeTypes}

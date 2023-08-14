@@ -167,6 +167,11 @@ export const renameMosaicTab = (
   return root;
 };
 
+export const mosaicIsEmpty = (root: MosaicNode): boolean => {
+  if (root.tabs != null) return root.tabs.length === 0;
+  return root.first == null && root.last == null;
+};
+
 /** Finds the node with the given key or its closest ancestor. */
 const findNodeOrAncestor = (root: MosaicNode, key: number): MosaicNode => {
   const node = findMosaicNode(root, key);

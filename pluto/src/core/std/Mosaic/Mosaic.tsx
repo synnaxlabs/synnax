@@ -16,7 +16,6 @@ import { Haul, Hauled } from "@/core/haul";
 import { MosaicNode } from "@/core/std/Mosaic/types";
 import { Resize } from "@/core/std/Resize";
 import { Tab, Tabs, TabsProps } from "@/core/std/Tabs";
-import { preventDefault } from "@/util/event";
 
 import "@/core/std/Mosaic/Mosaic.css";
 
@@ -79,61 +78,73 @@ const DRAGGING_TYPE = "pluto-mosaic-tab";
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tab[], dragging: Hauled[]): boolean => {
   const keys = dragging.filter(({ type }) => type === DRAGGING_TYPE).map((t) => t.key);
-  return keys.length > 0 && tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
+  const willHaveTabRemaining = tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
+  return keys.length > 0 && (willHaveTabRemaining || tabs.length === 0);
 };
 
 const MosaicTabLeaf = memo(
   ({ root: node, onDrop, onCreate, ...props }: MosaicTabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<MosaicNode, "tabs"> & { tabs: Tab[] };
 
-    const [dragMask, setDragMask] = useState<Location | null>(null);
-    const {
-      dragging,
-      startDrag: onDragStart,
-      endDrag: handleDragEnd,
-    } = Haul.useState();
+    const [dragMask, setDragMask] = useState<CrudeLocation | null>(null);
+    const { startDrag, endDrag } = Haul.useDrag();
 
     const canDrop = useCallback((hauled: Hauled[]) => validDrop(tabs, hauled), [tabs]);
 
-    const handleDrop = (hauled: Hauled[], e: React.DragEvent<Element>): void => {
-      setDragMask(null);
-      const tabKey = hauled.map(({ key }) => key)[0];
-      onDrop(key, tabKey as string, insertLocation(getDragLocationPercents(e)).crude);
-    };
+    const handleDrop = useCallback(
+      (hauled: Hauled[], e: React.DragEvent<Element>): void => {
+        setDragMask(null);
+        const tabKey = hauled.map(({ key }) => key)[0];
+        const location: CrudeLocation =
+          tabs.length === 0
+            ? "center"
+            : insertLocation(getDragLocationPercents(e)).crude;
+        onDrop(key, tabKey as string, location);
+      },
+      [onDrop, tabs.length]
+    );
 
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
-      e.preventDefault();
-      const loc = insertLocation(getDragLocationPercents(e));
-      // get the tab data, get a boolean value checking whether the length of the tabs
-      // in node would be zero if the tab was removed.
-      if (loc !== dragMask && validDrop(tabs, dragging)) setDragMask(loc);
-    };
+    const handleDragOver = useCallback(
+      (_: unknown, e: DragEvent): void => {
+        const location: CrudeLocation =
+          tabs.length === 0
+            ? "center"
+            : insertLocation(getDragLocationPercents(e)).crude;
+        setDragMask(location);
+      },
+      [tabs.length]
+    );
 
-    const handleDragLeave = (): void => setDragMask(null);
+    const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
-    const handleDragStart = (_: DragEvent<HTMLDivElement>, { tabKey }: Tab): void =>
-      onDragStart([{ key: tabKey, type: DRAGGING_TYPE }], () => {});
+    const handleDragStart = useCallback(
+      (_: unknown, { tabKey }: Tab): void =>
+        startDrag([{ key: tabKey, type: DRAGGING_TYPE }]),
+      [startDrag]
+    );
 
-    const handleCreate = (): void => onCreate?.(key);
+    const handleCreate = useCallback((): void => onCreate?.(key), [key]);
 
-    const haulProps = Haul.useDropRegion({ canDrop, onDrop: handleDrop });
+    const haulDropProps = Haul.useDrop({
+      canDrop,
+      onDrop: handleDrop,
+      onDragOver: handleDragOver,
+    });
 
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs
           tabs={tabs}
-          onDrop={haulProps.onDrop}
-          onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onDragEnter={preventDefault}
+          onDragEnd={endDrag}
           selected={node.selected}
           onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
           onCreate={handleCreate}
           {...props}
+          {...haulDropProps}
         />
         {dragMask != null && (
-          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask.crude]} />
+          <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}
       </div>
     );

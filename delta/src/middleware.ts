@@ -7,33 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type {
-  PayloadAction,
-  Middleware,
-  Dispatch,
-  ActionCreatorWithPayload,
-} from "@reduxjs/toolkit";
+import type { PayloadAction, Middleware, Dispatch } from "@reduxjs/toolkit";
 
-export interface MiddlewareEffectArgs<S, P extends any> {
+export interface MiddlewareEffectArgs<S, LP extends any, DP extends any> {
   getState: () => S;
-  dispatch: Dispatch<PayloadAction<P>>;
-  action: PayloadAction<P>;
+  dispatch: Dispatch<PayloadAction<DP>>;
+  action: PayloadAction<LP>;
 }
 
-export type MiddlewareEffect<S, P extends any> = (
-  args: MiddlewareEffectArgs<S, P>
+export type MiddlewareEffect<S, LP extends any, DP extends any = LP> = (
+  args: MiddlewareEffectArgs<S, LP, DP>
 ) => void;
 
 export const dispatchEffect =
-  <S, I, O extends any>(factory: ActionCreatorWithPayload<O>): MiddlewareEffect<S, I> =>
+  <S, I, O extends any>(
+    factory: (payload: I) => PayloadAction<O>
+  ): MiddlewareEffect<S, I, O> =>
   ({ dispatch, action }) =>
-    dispatch(factory(action.payload as unknown as O) as unknown as PayloadAction<I>);
+    dispatch(factory(action.payload));
 
 export const effectMiddleware =
-  <S, P extends any>(
+  <S, LP extends any, DP extends any>(
     deps: string[],
-    effects: Array<MiddlewareEffect<S, P>>
-  ): Middleware<Record<string, never>, S, Dispatch<PayloadAction<P>>> =>
+    effects: Array<MiddlewareEffect<S, LP, DP>>
+  ): Middleware<Record<string, never>, S, Dispatch<PayloadAction<LP>>> =>
   ({ getState, dispatch }) =>
   (next) =>
   (action) => {

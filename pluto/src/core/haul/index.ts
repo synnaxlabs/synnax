@@ -9,13 +9,17 @@
 
 import {
   HaulProvider,
-  useHaulDropRegion,
-  useHaulRef,
-  useHaulState,
+  useHaulDrag,
+  useHaulDrop,
+  useHaulDraggingRef,
+  useHaulDraggingState,
 } from "@/core/haul/HaulContext";
 export type {
-  UseHaulStateReturn as UseHaulReturn,
   Hauled,
+  UseHaulDragProps,
+  UseHaulDragReturn,
+  UseHaulDropProps,
+  UseHaulDropReturn,
 } from "@/core/haul/HaulContext";
 
 /**
@@ -31,7 +35,10 @@ export const Haul = {
   /**
    *
    */
-  useState: useHaulState,
-  useRef: useHaulRef,
-  useDropRegion: useHaulDropRegion,
+  useDrop: useHaulDrop,
+  useDrag: useHaulDrag,
+  dragging: {
+    useRef: useHaulDraggingRef,
+    useState: useHaulDraggingState,
+  },
 };

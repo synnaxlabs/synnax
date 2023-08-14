@@ -11,6 +11,7 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 
+import { HaulProviderProps } from "./core/haul/HaulContext";
 import DefaultWorkerURL from "./defaultWorker.ts?worker&url";
 
 import { Client, ClientProviderProps } from "@/client";
@@ -39,6 +40,7 @@ export interface PlutoProps
   instrumentation?: Instrumentation;
   tooltip?: TooltipConfigProps;
   triggers?: TriggersProviderProps;
+  haul?: HaulProviderProps;
 }
 
 export const Pluto = ({
@@ -52,12 +54,13 @@ export const Pluto = ({
   tooltip,
   instrumentation,
   triggers,
+  haul,
 }: PlutoProps): ReactElement => {
   return (
     <Alamos.Provider instrumentation={instrumentation}>
       <Triggers.Provider {...triggers}>
         <Tooltip.Config {...tooltip}>
-          <Haul.Provider>
+          <Haul.Provider {...haul}>
             <Worker.Provider
               url={workerURL ?? DefaultWorkerURL}
               enabled={workerEnabled}

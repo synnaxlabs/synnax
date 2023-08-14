@@ -1,7 +1,24 @@
-import { selectLinePlot, selectLineSliceState } from "./selectors";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  LayoutStoreState,
+  RemoveLayoutPayload,
+  removeLayout,
+  selectLayoutState,
+  selectTheme,
+} from "@/layout";
+import { selectLinePlot, selectLineSliceState } from "@/line/store/selectors";
 import {
   AddLinePlotYChannelPayload,
   CreateLinePlotPayload,
+  DeleteLinePlotPayload,
   LineStoreState,
   SetLinePlotLinePaylaod,
   SetLinePlotRangesPayload,
@@ -14,15 +31,7 @@ import {
   setLinePlotRanges,
   setLinePlotXChannel,
   setLinePlotYChannels,
-} from "./slice";
-
-import {
-  LayoutStoreState,
-  RemoveLayoutPayload,
-  removeLayout,
-  selectLayoutState,
-  selectTheme,
-} from "@/layout";
+} from "@/line/store/slice";
 import { MiddlewareEffect, effectMiddleware } from "@/middleware";
 
 export const assignColorsEffect: MiddlewareEffect<
@@ -31,8 +40,8 @@ export const assignColorsEffect: MiddlewareEffect<
   | SetLinePlotRangesPayload
   | SetLinePlotXChannelPayload
   | SetLinePlotYChannelsPayload
-  | SetLinePlotLinePaylaod
-  | AddLinePlotYChannelPayload
+  | AddLinePlotYChannelPayload,
+  SetLinePlotLinePaylaod
 > = ({ getState, action, dispatch }) => {
   const s = getState();
   const p = selectLinePlot(s, action.payload.key);
@@ -55,15 +64,14 @@ export const assignColorsEffect: MiddlewareEffect<
 
 export const deleteVisualizationEffect: MiddlewareEffect<
   LayoutStoreState & LineStoreState,
-  RemoveLayoutPayload
+  RemoveLayoutPayload,
+  DeleteLinePlotPayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
   const vis = selectLineSliceState(state);
   const layout = selectLayoutState(state);
   Object.keys(vis.plots).forEach((key) => {
-    if (layout.layouts[key] == null) {
-      dispatch(deleteLinePlot({ layoutKey: key }));
-    }
+    if (layout.layouts[key] == null) dispatch(deleteLinePlot({ layoutKey: key }));
   });
   const p = selectLinePlot(getState(), action.payload);
   if (p != null) dispatch(deleteLinePlot({ layoutKey: action.payload }));

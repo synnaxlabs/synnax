@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { XY, CrudeXY, Box, XYScale, XYLocation, Scale } from "@synnaxlabs/x";
+import { XY, CrudeXY, Box, XYScale, XYLocation } from "@synnaxlabs/x";
 
 import { useLinePlotContext } from "./LinePlot";
 
@@ -26,14 +26,14 @@ import { ColorSwatch } from "@/core/color/ColorSwatch";
 import { CSS } from "@/core/css";
 import { useCursorDrag } from "@/core/hooks/useCursorDrag";
 import { Input, Space, SpaceProps, Text } from "@/core/std";
-import { PartialInputControl } from "@/core/std/Input/types";
+import { OptionalInputControl } from "@/core/std/Input/types";
 import { preventDefault } from "@/util/event";
 
 import "@/core/vis/LinePlot/main/Legend.css";
 
 export interface LegendProps
   extends Omit<SpaceProps, "onChange">,
-    Partial<PartialInputControl<CrudeXY>> {
+    Partial<OptionalInputControl<CrudeXY>> {
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, color: Color) => void;
 }

@@ -19,7 +19,10 @@ import {
 import { Bounds, Destructor, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { XYTelemSource } from "@/core/vis/telem";
+import { Numeric, NumericProps } from "./numeric";
+
+import { XYTelemSource, NumericTelemSource } from "@/core/vis/telem";
+import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import {
   StaticClient,
   ChannelClient,
@@ -27,9 +30,8 @@ import {
   Client,
   StreamHandler,
 } from "@/telem/client/client";
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
+import { Telem } from "@/telem/meta";
 import { DynamicXY, DynamicXYProps, XY, XYProps } from "@/telem/remote/aether/xy";
-import { MockGLBufferController } from "@/mock/MockGLBufferController";
 
 const X_CHANNEL = new Channel({
   name: "time",
@@ -117,7 +119,7 @@ describe("XY", () => {
       y: Y_CHANNEL.key,
     };
 
-    let telem: XYTelemSource & ModifiableTelemSourceMeta;
+    let telem: XYTelemSource & Telem;
     let client: MockClient;
     beforeEach(() => {
       client = new MockClient();
@@ -219,44 +221,45 @@ describe("XY", () => {
       });
     });
   });
-  describe("Dynamic", () => {
-    class MockClient implements Client {
-      handler: StreamHandler | undefined = undefined;
 
-      async retrieveChannel(key: number): Promise<Channel> {
-        return CHANNELS[key];
-      }
+  class MockStreamClient implements Client {
+    handler: StreamHandler | undefined = undefined;
 
-      async read(
-        tr: TimeRange,
-        keys: ChannelKeys
-      ): Promise<Record<number, ReadResponse>> {
-        return {
-          [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, []),
-          [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, []),
-        };
-      }
-
-      async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
-        this.handler = handler;
-        return () => {
-          this.handler = undefined;
-        };
-      }
-
-      close(): void {}
+    async retrieveChannel(key: number): Promise<Channel> {
+      return CHANNELS[key];
     }
 
+    async read(
+      tr: TimeRange,
+      keys: ChannelKeys
+    ): Promise<Record<number, ReadResponse>> {
+      return {
+        [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, []),
+        [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, []),
+      };
+    }
+
+    async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+      this.handler = handler;
+      return () => {
+        this.handler = undefined;
+      };
+    }
+
+    close(): void {}
+  }
+
+  describe("Dynamic", () => {
     const PROPS: DynamicXYProps = {
       x: 1,
       y: 2,
       span: TimeSpan.MAX,
     };
 
-    let telem: XYTelemSource & ModifiableTelemSourceMeta;
-    let client: MockClient;
+    let telem: XYTelemSource & Telem;
+    let client: MockStreamClient;
     beforeEach(() => {
-      client = new MockClient();
+      client = new MockStreamClient();
       telem = new DynamicXY("1", client);
       telem.setProps(PROPS);
     });
@@ -277,6 +280,31 @@ describe("XY", () => {
         control.createBufferMock.mockReset();
         await telem.x(control);
         expect(control.createBufferMock).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
+  describe("Numeric", () => {
+    const PROPS: NumericProps = {
+      channel: 1,
+    };
+    let telem: NumericTelemSource & Telem;
+    let client: MockStreamClient;
+    beforeEach(() => {
+      client = new MockStreamClient();
+      telem = new Numeric("1", client);
+      telem.setProps(PROPS);
+    });
+
+    describe("read", () => {
+      it("should return zero if no current value exists", async () => {
+        expect(await telem.value()).toBe(0);
+      });
+      it("should update the value when the stream handler changes", async () => {
+        expect(await telem.value()).toBe(0);
+        client.handler?.({
+          1: new ReadResponse(CHANNELS[1], [new Series(new Float32Array([1]))]),
+        });
+        expect(await telem.value()).toBe(1);
       });
     });
   });

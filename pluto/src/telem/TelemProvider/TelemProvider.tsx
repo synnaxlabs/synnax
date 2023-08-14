@@ -11,24 +11,25 @@ import { PropsWithChildren, ReactElement, useLayoutEffect } from "react";
 
 import { Client } from "@/client";
 import { Aether } from "@/core/aether/main";
-import { Telem, telemState } from "@/telem/TelemProvider/aether";
+import {
+  AetherTelemProvider,
+  aetherTelemProviderState,
+} from "@/telem/TelemProvider/aether";
 
 export interface TelemProviderProps extends PropsWithChildren<any> {}
 
 export const TelemProvider = Aether.wrap<TelemProviderProps>(
-  "TelemProvider",
+  AetherTelemProvider.TYPE,
   ({ children, aetherKey }): ReactElement | null => {
     const [{ path }, , setState] = Aether.use({
       aetherKey,
-      type: Telem.TYPE,
-      schema: telemState,
+      type: AetherTelemProvider.TYPE,
+      schema: aetherTelemProviderState,
       initialState: {},
     });
     const client = Client.use();
 
-    useLayoutEffect(() => {
-      setState({ props: client?.props });
-    }, [client, setState]);
+    useLayoutEffect(() => setState({ props: client?.props }), [client, setState]);
 
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
   }

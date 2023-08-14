@@ -31,7 +31,7 @@
       </g>
     </g>
     <style>
-        path { fill: black; }
+        path { fill: white; }
         @media (prefers-color-scheme: dark) {
             path {
                 fill: white;

@@ -7,23 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createContext,
+import React, {
   DragEvent,
   DragEventHandler,
   MutableRefObject,
   PropsWithChildren,
-  ReactElement,
+  createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useRef,
 } from "react";
 
-import { Deep, Key } from "@synnaxlabs/x";
+import { Key } from "@synnaxlabs/x";
 
-import { useStateRef } from "@/core/hooks/useStateRef";
+import { PureUseState } from "@/util/state";
 
 import "@/core/haul/Haul.css";
 
@@ -33,13 +31,59 @@ export interface Hauled {
 }
 
 export interface HaulContextValue {
-  startDrag: (entities: Hauled[], onDrop?: (entities: Hauled[]) => void) => void;
-  endDrag: () => void;
-  onDrop: () => void;
-  dragging: Hauled[];
+  value: Hauled[];
+  start: (hauled: Hauled[], onSuccessfulDrop?: (hauled: Hauled[]) => void) => void;
+  end: () => void;
+  drop: () => void;
 }
 
 const HaulContext = createContext<HaulContextValue | null>(null);
+
+export interface HaulProviderProps extends PropsWithChildren {
+  useState?: PureUseState<Hauled[]>;
+}
+
+interface HaulProviderRef {
+  dragging: Hauled[];
+  onSuccessfulDrop: (hauled: Hauled[]) => void;
+}
+
+const ZERO_HAUL_REF: HaulProviderRef = { dragging: [], onSuccessfulDrop: () => {} };
+
+export const HaulProvider = ({
+  children,
+  useState = React.useState,
+}: HaulProviderProps): JSX.Element => {
+  const ctx = useContext(HaulContext);
+
+  const [value, onChange] = useState();
+
+  const ref = useRef<HaulProviderRef>(ZERO_HAUL_REF);
+  const start = useCallback(
+    (hauled: Hauled[], onSuccessfulDrop?: (hauled: Hauled[]) => void) => {
+      ref.current.dragging = hauled;
+      if (onSuccessfulDrop != null) ref.current.onSuccessfulDrop = onSuccessfulDrop;
+      onChange(hauled);
+    },
+    [onChange]
+  );
+  const end = useCallback(() => {
+    ref.current = ZERO_HAUL_REF;
+    onChange([]);
+  }, [onChange]);
+
+  const drop = useCallback(() => {
+    ref.current.onSuccessfulDrop(ref.current.dragging);
+    ref.current = ZERO_HAUL_REF;
+    onChange([]);
+  }, [onChange]);
+
+  const oCtx = useMemo<HaulContextValue>(
+    () => ctx ?? { value, start, end, drop },
+    [value, start, end, drop, ctx]
+  );
+  return <HaulContext.Provider value={oCtx}>{children}</HaulContext.Provider>;
+};
 
 export const useHaulContext = (): HaulContextValue => {
   const ctx = useContext(HaulContext);
@@ -47,136 +91,73 @@ export const useHaulContext = (): HaulContextValue => {
   return ctx;
 };
 
-export const useOptionalHaulContext = (): HaulContextValue | null =>
-  useContext(HaulContext);
-
-export interface HaulProviderProps extends PropsWithChildren {}
-
-interface HaulState {
-  dragging: Hauled[];
-}
-
-interface HaulRef {
-  dragging: Hauled[];
-  dropCallback?: ((entities: Hauled[]) => void) | null;
-}
-
-const ZERO_HAUL_STATE = { dragging: [], dropCallback: null };
-
-export const HaulProvider = ({ children }: HaulProviderProps): ReactElement => {
-  const ctx = useOptionalHaulContext();
-  const [state, setState] = useState<HaulState>(Deep.copy(ZERO_HAUL_STATE));
-  const [ref, setRef] = useStateRef<HaulRef>({ ...ZERO_HAUL_STATE });
-
-  const startDrag = useCallback(
-    (entities: Hauled[], onDrop?: (entities: Hauled[]) => void) => {
-      setRef((p) => ({ ...p, dragging: entities, dropCallback: onDrop }));
-      setState((p) => ({ ...p, dragging: entities }));
-    },
-    [setState]
-  );
-
-  const endDrag = useCallback(
-    () => setState((p) => ({ ...p, dragging: [] })),
-    [setState]
-  );
-
-  const handleDrop = useCallback(() => {
-    ref.current.dropCallback?.(ref.current.dragging);
-    endDrag();
-  }, [endDrag]);
-
-  return (
-    <HaulContext.Provider
-      value={
-        ctx ?? {
-          dragging: state.dragging,
-          onDrop: handleDrop,
-          startDrag,
-          endDrag,
-        }
-      }
-    >
-      {children}
-    </HaulContext.Provider>
-  );
+export const useHaulDraggingRef = (): MutableRefObject<Hauled[]> => {
+  const ref = useRef<Hauled[]>([]);
+  const { value } = useHaulContext();
+  ref.current = value;
+  return ref;
 };
 
-export interface UseHaulStateReturn extends HaulContextValue {}
-
-export const useHaulState = (): UseHaulStateReturn => useHaulContext();
-
-export interface UseHaulRefReturn extends Omit<HaulContextValue, "dragging"> {
-  dragging: MutableRefObject<Hauled[]>;
-}
-
-export const useHaulRef = (): UseHaulRefReturn => {
-  const [ref, setRef] = useStateRef<Hauled[]>([]);
-  const { startDrag, endDrag, dragging, onDrop } = useHaulContext();
-  useEffect(() => setRef(dragging), [setRef, dragging]);
-
-  return useMemo(
-    () => ({
-      dragging: ref,
-      startDrag,
-      endDrag,
-      onDrop,
-    }),
-    [ref, startDrag, endDrag]
-  );
+export const useHaulDraggingState = (): Hauled[] => {
+  const { value } = useHaulContext();
+  return value;
 };
 
-export interface UseHaulDropRegionProps {
+export interface UseHaulDragProps {}
+
+export interface UseHaulDragReturn {
+  startDrag: (
+    entities: Hauled[],
+    onSuccessfulDrop?: (hauled: Hauled[]) => void
+  ) => void;
+  endDrag: () => void;
+}
+
+export const useHaulDrag = (): UseHaulDragReturn => {
+  const { start, end } = useHaulContext();
+  return { startDrag: start, endDrag: end };
+};
+
+export interface UseHaulDropProps {
   canDrop: (entities: Hauled[]) => boolean;
-  onDrop: (entities: Hauled[], e: DragEvent<Element>) => void;
+  onDrop: (entities: Hauled[], e: DragEvent) => void;
+  onDragOver?: (entities: Hauled[], e: DragEvent) => void;
 }
 
-export interface UseHaulDropRegionReturn {
-  isOver: boolean;
+export interface UseHaulDropReturn {
   onDragOver: DragEventHandler;
-  onDragLeave: DragEventHandler;
   onDrop: DragEventHandler;
 }
 
-export const useHaulDropRegion = ({
+export const useHaulDrop = ({
   canDrop,
   onDrop,
-}: UseHaulDropRegionProps): UseHaulDropRegionReturn => {
-  const hauled = useHaulRef();
-  const [isOver, setIsOver] = useState(false);
+  onDragOver,
+}: UseHaulDropProps): UseHaulDropReturn => {
+  const ref = useHaulDraggingRef();
+  const { drop } = useHaulContext();
 
-  const handleDragOver: DragEventHandler = useCallback(
-    (e) => {
-      if (hauled.dragging.current.length === 0) return;
-      const canDrop_ = canDrop(hauled.dragging.current);
-      if (canDrop_) {
-        e.preventDefault();
-        setIsOver(true);
-      }
-    },
-    [canDrop]
-  );
-
-  const handleDrop: DragEventHandler = useCallback(
-    (e) => {
+  const handleDragOver = useCallback(
+    (e: DragEvent) => {
+      if (!canDrop(ref.current)) return;
       e.preventDefault();
-      if (hauled.dragging.current.length === 0) return;
-      const canDrop_ = canDrop(hauled.dragging.current);
-      if (canDrop_) {
-        onDrop(hauled.dragging.current, e);
-        hauled.onDrop();
-      }
-      setIsOver(false);
+      onDragOver?.(ref.current, e);
     },
-    [canDrop]
+    [ref, canDrop]
   );
 
-  const handleDragLeave: DragEventHandler = useCallback(() => setIsOver(false), []);
+  const handleDrop = useCallback(
+    (e: DragEvent) => {
+      if (!canDrop(ref.current)) return;
+      e.preventDefault();
+      drop();
+      onDrop(ref.current, e);
+    },
+    [ref, onDrop, canDrop, drop]
+  );
 
   return {
-    isOver,
     onDragOver: handleDragOver,
     onDrop: handleDrop,
-    onDragLeave: handleDragLeave,
   };
 };

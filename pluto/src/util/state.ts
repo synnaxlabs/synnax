@@ -23,3 +23,6 @@ export const executeInitialSetter = <S extends State>(setter: InitialState<S>): 
 export const isInitialStateSetter = <S extends State>(
   arg: InitialState<S>
 ): arg is () => S => typeof arg === "function";
+
+export type UseState = <S extends State>(initial: InitialState<S>) => [S, SetState<S>];
+export type PureUseState<S extends State> = () => [S, (value: S) => void];

@@ -223,7 +223,10 @@ const slice = createSlice({
       s.label = a.payload.label;
       if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
       const prerenderLabel = nanoid();
-      s.windows[prerenderLabel] = INITIAL_PRERENDER_WINDOW_STATE;
+      s.windows[prerenderLabel] = {
+        ...INITIAL_PRERENDER_WINDOW_STATE,
+        ...s.config.defaultWindowProps,
+      };
     },
     createWindow: (s: DriftState, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key, label, prerenderLabel } = payload;

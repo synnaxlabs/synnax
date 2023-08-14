@@ -21,7 +21,7 @@ export interface InputControl<
   onChange: (value: O) => void;
 }
 
-export interface PartialInputControl<
+export interface OptionalInputControl<
   I extends InputValue = InputValue,
   O extends InputValue = I
 > extends Partial<InputControl<I, O>> {}

@@ -284,13 +284,12 @@ const wrap = <P extends {}>(
   Component: ComponentType<P & { aetherKey: string }>
 ): FC<P & { aetherKey?: string }> => {
   Component.displayName = `Aether.wrap(${displayName})`;
-  const Wrapped = ({
-    aetherKey,
-    ...props
-  }: P & { aetherKey?: string }): JSX.Element => {
-    const key = useUniqueKey(aetherKey);
-    return <Component {...(props as unknown as P)} aetherKey={key} />;
-  };
+  const Wrapped = memo<P & { aetherKey?: string }>(
+    ({ aetherKey, ...props }: P & { aetherKey?: string }): JSX.Element => {
+      const key = useUniqueKey(aetherKey);
+      return <Component {...(props as unknown as P)} aetherKey={key} />;
+    }
+  );
   Wrapped.displayName = displayName;
   return Wrapped;
 };

@@ -11,24 +11,24 @@ import { ComponentPropsWithoutRef, ReactElement, memo, useState } from "react";
 
 import { Box } from "@synnaxlabs/x";
 
+import { CSS } from "@/core/css";
 import { useResize } from "@/core/hooks";
 import { Theming } from "@/core/theming";
 import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
-
-import "@/core/vis/Value/Value.css";
 
 export interface ValueProps
   extends Omit<ValueCoreProps, "box">,
     Omit<ComponentPropsWithoutRef<"span">, "color"> {}
 
 export const Value = memo(
-  ({ style, color, level = "p", ...props }: ValueProps): ReactElement => {
+  ({ style, color, level = "p", className, ...props }: ValueProps): ReactElement => {
     const [box, setBox] = useState(Box.ZERO);
     const ref = useResize(setBox);
     const font = Theming.useTypography(level ?? "p");
     return (
       <div
         ref={ref}
+        className={CSS(className, CSS.B("value"))}
         style={{
           height: (font.lineHeight + 2) * font.baseSize,
           border: "1px solid black",

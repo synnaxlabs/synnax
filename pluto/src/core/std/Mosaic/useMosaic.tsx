@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Location } from "@synnaxlabs/x";
+import { CrudeLocation } from "@synnaxlabs/x";
 
 import {
   moveMosaicTab,
@@ -28,7 +28,7 @@ export interface UseMosaicProps {
 
 export interface UseMosaicReturn {
   root: MosaicNode;
-  onDrop: (key: number, tabKey: string, loc: Location) => void;
+  onDrop: (key: number, tabKey: string, loc: CrudeLocation) => void;
   onClose: (tabKey: string) => void;
   onSelect: (tabKey: string) => void;
   onResize: (key: number, sizes: number) => void;
@@ -43,7 +43,7 @@ export const useMosaic = ({
 
   useEffect(() => setRoot(autoSelectTabs(initialTree)[0]), [initialTree]);
 
-  const handleDrop = (key: number, tabKey: string, loc: Location): void =>
+  const handleDrop = (key: number, tabKey: string, loc: CrudeLocation): void =>
     setRoot((r) => moveMosaicTab(r, tabKey, loc, key)[0]);
 
   const handleClose = (tabKey: string): void =>

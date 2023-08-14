@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TelemSourceProps } from "./TelemSource";
+import { Destructor } from "@synnaxlabs/x";
+
+import { TelemSpec } from "./telem";
 
 import { AetherContext } from "@/core/aether/worker";
 
 export interface TelemProvider {
-  get: <T>(key: string, props: TelemSourceProps) => UseTelemResult<T>;
+  use: <T>(key: string, props: TelemSpec) => UseTelemResult<T>;
 }
 
-export interface UseTelemResult<T> {
-  telem: T;
-  cleanupTelem: () => void;
-}
+export type UseTelemResult<T> = [T, Destructor];
 
 export class TelemContext {
   private static readonly CONTEXT_KEY = "pluto-telem-context";
@@ -34,11 +33,7 @@ export class TelemContext {
     ctx.set(TelemContext.CONTEXT_KEY, telem);
   }
 
-  static use<T>(
-    ctx: AetherContext,
-    key: string,
-    props: TelemSourceProps
-  ): UseTelemResult<T> {
-    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.get<T>(key, props);
+  static use<T>(ctx: AetherContext, key: string, props: TelemSpec): UseTelemResult<T> {
+    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.use<T>(key, props);
   }
 }

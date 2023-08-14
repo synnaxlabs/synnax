@@ -11,7 +11,7 @@ import { ReactElement, useCallback } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { PartialInputControl } from "../Input/types";
+import { OptionalInputControl } from "../Input/types";
 
 import { createFilterTransform } from "@/core/hooks";
 import { useDebouncedCallback } from "@/core/hooks/useDebouncedCallback";
@@ -22,7 +22,7 @@ import { RenderProp } from "@/util/renderProp";
 export interface ListFilterProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends PartialInputControl<string> {
+> extends OptionalInputControl<string> {
   children?: RenderProp<InputControl<string>>;
   debounce?: number;
 }

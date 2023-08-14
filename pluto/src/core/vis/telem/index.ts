@@ -7,5 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { TelemSourceProps, XYTelemSource } from "@/core/vis/telem/TelemSource";
-export { telemSourceProps } from "@/core/vis/telem/TelemSource";
+export * from "@/core/vis/telem/telem";
+export * from "@/core/vis/telem/TelemContext";

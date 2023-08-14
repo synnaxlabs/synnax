@@ -13,7 +13,7 @@ import { Box, XYScale, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/core/css";
 import { DirectionTrigger, useResize } from "@/core/hooks";
-import { Pack, PackProps, Text } from "@/core/std";
+import { PackProps, Space, Text } from "@/core/std";
 import { Theming } from "@/core/theming";
 import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
 
@@ -34,6 +34,7 @@ export const ValueLabeled = ({
   color,
   position,
   className,
+  children,
   ...props
 }: ValueLabeledProps): ReactElement => {
   const [box, setBox] = useState<Box>(Box.ZERO);
@@ -49,11 +50,12 @@ export const ValueLabeled = ({
   if (position != null)
     adjustedBox = XYScale.translate(position)
       .translate(box.topLeft.scale(-1))
+      .translateY(1.9 * font.baseSize)
       .translateY(height)
       .box(box);
 
   return (
-    <Pack
+    <Space
       {...props}
       direction="y"
       className={CSS(className, CSS.BE("value-labeled", "container"))}
@@ -69,9 +71,10 @@ export const ValueLabeled = ({
           minWidth: "100%",
         }}
       />
-      <div style={{ height, width: "100%" }} ref={resizeRef}>
+      <div className={CSS.B("value")} style={{ height, width: "100%" }} ref={resizeRef}>
+        {children}
         <ValueCore color={color} level={level} {...props} box={adjustedBox} />
       </div>
-    </Pack>
+    </Space>
   );
 };

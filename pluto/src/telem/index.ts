@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { BooleanTelem } from "@/telem/bool/main";
 import { RemoteTelem } from "@/telem/remote/main";
 import { StaticTelem } from "@/telem/static/main";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
 export const Telem = {
   Static: StaticTelem,
-  Range: RemoteTelem,
+  Remote: RemoteTelem,
+  Boolean: BooleanTelem,
   Provider: TelemProvider,
 };

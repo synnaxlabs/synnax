@@ -20,6 +20,7 @@ import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
+import { layoutMiddleware } from "./layout/store/middleware";
 import { lineMiddleware } from "./line/store/middleware";
 import {
   LINE_SLICE_NAME,
@@ -98,6 +99,7 @@ export type RootStore = Store<RootState, Action>;
 
 const DEFAULT_WINDOW_PROPS: Omit<WindowProps, "key"> = {
   transparent: true,
+  fileDropEnabled: false,
 };
 
 const newStore = async (): Promise<RootStore> => {
@@ -107,7 +109,12 @@ const newStore = async (): Promise<RootStore> => {
   return (await configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [...def(), ...lineMiddleware, persistMiddleware],
+    middleware: (def) => [
+      ...def(),
+      ...lineMiddleware,
+      ...layoutMiddleware,
+      persistMiddleware,
+    ],
     reducer,
     enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,

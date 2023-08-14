@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
+import { Telem, TelemSpec } from "@/core/vis/telem";
 
 export interface TelemFactory {
-  type: string;
-  create: (key: string, type: string, props: any) => ModifiableTelemSourceMeta | null;
+  create: (key: string, spec: TelemSpec, root: TelemFactory) => Telem | null;
 }
 
 export class CompoundTelemFactory {
@@ -23,10 +22,10 @@ export class CompoundTelemFactory {
     this.factories = factories;
   }
 
-  create(key: string, type: string, props: any): ModifiableTelemSourceMeta | null {
+  create(key: string, props: TelemSpec, root: TelemFactory): Telem | null {
     for (const factory of this.factories) {
-      const source = factory.create(key, type, props);
-      if (source != null) return source;
+      const telem = factory.create(key, props, root);
+      if (telem != null) return telem;
     }
     return null;
   }

@@ -10,10 +10,10 @@
 import { Destructor, Series, TimeSpan, TimeStamp, addSamples } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { NumericTelemSource } from "@/core/vis/telem/TelemSource";
+import { NumericTelemSource } from "@/core/vis/telem";
 import { TelemMeta } from "@/telem/base";
 import { Client, StreamHandler } from "@/telem/client/client";
-import { ModifiableTelemSourceMeta } from "@/telem/meta";
+import { Telem } from "@/telem/meta";
 
 export const numericProps = z.object({
   channel: z.number(),
@@ -23,11 +23,13 @@ export type NumericProps = z.infer<typeof numericProps>;
 
 export class Numeric
   extends TelemMeta<typeof numericProps>
-  implements NumericTelemSource, ModifiableTelemSourceMeta
+  implements NumericTelemSource, Telem
 {
   removeStreamHandler: Destructor | null = null;
 
   static readonly TYPE = "range-point";
+
+  schema = numericProps;
 
   private valid = false;
   private leadingBuffer: Series | null = null;

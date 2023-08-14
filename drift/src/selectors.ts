@@ -22,11 +22,15 @@ export const selectWindow = (
   if (win != null) return win;
   const label = driftState.keyLabels[keyOrLabel];
   win = driftState.windows[label];
-  return win != null ? win : null;
+  if (win == null && keyOrLabel != null) return null;
+  return win ?? driftState.windows[driftState.label];
 };
 
-export const selectWindowKey = (state: StoreState, label: string): string | null =>
-  selectDriftState(state).labelKeys[label];
+export const selectWindowKey = (state: StoreState, label?: string): string | null => {
+  const driftState = selectDriftState(state);
+  if (label == null) return driftState.labelKeys[driftState.label];
+  return driftState.labelKeys[label];
+};
 
 export const selectWindowAttribute = <K extends keyof WindowState>(
   state: StoreState,

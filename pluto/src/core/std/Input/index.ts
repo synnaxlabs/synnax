@@ -20,7 +20,7 @@ import { usePassThroughInputControl } from "@/core/std/Input/usePassthroughInput
 
 export type {
   InputControl,
-  PartialInputControl,
+  OptionalInputControl as PartialInputControl,
   InputBaseProps,
 } from "@/core/std/Input/types";
 export type {

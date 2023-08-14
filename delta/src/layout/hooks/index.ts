@@ -11,6 +11,7 @@ import { Dispatch, ReactElement, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   NavDrawerItem as PNavDrawerItem,
   ThemeProviderProps,
@@ -40,14 +41,20 @@ import {
 import { LayoutState } from "../types";
 
 export interface LayoutCreatorProps {
+  windowKey: string;
   dispatch: Dispatch<AnyAction>;
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type LayoutCreator = (props: LayoutCreatorProps) => LayoutState;
+export type LayoutCreator = (
+  props: LayoutCreatorProps
+) => Omit<LayoutState, "windowKey">;
 
 /** A function that places a layout using the given properties or creation func. */
-export type LayoutPlacer = (layout: LayoutState | LayoutCreator) => void;
+export type LayoutPlacer = (layout: Omit<LayoutState, "windowKey"> | LayoutCreator) => {
+  windowKey: string;
+  key: string;
+};
 
 /** A function that removes a layout. */
 export type LayoutRemover = () => void;
@@ -65,11 +72,12 @@ export type LayoutRemover = () => void;
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
   const os = useOS();
+  const windowKey = useSelectWindowKey();
   return useCallback(
-    (layout_: LayoutState | LayoutCreator) => {
-      const layout = typeof layout_ === "function" ? layout_({ dispatch }) : layout_;
+    (base) => {
+      const layout = typeof base === "function" ? base({ dispatch, windowKey }) : base;
       const { key, location, window, name: title } = layout;
-      dispatch(placeLayout(layout));
+      dispatch(placeLayout({ ...layout, windowKey }));
       if (location === "window")
         dispatch(
           createWindow({
@@ -79,8 +87,9 @@ export const useLayoutPlacer = (): LayoutPlacer => {
             title,
           })
         );
+      return { windowKey, key };
     },
-    [dispatch]
+    [dispatch, windowKey]
   );
 };
 
@@ -179,10 +188,10 @@ export interface UseNavDrawerReturn {
 }
 
 export const useNavDrawer = (
-  loc: NavdrawerLocation,
+  location: NavdrawerLocation,
   items: NavDrawerItem[]
 ): UseNavDrawerReturn => {
-  const state = useSelectNavDrawer(loc);
+  const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
   let activeItem: NavDrawerItem | undefined;
   let menuItems: NavMenuItem[] = [];
@@ -192,7 +201,7 @@ export const useNavDrawer = (
 
   const onResize = useDebouncedCallback(
     (size) => {
-      dispatch(resizeNavdrawer({ location: loc, size }));
+      dispatch(resizeNavdrawer({ location, size }));
     },
     100,
     [dispatch]

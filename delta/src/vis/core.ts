@@ -16,7 +16,9 @@ export interface VisMeta {
   key: string;
 }
 
-export const createVis = (props: Omit<Partial<LayoutState>, "type">): LayoutState => {
+export const createVis = (
+  props: Omit<Partial<LayoutState>, "type">
+): Omit<LayoutState, "windowKey"> => {
   const {
     location = "mosaic",
     name = "Visualizaton",

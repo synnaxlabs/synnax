@@ -9,28 +9,42 @@
 
 import { ComponentPropsWithoutRef, ReactElement } from "react";
 
+import { z } from "zod";
+
 import { Aether } from "@/core/aether/main";
 import { Color, CrudeColor } from "@/core/color";
 import { CSS } from "@/core/css";
-import { Valve as WorkerValve, valveState } from "@/core/vis/Valve/aether";
+import { AetherValve } from "@/core/vis/Valve/aether";
 
 import "@/core/vis/Valve/Valve.css";
 
-export interface ValveProps extends Omit<ComponentPropsWithoutRef<"button">, "color"> {
+export interface ValveProps
+  extends z.input<typeof AetherValve.stateZ>,
+    Omit<ComponentPropsWithoutRef<"button">, "color"> {
   color?: CrudeColor;
   label?: string;
 }
 
 export const Valve = Aether.wrap<ValveProps>(
-  WorkerValve.TYPE,
-  ({ aetherKey, color, style = {}, className, ...props }): ReactElement => {
+  AetherValve.TYPE,
+  ({
+    aetherKey,
+    color,
+    style = {},
+    className,
+    source,
+    sink,
+    ...props
+  }): ReactElement => {
     const [, { triggered, active }, setState] = Aether.use({
       aetherKey,
-      type: WorkerValve.TYPE,
-      schema: valveState,
+      type: AetherValve.TYPE,
+      schema: AetherValve.stateZ,
       initialState: {
         triggered: false,
         active: false,
+        source,
+        sink,
       },
     });
 

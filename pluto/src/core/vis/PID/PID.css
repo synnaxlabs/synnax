@@ -17,13 +17,15 @@
 }
 
 .react-flow__selection,
-.react-flow__nodesselection-rect {
+.react-flow__nodesselection-rect,
+.react-flow__node.selected {
     background-color: var(--pluto-primary-z-20) !important;
     border: var(--pluto-border-width) dashed var(--pluto-primary-z-40) !important;
 }
 
 .react-flow__handle {
     border: var(--pluto-border) !important;
+    display: none !important;
 }
 
 .react-flow__handle.target {
@@ -36,8 +38,20 @@
 
 .react-flow__node {
     pointer-events: all !important;
+    border: var(--pluto-border-width) solid transparent !important;
 }
 
-.react-flow__edge {
-    stroke-width: 3px !important;
+.react-flow__edge-path {
+    stroke-width: var(--pluto-pid-element-stroke-width) !important;
+    stroke: var(--pluto-text-color) !important;
+}
+
+.pluto-pid {
+    --pluto-pid-element-stroke-width: 2px;
+
+    &.pluto--editable {
+        & .react-flow__handle {
+            display: block !important;
+        }
+    }
 }

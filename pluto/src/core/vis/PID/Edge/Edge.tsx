@@ -83,17 +83,17 @@ export const Edge = ({
         const dir = calculateLineDirection(points[i], points[i + 1]);
         const dims = {
           [dir.dimension]: "18px",
-          [dir.inverse.dimension]: "2px",
+          [dir.inverse.dimension]: "4px",
         };
         const pos = {
           [dir.crude]: p[dir.crude] - 9,
-          [dir.inverse.crude]: p[dir.inverse.crude] - 1,
+          [dir.inverse.crude]: p[dir.inverse.crude] - 2,
         };
         return (
           <Fragment key={i}>
             <rect
               className={CSS.BE("pid-edge-handle", "background")}
-              fill="var(--pluto-gray-p2)"
+              fill="var(--pluto-primary-z)"
               {...dims}
               {...pos}
               rx="2px"

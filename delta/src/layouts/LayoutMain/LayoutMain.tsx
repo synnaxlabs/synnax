@@ -20,7 +20,6 @@ import {
   NavRight,
   NavTop,
 } from "@/layouts/LayoutMain/Nav";
-import { VisCanvas } from "@/vis";
 
 import "@/layouts/LayoutMain/LayoutMain.css";
 
