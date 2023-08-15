@@ -39,7 +39,7 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
     i = 0
     while True:
         t = np.int64(sy.TimeStamp.now())
-        d = np.float32(np.sin(i / 100) * 10 + random.random())
+        d = np.float32(np.sin(i / 10) * 1)
         writer.write(
             pd.DataFrame(
                 {

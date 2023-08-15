@@ -19,7 +19,7 @@ import { AetherValve } from "@/core/vis/Valve/aether";
 import "@/core/vis/Valve/Valve.css";
 
 export interface ValveProps
-  extends z.input<typeof AetherValve.stateZ>,
+  extends Omit<z.input<typeof AetherValve.stateZ>, "triggered" | "active">,
     Omit<ComponentPropsWithoutRef<"button">, "color"> {
   color?: CrudeColor;
   label?: string;

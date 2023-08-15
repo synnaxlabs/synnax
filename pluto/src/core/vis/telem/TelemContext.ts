@@ -12,15 +12,20 @@ import { Destructor } from "@synnaxlabs/x";
 import { TelemSpec } from "./telem";
 
 import { AetherContext } from "@/core/aether/worker";
+import { TelemFactory } from "@/telem/factory";
 
 export interface TelemProvider {
-  use: <T>(key: string, props: TelemSpec) => UseTelemResult<T>;
+  use: <T>(
+    key: string,
+    props: TelemSpec,
+    extension?: TelemFactory
+  ) => UseTelemResult<T>;
 }
 
 export type UseTelemResult<T> = [T, Destructor];
 
 export class TelemContext {
-  private static readonly CONTEXT_KEY = "pluto-telem-context";
+  static readonly CONTEXT_KEY = "pluto-telem-context";
 
   prov: TelemProvider;
 
@@ -28,12 +33,21 @@ export class TelemContext {
     this.prov = prov;
   }
 
+  static get(ctx: AetherContext): TelemContext {
+    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY);
+  }
+
   static set(ctx: AetherContext, prov: TelemProvider): void {
     const telem = new TelemContext(prov);
     ctx.set(TelemContext.CONTEXT_KEY, telem);
   }
 
-  static use<T>(ctx: AetherContext, key: string, props: TelemSpec): UseTelemResult<T> {
-    return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY).prov.use<T>(key, props);
+  static use<T>(
+    ctx: AetherContext,
+    key: string,
+    props: TelemSpec,
+    extension?: TelemFactory
+  ): UseTelemResult<T> {
+    return TelemContext.get(ctx).prov.use<T>(key, props, extension);
   }
 }

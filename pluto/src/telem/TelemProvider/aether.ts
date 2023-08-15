@@ -21,16 +21,15 @@ import {
 } from "@/core/vis/telem";
 import { AetherBooleanTelem } from "@/telem/bool/aether";
 import { BaseClient, ClientProxy } from "@/telem/client";
-import { CompoundTelemFactory } from "@/telem/factory";
+import { CompoundTelemFactory, TelemFactory } from "@/telem/factory";
+import { AetherNoopTelem } from "@/telem/noop/aether";
 import { AetherRemoteTelem } from "@/telem/remote/aether";
 import { AetherStaticTelem } from "@/telem/static/aether";
 
-export const aetherTelemProviderState = z.object({});
-
-export type AetherTelemProviderState = z.input<typeof aetherTelemProviderState>;
-
+export type ProviderState = z.input<typeof providerStateZ>;
+export const providerStateZ = z.object({});
 export class AetherTelemProvider
-  extends AetherComposite<typeof aetherTelemProviderState>
+  extends AetherComposite<typeof providerStateZ>
   implements TelemProvider
 {
   readonly telem: Map<string, Telem> = new Map();
@@ -39,17 +38,17 @@ export class AetherTelemProvider
     new AetherBooleanTelem.Factory(),
     new AetherStaticTelem.Factory(),
     new AetherRemoteTelem.Factory(this.client),
+    new AetherNoopTelem.Factory(),
   ]);
 
   static readonly TYPE = "TelemProvider";
-  static readonly z = aetherTelemProviderState;
-  schema = AetherTelemProvider.z;
+  static readonly stateZ = providerStateZ;
+  schema = AetherTelemProvider.stateZ;
 
-  use<T>(key: string, spec: TelemSpec): UseTelemResult<T> {
-    // try to get the source
+  use<T>(key: string, spec: TelemSpec, extension?: TelemFactory): UseTelemResult<T> {
     let telem = this.telem.get(key);
     if (telem != null) telem.setProps(spec.props);
-    else telem = this.create(key, spec);
+    else telem = this.create(key, spec, extension);
     return [telem as T, () => this.remove(key)];
   }
 
@@ -59,19 +58,24 @@ export class AetherTelemProvider
   }
 
   afterUpdate(): void {
-    const client = AetherClient.Context.use(this.ctx);
-    this.client.swap(new BaseClient(client));
+    const client = AetherClient.use(this.ctx);
+    if (client != null) this.client.swap(new BaseClient(client));
     this.telem.forEach((t) => t.invalidate());
     return TelemContext.set(this.ctx, this);
   }
 
-  create<T>(key: string, spec: TelemSpec): T {
-    const telem = this.factory.create(key, spec, this.factory);
-    if (telem == null)
-      throw new UnexpectedError(
-        `Telemetry service could not find a source for type ${spec.type}`
-      );
+  create<T>(key: string, spec: TelemSpec, extension?: TelemFactory): T {
+    if (extension != null) this.factory.factories.push(extension);
+    let telem = this.factory.create(key, spec, this.factory);
+    if (telem == null) {
+      telem = this.factory.create(key, spec, this.factory);
+      if (telem == null)
+        throw new UnexpectedError(
+          `Telemetry service could not find a source for type ${spec.type}`
+        );
+    }
     this.telem.set(key, telem);
+    if (extension != null) this.factory.factories = this.factory.factories.slice(0, -1);
     return telem as T;
   }
 }

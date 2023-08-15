@@ -13,7 +13,6 @@ import { z } from "zod";
 import { NumericTelemSource } from "@/core/vis/telem";
 import { TelemMeta } from "@/telem/base";
 import { Client, StreamHandler } from "@/telem/client/client";
-import { Telem } from "@/telem/meta";
 
 export const numericProps = z.object({
   channel: z.number(),
@@ -23,7 +22,7 @@ export type NumericProps = z.infer<typeof numericProps>;
 
 export class Numeric
   extends TelemMeta<typeof numericProps>
-  implements NumericTelemSource, Telem
+  implements NumericTelemSource
 {
   removeStreamHandler: Destructor | null = null;
 
@@ -62,6 +61,7 @@ export class Numeric
   }
 
   async read(): Promise<void> {
+    this.valid = true;
     const { channel } = this.props;
     const now = TimeStamp.now()
       .sub(TimeStamp.seconds(10))
@@ -69,7 +69,6 @@ export class Numeric
     const d = await this.client.read(now, [channel]);
     this.leadingBuffer = d[channel].data[0];
     await this.updateStreamHandler();
-    this.valid = true;
   }
 
   async updateStreamHandler(): Promise<void> {

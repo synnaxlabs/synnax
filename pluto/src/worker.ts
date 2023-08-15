@@ -9,8 +9,7 @@
 
 import { RoutedWorker } from "@synnaxlabs/x";
 
-import { AetherTooltip } from "./core/vis/Tooltip/aether";
-
+import { AetherClient } from "@/client/aether";
 import { AetherComponentRegistry, render } from "@/core/aether/worker";
 import { AetherThemeProvider } from "@/core/theming/aether";
 import { AetherCanvas } from "@/core/vis/Canvas/aether";
@@ -19,9 +18,11 @@ import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { AetherMeasure } from "@/core/vis/Measure/aether";
 import { AetherPID } from "@/core/vis/PID/aether";
 import { AetherRule } from "@/core/vis/Rule/aether";
+import { AetherTooltip } from "@/core/vis/Tooltip/aether";
 import { AetherValue } from "@/core/vis/Value/aether";
 import { AetherValve } from "@/core/vis/Valve/aether";
-import { Telem } from "@/telem/TelemProvider/aether";
+import { AetherController } from "@/telem/control/aether";
+import { AetherTelemProvider } from "@/telem/TelemProvider/aether";
 
 export const pluto = (): void => {
   // @ts-expect-error
@@ -31,7 +32,8 @@ export const pluto = (): void => {
   const REGISTRY: AetherComponentRegistry = {
     ...AetherLinePlot.REGISTRY,
     ...AetherCanvas.REGISTRY,
-    [Telem.TYPE]: Telem,
+    [AetherClient.Provider.TYPE]: AetherClient.Provider,
+    [AetherTelemProvider.TYPE]: AetherTelemProvider,
     [AetherLine.TYPE]: AetherLine,
     [AetherValue.TYPE]: AetherValue,
     [AetherValve.TYPE]: AetherValve,
@@ -40,6 +42,7 @@ export const pluto = (): void => {
     [AetherThemeProvider.TYPE]: AetherThemeProvider,
     [AetherTooltip.TYPE]: AetherTooltip,
     [AetherMeasure.TYPE]: AetherMeasure,
+    [AetherController.TYPE]: AetherController,
   };
 
   render({

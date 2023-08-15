@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { BooleanTelem } from "@/telem/bool/main";
+import { ControlTelem } from "@/telem/control/hooks";
 import { RemoteTelem } from "@/telem/remote/main";
 import { StaticTelem } from "@/telem/static/main";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
@@ -17,4 +18,5 @@ export const Telem = {
   Remote: RemoteTelem,
   Boolean: BooleanTelem,
   Provider: TelemProvider,
+  Control: ControlTelem,
 };

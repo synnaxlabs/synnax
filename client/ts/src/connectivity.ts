@@ -11,14 +11,23 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "failed";
+const CONNECTION_STATUSES = [
+  "disconnected",
+  "connecting",
+  "connected",
+  "failed",
+] as const;
+export const connectionStatus = z.enum(CONNECTION_STATUSES);
+export type ConnectionStatus = z.infer<typeof connectionStatus>;
 
-export interface ConnectionState {
-  status: ConnectionStatus;
-  error?: Error;
-  message?: string;
-  clusterKey: string;
-}
+export const connectionState = z.object({
+  status: connectionStatus,
+  error: z.instanceof(Error).optional(),
+  message: z.string().optional(),
+  clusterKey: z.string(),
+});
+
+export type ConnectionState = z.infer<typeof connectionState>;
 
 const connectivityResponseSchema = z.object({
   clusterKey: z.string(),
@@ -41,6 +50,7 @@ export class Connectivity {
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
   private readonly onChangeHandlers: Array<(state: ConnectionState) => void> = [];
+  static readonly connectionStateZ = connectionState;
 
   /**
    * @param client - The transport client to use for connectivity checks.

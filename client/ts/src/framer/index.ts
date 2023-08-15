@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { Frame } from "@/framer/frame";
+export type { CrudeFrame } from "@/framer/frame";
 export { FrameClient } from "@/framer/client";
 export { Iterator, AUTO_SPAN } from "@/framer/iterator";
 export { Writer } from "@/framer/writer";

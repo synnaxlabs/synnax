@@ -16,7 +16,7 @@ import { z } from "zod";
 import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
 import { ChannelRetriever } from "@/channel/retriever";
 import { ForwardFrameAdapter } from "@/framer/adapter";
-import { Frame, frameZ } from "@/framer/frame";
+import { CrudeFrame, Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -125,7 +125,7 @@ export class Writer {
 
   async write(channel: ChannelKeyOrName, data: NativeTypedArray): Promise<boolean>;
 
-  async write(frame: Frame): Promise<boolean>;
+  async write(frame: CrudeFrame): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.
@@ -142,14 +142,16 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    frame: Frame | ChannelKeyOrName,
+    frame: CrudeFrame | ChannelKeyOrName,
     data?: NativeTypedArray
   ): Promise<boolean> {
-    if (!(frame instanceof Frame)) {
+    const isKeyOrName = ["string", "number"].includes(typeof frame);
+    if (isKeyOrName) {
       frame = new Frame(frame, new Series(data as NativeTypedArray));
     }
-    frame = this.adapter.adapt(frame);
-    if (this.errorAccumulated) return false;
+    frame = this.adapter.adapt(new Frame(frame));
+    // if (this.errorAccumulated) return false;
+    console.log("SENDING");
     // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;

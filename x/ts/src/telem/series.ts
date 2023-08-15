@@ -325,7 +325,6 @@ export class Series {
     // Bind the buffer.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
 
-
     // This means we only need to buffer part of the array.
     if (this.writePos !== FULL_BUFFER) {
       if (prevBuffer === 0) {

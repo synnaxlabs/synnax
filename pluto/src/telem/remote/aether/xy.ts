@@ -205,13 +205,13 @@ export class DynamicXY
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
     const handler: StreamHandler = (data) => {
       const yd = data[y.key];
-      if (yd.data.length !== 0) {
+      if (yd != null && yd.data.length !== 0) {
         yd.data.forEach((arr) => arr.acquire());
         this._y?.push(...yd.data);
       }
       if (x != null) {
         const xd = data[x.key];
-        if (xd.data.length !== 0) {
+        if (xd != null && xd.data.length !== 0) {
           xd.data.forEach((arr) => arr.acquire());
           this._x?.push(...xd.data);
         }

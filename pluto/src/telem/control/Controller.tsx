@@ -7,21 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement } from "react";
+import { PropsWithChildren } from "react";
 
-import { Aether } from "@/core/aether/main";
-import { AetherTelemProvider, providerStateZ } from "@/telem/TelemProvider/aether";
+import { z } from "zod";
 
-export interface TelemProviderProps extends PropsWithChildren<any> {}
+import { AetherController } from "./aether";
 
-export const TelemProvider = Aether.wrap<TelemProviderProps>(
-  AetherTelemProvider.TYPE,
-  ({ children, aetherKey }): ReactElement | null => {
+import { Aether } from "@/core";
+
+export interface ControllerProps
+  extends z.input<typeof AetherController.stateZ>,
+    PropsWithChildren {}
+
+export const Controller = Aether.wrap<ControllerProps>(
+  AetherController.TYPE,
+  ({ aetherKey, authority, children }) => {
     const [{ path }] = Aether.use({
       aetherKey,
-      type: AetherTelemProvider.TYPE,
-      schema: providerStateZ,
-      initialState: {},
+      type: AetherController.TYPE,
+      schema: AetherController.stateZ,
+      initialState: { authority },
     });
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
   }

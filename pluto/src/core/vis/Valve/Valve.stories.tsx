@@ -10,12 +10,14 @@
 import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
+import { Bounds } from "@synnaxlabs/x";
 
 import { Canvas } from "../Canvas/Canvas";
 
 import { Valve } from "./Valve";
 
-import { StaticTelem } from "@/telem/static/main";
+import { Telem } from "@/telem";
+import { Controller } from "@/telem/control/Controller";
 
 const story: Meta<typeof Valve> = {
   title: "Core/Vis/Valve",
@@ -23,7 +25,21 @@ const story: Meta<typeof Valve> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = StaticTelem.useNumeric(1);
+  const numericSource = Telem.Remote.useNumeric({
+    channel: 65542,
+  });
+  const booleanSource = Telem.Boolean.useNumericConverterSource({
+    wrap: numericSource,
+    trueBound: new Bounds(30, 40),
+  });
+  const numericSink = Telem.Control.useNumeric({
+    channel: 65541,
+  });
+  const booleanSink = Telem.Boolean.useNumericConverterSink({
+    wrap: numericSink,
+    truthy: 1,
+    falsy: 0,
+  });
 
   return (
     <Canvas
@@ -35,12 +51,13 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Valve color="#fc3d03" />
+      <Controller authority={5}>
+        <Valve color="#fc3d03" source={booleanSource} sink={booleanSink} />
+      </Controller>
     </Canvas>
   );
 };
 
 export const Primary: StoryFn<typeof Valve> = () => <Example />;
 
-// eslint-disable-next-line import/no-default-export
 export default story;

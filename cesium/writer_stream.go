@@ -11,8 +11,8 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -140,6 +140,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 					w.sendRes(req, w.err == nil, nil, end)
 				} else {
 					if w.err = w.write(req); w.err != nil {
+						logrus.Error(w.err)
 						w.seqNum++
 						w.sendRes(req, false, nil, 0)
 					}
@@ -212,7 +213,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) updateHighWater(col telem.Series) error {
-	if col.DataType != telem.TimeStampT {
+	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %s, expected %s, got %s",

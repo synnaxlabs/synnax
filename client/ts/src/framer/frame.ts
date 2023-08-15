@@ -45,6 +45,12 @@ const validateMatchedColsAndArrays = (
   );
 };
 
+export type CrudeFrame =
+  | Frame
+  | FramePayload
+  | Map<ChannelKeyOrName, Series[] | Series>
+  | Record<ChannelKeyOrName, Series[] | Series>;
+
 /**
  * A frame is a collection of related typed arrays keyed to a particular channel. Frames
  * can be keyed by channel name or channel key, but not both.
@@ -85,13 +91,15 @@ export class Frame {
   readonly series: Series[] = [];
 
   constructor(
-    columnsOrData:
-      | FramePayload
-      | ChannelParams
-      | Map<ChannelKeyOrName, Series[] | Series>
-      | Record<ChannelKeyOrName, Series[] | Series> = [],
+    columnsOrData: ChannelParams | CrudeFrame = [],
     arrays: Series | Series[] = []
   ) {
+    if (columnsOrData instanceof Frame) {
+      this.columns = columnsOrData.columns;
+      this.series = columnsOrData.series;
+      return;
+    }
+
     // Construction from a map.
     if (columnsOrData instanceof Map) {
       columnsOrData.forEach((v, k) => this.push(k, ...toArray(v)));
@@ -146,7 +154,8 @@ export class Frame {
    * otherwise.
    */
   get keys(): ChannelKeys {
-    if (this.colType === "name") throw new UnexpectedError("keyVariant is not key");
+    console.log(this.columns);
+    if (this.colType === "name") throw new UnexpectedError("colType is not key");
     return (this.columns as ChannelKeys) ?? [];
   }
 
@@ -163,7 +172,7 @@ export class Frame {
    * otherwise.
    */
   get names(): ChannelNames {
-    if (this.colType === "key") throw new UnexpectedError("keyVariant is not name");
+    if (this.colType === "key") throw new UnexpectedError("colType is not name");
     return (this.columns as ChannelNames) ?? [];
   }
 

@@ -10,8 +10,6 @@
 import { Bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { TelemFactory } from "../factory";
-
 import {
   BooleanTelemSink,
   BooleanTelemSource,
@@ -23,22 +21,28 @@ import {
   numericTelemSourceSpec,
 } from "@/core/vis/telem";
 import { TelemMeta } from "@/telem/base";
+import { TelemFactory } from "@/telem/factory";
 
 export namespace AetherBooleanTelem {
   export class Factory implements TelemFactory {
-    create(key: string, props: TelemSpec, root: TelemFactory): Telem | null {
-      switch (props.type) {
+    create(key: string, spec: TelemSpec, root: TelemFactory): Telem | null {
+      console.log(spec, NumericConverterSink.TYPE);
+      switch (spec.type) {
         case NumericConverterSink.TYPE: {
-          const props_ = NumericConverterSink.propsZ.parse(props.props);
+          const props_ = NumericConverterSink.propsZ.parse(spec.props);
           const wrap = root.create(`${key}.wrap`, props_.wrap, root);
           if (wrap == null) return null;
-          return new NumericConverterSink(key, wrap as NumericTelemSink);
+          const t = new NumericConverterSink(key, wrap as NumericTelemSink);
+          t.setProps(props_);
+          return t;
         }
         case NumericConverterSource.TYPE: {
-          const props_ = NumericConverterSource.propsZ.parse(props);
+          const props_ = NumericConverterSource.propsZ.parse(spec.props);
           const wrap = root.create(`${key}.wrap`, props_.wrap, root);
           if (wrap == null) return null;
-          return new NumericConverterSource(key, wrap as NumericTelemSource);
+          const t = new NumericConverterSource(key, wrap as NumericTelemSource);
+          t.setProps(props_);
+          return t;
         }
       }
       return null;
@@ -61,7 +65,7 @@ export namespace AetherBooleanTelem {
     schema = NumericConverterSink.propsZ;
     wrap: NumericTelemSink;
 
-    static readonly TYPE = "boolean-sink";
+    static readonly TYPE = "boolean-numeric-converter-sink";
 
     constructor(key: string, wrap: NumericTelemSink) {
       super(key);
@@ -72,8 +76,13 @@ export namespace AetherBooleanTelem {
       this.wrap.invalidate();
     }
 
-    set(value: boolean): void {
-      this.wrap.set(value ? this.props.truthy : this.props.falsy);
+    async set(value: boolean): Promise<void> {
+      await this.wrap.set(value ? this.props.truthy : this.props.falsy);
+    }
+
+    setProps(props: any): void {
+      super.setProps(props);
+      this.wrap.setProps(props.wrap.props);
     }
   }
 
@@ -112,8 +121,10 @@ export namespace AetherBooleanTelem {
     private async update(): Promise<void> {
       const raw = await this.wrapped.value();
       const value = this.props.trueBound.contains(raw);
-      if (this.curr !== value) this.notify?.();
-      this.curr = value;
+      if (this.curr !== value) {
+        this.curr = value;
+        this.notify?.();
+      }
     }
 
     async value(): Promise<boolean> {
@@ -123,7 +134,7 @@ export namespace AetherBooleanTelem {
 
     setProps(props: any): void {
       super.setProps(props);
-      this.wrapped.setProps(props.wrap);
+      this.wrapped.setProps(props.wrap.props);
       void this.update();
     }
   }

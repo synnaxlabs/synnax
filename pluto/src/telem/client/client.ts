@@ -16,6 +16,8 @@ import {
   Synnax,
 } from "@synnaxlabs/client";
 import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
+import { nan } from "zod";
 
 import { ChannelCache } from "@/telem/client/cache";
 
@@ -38,7 +40,7 @@ export interface Client extends ChannelClient, StaticClient, StreamClient {
 }
 
 export class ClientProxy implements Client {
-  private _client: Client | null;
+  _client: Client | null;
 
   constructor() {
     this._client = null;
@@ -79,8 +81,10 @@ export class BaseClient implements Client {
   private _streamer: Streamer | null;
   private readonly cache: Map<ChannelKey, ChannelCache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
+  key: string;
 
   constructor(wrap: Synnax) {
+    this.key = nanoid();
     this.core = wrap;
     this._streamer = null;
     this.cache = new Map();
@@ -156,7 +160,7 @@ export class BaseClient implements Client {
       dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
     }
     handler(dynamicBuffs);
-    void this.updateStreamer();
+    await this.updateStreamer();
     return () => this.removeStreamHandler(handler);
   }
 
@@ -183,13 +187,15 @@ export class BaseClient implements Client {
     if (keys.size === 0) {
       this._streamer?.close();
       this._streamer = null;
+      return;
     }
 
     const arrKeys = Array.from(keys);
-    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === 0) return;
+    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === Compare.EQUAL)
+      return;
 
     // Update or create the streamer.
-    if (this._streamer != null) return await this._streamer.update(arrKeys);
+    if (this._streamer != null) await this._streamer.update(arrKeys);
     this._streamer = await this.core.telem.newStreamer(arrKeys);
 
     void this.start(this._streamer);
@@ -216,7 +222,6 @@ export class BaseClient implements Client {
   close(): void {
     this.cache.clear();
     this._streamer?.close();
-    this.core.close();
   }
 }
 

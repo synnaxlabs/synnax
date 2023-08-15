@@ -14,7 +14,7 @@ export interface TelemFactory {
 }
 
 export class CompoundTelemFactory {
-  readonly factories: readonly TelemFactory[];
+  factories: TelemFactory[];
 
   type = "compound";
 

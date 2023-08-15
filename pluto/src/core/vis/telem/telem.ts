@@ -145,3 +145,5 @@ export interface NumericTelemSink extends Telem {
 export const numericTelemSinkSpec = telemSpec.extend({
   variant: z.literal("numeric-sink"),
 });
+
+export type NumericTelemSinkSpec = z.infer<typeof numericTelemSinkSpec>;

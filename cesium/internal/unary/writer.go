@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
@@ -93,14 +92,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 func (w *Writer) Close() error { return w.internal.Close() }
 
 func (w *Writer) validate(series telem.Series) error {
-	if series.DataType != w.Channel.DataType {
-		return errors.Wrapf(
-			validate.Error,
-			"invalid array data type for channel %s, expected %s, got %s",
-			w.Channel.Key,
-			w.Channel.DataType,
-			series.DataType,
-		)
-	}
+	//if series.DataType != w.Channel.DataType && series.DataType != telem.Int64T {
+	//	return errors.Wrapf(
+	//		validate.Error,
+	//		"invalid array data type for channel %s, expected %s, got %s",
+	//		w.Channel.Key,
+	//		w.Channel.DataType,
+	//		series.DataType,
+	//	)
+	//}
 	return nil
 }

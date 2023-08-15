@@ -12,25 +12,18 @@ import {
   ReactElement,
   createContext,
   useContext,
-  useEffect,
   useState,
 } from "react";
 
 import { ConnectionState, Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
 
-import { Aether } from "..";
+import { AetherClient } from "@/client/aether";
+import { Aether } from "@/core/aether/main";
+import { useAsyncEffect } from "@/core/hooks/useAsyncEffect";
 
-import { AetherClientProvider } from "./aether";
-
-interface ClientContextValue {
-  client: Synnax | null;
-  state: ConnectionState;
-}
-
-const ClientContext = createContext<ClientContextValue>({
-  client: null,
-  state: Synnax.connectivity.DEFAULT,
-});
+const ClientContext = createContext<AetherClient.ContextValue>(
+  AetherClient.ZERO_CONTEXT_VALUE
+);
 
 export const useClient = (): Synnax | null => useContext(ClientContext).client;
 
@@ -41,52 +34,41 @@ export interface ClientProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const ZERO_STATE = { client: null, state: Synnax.connectivity.DEFAULT };
-
 export const ClientProvider = Aether.wrap<ClientProviderProps>(
-  AetherClientProvider.TYPE,
+  AetherClient.Provider.TYPE,
   ({ aetherKey, connParams, children }): ReactElement => {
-    const [state, setState] = useState<ClientContextValue>({ ...ZERO_STATE });
+    const [state, setState] = useState<AetherClient.ContextValue>(
+      AetherClient.ZERO_CONTEXT_VALUE
+    );
 
     const [{ path }, , setAetherState] = Aether.use({
       aetherKey,
-      type: AetherClientProvider.TYPE,
-      schema: AetherClientProvider.stateZ,
-      initialState: { props: connParams },
+      type: AetherClient.Provider.TYPE,
+      schema: AetherClient.Provider.stateZ,
+      initialState: { props: connParams ?? null, state: null },
     });
 
-    useEffect(() => {
+    useAsyncEffect(async () => {
       if (state.client != null) state.client.close();
-      if (connParams == null) return setState({ ...ZERO_STATE });
+      if (connParams == null) return setState(AetherClient.ZERO_CONTEXT_VALUE);
 
       const client = new Synnax({
         ...connParams,
         connectivityPollFrequency: TimeSpan.seconds(5),
       });
-      client.connectivity
-        .check()
-        .then((state) => {
-          if (state.status !== "connected") return;
-          setState((c) => {
-            if (c.client != null) c.client.close();
-            return { client, state };
-          });
-        })
-        .catch(console.error);
 
-      client.connectivity.onChange((s) =>
-        setState((c) => {
-          if (c.client == null) return { ...ZERO_STATE };
-          return { client, state: s };
-        })
-      );
+      const connectivity = await client.connectivity.check();
 
-      setAetherState({ props: connParams });
+      setState({ client, state: connectivity });
+
+      client.connectivity.onChange((state) => setState((prev) => ({ ...prev, state })));
+
+      setAetherState({ props: connParams, state: connectivity });
 
       return () => {
         client.close();
-        setState({ ...ZERO_STATE });
-        setAetherState({ props: undefined });
+        setState(AetherClient.ZERO_CONTEXT_VALUE);
+        setAetherState({ props: null, state: null });
       };
     }, [connParams]);
 
