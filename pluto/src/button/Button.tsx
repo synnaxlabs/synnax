@@ -11,10 +11,10 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { Optional } from "@synnaxlabs/x";
 
-import { SpaceProps } from "@/align";
-import { Tooltip } from "@/tooltip";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
 import { ComponentSize } from "@/util/component";
 
 import "@/button/Button.css";
@@ -40,7 +40,7 @@ export interface ButtonProps
   children?: string | number;
   startIcon?: ReactElement | ReactElement[];
   endIcon?: ReactElement | ReactElement[];
-  iconSpacing?: SpaceProps["size"];
+  iconSpacing?: Align.SpaceProps["size"];
 }
 
 /**

@@ -12,18 +12,17 @@ import { ReactElement, useCallback, useEffect } from "react";
 import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input, InputControl, PartialInputControl } from "@/input";
+import { Input } from "@/input";
 import { List } from "@/list";
-import { Status } from "@/status";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 export interface SearchProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends PartialInputControl<string> {
+> extends Input.OptionalControl<string> {
   searcher: AsyncTermSearcher<string, K, E>;
   debounce?: number;
-  children?: RenderProp<InputControl<string>>;
+  children?: RenderProp<Input.Control<string>>;
 }
 
 const STYLE = {
@@ -47,7 +46,7 @@ export const Search = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
   debounce = 250,
-  children = componentRenderProp(Input),
+  children = componentRenderProp(Input.Text),
   searcher,
   value,
   onChange,

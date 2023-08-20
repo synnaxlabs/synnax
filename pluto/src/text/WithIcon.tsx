@@ -9,19 +9,19 @@
 
 import { Children, cloneElement, ReactElement } from "react";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
-import { Divider } from "@/divider";
-import { Space, SpaceProps, SpaceElementType } from "@/align";
 import { CSS } from "@/css";
+import { Divider } from "@/divider";
 import { CoreProps, Text } from "@/text/Text";
 import { Level } from "@/text/types";
 
 import "@/text/WithIcon.css";
 
 export type WithIconProps<
-  E extends SpaceElementType = "div",
+  E extends Align.SpaceElementType = "div",
   L extends Level = "h1"
-> = Omit<SpaceProps<E>, "children" | "color"> &
+> = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
@@ -30,7 +30,10 @@ export type WithIconProps<
     noWrap?: boolean;
   };
 
-export const WithIcon = <E extends SpaceElementType = "div", L extends Level = "h1">({
+export const WithIcon = <
+  E extends Align.SpaceElementType = "div",
+  L extends Level = "h1"
+>({
   level = "h1" as L,
   divided = false,
   startIcon,
@@ -46,7 +49,7 @@ export const WithIcon = <E extends SpaceElementType = "div", L extends Level = "
   const endIcons = endIcon != null && formatIcons(endIcon, color);
   return (
     // @ts-expect-error
-    <Space<E>
+    <Align.Space<E>
       className={CSS(
         CSS.B("text-icon"),
         CSS.BM("text-icon", level),
@@ -59,16 +62,15 @@ export const WithIcon = <E extends SpaceElementType = "div", L extends Level = "
       {...props}
     >
       {startIcons}
-      {divided && startIcon != null && <Divider direction="y" />}
+      {divided && startIcon != null && <Divider.Divider direction="y" />}
       {children != null && (
-        // @ts-expect-error
         <Text<L> color={color} level={level}>
           {children}
         </Text>
       )}
-      {divided && endIcon != null && <Divider direction="y" />}
+      {divided && endIcon != null && <Divider.Divider direction="y" />}
       {endIcons}
-    </Space>
+    </Align.Space>
   );
 };
 

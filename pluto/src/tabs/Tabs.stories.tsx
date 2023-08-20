@@ -9,13 +9,11 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { useStaticTabs } from "./Tabs";
+import { Tabs } from "@/tabs";
 
-import { Tabs } from ".";
-
-const story: Meta<typeof Tabs> = {
+const story: Meta<typeof Tabs.Tabs> = {
   title: "Core/Standard/Tabs",
-  component: Tabs,
+  component: Tabs.Tabs,
 };
 
 const exampleTabs = [
@@ -32,11 +30,11 @@ const exampleTabs = [
 ];
 
 export const Primary: StoryFn<typeof Tabs> = () => {
-  const props = useStaticTabs({ tabs: exampleTabs });
+  const props = Tabs.useStatic({ tabs: exampleTabs });
   return (
-    <Tabs {...props} size="small" closable>
+    <Tabs.Tabs {...props} size="small" closable>
       {(tab) => <h2>{tab.tabKey}</h2>}
-    </Tabs>
+    </Tabs.Tabs>
   );
 };
 

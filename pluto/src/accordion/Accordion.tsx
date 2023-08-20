@@ -12,15 +12,15 @@ import { ReactElement, RefObject } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Box, Direction } from "@synnaxlabs/x";
 
-import { ButtonIconProps } from "@/button";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Header } from "@/header";
-import { Resize, ResizeMultipleProps } from "@/resize";
+import { Resize } from "@/resize";
 
-import "@/Accordion/Accordion.css";
+import "@/accordion/Accordion.css";
 
 /** The props for a single entry in the {@link Accordion} component. */
-export interface AccordionEntry {
+export interface Entry {
   /** A unique key for the entry. */
   key: string;
   /** The name for the entries header. */
@@ -36,16 +36,16 @@ export interface AccordionEntry {
    * A list of actions to display in the entry's header. See the {@link Header.Actions}
    * component for more details.
    */
-  actions?: Array<ButtonIconProps | ReactElement>;
+  actions?: Array<Button.IconProps | ReactElement>;
 }
 
 /** The props for the {@link Accordion} component. */
 export interface AccordionProps
   extends Omit<
-    ResizeMultipleProps,
+    Resize.MultipleProps,
     "sizeDistribution" | "parentSize" | "onDragHandle" | "direction"
   > {
-  data: AccordionEntry[];
+  data: Entry[];
 }
 
 const DIRECTION = Direction.Y;
@@ -63,7 +63,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
  * @param props - All unused props are passed to the underyling {@link Resize.Multiple}
  * component.
  * @param props.entries - The entries to display in the accordion. See the
- * {@link AccordionEntry} interface for more details.
+ * {@link Entry} interface for more details.
  */
 export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
   const {
@@ -93,7 +93,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
       {...resizeProps}
     >
       {data.map((entry, i) => (
-        <AccordionEntryC
+        <EntryC
           {...entry}
           key={entry.key}
           index={i}
@@ -107,7 +107,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
   );
 };
 
-interface AccordionEntryCProps extends Omit<AccordionEntry, "key"> {
+interface EntryCProps extends Omit<Entry, "key"> {
   index: number;
   size: number;
   parent: RefObject<HTMLDivElement>;
@@ -115,7 +115,7 @@ interface AccordionEntryCProps extends Omit<AccordionEntry, "key"> {
   direction: Direction;
 }
 
-const AccordionEntryC = ({
+const EntryC = ({
   index,
   name,
   content,
@@ -123,7 +123,7 @@ const AccordionEntryC = ({
   size,
   parent,
   onExpand,
-}: AccordionEntryCProps): ReactElement => {
+}: EntryCProps): ReactElement => {
   let expanded = true;
   if (parent.current != null) {
     const parentSize = new Box(parent.current).dim(DIRECTION);
@@ -136,12 +136,12 @@ const AccordionEntryC = ({
   );
   return (
     <>
-      <Header level="p" className={CSS.expanded(expanded)} empty>
-        <Header.Title.Button startIcon={icon} onClick={() => onExpand(index)}>
+      <Header.Header level="p" className={CSS.expanded(expanded)} empty>
+        <Header.ButtonTitle startIcon={icon} onClick={() => onExpand(index)}>
           {name}
-        </Header.Title.Button>
+        </Header.ButtonTitle>
         {actions != null && <Header.Actions>{actions}</Header.Actions>}
-      </Header>
+      </Header.Header>
       {content}
     </>
   );

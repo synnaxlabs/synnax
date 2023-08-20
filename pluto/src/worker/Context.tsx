@@ -18,10 +18,10 @@ import {
 
 import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x";
 
-import { useEffectCompare } from "../hooks/useEffectCompare";
-import { useMemoCompare } from "../memo";
+import { useEffectCompare } from "@/hooks/useEffectCompare";
+import { useMemoCompare } from "@/memo";
 
-export type WorkerContextValue =
+export type ContextValue =
   | {
       enabled: true;
       route: <RQ, RS = RQ>(type: string) => TypedWorker<RQ, RS>;
@@ -31,19 +31,19 @@ export type WorkerContextValue =
       route: null;
     };
 
-const WorkerContext = createContext<WorkerContextValue>({
+const Context = createContext<ContextValue>({
   enabled: false,
   route: null,
 });
 
-export interface WorkerProviderProps extends PropsWithChildren<{}> {
+export interface ProviderProps extends PropsWithChildren<{}> {
   url: string | URL;
   enabled?: boolean;
 }
 
-export const WorkerProvider = memo(
-  ({ children, url, enabled = true }: WorkerProviderProps): ReactElement | null => {
-    const [value, setState] = useState<WorkerContextValue>({
+export const Provider = memo(
+  ({ children, url, enabled = true }: ProviderProps): ReactElement | null => {
+    const [value, setState] = useState<ContextValue>({
       route: null,
       enabled: false,
     });
@@ -79,13 +79,13 @@ export const WorkerProvider = memo(
 
     if (enabled && value.route == null) return null;
 
-    return <WorkerContext.Provider value={value}>{children}</WorkerContext.Provider>;
+    return <Context.Provider value={value}>{children}</Context.Provider>;
   }
 );
-WorkerProvider.displayName = "WorkerProvider";
+Provider.displayName = "worker.Provider";
 
-export const useWorker = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => {
-  const ctx = useContext(WorkerContext);
+export const use = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => {
+  const ctx = useContext(Context);
   if (!ctx.enabled) return null;
   return useMemoCompare(
     () => ctx.route(type),

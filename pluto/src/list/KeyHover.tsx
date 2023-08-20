@@ -2,10 +2,10 @@ import { useCallback, useRef } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { useContext } from "@/list/Context";
 import { Trigger, Triggers, UseTriggerEvent } from "@/triggers";
 
-import { useContext } from "./Context";
-
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface HoverProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>

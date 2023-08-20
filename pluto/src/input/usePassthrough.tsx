@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import { Control, Value, OptionalControl } from "./types";
 
-export const usePassThrough = <I extends Value = Value, O extends Value = I>({
+export const usePassthrough = <I extends Value = Value, O extends Value = I>({
   value,
   onChange,
   initialValue,

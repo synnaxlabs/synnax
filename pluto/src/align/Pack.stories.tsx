@@ -9,13 +9,12 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
 
-import { Pack } from "../core/std/Pack";
-
-const story: Meta<typeof Pack> = {
+const story: Meta<typeof Align.Pack> = {
   title: "Core/Standard/Pack",
-  component: Pack,
+  component: Align.Pack,
   argTypes: {
     direction: {
       control: { type: "select" },
@@ -24,57 +23,57 @@ const story: Meta<typeof Pack> = {
   },
 };
 
-export const Horizontal: StoryFn<typeof Pack> = (args) => (
-  <Pack {...args} reverse>
-    <Button variant="text">Button 1</Button>
-    <Button variant="text">Button 2</Button>
-    <Button variant="text">Button 3</Button>
-  </Pack>
+export const Horizontal: StoryFn<typeof Align.Pack> = (args) => (
+  <Align.Pack {...args} reverse>
+    <Button.Button variant="text">Button 1</Button.Button>
+    <Button.Button variant="text">Button 2</Button.Button>
+    <Button.Button variant="text">Button 3</Button.Button>
+  </Align.Pack>
 );
 
-export const Vertical: StoryFn<typeof Pack> = (args) => (
-  <Pack {...args} direction="y">
-    <Button variant="text">Button 1</Button>
-    <Button variant="text">Button 222</Button>
-    <Button variant="text">Button 3</Button>
-  </Pack>
+export const Vertical: StoryFn<typeof Align.Pack> = (args) => (
+  <Align.Pack {...args} direction="y">
+    <Button.Button variant="text">Button 1</Button.Button>
+    <Button.Button variant="text">Button 222</Button.Button>
+    <Button.Button variant="text">Button 3</Button.Button>
+  </Align.Pack>
 );
 
-export const Nested: StoryFn<typeof Pack> = (args) => (
-  <Pack direction="y">
-    <Pack {...args}>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-    <Pack>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-    <Pack>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-  </Pack>
+export const Nested: StoryFn<typeof Align.Pack> = (args) => (
+  <Align.Pack direction="y">
+    <Align.Pack {...args}>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+    <Align.Pack {...args}>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+    <Align.Pack {...args}>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+  </Align.Pack>
 );
 
-export const NestedX: StoryFn<typeof Pack> = (args) => (
-  <Pack direction="x">
-    <Pack {...args} direction="y">
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-    <Pack direction="y">
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-    <Pack direction="y">
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-      <Button variant="text">Button</Button>
-    </Pack>
-  </Pack>
+export const NestedX: StoryFn<typeof Align.Pack> = (args) => (
+  <Align.Pack direction="x">
+    <Align.Pack {...args} direction="y">
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+    <Align.Pack {...args} direction="y">
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+    <Align.Pack {...args} direction="y">
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+      <Button.Button variant="text">Button</Button.Button>
+    </Align.Pack>
+  </Align.Pack>
 );
 
 // eslint-disable-next-line import/no-default-export

@@ -9,7 +9,7 @@
 
 import { CrudeDirection } from "@synnaxlabs/x";
 
-import { Tab } from "@/tabs";
+import { Tabs } from "@/tabs";
 
 /**
  * Represents the data for a node in the Mosaic binary tree. Nodes can be either leaf
@@ -36,7 +36,7 @@ export interface Node {
    * A list of tabs for the node to render. If this value is defined, the node is
    * considered a leaf, and the tabs will be rendered.
    */
-  tabs?: Tab[];
+  tabs?: Tabs.Tab[];
   /** The key of the selected tab. This value only needs to be set for leaf nodes. */
   selected?: string;
   /** The direction of the split. This value only needs to be set for non-leaf nodes. */

@@ -10,8 +10,8 @@
 import { ForwardedRef, forwardRef, ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Generic, GenericProps } from "@/generic";
 import { CSS } from "@/css";
+import { Generic } from "@/generic";
 import { Level } from "@/text/types";
 
 import "@/text/Text.css";
@@ -28,7 +28,7 @@ export interface CoreProps<L extends Level = "h1"> {
 }
 
 export type TextProps<L extends Level = "h1"> = Omit<
-  GenericProps<L>,
+  Generic.GenericProps<L>,
   "el" | "color" | "children"
 > &
   CoreProps<L>;

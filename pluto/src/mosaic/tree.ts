@@ -16,8 +16,8 @@ import {
   Deep,
 } from "@synnaxlabs/x";
 
-import { Tab, Tabs } from "@/tabs";
 import { Node } from "@/mosaic/types";
+import { Tabs } from "@/tabs";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
@@ -33,7 +33,7 @@ const InvalidMosaic = new Error("Invalid Mosaic");
  */
 export const insertTab = (
   root: Node,
-  tab: Tab,
+  tab: Tabs.Tab,
   loc_: LooseLocationT = "center",
   key?: number
 ): Node => {
@@ -78,7 +78,7 @@ export const insertTab = (
   return root;
 };
 
-const insertAnywhere = (root: Node, tab: Tab): Node => {
+const insertAnywhere = (root: Node, tab: Tabs.Tab): Node => {
   root = shallowCopyNode(root);
   if (root.tabs != null) {
     root.tabs.push(tab);
@@ -257,7 +257,7 @@ const shouldGc = (node: Node): boolean =>
 const findMosaicTab = (
   node: Node,
   tabKey: string
-): [Tab | undefined, Node | undefined] => {
+): [Tabs.Tab | undefined, Node | undefined] => {
   if (node.tabs != null) {
     const tab = node.tabs.find((t) => t.tabKey === tabKey);
     if (tab != null) return [tab, node];

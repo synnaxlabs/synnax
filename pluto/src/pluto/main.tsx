@@ -25,7 +25,8 @@ import {
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
-import { ProviderProps } from "./haul/Haul";
+import { ProviderProps } from "../haul/Haul";
+
 import DefaultWorkerURL from "./defaultWorker.ts?worker&url";
 
 import "@synnaxlabs/media/dist/style.css";

@@ -9,19 +9,23 @@
 
 import { ReactElement, useCallback } from "react";
 
+import { Button } from "@/button";
 import { color } from "@/color/core";
+import { Crude, Color } from "@/color/core/color";
 import { Picker } from "@/color/Picker";
-import { Button, ButtonProps, Dropdown, InputControl, Text } from "@/core/std";
-import { UseProps } from "@/dropdown/Dropdown";
 import { CSS } from "@/css";
+import { Dropdown } from "@/dropdown";
+import { UseProps } from "@/dropdown/Dropdown";
 import { Haul } from "@/haul";
+import { Input } from "@/input";
+import { Text } from "@/text";
 import { Theming } from "@/theming/main";
 
 import "@/color/Swatch/Swatch.css";
 
 export interface SwatchProps
-  extends InputControl<color.Crude, color.Color>,
-    Omit<ButtonProps, "onChange" | "value">,
+  extends Input.Control<Crude, Color>,
+    Omit<Button.ButtonProps, "onChange" | "value">,
     UseProps {}
 
 const HAUL_TYPE = "color";
@@ -64,7 +68,7 @@ export const ColorSwatch = ({
   });
 
   const swatch = (
-    <Button
+    <Button.Button
       className={CSS(
         CSS.B("color-swatch"),
         CSS.size(size),
@@ -88,7 +92,9 @@ export const ColorSwatch = ({
       onClick={open}
       size={size}
       tooltip={
-        onChange != null ? <Text level="small">Click to change color</Text> : undefined
+        onChange != null ? (
+          <Text.Text level="small">Click to change color</Text.Text>
+        ) : undefined
       }
       {...props}
     />
@@ -97,7 +103,7 @@ export const ColorSwatch = ({
   if (onChange == null) return swatch;
 
   return (
-    <Dropdown
+    <Dropdown.Dialog
       visible={visible}
       ref={ref}
       className={CSS.BE("color-swatch", "dropdown")}
@@ -105,6 +111,6 @@ export const ColorSwatch = ({
     >
       {swatch}
       <Picker value={value} onChange={onChange} />
-    </Dropdown>
+    </Dropdown.Dialog>
   );
 };

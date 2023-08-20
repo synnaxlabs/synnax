@@ -15,13 +15,13 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
-import { Tab, Tabs, TabsProps } from "@/tabs";
+import { Tabs } from "@/tabs";
 
 import "@/mosaic/Mosaic.css";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
-  extends Omit<TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
+  extends Omit<Tabs.TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
   root: Node;
   onDrop: (key: number, tabKey: string, loc: CrudeLocation) => void;
   onResize: (key: number, size: number) => void;
@@ -91,7 +91,7 @@ interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 const DRAGGING_TYPE = "pluto-mosaic-tab";
 
 /** Checks whether the tab can actually be dropped in this location or not */
-const validDrop = (tabs: Tab[], dragging: Haul.Item[]): boolean => {
+const validDrop = (tabs: Tabs.Tab[], dragging: Haul.Item[]): boolean => {
   const keys = dragging.filter(({ type }) => type === DRAGGING_TYPE).map((t) => t.key);
   const willHaveTabRemaining = tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
   return keys.length > 0 && (willHaveTabRemaining || tabs.length === 0);
@@ -99,7 +99,7 @@ const validDrop = (tabs: Tab[], dragging: Haul.Item[]): boolean => {
 
 const TabLeaf = memo(
   ({ root: node, onDrop, onCreate, ...props }: TabLeafProps): ReactElement => {
-    const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tab[] };
+    const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
     const [dragMask, setDragMask] = useState<CrudeLocation | null>(null);
     const { startDrag, endDrag } = Haul.useDrag();
@@ -136,7 +136,7 @@ const TabLeaf = memo(
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (_: unknown, { tabKey }: Tab): void =>
+      (_: unknown, { tabKey }: Tabs.Tab): void =>
         startDrag([{ key: tabKey, type: DRAGGING_TYPE }]),
       [startDrag]
     );
@@ -151,7 +151,7 @@ const TabLeaf = memo(
 
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
-        <Tabs
+        <Tabs.Tabs
           tabs={tabs}
           onDragLeave={handleDragLeave}
           onDragEnd={endDrag}

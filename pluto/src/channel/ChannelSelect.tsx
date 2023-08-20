@@ -13,17 +13,10 @@ import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
 import { Client } from "@/client/main";
-import {
-  CSS,
-  ListColumn,
-  Select,
-  SelectMultipleProps,
-  SelectProps,
-  Status,
-} from "@/core";
-import { Haul } from "@/haul";
+import { List } from "@/list";
+import { Select } from "@/select";
 
-const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
+const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
   {
     key: "name",
     name: "Name",
@@ -52,7 +45,7 @@ const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
 
 export interface ChannelSelectMultipleProps
   extends Omit<
-    SelectMultipleProps<ChannelKey, ChannelPayload>,
+    Select.MultipleProps<ChannelKey, ChannelPayload>,
     "columns" | "searcher"
   > {
   columns?: string[];

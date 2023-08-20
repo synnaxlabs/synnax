@@ -17,8 +17,7 @@ import {
   FieldPath,
 } from "react-hook-form";
 
-import { Pack } from "@/core/std/Pack";
-import { Space, SpaceAlignment, SpaceExtensionProps } from "@/align";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
@@ -37,7 +36,7 @@ interface ItemExtensionProps<
   I extends Value,
   O extends Value = I,
   P extends Control<I, O> = Control<I, O>
-> extends SpaceExtensionProps {
+> extends Align.SpaceExtensionProps {
   label?: string;
   showLabel?: boolean;
   helpText?: string;
@@ -87,19 +86,19 @@ const CoreItem = <
     content = children_[0]({ ref, key: 0, ...(props as unknown as P) });
   } else {
     content = (
-      <Pack direction={direction}>
+      <Align.Pack direction={direction}>
         {
           children_
             // Unlikely to change order here so we can use index as key
             .map((c, i) => c({ key: i, ...(props as unknown as P) }))
             .filter((c) => c != null) as ReactElement[]
         }
-      </Pack>
+      </Align.Pack>
     );
   }
 
   return (
-    <Space
+    <Align.Space
       justify={justify}
       align={maybeDefaultAlignment(align, direction)}
       empty={empty}
@@ -112,14 +111,14 @@ const CoreItem = <
       {showLabel && <Label>{label}</Label>}
       {content}
       <HelpText>{helpText}</HelpText>
-    </Space>
+    </Align.Space>
   );
 };
 
 const maybeDefaultAlignment = (
-  align?: SpaceAlignment,
+  align?: Align.Alignment,
   direction?: Direction
-): SpaceAlignment => {
+): Align.Alignment => {
   if (align != null) return align;
   return direction?.equals("y") ?? false ? "stretch" : "center";
 };

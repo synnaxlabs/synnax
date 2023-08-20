@@ -24,17 +24,16 @@ import {
   Compare,
 } from "@synnaxlabs/x";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
-import { useAsyncEffect } from "@/hooks";
-import { Pack } from "@/core/std/Pack";
-import { Space } from "@/align";
-import { Tag } from "@/tag";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
+import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
 import { List } from "@/select/List";
+import { Tag } from "@/tag";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/select/Multiple.css";
@@ -183,7 +182,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   };
 
   return (
-    <Pack
+    <Align.Pack
       align="stretch"
       {...props}
       grow
@@ -197,7 +196,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         onChange={handleChange}
         onFocus={onFocus}
       />
-      <Space
+      <Align.Space
         direction="x"
         className={CSS.BE("select-multiple", "tags")}
         align="center"
@@ -214,9 +213,9 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
           })
         )}
-      </Space>
+      </Align.Space>
       <ClearButton onClick={clear} />
-    </Pack>
+    </Align.Pack>
   );
 };
 
@@ -235,7 +234,7 @@ const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>
   entry,
   ...props
 }: SelectMultipleTagProps<K, E>): ReactElement => (
-  <Tag size="small" variant="outlined" draggable {...props}>
+  <Tag.Tag size="small" variant="outlined" draggable {...props}>
     {convertRenderV(entry[tagKey])}
-  </Tag>
+  </Tag.Tag>
 );

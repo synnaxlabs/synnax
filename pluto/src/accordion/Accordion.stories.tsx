@@ -9,14 +9,14 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Accordion, AccordionEntry } from "@/accordion";
+import { Accordion } from "@/accordion";
 
-const story: Meta<typeof Accordion> = {
+const story: Meta<typeof Accordion.Accordion> = {
   title: "Core/Standard/Accordion",
-  component: Accordion,
+  component: Accordion.Accordion,
 };
 
-const data: AccordionEntry[] = [
+const data: Accordion.Entry[] = [
   {
     key: "cluster",
     name: "Cluster",
@@ -29,7 +29,9 @@ const data: AccordionEntry[] = [
   },
 ];
 
-export const Primary: StoryFn<typeof Accordion> = () => <Accordion data={data} />;
+export const Primary: StoryFn<typeof Accordion> = () => (
+  <Accordion.Accordion data={data} />
+);
 
 // eslint-disable-next-line import/no-default-export
 export default story;

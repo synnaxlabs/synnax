@@ -13,7 +13,7 @@ import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { Input, InputControl } from "@/input";
+import { Input } from "@/input";
 import { useContext } from "@/list/Context";
 import { RenderProp } from "@/util/renderProp";
 
@@ -23,7 +23,7 @@ export interface FilterProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends OptionalControl<string> {
-  children?: RenderProp<InputControl<string>>;
+  children?: RenderProp<Input.Control<string>>;
   debounce?: number;
 }
 
@@ -40,7 +40,7 @@ export const Filter = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
-  children = (props) => <Input {...props} />,
+  children = (props) => <Input.Text {...props} />,
   debounce = 250,
   onChange,
   value,

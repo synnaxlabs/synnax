@@ -9,14 +9,13 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Space, SpaceProps } from ".";
-
+import { Align } from "@/align";
 import { Button } from "@/button";
 import { ComponentSizes } from "@/util/component";
 
-const story: Meta<typeof Space> = {
+const story: Meta<typeof Align.Space> = {
   title: "Core/Standard/Space",
-  component: Space,
+  component: Align.Space,
   argTypes: {
     direction: {
       control: { type: "select" },
@@ -28,21 +27,21 @@ const story: Meta<typeof Space> = {
     },
     align: {
       control: { type: "select" },
-      options: Space.Alignments,
+      options: Align.ALIGNMENTS,
     },
     justify: {
       control: { type: "select" },
-      options: Space.Justifications,
+      options: Align.JUSTIFICATIONS,
     },
   },
 };
 
-const Template: StoryFn<typeof Space> = (args: SpaceProps) => (
-  <Space {...args}>
-    <Button>Button 1</Button>
-    <Button>Button 1</Button>
-    <Button>Button 1</Button>
-  </Space>
+const Template: StoryFn<typeof Align.Space> = (args: Align.SpaceProps) => (
+  <Align.Space {...args}>
+    <Button.Button>Button 1</Button.Button>
+    <Button.Button>Button 1</Button.Button>
+    <Button.Button>Button 1</Button.Button>
+  </Align.Space>
 );
 
 export const Basic: StoryFn = Template.bind({});

@@ -11,19 +11,19 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { SketchPicker, ColorResult } from "react-color";
 
-import { Color, CrudeColor } from "@/color";
+import { Crude, Color, ZERO } from "@/color/core/color";
 import { CSS } from "@/css";
-import { InputControl } from "@/core/std";
+import { Input } from "@/input";
 
 import "@/color/Picker/Picker.css";
 
 export interface PickerProps
-  extends InputControl<CrudeColor, Color>,
+  extends Input.Control<Crude, Color>,
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {}
 
 export const Picker = ({ value, onChange, ...props }: PickerProps): ReactElement => {
   const handleChange = (color: ColorResult): void => {
-    if (color.hex === "transparent") onChange(Color.ZERO);
+    if (color.hex === "transparent") onChange(ZERO);
     onChange(new Color(color.hex, color.rgb.a));
   };
 

@@ -11,10 +11,12 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Button, ButtonIconProps } from "@/button";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 
-export const ClearButton = (props: Omit<ButtonIconProps, "children">): ReactElement => (
+export const ClearButton = (
+  props: Omit<Button.IconProps, "children">
+): ReactElement => (
   <Button.Icon className={CSS.BE("select", "clear")} variant="outlined" {...props}>
     <Icon.Close aria-label="clear" />
   </Button.Icon>

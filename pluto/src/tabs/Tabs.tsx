@@ -32,17 +32,14 @@ export interface UseStaticTabsProps {
   content?: TabRenderProp;
 }
 
-export const resetTabSelection = (
-  selected = "",
-  tabs: Tab[] = []
-): string | undefined => {
+export const resetSelection = (selected = "", tabs: Tab[] = []): string | undefined => {
   if (tabs.length === 0) return undefined;
   return tabs.find((t) => t.tabKey === selected) != null
     ? selected
     : tabs[tabs.length - 1]?.tabKey;
 };
 
-export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
+export const rename = (key: string, title: string, tabs: Tab[]): Tab[] => {
   title = title.trim();
   if (title.length === 0) return tabs;
   const t = tabs.find((t) => t.tabKey === key);
@@ -50,10 +47,7 @@ export const renameTab = (key: string, title: string, tabs: Tab[]): Tab[] => {
   return tabs.map((t) => (t.tabKey === key ? { ...t, name: title } : t));
 };
 
-export const useStaticTabs = ({
-  tabs,
-  content,
-}: UseStaticTabsProps): TabsContextValue => {
+export const useStatic = ({ tabs, content }: UseStaticTabsProps): TabsContextValue => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
   return {

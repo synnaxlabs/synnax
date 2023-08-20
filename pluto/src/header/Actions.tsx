@@ -11,8 +11,8 @@ import { Fragment, isValidElement, ReactElement } from "react";
 
 import { toArray } from "@synnaxlabs/x";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
-import { Space } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { useContext } from "@/header/Header";
@@ -35,7 +35,7 @@ export interface ActionsProps {
 export const Actions = ({ children = [] }: ActionsProps): ReactElement => {
   const { level, divided } = useContext();
   return (
-    <Space
+    <Align.Space
       direction="x"
       size="small"
       align="center"
@@ -46,7 +46,7 @@ export const Actions = ({ children = [] }: ActionsProps): ReactElement => {
           {action}
         </Action>
       ))}
-    </Space>
+    </Align.Space>
   );
 };
 

@@ -14,13 +14,13 @@ import {
   useContext as reactUseContext,
 } from "react";
 
-import { Space, SpaceProps } from "@/align";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 
 import "@/header/Header.css";
 
-export interface HeaderProps extends Omit<SpaceProps, "children" | "el"> {
+export interface HeaderProps extends Omit<Align.SpaceProps, "children" | "el"> {
   level?: Text.Level;
   divided?: boolean;
   children: ReactNode | [ReactNode, ReactNode];
@@ -60,7 +60,7 @@ export const Header = ({
   ...props
 }: HeaderProps): ReactElement => (
   <Context.Provider value={{ level, divided }}>
-    <Space
+    <Align.Space
       el="header"
       direction="x"
       justify="spaceBetween"
@@ -73,6 +73,6 @@ export const Header = ({
       {...props}
     >
       {children}
-    </Space>
+    </Align.Space>
   </Context.Provider>
 );

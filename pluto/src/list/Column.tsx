@@ -19,7 +19,7 @@ import {
   ArrayTransform,
 } from "@synnaxlabs/x";
 
-import { Space } from "@/align";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
 import { ItemProps, ColumnSpec as ListColumnT } from "@/list/types";
@@ -73,7 +73,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }, [font, sourceData, initialColumns]);
 
   return (
-    <Space
+    <Align.Space
       direction="x"
       size="medium"
       className={CSS.BE("list-col-header", "container")}
@@ -100,7 +100,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             </Text.WithIcon>
           );
         })}
-    </Space>
+    </Align.Space>
   );
 };
 
@@ -118,7 +118,7 @@ const Item = <
 }: ItemProps<K, E>): ReactElement => {
   const handleSelect = (): void => onSelect?.(entry.key);
   return (
-    <Space
+    <Align.Space
       id={entry.key.toString()}
       className={CSS(
         CONTEXT_TARGET,
@@ -140,7 +140,7 @@ const Item = <
         .map((col) => (
           <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
         ))}
-    </Space>
+    </Align.Space>
   );
 };
 
@@ -167,9 +167,9 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];
   return (
-    <Text key={col.key.toString()} level="p" style={style}>
+    <Text.Text key={col.key.toString()} level="p" style={style}>
       {convertRenderV(rv)}
-    </Text>
+    </Text.Text>
   );
 };
 

@@ -13,8 +13,8 @@ import { Box, CrudeDirection, LooseXYT, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { Button } from "@/button";
-import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
 import { CSS } from "@/css";
+import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
 import { Control } from "@/input/types";
 
 import "@/input/DragButton.css";

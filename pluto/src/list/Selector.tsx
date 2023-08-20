@@ -11,10 +11,7 @@ import { useEffect } from "react";
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import {
-  useSelectMultiple,
-  UseSelectMultipleProps,
-} from "@/hooks/useSelectMultiple";
+import { useSelectMultiple, UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { useContext } from "@/list/Context";
 
 export interface SelectorProps<

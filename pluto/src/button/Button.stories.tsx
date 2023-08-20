@@ -12,11 +12,11 @@ import { ReactElement, useState } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
-import { Button, ButtonProps } from "@/button";
+import { Button } from "@/button";
 
-const story: Meta<typeof Button> = {
+const story: Meta<typeof Button.Button> = {
   title: "Core/Standard/Button",
-  component: Button,
+  component: Button.Button,
   argTypes: {
     variant: {
       options: ["filled", "outlined", "text"],
@@ -25,9 +25,11 @@ const story: Meta<typeof Button> = {
   },
 };
 
-const Template = (args: ButtonProps): ReactElement => <Button {...args} />;
+const Template = (args: Button.ButtonProps): ReactElement => (
+  <Button.Button {...args} />
+);
 
-export const Primary: StoryFn<typeof Button> = Template.bind({});
+export const Primary: StoryFn<typeof Button.Button> = Template.bind({});
 Primary.args = {
   size: "medium",
   startIcon: <AiOutlineDelete />,
@@ -35,9 +37,9 @@ Primary.args = {
 };
 
 export const Outlined = (): ReactElement => (
-  <Button variant="outlined" endIcon={<AiOutlineDelete />}>
+  <Button.Button variant="outlined" endIcon={<AiOutlineDelete />}>
     Button
-  </Button>
+  </Button.Button>
 );
 
 export const Toggle = (): ReactElement => {

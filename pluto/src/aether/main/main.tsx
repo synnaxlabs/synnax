@@ -30,9 +30,9 @@ import { MainMessage, WorkerMessage } from "@/aether/message";
 import { useUnmount } from "@/hooks/useMount";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
-import { Worker } from "@/worker";
 import { SetStateArg, isStateSetter } from "@/util/state";
 import { prettyParse } from "@/util/zod";
+import { Worker } from "@/worker";
 
 export interface CreateReturn {
   setState: (state: any, transfer?: Transferable[]) => void;

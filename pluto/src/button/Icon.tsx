@@ -12,8 +12,8 @@ import { cloneElement, forwardRef, ReactElement } from "react";
 import clsx from "clsx";
 
 import type { BaseProps } from "@/button/Button";
-import { Tooltip } from "@/tooltip";
 import { CSS } from "@/css";
+import { Tooltip } from "@/tooltip";
 
 /** The props for the {@link Icon} */
 export interface IconProps extends BaseProps {

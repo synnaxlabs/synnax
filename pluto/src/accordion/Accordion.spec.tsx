@@ -10,10 +10,10 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Accordion, AccordionEntry } from "@/accordion";
+import { Accordion } from "@/accordion";
 
 describe("Accordion", () => {
-  const data: AccordionEntry[] = [
+  const data: Accordion.Entry[] = [
     {
       key: "1",
       name: "Pane 1",
@@ -28,14 +28,14 @@ describe("Accordion", () => {
     },
   ];
   it("should render two panes with the correct sizes", () => {
-    const c = render(<Accordion data={data} />);
+    const c = render(<Accordion.Accordion data={data} />);
     expect(c.getByText("Pane 1")).toBeTruthy();
     const parent = c.getByText("Pane 1 Content").parentElement;
     expect(parent).toBeTruthy();
     expect(parent?.style.height).toBe("50%");
   });
   it("should render the correct expand/contract icons", () => {
-    const c = render(<Accordion data={data} />);
+    const c = render(<Accordion.Accordion data={data} />);
     expect(c.queryAllByLabelText("contract")).toHaveLength(2);
     expect(c.queryAllByLabelText("expand")).toHaveLength(0);
   });

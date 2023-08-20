@@ -20,11 +20,10 @@ import {
 
 import { Box, CrudeYLocation, Location, XY } from "@synnaxlabs/x";
 
+import { Align } from "@/align";
+import { CSS } from "@/css";
 import { useClickOutside, useResize } from "@/hooks";
 import { useCombinedRefs } from "@/hooks/useCombineRefs";
-import { Pack, PackProps } from "@/core/std/Pack";
-import { Space } from "@/align";
-import { CSS } from "@/css";
 import { Triggers } from "@/triggers";
 
 import "@/dropdown/Dropdown.css";
@@ -77,7 +76,7 @@ export const use = (props?: UseProps): UseReturn => {
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
   extends Pick<UseReturn, "visible">,
-    Omit<PackProps, "ref" | "reverse" | "size" | "empty"> {
+    Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: CrudeYLocation;
   children: [ReactElement, ReactElement];
   keepMounted?: boolean;
@@ -144,7 +143,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     if (matchTriggerWidth) dialogStyle.width = width;
 
     return (
-      <Pack
+      <Align.Pack
         {...props}
         ref={combinedRef}
         className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
@@ -153,7 +152,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       >
         {children[0]}
         {(keepMounted || visible) && (
-          <Space
+          <Align.Space
             className={CSS(
               CSS.BE("dropdown", "dialog"),
               CSS.loc(loc),
@@ -164,9 +163,9 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
             style={dialogStyle}
           >
             {children[1]}
-          </Space>
+          </Align.Space>
         )}
-      </Pack>
+      </Align.Pack>
     );
   }
 );

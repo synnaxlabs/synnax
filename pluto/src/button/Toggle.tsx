@@ -11,10 +11,10 @@ import { FunctionComponent } from "react";
 
 import { Button, ButtonProps } from "@/button/Button";
 import { Icon } from "@/button/Icon";
-import { InputControl } from "@/input";
 import { CSS } from "@/css";
+import { Input } from "@/input";
 
-export interface ToggleExtensionProps extends InputControl<boolean> {
+export interface ToggleExtensionProps extends Input.Control<boolean> {
   checkedVariant?: ButtonProps["variant"];
   uncheckedVariant?: ButtonProps["variant"];
 }

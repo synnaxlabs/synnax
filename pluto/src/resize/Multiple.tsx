@@ -20,14 +20,14 @@ import {
 
 import { Box, ClientXYT, Direction, LooseDirectionT } from "@synnaxlabs/x";
 
-import { Space, SpaceProps } from "@/align";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Core } from "@/resize/Core";
 
 import "@/resize/Multiple.css";
 
 /** Props for the {@link Resize.Multiple} component. */
-export interface MultipleProps extends SpaceProps {
+export interface MultipleProps extends Align.SpaceProps {
   sizeDistribution: number[];
   onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
@@ -162,7 +162,7 @@ export const Multiple = forwardRef(
     const children = Children.toArray(_children);
 
     return (
-      <Space
+      <Align.Space
         {...props}
         ref={ref}
         direction={direction}
@@ -182,7 +182,7 @@ export const Multiple = forwardRef(
             {child}
           </Core>
         ))}
-      </Space>
+      </Align.Space>
     );
   }
 );
