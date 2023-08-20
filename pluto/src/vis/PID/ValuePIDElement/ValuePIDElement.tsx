@@ -9,12 +9,15 @@
 
 import { ReactElement } from "react";
 
+import { CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
-import { CSS, Input } from "@/core";
+import { Color } from "@/color";
+import { CSS, Input, Select, Space } from "@/core";
 import { ValueLabeled, ValueLabeledProps } from "@/core/vis/Value/ValueLabeled";
 import { Telem } from "@/telem";
 import { RemoteTelemNumericProps, RemoteTelem } from "@/telem/remote/main";
+import { componentRenderProp } from "@/util/renderProp";
 import {
   PIDElementFormProps,
   StatefulPIDElementProps,
@@ -57,9 +60,9 @@ const ValuePIDElement = ({
       onLabelChange={onLabelChange}
     >
       <Handle position={Position.Top} type="source" id="top" />
-      <Handle position={Position.Left} type="target" id="left" />
+      <Handle position={Position.Left} type="source" id="left" />
       <Handle position={Position.Right} type="source" id="right" />
-      <Handle position={Position.Bottom} type="target" id="bottom" />
+      <Handle position={Position.Bottom} type="source" id="bottom" />
     </ValueLabeled>
   );
 };
@@ -80,19 +83,52 @@ const ValuePIDElementForm = ({
     onChange({ ...value, units });
   };
 
+  const handleDirectionChange = (direction: CrudeDirection): void => {
+    onChange({ ...value, direction });
+  };
+
+  const handlecolorChange = (color: Color.Color): void => {
+    onChange({ ...value, color: color.hex });
+  };
+
   return (
     <>
-      <Input.Item<string>
-        label="Label"
-        value={value.label}
-        onChange={handleLabelChange}
-      />
-      <Input.Item<string>
-        label="Units"
-        value={value.units}
-        onChange={handleUnitsChange}
-      />
-      <RemoteTelem.Form.Numeric value={value.telem} onChange={handleTelemChange} />
+      <Space direction="x" grow align="stretch">
+        <Input.Item<string>
+          label="Label"
+          value={value.label}
+          onChange={handleLabelChange}
+          grow
+        />
+        <Input.Item<string>
+          label="Units"
+          value={value.units}
+          onChange={handleUnitsChange}
+          grow
+        />
+      </Space>
+      <Space direction="x">
+        <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
+          label="Color"
+          value={value.color ?? Color.ZERO.setAlpha(1)}
+          onChange={handlecolorChange}
+        >
+          {/* @ts-expect-error */}
+          {componentRenderProp(ColorSwatch)}
+        </Input.Item>
+        <Input.Item<CrudeDirection>
+          label="Direction"
+          value={new Direction(value.direction ?? "x").crude}
+          onChange={handleDirectionChange}
+        >
+          {componentRenderProp(Select.Direction)}
+        </Input.Item>
+        <RemoteTelem.Form.Numeric
+          value={value.telem}
+          onChange={handleTelemChange}
+          grow
+        />
+      </Space>
     </>
   );
 };

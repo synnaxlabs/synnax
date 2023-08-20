@@ -9,11 +9,11 @@
 
 import { ReactElement, useEffect } from "react";
 
+import { Aether } from "@/aether/main/main";
+
 import { Line as CoreLine, LineProps as CoreLineProps } from "../../Line";
 
 import { useLinePlotContext } from "./LinePlot";
-
-import { Aether } from "@/core/aether/main";
 
 export interface LineProps extends CoreLineProps {}
 

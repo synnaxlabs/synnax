@@ -9,7 +9,6 @@
 
 import { Bounds, Dimensions, XY } from "@synnaxlabs/x";
 
-import { textDimensions } from "@/core/std/Typography/textDimensions";
 import {
   Axis,
   AxisProps,
@@ -20,6 +19,7 @@ import {
 } from "@/core/vis/Axis/core";
 import { Tick, TickFactory, newTickFactory } from "@/core/vis/Axis/TickFactory";
 import { RenderContext } from "@/core/vis/render";
+import { dimensions } from "@/text/dimensions";
 
 const TICK_LINE_SIZE = 4;
 
@@ -177,7 +177,7 @@ export class AxisCanvas implements Axis {
   ): Dimensions {
     let maxDimensions = Dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = textDimensions(tick.label, this.state.font, this.ctx.lower2d);
+      const d = dimensions(tick.label, this.state.font, this.ctx.lower2d);
       maxDimensions = maxDimensions.pickGreatest(d);
       f(d, tick);
     });

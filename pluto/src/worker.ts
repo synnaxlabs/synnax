@@ -9,9 +9,9 @@
 
 import { RoutedWorker } from "@synnaxlabs/x";
 
-import { AetherClient } from "@/client/aether";
-import { AetherComponentRegistry, render } from "@/core/aether/worker";
-import { AetherThemeProvider } from "@/core/theming/aether";
+import { AetherClient } from "@/client/aether/provider";
+import { AetherComponentRegistry, render } from "@/aether/aether";
+import { Provider } from "@/theming/aether/provider";
 import { AetherCanvas } from "@/core/vis/Canvas/aether";
 import { AetherLine } from "@/core/vis/Line/aether";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
@@ -39,7 +39,7 @@ export const pluto = (): void => {
     [AetherValve.TYPE]: AetherValve,
     [AetherPID.TYPE]: AetherPID,
     [AetherRule.TYPE]: AetherRule,
-    [AetherThemeProvider.TYPE]: AetherThemeProvider,
+    [Provider.TYPE]: Provider,
     [AetherTooltip.TYPE]: AetherTooltip,
     [AetherMeasure.TYPE]: AetherMeasure,
     [AetherController.TYPE]: AetherController,

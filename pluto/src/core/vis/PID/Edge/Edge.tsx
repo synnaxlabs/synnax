@@ -10,12 +10,13 @@
 import { DragEvent, Fragment, ReactElement, useCallback, useRef } from "react";
 
 import { XY, CrudeXY, Box } from "@synnaxlabs/x";
-import { BaseEdge, EdgeProps as RFEdgeProps } from "reactflow";
+import { BaseEdge, EdgeProps as RFEdgeProps, useViewport } from "reactflow";
 
-import { CSS } from "@/core/css";
-import { useCombinedStateAndRef } from "@/core/hooks/useCombinedStateAndRef";
-import { useCursorDrag } from "@/core/hooks/useCursorDrag";
-import { TriggerKey } from "@/core/triggers/triggers";
+import { Color, CrudeColor } from "@/color";
+import { CSS } from "@/css";
+import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
+import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { TriggerKey } from "@/triggers/triggers";
 import {
   adjustToSourceOrTarget,
   handleDrag,
@@ -33,6 +34,7 @@ export interface EdgeProps extends RFEdgeProps {
   editable: boolean;
   points: CrudeXY[];
   onPointsChange: (p: CrudeXY[]) => void;
+  color?: CrudeColor;
 }
 
 export const Edge = ({
@@ -48,11 +50,14 @@ export const Edge = ({
   points: propsPoints,
   onPointsChange,
   editable,
+  color,
   ...props
 }: EdgeProps): ReactElement => {
   const [points, setPoints, pointsRef] = useCombinedStateAndRef<XY[]>(() =>
     propsPoints.map((p) => new XY(p))
   );
+
+  const { zoom } = useViewport();
 
   const adjusted = adjustToSourceOrTarget(sourceX, sourceY, targetX, targetY, points);
   if (adjusted != null) setPoints(adjusted);
@@ -64,21 +69,28 @@ export const Edge = ({
       const index = Number(e.currentTarget.id.split("-")[1]);
       dragRef.current = { root: pointsRef.current[index], index };
     }, []),
-    onMove: useCallback((b: Box) => {
-      setPoints((prev) => {
-        if (dragRef.current == null) return prev;
-        const { root, index } = dragRef.current;
-        const [nextIndex, next] = handleDrag(prev, b, root, index);
-        dragRef.current.index = nextIndex;
-        return next;
-      });
-    }, []),
+    onMove: useCallback(
+      (b: Box) => {
+        setPoints((prev) => {
+          if (dragRef.current == null) return prev;
+          const { root, index } = dragRef.current;
+          const [nextIndex, next] = handleDrag(prev, b, root, index, zoom);
+          dragRef.current.index = nextIndex;
+          return next;
+        });
+      },
+      [zoom]
+    ),
     onEnd: useCallback(() => onPointsChange(pointsRef.current.map((p) => p.crude)), []),
   });
 
   return (
     <>
-      <BaseEdge path={calcPath(points)} style={style} {...props} />
+      <BaseEdge
+        path={calcPath(points)}
+        style={{ ...style, stroke: Color.cssString(color) }}
+        {...props}
+      />
       {calcMidPoints(points).map((p, i) => {
         const dir = calculateLineDirection(points[i], points[i + 1]);
         const dims = {
@@ -93,7 +105,8 @@ export const Edge = ({
           <Fragment key={i}>
             <rect
               className={CSS.BE("pid-edge-handle", "background")}
-              fill="var(--pluto-primary-z)"
+              fill="var(--pluto-background-color)"
+              stroke="var(--pluto-primary-z)"
               {...dims}
               {...pos}
               rx="2px"

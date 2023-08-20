@@ -9,10 +9,10 @@
 
 import { Destructor } from "@synnaxlabs/x";
 
-import { TelemSpec } from "./telem";
-
-import { AetherContext } from "@/core/aether/worker";
+import { AetherContext } from "@/aether/aether";
 import { TelemFactory } from "@/telem/factory";
+
+import { TelemSpec } from "./telem";
 
 export interface TelemProvider {
   use: <T>(

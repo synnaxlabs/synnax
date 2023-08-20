@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor, TimeSpan } from "@synnaxlabs/x";
+import { Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherLeaf } from "@/core/aether/worker";
+import { Leaf } from "@/aether/aether";
 import {
   BooleanTelemSink,
   booleanTelemSinkSpec,
@@ -34,12 +34,11 @@ interface InternalState {
   cleanupSink: Destructor;
 }
 
-export class AetherValve extends AetherLeaf<typeof valveState, InternalState> {
+export class AetherValve extends Leaf<typeof valveState, InternalState> {
   static readonly TYPE = "Valve";
 
   static readonly stateZ = valveState;
   schema = AetherValve.stateZ;
-  lastTrigger: number = 0;
 
   afterUpdate(): void {
     const [source, cleanupSource] = TelemContext.use<BooleanTelemSource>(
@@ -59,7 +58,6 @@ export class AetherValve extends AetherLeaf<typeof valveState, InternalState> {
     this.internal.cleanupSink = cleanupSink;
 
     if (this.state.triggered !== this.prevState.triggered) {
-      this.lastTrigger = performance.now();
       this.internal.sink.set(!this.state.active).catch(console.error);
     }
 
@@ -71,9 +69,6 @@ export class AetherValve extends AetherLeaf<typeof valveState, InternalState> {
             .value()
             .then((v) => this.setState((p) => ({ ...p, active: v, triggered: false })))
             .catch(console.error);
-          console.log(
-            TimeSpan.milliseconds(performance.now() - this.lastTrigger).toString()
-          );
         });
       })
       .catch(console.error);

@@ -18,11 +18,11 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/core/aether/main";
-import { CSS } from "@/core/css";
-import { useMemoCompare } from "@/core/hooks";
+import { Aether } from "@/aether/main/main";
+import { CSS } from "@/css";
+import { useMemoCompare } from "@/hooks";
 import { Space, SpaceProps, Text, TypographyLevel } from "@/core/std";
-import { Theming } from "@/core/theming";
+import { Theming } from "@/theming/main";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
 

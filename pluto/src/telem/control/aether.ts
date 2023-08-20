@@ -11,10 +11,8 @@ import {
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { TelemFactory } from "../factory";
-
-import { AetherClient } from "@/client/aether";
-import { AetherComposite } from "@/core/aether/worker";
+import { AetherClient } from "@/client/aether/provider";
+import { AetherComposite } from "@/aether/aether";
 import {
   NumericTelemSink,
   Telem,
@@ -24,6 +22,8 @@ import {
   UseTelemResult,
 } from "@/core/vis/telem";
 import { TelemMeta } from "@/telem/base";
+
+import { TelemFactory } from "../factory";
 
 export const controllerState = z.object({
   authority: z.number(),
@@ -50,7 +50,6 @@ export class AetherController
   schema = AetherController.stateZ;
 
   afterUpdate(): void {
-    console.log(this.ctx);
     this.internal.client = AetherClient.use(this.ctx);
     this.internal.parent = TelemContext.get(this.ctx);
     TelemContext.set(this.ctx, this);
@@ -79,13 +78,8 @@ export class AetherController
   }
 
   async set(frame: CrudeFrame): Promise<void> {
-    console.log(frame);
     if (this.writer == null) await this.acquire();
-    console.log(this.writer == null);
-    const ack = await this.writer?.write(frame);
-    if (ack == false) {
-      console.log(await this.writer?.error());
-    }
+    await this.writer?.write(frame);
   }
 
   create(key: string, spec: TelemSpec, _: TelemFactory): Telem | null {
@@ -140,7 +134,6 @@ export class ControlledNumericTelemSink
     );
     const keys = [chan.key];
     this.channels = [chan];
-    console.log(this.channels);
     if (chan.index !== 0) {
       keys.push(chan.index);
       this.channels.push(
@@ -158,11 +151,12 @@ export class ControlledNumericTelemSink
       this.props.channel
     );
     const ch2 = await this.controller.internal.client.channels.retrieve(ch.index);
-    console.log(ch.key, ch2.key);
     const frame = new Frame(
       [ch.key, ch2.key],
       [
+        // @ts-expect-error
         new Series(new ch.dataType.Array([value])),
+        // @ts-expect-error
         new Series(new ch2.dataType.Array([BigInt(TimeStamp.now())])),
       ]
     );

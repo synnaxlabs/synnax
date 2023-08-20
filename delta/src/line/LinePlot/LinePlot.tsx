@@ -21,7 +21,7 @@ import {
   UseViewportHandler,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { Box, TimeRange, unique } from "@synnaxlabs/x";
+import { Box, TimeRange, XYLocation, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { renameLayout, useSelectRequiredLayout } from "@/layout";
@@ -147,8 +147,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(
-    () =>
-      new Box(vis.viewport.pan, vis.viewport.zoom).reRoot({ x: "left", y: "bottom" }),
+    () => new Box(vis.viewport.pan, vis.viewport.zoom).reRoot(XYLocation.BOTTOM_LEFT),
     [vis.viewport.counter]
   );
 
@@ -208,14 +207,16 @@ const buildLines = (
         .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
           const xChannel = vis.channels[xAxis as XAxisKey];
-          const variantArg = range.variant == "dynamic" ? {
-            variant: range.variant,
-            span: range.span,
-          } : {
-            variant: range.variant,
-            timeRange: range.timeRange
-          };
-
+          const variantArg =
+            range.variant === "dynamic"
+              ? {
+                  variant: "dynamic",
+                  span: range.span,
+                }
+              : {
+                  variant: "static",
+                  range: range.timeRange,
+                };
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
@@ -250,7 +251,7 @@ const buildLines = (
                 x: xChannel,
                 y: channel,
               },
-              ...variantArg
+              ...variantArg,
             };
             return v;
           });

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/util/component";
-export * from "@/core/hooks/useDebouncedCallback";
+export * from "@/hooks/useDebouncedCallback";
 export * from "@/util/renderProp";
 export * from "@/core";
 export * from "@/main";
-export * from "@/client";
+export * from "@/client/main";
 export * from "@/vis";
 export * from "@/channel";
 export * from "@/util/state";

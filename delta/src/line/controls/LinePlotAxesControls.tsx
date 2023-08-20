@@ -93,20 +93,9 @@ export const LinePlotAxisControls = ({
         resetValue={0}
         dragScale={AXES_BOUNDS_DRAG_SCALE}
       />
-      <Select.Button
+      <Select.Direction
         value={axis.labelDirection}
         onChange={handleLabelDirectionChange}
-        entryRenderKey="label"
-        data={[
-          {
-            key: "x",
-            label: "X",
-          },
-          {
-            key: "y",
-            label: "Y",
-          },
-        ]}
       />
     </Space>
   );

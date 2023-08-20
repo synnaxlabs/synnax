@@ -24,16 +24,13 @@
 }
 
 .react-flow__handle {
+    background: none !important;
     border: var(--pluto-border) !important;
-    display: none !important;
+    border-color: transparent !important;
 }
 
-.react-flow__handle.target {
-    border-color: var(--pluto-error-z) !important;
-}
-
-.react-flow__handle.source {
-    border-color: var(--pluto-primary-z) !important;
+.react-flow__background circle {
+    fill: var(--pluto-gray-m1);
 }
 
 .react-flow__node {
@@ -41,17 +38,21 @@
     border: var(--pluto-border-width) solid transparent !important;
 }
 
-.react-flow__edge-path {
-    stroke-width: var(--pluto-pid-element-stroke-width) !important;
-    stroke: var(--pluto-text-color) !important;
+.react-flow__edge {
+    & .react-flow__edge-path {
+        stroke-width: var(--pluto-pid-element-stroke-width) !important;
+    }
 }
 
+
+
 .pluto-pid {
-    --pluto-pid-element-stroke-width: 2px;
+    --pluto-pid-element-stroke-width: 3px;
 
     &.pluto--editable {
         & .react-flow__handle {
             display: block !important;
+            border-color: var(--pluto-primary-z) !important;
         }
-    }
+    } 
 }

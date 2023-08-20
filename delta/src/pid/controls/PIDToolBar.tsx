@@ -13,11 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Space, Status, Tab, Tabs, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import {
-  useSelectPID,
-  useSelectPIDEditable,
-  useSelectPIDToolbar,
-} from "../store/selectors";
+import { useSelectPIDEditable, useSelectPIDToolbar } from "../store/selectors";
 import { PIDToolbarTab, setPIDActiveToolbarTab, setPIDEditable } from "../store/slice";
 
 import { PIDElementPropertiesControls } from "./PIDElementPropertiesControls";
@@ -91,7 +87,7 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   );
 
   return (
-    <Space empty>
+    <Space empty style={{ height: "100%" }}>
       <Tabs.Provider
         value={{
           tabs: TABS,

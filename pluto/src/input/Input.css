@@ -1,0 +1,69 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-input {
+    border-radius: var(--pluto-border-radius);
+    background: var(--pluto-background-color);
+    color: var(--pluto-text-color);
+    padding: 0 2rem;
+    margin: 0;
+    width: 100%;
+    border: var(--pluto-border);
+
+    &:focus {
+        outline: none;
+        border-color: var(--pluto-primary-z);
+        z-index: 2;
+    }
+
+    &.pluto--medium {
+        font-size: var(--pluto-p-size);
+        font-weight: var(--pluto-p-weight);
+        line-height: var(--pluto-p-line-height);
+    }
+
+    &.pluto--small {
+        font-size: var(--pluto-small-size);
+        font-weight: var(--pluto-small-font-weight);
+        line-height: var(--pluto-small-line-height);
+    }
+
+    &::placeholder {
+        color: var(--pluto-gray-m0);
+    }
+}
+
+
+.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover),
+.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover) > * {
+    border-color: transparent;
+}
+
+.pluto-input--shadow:hover,
+.pluto-input--shadow:focus,
+.pluto-input--shadow:hover > *,
+.pluto-input--shadow:focus > * {
+    border-color: var(--pluto-border-color);
+}
+
+.pluto-input--shadow,
+.pluto-input--shadow > * {
+    background: none !important;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+    /* stylelint-disable-next-line property-no-vendor-prefix */
+    -webkit-appearance: none;
+}
+
+.pluto-input--placeholder-centered::placeholder {
+    text-align: center;
+}

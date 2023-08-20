@@ -10,8 +10,8 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { AetherClient } from "@/client/aether";
-import { AetherComposite } from "@/core/aether/worker";
+import { AetherClient } from "@/client/aether/provider";
+import { AetherComposite } from "@/aether/aether";
 import {
   Telem,
   TelemSpec,

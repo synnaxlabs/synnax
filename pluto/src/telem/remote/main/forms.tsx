@@ -12,13 +12,17 @@ import { ReactElement } from "react";
 import { ChannelKey } from "@synnaxlabs/client";
 
 import { ChannelSelect, ChannelSelectProps } from "@/channel";
-import { Input, InputControl } from "@/core";
+import { Input, InputItemProps } from "@/core";
 import { NumericProps } from "@/telem/remote/aether/numeric";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface NumericFormProps extends InputControl<NumericProps> {}
+export interface NumericFormProps extends InputItemProps<NumericProps> {}
 
-export const NumericForm = ({ value, onChange }: NumericFormProps): ReactElement => {
+export const NumericForm = ({
+  value,
+  onChange,
+  ...props
+}: NumericFormProps): ReactElement => {
   const handleChannelChange = (channel: ChannelKey): void =>
     onChange({ ...value, channel });
 
@@ -27,6 +31,7 @@ export const NumericForm = ({ value, onChange }: NumericFormProps): ReactElement
       label="Channel"
       value={value.channel}
       onChange={handleChannelChange}
+      {...props}
     >
       {componentRenderProp(ChannelSelect)}
     </Input.Item>

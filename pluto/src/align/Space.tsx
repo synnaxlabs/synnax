@@ -1,0 +1,171 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { CSSProperties, ForwardedRef, ReactElement, forwardRef } from "react";
+
+import { Direction, LooseDirectionT } from "@synnaxlabs/x";
+
+import { CSS } from "@/css";
+import { Generic } from "@/generic";
+import { ComponentSize } from "@/util/component";
+
+import "@/align/Space.css";
+
+/** All possible alignments for the cross axis of a space */
+export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
+
+/** The alignments for the cross axis of a space */
+export type Alignment = typeof ALIGNMENTS[number];
+
+/** All possible justifications for the main axis of a space */
+export const JUSTIFICATIONS = [
+  "start",
+  "center",
+  "end",
+  "spaceBetween",
+  "spaceAround",
+  "spaceEvenly",
+] as const;
+
+/** The justification for the main axis of a space */
+export type Justification = typeof JUSTIFICATIONS[number];
+
+export type SpaceElementType =
+  | "div"
+  | "header"
+  | "nav"
+  | "section"
+  | "article"
+  | "aside"
+  | "footer"
+  | "button"
+  | "dialog";
+
+export interface SpaceExtensionProps {
+  empty?: boolean;
+  size?: ComponentSize | number;
+  direction?: LooseDirectionT;
+  reverse?: boolean;
+  justify?: Justification;
+  align?: Alignment;
+  grow?: boolean | number;
+  shrink?: boolean | number;
+  wrap?: boolean;
+  el?: SpaceElementType;
+  bordered?: boolean;
+  rounded?: boolean;
+}
+
+export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
+  Generic.GenericProps<E>,
+  "el"
+> &
+  SpaceExtensionProps;
+
+const CoreSpace = <E extends SpaceElementType = "div">(
+  {
+    style,
+    align,
+    className,
+    grow,
+    shrink,
+    empty = false,
+    size = "medium",
+    justify = "start",
+    reverse = false,
+    direction: direction_ = "y",
+    wrap = false,
+    bordered = false,
+    rounded = false,
+    el = "div" as E,
+    ...props
+  }: SpaceProps<E>,
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+): ReactElement => {
+  const direction = new Direction(direction_);
+
+  let gap: number | string | undefined;
+  if (empty) [size, gap] = [0, 0];
+  else if (typeof size === "number") gap = `${size}rem`;
+
+  style = {
+    gap,
+    flexDirection: flexDirection(direction, reverse),
+    justifyContent: justifications[justify],
+    alignItems: align,
+    flexWrap: wrap ? "wrap" : "nowrap",
+    ...style,
+  };
+
+  if (grow != null) style.flexGrow = Number(grow);
+  if (shrink != null) style.flexShrink = Number(shrink);
+
+  return (
+    // @ts-expect-error
+    <Generic<E>
+      el={el}
+      ref={ref}
+      className={CSS(
+        CSS.B("space"),
+        CSS.dir(direction),
+        CSS.bordered(bordered),
+        CSS.rounded(rounded),
+        typeof size === "string" && CSS.BM("space", size),
+        className
+      )}
+      style={style}
+      {...props}
+    />
+  );
+};
+CoreSpace.displayName = "Space";
+
+/**
+ * A component that orients its children in a row or column and adds
+ * space between them. This is essentially a thin wrapped around a
+ * flex component that makes it more 'reacty' to use.
+ *
+ * @param props - The props for the component. All unlisted props will be passed
+ * to the underlying root element.
+ * @param props.align - The off axis alignment of the children. The 'off' axis is the
+ * opposite direction of props.direction. For example, if direction is 'x', then the
+ * off axis is 'y'. See the {@link Alignment} for available options.
+ * @param props.justify - The main axis justification of the children. The 'main' axis
+ * is the same direction as props.direction. For example, if direction is 'x', then the
+ * main axis is 'x'. See the {@link Justification} for available options.
+ * @param props.grow - A boolean or number value that determines if the space should
+ * grow in the flex-box sense. A value of true will set css flex-grow to 1. A value of
+ * false will leave the css flex-grow unset. A number value will set the css flex-grow
+ * to that number.
+ * @param props.size - A string or number value that determines the amount of spacing
+ * between items. If set to "small", "medium", or "large", the spacing will be determined
+ * by the theme. If set to a number, the spacing will be that number of rem.
+ * @param props.wrap - A boolean value that determines if the space should wrap its
+ * children.
+ * @param props.el - The element type to render as. Defaults to 'div'.
+ */
+export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div">(
+  props: SpaceProps<E>
+) => ReactElement;
+
+type FlexDirection = CSSProperties["flexDirection"];
+
+const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
+  const base = direction.isX ? "row" : "column";
+  return reverse ? ((base + "-reverse") as FlexDirection) : base;
+};
+
+const justifications: Record<Justification, CSSProperties["justifyContent"]> = {
+  start: "flex-start",
+  center: "center",
+  end: "flex-end",
+  spaceBetween: "space-between",
+  spaceAround: "space-around",
+  spaceEvenly: "space-evenly",
+};

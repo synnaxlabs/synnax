@@ -12,7 +12,7 @@ import { ReactElement, useCallback, useEffect, useRef } from "react";
 import { XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/core/aether/main";
+import { Aether } from "@/aether/main/main";
 import { AetherTooltip } from "@/core/vis/Tooltip/aether";
 
 export interface TooltipProps

@@ -11,9 +11,9 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CrudeDimensions } from "@synnaxlabs/x";
 
-import { Aether } from "@/core/aether/main";
-import { Color, CrudeColor } from "@/core/color";
-import { CSS } from "@/core/css";
+import { Aether } from "@/aether/main/main";
+import { Color, CrudeColor } from "@/color";
+import { CSS } from "@/css";
 
 import "@/core/vis/Tank/Tank.css";
 

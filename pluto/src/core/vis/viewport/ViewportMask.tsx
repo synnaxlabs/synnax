@@ -9,7 +9,7 @@
 
 import { CSSProperties, ReactElement, forwardRef } from "react";
 
-import { CSS } from "@/core/css";
+import { CSS } from "@/css";
 import { UseViewportReturn, ViewportMode } from "@/core/vis/viewport/useViewport";
 
 import "@/core/vis/viewport/ViewportMask.css";
@@ -45,7 +45,13 @@ export const ViewportMask = forwardRef<HTMLDivElement, ViewportMaskProps>(
       }}
       {...props}
     >
-      <div style={maskBox.css} className={CSS.BE("viewport-mask", "selection")} />
+      <div
+        style={{
+          ...maskBox.css,
+          display: maskBox.isZero ? "none" : "block",
+        }}
+        className={CSS.BE("viewport-mask", "selection")}
+      />
       {children}
     </div>
   )

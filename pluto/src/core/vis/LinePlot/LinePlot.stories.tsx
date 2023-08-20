@@ -42,15 +42,15 @@ const yData3 = Float32Array.from(
   (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400
 );
 const Example = (): ReactElement => {
-  const telem = Telem.Static.useXY({
+  const telem = Telem.Static.useStaticXY({
     x: [xData],
     y: [yData],
   });
-  const telem2 = Telem.Static.useXY({
+  const telem2 = Telem.Static.useStaticXY({
     x: [xData2],
     y: [yData2],
   });
-  const telem3 = Telem.Static.useXY({
+  const telem3 = Telem.Static.useStaticXY({
     x: [xData3],
     y: [yData3],
   });

@@ -11,7 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComponentRegistry, AetherComposite } from "@/core/aether/worker";
+import { aether } from "@/aether/aether";
 import { AetherLineContext } from "@/core/vis/Line/aether";
 import { RenderContext } from "@/core/vis/render";
 
@@ -25,10 +25,10 @@ const canvasState = z.object({
   lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
 });
 
-export class AetherCanvas extends AetherComposite<typeof canvasState> {
+export class AetherCanvas extends aether.Composite<typeof canvasState> {
   static readonly TYPE = "Canvas";
   static readonly z = canvasState;
-  static readonly REGISTRY: AetherComponentRegistry = {
+  static readonly REGISTRY: aether.ComponentRegistry = {
     [AetherCanvas.TYPE]: AetherCanvas,
   };
 

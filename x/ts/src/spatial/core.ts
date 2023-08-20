@@ -648,6 +648,17 @@ export class Dimensions {
   get couple(): NumberCouple {
     return [this.width, this.height];
   }
+
+  /**
+   * @returns the swapped dimensions i.e. the width and height are swapped.
+   */
+  swap(): Dimensions {
+    return new Dimensions({ width: this.height, height: this.width });
+  }
+
+  svgViewBox(): string {
+    return `0 0 ${this.width} ${this.height}`;
+  }
 }
 
 /**

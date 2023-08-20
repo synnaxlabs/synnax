@@ -12,16 +12,8 @@ import { ReactElement } from "react";
 import { CrudeXY } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
-import {
-  CSS,
-  Color,
-  ColorSwatch,
-  ColorSwatchProps,
-  CrudeColor,
-  Input,
-  InputNumberProps,
-  Space,
-} from "@/core";
+import { Color } from "@/color";
+import { CSS, ColorSwatch, SwatchProps, Input, InputNumberProps, Space } from "@/core";
 import { Tank, TankProps } from "@/core/vis/Tank/Tank";
 import { componentRenderProp } from "@/util/renderProp";
 import {
@@ -49,16 +41,12 @@ const TankPIDElement = ({
     <div className={CSS(className, CSS.B("tank-pid-element"), CSS.selected(selected))}>
       {editable && (
         <>
-          <Handle position={Left} type="target" id="a" style={{ top: "25%" }} />
-          <Handle position={Left} type="source" id="b" style={{ top: "22%" }} />
-          <Handle position={Left} type="target" id="c" style={{ top: "75%" }} />
-          <Handle position={Left} type="source" id="d" style={{ top: "78%" }} />
-          <Handle position={Right} type="target" id="e" style={{ top: "25%" }} />
-          <Handle position={Right} type="source" id="f" style={{ top: "22%" }} />
-          <Handle position={Right} type="target" id="g" style={{ top: "75%" }} />
-          <Handle position={Right} type="source" id="h" style={{ top: "78%" }} />
-          <Handle position={Top} type="target" id="i" />
-          <Handle position={Bottom} type="source" id="j" />
+          <Handle position={Left} type="source" id="a" style={{ top: "25%" }} />
+          <Handle position={Left} type="source" id="c" style={{ top: "75%" }} />
+          <Handle position={Right} type="source" id="e" style={{ top: "25%" }} />
+          <Handle position={Right} type="source" id="g" style={{ top: "75%" }} />
+          <Handle position={Top} type="source" id="j" />
+          <Handle position={Bottom} type="source" id="l" />
         </>
       )}
       <Tank {...props}></Tank>
@@ -77,7 +65,7 @@ const TankPIDElementForm = ({
   const handleHeightChange = (height: number): void =>
     onChange({ ...value, dimensions: { ...value.dimensions, height } });
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
-  const handleColorChange = (color: Color): void =>
+  const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
 
   return (
@@ -95,7 +83,7 @@ const TankPIDElementForm = ({
           onChange={handleWidthChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Numeric)}
+          {componentRenderProp(Input.Number)}
         </Input.Item>
 
         <Input.Item<number, number, InputNumberProps>
@@ -104,9 +92,9 @@ const TankPIDElementForm = ({
           onChange={handleHeightChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Numeric)}
+          {componentRenderProp(Input.Number)}
         </Input.Item>
-        <Input.Item<CrudeColor, Color, ColorSwatchProps>
+        <Input.Item<Color.Crude, Color.Color, SwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}

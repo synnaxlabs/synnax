@@ -24,14 +24,14 @@ import { TelemFactory } from "@/telem/factory";
 export class StaticTelemFactory implements TelemFactory {
   type = "static";
 
-  create(key: string, props: TelemSpec): Telem | null {
-    switch (props.type) {
+  create(key: string, spec: TelemSpec): Telem | null {
+    switch (spec.type) {
       case StaticXYTelem.TYPE:
-        return new StaticXYTelem(key, props);
+        return new StaticXYTelem(key, spec.props);
       case IterativeXYTelem.TYPE:
-        return new IterativeXYTelem(key, props);
+        return new IterativeXYTelem(key, spec.props);
       case StaticNumericTelem.TYPE:
-        return new StaticNumericTelem(key, props);
+        return new StaticNumericTelem(key, spec.props);
       default:
         return null;
     }

@@ -9,23 +9,30 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Box, Dimensions, XY, XYScale, CrudeDimensions } from "@synnaxlabs/x";
+import {
+  Box,
+  Dimensions,
+  XY,
+  XYScale,
+  CrudeDimensions,
+  XYLocation,
+} from "@synnaxlabs/x";
 
-import { useMemoCompare } from "@/core/hooks";
-import { useStateRef } from "@/core/hooks/useStateRef";
+import { useMemoCompare } from "@/hooks";
+import { useStateRef } from "@/hooks/useStateRef";
 import {
   Stage,
   Trigger,
   TriggerDragCallback,
   Triggers,
   UseTriggerEvent,
-} from "@/core/triggers";
+} from "@/triggers";
 import {
   TriggerConfig,
   compareTriggerConfigs,
   determineTriggerMode,
   reduceTriggerConfig,
-} from "@/core/triggers/triggers";
+} from "@/triggers/triggers";
 
 export interface UseViewportEvent {
   box: Box;
@@ -109,10 +116,12 @@ const purgeMouseTriggers = (triggers: UseViewportTriggers): UseViewportTriggers 
   ) as unknown as UseViewportTriggers;
 };
 
+const D = new Box(0, 0, 1, 1, XYLocation.TOP_LEFT);
+
 export const useViewport = ({
   onChange,
   triggers: initialTriggers,
-  initial = Box.DECIMAL,
+  initial = D,
   threshold: threshold_ = { width: 30, height: 30 },
 }: UseViewportProps): UseViewportReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";

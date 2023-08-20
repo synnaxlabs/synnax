@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY } from "@synnaxlabs/x";
+import { Box, XY, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComponent, AetherComposite } from "@/core/aether/worker";
-import { CSS } from "@/core/css";
+import { AetherComponent, AetherComposite } from "@/aether/aether";
+import { CSS } from "@/css";
 import { RenderCleanup, RenderContext, RenderController } from "@/core/vis/render";
 
 const pidState = z.object({
   position: XY.z,
+  zoom: z.number(),
   region: Box.z,
   error: z.string().optional(),
 });
 
 interface PIDElementProps {
-  position: XY;
+  scale?: XYScale;
 }
 
 export interface PIDElement extends AetherComponent {
@@ -70,13 +71,14 @@ export class AetherPID extends AetherComposite<
         this.children.map(
           async (child) =>
             await child.render({
-              position: region.topLeft.translate(this.state.position),
+              scale: XYScale.magnify(new XY(this.state.zoom))
+                .translate(region.topLeft)
+                .translate(this.state.position),
             })
         )
       );
     } catch (e) {
-      console.error(e);
-      // this.setState((p) => ({ ...p, error: (e as Error).message }));
+      this.setState((p) => ({ ...p, error: (e as Error).message }));
     } finally {
       clearScissor();
     }

@@ -20,8 +20,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherContext, AetherLeaf } from "@/core/aether/worker";
-import { Color } from "@/core/color";
+import { AetherContext, Leaf } from "@/aether/aether";
+import { Color } from "@/color";
 import FRAG_SHADER from "@/core/vis/Line/frag.glsl?raw";
 import VERT_SHADER from "@/core/vis/Line/vert.glsl?raw";
 import { GLProgram, RenderContext, RenderController } from "@/core/vis/render";
@@ -156,7 +156,7 @@ interface InternalState {
   requestRender: () => void;
 }
 
-export class AetherLine extends AetherLeaf<typeof lineState, InternalState> {
+export class AetherLine extends Leaf<typeof lineState, InternalState> {
   static readonly TYPE = "line";
   schema: typeof lineState = lineState;
 

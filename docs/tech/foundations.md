@@ -133,22 +133,64 @@ Understanding that software components should be built to satisfy an interface, 
 than provide an implementation, is perhaps the most important realization that enables
 engineers to build large, complex systems.
 
+- Implementing interfaces in
+  Python - [Protocol or ABC in Python - When to use which one?](https://www.youtube.com/watch?v=xvb5hGLoK0A&t=1s&ab_channel=ArjanCodes).
+
 ### 1.1.1 - Classes, Object-Oriented Programming, and Inheritance
 
 ### 1.1.2 - Composition
 
 - [The flaws of Inheritance](https://www.youtube.com/watch?v=hxGOiiR9ZKg&t=89s&ab_channel=CodeAesthetic)
 
+- [Python - Why Composition is better than Inheritance](https://www.youtube.com/watch?v=0mcP8ZpUR38&ab_channel=ArjanCodes)
+
+### 1.1.4 - Dependency Injection
+
+After composition, dependency injection and dependency inversion are the most used
+structural patterns in the Synnax codebase. Interfaces are foundational in understanding
+dependency injection, so make sure you understand them well before moving on. Dependency
+injection is particularly powerful in allowing us to test large portions of our code
+in a modular
+fashion. [This](https://www.youtube.com/watch?v=J1f5b4vcxCQ&t=148s&ab_channel=CodeAesthetic)
+video is a great introduction to dependency injection.
+
 ### 1.1.3 - Design Patterns
 
-- [Refactoring Guru - Design Patterns](https://refactoring.guru/design-patterns)
-- [Design Patterns: Elements of Reusable Object-Oriented Software](https://www.amazon.com/dp/0201633612?ref_=cm_sw_r_cp_ud_dp_56C2VFSRGP5XW20DH7E4)
+As software engineering evolved from making computations and algorithms work to building
+large scale systems, engineers realized that they often encountered problems with
+similar properties albeit in different contexts. Design patterns emerged from these
+similarities, and they serve as generic, widely applicable solutions to common
+challenges.
+While engineers don't typically apply these in their most pure form, understanding
+how to combine and modify these patterns is an essential skill. In Synnax, we use
+variations of almost all the common design patterns: Abstract Factory, Builder, Command,
+Chain of Responsibility, Iterator, Adapter, Mediator and more.
 
+The quintessential resource on design patterns
+is [Design Patterns: Elements of Reusable Object-Oriented Software](https://www.amazon.com/dp/0201633612?ref_=cm_sw_r_cp_ud_dp_56C2VFSRGP5XW20DH7E4).
+Written in the 1990's, many consider this as one of the most important books in
+software engineering.
+
+Another very useful resource
+is [Refactoring Guru - Design Patterns](https://refactoring.guru/design-patterns),
+which provides simple, practical examples of design patterns in various programming
+languages.
+
+### 1.1.4 - The Problems with Abstraction
+
+One of the pitfalls of new/intermediate programmers is to over-abstract. One you
+become familiar with a set of patterns, it becomes enticing to apply them in situations
+where they may not apply. Fitting a problem into a frame it doesn't fit can end up
+causing far more problems than it
+solves. [This](https://www.youtube.com/watch?v=rQlMtztiAoA&t=93s&ab_channel=CodeAesthetic)
+is a great video explaining how excessive abstraction can be dangerous.
 
 # 2 - Building Large Software Systems
 
-- John Ousterhout's [A Philosophy of Software Design](https://www.amazon.com/Philosophy-Software-Design-John-Ousterhout/dp/1732102201)
-- John Ousterhout's [A Philosophy of Software Design (Lecture)](https://www.youtube.com/watch?v=bmSAYlu0NcY&ab_channel=StanfordUniversitySchoolofEngineering)
+- John
+  Ousterhout's [A Philosophy of Software Design](https://www.amazon.com/Philosophy-Software-Design-John-Ousterhout/dp/1732102201)
+- John
+  Ousterhout's [A Philosophy of Software Design (Lecture)](https://www.youtube.com/watch?v=bmSAYlu0NcY&ab_channel=StanfordUniversitySchoolofEngineering)
 - Martin Kleppmann's [Designing Data-Intensive Applications](https://a.co/d/4rHgKH3)
 
 # 3 - Distributed Systems
@@ -196,7 +238,13 @@ engineers to build large, complex systems.
 
 - Rob
   Pike, [Concurrency is not Parallelism](https://www.youtube.com/watch?v=oV9rvDllKEg&ab_channel=gnbitcom)
+- The Go
+  Blog, [Go Concurrency Patterns: Pipelines and cancellation](https://go.dev/blog/pipelines)
 
 # 10 - Profiling
 
 - Profiling in Go
+
+# Useful References
+
+Code Aesthetic - https://www.youtube.com/@CodeAesthetic/videos

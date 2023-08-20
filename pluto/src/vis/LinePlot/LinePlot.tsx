@@ -13,7 +13,7 @@ import { Bounds, Box, Direction, Location, TimeRange, TimeSpan } from "@synnaxla
 import { z } from "zod";
 
 import { TypographyLevel, UseViewportProps } from "@/core";
-import { Color } from "@/core/color";
+import { Color } from "@/color";
 import {
   LinePlot as CoreLinePlot,
   LinePlotProps as CoreLinePlotProps,

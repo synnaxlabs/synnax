@@ -31,7 +31,12 @@ export const VisLayoutSelector = ({
   const place = useLayoutPlacer();
 
   return (
-    <Space.Centered className={CSS.B("vis-layout-selector")} size="large" {...props}>
+    <Space.Centered
+      className={CSS.B("vis-layout-selector")}
+      size="large"
+      {...props}
+      wrap
+    >
       <Text level="h4" color="var(--pluto-gray-p0)">
         Select a visualization type
       </Text>

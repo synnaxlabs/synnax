@@ -9,10 +9,12 @@
 
 import { Box, Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
 
-import { AetherContext } from "@/core/aether/worker";
-import { Color } from "@/core/color";
-import { CSS } from "@/core/css";
+import { AetherContext } from "@/aether/aether";
+import { Color } from "@/color";
+import { CSS } from "@/css";
 import { RenderQueue } from "@/core/vis/render/RenderQueue";
+
+import { SugaredOffscreenCanvasRenderingContext2D } from "../draw2d/canvas";
 
 /**
  * A hybrid rendering context containing both 2D and WebGL canvases and contexts.
@@ -33,10 +35,10 @@ export class RenderContext {
   readonly gl: WebGL2RenderingContext;
 
   /** A 2D canvas that sits below the WebGL canvas. */
-  readonly lower2d: OffscreenCanvasRenderingContext2D;
+  readonly lower2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** A 2D canvas that sits above the WebGL canvas. */
-  readonly upper2d: OffscreenCanvasRenderingContext2D;
+  readonly upper2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** The region the canvas occupies in pixel space */
   region: Box;
@@ -70,13 +72,13 @@ export class RenderContext {
     this.glCanvas = glCanvas;
     this.queue = new RenderQueue();
 
-    const ctx = this.lower2dCanvas.getContext("2d");
-    if (ctx == null) throw new Error("Could not get 2D context");
-    this.lower2d = ctx;
+    const lowerCtx = this.lower2dCanvas.getContext("2d");
+    if (lowerCtx == null) throw new Error("Could not get 2D context");
+    this.lower2d = new SugaredOffscreenCanvasRenderingContext2D(lowerCtx);
 
     const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
-    this.upper2d = upperCtx;
+    this.upper2d = new SugaredOffscreenCanvasRenderingContext2D(upperCtx);
 
     const gl = this.glCanvas.getContext("webgl2", {
       preserveDrawingBuffer: true,

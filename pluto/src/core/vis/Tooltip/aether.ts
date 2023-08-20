@@ -10,13 +10,13 @@
 import { Box, Direction, XY, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Draw2D } from "../draw2d";
-
-import { AetherLeaf } from "@/core/aether/worker";
-import { Color } from "@/core/color";
-import { ThemeContext } from "@/core/theming/aether";
+import { Leaf } from "@/aether/aether";
+import { Color } from "@/color";
+import { ThemeContext } from "@/theming/aether/provider";
 import { FindResult } from "@/core/vis/Line/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
+
+import { Draw2D } from "../draw2d";
 
 export const tooltipState = z.object({
   position: XY.z.or(z.null()),
@@ -40,7 +40,7 @@ export interface TooltipProps {
   region: Box;
 }
 
-export class AetherTooltip extends AetherLeaf<typeof tooltipState, InternalState> {
+export class AetherTooltip extends Leaf<typeof tooltipState, InternalState> {
   static readonly TYPE = "tooltip";
   static readonly stateZ = tooltipState;
   schema = AetherTooltip.stateZ;

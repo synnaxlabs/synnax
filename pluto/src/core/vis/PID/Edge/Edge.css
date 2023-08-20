@@ -27,7 +27,7 @@
     display: none;
 }
 
-.pluto--editable {
+.react-flow__edge.selected {
     .pluto-pid-edge-handle__dragger {
         display: block;
     }
@@ -35,7 +35,6 @@
         display: block;
     }
 }
-
 
 
 

@@ -11,10 +11,9 @@
 
 
 .pluto-regulator {
-    width: 80px;
+    width: 75px;
 
     & * {
-        fill: none;
-        stroke-width: 0.5rem;
+        stroke-width: var(--pluto-pid-element-stroke-width);
     }
 }

@@ -9,9 +9,9 @@
 
 import { ReactElement } from "react";
 
-import { useUniqueKey } from "@/core/hooks/useUniqueKey";
+import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Space, Text, TextMaybeEditableProps, TypographyLevel } from "@/core/std";
-import { Theming } from "@/core/theming";
+import { Theming } from "@/theming/main";
 import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
 
 export type TitleProps<L extends TypographyLevel = "h2"> = TextMaybeEditableProps<L>;

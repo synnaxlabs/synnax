@@ -11,7 +11,8 @@ import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
-import { CSS, Color, ColorSwatch, CrudeColor, Input, Space, Text } from "@/core";
+import { Color } from "@/color";
+import { CSS, Input, Space, Text } from "@/core";
 import { Regulator, RegulatorProps } from "@/core/vis/Regulator/Regulator";
 import { componentRenderProp } from "@/util/renderProp";
 import {
@@ -24,7 +25,7 @@ import "@/vis/PID/RegulatorPIDElement/RegulatorPIDElement.css";
 
 export interface RegulatorPIDElementProps extends Omit<RegulatorProps, "color"> {
   label: string;
-  color: CrudeColor;
+  color: Color.Crude;
 }
 
 const RegulatorPIDElement = ({
@@ -45,8 +46,8 @@ const RegulatorPIDElement = ({
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div>
-        {editable && <Handle position={Position.Left} type="target" />}
-        {editable && <Handle position={Position.Right} type="source" />}
+        <Handle id="a" position={Position.Left} type="source" style={{ top: "75%" }} />
+        <Handle id="b" position={Position.Right} type="source" style={{ top: "75%" }} />
         <Regulator {...props} />
       </div>
     </Space>
@@ -58,7 +59,7 @@ const RegulatorPIDElementForm = ({
   onChange,
 }: PIDElementFormProps<RegulatorPIDElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
-  const handleColorChange = (color: Color): void =>
+  const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
   return (
     <Space direction="vertical" size="small">
@@ -67,13 +68,13 @@ const RegulatorPIDElementForm = ({
         value={value.label}
         onChange={handleLabelChange}
       />
-      <Input.Item<CrudeColor, Color>
+      <Input.Item<Color.Crude, Color.Color>
         label="Color"
         value={value.color}
         onChange={handleColorChange}
       >
         {/* @ts-expect-error */}
-        {componentRenderProp(ColorSwatch)}
+        {componentRenderProp(Color.Swatch)}
       </Input.Item>
     </Space>
   );

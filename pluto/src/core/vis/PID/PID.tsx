@@ -27,11 +27,15 @@ import ReactFlow, {
   Connection as RFConnection,
   ReactFlowProps,
   useReactFlow,
+  useViewport,
+  ConnectionMode,
+  updateEdge,
 } from "reactflow";
 
-import { Aether } from "@/core/aether/main";
-import { CSS } from "@/core/css";
-import { useResize } from "@/core/hooks";
+import { Aether } from "@/aether/main/main";
+import { CrudeColor } from "@/color";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
 import { Button, Pack, Status } from "@/core/std";
 import { AetherPID } from "@/core/vis/PID/aether";
 import { Edge } from "@/core/vis/PID/Edge";
@@ -43,6 +47,7 @@ import "reactflow/dist/style.css";
 export interface PIDElementProps {
   elementKey: string;
   position: CrudeXY;
+  zoom: number;
   selected: boolean;
   editable: boolean;
 }
@@ -56,6 +61,8 @@ export interface PIDEdge {
   key: string;
   source: string;
   target: string;
+  selected: boolean;
+  color: CrudeColor;
   sourceHandle?: string | null;
   targetHandle?: string | null;
   points: CrudeXY[];
@@ -124,10 +131,10 @@ const translateNodesForward = (
   }));
 
 const translateEdgesForward = (edges: PIDEdge[]): RFEdge[] =>
-  edges.map(({ points, ...edge }) => ({
-    id: edge.key,
-    data: { points },
+  edges.map(({ points, color, ...edge }) => ({
     ...edge,
+    id: edge.key,
+    data: { points, color },
   }));
 
 const translateNodesBackward = (nodes: RFNode[]): PIDNode[] =>
@@ -141,6 +148,8 @@ const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
   edges.map((edge) => ({
     key: edge.id,
     points: edge.data?.points ?? [],
+    selected: edge.selected ?? false,
+    color: edge.data?.color,
     ...edge,
   }));
 
@@ -193,6 +202,7 @@ const PIDCore = Aether.wrap<PIDProps>(
       initialState: {
         position: viewport.position,
         region: Box.ZERO,
+        zoom: viewport.zoom,
       },
     });
 
@@ -202,7 +212,7 @@ const PIDCore = Aether.wrap<PIDProps>(
     );
 
     const handleViewport = useCallback((viewport: RFViewport): void => {
-      setState((prev) => ({ ...prev, position: viewport }));
+      setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
       onViewportChange(translateViewportBackward(viewport));
     }, []);
 
@@ -214,9 +224,11 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const Node = useCallback(
       ({ id, xPos, yPos, selected, data: { editable } }: RFNodeProps<RFNodeData>) => {
+        const { zoom } = useViewport();
         return children({
           elementKey: id,
           position: { x: xPos, y: yPos },
+          zoom,
           selected,
           editable,
         });
@@ -259,6 +271,16 @@ const PIDCore = Aether.wrap<PIDProps>(
       [onEdgesChange]
     );
 
+    const handleEdgeUpdate = useCallback(
+      (oldEdge: RFEdge, newConnection: RFConnection) =>
+        onEdgesChange(
+          translateEdgesBackward(
+            updateEdge(oldEdge, newConnection, translateEdgesForward(edgesRef.current))
+          )
+        ),
+      []
+    );
+
     const handleConnect = useCallback(
       (conn: RFConnection) =>
         onEdgesChange(
@@ -284,6 +306,21 @@ const PIDCore = Aether.wrap<PIDProps>(
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
+    const EDGE_TYPES = useMemo(
+      () => ({
+        default: (props: any) => (
+          <Edge
+            {...props}
+            editable={props.data.editable}
+            points={props.data.points}
+            color={props.data.color}
+            onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
+          />
+        ),
+      }),
+      [handleEdgePointsChange]
+    );
+
     if (error != null) {
       return (
         <Aether.Composite path={path}>
@@ -293,22 +330,6 @@ const PIDCore = Aether.wrap<PIDProps>(
         </Aether.Composite>
       );
     }
-
-    const EDGE_TYPES = useMemo(
-      () => ({
-        default: (props: any) => {
-          return (
-            <Edge
-              {...props}
-              editable={props.data.editable}
-              points={props.data.points}
-              onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
-            />
-          );
-        },
-      }),
-      [handleEdgePointsChange]
-    );
 
     return (
       <Aether.Composite path={path}>
@@ -322,15 +343,17 @@ const PIDCore = Aether.wrap<PIDProps>(
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
-          minZoom={1}
-          maxZoom={1}
+          onEdgeUpdate={handleEdgeUpdate}
           defaultViewport={translateViewportForward(viewport)}
           snapToGrid={true}
           panOnScroll
           selectionOnDrag
           panOnDrag={false}
+          minZoom={0.5}
+          maxZoom={1.2}
           selectionKeyCode={null}
           panActivationKeyCode={"Shift"}
+          connectionMode={ConnectionMode.Loose}
           snapGrid={[5, 5]}
           proOptions={{
             hideAttribution: true,

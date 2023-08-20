@@ -9,11 +9,11 @@
 
 import { Box, Dimensions, Direction, XY } from "@synnaxlabs/x";
 
-import { Color } from "@/core/color";
-import { textDimensions } from "@/core/std/Typography/textDimensions";
-import { TypographyLevel } from "@/core/std/Typography/types";
-import { fontString } from "@/core/theming/fontString";
-import { Theme } from "@/core/theming/theme";
+import { Color } from "@/color";
+import { dimensions } from "@/text/dimensions";
+import { Level } from "@/text/types";
+import { fontString } from "@/theming/core/fontString";
+import { Theme } from "@/theming/core/theme";
 
 export interface Draw2DLineProps {
   stroke: Color;
@@ -48,14 +48,14 @@ export interface Draw2DContainerProps {
 export interface DrawTextProps {
   text: string;
   position: XY;
-  level: TypographyLevel;
+  level: Level;
   direction: Direction;
 }
 
 export interface Draw2DMeasureTextContainerProps {
   text: string[];
   direction: Direction;
-  level: TypographyLevel;
+  level: Level;
   spacing?: number;
 }
 
@@ -151,7 +151,7 @@ export class Draw2D {
     level = "p",
   }: Draw2DMeasureTextContainerProps): [Dimensions, (base: XY) => void] {
     const font = fontString(this.theme, level);
-    const textDims = text.map((t) => textDimensions(t, font, this.canvas));
+    const textDims = text.map((t) => dimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset = Math.max(...textDims.map((d) => d[direction.dimension])) + spacingPx;
     return [

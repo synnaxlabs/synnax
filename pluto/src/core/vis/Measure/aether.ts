@@ -10,10 +10,10 @@
 import { Box, XYScale, Direction, TimeSpan, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherLeaf } from "@/core/aether/worker";
-import { Color } from "@/core/color";
-import { ThemeContext } from "@/core/theming/aether";
-import { Theme } from "@/core/theming/theme";
+import { Leaf } from "@/aether/aether";
+import { Color } from "@/color";
+import { ThemeContext } from "@/theming/aether/provider";
+import { Theme } from "@/theming/core/theme";
 import { Draw2D } from "@/core/vis/draw2d";
 import { FindResult } from "@/core/vis/Line/aether";
 import { RenderContext, RenderController } from "@/core/vis/render";
@@ -51,7 +51,7 @@ export interface MeasureProps {
   region: Box;
 }
 
-export class AetherMeasure extends AetherLeaf<typeof measureState, InternalState> {
+export class AetherMeasure extends Leaf<typeof measureState, InternalState> {
   static readonly TYPE = "measure";
   static readonly stateZ = measureState;
   schema = AetherMeasure.stateZ;

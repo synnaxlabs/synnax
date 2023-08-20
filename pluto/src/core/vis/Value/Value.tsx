@@ -11,9 +11,9 @@ import { ComponentPropsWithoutRef, ReactElement, memo, useState } from "react";
 
 import { Box } from "@synnaxlabs/x";
 
-import { CSS } from "@/core/css";
-import { useResize } from "@/core/hooks";
-import { Theming } from "@/core/theming";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
+import { Theming } from "@/theming/main";
 import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
 
 export interface ValueProps

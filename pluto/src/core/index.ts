@@ -7,20 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/core/aether/main";
-export * from "@/core/color";
-export * from "@/core/css";
-export * from "@/core/haul";
-export * from "@/core/hooks";
-export * from "@/core/memo";
+export * from "@/aether/main/main";
+export * from "@/css";
+export * from "@/haul";
+export * from "@/hooks";
+export * from "@/memo";
 export * from "@/core/std";
-export * from "@/core/theming";
-export * from "@/core/triggers";
+export * from "@/theming/main";
+export * from "@/triggers";
 export * from "@/core/vis/Canvas";
-export * from "@/core/worker";
-export * from "@/core/os";
+export * from "@/worker";
+export * from "@/os";
 export * from "@/core/vis/PID";
-export * from "@/core/color/ColorPicker";
-export * from "@/core/color/ColorSwatch";
-export * from "@/core/alamos";
+export * from "@/alamos";
 export * from "@/core/vis/viewport";

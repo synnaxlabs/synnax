@@ -11,8 +11,8 @@ import { ReactElement, useLayoutEffect } from "react";
 
 import { Deep, Optional } from "@synnaxlabs/x";
 
-import { Aether } from "@/core/aether/main";
-import { useMemoCompare } from "@/core/memo";
+import { Aether } from "@/aether/main/main";
+import { useMemoCompare } from "@/memo";
 import { AetherLine, lineState, LineState } from "@/core/vis/Line/aether";
 
 export interface LineProps extends Optional<Omit<LineState, "key">, "strokeWidth"> {}

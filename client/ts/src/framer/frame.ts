@@ -154,7 +154,6 @@ export class Frame {
    * otherwise.
    */
   get keys(): ChannelKeys {
-    console.log(this.columns);
     if (this.colType === "name") throw new UnexpectedError("colType is not key");
     return (this.columns as ChannelKeys) ?? [];
   }

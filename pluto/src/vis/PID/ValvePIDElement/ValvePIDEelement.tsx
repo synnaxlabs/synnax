@@ -9,18 +9,11 @@
 
 import { ReactElement } from "react";
 
+import { CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
-import {
-  CSS,
-  Color,
-  ColorSwatch,
-  ColorSwatchProps,
-  CrudeColor,
-  Input,
-  Space,
-  Text,
-} from "@/core";
+import { Color } from "@/color";
+import { CSS, ColorSwatch, SwatchProps, Input, Select, Space, Text } from "@/core";
 import { Valve, ValveProps } from "@/core/vis/Valve/Valve";
 import { RemoteTelem, RemoteTelemNumericProps } from "@/telem/remote/main";
 import { componentRenderProp } from "@/util/renderProp";
@@ -35,7 +28,7 @@ import "@/vis/PID/ValvePIDElement/ValvePIDElement.css";
 export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
   telem: RemoteTelemNumericProps;
   label: string;
-  color: CrudeColor;
+  color: Color.Crude;
 }
 
 const ValvePIDElement = ({
@@ -45,10 +38,14 @@ const ValvePIDElement = ({
   onChange,
   label,
   position: _,
+  direction = "x",
   ...props
 }: StatefulPIDElementProps<ValvePIDElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void =>
     onChange({ ...props, label, telem: pTelem });
+
+  const parsedDirection = new Direction(direction);
+
   return (
     <Space
       justify="center"
@@ -59,12 +56,21 @@ const ValvePIDElement = ({
         CSS.selected(selected),
         CSS.editable(editable)
       )}
+      direction={parsedDirection.inverse}
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div className={CSS.BE("valve-pid-element", "valve-container")}>
-        {editable && <Handle position={Position.Left} type="target" />}
-        {editable && <Handle position={Position.Right} type="source" />}
-        <Valve {...props} />
+        <Handle
+          position={parsedDirection.isX ? Position.Left : Position.Top}
+          id="a"
+          type="source"
+        />
+        <Handle
+          position={parsedDirection.isX ? Position.Right : Position.Bottom}
+          id="b"
+          type="source"
+        />
+        <Valve direction={direction} {...props} />
       </div>
     </Space>
   );
@@ -79,8 +85,12 @@ const ValvePIDElementForm = ({
   const handleTelemChange = (telem: RemoteTelemNumericProps): void =>
     onChange({ ...value, telem });
 
-  const handleColorChange = (color: Color): void =>
+  const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
+
+  const handleDirectionChange = (direction: CrudeDirection): void => {
+    onChange({ ...value, direction });
+  };
 
   return (
     <>
@@ -89,14 +99,22 @@ const ValvePIDElementForm = ({
           label="Label"
           value={value.label}
           onChange={handleLabelChange}
+          grow
         />
-        <Input.Item<CrudeColor, Color, ColorSwatchProps>
+        <Input.Item<Color.Crude, Color.Color, SwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}
         >
           {/* @ts-expect-error */}
           {componentRenderProp(ColorSwatch)}
+        </Input.Item>
+        <Input.Item<CrudeDirection>
+          label="Direction"
+          value={new Direction(value.direction ?? "x").crude}
+          onChange={handleDirectionChange}
+        >
+          {componentRenderProp(Select.Direction)}
         </Input.Item>
       </Space>
       <RemoteTelem.Form.Numeric value={value.telem} onChange={handleTelemChange} />

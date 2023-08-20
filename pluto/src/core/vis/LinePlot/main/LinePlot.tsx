@@ -25,16 +25,16 @@ import {
 import { Box, Deep, Destructor, Location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { UseViewportEvent, UseViewportHandler } from "../../viewport";
-
-import { Aether } from "@/core/aether/main";
-import { CrudeColor } from "@/core/color";
-import { CSS } from "@/core/css";
-import { useResize } from "@/core/hooks";
-import { useEffectCompare } from "@/core/hooks/useEffectCompare";
+import { Aether } from "@/aether/main/main";
+import { CrudeColor } from "@/color";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
+import { useEffectCompare } from "@/hooks/useEffectCompare";
 import { Status } from "@/core/std";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { GridPositionMeta, filterGridPositions } from "@/core/vis/LinePlot/aether/grid";
+
+import { UseViewportEvent, UseViewportHandler } from "../../viewport";
 
 import "@/core/vis/LinePlot/main/LinePlot.css";
 

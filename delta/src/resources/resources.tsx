@@ -111,9 +111,9 @@ export const resourceTypes: Record<string, ResourceType> = {
       ctx.store.dispatch(
         addRange({
           name: ctx.resource.data.name,
+          type: "static",
           key: ctx.resource.data.key,
-          start: ctx.resource.data.timeRange.start,
-          end: ctx.resource.data.timeRange.end,
+          timeRange: ctx.resource.data.timeRange,
         })
       );
     },

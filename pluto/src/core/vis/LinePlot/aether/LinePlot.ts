@@ -12,8 +12,8 @@ import { z } from "zod";
 
 import { Eraser } from "../../render/Eraser";
 
-import { AetherComposite } from "@/core/aether/worker";
-import { CSS } from "@/core/css";
+import { AetherComposite } from "@/aether/aether";
+import { CSS } from "@/css";
 import { FindResult } from "@/core/vis/Line/aether";
 import { calculatePlotBox, gridPositionMeta } from "@/core/vis/LinePlot/aether/grid";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";

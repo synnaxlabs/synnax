@@ -2,8 +2,7 @@ import { PropsWithChildren, ReactElement, useCallback, useEffect } from "react";
 
 import { Box, XY } from "@synnaxlabs/x";
 
-import { CSS } from "@/core/css";
-import { useEffectCompare } from "@/core/hooks/useEffectCompare";
+import { CSS } from "@/css";
 import { useLinePlotContext } from "@/core/vis/LinePlot/main/LinePlot";
 import {
   UseViewportProps,

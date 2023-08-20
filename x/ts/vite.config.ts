@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [lib({ name: "x" })],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
   },
   test: {
     globals: true,

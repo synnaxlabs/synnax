@@ -26,7 +26,6 @@ import { TelemFactory } from "@/telem/factory";
 export namespace AetherBooleanTelem {
   export class Factory implements TelemFactory {
     create(key: string, spec: TelemSpec, root: TelemFactory): Telem | null {
-      console.log(spec, NumericConverterSink.TYPE);
       switch (spec.type) {
         case NumericConverterSink.TYPE: {
           const props_ = NumericConverterSink.propsZ.parse(spec.props);

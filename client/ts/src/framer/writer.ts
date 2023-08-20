@@ -150,8 +150,6 @@ export class Writer {
       frame = new Frame(frame, new Series(data as NativeTypedArray));
     }
     frame = this.adapter.adapt(new Frame(frame));
-    // if (this.errorAccumulated) return false;
-    console.log("SENDING");
     // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;

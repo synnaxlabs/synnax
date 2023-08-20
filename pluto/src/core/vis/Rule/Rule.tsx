@@ -12,8 +12,8 @@ import { ReactElement, useCallback, useEffect, useRef } from "react";
 import { Bounds, Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/core/aether/main";
-import { useCursorDrag } from "@/core/hooks/useCursorDrag";
+import { Aether } from "@/aether/main/main";
+import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Input, Space, Text } from "@/core/std";
 import { AetherRule } from "@/core/vis/Rule/aether";
 import { preventDefault } from "@/util/event";

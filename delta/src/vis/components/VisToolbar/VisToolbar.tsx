@@ -27,7 +27,7 @@ const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
-    <VisLayoutSelector layoutKey={layoutKey} />;
+    <VisLayoutSelector layoutKey={layoutKey} />
   </Space>
 );
 
@@ -37,19 +37,19 @@ const NoVis = (): ReactElement => {
     <Space justify="spaceBetween" style={{ height: "100%" }} empty>
       <ToolbarHeader>
         <VisToolbarTitle />
-        <Space.Centered direction="x" size="small">
-          <Status.Text level="p" variant="disabled" hideIcon>
-            No visualization selected. Selecte a visualization or
-          </Status.Text>
-          <Button
-            startIcon={<Icon.Add />}
-            variant="outlined"
-            onClick={() => placer(createVis({}))}
-          >
-            create a new one
-          </Button>
-        </Space.Centered>
       </ToolbarHeader>
+      <Space.Centered direction="x" size="small">
+        <Status.Text level="p" variant="disabled" hideIcon>
+          No visualization selected. Selecte a visualization or
+        </Status.Text>
+        <Button
+          startIcon={<Icon.Add />}
+          variant="outlined"
+          onClick={() => placer(createVis({}))}
+        >
+          create a new one
+        </Button>
+      </Space.Centered>
     </Space>
   );
 };

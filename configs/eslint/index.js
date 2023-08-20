@@ -63,11 +63,11 @@ module.exports = {
         ],
         "import/no-unresolved": [
             2,
-            {
-                ignore: ["^@/"],
-                commonjs: true,
-                amd: true,
-            },
+            // {
+            //     ignore: ["^@/"],
+            //     commonjs: true,
+            //     amd: true,
+            // },
         ],
         "import/named": "off",
         "react/react-in-jsx-scope": "off",
@@ -78,6 +78,7 @@ module.exports = {
     },
     settings: {
         "import/resolver": {
+            typescript: {}, // this loads <rootdir>/tsconfig.json to eslint
             node: {
                 extensions: [".js", ".jsx", ".ts", ".tsx"],
             },

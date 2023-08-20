@@ -17,17 +17,18 @@ export const prettyParse = <Z extends z.ZodTypeAny>(
   try {
     return schema.parse(value);
   } catch (e) {
-    if (e instanceof z.ZodError) {
-      const errors = e.errors.map((err) => {
-        if (err.path.length === 0) {
-          return err.message;
-        } else {
-          return `${err.path.join(".")}: ${err.message}`;
-        }
-      });
-      throw new Error(`${prefix} - ${errors.join("\n")}`);
-    } else {
-      throw e;
-    }
+    throw e;
+    // if (e instanceof z.ZodError) {
+    //   const errors = e.errors.map((err) => {
+    //     if (err.path.length === 0) {
+    //       return err.message;
+    //     } else {
+    //       return `${err.path.join(".")}: ${err.message}`;
+    //     }
+    //   });
+    //   throw new Error(`${prefix} - ${errors.join("\n")}`);
+    // } else {
+    //   throw e;
+    // }
   }
 };

@@ -1,0 +1,49 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { forwardRef } from "react";
+
+import { CSS } from "@/css";
+import { BaseProps } from "@/input/types";
+
+import "@/input/Switch.css";
+
+export interface SwitchProps extends BaseProps<boolean> {}
+
+const CLS = "input-switch";
+
+/**
+ * A controlled boolean Switch input component.
+ *
+ * @param props - The props for the input component. Unlisted props are passed to the
+ * underlying input element.
+ * @param props.value - The value of the input.
+ * @param props.onChange - A function to call when the input value changes.
+ * @param props.size - The size of the input: "small" | "medium" | "large".
+ * @default "medium"
+ */
+export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
+  ({ className, value, onChange, size = "medium", ...props }: SwitchProps, ref) => (
+    <div className={CSS(CSS.BE(CLS, "container"), CSS.size(size))}>
+      <label className={CSS(CSS.BE(CLS, "track"), className)}>
+        <input
+          className={CSS.BE(CLS, "input")}
+          type="checkbox"
+          ref={ref}
+          checked={value}
+          onChange={(e) => onChange(e.target.checked)}
+          value=""
+          {...props}
+        />
+        <span className="pluto-input-switch__slider" />
+      </label>
+    </div>
+  )
+);
+Switch.displayName = "InputSwitch";

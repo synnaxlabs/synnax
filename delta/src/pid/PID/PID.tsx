@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { PID as PPID, PIDProps, PIDElementProps } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
@@ -30,6 +30,7 @@ const PIDElementRenderer = ({
   selected,
   layoutKey,
   editable,
+  zoom,
 }: PIDElementProps & { layoutKey: string }): ReactElement | null => {
   const el = useSelectPIDElementProps(layoutKey, elementKey);
   if (el == null) return null;
@@ -49,12 +50,15 @@ const PIDElementRenderer = ({
 
   const C = ELEMENTS[type];
 
+  const refZoom = useRef(zoom);
+
   return (
     <C.Element
       position={position}
       selected={selected}
       onChange={handleChange}
       editable={editable}
+      zoom={refZoom.current}
       {...props}
     />
   );

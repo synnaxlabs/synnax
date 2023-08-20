@@ -15,26 +15,39 @@
     border: none;
     --pluto-base-color: var(--pluto-text-color-rgb);
     padding: 0;
-}
 
-.pluto-valve svg {
-    width: 80px;
-    stroke: rgba(var(--pluto-base-color), 1);
-    stroke-width: var(--pluto-pid-element-stroke-width);
-    transition: stroke 0.15s ease-in-out;
-    fill: none;
-}
+    &.pluto--y path {
+        transform-origin: top right;
+        transform: rotate(90deg) translate(calc(100% + var(--pluto-pid-element-stroke-width) * 0.5));
+    }
 
-.pluto-valve:focus {
-    outline: none;
-}
 
-.pluto-valve:hover svg {
-    stroke: rgba(var(--pluto-base-color), 0.8);
-}
+    & svg {
+        stroke: rgba(var(--pluto-base-color), 1);
+        stroke-width: var(--pluto-pid-element-stroke-width);
+        transition: stroke 0.15s ease-in-out;
+        fill: none;
+    }
 
-.pluto-valve:active svg {
-    stroke: rgba(var(--pluto-base-color), 0.9);
+    &:focus {
+        outline: none;
+    }
+
+    &:hover {
+        & svg {
+            stroke: rgba(var(--pluto-base-color), 0.8);
+        }
+    }
+
+    &:active {
+        & svg {
+            stroke: rgba(var(--pluto-base-color), 0.9);
+        }
+
+        &:hover svg {
+            fill: rgba(var(--pluto-base-color), 0.8);
+        }
+    }
 }
 
 .pluto-valve--active svg {
@@ -58,6 +71,3 @@
     }
 }
 
-.pluto-valve--active:hover svg {
-    fill: rgba(var(--pluto-base-color), 0.8);
-}

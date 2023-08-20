@@ -12,17 +12,16 @@ import { DragEvent, ReactElement, useCallback, useMemo } from "react";
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
-import { Client } from "@/client";
+import { Client } from "@/client/main";
 import {
   CSS,
-  Haul,
-  Hauled,
   ListColumn,
   Select,
   SelectMultipleProps,
   SelectProps,
   Status,
 } from "@/core";
+import { Haul } from "@/haul";
 
 const channelColumns: Array<ListColumn<ChannelKey, ChannelPayload>> = [
   {
@@ -87,10 +86,10 @@ export const ChannelSelectMultiple = ({
     ),
   });
   const { startDrag, endDrag } = Haul.useDrag();
-  const dragging = Haul.dragging.useState();
+  const dragging = Haul.useDraggingState();
 
   const handleSuccessfulDrop = useCallback(
-    (dragging: Hauled[]) => {
+    (dragging: Haul.Item[]) => {
       onChange(value.filter((key) => !dragging.some((h) => h.key === key)));
     },
     [onChange, value]
@@ -126,7 +125,7 @@ export interface ChannelSelectProps
 }
 
 const canDrop = (
-  hauled: Hauled[],
+  hauled: Haul.Item[],
   value: ChannelKey[] | readonly ChannelKey[]
 ): boolean =>
   hauled.length > 0 &&
@@ -159,7 +158,7 @@ export const ChannelSelect = ({
   });
 
   const { startDrag, endDrag } = Haul.useDrag();
-  const dragging = Haul.dragging.useState();
+  const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(() => {
     startDrag([{ type: "channel", key: value }]);
   }, [startDrag, value]);

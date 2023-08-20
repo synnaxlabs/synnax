@@ -69,7 +69,14 @@ import {
 } from "react-icons/md";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import { TbZoomFilled, TbZoomReset } from "react-icons/tb";
+import {
+  TbZoomFilled,
+  TbZoomReset,
+  TbArrowRight,
+  TbArrowDown,
+  TbArrowUp,
+  TbArrowLeft,
+} from "react-icons/tb";
 
 const IconOS: Record<OS, React.ComponentType> = {
   Linux: FaLinux,
@@ -127,6 +134,12 @@ export const Icon: IconType = {
     Github: AiFillGithub,
     LinkedIn: AiFillLinkedin,
   },
+  Arrow: {
+    Right: TbArrowRight,
+    Down: TbArrowDown,
+    Up: MdKeyboardArrowUp,
+    Left: TbArrowLeft,
+  },
   Keyboard: {
     Command: MdKeyboardCommandKey,
     Windows: FaWindows,
@@ -177,6 +190,12 @@ export interface IconType {
   Control: React.ComponentType;
   Settings: React.ComponentType;
   Caret: {
+    Right: React.ComponentType;
+    Left: React.ComponentType;
+    Up: React.ComponentType;
+    Down: React.ComponentType;
+  };
+  Arrow: {
     Right: React.ComponentType;
     Left: React.ComponentType;
     Up: React.ComponentType;

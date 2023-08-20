@@ -10,7 +10,7 @@
 import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Color } from "@/core/color";
+import { Color } from "@/color";
 
 const transferrable = z.union([
   z.instanceof(ArrayBuffer),

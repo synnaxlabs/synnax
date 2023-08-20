@@ -13,6 +13,8 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { Canvas } from "@/core/vis/Canvas/Canvas";
 import { PID } from "@/core/vis/PID";
+import { AetherNoopTelem } from "@/telem/noop/aether";
+import { ValuePIDElementSpec } from "@/vis";
 import { ValvePIDElementSpec } from "@/vis/PID/ValvePIDElement";
 
 const story: Meta<typeof PID> = {
@@ -29,6 +31,7 @@ const Example = (): ReactElement => {
           x: 100,
           y: 100,
         },
+        data: {},
       },
       {
         key: "2",
@@ -47,7 +50,6 @@ const Example = (): ReactElement => {
       },
     ],
   });
-  const [v, setV] = useState("dog");
   return (
     <Canvas
       style={{
@@ -56,7 +58,12 @@ const Example = (): ReactElement => {
         position: "fixed",
       }}
     >
-      <PID {...props}>{ValvePIDElementSpec.Element}</PID>
+      {/* <div style={{ height: "50%" }} /> */}
+      <PID {...props}>
+        {(props) => (
+          <ValuePIDElementSpec.Element {...props} label="Label" units="psi" />
+        )}
+      </PID>
     </Canvas>
   );
 };

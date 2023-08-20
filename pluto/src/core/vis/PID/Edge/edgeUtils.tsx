@@ -19,7 +19,8 @@ export const handleDrag = (
   prevPoints: XY[],
   b: Box,
   root: XY,
-  index: number
+  index: number,
+  zoom: number
 ): [number, XY[]] => {
   // The first point in the line.
   const prevOne = prevPoints[index];
@@ -29,7 +30,7 @@ export const handleDrag = (
   const dir = calculateLineDirection(prevOne, prevTwo);
 
   const translateDir = dir.inverse;
-  const translateBy = root[translateDir.crude] + b[translateDir.signedDimension];
+  const translateBy = root[translateDir.crude] + b[translateDir.signedDimension] / zoom;
   const nextOne = prevOne.set(translateDir, translateBy);
   const nextTwo = prevTwo.set(translateDir, translateBy);
 
@@ -97,8 +98,8 @@ export const adjustToSourceOrTarget = (
   const linear = formsRoughlyStraightLine([source, target]);
   if (points.length === 0) return newConnectorPoints(source, target);
 
-  const sourceChanged = !source.equals(prevSource);
-  const targetChanged = !target.equals(prevTarget);
+  const sourceChanged = source.distanceTo(prevSource) > 1;
+  const targetChanged = target.distanceTo(prevTarget) > 1;
 
   if (!sourceChanged && !targetChanged) return null;
   if (linear && points.length === 2) return [source, target];

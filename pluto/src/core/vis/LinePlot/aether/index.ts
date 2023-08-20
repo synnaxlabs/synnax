@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AetherComponentRegistry } from "@/core/aether/worker";
+import { AetherComponentRegistry } from "@/aether/aether";
 import { AetherLinePlot as CoreLinePlot } from "@/core/vis/LinePlot/aether/LinePlot";
 import { AetherXAxis } from "@/core/vis/LinePlot/aether/XAxis";
 import { AetherYAxis } from "@/core/vis/LinePlot/aether/YAxis";

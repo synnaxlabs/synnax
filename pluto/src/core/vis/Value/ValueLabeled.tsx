@@ -9,12 +9,14 @@
 
 import { ReactElement, useState } from "react";
 
-import { Box, XYScale, XY } from "@synnaxlabs/x";
+import { Box, Direction, XY } from "@synnaxlabs/x";
 
-import { CSS } from "@/core/css";
-import { DirectionTrigger, useResize } from "@/core/hooks";
+import { Color, CrudeColor } from "@/color";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
 import { PackProps, Space, Text } from "@/core/std";
-import { Theming } from "@/core/theming";
+import { Theming } from "@/theming/main";
+import { UseTypographyReturn } from "@/theming/main/font";
 import { ValueCore, ValueCoreProps } from "@/core/vis/Value/ValueCore";
 
 import "@/core/vis/Value/ValueLabeled.css";
@@ -23,58 +25,84 @@ export interface ValueLabeledProps
   extends Omit<ValueCoreProps, "box">,
     Omit<PackProps, "color" | "onChange"> {
   position?: XY;
+  zoom?: number;
   label: string;
   onLabelChange?: (label: string) => void;
+  color?: CrudeColor;
+  textColor?: CrudeColor;
 }
 
 export const ValueLabeled = ({
   label,
   onLabelChange,
   level = "p",
-  color,
+  direction = "y",
   position,
   className,
   children,
+  textColor,
+  color,
+  zoom = 1,
   ...props
 }: ValueLabeledProps): ReactElement => {
+  const font = Theming.useTypography(level);
   const [box, setBox] = useState<Box>(Box.ZERO);
 
-  const font = Theming.useTypography(level);
+  const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
+  const resizeRef = useResize(setBox, {});
 
-  const triggers: DirectionTrigger[] = position != null ? [] : ["resizeX", "resizeY"];
-  const resizeRef = useResize(setBox, { triggers });
-
-  const height = (font.lineHeight + 2) * font.baseSize;
-
-  let adjustedBox = box;
-  if (position != null)
-    adjustedBox = XYScale.translate(position)
-      .translate(box.topLeft.scale(-1))
-      .translateY(1.9 * font.baseSize)
-      .translateY(height)
-      .box(box);
+  const adjustedBox = adjustBox(
+    new Direction(direction),
+    zoom,
+    box,
+    valueBoxHeight,
+    font,
+    position
+  );
 
   return (
     <Space
+      className={CSS(className, CSS.B("value-labeled"))}
+      align="center"
+      ref={resizeRef}
+      direction={direction}
       {...props}
-      direction="y"
-      className={CSS(className, CSS.BE("value-labeled", "container"))}
     >
-      <Text.MaybeEditable
-        value={label}
-        onChange={onLabelChange}
-        level={level}
+      <Text.MaybeEditable value={label} onChange={onLabelChange} level={level} />
+      <div
+        className={CSS.B("value")}
         style={{
-          textAlign: "center",
-          padding: "1rem",
-          width: "fit-content",
-          minWidth: "100%",
+          height: valueBoxHeight,
+          borderColor: Color.cssString(color),
         }}
-      />
-      <div className={CSS.B("value")} style={{ height, width: "100%" }} ref={resizeRef}>
+      >
         {children}
-        <ValueCore color={color} level={level} {...props} box={adjustedBox} />
+        <ValueCore color={textColor} level={level} {...props} box={adjustedBox} />
       </div>
     </Space>
+  );
+};
+
+const adjustBox = (
+  direction: Direction,
+  zoom: number,
+  box: Box,
+  valueBoxHeight: number,
+  font: UseTypographyReturn,
+  position?: XY
+): Box => {
+  if (direction.isX) {
+    return new Box(
+      (position?.x ?? box.left) + box.width / zoom - 100,
+      position?.y ?? box.top,
+      100,
+      valueBoxHeight
+    );
+  }
+  return new Box(
+    position?.x ?? box.left,
+    (position?.y ?? box.top) + box.height / zoom - valueBoxHeight,
+    box.width / zoom,
+    valueBoxHeight
   );
 };

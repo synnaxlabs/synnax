@@ -176,16 +176,19 @@ export const LinePlotAnnotationsControls = ({
             label="Label"
             onChange={handleLabelChange}
             value={selectedRule.label}
+            variant="shadow"
           />
           <Input.Item<string>
             label="Units"
             onChange={handleUnitsChange}
             value={selectedRule.units}
+            variant="shadow"
           />
           <Input.Item<number>
             label="Position"
             onChange={handlePositionChange}
             value={selectedRule.position}
+            variant="shadow"
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
@@ -216,6 +219,7 @@ export const LinePlotAnnotationsControls = ({
             onChange={handleLineWidthChange}
             value={selectedRule.lineWidth}
             bounds={{ lower: 1, upper: 10 }}
+            variant="shadow"
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
@@ -224,6 +228,7 @@ export const LinePlotAnnotationsControls = ({
             onChange={handleLineDashChange}
             value={selectedRule.lineDash}
             bounds={{ lower: 0, upper: 50 }}
+            variant="shadow"
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>

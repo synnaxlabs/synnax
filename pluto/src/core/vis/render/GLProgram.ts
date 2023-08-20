@@ -9,7 +9,7 @@
 
 import { LooseXYT, XY } from "@synnaxlabs/x";
 
-import { Color } from "@/core/color";
+import { Color } from "@/color";
 import { RenderContext } from "@/core/vis/render/RenderContext";
 
 const errorCompile = (msg: string): Error =>

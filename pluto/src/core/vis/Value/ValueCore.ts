@@ -12,10 +12,10 @@ import { ReactElement, useLayoutEffect } from "react";
 import { Deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/core/aether/main";
-import { useMemoCompare } from "@/core/memo";
+import { Aether } from "@/aether/main/main";
+import { useMemoCompare } from "@/memo";
 import { Typography } from "@/core/std";
-import { Theming } from "@/core/theming";
+import { Theming } from "@/theming/main";
 import { AetherValue } from "@/core/vis/Value/aether";
 
 export const valueCoreProps = AetherValue.z

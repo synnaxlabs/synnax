@@ -12,14 +12,14 @@ import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 import { Location, CrudeOuterLocation, CrudeDirection, Direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { withinSizeThreshold } from "../aether/grid";
-
-import { Aether } from "@/core/aether/main";
-import { CSS } from "@/core/css";
+import { Aether } from "@/aether/main/main";
+import { CSS } from "@/css";
 import { Space, Text, TypographyLevel } from "@/core/std";
-import { Theming } from "@/core/theming";
+import { Theming } from "@/theming/main";
 import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
 import { useGridPosition } from "@/core/vis/LinePlot/main/LinePlot";
+
+import { withinSizeThreshold } from "../aether/grid";
 
 export interface XAxisProps
   extends PropsWithChildren,

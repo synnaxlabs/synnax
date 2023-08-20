@@ -9,10 +9,10 @@
 
 import { ReactElement } from "react";
 
-import { Status, Space } from "@synnaxlabs/pluto";
+import { Status, Space, ColorSwatch, Color, Input } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectSelectedPIDElementsProps } from "../store/selectors";
+import { PIDElementInfo, useSelectSelectedPIDElementsProps } from "../store/selectors";
 import { setPIDElementProps } from "../store/slice";
 
 import { CSS } from "@/css";
@@ -31,8 +31,8 @@ export const PIDElementPropertiesControls = ({
 
   const dispatch = useDispatch();
 
-  const handleChange = (props: any): void => {
-    dispatch(setPIDElementProps({ layoutKey, key: elements[0].key, props }));
+  const handleChange = (key: string, props: any): void => {
+    dispatch(setPIDElementProps({ layoutKey, key, props }));
   };
 
   if (elements.length === 0) {
@@ -43,11 +43,58 @@ export const PIDElementPropertiesControls = ({
     );
   }
 
-  const C = ELEMENTS[elements[0].props.type];
+  if (elements.length > 1) {
+    const groups: Record<string, PIDElementInfo[]> = {};
+    elements.forEach((e) => {
+      let color: Color | null = null;
+      if (e.type === "edge") color = new Color(e.edge.color ?? Color.ZERO);
+      else if ("color" in e.props) color = new Color(e.props.color);
+      if (color === null) return;
+      const hex = color.hex;
+      if (!(hex in groups)) groups[hex] = [];
+      groups[hex].push(e);
+    });
+    return (
+      <Space className={CSS.B("pid-properties")} size="small">
+        <Input.Label>Selection Colors</Input.Label>
+        {Object.entries(groups).map(([hex, elements]) => {
+          return (
+            <ColorSwatch
+              key={elements[0].key}
+              value={hex}
+              onChange={(color) => {
+                elements.forEach((e) => {
+                  handleChange(e.key, { color: color.hex });
+                });
+              }}
+            />
+          );
+        })}
+      </Space>
+    );
+  }
+
+  const selected = elements[0];
+
+  if (selected.type === "edge") {
+    return (
+      <ColorSwatch
+        value={selected.edge.color ?? Color.ZERO}
+        onChange={(color) => {
+          handleChange(selected.key, { color: color.hex });
+        }}
+      />
+    );
+  }
+
+  const C = ELEMENTS[selected.props.type];
 
   return (
     <Space className={CSS.B("pid-properties")} size="small">
-      <C.Form value={elements[0].props} onChange={handleChange} />
+      <C.Form
+        value={selected.props}
+        onChange={(props) => handleChange(selected.key, props)}
+      />
     </Space>
   );
 };

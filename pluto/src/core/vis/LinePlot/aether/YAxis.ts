@@ -10,10 +10,10 @@
 import { Bounds, Box, Location, Scale, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AetherComposite } from "@/core/aether/worker";
-import { CSS } from "@/core/css";
-import { ThemeContext } from "@/core/theming/aether";
-import { fontString } from "@/core/theming/fontString";
+import { AetherComposite } from "@/aether/aether";
+import { CSS } from "@/css";
+import { ThemeContext } from "@/theming/aether/provider";
+import { fontString } from "@/theming/core/fontString";
 import { Axis, AxisCanvas } from "@/core/vis/Axis";
 import { axisState } from "@/core/vis/Axis/core";
 import { AetherLine, LineProps, FindResult } from "@/core/vis/Line/aether";

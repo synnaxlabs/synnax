@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { PIDEdge } from "@synnaxlabs/pluto";
+
 import { useMemoSelect } from "@/hooks";
 import {
   PIDNode,
@@ -29,19 +31,36 @@ export const selectSelectedPIDElementsProps = (
   layoutKey: string
 ): PIDElementInfo[] => {
   const pid = selectPID(state, layoutKey);
-  const selected = pid.nodes.filter((node) => node.selected);
-  return selected.map((node) => ({
-    key: node.key,
-    node,
-    props: pid.props[node.key],
-  }));
+  const nodes: PIDElementInfo[] = pid.nodes
+    .filter((node) => node.selected)
+    .map((node) => ({
+      key: node.key,
+      type: "node",
+      node,
+      props: pid.props[node.key],
+    }));
+  const edges: PIDElementInfo[] = pid.edges
+    .filter((edge) => edge.selected)
+    .map((edge) => ({
+      key: edge.key,
+      type: "edge",
+      edge,
+    }));
+  return [...nodes, ...edges];
 };
 
-export interface PIDElementInfo {
-  key: string;
-  node: PIDNode;
-  props: object;
-}
+export type PIDElementInfo =
+  | {
+      key: string;
+      type: "node";
+      node: PIDNode;
+      props: object;
+    }
+  | {
+      key: string;
+      type: "edge";
+      edge: PIDEdge;
+    };
 
 export const useSelectSelectedPIDElementsProps = (
   layoutKey: string

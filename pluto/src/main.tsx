@@ -11,15 +11,11 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 
-import { HaulProviderProps } from "./core/haul/HaulContext";
-import DefaultWorkerURL from "./defaultWorker.ts?worker&url";
-
-import { Client, ClientProviderProps } from "@/client";
+import { Aether } from "@/aether/main";
+import { Client } from "@/client/main";
 import {
   Alamos,
-  Aether,
   Haul,
-  ThemeProviderProps,
   Theming,
   Triggers,
   Worker,
@@ -29,18 +25,21 @@ import {
 } from "@/core";
 import { TelemProvider } from "@/telem/TelemProvider/TelemProvider";
 
+import { ProviderProps } from "./haul/Haul";
+import DefaultWorkerURL from "./defaultWorker.ts?worker&url";
+
 import "@synnaxlabs/media/dist/style.css";
 
 export interface PlutoProps
   extends PropsWithChildren,
-    Partial<ThemeProviderProps>,
-    ClientProviderProps {
+    Partial<Theming.ProviderProps>,
+    Client.ProviderProps {
   workerEnabled?: boolean;
   workerURL?: URL;
   instrumentation?: Instrumentation;
   tooltip?: TooltipConfigProps;
   triggers?: TriggersProviderProps;
-  haul?: HaulProviderProps;
+  haul?: ProviderProps;
 }
 
 export const Pluto = ({

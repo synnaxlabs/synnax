@@ -134,7 +134,14 @@ export const { actions, reducer: pidReducer } = createSlice({
       const { layoutKey, key, props } = payload;
       const pid = state.pids[layoutKey];
       if (!pid.editable) return;
-      pid.props[key] = props;
+      if (key in pid.props) {
+        pid.props[key] = { ...pid.props[key], ...props };
+      } else {
+        const edge = pid.edges.findIndex((edge) => edge.key === key);
+        if (edge !== -1) {
+          pid.edges[edge] = { ...pid.edges[edge], ...props };
+        }
+      }
     },
     setPIDNodes: (state, { payload }: PayloadAction<SetPIDNodesPayload>) => {
       const { layoutKey, nodes } = payload;
@@ -148,6 +155,9 @@ export const { actions, reducer: pidReducer } = createSlice({
       const { layoutKey, edges } = payload;
       const pid = state.pids[layoutKey];
       pid.edges = edges;
+      const anySelected = edges.some((edge) => edge.selected);
+      if (anySelected) state.toolbar.activeTab = "properties";
+      else state.toolbar.activeTab = "elements";
     },
     setPIDActiveToolbarTab: (
       state,

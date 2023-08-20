@@ -9,7 +9,7 @@
 
 import { PropsWithChildren, ReactElement } from "react";
 
-import { Aether } from "@/core/aether/main";
+import { Aether } from "@/aether/main/main";
 import { AetherTelemProvider, providerStateZ } from "@/telem/TelemProvider/aether";
 
 export interface TelemProviderProps extends PropsWithChildren<any> {}

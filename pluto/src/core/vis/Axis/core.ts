@@ -10,7 +10,7 @@
 import { Box, Location, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Color } from "@/core/color";
+import { Color } from "@/color";
 import {
   TickFactoryContext,
   tickFactoryProps,

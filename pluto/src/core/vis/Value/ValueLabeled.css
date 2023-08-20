@@ -9,13 +9,29 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-value-labeled__container {
+.pluto-value-labeled {
     width: fit-content;
     min-width: 100px;
+    max-width: 125px;
+
+    .pluto-text {
+        white-space: normal;
+        text-align: center;
+        word-break: break-word;
+        padding: 0 1rem;
+    }
+
+    & .pluto-value {
+        border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
+        border-radius: var(--pluto-border-radius);
+        position: relative;
+        width: 100%;
+    }
+
+    &.pluto--x {
+        .pluto-value {
+            width: 100px;
+        }
+    }
 }
 
-.pluto-value {
-    border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
-    border-radius: var(--pluto-border-radius);
-    position: relative;
-}

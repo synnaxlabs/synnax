@@ -11,9 +11,9 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { XY } from "@synnaxlabs/x";
 
-import { Aether } from "@/core/aether/main";
-import { Triggers } from "@/core/triggers";
-import { TriggerConfig } from "@/core/triggers/triggers";
+import { Aether } from "@/aether/main/main";
+import { Triggers } from "@/triggers";
+import { TriggerConfig } from "@/triggers/triggers";
 import { useLinePlotViewport } from "@/core/vis/LinePlot/main/LinePlot";
 import { AetherMeasure } from "@/core/vis/Measure/aether";
 import { UseViewportHandler } from "@/core/vis/viewport";

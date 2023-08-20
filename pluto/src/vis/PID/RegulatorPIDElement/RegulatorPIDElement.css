@@ -9,8 +9,5 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-regulator-pid-element.pluto--selected {
-    border: var(--pluto-border-width) solid var(--pluto-primary-z);
-    border-radius: var(--pluto-border-radius);
-}
+
 

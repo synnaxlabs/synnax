@@ -17,9 +17,9 @@ import {
 
 import { Box } from "@synnaxlabs/x";
 
-import { Aether } from "@/core/aether/main";
-import { CSS } from "@/core/css";
-import { useResize } from "@/core/hooks";
+import { Aether } from "@/aether/main/main";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
 import { AetherCanvas } from "@/core/vis/Canvas/aether";
 
 import "@/core/vis/Canvas/Canvas.css";

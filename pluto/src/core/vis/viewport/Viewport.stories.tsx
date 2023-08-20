@@ -14,7 +14,7 @@ import { Box, XYScale } from "@synnaxlabs/x";
 
 import { Viewport } from ".";
 
-import { Triggers } from "@/core/triggers";
+import { Triggers } from "@/triggers";
 
 const story: Meta<typeof Viewport.Mask> = {
   title: "Core/Vis/Viewport",
