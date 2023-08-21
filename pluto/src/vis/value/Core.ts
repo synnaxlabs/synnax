@@ -14,15 +14,14 @@ import { z } from "zod";
 
 import { Aether } from "@/aether/main";
 import { useMemoCompare } from "@/memo";
+import { Text } from "@/text";
 import { Theming } from "@/theming/main";
 import { Value } from "@/vis/value/aether/value";
-
-import { Typography } from "@/core/std";
 
 export const valueCoreProps = Value.z
   .omit({ font: true })
   .partial({ color: true })
-  .extend({ level: Typography.levelZ });
+  .extend({ level: Text.levelZ });
 
 export type ValueCoreProps = z.input<typeof valueCoreProps>;
 

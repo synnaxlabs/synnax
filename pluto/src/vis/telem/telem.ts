@@ -113,7 +113,7 @@ export const colorTelemSourceSpec = telemSpec.extend({
 export type ColorTelemSourceSpec = z.infer<typeof colorTelemSourceSpec>;
 
 export interface ColorTelemSource extends Telem {
-  value: () => Promise<Color>;
+  value: () => Promise<Color.Color>;
   onChange: (f: () => void) => void;
 }
 

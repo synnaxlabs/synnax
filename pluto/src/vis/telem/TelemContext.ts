@@ -9,7 +9,7 @@
 
 import { Destructor } from "@synnaxlabs/x";
 
-import { AetherContext } from "@/aether/aether";
+import { aether } from "@/aether/aether";
 import { TelemFactory } from "@/telem/factory";
 
 import { TelemSpec } from "./telem";
@@ -33,17 +33,17 @@ export class TelemContext {
     this.prov = prov;
   }
 
-  static get(ctx: AetherContext): TelemContext {
+  static get(ctx: aether.Context): TelemContext {
     return ctx.get<TelemContext>(TelemContext.CONTEXT_KEY);
   }
 
-  static set(ctx: AetherContext, prov: TelemProvider): void {
+  static set(ctx: aether.Context, prov: TelemProvider): void {
     const telem = new TelemContext(prov);
     ctx.set(TelemContext.CONTEXT_KEY, telem);
   }
 
   static use<T>(
-    ctx: AetherContext,
+    ctx: aether.Context,
     key: string,
     props: TelemSpec,
     extension?: TelemFactory

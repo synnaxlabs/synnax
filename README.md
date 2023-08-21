@@ -1,7 +1,7 @@
 <br />
 <p align="center">
     <a href="https://synnaxlabs.com/">
-        <img src="x/media/static/logo/title-white-on-black.svg" width="65%"/>
+        <img src="x/media/static/logo/icon-white-on-black.png" width="20%"/>
     </a>
     <br />
     <br />
@@ -15,7 +15,7 @@
 
 # Synnax
 
-The Operating System for Data Driven Hardware Teams
+The software infrastructure for data driven hardware teams.
 
 - [Synnax](#synnax)
 - [What is Synnax?](#what-is-synnax)
@@ -70,9 +70,9 @@ in this monorepo. The following is an alphabetically sorted summary of each:
 - [Synnax](synnax) - The core Synnax server, which integrates all other services to
   provide a complete telemetry system.
 - [ X](x) - Common utilities used by other projects. The most relevant are:
-    - [Telem](x/go/telem) - Core telemetry primitives used across the Synnax stack
-      (timestamps, data types, arrays, etc.)
-    - [Confluence](x/go/confluence) -
-      Assemble and run concurrent data processing and message passing pipelines.
-    - [Gorp](x/go/gorp) - Efficient querying of go-types to and from a key-value store.
-    - [Signal](x/go/signal) - A library for controlling goroutine lifecycle.
+  - [Telem](x/go/telem) - Core telemetry primitives used across the Synnax stack
+    (timestamps, data types, arrays, etc.)
+  - [Confluence](x/go/confluence) -
+    Assemble and run concurrent data processing and message passing pipelines.
+  - [Gorp](x/go/gorp) - Efficient querying of go-types to and from a key-value store.
+  - [Signal](x/go/signal) - A library for controlling goroutine lifecycle.
