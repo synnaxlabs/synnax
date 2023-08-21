@@ -11,21 +11,20 @@ import { PropsWithChildren } from "react";
 
 import { z } from "zod";
 
-import { AetherController } from "./aether";
-
-import { Aether } from "@/core";
+import { Aether } from "@/aether/main";
+import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
-  extends z.input<typeof AetherController.stateZ>,
+  extends z.input<typeof control.controllerStateZ>,
     PropsWithChildren {}
 
 export const Controller = Aether.wrap<ControllerProps>(
-  AetherController.TYPE,
+  control.Controller.TYPE,
   ({ aetherKey, authority, children }) => {
     const [{ path }] = Aether.use({
       aetherKey,
-      type: AetherController.TYPE,
-      schema: AetherController.stateZ,
+      type: control.Controller.TYPE,
+      schema: control.controllerStateZ,
       initialState: { authority },
     });
     return <Aether.Composite path={path}>{children}</Aether.Composite>;

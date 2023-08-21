@@ -11,26 +11,20 @@ import { Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { AetherNoopTelem } from "@/telem/noop/aether";
-import {
-  BooleanTelemSink,
-  booleanTelemSinkSpec,
-  BooleanTelemSource,
-  booleanTelemSourceSpec,
-  TelemContext,
-} from "@/vis/telem";
+import { telem } from "@/telem/core";
+import { noop } from "@/telem/noop";
 
 export const valveStateZ = z.object({
   triggered: z.boolean(),
   active: z.boolean(),
-  sink: booleanTelemSinkSpec.optional().default(AetherNoopTelem.booleanSinkSpec),
-  source: booleanTelemSourceSpec.optional().default(AetherNoopTelem.booleanSourceSpec),
+  sink: telem.booleanSinkSpecZ.optional().default(noop.booleanSinkSpec),
+  source: telem.booleanSourceSpecZ.optional().default(noop.booleanSourceSpec),
 });
 
 interface InternalState {
-  source: BooleanTelemSource;
+  source: telem.BooleanSource;
   cleanupSource: Destructor;
-  sink: BooleanTelemSink;
+  sink: telem.BooleanSink;
   cleanupSink: Destructor;
 }
 
@@ -40,12 +34,12 @@ export class Valve extends aether.Leaf<typeof valveStateZ, InternalState> {
   schema = valveStateZ;
 
   afterUpdate(): void {
-    const [source, cleanupSource] = TelemContext.use<BooleanTelemSource>(
+    const [source, cleanupSource] = telem.use<telem.BooleanSource>(
       this.ctx,
       `${this.key}-source`,
       this.state.source
     );
-    const [sink, cleanupSink] = TelemContext.use<BooleanTelemSink>(
+    const [sink, cleanupSink] = telem.use<telem.BooleanSink>(
       this.ctx,
       `${this.key}-sink`,
       this.state.sink

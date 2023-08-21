@@ -38,7 +38,7 @@ import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/select/Multiple.css";
 
-export interface SelectMultipleProps<
+export interface MultipleProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children">,
@@ -53,7 +53,26 @@ export interface SelectMultipleProps<
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
 }
 
-export const SelectMultiple = <
+/**
+ * Allows a user to browse, search for, and select multiple values from a list of
+ * options. It's important to note that Select maintains no internal selection state.
+ * The caller must provide the selected value via the `value` prop and handle any
+ * changes via the `onChange` prop.
+ *
+ * @param props - The props for the component. Any additional props will be passed to
+ * the input group containing the selection input and the selected tags.
+ * @param props.data - The data to be used to populate the select options.
+ * @param props.columns - The columns to be used to render the select options in the
+ * dropdown. See the {@link ListColumn} type for more details on how to configure
+ * columns.
+ * @param props.tagKey - The option field rendered for each tag when selected in the
+ * input group. Defaults to "key".
+ * @param props.location - Whether to render the dropdown above or below the select
+ * component. Defaults to "below".
+ * @param props.onChange - The callback to be invoked when the selected value changes.
+ * @param props.value - The currently selected value.
+ */
+export const Multiple = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
@@ -72,7 +91,7 @@ export const SelectMultiple = <
   onTagDragEnd,
   style,
   ...props
-}: SelectMultipleProps<K, E>): ReactElement => {
+}: MultipleProps<K, E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
   const [selected, setSelected] = useState<readonly E[]>([]);
   const searchMode = searcher != null;

@@ -17,9 +17,8 @@ import {
 } from "@synnaxlabs/client";
 import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
-import { nan } from "zod";
 
-import { ChannelCache } from "@/telem/client/cache";
+import { cache } from "@/telem/client/cache";
 
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse>) => void;
 
@@ -39,7 +38,7 @@ export interface Client extends ChannelClient, StaticClient, StreamClient {
   close: () => void;
 }
 
-export class ClientProxy implements Client {
+export class Proxy implements Client {
   _client: Client | null;
 
   constructor() {
@@ -76,10 +75,10 @@ export class ClientProxy implements Client {
   }
 }
 
-export class BaseClient implements Client {
+export class Core implements Client {
   core: Synnax;
   private _streamer: Streamer | null;
-  private readonly cache: Map<ChannelKey, ChannelCache>;
+  private readonly cache: Map<ChannelKey, cache.Cache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
   key: string;
 
@@ -169,13 +168,13 @@ export class BaseClient implements Client {
     void this.updateStreamer();
   }
 
-  private async getCache(key: ChannelKey): Promise<ChannelCache> {
+  private async getCache(key: ChannelKey): Promise<cache.Cache> {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache = new ChannelCache(10000, channel);
-    this.cache.set(key, cache);
-    return cache;
+    const cache_ = new cache.Cache(10000, channel);
+    this.cache.set(key, cache_);
+    return cache_;
   }
 
   private async updateStreamer(): Promise<void> {

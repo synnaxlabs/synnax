@@ -11,49 +11,43 @@ import { useMemo } from "react";
 
 import { Rate } from "@synnaxlabs/x";
 
-import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/vis/telem";
-import {
-  IterativeXYTelem,
-  IterativeXYTelemProps,
-  StaticNumericTelem,
-  StaticXYTelem,
-  StaticXYTelemProps,
-} from "@/telem/static/aether";
+import { telem } from "@/telem/core";
+import { staticTelem } from "@/telem/static/aether";
 
-export namespace StaticTelem {
-  export const useStaticXY = (props: StaticXYTelemProps): XYTelemSourceSpec => {
-    const transfer = useMemo(
-      () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
-      [props]
-    );
-    return {
-      type: StaticXYTelem.TYPE,
-      props,
-      transfer,
+export const useStaticXY = (props: staticTelem.XYProps): telem.XYSourceSpec => {
+  const transfer = useMemo(
+    () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
+    [props]
+  );
+  return {
+    type: staticTelem.XY.TYPE,
+    props,
+    transfer,
+    variant: "xy-source",
+  };
+};
+
+export const useIterativeXY = (
+  props: staticTelem.IterativeXYProps
+): telem.XYSourceSpec => {
+  return useMemo(
+    () => ({
       variant: "xy-source",
-    };
-  };
+      type: staticTelem.IterativeXY.TYPE,
+      props: {
+        ...props,
+        rate: new Rate(props.rate).valueOf(),
+      },
+      transfer: [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
+    }),
+    []
+  );
+};
 
-  export const useIterativeXY = (props: IterativeXYTelemProps): XYTelemSourceSpec => {
-    return useMemo(
-      () => ({
-        variant: "xy-source",
-        type: IterativeXYTelem.TYPE,
-        props: {
-          ...props,
-          rate: new Rate(props.rate).valueOf(),
-        },
-        transfer: [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
-      }),
-      []
-    );
+export const useNumeric = (value: number): telem.NumericSourceSpec => {
+  return {
+    type: staticTelem.Numeric.TYPE,
+    props: value,
+    variant: "numeric-source",
   };
-
-  export const useNumeric = (value: number): NumericTelemSourceSpec => {
-    return {
-      type: StaticNumericTelem.TYPE,
-      props: value,
-      variant: "numeric-source",
-    };
-  };
-}
+};

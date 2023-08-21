@@ -19,19 +19,12 @@ import {
 import { Bounds, Destructor, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Numeric, NumericProps } from "./numeric";
-
-import { XYTelemSource, NumericTelemSource } from "@/vis/telem";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import {
-  StaticClient,
-  ChannelClient,
-  ReadResponse,
-  Client,
-  StreamHandler,
-} from "@/telem/client/client";
-import { Telem } from "@/telem/meta";
+import { client } from "@/telem/client";
+import { telem } from "@/telem/core";
 import { DynamicXY, DynamicXYProps, XY, XYProps } from "@/telem/remote/aether/xy";
+
+import { Numeric, NumericProps } from "./numeric";
 
 const X_CHANNEL = new Channel({
   name: "time",
@@ -64,8 +57,8 @@ const CHANNELS: Record<ChannelKey, Channel> = {
 
 describe("XY", () => {
   describe("Static", () => {
-    class MockClient implements StaticClient, ChannelClient {
-      data: Record<ChannelKey, ReadResponse>;
+    class MockClient implements client.StaticClient, client.ChannelClient {
+      data: Record<ChannelKey, client.ReadResponse>;
       retrieveChannelMock = vi.fn();
       readMock = vi.fn();
 
@@ -87,9 +80,11 @@ describe("XY", () => {
         );
 
         this.data = {
-          [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, [X_CHANNEL_DATA]),
-          [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, [Y_CHANNEL_DATA]),
-          [Y_CHANNEL_ALT.key]: new ReadResponse(Y_CHANNEL_ALT, [Y_CHANNEL_ALT_DATA]),
+          [X_CHANNEL.key]: new client.ReadResponse(X_CHANNEL, [X_CHANNEL_DATA]),
+          [Y_CHANNEL.key]: new client.ReadResponse(Y_CHANNEL, [Y_CHANNEL_DATA]),
+          [Y_CHANNEL_ALT.key]: new client.ReadResponse(Y_CHANNEL_ALT, [
+            Y_CHANNEL_ALT_DATA,
+          ]),
         };
       }
 
@@ -103,8 +98,8 @@ describe("XY", () => {
       async read(
         tr: TimeRange,
         keys: ChannelKeys
-      ): Promise<Record<number, ReadResponse>> {
-        const res: Record<ChannelKey, ReadResponse> = {};
+      ): Promise<Record<number, client.ReadResponse>> {
+        const res: Record<ChannelKey, client.ReadResponse> = {};
         keys.forEach((key) => {
           res[key] = this.data[key];
         });
@@ -119,11 +114,11 @@ describe("XY", () => {
       y: Y_CHANNEL.key,
     };
 
-    let telem: XYTelemSource & Telem;
-    let client: MockClient;
+    let telem: telem.XYSource;
+    let mockClient: MockClient;
     beforeEach(() => {
-      client = new MockClient();
-      telem = new XY("1", client);
+      mockClient = new MockClient();
+      telem = new XY("1", mockClient);
       telem.setProps(PROPS);
     });
     describe("data", () => {
@@ -151,12 +146,12 @@ describe("XY", () => {
         it("should not re-execute the read on the client", async () => {
           const control = new MockGLBufferController();
           await telem.y(control);
-          client.readMock.mockReset();
-          client.retrieveChannelMock.mockReset();
+          mockClient.readMock.mockReset();
+          mockClient.retrieveChannelMock.mockReset();
           const d2 = await telem.y(control);
           expect(d2.length).toBe(1);
-          expect(client.readMock).not.toHaveBeenCalled();
-          expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+          expect(mockClient.readMock).not.toHaveBeenCalled();
+          expect(mockClient.retrieveChannelMock).not.toHaveBeenCalled();
         });
         it("shouild not increment the series reference count", async () => {
           const control = new MockGLBufferController();
@@ -200,30 +195,30 @@ describe("XY", () => {
           timeRange: TimeRange.MAX,
         };
         telem.setProps(props);
-        client.readMock.mockReset();
-        client.retrieveChannelMock.mockReset();
+        mockClient.readMock.mockReset();
+        mockClient.retrieveChannelMock.mockReset();
         const d2 = await telem.y(control);
         expect(d2).toHaveLength(1);
         expect(d2[0].at(0)).toEqual(6);
-        expect(client.readMock).toHaveBeenCalledTimes(1);
-        expect(client.retrieveChannelMock).toHaveBeenCalledTimes(2);
+        expect(mockClient.readMock).toHaveBeenCalledTimes(1);
+        expect(mockClient.retrieveChannelMock).toHaveBeenCalledTimes(2);
       });
       it("should return cached data if the props do not change", async () => {
         const control = new MockGLBufferController();
         await telem.x(control);
         telem.setProps(PROPS);
-        client.readMock.mockReset();
-        client.retrieveChannelMock.mockReset();
+        mockClient.readMock.mockReset();
+        mockClient.retrieveChannelMock.mockReset();
         const d2 = await telem.y(control);
         expect(d2).toHaveLength(1);
-        expect(client.readMock).not.toHaveBeenCalled();
-        expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+        expect(mockClient.readMock).not.toHaveBeenCalled();
+        expect(mockClient.retrieveChannelMock).not.toHaveBeenCalled();
       });
     });
   });
 
-  class MockStreamClient implements Client {
-    handler: StreamHandler | undefined = undefined;
+  class MockStreamClient implements client.Client {
+    handler: client.StreamHandler | undefined = undefined;
 
     async retrieveChannel(key: number): Promise<Channel> {
       return CHANNELS[key];
@@ -232,14 +227,17 @@ describe("XY", () => {
     async read(
       tr: TimeRange,
       keys: ChannelKeys
-    ): Promise<Record<number, ReadResponse>> {
+    ): Promise<Record<number, client.ReadResponse>> {
       return {
-        [X_CHANNEL.key]: new ReadResponse(X_CHANNEL, []),
-        [Y_CHANNEL.key]: new ReadResponse(Y_CHANNEL, []),
+        [X_CHANNEL.key]: new client.ReadResponse(X_CHANNEL, []),
+        [Y_CHANNEL.key]: new client.ReadResponse(Y_CHANNEL, []),
       };
     }
 
-    async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+    async stream(
+      handler: client.StreamHandler,
+      keys: ChannelKeys
+    ): Promise<Destructor> {
       this.handler = handler;
       return () => {
         this.handler = undefined;
@@ -256,11 +254,11 @@ describe("XY", () => {
       span: TimeSpan.MAX,
     };
 
-    let telem: XYTelemSource & Telem;
-    let client: MockStreamClient;
+    let telem: telem.XYSource;
+    let client_: MockStreamClient;
     beforeEach(() => {
-      client = new MockStreamClient();
-      telem = new DynamicXY("1", client);
+      client_ = new MockStreamClient();
+      telem = new DynamicXY("1", client_);
       telem.setProps(PROPS);
     });
 
@@ -268,14 +266,18 @@ describe("XY", () => {
       it("should bind a stream handler on data request", async () => {
         const control = new MockGLBufferController();
         await telem.x(control);
-        expect(client.handler).toBeDefined();
+        expect(client_.handler).toBeDefined();
       });
       it("should update its internal buffer when the stream handler changes", async () => {
         const control = new MockGLBufferController();
         await telem.x(control);
-        client.handler?.({
-          1: new ReadResponse(X_CHANNEL, [new Series(new Float32Array([1, 2, 3]))]),
-          2: new ReadResponse(Y_CHANNEL, [new Series(new Float32Array([4, 5, 6]))]),
+        client_.handler?.({
+          1: new client.ReadResponse(X_CHANNEL, [
+            new Series(new Float32Array([1, 2, 3])),
+          ]),
+          2: new client.ReadResponse(Y_CHANNEL, [
+            new Series(new Float32Array([4, 5, 6])),
+          ]),
         });
         control.createBufferMock.mockReset();
         await telem.x(control);
@@ -287,24 +289,24 @@ describe("XY", () => {
     const PROPS: NumericProps = {
       channel: 1,
     };
-    let telem: NumericTelemSource & Telem;
-    let client: MockStreamClient;
+    let telem_: telem.NumericSource;
+    let client_: MockStreamClient;
     beforeEach(() => {
-      client = new MockStreamClient();
-      telem = new Numeric("1", client);
-      telem.setProps(PROPS);
+      client_ = new MockStreamClient();
+      telem_ = new Numeric("1", client_);
+      telem_.setProps(PROPS);
     });
 
     describe("read", () => {
       it("should return zero if no current value exists", async () => {
-        expect(await telem.value()).toBe(0);
+        expect(await telem_.value()).toBe(0);
       });
       it("should update the value when the stream handler changes", async () => {
-        expect(await telem.value()).toBe(0);
-        client.handler?.({
-          1: new ReadResponse(CHANNELS[1], [new Series(new Float32Array([1]))]),
+        expect(await telem_.value()).toBe(0);
+        client_.handler?.({
+          1: new client.ReadResponse(CHANNELS[1], [new Series(new Float32Array([1]))]),
         });
-        expect(await telem.value()).toBe(1);
+        expect(await telem_.value()).toBe(1);
       });
     });
   });

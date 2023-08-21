@@ -10,11 +10,11 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { StaticCache } from "@/telem/client/cache/static";
+import { Static } from "@/telem/client/cache/static";
 
 describe("StaticReadCache", () => {
   test("happy path", () => {
-    const c = new StaticCache();
+    const c = new Static();
     const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
@@ -24,7 +24,7 @@ describe("StaticReadCache", () => {
     expect(gaps).toHaveLength(0);
   });
   it("should correctly return leading and trailing gaps", () => {
-    const c = new StaticCache();
+    const c = new Static();
     const tr = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
@@ -38,7 +38,7 @@ describe("StaticReadCache", () => {
     expect(gaps[1].end).toEqual(TimeStamp.seconds(7));
   });
   it("should correctly return internal gaps", () => {
-    const c = new StaticCache();
+    const c = new Static();
     const tr1 = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
     const tr2 = TimeStamp.seconds(6).spanRange(TimeSpan.seconds(3));
     c.write(tr1, [new Series(new Float32Array([1]), DataType.FLOAT32, tr1)]);

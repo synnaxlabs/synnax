@@ -11,7 +11,7 @@ import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { AetherNoopTelem } from "@/telem/noop/aether";
+import { AetherNoopTelem } from "@/telem/noop/noop";
 import { Canvas } from "@/vis/canvas/Canvas";
 import { PID } from "@/vis/pid";
 import { ValuePIDElementSpec } from "@/visupper";

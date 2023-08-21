@@ -11,42 +11,38 @@ import { MutableRefObject, RefObject, useCallback, useEffect, useState } from "r
 
 import { Box, Compare, XY, unique, OS } from "@synnaxlabs/x";
 
-import { useOS } from "../hooks";
-
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";
+import { useContext } from "@/triggers/Context";
 import { diff, filter, purge, Stage, Trigger } from "@/triggers/triggers";
-import { useTriggerContext } from "@/triggers/TriggersContext";
 
-export interface UseTriggerEvent {
+export interface UseEvent {
   triggers: Trigger[];
   stage: Stage;
   cursor: XY;
 }
 
-export interface UseTriggerProps {
+export interface UseProps {
   triggers: Trigger[];
-  callback?: (e: UseTriggerEvent) => void;
+  callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
   os?: OS;
 }
 
-export const useTrigger = ({
+export const use = ({
   triggers,
   callback: f,
   region,
   loose,
   os: propsOS,
-}: UseTriggerProps): void => {
-  const { listen } = useTriggerContext();
+}: UseProps): void => {
+  const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
     ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === 0,
     [triggers]
   );
-
-  const os = useOS({ default: propsOS });
 
   useEffect(() => {
     return listen((e) => {
@@ -77,25 +73,25 @@ const filterInRegion = (
   });
 };
 
-export interface UseTriggerHeldReturn {
+export interface UseHeldReturn {
   triggers: Trigger[];
   held: boolean;
 }
 
-export interface UseTriggerHeldProps {
+export interface UseHeldProps {
   triggers: Trigger[];
   loose?: boolean;
 }
 
-export const useTriggerHeldRef = ({
+export const useHeldRef = ({
   triggers,
   loose,
-}: UseTriggerHeldProps): MutableRefObject<UseTriggerHeldReturn> => {
-  const [ref, setRef] = useStateRef<UseTriggerHeldReturn>({
+}: UseHeldProps): MutableRefObject<UseHeldReturn> => {
+  const [ref, setRef] = useStateRef<UseHeldReturn>({
     triggers: [],
     held: false,
   });
-  useTrigger({
+  use({
     triggers,
     callback: (e) => {
       setRef((prev) => {
@@ -113,17 +109,14 @@ export const useTriggerHeldRef = ({
   return ref;
 };
 
-export const useTriggerHeld = ({
-  triggers,
-  loose,
-}: UseTriggerHeldProps): UseTriggerHeldReturn => {
-  const [held, setHeld] = useState<UseTriggerHeldReturn>({
+export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
+  const [held, setHeld] = useState<UseHeldReturn>({
     triggers: [],
     held: false,
   });
-  useTrigger({
+  use({
     triggers,
-    callback: useCallback((e: UseTriggerEvent) => {
+    callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {
         let next: Trigger[] = [];
         if (e.stage === "start") {

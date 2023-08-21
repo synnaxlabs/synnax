@@ -10,33 +10,33 @@
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
-import { Button } from "@/button";
+import { Button as CoreButton } from "@/button";
 import { UseSelectMultipleProps, useSelectMultiple } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { RenderProp } from "@/util/renderProp";
 
-export interface SelectButtonOptionProps<
+export interface ButtonOptionProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Pick<Button.ButtonProps, "onClick"> {
+> extends Pick<CoreButton.ButtonProps, "onClick"> {
   key: K;
   selected: boolean;
   entry: E;
   title: E[keyof E];
 }
 
-export interface SelectButtonProps<
+export interface ButtonProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Input.Control<K>,
     Omit<Align.PackProps, "children" | "onChange">,
     Pick<UseSelectMultipleProps, "allowNone" | "allowMultiple"> {
-  children?: RenderProp<SelectButtonOptionProps<K, E>>;
+  children?: RenderProp<ButtonOptionProps<K, E>>;
   entryRenderKey?: keyof E;
   data: E[];
 }
 
-export const SelectButton = <
+export const Button = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 >({
@@ -48,7 +48,7 @@ export const SelectButton = <
   allowMultiple = false,
   data,
   ...props
-}: SelectButtonProps<K, E>): JSX.Element => {
+}: ButtonProps<K, E>): JSX.Element => {
   const { onSelect } = useSelectMultiple({
     allowMultiple,
     allowNone,
@@ -80,14 +80,14 @@ const defaultSelectButtonOption = <
   onClick,
   selected,
   title,
-}: SelectButtonOptionProps<K, E>): JSX.Element => {
+}: ButtonOptionProps<K, E>): JSX.Element => {
   return (
-    <Button.Button
+    <CoreButton.Button
       key={key}
       onClick={onClick}
       variant={selected ? "filled" : "outlined"}
     >
       {title}
-    </Button.Button>
+    </CoreButton.Button>
   );
 };

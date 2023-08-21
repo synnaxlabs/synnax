@@ -19,14 +19,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { XYTelemSource } from "@/vis/telem";
-import { TelemMeta } from "@/telem/base";
-import {
-  Client,
-  StaticClient,
-  ChannelClient,
-  StreamHandler,
-} from "@/telem/client/client";
+import { client } from "@/telem/client";
+import { telem } from "@/telem/core";
+import { TelemMeta } from "@/telem/core/base";
 
 const xyCoreProps = z.object({
   x: z.number().optional(),
@@ -35,7 +30,8 @@ const xyCoreProps = z.object({
 
 class XYCore<
   P extends z.ZodTypeAny,
-  C extends StaticClient & ChannelClient = StaticClient & ChannelClient
+  C extends client.StaticClient & client.ChannelClient = client.StaticClient &
+    client.ChannelClient
 > extends TelemMeta<P> {
   client: C;
   valid: boolean = false;
@@ -136,15 +132,15 @@ class XYCore<
   }
 }
 
-export const xyProps = xyCoreProps.extend({
+export const xyPropsZ = xyCoreProps.extend({
   timeRange: TimeRange.z,
 });
 
-export type XYProps = z.infer<typeof xyProps>;
+export type XYProps = z.infer<typeof xyPropsZ>;
 
-export class XY extends XYCore<typeof xyProps> implements XYTelemSource {
+export class XY extends XYCore<typeof xyPropsZ> implements telem.XYSource {
   static readonly TYPE = "range-xy";
-  schema = xyProps;
+  schema = xyPropsZ;
 
   async read(gl?: GLBufferController): Promise<void> {
     const { x, y, timeRange } = this.props;
@@ -173,8 +169,8 @@ export const dynamicXYProps = z.object({
 export type DynamicXYProps = z.infer<typeof dynamicXYProps>;
 
 export class DynamicXY
-  extends XYCore<typeof dynamicXYProps, Client>
-  implements XYTelemSource
+  extends XYCore<typeof dynamicXYProps, client.Client>
+  implements telem.XYSource
 {
   private stopStreaming: Destructor | null = null;
   schema = dynamicXYProps;
@@ -203,7 +199,7 @@ export class DynamicXY
   private async udpateStreamHandler(): Promise<void> {
     this.stopStreaming?.();
     const { x, y } = await this.retrieveChannels(this.props.y, this.props.x);
-    const handler: StreamHandler = (data) => {
+    const handler: client.StreamHandler = (data) => {
       const yd = data[y.key];
       if (yd != null && yd.data.length !== 0) {
         yd.data.forEach((arr) => arr.acquire());

@@ -12,11 +12,11 @@ import { ReactElement } from "react";
 import { ChannelKey } from "@synnaxlabs/client";
 
 import { ChannelSelect, ChannelSelectProps } from "@/channel";
-import { Input, InputItemProps } from "@/core";
+import { Input } from "@/input";
 import { NumericProps } from "@/telem/remote/aether/numeric";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface NumericFormProps extends InputItemProps<NumericProps> {}
+export interface NumericFormProps extends Input.ItemProps<NumericProps> {}
 
 export const NumericForm = ({
   value,

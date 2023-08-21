@@ -12,17 +12,17 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { Color } from "@/color";
-import { AetherNoopTelem } from "@/telem/noop/aether";
+import { telem } from "@/telem/core";
+import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { PIDElement } from "@/vis/pid/aether";
 import { render } from "@/vis/render";
-import { NumericTelemSource, numericTelemSourceSpec, TelemContext } from "@/vis/telem";
 
 const valueState = z.object({
   box: Box.z,
-  telem: numericTelemSourceSpec.optional().default(AetherNoopTelem.numericSourceSpec),
+  telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
   units: z.string(),
   font: z.string().optional().default(""),
   color: Color.Color.z,
@@ -36,7 +36,7 @@ export interface ValueProps {
 
 interface InternalState {
   render: render.Context;
-  telem: NumericTelemSource;
+  telem: telem.NumericSource;
   cleanupTelem: Destructor;
   requestRender: (() => void) | null;
 }
@@ -53,12 +53,12 @@ export class Value
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
-    const [telem, cleanupTelem] = TelemContext.use<NumericTelemSource>(
+    const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,
       this.key,
-      AetherNoopTelem.numericSourceSpec
+      noop.numericSourceSpec
     );
-    this.internal.telem = telem;
+    this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;
     this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);

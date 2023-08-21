@@ -48,7 +48,7 @@ interface ItemExtensionProps<
   style?: React.CSSProperties;
 }
 
-export type InputItemProps<
+export type ItemProps<
   I extends Value,
   O extends Value = I,
   P extends Control<I, O> = Control<I, O>
@@ -73,7 +73,7 @@ const CoreItem = <
     grow,
     showLabel = true,
     ...props
-  }: InputItemProps<I, O, P>,
+  }: ItemProps<I, O, P>,
   ref: Ref<HTMLInputElement>
 ): ReactElement => {
   const children_ = toArray(children).map((c) =>
@@ -138,7 +138,7 @@ export const Item = forwardRef(CoreItem) as <
   O extends Value = I,
   P extends Control<I, O> = BaseProps<I, O>
 >(
-  props: InputItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> }
+  props: ItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> }
 ) => ReactElement;
 // @ts-expect-error
 Item.displayName = "InputItem";
@@ -173,7 +173,7 @@ export const ItemControlled = <
       value={field.value}
       onChange={field.onChange as unknown as (value: O) => void}
       helpText={fieldState.error?.message}
-      {...(props as unknown as Omit<InputItemProps<I, P>, "onChange" | "value">)}
+      {...(props as unknown as Omit<ItemProps<I, P>, "onChange" | "value">)}
     />
   );
 };

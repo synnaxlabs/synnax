@@ -28,10 +28,10 @@ import {
   UseTriggerEvent,
 } from "@/triggers";
 import {
-  TriggerConfig,
-  compareTriggerConfigs,
-  determineTriggerMode,
-  reduceTriggerConfig,
+  Config,
+  compareConfigs,
+  determineMode,
+  reduceConfig,
 } from "@/triggers/triggers";
 
 export interface UseEvent {
@@ -43,7 +43,7 @@ export interface UseEvent {
 
 export type UseHandler = (e: UseEvent) => void;
 
-export type UseTriggers = TriggerConfig<ViewportTriggerMode>;
+export type UseTriggers = Config<ViewportTriggerMode>;
 
 export interface UseProps {
   triggers?: UseTriggers;
@@ -142,23 +142,23 @@ export const use = ({
           ...DEFAULT_TRIGGERS[defaultMode],
           ...initialTriggers,
         };
-        const reducedTriggers = reduceTriggerConfig(config);
+        const reducedTriggers = reduceConfig(config);
         const mouseTriggers = purgeMouseTriggers(config);
         return [
           config,
           reducedTriggers,
           mouseTriggers,
-          reduceTriggerConfig(mouseTriggers),
+          reduceConfig(mouseTriggers),
         ];
       },
-      compareTriggerConfigs,
+      compareConfigs,
       [initialTriggers]
     );
 
   const handleDrag = useCallback<TriggerDragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
-      const mode = determineTriggerMode<ViewportTriggerMode>(triggerConfig, triggers);
+      const mode = determineMode<ViewportTriggerMode>(triggerConfig, triggers);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
 
@@ -235,7 +235,7 @@ export const use = ({
   const handleKeyTrigger = useCallback(
     ({ triggers, stage }: UseTriggerEvent) => {
       if (stage === "end") return setMaskMode(defaultMode);
-      const mode = determineTriggerMode<ViewportTriggerMode>(purgedTriggers, triggers);
+      const mode = determineMode<ViewportTriggerMode>(purgedTriggers, triggers);
       if (mode == null) return;
       setMaskMode(mode);
     },

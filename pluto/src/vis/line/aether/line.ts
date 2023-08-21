@@ -22,16 +22,15 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
+import { telem } from "@/telem/core";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import VERT_SHADER from "@/vis/line/aether/vert.glsl?raw";
 import { render } from "@/vis/render";
-import { XYTelemSource, xyTelemSourceSpec } from "@/vis/telem";
-import { TelemContext } from "@/vis/telem/TelemContext";
 
 const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export const stateZ = z.object({
-  telem: xyTelemSourceSpec,
+  telem: telem.xySourceSpecZ,
   label: z.string().optional(),
   color: color.Color.z,
   strokeWidth: z.number().default(1),
@@ -151,7 +150,7 @@ export class Context extends render.GLProgram {
 
 interface InternalState {
   prog: Context;
-  telem: XYTelemSource;
+  telem: telem.XYSource;
   cleanupTelem: Destructor;
   requestRender: () => void;
 }
@@ -161,12 +160,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
-    const [telem, cleanupTelem] = TelemContext.use<XYTelemSource>(
+    const [t, cleanupTelem] = telem.use<telem.XYSource>(
       this.ctx,
       this.key,
       this.state.telem
     );
-    this.internal.telem = telem;
+    this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;
     this.internal.prog = Context.use(this.ctx);
     this.internal.requestRender = render.Controller.useRequest(this.ctx);

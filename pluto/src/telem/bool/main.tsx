@@ -7,27 +7,25 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { BooleanTelemSinkSpec, BooleanTelemSourceSpec } from "@/vis/telem";
-import { AetherBooleanTelem } from "@/telem/bool/aether";
+import { bool } from "@/telem/bool/aether";
+import { telem } from "@/telem/core";
 
-export namespace BooleanTelem {
-  export const useNumericConverterSink = (
-    props: AetherBooleanTelem.NumericConverterSinkProps
-  ): BooleanTelemSinkSpec => {
-    return {
-      props,
-      type: AetherBooleanTelem.NumericConverterSink.TYPE,
-      variant: "boolean-sink",
-    };
+export const useNumericConverterSink = (
+  props: bool.NumericConverterSinkProps
+): telem.BooleanSinkSpec => {
+  return {
+    props,
+    type: bool.NumericConverterSink.TYPE,
+    variant: "boolean-sink",
   };
+};
 
-  export const useNumericConverterSource = (
-    props: AetherBooleanTelem.NumericConverterSourceProps
-  ): BooleanTelemSourceSpec => {
-    return {
-      props,
-      type: AetherBooleanTelem.NumericConverterSource.TYPE,
-      variant: "boolean-source",
-    };
+export const useNumericConverterSource = (
+  props: bool.NumericConverterSourceProps
+): telem.BooleanSourceSpec => {
+  return {
+    props,
+    type: bool.NumericConverterSource.TYPE,
+    variant: "boolean-source",
   };
-}
+};

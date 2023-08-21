@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { BaseClient, ClientProxy } from "@/telem/client/client";
-export type { Client } from "@/telem/client/client";
+export * as client from "@/telem/client/client";

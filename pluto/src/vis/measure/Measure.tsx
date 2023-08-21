@@ -15,12 +15,12 @@ import { Aether } from "@/aether/main";
 import { useLinePlotViewport } from "@/vis/lineplot/main/LinePlot";
 import { measure } from "@/vis/measure/aether";
 import { Triggers } from "@/triggers";
-import { TriggerConfig } from "@/triggers/triggers";
+import { Config } from "@/triggers/triggers";
 import { Viewport } from "@/viewport";
 
 type ClickMode = "one" | "two" | "clear" | "empty";
 
-const MEASURE_TRIGGERS: TriggerConfig<ClickMode> = {
+const MEASURE_TRIGGERS: Config<ClickMode> = {
   defaultMode: "empty",
   one: [["1"]],
   two: [["2"]],

@@ -16,7 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { TriggerKey } from "@/triggers/triggers";
+import { Key } from "@/triggers/triggers";
 import {
   adjustToSourceOrTarget,
   handleDrag,
@@ -65,7 +65,7 @@ export const Edge = ({
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
-    onStart: useCallback((_: XY, __: TriggerKey, e: DragEvent) => {
+    onStart: useCallback((_: XY, __: Key, e: DragEvent) => {
       const index = Number(e.currentTarget.id.split("-")[1]);
       dragRef.current = { root: pointsRef.current[index], index };
     }, []),

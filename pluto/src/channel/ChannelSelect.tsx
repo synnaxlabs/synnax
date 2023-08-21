@@ -12,9 +12,12 @@ import { DragEvent, ReactElement, useCallback, useMemo } from "react";
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
-import { Client } from "@/client/main";
+import { Client } from "@/synnax/main";
+import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { List } from "@/list";
 import { Select } from "@/select";
+import { Status } from "@/status";
 
 const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
   {
@@ -113,7 +116,7 @@ export const ChannelSelectMultiple = ({
 };
 
 export interface ChannelSelectProps
-  extends Omit<SelectProps<ChannelKey, ChannelPayload>, "columns"> {
+  extends Omit<Select.SingleProps<ChannelKey, ChannelPayload>, "columns"> {
   columns?: string[];
 }
 
@@ -157,7 +160,7 @@ export const ChannelSelect = ({
   }, [startDrag, value]);
 
   return (
-    <Select
+    <Select.Single
       className={CSS(className, CSS.dropRegion(canDrop(dragging, [value])))}
       value={value}
       onDragStart={onDragStart}

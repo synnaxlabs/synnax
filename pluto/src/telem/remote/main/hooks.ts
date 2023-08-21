@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/vis/telem";
+import { telem } from "@/telem/core";
 import {
   Numeric,
   NumericProps as RemoteTelemNumericProps,
@@ -19,7 +19,7 @@ import {
   DynamicXY,
 } from "@/telem/remote/aether/xy";
 
-export const useXY = (props: RemoteTelemXYProps): XYTelemSourceSpec => {
+export const useXY = (props: RemoteTelemXYProps): telem.XYSourceSpec => {
   return {
     type: XY.TYPE,
     props,
@@ -27,7 +27,7 @@ export const useXY = (props: RemoteTelemXYProps): XYTelemSourceSpec => {
   };
 };
 
-export const useDynamicXY = (props: RemoteTelemDynamicXyProps): XYTelemSourceSpec => {
+export const useDynamicXY = (props: RemoteTelemDynamicXyProps): telem.XYSourceSpec => {
   return {
     type: DynamicXY.TYPE,
     props,
@@ -35,7 +35,7 @@ export const useDynamicXY = (props: RemoteTelemDynamicXyProps): XYTelemSourceSpe
   };
 };
 
-export const useNumeric = (props: RemoteTelemNumericProps): NumericTelemSourceSpec => {
+export const useNumeric = (props: RemoteTelemNumericProps): telem.NumericSourceSpec => {
   return {
     type: Numeric.TYPE,
     props,

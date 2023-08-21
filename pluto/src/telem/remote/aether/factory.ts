@@ -7,31 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Telem, TelemSpec } from "@/vis/telem";
-import { Client } from "@/telem/client";
-import { TelemFactory } from "@/telem/factory";
+import { client } from "@/telem/client";
+import { telem } from "@/telem/core";
 import { Numeric } from "@/telem/remote/aether/numeric";
 import { DynamicXY, XY } from "@/telem/remote/aether/xy";
 
-type Constructor = new (key: string, client: Client) => Telem;
+type Constructor = new (key: string, client: client.Client) => telem.Telem;
 
-export class Factory implements TelemFactory {
-  type = "range";
+const REGISTRY: Record<string, Constructor> = {
+  [XY.TYPE]: XY,
+  [DynamicXY.TYPE]: DynamicXY,
+  [Numeric.TYPE]: Numeric,
+};
 
-  private readonly client: Client;
-  constructor(client: Client) {
+export class Factory implements telem.Factory {
+  private readonly client: client.Client;
+  constructor(client: client.Client) {
     this.client = client;
   }
 
-  private static readonly REGISTRY: Record<string, Constructor> = {
-    [XY.TYPE]: XY,
-    [DynamicXY.TYPE]: DynamicXY,
-    [Numeric.TYPE]: Numeric,
-  };
-
-  create(key: string, props: TelemSpec): Telem | null {
-    if (!(props.type in Factory.REGISTRY)) return null;
-    const t = new Factory.REGISTRY[props.type](key, this.client);
+  create(key: string, props: telem.Spec): telem.Telem | null {
+    if (!(props.type in REGISTRY)) return null;
+    const t = new REGISTRY[props.type](key, this.client);
     t.setProps(props.props);
     return t;
   }

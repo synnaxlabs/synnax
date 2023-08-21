@@ -9,13 +9,13 @@
 
 import { DataType, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
-import { convertSeriesFloat32 } from "@/telem/convertSeries";
+import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
  */
-export class DynamicCache {
+export class Dynamic {
   buffer: Series;
   private readonly cap: number;
   private readonly dataType: DataType;

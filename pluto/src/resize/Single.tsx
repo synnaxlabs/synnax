@@ -12,8 +12,8 @@ import { ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { clamp, Box, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { CSS } from "@/css";
+import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Core, CoreProps } from "@/resize/Core";
 
 /** Props for the {@link Single} component. */
