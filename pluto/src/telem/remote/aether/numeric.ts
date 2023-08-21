@@ -10,7 +10,7 @@
 import { Destructor, Series, TimeSpan, TimeStamp, addSamples } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { NumericTelemSource } from "@/core/vis/telem";
+import { NumericTelemSource } from "@/vis/telem";
 import { TelemMeta } from "@/telem/base";
 import { Client, StreamHandler } from "@/telem/client/client";
 

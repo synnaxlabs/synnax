@@ -20,7 +20,7 @@ import {
   NumericTelemSourceSpec,
   Telem,
   TelemSpec,
-} from "@/core/vis/telem";
+} from "@/vis/telem";
 
 export namespace AetherNoopTelem {
   class Noop implements Telem {

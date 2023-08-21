@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Telem, TelemSpec } from "@/core/vis/telem";
+import { Telem, TelemSpec } from "@/vis/telem";
 import { Client } from "@/telem/client";
 import { TelemFactory } from "@/telem/factory";
 import { Numeric } from "@/telem/remote/aether/numeric";

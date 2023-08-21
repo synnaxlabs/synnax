@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { XYTelemSource, NumericTelemSource, Telem, TelemSpec } from "@/core/vis/telem";
+import { XYTelemSource, NumericTelemSource, Telem, TelemSpec } from "@/vis/telem";
 import { TelemFactory } from "@/telem/factory";
 
 export class StaticTelemFactory implements TelemFactory {

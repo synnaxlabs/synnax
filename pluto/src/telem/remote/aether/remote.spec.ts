@@ -21,7 +21,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Numeric, NumericProps } from "./numeric";
 
-import { XYTelemSource, NumericTelemSource } from "@/core/vis/telem";
+import { XYTelemSource, NumericTelemSource } from "@/vis/telem";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import {
   StaticClient,

@@ -11,7 +11,7 @@ import { useMemo } from "react";
 
 import { Rate } from "@synnaxlabs/x";
 
-import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/core/vis/telem";
+import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/vis/telem";
 import {
   IterativeXYTelem,
   IterativeXYTelemProps,

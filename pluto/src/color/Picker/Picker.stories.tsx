@@ -11,9 +11,9 @@ import { useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Color } from "@/color/color";
-import { Picker } from "@/color/Picker";
 import { Accordion } from "@/accordion";
+import { Color } from "@/color";
+import { Picker } from "@/color/Picker";
 
 const story: Meta<typeof Picker> = {
   title: "Color/Picker",
@@ -21,7 +21,7 @@ const story: Meta<typeof Picker> = {
 };
 
 export const Primary: StoryFn<typeof Accordion> = () => {
-  const [value, setValue] = useState<Color>(Color.ZERO.setAlpha(1));
+  const [value, setValue] = useState<Color.Color>(Color.ZERO.setAlpha(1));
   return <Picker value={value} onChange={setValue} />;
 };
 

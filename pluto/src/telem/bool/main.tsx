@@ -7,7 +7,7 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { BooleanTelemSinkSpec, BooleanTelemSourceSpec } from "@/core/vis/telem";
+import { BooleanTelemSinkSpec, BooleanTelemSourceSpec } from "@/vis/telem";
 import { AetherBooleanTelem } from "@/telem/bool/aether";
 
 export namespace BooleanTelem {

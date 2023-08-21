@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TypographyLevel, TypographySpec } from "@/core/std";
+import { Text } from "@/text";
 import { fontString } from "@/theming/core/fontString";
 import { useContext } from "@/theming/main/context";
 
-export interface UseTypographyReturn extends TypographySpec {
+export interface UseTypographyReturn extends Text.Spec {
   toString: () => string;
   baseSize: number;
   lineHeightPx: number;
   sizePx: number;
 }
 
-export const useTypography = (level: TypographyLevel): UseTypographyReturn => {
+export const useTypography = (level: Text.Level): UseTypographyReturn => {
   const { theme } = useContext();
   const t = theme.typography[level];
   return {

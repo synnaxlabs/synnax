@@ -80,7 +80,7 @@ export type MaybeEditableProps<L extends Level = "h1"> = Omit<
   onChange?: EditableProps<L>["onChange"] | boolean;
 };
 
-export const TextMaybeEditable = <L extends Level = "h1">({
+export const MaybeEditable = <L extends Level = "h1">({
   onChange,
   value,
   ...props
@@ -88,5 +88,6 @@ export const TextMaybeEditable = <L extends Level = "h1">({
   if (onChange == null || typeof onChange === "boolean")
     // @ts-expect-error
     return <Text<L> {...props}>{value}</Text>;
+  // @ts-expect-error
   return <Editable<L> onChange={onChange} value={value} {...props} />;
 };

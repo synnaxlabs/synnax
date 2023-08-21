@@ -7,53 +7,55 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 
-import { Meta } from "@storybook/react";
-import { TimeRange, TimeSpan } from "@synnaxlabs/x";
+import type { Meta, StoryFn } from "@storybook/react";
 
-import { Canvas } from "@/core";
-import { LinePlot, AxisProps, LineProps } from "@/vis/LinePlot";
+import { Telem } from "@/telem";
+import { LinePlot } from "@/vis/lineplot";
+import { Tooltip } from "@/vis/tooltip/Tooltip";
+
+import { Canvas } from "../canvas";
 
 const story: Meta<typeof LinePlot> = {
-  title: "Vis/LinePlot",
+  title: "Core/Vis/LinePlot",
   component: LinePlot,
 };
 
-const AXES: AxisProps[] = [
-  {
-    id: "x",
-    location: "bottom",
-    label: "Time",
-    type: "time",
-  },
-  {
-    id: "y",
-    location: "left",
-    label: "Value",
-    type: "linear"
-  },
-];
+const LENGTH = 5000;
+const DIV = 1000;
+const MULT = 1000;
 
-const LINES: LineProps[] = [
-  {
-    id: "0",
-    variant: "dynamic",
-    span: TimeSpan.seconds(5),
-    axes: {
-      x: "x",
-      y: "y",
-    },
-    channels: {
-      x: 65537,
-      y: 65538,
-    },
-    color: "#F733FF",
-    strokeWidth: 2,
-  },
-];
-
-export const Primary = (): ReactElement => {
+const xData = Float32Array.from({ length: LENGTH }, (_, i) => i);
+const yData = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random()
+);
+const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.25);
+const yData2 = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 200
+);
+const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.5);
+const yData3 = Float32Array.from(
+  { length: LENGTH },
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400
+);
+const Example = (): ReactElement => {
+  const telem = Telem.Static.useStaticXY({
+    x: [xData],
+    y: [yData],
+  });
+  const telem2 = Telem.Static.useStaticXY({
+    x: [xData2],
+    y: [yData2],
+  });
+  const telem3 = Telem.Static.useStaticXY({
+    x: [xData3],
+    y: [yData3],
+  });
+  const [label, setLabel] = useState("Line");
+  const [xLabel, setXLabel] = useState("X");
   return (
     <Canvas
       style={{
@@ -64,10 +66,46 @@ export const Primary = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot axes={AXES} lines={LINES} />
+      <LinePlot>
+        <LinePlot.XAxis
+          type="linear"
+          label={xLabel}
+          location="bottom"
+          showGrid
+          onLabelChange={setXLabel}
+        >
+          <LinePlot.YAxis
+            type="linear"
+            label={label}
+            onLabelChange={setLabel}
+            location="right"
+            showGrid
+          >
+            <LinePlot.Line telem={telem} color="#F733FF" strokeWidth={2} label="Line" />
+            <LinePlot.Line
+              telem={telem2}
+              color="#20e530"
+              strokeWidth={2}
+              label="Line 2"
+            />
+            <LinePlot.Line
+              telem={telem3}
+              color="#e54420"
+              strokeWidth={2}
+              label="Line 3"
+              downsample={10}
+            />
+            <LinePlot.Viewport />
+          </LinePlot.YAxis>
+        </LinePlot.XAxis>
+        <LinePlot.Legend />
+        <Tooltip />
+      </LinePlot>
     </Canvas>
   );
 };
+
+export const Default: StoryFn = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

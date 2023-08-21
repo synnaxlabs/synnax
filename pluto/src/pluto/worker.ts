@@ -9,20 +9,20 @@
 
 import { RoutedWorker } from "@synnaxlabs/x";
 
-import { AetherClient } from "@/client/aether/provider";
 import { AetherComponentRegistry, render } from "@/aether/aether";
-import { Provider } from "@/theming/aether/provider";
-import { AetherCanvas } from "@/core/vis/Canvas/aether";
-import { AetherLine } from "@/core/vis/Line/aether";
-import { AetherLinePlot } from "@/core/vis/LinePlot/aether";
-import { AetherMeasure } from "@/core/vis/Measure/aether";
-import { AetherPID } from "@/core/vis/PID/aether";
-import { AetherRule } from "@/core/vis/Rule/aether";
-import { AetherTooltip } from "@/core/vis/Tooltip/aether";
-import { AetherValue } from "@/core/vis/Value/aether";
-import { AetherValve } from "@/core/vis/Valve/aether";
+import { AetherClient } from "@/client/aether/provider";
 import { AetherController } from "@/telem/control/aether";
 import { AetherTelemProvider } from "@/telem/TelemProvider/aether";
+import { Provider } from "@/theming/aether/provider";
+import { AetherCanvas } from "@/vis/canvas/aether";
+import { Line } from "@/vis/line/aether/line";
+import { AetherLinePlot } from "@/vis/lineplot/aether";
+import { Measure } from "@/vis/measure/aether/measure";
+import { AetherPID } from "@/vis/pid/aether";
+import { Rule } from "@/vis/rule/aether/aether";
+import { Tooltip } from "@/vis/tooltip/aether/tooltip";
+import { Value } from "@/vis/value/aether/value";
+import { Valve } from "@/vis/valve/aether/valve";
 
 export const pluto = (): void => {
   // @ts-expect-error
@@ -34,14 +34,14 @@ export const pluto = (): void => {
     ...AetherCanvas.REGISTRY,
     [AetherClient.Provider.TYPE]: AetherClient.Provider,
     [AetherTelemProvider.TYPE]: AetherTelemProvider,
-    [AetherLine.TYPE]: AetherLine,
-    [AetherValue.TYPE]: AetherValue,
-    [AetherValve.TYPE]: AetherValve,
+    [Line.TYPE]: Line,
+    [Value.TYPE]: Value,
+    [Valve.TYPE]: Valve,
     [AetherPID.TYPE]: AetherPID,
-    [AetherRule.TYPE]: AetherRule,
+    [Rule.TYPE]: Rule,
     [Provider.TYPE]: Provider,
-    [AetherTooltip.TYPE]: AetherTooltip,
-    [AetherMeasure.TYPE]: AetherMeasure,
+    [Tooltip.TYPE]: Tooltip,
+    [Measure.TYPE]: Measure,
     [AetherController.TYPE]: AetherController,
   };
 

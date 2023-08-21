@@ -366,7 +366,7 @@ export class Composite<
     const uCached = { ...u, ctx: this.ctx };
     return subPath.length === 0
       ? this.updateThis(key, uCached)
-      : this.updateChild(key, subPath, uCached);
+      : this.updateChild(subPath, uCached);
   }
 
   private updateContext(u: Update): void {
@@ -374,7 +374,7 @@ export class Composite<
     this.children.forEach((c) => c.internalUpdate(u));
   }
 
-  private updateChild(key: string, subPath: string[], u: Update): void {
+  private updateChild(subPath: string[], u: Update): void {
     const childKey = subPath[0];
     const child = this.findChild(childKey);
     if (child != null) return child.internalUpdate({ ...u, path: subPath });

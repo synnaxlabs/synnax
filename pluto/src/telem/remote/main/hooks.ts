@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/core/vis/telem";
+import { NumericTelemSourceSpec, XYTelemSourceSpec } from "@/vis/telem";
 import {
   Numeric,
   NumericProps as RemoteTelemNumericProps,

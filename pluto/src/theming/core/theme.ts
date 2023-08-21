@@ -9,42 +9,42 @@
 
 import { z } from "zod";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 import { specZ } from "@/text/types";
 
 export const themeZ = z.object({
   name: z.string(),
   key: z.string(),
   colors: z.object({
-    border: Color.z,
+    border: color.Color.z,
     primary: z.object({
-      m1: Color.z,
-      z: Color.z,
-      p1: Color.z,
+      m1: color.Color.z,
+      z: color.Color.z,
+      p1: color.Color.z,
     }),
     gray: z.object({
-      m3: Color.z,
-      m2: Color.z,
-      m1: Color.z,
-      m0: Color.z,
-      p0: Color.z,
-      p1: Color.z,
-      p2: Color.z,
-      p3: Color.z,
+      m3: color.Color.z,
+      m2: color.Color.z,
+      m1: color.Color.z,
+      m0: color.Color.z,
+      p0: color.Color.z,
+      p1: color.Color.z,
+      p2: color.Color.z,
+      p3: color.Color.z,
     }),
     error: z.object({
-      m1: Color.z,
-      z: Color.z,
-      p1: Color.z,
+      m1: color.Color.z,
+      z: color.Color.z,
+      p1: color.Color.z,
     }),
     visualization: z.object({
-      palettes: z.record(z.array(Color.z)),
+      palettes: z.record(z.array(color.Color.z)),
     }),
-    white: Color.z,
-    black: Color.z,
-    background: Color.z,
-    text: Color.z,
-    textContrast: Color.z,
+    white: color.Color.z,
+    black: color.Color.z,
+    background: color.Color.z,
+    text: color.Color.z,
+    textContrast: color.Color.z,
     logo: z.string(),
   }),
   sizes: z.object({
@@ -123,8 +123,8 @@ const synnaxBase: ThemeSpec = {
     white,
     black,
     background: white,
-    text: new Color(black).setAlpha(0.85).hex,
-    textContrast: new Color(white).setAlpha(0.85).hex,
+    text: new color.Color(black).setAlpha(0.85).hex,
+    textContrast: new color.Color(white).setAlpha(0.85).hex,
   },
   sizes: {
     base: baseSize,
@@ -199,8 +199,8 @@ export const synnaxDark: ThemeSpec = {
     logo: "var(--pluto-text-color)",
     border: synnaxBase.colors.gray.p1,
     background: synnaxBase.colors.black,
-    text: new Color(synnaxBase.colors.white).setAlpha(0.9).hex,
-    textContrast: new Color(synnaxBase.colors.black).setAlpha(0.9).hex,
+    text: new color.Color(synnaxBase.colors.white).setAlpha(0.9).hex,
+    textContrast: new color.Color(synnaxBase.colors.black).setAlpha(0.9).hex,
   },
 };
 

@@ -20,7 +20,7 @@ import {
   TelemProvider,
   TelemSpec,
   UseTelemResult,
-} from "@/core/vis/telem";
+} from "@/vis/telem";
 import { TelemMeta } from "@/telem/base";
 
 import { TelemFactory } from "../factory";

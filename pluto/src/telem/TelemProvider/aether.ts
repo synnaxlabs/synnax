@@ -18,7 +18,7 @@ import {
   TelemContext,
   UseTelemResult,
   TelemProvider,
-} from "@/core/vis/telem";
+} from "@/vis/telem";
 import { AetherBooleanTelem } from "@/telem/bool/aether";
 import { BaseClient, ClientProxy } from "@/telem/client";
 import { CompoundTelemFactory, TelemFactory } from "@/telem/factory";

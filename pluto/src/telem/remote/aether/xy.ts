@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { XYTelemSource } from "@/core/vis/telem";
+import { XYTelemSource } from "@/vis/telem";
 import { TelemMeta } from "@/telem/base";
 import {
   Client,

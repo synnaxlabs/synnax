@@ -7,8 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/PID/ValuePIDElement";
-export * from "@/vis/PID/PIDElement";
-export * from "@/vis/PID/ValvePIDElement";
-export * from "@/vis/PID/TankPIDElement";
-export * from "@/vis/PID/RegulatorPIDElement";
+import { PID as CorePID, usePID } from "@/vis/pid/PID";
+export type {
+  PIDProps,
+  UsePIDProps,
+  UsePIDReturn,
+  PIDNode,
+  PIDEdge,
+  PIDElementProps,
+  PIDViewport,
+} from "@/vis/pid/PID";
+
+type CorePIDType = typeof CorePID;
+
+interface PIDType extends CorePIDType {
+  use: typeof usePID;
+}
+
+export const PID = CorePID as PIDType;
+
+PID.use = usePID;
