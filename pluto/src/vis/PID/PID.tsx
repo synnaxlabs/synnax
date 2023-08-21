@@ -41,12 +41,12 @@ import { useResize } from "@/hooks";
 import { Status } from "@/status";
 import { RenderProp } from "@/util/renderProp";
 import { pid } from "@/vis/pid/aether";
-import { Edge } from "@/vis/pid/Edge";
+import { Edge as PlutoEdge } from "@/vis/pid/edge";
 
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
 
-export interface PIDElementProps {
+export interface ElementProps {
   elementKey: string;
   position: CrudeXY;
   zoom: number;
@@ -54,12 +54,12 @@ export interface PIDElementProps {
   editable: boolean;
 }
 
-export interface PIDViewport {
+export interface Viewport {
   position: CrudeXY;
   zoom: number;
 }
 
-export interface PIDEdge {
+export interface Edge {
   key: string;
   source: string;
   target: string;
@@ -70,29 +70,29 @@ export interface PIDEdge {
   points: CrudeXY[];
 }
 
-export interface PIDNode {
+export interface Node {
   key: string;
   position: CrudeXY;
   selected?: boolean;
 }
 
-export interface UsePIDProps {
+export interface UseProps {
   allowEdit?: boolean;
-  initialEdges: PIDEdge[];
-  initialNodes: PIDNode[];
-  initialViewport?: PIDViewport;
+  initialEdges: Edge[];
+  initialNodes: Node[];
+  initialViewport?: Viewport;
 }
 
-export const usePID = ({
+export const use = ({
   initialNodes,
   initialEdges,
   allowEdit = true,
   initialViewport = { position: XY.ZERO, zoom: 1 },
-}: UsePIDProps): UsePIDReturn => {
+}: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
-  const [nodes, onNodesChange] = useState<PIDNode[]>(initialNodes);
-  const [edges, onEdgesChange] = useState<PIDEdge[]>(initialEdges);
-  const [viewport, onViewportChange] = useState<PIDViewport>(initialViewport);
+  const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
+  const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
+  const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
 
   return {
     viewport,
@@ -106,23 +106,18 @@ export const usePID = ({
   };
 };
 
-export interface UsePIDReturn {
-  edges: PIDEdge[];
-  nodes: PIDNode[];
-  onNodesChange: (nodes: PIDNode[]) => void;
-  onEdgesChange: (edges: PIDEdge[]) => void;
+export interface UseReturn {
+  edges: Edge[];
+  nodes: Node[];
+  onNodesChange: (nodes: Node[]) => void;
+  onEdgesChange: (edges: Edge[]) => void;
   editable: boolean;
   onEditableChange: (cbk: (prev: boolean) => boolean) => void;
-  onViewportChange: (vp: PIDViewport) => void;
-  viewport: PIDViewport;
+  onViewportChange: (vp: Viewport) => void;
+  viewport: Viewport;
 }
-
-export interface PIDProps extends UsePIDReturn {
-  children: RenderProp<PIDElementProps>;
-}
-
 const translateNodesForward = (
-  nodes: PIDNode[],
+  nodes: Node[],
   editable: boolean
 ): Array<RFNode<RFNodeData>> =>
   nodes.map((node) => ({
@@ -132,21 +127,21 @@ const translateNodesForward = (
     data: { editable },
   }));
 
-const translateEdgesForward = (edges: PIDEdge[]): RFEdge[] =>
+const translateEdgesForward = (edges: Edge[]): RFEdge[] =>
   edges.map(({ points, color, ...edge }) => ({
     ...edge,
     id: edge.key,
     data: { points, color },
   }));
 
-const translateNodesBackward = (nodes: RFNode[]): PIDNode[] =>
+const translateNodesBackward = (nodes: RFNode[]): Node[] =>
   nodes.map((node) => ({
     key: node.id,
     selected: node.selected,
     ...node,
   }));
 
-const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
+const translateEdgesBackward = (edges: RFEdge[]): Edge[] =>
   edges.map((edge) => ({
     key: edge.id,
     points: edge.data?.points ?? [],
@@ -155,12 +150,12 @@ const translateEdgesBackward = (edges: RFEdge[]): PIDEdge[] =>
     ...edge,
   }));
 
-const translateViewportForward = (viewport: PIDViewport): RFViewport => ({
+const translateViewportForward = (viewport: Viewport): RFViewport => ({
   ...viewport.position,
   zoom: viewport.zoom,
 });
 
-const translateViewportBackward = (viewport: RFViewport): PIDViewport => ({
+const translateViewportBackward = (viewport: RFViewport): Viewport => ({
   position: new XY(viewport).crude,
   zoom: viewport.zoom,
 });
@@ -183,8 +178,12 @@ export interface RFNodeData {
   editable: boolean;
 }
 
-const PIDCore = Aether.wrap<PIDProps>(
-  "PIDCore",
+export interface PIDProps extends UseReturn {
+  children: RenderProp<ElementProps>;
+}
+
+const Core = Aether.wrap<PIDProps>(
+  pid.PID.TYPE,
   ({
     aetherKey,
     children,
@@ -311,7 +310,7 @@ const PIDCore = Aether.wrap<PIDProps>(
     const EDGE_TYPES = useMemo(
       () => ({
         default: (props: any) => (
-          <Edge
+          <PlutoEdge
             {...props}
             editable={props.data.editable}
             points={props.data.points}
@@ -402,6 +401,6 @@ const PIDControls = ({
 
 export const PID = (props: PIDProps): ReactElement => (
   <ReactFlowProvider>
-    <PIDCore {...props} />
+    <Core {...props} />
   </ReactFlowProvider>
 );

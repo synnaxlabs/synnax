@@ -12,12 +12,12 @@ import { DragEvent, ReactElement, useCallback, useMemo } from "react";
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
-import { Synnax } from "@/synnax";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Status } from "@/status";
+import { Synnax } from "@/synnax";
 
 const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
   {
@@ -46,7 +46,7 @@ const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
   },
 ];
 
-export interface ChannelSelectMultipleProps
+export interface SelectMultipleProps
   extends Omit<
     Select.MultipleProps<ChannelKey, ChannelPayload>,
     "columns" | "searcher"
@@ -54,13 +54,13 @@ export interface ChannelSelectMultipleProps
   columns?: string[];
 }
 
-export const ChannelSelectMultiple = ({
+export const SelectMultiple = ({
   columns: filter = [],
   onChange,
   value,
   className,
   ...props
-}: ChannelSelectMultipleProps): ReactElement => {
+}: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const columns = useMemo(() => {
     if (filter.length === 0) return channelColumns;
@@ -115,7 +115,7 @@ export const ChannelSelectMultiple = ({
   );
 };
 
-export interface ChannelSelectProps
+export interface SelectSingleProps
   extends Omit<Select.SingleProps<ChannelKey, ChannelPayload>, "columns"> {
   columns?: string[];
 }
@@ -128,13 +128,13 @@ const canDrop = (
   hauled.every((h) => h.type === "channel") &&
   !hauled.every((h) => value.includes(h.key as ChannelKey));
 
-export const ChannelSelect = ({
+export const SelectSingle = ({
   columns: filter = [],
   onChange,
   value,
   className,
   ...props
-}: ChannelSelectProps): ReactElement => {
+}: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const columns = useMemo(() => {
     if (filter.length === 0) return channelColumns;

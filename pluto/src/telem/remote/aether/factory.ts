@@ -9,15 +9,15 @@
 
 import { client } from "@/telem/client";
 import { telem } from "@/telem/core";
-import { Numeric } from "@/telem/remote/aether/numeric";
-import { DynamicXY, XY } from "@/telem/remote/aether/xy";
+import { NumericSource } from "@/telem/remote/aether/numeric";
+import { DynamicXYSource, XYSource } from "@/telem/remote/aether/xy";
 
 type Constructor = new (key: string, client: client.Client) => telem.Telem;
 
 const REGISTRY: Record<string, Constructor> = {
-  [XY.TYPE]: XY,
-  [DynamicXY.TYPE]: DynamicXY,
-  [Numeric.TYPE]: Numeric,
+  [XYSource.TYPE]: XYSource,
+  [DynamicXYSource.TYPE]: DynamicXYSource,
+  [NumericSource.TYPE]: NumericSource,
 };
 
 export class Factory implements telem.Factory {

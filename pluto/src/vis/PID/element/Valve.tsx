@@ -12,26 +12,28 @@ import { ReactElement } from "react";
 import { CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
-import { CSS, ColorSwatch, SwatchProps, Input, Select, Space, Text } from "@/core";
-import { Valve, ValveProps } from "@/vis/valve/Valve";
-import { RemoteTelem, RemoteTelemNumericProps } from "@/telem/remote/main";
+import { CSS } from "@/css";
+import { Input } from "@/input";
+import { Select } from "@/select";
+import { Remote } from "@/telem/remote";
+import { Text } from "@/text";
 import { componentRenderProp } from "@/util/renderProp";
-import {
-  PIDElementFormProps,
-  PIDElementSpec,
-  StatefulPIDElementProps,
-} from "@/visupper/PID/PIDElement";
+import { FormProps, Spec, Props } from "@/vis/pid/element/element";
+import { Valve, ValveProps } from "@/vis/valve/Valve";
 
-import "@/vis/PID/ValvePIDElement/ValvePIDElement.css";
+import "@/vis/pid/element/Valve.css";
 
-export interface ValvePIDElementProps extends Omit<ValveProps, "telem" | "color"> {
-  telem: RemoteTelemNumericProps;
+interface ElementProps extends Omit<ValveProps, "telem" | "color"> {
+  telem: Remote.NumericSourceProps;
   label: string;
   color: Color.Crude;
 }
 
-const ValvePIDElement = ({
+const { Left, Top, Right, Bottom } = Position;
+
+const Element = ({
   selected,
   editable,
   telem: pTelem,
@@ -40,14 +42,14 @@ const ValvePIDElement = ({
   position: _,
   direction = "x",
   ...props
-}: StatefulPIDElementProps<ValvePIDElementProps>): ReactElement => {
+}: Props<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void =>
     onChange({ ...props, label, telem: pTelem });
 
   const parsedDirection = new Direction(direction);
 
   return (
-    <Space
+    <Align.Space
       justify="center"
       align="center"
       size="small"
@@ -60,48 +62,36 @@ const ValvePIDElement = ({
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div className={CSS.BE("valve-pid-element", "valve-container")}>
-        <Handle
-          position={parsedDirection.isX ? Position.Left : Position.Top}
-          id="a"
-          type="source"
-        />
-        <Handle
-          position={parsedDirection.isX ? Position.Right : Position.Bottom}
-          id="b"
-          type="source"
-        />
+        <Handle position={parsedDirection.isX ? Left : Top} id="a" type="source" />
+        <Handle position={parsedDirection.isX ? Right : Bottom} id="b" type="source" />
         <Valve direction={direction} {...props} />
       </div>
-    </Space>
+    </Align.Space>
   );
 };
 
-const ValvePIDElementForm = ({
-  value,
-  onChange,
-}: PIDElementFormProps<ValvePIDElementProps>): ReactElement => {
+const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
 
-  const handleTelemChange = (telem: RemoteTelemNumericProps): void =>
+  const handleTelemChange = (telem: Remote.NumericSourceProps): void =>
     onChange({ ...value, telem });
 
   const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
 
-  const handleDirectionChange = (direction: CrudeDirection): void => {
+  const handleDirectionChange = (direction: CrudeDirection): void =>
     onChange({ ...value, direction });
-  };
 
   return (
     <>
-      <Space direction="x">
+      <Align.Space direction="x">
         <Input.Item<string>
           label="Label"
           value={value.label}
           onChange={handleLabelChange}
           grow
         />
-        <Input.Item<Color.Crude, Color.Color, SwatchProps>
+        <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}
@@ -116,8 +106,8 @@ const ValvePIDElementForm = ({
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
-      </Space>
-      <RemoteTelem.Form.Numeric value={value.telem} onChange={handleTelemChange} />
+      </Align.Space>
+      <Remote.NumericForm value={value.telem} onChange={handleTelemChange} />
     </>
   );
 };
@@ -126,7 +116,7 @@ const ValvePIDElementPreview = (): ReactElement => {
   return <Valve />;
 };
 
-const ZERO_PROPS: ValvePIDElementProps = {
+const ZERO_PROPS: ElementProps = {
   label: "Valve",
   color: "#ffffff",
   telem: {
@@ -134,11 +124,11 @@ const ZERO_PROPS: ValvePIDElementProps = {
   },
 };
 
-export const ValvePIDElementSpec: PIDElementSpec<ValvePIDElementProps> = {
+export const ValveSpec: Spec<ElementProps> = {
   type: "valve",
   title: "Valve",
   initialProps: ZERO_PROPS,
-  Element: ValvePIDElement,
-  Form: ValvePIDElementForm,
+  Element,
+  Form,
   Preview: ValvePIDElementPreview,
 };

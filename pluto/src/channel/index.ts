@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { ChannelSelect, ChannelSelectMultiple } from "@/channel/ChannelSelect";
-export type {
-  ChannelSelectProps,
-  ChannelSelectMultipleProps,
-} from "@/channel/ChannelSelect";
+export * as Channel from "@/channel/external";

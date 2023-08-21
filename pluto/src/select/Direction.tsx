@@ -10,9 +10,9 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { CrudeDirection, Direction } from "@synnaxlabs/x";
+import { CrudeDirection, Direction as XDirection } from "@synnaxlabs/x";
 
-import { Button } from "@/button";
+import { Button as CoreButton } from "@/button";
 import { Button, ButtonOptionProps, ButtonProps } from "@/select/Button";
 
 interface Entry {
@@ -25,11 +25,11 @@ export interface DirectionProps
 
 const DATA = [
   {
-    key: Direction.X.crude,
+    key: XDirection.X.crude,
     icon: <Icon.Arrow.Right />,
   },
   {
-    key: Direction.Y.crude,
+    key: XDirection.Y.crude,
     icon: <Icon.Arrow.Down />,
   },
 ];
@@ -41,13 +41,17 @@ const defaultSelectDirectionButton = ({
   selected,
 }: ButtonOptionProps<CrudeDirection, Entry>): ReactElement => {
   return (
-    <Button.Icon key={key} variant={selected ? "filled" : "outlined"} onClick={onClick}>
+    <CoreButton.Icon
+      key={key}
+      variant={selected ? "filled" : "outlined"}
+      onClick={onClick}
+    >
       {entry.icon}
-    </Button.Icon>
+    </CoreButton.Icon>
   );
 };
 
-export const SelectDirection = ({
+export const Direction = ({
   children = defaultSelectDirectionButton,
   ...props
 }: DirectionProps): ReactElement => {

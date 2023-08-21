@@ -23,12 +23,12 @@ import { client } from "@/telem/client";
 import { telem } from "@/telem/core";
 import { TelemMeta } from "@/telem/core/base";
 
-const xyCoreProps = z.object({
+const xySourceCorePropsZ = z.object({
   x: z.number().optional(),
   y: z.number(),
 });
 
-class XYCore<
+class XYSourceCore<
   P extends z.ZodTypeAny,
   C extends client.StaticClient & client.ChannelClient = client.StaticClient &
     client.ChannelClient
@@ -132,15 +132,18 @@ class XYCore<
   }
 }
 
-export const xyPropsZ = xyCoreProps.extend({
+export const xySourcePropsZ = xySourceCorePropsZ.extend({
   timeRange: TimeRange.z,
 });
 
-export type XYProps = z.infer<typeof xyPropsZ>;
+export type XYSourceProps = z.infer<typeof xySourcePropsZ>;
 
-export class XY extends XYCore<typeof xyPropsZ> implements telem.XYSource {
+export class XYSource
+  extends XYSourceCore<typeof xySourcePropsZ>
+  implements telem.XYSource
+{
   static readonly TYPE = "range-xy";
-  schema = xyPropsZ;
+  schema = xySourcePropsZ;
 
   async read(gl?: GLBufferController): Promise<void> {
     const { x, y, timeRange } = this.props;
@@ -160,20 +163,20 @@ export class XY extends XYCore<typeof xyPropsZ> implements telem.XYSource {
   }
 }
 
-export const dynamicXYProps = z.object({
+export const dynamicXYSourceProps = z.object({
   span: TimeSpan.z,
   x: z.number().optional(),
   y: z.number(),
 });
 
-export type DynamicXYProps = z.infer<typeof dynamicXYProps>;
+export type DynamicXYSourceProps = z.infer<typeof dynamicXYSourceProps>;
 
-export class DynamicXY
-  extends XYCore<typeof dynamicXYProps, client.Client>
+export class DynamicXYSource
+  extends XYSourceCore<typeof dynamicXYSourceProps, client.Client>
   implements telem.XYSource
 {
   private stopStreaming: Destructor | null = null;
-  schema = dynamicXYProps;
+  schema = dynamicXYSourceProps;
 
   static readonly TYPE = "dynamic-range-xy";
 

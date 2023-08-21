@@ -11,35 +11,31 @@ import { ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
+import { CSS } from "@/css";
+import { Input } from "@/input";
+import { Text } from "@/text";
 import { componentRenderProp } from "@/util/renderProp";
-import { Regulator, RegulatorProps } from "@/vis/regulator/Regulator";
-import {
-  PIDElementFormProps,
-  PIDElementSpec,
-  StatefulPIDElementProps,
-} from "@/visupper/PID/PIDElement";
+import { FormProps, Spec, Props } from "@/vis/pid/element/element";
+import { Regulator } from "@/vis/regulator";
 
-import { CSS, Input, Space, Text } from "@/core";
-
-import "@/vis/PID/RegulatorPIDElement/RegulatorPIDElement.css";
-
-export interface RegulatorPIDElementProps extends Omit<RegulatorProps, "color"> {
+interface ElementProps extends Omit<Regulator.RegulatorProps, "color"> {
   label: string;
   color: Color.Crude;
 }
 
-const RegulatorPIDElement = ({
+const Element = ({
   selected,
   editable,
   onChange,
   label,
   ...props
-}: StatefulPIDElementProps<RegulatorPIDElementProps>): ReactElement => {
+}: Props<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void => onChange({ ...props, label });
 
   return (
-    <Space
+    <Align.Space
       justify="center"
       align="center"
       size="small"
@@ -49,21 +45,18 @@ const RegulatorPIDElement = ({
       <div>
         <Handle id="a" position={Position.Left} type="source" style={{ top: "75%" }} />
         <Handle id="b" position={Position.Right} type="source" style={{ top: "75%" }} />
-        <Regulator {...props} />
+        <Regulator.Regulator {...props} />
       </div>
-    </Space>
+    </Align.Space>
   );
 };
 
-const RegulatorPIDElementForm = ({
-  value,
-  onChange,
-}: PIDElementFormProps<RegulatorPIDElementProps>): ReactElement => {
+const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void => onChange({ ...value, label });
   const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
   return (
-    <Space direction="vertical" size="small">
+    <Align.Space direction="vertical" size="small">
       <Input.Item<string>
         label="Label"
         value={value.label}
@@ -77,24 +70,24 @@ const RegulatorPIDElementForm = ({
         {/* @ts-expect-error */}
         {componentRenderProp(Color.Swatch)}
       </Input.Item>
-    </Space>
+    </Align.Space>
   );
 };
 
-const RegulatorPIDElementPreview = (): ReactElement => {
-  return <Regulator width="50" />;
+const Preview = (): ReactElement => {
+  return <Regulator.Regulator width="50" />;
 };
 
-const ZERO_PROPS: RegulatorPIDElementProps = {
+const ZERO_PROPS: ElementProps = {
   label: "Regulator",
   color: "#000000",
 };
 
-export const RegulatorPIDElementSpec: PIDElementSpec<RegulatorPIDElementProps> = {
+export const RegulatorSpec: Spec<ElementProps> = {
   type: "regulator",
   title: "Regulator",
   initialProps: ZERO_PROPS,
-  Element: RegulatorPIDElement,
-  Form: RegulatorPIDElementForm,
-  Preview: RegulatorPIDElementPreview,
+  Element,
+  Form,
+  Preview,
 };

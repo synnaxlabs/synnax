@@ -22,9 +22,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { client } from "@/telem/client";
 import { telem } from "@/telem/core";
-import { DynamicXY, DynamicXYProps, XY, XYProps } from "@/telem/remote/aether/xy";
+import {
+  DynamicXYSource,
+  DynamicXYSourceProps,
+  XYSource,
+  XYSourceProps,
+} from "@/telem/remote/aether/xy";
 
-import { Numeric, NumericProps } from "./numeric";
+import { NumericSource, NumericSourceProps } from "./numeric";
 
 const X_CHANNEL = new Channel({
   name: "time",
@@ -108,7 +113,7 @@ describe("XY", () => {
       }
     }
 
-    const PROPS: XYProps = {
+    const PROPS: XYSourceProps = {
       timeRange: TimeRange.MAX,
       x: X_CHANNEL.key,
       y: Y_CHANNEL.key,
@@ -118,7 +123,7 @@ describe("XY", () => {
     let mockClient: MockClient;
     beforeEach(() => {
       mockClient = new MockClient();
-      telem = new XY("1", mockClient);
+      telem = new XYSource("1", mockClient);
       telem.setProps(PROPS);
     });
     describe("data", () => {
@@ -189,7 +194,7 @@ describe("XY", () => {
       it("should invalidate the data if the props change", async () => {
         const control = new MockGLBufferController();
         await telem.x(control);
-        const props: XYProps = {
+        const props: XYSourceProps = {
           x: 1,
           y: 3,
           timeRange: TimeRange.MAX,
@@ -248,7 +253,7 @@ describe("XY", () => {
   }
 
   describe("Dynamic", () => {
-    const PROPS: DynamicXYProps = {
+    const PROPS: DynamicXYSourceProps = {
       x: 1,
       y: 2,
       span: TimeSpan.MAX,
@@ -258,7 +263,7 @@ describe("XY", () => {
     let client_: MockStreamClient;
     beforeEach(() => {
       client_ = new MockStreamClient();
-      telem = new DynamicXY("1", client_);
+      telem = new DynamicXYSource("1", client_);
       telem.setProps(PROPS);
     });
 
@@ -286,14 +291,14 @@ describe("XY", () => {
     });
   });
   describe("Numeric", () => {
-    const PROPS: NumericProps = {
+    const PROPS: NumericSourceProps = {
       channel: 1,
     };
     let telem_: telem.NumericSource;
     let client_: MockStreamClient;
     beforeEach(() => {
       client_ = new MockStreamClient();
-      telem_ = new Numeric("1", client_);
+      telem_ = new NumericSource("1", client_);
       telem_.setProps(PROPS);
     });
 

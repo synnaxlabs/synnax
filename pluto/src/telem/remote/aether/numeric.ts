@@ -18,9 +18,9 @@ export const numericProps = z.object({
   channel: z.number(),
 });
 
-export type NumericProps = z.infer<typeof numericProps>;
+export type NumericSourceProps = z.infer<typeof numericProps>;
 
-export class Numeric
+export class NumericSource
   extends TelemMeta<typeof numericProps>
   implements telem.NumericSource
 {

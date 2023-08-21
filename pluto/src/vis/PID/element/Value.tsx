@@ -12,22 +12,20 @@ import { ReactElement } from "react";
 import { CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
-import { Telem } from "@/telem";
-import { RemoteTelemNumericProps, RemoteTelem } from "@/telem/remote/main";
+import { CSS } from "@/css";
+import { Input } from "@/input";
+import { Select } from "@/select";
+import { Remote } from "@/telem/remote";
+import { Static } from "@/telem/static";
 import { componentRenderProp } from "@/util/renderProp";
+import { FormProps, Props, Spec } from "@/vis/pid/element/element";
 import { ValueLabeled, ValueLabeledProps } from "@/vis/value/Labeled";
-import {
-  PIDElementFormProps,
-  StatefulPIDElementProps,
-  PIDElementSpec,
-} from "@/visupper/PID/PIDElement";
 
-import { CSS, Input, Select, Space } from "@/core";
+import "@/vis/pid/element/Value.css";
 
-import "@/vis/PID/ValuePIDElement/ValuePIDElement.css";
-
-export const ZERO_PROPS: ValuePIDElementProps = {
+export const ZERO_PROPS: ElementProps = {
   label: "Value",
   telem: {
     channel: 0,
@@ -36,19 +34,21 @@ export const ZERO_PROPS: ValuePIDElementProps = {
   level: "p",
 };
 
-export interface ValuePIDElementProps extends Omit<ValueLabeledProps, "telem"> {
-  telem: RemoteTelemNumericProps;
+interface ElementProps extends Omit<ValueLabeledProps, "telem"> {
+  telem: Remote.NumericSourceProps;
 }
 
-const ValuePIDElement = ({
+const { Top, Left, Right, Bottom } = Position;
+
+const Element = ({
   selected,
   editable,
   telem: pTelem,
   onChange,
   className,
   ...props
-}: StatefulPIDElementProps<ValuePIDElementProps>): ReactElement => {
-  const telem = Telem.Remote.useNumeric(pTelem);
+}: Props<ElementProps>): ReactElement => {
+  const telem = Remote.useNumericSource(pTelem);
   const onLabelChange = (label: string): void => {
     onChange({ ...props, label, telem: pTelem });
   };
@@ -60,19 +60,16 @@ const ValuePIDElement = ({
       telem={telem}
       onLabelChange={onLabelChange}
     >
-      <Handle position={Position.Top} type="source" id="top" />
-      <Handle position={Position.Left} type="source" id="left" />
-      <Handle position={Position.Right} type="source" id="right" />
-      <Handle position={Position.Bottom} type="source" id="bottom" />
+      <Handle position={Top} type="source" id="top" />
+      <Handle position={Left} type="source" id="left" />
+      <Handle position={Right} type="source" id="right" />
+      <Handle position={Bottom} type="source" id="bottom" />
     </ValueLabeled>
   );
 };
 
-const ValuePIDElementForm = ({
-  value,
-  onChange,
-}: PIDElementFormProps<ValuePIDElementProps>): ReactElement => {
-  const handleTelemChange = (telem: RemoteTelemNumericProps): void => {
+const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
+  const handleTelemChange = (telem: Remote.NumericSourceProps): void => {
     onChange({ ...value, telem });
   };
 
@@ -94,7 +91,7 @@ const ValuePIDElementForm = ({
 
   return (
     <>
-      <Space direction="x" grow align="stretch">
+      <Align.Space direction="x" grow align="stretch">
         <Input.Item<string>
           label="Label"
           value={value.label}
@@ -107,8 +104,8 @@ const ValuePIDElementForm = ({
           onChange={handleUnitsChange}
           grow
         />
-      </Space>
-      <Space direction="x">
+      </Align.Space>
+      <Align.Space direction="x">
         <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
           label="Color"
           value={value.color ?? Color.ZERO.setAlpha(1)}
@@ -124,26 +121,22 @@ const ValuePIDElementForm = ({
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
-        <RemoteTelem.Form.Numeric
-          value={value.telem}
-          onChange={handleTelemChange}
-          grow
-        />
-      </Space>
+        <Remote.NumericForm value={value.telem} onChange={handleTelemChange} grow />
+      </Align.Space>
     </>
   );
 };
 
-const ValuePIDElementPreview = (): ReactElement => {
-  const telem = Telem.Static.useNumeric(500);
+const Preview = (): ReactElement => {
+  const telem = Static.useNumeric(500);
   return <ValueLabeled label="Value" units="psi" telem={telem} level="p" />;
 };
 
-export const ValuePIDElementSpec: PIDElementSpec<ValuePIDElementProps> = {
+export const ValueSpec: Spec<ElementProps> = {
   type: "value",
   title: "Value",
   initialProps: ZERO_PROPS,
-  Element: ValuePIDElement,
-  Form: ValuePIDElementForm,
-  Preview: ValuePIDElementPreview,
+  Element,
+  Form,
+  Preview,
 };

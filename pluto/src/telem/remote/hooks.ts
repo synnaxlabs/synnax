@@ -9,35 +9,39 @@
 
 import { telem } from "@/telem/core";
 import {
-  Numeric,
-  NumericProps as RemoteTelemNumericProps,
+  NumericSource,
+  NumericSourceProps as RemoteTelemNumericProps,
 } from "@/telem/remote/aether/numeric";
 import {
-  XYProps as RemoteTelemXYProps,
-  DynamicXYProps as RemoteTelemDynamicXyProps,
-  XY,
-  DynamicXY,
+  XYSourceProps as RemoteTelemXYProps,
+  DynamicXYSourceProps as RemoteTelemDynamicXyProps,
+  XYSource,
+  DynamicXYSource,
 } from "@/telem/remote/aether/xy";
 
-export const useXY = (props: RemoteTelemXYProps): telem.XYSourceSpec => {
+export const useXYSource = (props: RemoteTelemXYProps): telem.XYSourceSpec => {
   return {
-    type: XY.TYPE,
+    type: XYSource.TYPE,
     props,
     variant: "xy-source",
   };
 };
 
-export const useDynamicXY = (props: RemoteTelemDynamicXyProps): telem.XYSourceSpec => {
+export const useDynamicXYSource = (
+  props: RemoteTelemDynamicXyProps
+): telem.XYSourceSpec => {
   return {
-    type: DynamicXY.TYPE,
+    type: DynamicXYSource.TYPE,
     props,
     variant: "xy-source",
   };
 };
 
-export const useNumeric = (props: RemoteTelemNumericProps): telem.NumericSourceSpec => {
+export const useNumericSource = (
+  props: RemoteTelemNumericProps
+): telem.NumericSourceSpec => {
   return {
-    type: Numeric.TYPE,
+    type: NumericSource.TYPE,
     props,
     variant: "numeric-source",
   };

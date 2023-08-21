@@ -12,32 +12,29 @@ import { ReactElement } from "react";
 import { CrudeXY } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
+import { Align } from "@/align";
 import { Color } from "@/color";
+import { CSS } from "@/css";
+import { Input } from "@/input";
 import { componentRenderProp } from "@/util/renderProp";
+import { FormProps, Spec, Props } from "@/vis/pid/element/element";
 import { Tank, TankProps } from "@/vis/tank/Tank";
-import {
-  PIDElementFormProps,
-  PIDElementSpec,
-  StatefulPIDElementProps,
-} from "@/visupper/PID/PIDElement";
 
-import { CSS, ColorSwatch, SwatchProps, Input, InputNumberProps, Space } from "@/core";
+import "@/vis/pid/element/Tank.css";
 
-import "@/vis/PID/TankPIDElement/TankPIDElement.css";
-
-export interface TankPIDElementProps extends Omit<TankProps, "telem"> {
+interface ElementProps extends Omit<TankProps, "telem"> {
   label: string;
 }
 
 const { Left, Right, Top, Bottom } = Position;
 
-const TankPIDElement = ({
+const Element = ({
   selected,
   editable,
   position,
   className,
   ...props
-}: StatefulPIDElementProps<TankPIDElementProps>): ReactElement => {
+}: Props<ElementProps>): ReactElement => {
   return (
     <div className={CSS(className, CSS.B("tank-pid-element"), CSS.selected(selected))}>
       {editable && (
@@ -57,10 +54,7 @@ const TankPIDElement = ({
 
 const DIMENSIONS_DRAG_SCALE: CrudeXY = { y: 2, x: 0.25 };
 
-const TankPIDElementForm = ({
-  value,
-  onChange,
-}: PIDElementFormProps<TankPIDElementProps>): ReactElement => {
+const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleWidthChange = (width: number): void =>
     onChange({ ...value, dimensions: { ...value.dimensions, width } });
   const handleHeightChange = (height: number): void =>
@@ -77,25 +71,25 @@ const TankPIDElementForm = ({
         onChange={handleLabelChange}
       />
 
-      <Space direction="horizonatal">
-        <Input.Item<number, number, InputNumberProps>
+      <Align.Space direction="horizonatal">
+        <Input.Item<number, number, Input.NumericProps>
           label="Width"
           value={value.dimensions.width}
           onChange={handleWidthChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Number)}
+          {componentRenderProp(Input.Numeric)}
         </Input.Item>
 
-        <Input.Item<number, number, InputNumberProps>
+        <Input.Item<number, number, Input.NumericProps>
           label="Height"
           value={value.dimensions.height}
           onChange={handleHeightChange}
           dragScale={DIMENSIONS_DRAG_SCALE}
         >
-          {componentRenderProp(Input.Number)}
+          {componentRenderProp(Input.Numeric)}
         </Input.Item>
-        <Input.Item<Color.Crude, Color.Color, SwatchProps>
+        <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
           label="Color"
           onChange={handleColorChange}
           value={value.color}
@@ -103,14 +97,14 @@ const TankPIDElementForm = ({
           {/* @ts-expect-error */}
           {componentRenderProp(ColorSwatch)}
         </Input.Item>
-      </Space>
+      </Align.Space>
     </>
   );
 };
 
-const TankPIDElementPreview = (): ReactElement => {
-  return <Tank color={ZERO_PROPS.color} dimensions={{ width: 30, height: 40 }}></Tank>;
-};
+const Preview = (): ReactElement => (
+  <Tank color={ZERO_PROPS.color} dimensions={{ width: 30, height: 40 }}></Tank>
+);
 
 const ZERO_PROPS = {
   dimensions: { width: 100, height: 250 },
@@ -118,11 +112,11 @@ const ZERO_PROPS = {
   color: "#ffffff",
 };
 
-export const TankPIDElementSpec: PIDElementSpec<TankPIDElementProps> = {
+export const TankSpec: Spec<ElementProps> = {
   type: "tank",
   title: "Tank",
   initialProps: ZERO_PROPS,
-  Element: TankPIDElement,
-  Form: TankPIDElementForm,
-  Preview: TankPIDElementPreview,
+  Element,
+  Form,
+  Preview,
 };

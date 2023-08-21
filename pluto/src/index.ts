@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { Accordion } from "@/accordion";
+export { Channel } from "@/channel";
 export { Aether } from "@/aether";
 export { Align } from "@/align";
 export { Button } from "@/button";
@@ -46,3 +47,4 @@ export { Tank } from "@/vis/tank";
 export { Value } from "@/vis/value";
 export { Tooltip as VisTooltip } from "@/vis/tooltip";
 export { Valve } from "@/vis/valve";
+export { Element as PIDElement } from "@/vis/pid/element";

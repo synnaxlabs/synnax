@@ -21,7 +21,7 @@ import {
   adjustToSourceOrTarget,
   handleDrag,
   calculateLineDirection,
-} from "@/vis/pid/Edge/edgeUtils";
+} from "@/vis/pid/edge/edgeUtils";
 
 import "@/vis/pid/Edge/Edge.css";
 

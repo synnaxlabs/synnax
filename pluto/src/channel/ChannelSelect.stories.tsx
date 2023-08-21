@@ -12,11 +12,11 @@ import { ReactElement, useState } from "react";
 import type { Meta } from "@storybook/react";
 import { ChannelKey } from "@synnaxlabs/client";
 
-import { ChannelSelect, ChannelSelectMultiple } from "./ChannelSelect";
+import { SelectSingle, SelectMultiple } from "./Select";
 
-const story: Meta<typeof ChannelSelectMultiple> = {
+const story: Meta<typeof SelectMultiple> = {
   title: "Channel/Select",
-  component: ChannelSelectMultiple,
+  component: SelectMultiple,
 };
 
 export const Multiple = (): ReactElement => {
@@ -24,15 +24,15 @@ export const Multiple = (): ReactElement => {
   const [value2, setValue2] = useState<readonly ChannelKey[]>([]);
   return (
     <>
-      <ChannelSelectMultiple value={value} onChange={setValue} />
-      <ChannelSelectMultiple value={value2} onChange={setValue2} />
+      <SelectMultiple value={value} onChange={setValue} />
+      <SelectMultiple value={value2} onChange={setValue2} />
     </>
   );
 };
 
 export const Default = (): ReactElement => {
   const [value, setValue] = useState<ChannelKey>(0);
-  return <ChannelSelect value={value} onChange={setValue} />;
+  return <SelectSingle value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

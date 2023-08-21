@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyrght 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/visupper/PID/ValuePIDElement";
-export * from "@/visupper/PID/PIDElement";
-export * from "@/visupper/PID/ValvePIDElement";
-export * from "@/visupper/PID/TankPIDElement";
-export * from "@/visupper/PID/RegulatorPIDElement";
+export * from "@/vis/pid/element/element";
+export * from "@/vis/pid/element/Regulator";
+export * from "@/vis/pid/element/Value";
+export * from "@/vis/pid/element/Valve";
+export * from "@/vis/pid/element/Tank";
