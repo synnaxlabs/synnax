@@ -11,7 +11,7 @@ import { forwardRef, useEffect } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 
-import { Pack } from "@/core/std/Pack";
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { DragButton, DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
@@ -100,10 +100,10 @@ export const Date = forwardRef<HTMLInputElement, DateProps>(
 
     if (!showDragHandle) return input;
     return (
-      <Pack>
+      <Align.Pack>
         {input}
         <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
-      </Pack>
+      </Align.Pack>
     );
   }
 );

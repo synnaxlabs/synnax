@@ -14,6 +14,7 @@ import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { Status } from "@/status";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
 export interface SearchProps<

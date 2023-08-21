@@ -18,9 +18,9 @@ describe("Header", () => {
   describe("Header.Title", () => {
     it("should render a header", () => {
       const c = render(
-        <Header level="h1">
+        <Header.Header level="h1">
           <Header.Title>Header</Header.Title>
-        </Header>
+        </Header.Header>
       );
       expect(c.getByText("Header")).toBeTruthy();
     });
@@ -29,7 +29,7 @@ describe("Header", () => {
     it("should render a header with action", async () => {
       const onClick = vitest.fn();
       const c = render(
-        <Header>
+        <Header.Header>
           <Header.Title>Header</Header.Title>
           <Header.Actions>
             {[
@@ -39,7 +39,7 @@ describe("Header", () => {
               },
             ]}
           </Header.Actions>
-        </Header>
+        </Header.Header>
       );
       expect(c.getByText("Header")).toBeTruthy();
       const add = c.getByLabelText("add");
@@ -52,9 +52,9 @@ describe("Header", () => {
     it("should render a header with button as its title", async () => {
       const onClick = vitest.fn();
       const c = render(
-        <Header>
-          <Header.Title.Button onClick={onClick}>Header</Header.Title.Button>
-        </Header>
+        <Header.Header>
+          <Header.ButtonTitle onClick={onClick}>Header</Header.ButtonTitle>
+        </Header.Header>
       );
       expect(c.getByText("Header")).toBeTruthy();
       const button = c.getByText("Header");

@@ -9,19 +9,16 @@
 
 import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import {
-  UseSelectMultipleProps,
-  useSelectMultiple,
-} from "@/hooks/useSelectMultiple";
-import { Button, ButtonProps } from "@/button";
-import { InputControl } from "@/input";
-import { Pack, PackProps } from "@/core/std/Pack";
+import { Align } from "@/align";
+import { Button } from "@/button";
+import { UseSelectMultipleProps, useSelectMultiple } from "@/hooks/useSelectMultiple";
+import { Input } from "@/input";
 import { RenderProp } from "@/util/renderProp";
 
 export interface SelectButtonOptionProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Pick<ButtonProps, "onClick"> {
+> extends Pick<Button.ButtonProps, "onClick"> {
   key: K;
   selected: boolean;
   entry: E;
@@ -31,8 +28,8 @@ export interface SelectButtonOptionProps<
 export interface SelectButtonProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends InputControl<K>,
-    Omit<PackProps, "children" | "onChange">,
+> extends Input.Control<K>,
+    Omit<Align.PackProps, "children" | "onChange">,
     Pick<UseSelectMultipleProps, "allowNone" | "allowMultiple"> {
   children?: RenderProp<SelectButtonOptionProps<K, E>>;
   entryRenderKey?: keyof E;
@@ -61,7 +58,7 @@ export const SelectButton = <
   });
 
   return (
-    <Pack {...props}>
+    <Align.Pack {...props}>
       {data.map((e) => {
         return children({
           key: e.key,
@@ -71,7 +68,7 @@ export const SelectButton = <
           title: e[entryRenderKey],
         });
       })}
-    </Pack>
+    </Align.Pack>
   );
 };
 
@@ -85,8 +82,12 @@ const defaultSelectButtonOption = <
   title,
 }: SelectButtonOptionProps<K, E>): JSX.Element => {
   return (
-    <Button key={key} onClick={onClick} variant={selected ? "filled" : "outlined"}>
+    <Button.Button
+      key={key}
+      onClick={onClick}
+      variant={selected ? "filled" : "outlined"}
+    >
       {title}
-    </Button>
+    </Button.Button>
   );
 };

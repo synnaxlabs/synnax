@@ -17,3 +17,4 @@ export * from "@/input/Number";
 export * from "@/input/Switch";
 export * from "@/input/types";
 export * from "@/input/usePassthrough";
+export * from "@/input/Time";

@@ -16,7 +16,7 @@ import { Text } from "@/text";
 describe("Text", () => {
   describe("Basic", () => {
     it("should render text with the correct HTML tag", () => {
-      const c = render(<Text level="h2">Hello</Text>);
+      const c = render(<Text.Text level="h2">Hello</Text.Text>);
       expect(c.getByText("Hello").tagName).toBe("H2");
     });
   });

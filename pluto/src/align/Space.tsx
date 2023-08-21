@@ -108,7 +108,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
 
   return (
     // @ts-expect-error
-    <Generic<E>
+    <Generic.Generic<E>
       el={el}
       ref={ref}
       className={CSS(

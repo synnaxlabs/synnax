@@ -11,7 +11,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Input } from ".";
+import { Input } from "@/input";
 
 describe("Input.Time", () => {
   it("should allow the user to input a time", () => {

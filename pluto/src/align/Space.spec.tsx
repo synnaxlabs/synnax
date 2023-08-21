@@ -10,15 +10,15 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Space } from ".";
+import { Align } from "@/align";
 
 describe("Space", () => {
   it("should render items with a space between them", () => {
     const c = render(
-      <Space size="small">
+      <Align.Space size="small">
         <div>Hello</div>
         <div>World</div>
-      </Space>
+      </Align.Space>
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -28,10 +28,10 @@ describe("Space", () => {
   });
   it("should render items with no gap", () => {
     const c = render(
-      <Space empty>
+      <Align.Space empty>
         <div>Hello</div>
         <div>World</div>
-      </Space>
+      </Align.Space>
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -41,10 +41,10 @@ describe("Space", () => {
   });
   it("should render items with a multiple of the base size", () => {
     const c = render(
-      <Space size={2}>
+      <Align.Space size={2}>
         <div>Hello</div>
         <div>World</div>
-      </Space>
+      </Align.Space>
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");

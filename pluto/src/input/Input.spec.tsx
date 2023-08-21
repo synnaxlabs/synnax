@@ -10,23 +10,25 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Input } from ".";
+import { Input } from "@/input";
 
 describe("Input", () => {
   it("should render an input with the provided placeholder", () => {
-    const c = render(<Input value="" placeholder="Hello" onChange={vi.fn()} />);
+    const c = render(<Input.Text value="" placeholder="Hello" onChange={vi.fn()} />);
     expect(c.getByPlaceholderText("Hello")).toBeTruthy();
   });
   it("should call the onChange handler when the value changes", () => {
     const onChange = vi.fn();
-    const c = render(<Input value="" placeholder="Hello" onChange={onChange} />);
+    const c = render(<Input.Text value="" placeholder="Hello" onChange={onChange} />);
     expect(onChange).not.toHaveBeenCalled();
     const input = c.getByPlaceholderText("Hello");
     fireEvent.change(input, { target: { value: "Hello" } });
     expect(onChange).toHaveBeenCalled();
   });
   it("should programatically set the input value when the prop is passed", () => {
-    const c = render(<Input placeholder="Hello" onChange={vi.fn()} value="Hello2" />);
+    const c = render(
+      <Input.Text placeholder="Hello" onChange={vi.fn()} value="Hello2" />
+    );
     expect(c.getByDisplayValue("Hello2")).toBeTruthy();
   });
 });

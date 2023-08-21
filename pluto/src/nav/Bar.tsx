@@ -72,27 +72,27 @@ const contentFactory =
       />
     );
 
-type CoreNavbarType = typeof CoreBar;
+type CoreBarType = typeof CoreBar;
 
-const NavbarStart = contentFactory("start");
-NavbarStart.displayName = "NavbarStart";
-const NavbarEnd = contentFactory("end");
-NavbarEnd.displayName = "NavbarEnd";
-const NavbarCenter = contentFactory("center");
-NavbarCenter.displayName = "NavbarCenter";
-const NavbarContent = contentFactory("");
-NavbarContent.displayName = "NavbarContent";
+const Start = contentFactory("start");
+Start.displayName = "NavbarStart";
+const End = contentFactory("end");
+End.displayName = "NavbarEnd";
+const Center = contentFactory("center");
+Center.displayName = "NavbarCenter";
+const Content = contentFactory("");
+Content.displayName = "NavbarContent";
 
-export interface NavbarType extends CoreNavbarType {
-  Start: typeof NavbarStart;
-  Center: typeof NavbarCenter;
-  End: typeof NavbarEnd;
-  Content: typeof NavbarContent;
+export interface BarType extends CoreBarType {
+  Start: typeof Start;
+  Center: typeof Center;
+  End: typeof End;
+  Content: typeof Content;
 }
 
-export const Navbar = CoreBar as NavbarType;
+export const Bar = CoreBar as BarType;
 
-Navbar.Start = NavbarStart;
-Navbar.Center = NavbarCenter;
-Navbar.End = NavbarEnd;
-Navbar.Content = NavbarContent;
+Bar.Start = Start;
+Bar.Center = Center;
+Bar.End = End;
+Bar.Content = Content;

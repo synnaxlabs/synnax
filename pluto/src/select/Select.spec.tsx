@@ -12,11 +12,10 @@ import { ReactElement, useState } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Select } from ".";
-
-import { ListColumn } from "@/list";
-import { Triggers } from "@/triggers";
+import { List } from "@/list";
+import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
 
 interface MockRecord {
   key: string;
@@ -24,7 +23,7 @@ interface MockRecord {
   age: number;
 }
 
-const mockColumns: Array<ListColumn<string, MockRecord>> = [
+const mockColumns: Array<List.ColumnSpec<string, MockRecord>> = [
   {
     key: "name",
     name: "Name",

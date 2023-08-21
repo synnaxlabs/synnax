@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CrudeColor, Color } from "@/color";
+import { color } from "@/color/core";
 
 /**
  * Generates a set of CSS variables representing different opacities of a given
@@ -19,11 +19,9 @@ import { CrudeColor, Color } from "@/color";
  */
 export const createHexOpacityVariants = (
   prefix: string,
-  hex: CrudeColor,
+  hex: color.Crude,
   opacities: readonly number[]
-): Record<string, string> => {
-  const color = Color.z.parse(hex);
-  return Object.fromEntries(
-    opacities.map((o) => [`${prefix}-${o}`, color.setAlpha(o).hex])
+): Record<string, string> =>
+  Object.fromEntries(
+    opacities.map((o) => [`${prefix}-${o}`, new color.Color(hex).setAlpha(o).hex])
   );
-};

@@ -12,11 +12,11 @@ import { ReactElement } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Tab, Tabs, TabsProps } from ".";
+import { Tabs } from "@/tabs";
 
-const StaticTabs = ({ tabs, ...tProps }: TabsProps): ReactElement => {
+const StaticTabs = ({ tabs, ...tProps }: Tabs.TabsProps): ReactElement => {
   const props = Tabs.useStatic({ tabs });
-  return <Tabs {...tProps} {...props} />;
+  return <Tabs.Tabs {...tProps} {...props} />;
 };
 
 describe("Tabs", () => {
@@ -56,7 +56,7 @@ describe("Tabs", () => {
   it("should call the onTabDragStart and onTabDragEnd handler when a tab is dragged", () => {
     const handleDragStart = vi.fn();
     const handleDragEnd = vi.fn();
-    const tabs: Tab[] = [
+    const tabs: Tabs.Tab[] = [
       { tabKey: "tab1", name: "Tab 1", content: <span>Tab 1 Content</span> },
       { tabKey: "tab2", name: "Tab 2", content: <span>Tab 2 Content</span> },
     ];

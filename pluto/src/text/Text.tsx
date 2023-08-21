@@ -46,7 +46,7 @@ const CoreText = <L extends Level = "h1">(
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
 ): ReactElement => (
   // @ts-expect-error
-  <Generic<L>
+  <Generic.Generic<L>
     el={level}
     ref={ref}
     style={{ color: Color.cssString(color), ...style }}
@@ -54,7 +54,7 @@ const CoreText = <L extends Level = "h1">(
     {...props}
   >
     {children}
-  </Generic>
+  </Generic.Generic>
 );
 
 export const Text = forwardRef(CoreText) as <L extends Level = "h1">(

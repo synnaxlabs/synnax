@@ -13,9 +13,9 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { List, ListColumn } from "@/list";
-import { Triggers } from "@/triggers";
+import { List } from "@/list";
 import { mockBoundingClientRect } from "@/testutil/dom";
+import { Triggers } from "@/triggers";
 
 interface SampleRecord {
   key: string;
@@ -23,7 +23,7 @@ interface SampleRecord {
   age: number;
 }
 
-const cols: Array<ListColumn<string, SampleRecord>> = [
+const cols: Array<List.ColumnSpec<string, SampleRecord>> = [
   {
     key: "name",
     name: "Name",
@@ -57,13 +57,13 @@ const TestList = (): ReactElement => {
   const [selected, setSelected] = useState<readonly string[]>([]);
   return (
     <Triggers.Provider>
-      <List data={data}>
+      <List.List data={data}>
         <List.Selector value={selected} onChange={setSelected} />
         <List.Column.Header columns={cols} />
         <List.Core.Virtual itemHeight={30}>
           {(props) => <List.Column.Item {...props} />}
         </List.Core.Virtual>
-      </List>
+      </List.List>
     </Triggers.Provider>
   );
 };

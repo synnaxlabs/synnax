@@ -12,11 +12,11 @@ import { ReactElement } from "react";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Mosaic, Node, UseMosaicProps } from "@/mosaic";
+import { Mosaic } from "@/mosaic";
 
-const TestMosaic = (props: UseMosaicProps): ReactElement => {
+const TestMosaic = (props: Mosaic.UseProps): ReactElement => {
   const props_ = Mosaic.use(props);
-  return <Mosaic {...props_} />;
+  return <Mosaic.Mosaic {...props_} />;
 };
 
 describe("Mosaic", () => {
@@ -90,7 +90,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -135,7 +135,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -178,7 +178,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -214,7 +214,7 @@ describe("Mosaic", () => {
           tabKey: "tab3",
           name: "Tab 3",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -244,7 +244,7 @@ describe("Mosaic", () => {
           },
         });
       });
-      it("should correctly move a tab from the first leaf  of the root node to the second leaf", () => {
+      it("should correctly move a tab from the first leaf  of the root Mosaic.Node to the second leaf", () => {
         const tabOne = {
           tabKey: "1",
           name: "Tab 1",
@@ -261,7 +261,7 @@ describe("Mosaic", () => {
           content: "Tab Three Content",
         };
 
-        const initialTree: Node = {
+        const initialTree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -293,7 +293,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           direction: "x",
           first: {
@@ -335,7 +335,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           tabs: [tabOne, tabTwo],
           selected: "tab1",
@@ -358,7 +358,7 @@ describe("Mosaic", () => {
           tabKey: "tab2",
           name: "Tab 2",
         };
-        const tree: Node = {
+        const tree: Mosaic.Node = {
           key: 1,
           tabs: [tabOne, tabTwo],
           selected: "tab1",
@@ -395,7 +395,7 @@ describe("Mosaic", () => {
         content: "Tab 4 Content",
       };
 
-      const initialTree: Node = {
+      const initialTree: Mosaic.Node = {
         key: 1,
         first: {
           key: 2,

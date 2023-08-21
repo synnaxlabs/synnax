@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Nav, NavDrawerItem } from "@/nav";
+import { Nav } from "@/nav";
 
 describe("Nav", () => {
   describe("Nav.Bar", () => {
@@ -33,7 +33,7 @@ describe("Nav", () => {
   });
   describe("Nav.Drawer", () => {
     it("should show the correct item", () => {
-      const items: NavDrawerItem[] = [
+      const items: Nav.DrawerItem[] = [
         {
           key: "1",
           content: <h1>Item 1 Content</h1>,

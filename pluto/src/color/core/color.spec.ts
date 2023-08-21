@@ -9,94 +9,94 @@
 
 import { describe, expect, test } from "vitest";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 
-describe("Color", () => {
+describe("color.Color", () => {
   describe("constructor", () => {
     test("from hex", () => {
-      const color = new Color("#7a2c26");
-      expect(color.r).toEqual(122);
-      expect(color.g).toEqual(44);
-      expect(color.b).toEqual(38);
+      const c = new color.Color("#7a2c26");
+      expect(c.r).toEqual(122);
+      expect(c.g).toEqual(44);
+      expect(c.b).toEqual(38);
     });
     test("from hex with alpha", () => {
-      const color = new Color("#7a2c26", 0.5);
-      expect(color.r).toEqual(122);
-      expect(color.g).toEqual(44);
-      expect(color.b).toEqual(38);
-      expect(color.a).toEqual(0.5);
+      const c = new color.Color("#7a2c26", 0.5);
+      expect(c.r).toEqual(122);
+      expect(c.g).toEqual(44);
+      expect(c.b).toEqual(38);
+      expect(c.a).toEqual(0.5);
     });
     describe("from eight digit hex", () => {
       test("case 1", () => {
-        const color = new Color("#7a2c26ff");
-        expect(color.r).toEqual(122);
-        expect(color.g).toEqual(44);
-        expect(color.b).toEqual(38);
-        expect(color.a).toEqual(1);
+        const c = new color.Color("#7a2c26ff");
+        expect(c.r).toEqual(122);
+        expect(c.g).toEqual(44);
+        expect(c.b).toEqual(38);
+        expect(c.a).toEqual(1);
       });
       test("case 2", () => {
-        const color = new Color("#7a2c2605");
-        expect(color.r).toEqual(122);
-        expect(color.g).toEqual(44);
-        expect(color.b).toEqual(38);
-        expect(color.a).toEqual(5 / 255);
+        const c = new color.Color("#7a2c2605");
+        expect(c.r).toEqual(122);
+        expect(c.g).toEqual(44);
+        expect(c.b).toEqual(38);
+        expect(c.a).toEqual(5 / 255);
       });
     });
     test("from rgb", () => {
-      const color = new Color([122, 44, 38]);
-      expect(color.r).toEqual(122);
-      expect(color.g).toEqual(44);
-      expect(color.b).toEqual(38);
+      const c = new color.Color([122, 44, 38]);
+      expect(c.r).toEqual(122);
+      expect(c.g).toEqual(44);
+      expect(c.b).toEqual(38);
     });
     test("from rgba", () => {
-      const color = new Color([122, 44, 38, 0.5]);
-      expect(color.r).toEqual(122);
-      expect(color.g).toEqual(44);
-      expect(color.b).toEqual(38);
-      expect(color.a).toEqual(0.5);
+      const c = new color.Color([122, 44, 38, 0.5]);
+      expect(c.r).toEqual(122);
+      expect(c.g).toEqual(44);
+      expect(c.b).toEqual(38);
+      expect(c.a).toEqual(0.5);
     });
-    test("from color", () => {
-      const color = new Color(new Color("#7a2c26"));
-      expect(color.r).toEqual(122);
-      expect(color.g).toEqual(44);
-      expect(color.b).toEqual(38);
+    test("from c", () => {
+      const c = new color.Color(new color.Color("#7a2c26"));
+      expect(c.r).toEqual(122);
+      expect(c.g).toEqual(44);
+      expect(c.b).toEqual(38);
     });
   });
   describe("to hex", () => {
     test("without alpha", () => {
-      const color = new Color("#7a2c26");
-      expect(color.hex).toEqual("#7a2c26");
+      const c = new color.Color("#7a2c26");
+      expect(c.hex).toEqual("#7a2c26");
     });
     test("with alpha", () => {
-      const color = new Color("#7a2c26", 0.5);
-      expect(color.hex).toEqual("#7a2c267f");
+      const c = new color.Color("#7a2c26", 0.5);
+      expect(c.hex).toEqual("#7a2c267f");
     });
   });
   describe("to RGBA255", () => {
     test("with alpha", () => {
-      const color = new Color("#7a2c26", 0.5);
+      const c = new color.Color("#7a2c26", 0.5);
       const expected = [122, 44, 38, 0.5];
-      expect(color.rgba255).toEqual(expected);
+      expect(c.rgba255).toEqual(expected);
     });
     test("without alpha", () => {
-      const color = new Color("#7a2c26");
+      const c = new color.Color("#7a2c26");
       const expected = [122, 44, 38, 1];
-      expect(color.rgba255).toEqual(expected);
+      expect(c.rgba255).toEqual(expected);
     });
   });
   describe("to RGBA1", () => {
     test("with alpha", () => {
-      const color = new Color("#7a2c26", 0.5);
+      const c = new color.Color("#7a2c26", 0.5);
       const expected = [122 / 255, 44 / 255, 38 / 255, 0.5];
       expected.forEach((v, i) => {
-        expect(color.rgba1[i]).toBeCloseTo(v);
+        expect(c.rgba1[i]).toBeCloseTo(v);
       });
     });
     test("without alpha", () => {
-      const color = new Color("#7a2c26");
+      const c = new color.Color("#7a2c26");
       const expected = [122 / 255, 44 / 255, 38 / 255, 1];
       expected.forEach((v, i) => {
-        expect(color.rgba1[i]).toBeCloseTo(v);
+        expect(c.rgba1[i]).toBeCloseTo(v);
       });
     });
   });
@@ -107,8 +107,8 @@ describe("Color", () => {
     ];
     tests.forEach(([hex, expected]) => {
       test(hex, () => {
-        const color = new Color(hex);
-        expect(color.luminance).toBeCloseTo(expected);
+        const c = new color.Color(hex);
+        expect(c.luminance).toBeCloseTo(expected);
       });
     });
   });
@@ -121,16 +121,16 @@ describe("Color", () => {
     ];
     tests.forEach(([hex1, hex2, expected]) => {
       test(`${hex1} ${hex2}`, () => {
-        const color1 = new Color(hex1);
-        const color2 = new Color(hex2);
-        expect(color1.contrast(color2)).toBeCloseTo(expected);
+        const c1 = new color.Color(hex1);
+        const c2 = new color.Color(hex2);
+        expect(c1.contrast(c2)).toBeCloseTo(expected);
       });
     });
-    test("pick color with highest contrast", () => {
-      const color = new Color("#000000");
-      const color1 = new Color("#ffffff");
-      const color2 = new Color("#0000ff");
-      expect(color.pickByContrast(color1, color2)).toEqual(color1);
+    test("pick c with highest contrast", () => {
+      const c = new color.Color("#000000");
+      const c1 = new color.Color("#ffffff");
+      const c2 = new color.Color("#0000ff");
+      expect(c.pickByContrast(c1, c2)).toEqual(c1);
     });
   });
 });

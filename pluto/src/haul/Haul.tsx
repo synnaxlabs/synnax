@@ -60,7 +60,7 @@ export const Provider = ({
   children,
   useState = React.useState,
 }: ProviderProps): JSX.Element => {
-  const ctx = useContext();
+  const ctx = reactUseContext(Context);
 
   const [value, onChange] = useState();
 

@@ -21,10 +21,10 @@ const TestDropdown = (): ReactElement => {
   const { toggle, visible } = Dropdown.use();
 
   return (
-    <Dropdown visible={visible}>
-      <Button onClick={() => toggle()}>Toggle</Button>
+    <Dropdown.Dialog visible={visible}>
+      <Button.Button onClick={() => toggle()}>Toggle</Button.Button>
       <p>Content</p>
-    </Dropdown>
+    </Dropdown.Dialog>
   );
 };
 

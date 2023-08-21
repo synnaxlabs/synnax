@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { Variant } from "@/status/types";
-import { Text } from "@/text";
+import { Text as CoreText } from "@/text";
 
 export interface StatusTextDigest {
   variant: Variant;
@@ -22,9 +22,9 @@ export interface StatusTextDigest {
 }
 
 export interface StatusTextProps
-  extends Omit<Text.TextProps, "level" | "wrap">,
+  extends Omit<CoreText.TextProps, "level" | "wrap">,
     StatusTextDigest {
-  level?: Text.Level;
+  level?: CoreText.Level;
   hideIcon?: boolean;
 }
 
@@ -43,7 +43,7 @@ const CoreStatusText = ({
   hideIcon = false,
   ...props
 }: StatusTextProps): ReactElement => (
-  <Text.WithIcon
+  <CoreText.WithIcon
     color={statusVariantColors[variant]}
     level={level}
     startIcon={!hideIcon && <Icon.Circle />}
@@ -65,6 +65,6 @@ export interface StatusTextType extends CoreStatusTextType {
   Centered: typeof StatusTextCentered;
 }
 
-export const StatusText = CoreStatusText as StatusTextType;
+export const Text = CoreStatusText as StatusTextType;
 
-StatusText.Centered = StatusTextCentered;
+Text.Centered = StatusTextCentered;

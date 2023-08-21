@@ -11,9 +11,9 @@ import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { ListColumn } from "@/list";
+import { Align } from "@/align";
+import { List } from "@/list";
 import { Select, SelectMultipleProps } from "@/select";
-import { Space } from "@/align";
 
 const story: Meta<typeof Select.Multiple> = {
   title: "Core/Standard/Select",
@@ -34,7 +34,7 @@ interface SampleRecord {
   dataType: string;
 }
 
-const sampleColumns: Array<ListColumn<string, SampleRecord>> = [
+const sampleColumns: Array<List.ColumnSpec<string, SampleRecord>> = [
   {
     key: "name",
     name: "Name",
@@ -57,7 +57,7 @@ export const Multiple = (): ReactElement => {
   const [valueTwo, setValueTwo] = useState<readonly string[]>([]);
 
   return (
-    <Space>
+    <Align.Space>
       <Select.Multiple
         value={value}
         onChange={setValue}
@@ -71,7 +71,7 @@ export const Multiple = (): ReactElement => {
         data={sampleData}
         columns={sampleColumns}
       />
-    </Space>
+    </Align.Space>
   );
 };
 
