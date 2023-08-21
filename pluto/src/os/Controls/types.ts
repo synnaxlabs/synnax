@@ -9,11 +9,11 @@
 
 import { OS } from "@synnaxlabs/x";
 
-import { SpaceProps } from "@/core/std";
+import { Align } from "@/align";
 
 export type ControlVariant = "close" | "minimize" | "maximize";
 
-export interface OSControlsProps extends SpaceProps {
+export interface OSControlsProps extends Align.SpaceProps {
   forceOS?: OS;
   disabled?: ControlVariant[];
   focused?: boolean;

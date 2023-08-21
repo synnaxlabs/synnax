@@ -13,7 +13,7 @@ import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
-import { CoreProps, Text } from "@/text/Text";
+import { Text } from "@/text";
 import { Level } from "@/text/types";
 
 import "@/text/WithIcon.css";
@@ -22,7 +22,7 @@ export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends Level = "h1"
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
-  CoreProps<L> & {
+  Text.CoreProps<L> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
     children?: string | number;
@@ -64,9 +64,10 @@ export const WithIcon = <
       {startIcons}
       {divided && startIcon != null && <Divider.Divider direction="y" />}
       {children != null && (
-        <Text<L> color={color} level={level}>
+        // @ts-expect-error
+        <Text.Text<L> color={color} level={level}>
           {children}
-        </Text>
+        </Text.Text>
       )}
       {divided && endIcon != null && <Divider.Divider direction="y" />}
       {endIcons}

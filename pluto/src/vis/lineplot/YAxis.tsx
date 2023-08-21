@@ -18,20 +18,20 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useMemoCompare } from "@/hooks";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";
-import { AetherLinePlot } from "@/vis/lineplot/aether";
-import { useGridPosition } from "@/vis/lineplot/main/LinePlot";
+import { lineplot } from "@/vis/lineplot/aether";
+import { useGridPosition } from "@/vis/lineplot/LinePlot";
 
-import "@/vis/lineplot/main/YAxis.css";
+import "@/vis/lineplot/YAxis.css";
 
 export interface YAxisProps
   extends PropsWithChildren,
-    Omit<z.input<typeof AetherLinePlot.YAxis.stateZ>, "position" | "size">,
+    Omit<z.input<typeof lineplot.yAxisStateZ>, "position" | "size">,
     Omit<Align.SpaceProps, "color"> {
   label?: string;
   labelLevel?: Text.Level;
@@ -94,8 +94,8 @@ export const YAxis = Aether.wrap<YAxisProps>(
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
-      type: AetherLinePlot.YAxis.TYPE,
-      schema: AetherLinePlot.YAxis.stateZ,
+      type: lineplot.YAxis.TYPE,
+      schema: lineplot.yAxisStateZ,
       initialState: memoProps,
     });
 

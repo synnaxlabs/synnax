@@ -12,13 +12,13 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
-import { Draw2D } from "@/vis/draw2d";
-import { RenderContext, RenderController } from "@/vis/render";
-import { FindResult } from "@/vis/line/aether/line";
 import { theming } from "@/theming/aether";
 import { Theme } from "@/theming/core/theme";
+import { Draw2D } from "@/vis/draw2d";
+import { FindResult } from "@/vis/line/aether/line";
+import { render } from "@/vis/render";
 
-const stateZ = z.object({
+export const measureStateZ = z.object({
   one: XY.z.nullable(),
   two: XY.z.nullable(),
   hover: XY.z.nullable(),
@@ -38,7 +38,7 @@ const stateZ = z.object({
 });
 
 interface InternalState {
-  render: RenderContext;
+  render: render.Context;
   theme: Theme;
   draw: Draw2D;
   dataOne: XY | null;
@@ -51,20 +51,20 @@ export interface MeasureProps {
   region: Box;
 }
 
-export class Measure extends aether.Leaf<typeof stateZ, InternalState> {
+export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
-  schema = stateZ;
+  schema = measureStateZ;
 
   afterUpdate(): void {
-    const ctx = RenderContext.use(this.ctx);
+    const ctx = render.Context.use(this.ctx);
     this.internal.theme = theming.use(this.ctx);
     this.internal.render = ctx;
     this.internal.draw = new Draw2D(ctx.upper2d, this.internal.theme);
-    RenderController.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx);
   }
 
   afterDelete(): void {
-    RenderController.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx);
   }
 
   get verticalLineColor(): color.Color {
@@ -224,3 +224,7 @@ export class Measure extends aether.Leaf<typeof stateZ, InternalState> {
     draw.circle({ fill: new color.Color("#ffffff"), radius: 2, position: twoPos });
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Measure.TYPE]: Measure,
+};

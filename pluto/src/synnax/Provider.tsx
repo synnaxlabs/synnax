@@ -17,7 +17,7 @@ import {
 
 import { ConnectionState, Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { useAsyncEffect } from "@/hooks/useAsyncEffect";
 import { synnax } from "@/synnax/aether";
 

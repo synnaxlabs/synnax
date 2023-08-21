@@ -4,7 +4,7 @@ import { Box, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
-import { useLinePlotContext } from "@/vis/lineplot/main/LinePlot";
+import { useContext } from "@/vis/lineplot/LinePlot";
 
 export interface ViewportProps extends PropsWithChildren<{}>, Core.UseProps {}
 
@@ -14,7 +14,7 @@ export const Viewport = ({
   onChange,
   ...props
 }: ViewportProps): ReactElement => {
-  const { setViewport } = useLinePlotContext("Viewport");
+  const { setViewport } = useContext("Viewport");
 
   useEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" });

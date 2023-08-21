@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export { Accordion } from "@/accordion";
-export { Aether } from "@/aether/main";
+export { Aether } from "@/aether";
 export { Align } from "@/align";
 export { Button } from "@/button";
 export { Color } from "@/color";
-export { Client } from "@/synnax/main";
 export { CSS } from "@/css";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";
@@ -26,6 +25,7 @@ export { Nav } from "@/nav";
 export { OS } from "@/os";
 export { Resize } from "@/resize";
 export { Status } from "@/status";
+export { Synnax } from "@/synnax";
 export { Tabs } from "@/tabs";
 export { Tag } from "@/tag";
 export { Text } from "@/text";
@@ -36,3 +36,13 @@ export { Triggers } from "@/triggers";
 export { Video } from "@/video";
 export { Viewport } from "@/viewport";
 export { Worker } from "@/worker";
+export { Canvas } from "@/vis/canvas";
+export { Line } from "@/vis/line";
+export { Measure } from "@/vis/measure";
+export { PID } from "@/vis/pid";
+export { Regulator } from "@/vis/regulator";
+export { Rule } from "@/vis/rule";
+export { Tank } from "@/vis/tank";
+export { Value } from "@/vis/value";
+export { Tooltip as VisTooltip } from "@/vis/tooltip";
+export { Valve } from "@/vis/valve";

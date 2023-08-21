@@ -111,3 +111,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Tooltip.TYPE]: Tooltip,
+};

@@ -15,7 +15,7 @@ import {
   ReactElement,
   createContext,
   useCallback,
-  useContext,
+  useContext as reactUseContext,
   useEffect,
   useMemo,
   useRef,
@@ -25,16 +25,17 @@ import {
 import { Box, Deep, Destructor, Location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { useEffectCompare } from "@/hooks/useEffectCompare";
+import { Status } from "@/status";
 import { Viewport } from "@/viewport";
-import { AetherLinePlot } from "@/vis/lineplot/aether";
+import { lineplot } from "@/vis/lineplot/aether";
 import { GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
 
-import "@/vis/lineplot/main/LinePlot.css";
+import "@/vis/lineplot/LinePlot.css";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
@@ -48,30 +49,26 @@ export interface LinePlotContextValue {
   addViewportHandler: (handler: Viewport.UseHandler) => Destructor;
 }
 
-const LinePlotContext = createContext<LinePlotContextValue | null>(null);
+const Context = createContext<LinePlotContextValue | null>(null);
 
-export const useLinePlotViewport = (handle: Viewport.UseHandler): void => {
-  const ctx = useContext(LinePlotContext);
-  if (ctx == null)
-    throw new Error(
-      "Cannot use useLinePlotViewportHandler as a non-child of LinePlot."
-    );
-  const { addViewportHandler } = ctx;
-  useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
-};
-
-export const useLinePlotContext = (component: string): LinePlotContextValue => {
-  const ctx = useContext(LinePlotContext);
+export const useContext = (component: string): LinePlotContextValue => {
+  const ctx = reactUseContext(Context);
   if (ctx == null)
     throw new Error(`Cannot to use ${component} as a non-child of LinePlot.`);
   return ctx;
+};
+
+export const useViewport = (handle: Viewport.UseHandler): void => {
+  const ctx = useContext("Viewport");
+  const { addViewportHandler } = ctx;
+  useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 
 export const useGridPosition = (
   meta: GridPositionSpec,
   component: string
 ): CSSProperties => {
-  const { setAxis, removeAxis } = useLinePlotContext(component);
+  const { setAxis, removeAxis } = useContext(component);
   const { key } = meta;
   useEffectCompare(
     () => {
@@ -99,7 +96,7 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof AetherLinePlot.stateZ>, "clearOverscan">,
+    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverscan">,
     HTMLDivProps {
   resizeDebounce?: number;
 }
@@ -117,8 +114,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const [lines, setLines] = useState<LineState>([]);
     const [{ path }, { error, grid }, setState] = Aether.use({
       aetherKey,
-      type: AetherLinePlot.TYPE,
-      schema: AetherLinePlot.stateZ,
+      type: lineplot.LinePlot.TYPE,
+      schema: lineplot.linePlotStateZ,
       initialState: {
         container: Box.ZERO,
         viewport: Box.DECIMAL,
@@ -216,9 +213,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
             {error}
           </Status.Text.Centered>
         )}
-        <LinePlotContext.Provider value={contextValue}>
+        <Context.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
-        </LinePlotContext.Provider>
+        </Context.Provider>
       </div>
     );
   }

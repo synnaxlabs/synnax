@@ -14,7 +14,7 @@ import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { render } from "@/vis/render";
 
-const pidState = z.object({
+export const pidStateZ = z.object({
   position: XY.z,
   zoom: z.number(),
   region: Box.z,
@@ -33,14 +33,10 @@ interface InternalState {
   render: render.Context;
 }
 
-export class AetherPID extends aether.Composite<
-  typeof pidState,
-  InternalState,
-  PIDElement
-> {
+export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDElement> {
   static readonly TYPE = CSS.B("pid");
-  static readonly stateZ = pidState;
-  schema = AetherPID.stateZ;
+  static readonly stateZ = pidStateZ;
+  schema = PID.stateZ;
 
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);
@@ -97,3 +93,7 @@ export class AetherPID extends aether.Composite<
     });
   }
 }
+
+export const REGISTRY = {
+  [PID.TYPE]: PID,
+};

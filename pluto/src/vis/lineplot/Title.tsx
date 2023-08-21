@@ -13,7 +13,7 @@ import { Align } from "@/align";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";
-import { useGridPosition } from "@/vis/lineplot/main/LinePlot";
+import { useGridPosition } from "@/vis/lineplot/LinePlot";
 
 export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>;
 

@@ -74,3 +74,7 @@ export class Valve extends aether.Leaf<typeof valveStateZ, InternalState> {
 
   render(): void {}
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Valve.TYPE]: Valve,
+};

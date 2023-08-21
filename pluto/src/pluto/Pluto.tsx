@@ -11,10 +11,10 @@ import { PropsWithChildren, ReactElement } from "react";
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Haul } from "@/haul";
-import { Client } from "@/synnax/main";
+import { Synnax } from "@/synnax";
 import { TelemProvider } from "@/telem/provider/Provider";
 import { Theming } from "@/theming/main";
 import { Tooltip } from "@/tooltip";
@@ -26,7 +26,7 @@ import "@synnaxlabs/media/dist/style.css";
 export interface PlutoProps
   extends PropsWithChildren,
     Partial<Theming.ProviderProps>,
-    Client.ProviderProps {
+    Synnax.ProviderProps {
   workerEnabled?: boolean;
   workerURL?: URL;
   instrumentation?: Instrumentation;
@@ -53,12 +53,9 @@ export const Pluto = ({
       <Triggers.Provider {...triggers}>
         <Tooltip.Config {...tooltip}>
           <Haul.Provider {...haul}>
-            <Worker.Provider
-              url={workerURL ?? DefaultWorkerURL}
-              enabled={workerEnabled}
-            >
+            <Worker.Provider url={workerURL ?? new URL("")} enabled={workerEnabled}>
               <Aether.Provider workerKey="vis">
-                <Client.Provider connParams={connParams}>
+                <Synnax.Provider connParams={connParams}>
                   <Theming.Provider
                     theme={theme}
                     toggleTheme={toggleTheme}
@@ -66,7 +63,7 @@ export const Pluto = ({
                   >
                     <TelemProvider>{children}</TelemProvider>
                   </Theming.Provider>
-                </Client.Provider>
+                </Synnax.Provider>
               </Aether.Provider>
             </Worker.Provider>
           </Haul.Provider>

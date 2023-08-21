@@ -147,8 +147,8 @@ export interface Event {
 
 export type Callback = (e: Event) => void;
 
-export const eventTriggerKey = (e: KeyboardEvent | MouseEvent): Key =>
-  e instanceof KeyboardEvent ? keyboardTriggerKey(e) : mouseButtonTriggerKey(e.button);
+export const eventKey = (e: KeyboardEvent | MouseEvent): Key =>
+  e instanceof KeyboardEvent ? keyboardKey(e) : mouseKey(e.button);
 
 // Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
 // as Triggers is location agnostic.
@@ -160,7 +160,7 @@ const INCLUDES_KEYS: Key[] = ["Control", "Alt", "Shift"];
  * @param e - The KeyboardEvent to parse.
  * @returns the TriggerKey.
  */
-export const keyboardTriggerKey = (e: KeyboardEvent): Key => {
+export const keyboardKey = (e: KeyboardEvent): Key => {
   if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
     return e.code.slice(-1) as Key;
   if (e.code.includes("Meta")) return "Control";
@@ -175,7 +175,7 @@ export const keyboardTriggerKey = (e: KeyboardEvent): Key => {
  * @param button - The mouse button number.
  * @returns the TriggerKey.
  */
-export const mouseButtonTriggerKey = (button: number): Key => {
+export const mouseKey = (button: number): Key => {
   if (button === 1) return "MouseMiddle";
   if (button === 2) return "MouseRight";
   return "MouseLeft";

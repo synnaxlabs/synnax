@@ -11,11 +11,12 @@ import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
+import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { OSControlsProps } from "@/os/Controls/types";
-import { Button, ButtonIconProps, Pack } from "@/core/std";
 
-import "@/core/os/Controls/WindowsControls.css";
+import "@/os/Controls/Windows.css";
 
 export const WindowsControls = ({
   disabled = [],
@@ -26,7 +27,7 @@ export const WindowsControls = ({
   onFullscreen: _,
   ...props
 }: OSControlsProps): ReactElement => (
-  <Pack {...props}>
+  <Align.Pack {...props}>
     <WindowsControlButton onClick={onMinimize} disabled={disabled.includes("minimize")}>
       <Icon.Subtract />
     </WindowsControlButton>
@@ -40,15 +41,15 @@ export const WindowsControls = ({
     >
       <Icon.Close />
     </WindowsControlButton>
-  </Pack>
+  </Align.Pack>
 );
 
-interface WindowsControlButtonProps extends ButtonIconProps {
+interface WindowsControlButtonProps extends Button.IconProps {
   disabled?: boolean;
 }
 
 const WindowsControlButton = ({
-  disabled,
+  disabled = false,
   className,
   ...props
 }: WindowsControlButtonProps): ReactElement | null =>

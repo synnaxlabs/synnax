@@ -9,7 +9,7 @@
 
 import { LooseXYT, XY } from "@synnaxlabs/x";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 import { Context } from "@/vis/render/context";
 
 const errorCompile = (msg: string): Error =>
@@ -69,7 +69,7 @@ export class GLProgram {
    * @param name - The name of the uniform.
    * @param value - The value to set.
    */
-  uniformColor(name: string, value: Color): void {
+  uniformColor(name: string, value: color.Color): void {
     this.ctx.gl.uniform4fv(this.getUniformLoc(name), value.rgba1);
   }
 

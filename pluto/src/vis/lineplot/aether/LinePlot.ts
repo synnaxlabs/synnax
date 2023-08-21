@@ -14,12 +14,13 @@ import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
 import { FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
-import { AetherXAxis } from "@/vis/lineplot/aether/XAxis";
+import { XAxis } from "@/vis/lineplot/aether/XAxis";
+import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { measure } from "@/vis/measure/aether";
 import { render } from "@/vis/render";
 import { tooltip } from "@/vis/tooltip/aether";
 
-const linePlotState = z.object({
+export const linePlotStateZ = z.object({
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
@@ -31,18 +32,17 @@ interface InternalState {
   render: render.Context;
 }
 
-type Children = AetherXAxis | tooltip.Tooltip | measure.Measure;
+type Children = XAxis | tooltip.Tooltip | measure.Measure;
 
-export class AetherLinePlot extends aether.Composite<
-  typeof linePlotState,
+export class LinePlot extends aether.Composite<
+  typeof linePlotStateZ,
   InternalState,
   Children
 > {
   static readonly TYPE: string = CSS.B("LinePlot");
   readonly eraser: render.Eraser = new render.Eraser();
 
-  static readonly stateZ = linePlotState;
-  schema = AetherLinePlot.stateZ;
+  schema = linePlotStateZ;
 
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);
@@ -72,8 +72,8 @@ export class AetherLinePlot extends aether.Composite<
     return (await Promise.all(p)).flat();
   }
 
-  private get axes(): readonly AetherXAxis[] {
-    return this.childrenOfType<AetherXAxis>(AetherXAxis.TYPE);
+  private get axes(): readonly XAxis[] {
+    return this.childrenOfType<XAxis>(XAxis.TYPE);
   }
 
   private get tooltips(): readonly tooltip.Tooltip[] {
@@ -162,3 +162,9 @@ export class AetherLinePlot extends aether.Composite<
     });
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [LinePlot.TYPE]: LinePlot,
+  [XAxis.TYPE]: XAxis,
+  [YAxis.TYPE]: YAxis,
+};

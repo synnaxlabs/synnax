@@ -12,12 +12,13 @@ import { ReactElement } from "react";
 import { Meta, StoryFn } from "@storybook/react";
 import { Bounds } from "@synnaxlabs/x";
 
+import { Controller } from "@/telem/control/Controller";
+
 import { Canvas } from "../canvas/Canvas";
 
 import { Valve } from "./Valve";
 
 import { Telem } from "@/telem";
-import { Controller } from "@/telem/control/Controller";
 
 const story: Meta<typeof Valve> = {
   title: "Core/Vis/Valve",

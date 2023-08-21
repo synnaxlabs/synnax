@@ -9,16 +9,16 @@
 
 import { ReactElement, useEffect } from "react";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Line as Core } from "@/vis/line";
-import { useLinePlotContext } from "@/vis/lineplot/main/LinePlot";
+import { useContext } from "@/vis/lineplot/LinePlot";
 
 export interface LineProps extends Core.LineProps {}
 
 export const Line = Aether.wrap<LineProps>(
   "Line",
   ({ aetherKey, color, label = "", ...props }): ReactElement => {
-    const { setLine, removeLine } = useLinePlotContext("Line");
+    const { setLine, removeLine } = useContext("Line");
     useEffect(() => {
       setLine({
         key: aetherKey,

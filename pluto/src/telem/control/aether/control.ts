@@ -162,3 +162,7 @@ export class ControlledNumericTelemSink
     await this.controller.set(frame);
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Controller.TYPE]: Controller,
+};

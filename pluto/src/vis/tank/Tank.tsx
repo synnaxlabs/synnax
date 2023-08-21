@@ -11,27 +11,29 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { CrudeDimensions } from "@synnaxlabs/x";
 
-import { Aether } from "@/aether/main/main";
-import { Color, CrudeColor } from "@/color";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 
-import "@/core/vis/Tank/Tank.css";
+import "@/vis/tank/Tank.css";
 
 export interface TankProps extends Omit<ComponentPropsWithoutRef<"div">, "color"> {
   dimensions: CrudeDimensions;
-  color: CrudeColor;
+  color: Color.Crude;
 }
 
-export const Tank = Aether.wrap<TankProps>(
-  "Tank",
-  ({ aetherKey, className, dimensions, style = {}, color, ...props }): ReactElement => {
-    if (color != null) style.borderColor = new Color(color).rgbaCSS;
-    return (
-      <div
-        className={CSS(className, CSS.B("tank"))}
-        style={{ ...dimensions, ...style }}
-        {...props}
-      />
-    );
-  }
-);
+export const Tank = ({
+  className,
+  dimensions,
+  style = {},
+  color,
+  ...props
+}: TankProps): ReactElement => {
+  if (color != null) style.borderColor = new Color.Color(color).rgbaCSS;
+  return (
+    <div
+      className={CSS(className, CSS.B("tank"))}
+      style={{ ...dimensions, ...style }}
+      {...props}
+    />
+  );
+};

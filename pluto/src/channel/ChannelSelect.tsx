@@ -12,7 +12,7 @@ import { DragEvent, ReactElement, useCallback, useMemo } from "react";
 import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
-import { Client } from "@/synnax/main";
+import { Synnax } from "@/synnax";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { List } from "@/list";
@@ -61,7 +61,7 @@ export const ChannelSelectMultiple = ({
   className,
   ...props
 }: ChannelSelectMultipleProps): ReactElement => {
-  const client = Client.use();
+  const client = Synnax.use();
   const columns = useMemo(() => {
     if (filter.length === 0) return channelColumns;
     return channelColumns.filter((column) => filter.includes(column.key));
@@ -135,7 +135,7 @@ export const ChannelSelect = ({
   className,
   ...props
 }: ChannelSelectProps): ReactElement => {
-  const client = Client.use();
+  const client = Synnax.use();
   const columns = useMemo(() => {
     if (filter.length === 0) return channelColumns;
     return channelColumns.filter((column) => filter.includes(column.key));

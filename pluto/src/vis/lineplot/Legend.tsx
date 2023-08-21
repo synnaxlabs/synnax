@@ -28,9 +28,9 @@ import { Input } from "@/input";
 import { OptionalControl } from "@/input/types";
 import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
-import { useLinePlotContext } from "@/vis/lineplot/main/LinePlot";
+import { useContext } from "@/vis/lineplot/LinePlot";
 
-import "@/vis/lineplot/main/Legend.css";
+import "@/vis/lineplot/Legend.css";
 
 export interface LegendProps
   extends Omit<Align.SpaceProps, "onChange">,
@@ -78,14 +78,14 @@ export const Legend = memo(
     onColorChange,
     ...props
   }: LegendProps): ReactElement | null => {
-    const { lines } = useLinePlotContext("Legend");
+    const { lines } = useContext("Legend");
     const [position, setPosition] = Input.usePassthrough({
       value,
       onChange,
       initialValue: new XY(0.1, 0.1).crude,
     });
     const [pickerVisible, setPickerVisible] = useState(false);
-    useLinePlotContext("Legend");
+    useContext("Legend");
     const positionRef = useRef(position);
     const ref = useRef<HTMLDivElement | null>(null);
     const [intelligentPos, setIntelligentPos] = useState<CSSPosition>({});

@@ -9,14 +9,14 @@
 
 import { Box, Dimensions, Direction, XY } from "@synnaxlabs/x";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 import { dimensions } from "@/text/dimensions";
 import { Level } from "@/text/types";
+import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { Theme } from "@/theming/core/theme";
 
 export interface Draw2DLineProps {
-  stroke: Color;
+  stroke: color.Color;
   lineWidth: number;
   lineDash: number;
   start: XY;
@@ -30,7 +30,7 @@ export interface Draw2DRuleProps extends Omit<Draw2DLineProps, "start" | "end"> 
 }
 
 export interface Draw2DCircleProps {
-  fill: Color;
+  fill: color.Color;
   radius: number;
   position: XY;
 }
@@ -39,10 +39,10 @@ export interface Draw2DContainerProps {
   region: Box;
   bordered?: boolean;
   rounded?: boolean;
-  borderColor?: Color;
+  borderColor?: color.Color;
   borderRadius?: number;
   borderWidth?: number;
-  backgroundColor?: Color;
+  backgroundColor?: color.Color;
 }
 
 export interface DrawTextProps {
@@ -67,9 +67,9 @@ export interface Draw2DTextContainerProps
 
 export class Draw2D {
   readonly canvas: OffscreenCanvasRenderingContext2D;
-  readonly theme: Theme;
+  readonly theme: theming.Theme;
 
-  constructor(canvas: OffscreenCanvasRenderingContext2D, theme: Theme) {
+  constructor(canvas: OffscreenCanvasRenderingContext2D, theme: theming.Theme) {
     this.canvas = canvas;
     this.theme = theme;
   }

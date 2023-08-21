@@ -17,7 +17,7 @@ import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { PIDElement } from "@/vis/pid/aether";
+import { PIDElement } from "@/vis/pid/aether/pid";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
@@ -108,3 +108,7 @@ export class Value
     canvas.fillText(valueStr, ...labelPosition.couple);
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Value.TYPE]: Value,
+};

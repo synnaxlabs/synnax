@@ -12,7 +12,7 @@ import { ReactElement, useLayoutEffect } from "react";
 import { Deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { useMemoCompare } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";

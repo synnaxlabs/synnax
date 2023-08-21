@@ -11,26 +11,26 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 
 import { SketchPicker, ColorResult } from "react-color";
 
-import { Crude, Color, ZERO } from "@/color/core/color";
+import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 
 import "@/color/Picker/Picker.css";
 
 export interface PickerProps
-  extends Input.Control<Crude, Color>,
+  extends Input.Control<color.Crude, color.Color>,
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {}
 
 export const Picker = ({ value, onChange, ...props }: PickerProps): ReactElement => {
-  const handleChange = (color: ColorResult): void => {
-    if (color.hex === "transparent") onChange(ZERO);
-    onChange(new Color(color.hex, color.rgb.a));
+  const handleChange = (res: ColorResult): void => {
+    if (res.hex === "transparent") onChange(color.ZERO);
+    onChange(new color.Color(res.hex, res.rgb.a));
   };
 
   return (
     <SketchPicker
       className={CSS.B("color-picker")}
-      color={new Color(value).hex}
+      color={new color.Color(value).hex}
       onChange={handleChange}
       presetColors={[]}
       {...props}

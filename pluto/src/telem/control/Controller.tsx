@@ -11,7 +11,7 @@ import { PropsWithChildren } from "react";
 
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps

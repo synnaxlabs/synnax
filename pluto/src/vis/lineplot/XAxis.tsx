@@ -12,18 +12,18 @@ import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
 import { Location, CrudeOuterLocation, CrudeDirection, Direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";
-import { AetherLinePlot } from "@/vis/lineplot/aether";
+import { lineplot } from "@/vis/lineplot/aether";
 import { withinSizeThreshold } from "@/vis/lineplot/aether/grid";
-import { useGridPosition } from "@/vis/lineplot/main/LinePlot";
+import { useGridPosition } from "@/vis/lineplot/LinePlot";
 
 export interface XAxisProps
   extends PropsWithChildren,
-    Omit<z.input<typeof AetherLinePlot.XAxis.z>, "position"> {
+    Omit<z.input<typeof lineplot.xAxisStateZ>, "position"> {
   resizeDebounce?: number;
   label?: string;
   labelLevel?: Text.Level;
@@ -48,8 +48,8 @@ export const XAxis = Aether.wrap<XAxisProps>(
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
-      type: AetherLinePlot.XAxis.TYPE,
-      schema: AetherLinePlot.XAxis.z,
+      type: lineplot.XAxis.TYPE,
+      schema: lineplot.xAxisStateZ,
       initialState: {
         location,
         ...props,

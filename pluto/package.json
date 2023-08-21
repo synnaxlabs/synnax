@@ -94,18 +94,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
-    "./worker": {
-      "import": "./dist/worker.js",
-      "require": "./dist/worker.cjs"
+    "./aether": {
+      "import": "./dist/aether.js",
+      "require": "./dist/aether.cjs"
     },
-    "./std": {
-      "import": "./dist/std.js",
-      "require": "./dist/std.cjs"
-    },
-    "./theming": {
-      "import": "./dist/theming.js",
-      "require": "./dist/theming.cjs"
-    },
+
     "./dist/*": "./dist/*"
   },
   "readme": "ERROR: No README data found!",

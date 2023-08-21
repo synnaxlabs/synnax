@@ -12,7 +12,7 @@ import { ComponentPropsWithoutRef, ReactElement } from "react";
 import { CrudeDirection, Dimensions, Direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { valve } from "@/vis/valve/aether";

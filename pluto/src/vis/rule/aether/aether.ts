@@ -16,7 +16,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-const stateZ = z.object({
+export const ruleStateZ = z.object({
   position: z.number(),
   pixelPosition: z.number().optional().default(0),
   dragging: z.boolean(),
@@ -37,10 +37,10 @@ interface InternalState {
   draw: Draw2D;
 }
 
-export class Rule extends aether.Leaf<typeof stateZ, InternalState> {
+export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   static readonly TYPE = "Rule";
 
-  schema = stateZ;
+  schema = ruleStateZ;
 
   afterUpdate(): void {
     this.internal.renderCtx = render.Context.use(this.ctx);
@@ -97,3 +97,7 @@ export class Rule extends aether.Leaf<typeof stateZ, InternalState> {
     canvas.fill();
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Rule.TYPE]: Rule,
+};

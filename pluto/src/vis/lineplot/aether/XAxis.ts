@@ -22,10 +22,10 @@ import {
   autoBounds,
   withinSizeThreshold,
 } from "@/vis/lineplot/aether/grid";
-import { AetherYAxis, YAxisProps } from "@/vis/lineplot/aether/YAxis";
+import { YAxis, YAxisProps } from "@/vis/lineplot/aether/YAxis";
 import { render } from "@/vis/render";
 
-const xAxisState = axis.axisStateZ
+export const xAxisStateZ = axis.axisStateZ
   .extend({
     location: Location.strictYZ.optional().default("bottom"),
     bound: Bounds.looseZ.optional(),
@@ -48,14 +48,9 @@ interface InternalState {
   core: axis.Axis;
 }
 
-export class AetherXAxis extends aether.Composite<
-  typeof xAxisState,
-  InternalState,
-  AetherYAxis
-> {
+export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, YAxis> {
   static readonly TYPE = CSS.BE("line-plot", "x-axis");
-  static readonly z = xAxisState;
-  schema = AetherXAxis.z;
+  schema = xAxisStateZ;
 
   afterUpdate(): void {
     this.internal.ctx = render.Context.use(this.ctx);

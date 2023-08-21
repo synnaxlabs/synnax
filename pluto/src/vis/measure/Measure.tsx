@@ -11,12 +11,12 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { XY } from "@synnaxlabs/x";
 
-import { Aether } from "@/aether/main";
-import { useLinePlotViewport } from "@/vis/lineplot/main/LinePlot";
-import { measure } from "@/vis/measure/aether";
+import { Aether } from "@/aether";
 import { Triggers } from "@/triggers";
 import { Config } from "@/triggers/triggers";
 import { Viewport } from "@/viewport";
+import { LinePlot } from "@/vis/lineplot";
+import { measure } from "@/vis/measure/aether";
 
 type ClickMode = "one" | "two" | "clear" | "empty";
 
@@ -37,7 +37,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   const [, , setState] = Aether.use({
     aetherKey,
     type: measure.Measure.TYPE,
-    schema: measure.Measure.stateZ,
+    schema: measure.measureStateZ,
     initialState: {
       hover: null,
       one: null,
@@ -75,7 +75,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
     [setState, triggers]
   );
 
-  useLinePlotViewport(handleClick);
+  LinePlot.useViewport(handleClick);
 
   const handleMove = useCallback(
     (e: MouseEvent): void => {
@@ -104,6 +104,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
     parent.addEventListener("mouseleave", handleLeave);
     return () => {
       parent.removeEventListener("mousemove", handleMove);
+      parent.removeEventListener("mouseleave", handleLeave);
     };
   }, [handleClick]);
 

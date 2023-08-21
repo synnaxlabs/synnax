@@ -25,7 +25,6 @@ export interface MenuProps extends Partial<Input.Control<string>>, PropsWithChil
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
-p;
 /**
  * Menu is a modular component that allows you to create a menu with a list of items.
  * It satisfies the InputControl string interface, so it's selected value can be

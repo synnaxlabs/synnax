@@ -20,13 +20,7 @@ import {
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
-import {
-  Stage,
-  Trigger,
-  TriggerDragCallback,
-  Triggers,
-  UseTriggerEvent,
-} from "@/triggers";
+import { Triggers } from "@/triggers";
 import {
   Config,
   compareConfigs,
@@ -37,13 +31,13 @@ import {
 export interface UseEvent {
   box: Box;
   cursor: XY;
-  mode: ViewportMode;
-  stage: Stage;
+  mode: Mode;
+  stage: Triggers.Stage;
 }
 
 export type UseHandler = (e: UseEvent) => void;
 
-export type UseTriggers = Config<ViewportTriggerMode>;
+export type UseTriggers = Config<TriggerMOde>;
 
 export interface UseProps {
   triggers?: UseTriggers;
@@ -54,18 +48,18 @@ export interface UseProps {
 }
 
 export interface UseReturn {
-  mode: ViewportMode;
+  mode: Mode;
   maskBox: Box;
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
-const VIEWPORT_TRIGGER_MDOES = ["zoom", "pan", "select", "zoomReset"] as const;
-export const VIEWPORT_MODES = [...VIEWPORT_TRIGGER_MDOES, "click"] as const;
-export type ViewportMode = StringLiteral<typeof VIEWPORT_MODES[number]>;
-type ViewportTriggerMode = StringLiteral<typeof VIEWPORT_TRIGGER_MDOES[number]>;
-export const MASK_VIEWPORT_MODES: ViewportMode[] = ["zoom", "select"];
+const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
+export const MODES = [...TRIGGER_MODES, "click"] as const;
+export type Mode = StringLiteral<typeof MODES[number]>;
+type TriggerMOde = StringLiteral<typeof TRIGGER_MODES[number]>;
+export const MASK_MODES: Mode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   defaultMode: "zoom",
@@ -91,7 +85,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   zoomReset: [["MouseLeft", "Control"]],
 };
 
-export const DEFAULT_TRIGGERS: Record<ViewportMode, UseTriggers> = {
+export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
   zoom: ZOOM_DEFAULT_TRIGGERS,
   pan: PAN_DEFAULT_TRIGGERS,
   select: SELECT_DEFAULT_TRIGGERS,
@@ -101,10 +95,10 @@ export const DEFAULT_TRIGGERS: Record<ViewportMode, UseTriggers> = {
 
 const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
   const e = Object.entries(triggers) as Array<
-    [ViewportTriggerMode | "defaultMode", Trigger[]]
+    [TriggerMOde | "defaultMode", Triggers.Trigger[]]
   >;
   return Object.fromEntries(
-    e.map(([key, value]: [string, Trigger[]]) => {
+    e.map(([key, value]: [string, Triggers.Trigger[]]) => {
       if (key === "defaultMode") return [key, value];
       return [
         key,
@@ -127,7 +121,7 @@ export const use = ({
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
   const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
-  const [maskMode, setMaskMode] = useState<ViewportMode>(defaultMode);
+  const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<Box>(initial);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = new Dimensions(threshold_);
@@ -137,28 +131,23 @@ export const use = ({
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
     useMemoCompare(
-      (): [UseTriggers, Trigger[], UseTriggers, Trigger[]] => {
+      (): [UseTriggers, Triggers.Trigger[], UseTriggers, Triggers.Trigger[]] => {
         const config: UseTriggers = {
           ...DEFAULT_TRIGGERS[defaultMode],
           ...initialTriggers,
         };
         const reducedTriggers = reduceConfig(config);
         const mouseTriggers = purgeMouseTriggers(config);
-        return [
-          config,
-          reducedTriggers,
-          mouseTriggers,
-          reduceConfig(mouseTriggers),
-        ];
+        return [config, reducedTriggers, mouseTriggers, reduceConfig(mouseTriggers)];
       },
       compareConfigs,
       [initialTriggers]
     );
 
-  const handleDrag = useCallback<TriggerDragCallback>(
+  const handleDrag = useCallback<Triggers.DragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
-      const mode = determineMode<ViewportTriggerMode>(triggerConfig, triggers);
+      const mode = determineMode<TriggerMOde>(triggerConfig, triggers);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
 
@@ -194,7 +183,7 @@ export const use = ({
         });
       }
 
-      if (MASK_VIEWPORT_MODES.includes(mode)) {
+      if (MASK_MODES.includes(mode)) {
         if (box.height < 5 && box.width < 5) return;
         return setMaskBox(
           XYScale.scale(canvas)
@@ -233,9 +222,9 @@ export const use = ({
   });
 
   const handleKeyTrigger = useCallback(
-    ({ triggers, stage }: UseTriggerEvent) => {
+    ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage === "end") return setMaskMode(defaultMode);
-      const mode = determineMode<ViewportTriggerMode>(purgedTriggers, triggers);
+      const mode = determineMode<TriggerMOde>(purgedTriggers, triggers);
       if (mode == null) return;
       setMaskMode(mode);
     },

@@ -17,12 +17,12 @@ import {
 
 import { Box } from "@synnaxlabs/x";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
-import { AetherCanvas } from "@/vis/canvas/aether";
+import { canvas } from "@/vis/canvas/aether";
 
-import "@/vis/Canvas/Canvas.css";
+import "@/vis/canvas/Canvas.css";
 
 type HTMLCanvasProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLCanvasElement>,
@@ -50,7 +50,7 @@ const ZERO_CANVASES: Canvases = {
 };
 
 export const Canvas = Aether.wrap<CanvasProps>(
-  AetherCanvas.TYPE,
+  canvas.Canvas.TYPE,
   ({
     children,
     resizeDebounce: debounce = 100,
@@ -60,8 +60,8 @@ export const Canvas = Aether.wrap<CanvasProps>(
   }): ReactElement => {
     const [{ path }, { bootstrapped }, setState] = Aether.use({
       aetherKey,
-      type: AetherCanvas.TYPE,
-      schema: AetherCanvas.z,
+      type: canvas.Canvas.TYPE,
+      schema: canvas.canvasStateZ,
       initialState: ZERO_PROPS,
     });
 

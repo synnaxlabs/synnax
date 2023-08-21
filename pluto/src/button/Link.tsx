@@ -13,9 +13,9 @@ import { Button, ButtonProps } from "@/button/Button";
 import { Text } from "@/text";
 
 /** Props for the {@link Link} component. */
-export interface LinkProps
+export interface LinkProps<L extends Text.Level = "h1">
   extends ButtonProps,
-    Pick<Text.LinkProps, "href" | "target"> {}
+    Pick<Text.LinkProps<L>, "href" | "target"> {}
 /**
  * Button.Link renders a button that looks like a link and redirects to the given href
  * when clicked.
@@ -26,7 +26,11 @@ export interface LinkProps
  * @param props.target - The target of the link. Defaults to "_self".
  */
 
-export const Link = ({ href, target, ...props }: LinkProps): ReactElement => {
+export const Link = <L extends Text.Level = "h1">({
+  href,
+  target,
+  ...props
+}: LinkProps<L>): ReactElement => {
   return (
     <form action={href} target={target} rel={target}>
       <Button {...props} />

@@ -25,7 +25,7 @@ import {
 import { render } from "@/vis/render";
 import { rule } from "@/vis/rule/aether";
 
-const stateZ = axis.axisStateZ
+export const yAxisStateZ = axis.axisStateZ
   .extend({
     location: Location.strictXZ.optional().default("left"),
     bounds: Bounds.looseZ.optional(),
@@ -55,14 +55,13 @@ interface InternalState {
 
 type Children = line.Line | rule.Rule;
 
-export class AetherYAxis extends aether.Composite<
-  typeof stateZ,
+export class YAxis extends aether.Composite<
+  typeof yAxisStateZ,
   InternalState,
   Children
 > {
   static readonly TYPE = CSS.BE("line-plot", "y-axis");
-  static readonly stateZ = stateZ;
-  schema = AetherYAxis.stateZ;
+  schema = yAxisStateZ;
 
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);

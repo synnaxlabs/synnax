@@ -10,7 +10,7 @@
 import { CSSProperties, ReactElement, forwardRef } from "react";
 
 import { CSS } from "@/css";
-import { UseReturn, ViewportMode } from "@/viewport/use";
+import { UseReturn, Mode } from "@/viewport/use";
 
 import "@/viewport/Mask.css";
 
@@ -23,7 +23,7 @@ export interface MaskProps
   extends Omit<UseReturn, "ref">,
     Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
 
-const MODE_CURSORS: Record<ViewportMode, CSSProperties["cursor"]> = {
+const MODE_CURSORS: Record<Mode, CSSProperties["cursor"]> = {
   select: "pointer",
   zoom: "crosshair",
   pan: "grab",

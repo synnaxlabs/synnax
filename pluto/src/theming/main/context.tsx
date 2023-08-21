@@ -18,7 +18,7 @@ import {
   useState,
 } from "react";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { SwitchProps } from "@/input/Switch";

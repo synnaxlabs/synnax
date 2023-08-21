@@ -15,13 +15,11 @@ export default defineConfig({
   plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
-    minify: false,
+    minify: true,
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
-        worker: path.resolve(".", "src/worker.ts"),
-        std: path.resolve(".", "src/core/std/index.ts"),
-        theming: path.resolve(".", "src/core/theming/index.ts"),
+        aether: path.resolve(".", "src/aetherIndex.ts"),
       },
     },
     rollupOptions: {

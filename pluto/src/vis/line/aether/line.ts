@@ -270,3 +270,7 @@ const offsetScale = (scale: XYScale, x: Series, y: Series): XYScale =>
     scale.x.dim(Number(x.sampleOffset)),
     scale.y.dim(Number(y.sampleOffset))
   );
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Line.TYPE]: Line,
+};

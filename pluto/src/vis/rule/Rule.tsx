@@ -12,15 +12,16 @@ import { ReactElement, useCallback, useEffect, useRef } from "react";
 import { Bounds, Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aether } from "@/aether/main/main";
+import { Aether } from "@/aether";
+import { Align } from "@/align";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Input } from "@/input";
+import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
-import { Rule } from "@/vis/rule/aether/aether";
-
-import { Input, Space, Text } from "@/core/std";
+import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
-  extends Omit<z.input<typeof Rule.stateZ>, "dragging" | "pixelPosition"> {
+  extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition"> {
   label?: string;
   onLabelChange?: (label: string) => void;
   units?: string;
@@ -48,8 +49,8 @@ export const Rule = Aether.wrap<RuleProps>(
 
     const [, { position, pixelPosition }, setState] = Aether.use({
       aetherKey,
-      type: Rule.TYPE,
-      schema: Rule.stateZ,
+      type: rule.Rule.TYPE,
+      schema: rule.ruleStateZ,
       initialState: {
         color,
         dragging: false,
@@ -112,13 +113,13 @@ export const Rule = Aether.wrap<RuleProps>(
           onDragStart={handleDragStart}
           draggable
         />
-        <Space direction="x" align="center" style={{ marginLeft: "2rem" }}>
+        <Align.Space direction="x" align="center" style={{ marginLeft: "2rem" }}>
           <Text.Editable level="p" value={internalLabel} onChange={setInternalLabel} />
-          <Text
+          <Text.Text
             level="p"
             style={{ padding: "0.25rem 0", width: "fit-content" }}
-          >{`${position.toFixed(2)} ${units}`}</Text>
-        </Space>
+          >{`${position.toFixed(2)} ${units}`}</Text.Text>
+        </Align.Space>
       </div>
     );
   }

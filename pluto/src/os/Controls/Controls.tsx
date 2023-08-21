@@ -12,12 +12,12 @@ import { ReactElement } from "react";
 import { OS } from "@synnaxlabs/x";
 
 import { useOS } from "@/hooks";
-import { MacOSControls } from "@/os/Controls/MacOSControls";
+import { MacOS } from "@/os/Controls/Mac";
 import { OSControlsProps } from "@/os/Controls/types";
-import { WindowsControls } from "@/os/Controls/WindowsControls";
+import { WindowsControls } from "@/os/Controls/Windows";
 
-const OSControls: Record<OS, React.FC<OSControlsProps>> = {
-  MacOS: MacOSControls,
+const Variants: Record<OS, React.FC<OSControlsProps>> = {
+  MacOS,
   Windows: WindowsControls,
   Linux: WindowsControls,
   Docker: WindowsControls,
@@ -35,7 +35,7 @@ export const Controls = ({
   ...props
 }: ControlsProps): ReactElement | null => {
   const os = useOS({ force: forceOS, default: DEFAULT_OS }) as OS;
-  const C = OSControls[os];
+  const C = Variants[os];
   if (visibleIfOS != null && visibleIfOS !== os) return null;
   return <C {...props} />;
 };

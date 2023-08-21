@@ -12,10 +12,10 @@ import { Box } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { RenderContext } from "@/vis/render";
 import { Context } from "@/vis/line/aether/line";
+import { render } from "@/vis/render";
 
-const canvasState = z.object({
+export const canvasStateZ = z.object({
   dpr: z.number(),
   region: Box.z,
   bootstrap: z.boolean().optional().default(false),
@@ -25,18 +25,14 @@ const canvasState = z.object({
   lower2dCanvas: z.instanceof(OffscreenCanvas).optional(),
 });
 
-export class AetherCanvas extends aether.Composite<typeof canvasState> {
+export class Canvas extends aether.Composite<typeof canvasStateZ> {
   static readonly TYPE = "Canvas";
-  static readonly z = canvasState;
-  static readonly REGISTRY: aether.ComponentRegistry = {
-    [AetherCanvas.TYPE]: AetherCanvas,
-  };
 
-  schema = canvasState;
+  schema = canvasStateZ;
   renderContextSet = false;
 
   afterUpdate(): void {
-    let renderCtx = RenderContext.useOptional(this.ctx);
+    let renderCtx = render.Context.useOptional(this.ctx);
     if (renderCtx == null) {
       if (this.renderContextSet) {
         throw new UnexpectedError(
@@ -49,7 +45,7 @@ export class AetherCanvas extends aether.Composite<typeof canvasState> {
         throw new UnexpectedError(
           "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
         );
-      renderCtx = RenderContext.create(
+      renderCtx = render.Context.create(
         this.ctx,
         glCanvas,
         lower2dCanvas,
@@ -68,3 +64,7 @@ export class AetherCanvas extends aether.Composite<typeof canvasState> {
     renderCtx.resize(this.state.region, this.state.dpr);
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Canvas.TYPE]: Canvas,
+};

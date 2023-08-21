@@ -9,12 +9,13 @@
 
 import { ReactElement } from "react";
 
+import { Align } from "@/align";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { OSControlsProps } from "@/os/Controls/types";
-import { ButtonIconProps, Space } from "@/core/std";
 import { ComponentSize } from "@/util/component";
 
-import "@/core/os/Controls/MacOSControls.css";
+import "@/os/Controls/Mac.css";
 
 export const Icon = {
   Close: (
@@ -74,7 +75,7 @@ export const Icon = {
   ),
 };
 
-export const MacOSControls = ({
+export const MacOS = ({
   disabled = [],
   className,
   focused = true,
@@ -84,7 +85,7 @@ export const MacOSControls = ({
   onClose,
   ...props
 }: OSControlsProps): ReactElement => (
-  <Space
+  <Align.Space
     size={1.5}
     direction="x"
     className={CSS(
@@ -115,10 +116,10 @@ export const MacOSControls = ({
     >
       {Icon.Maximize}
     </TrafficLight>
-  </Space>
+  </Align.Space>
 );
 
-interface MacOSTrafficLightProps extends ButtonIconProps {}
+interface MacOSTrafficLightProps extends Button.IconProps {}
 
 const TrafficLight = ({
   className,

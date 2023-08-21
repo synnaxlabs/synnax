@@ -32,14 +32,15 @@ import ReactFlow, {
   updateEdge,
 } from "reactflow";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
+import { Status } from "@/status";
 import { RenderProp } from "@/util/renderProp";
-import { AetherPID } from "@/vis/pid/aether";
+import { pid } from "@/vis/pid/aether";
 import { Edge } from "@/vis/pid/Edge";
 
 import "@/vis/pid/PID.css";
@@ -198,8 +199,8 @@ const PIDCore = Aether.wrap<PIDProps>(
   }): ReactElement => {
     const [{ path }, { error }, setState] = Aether.use({
       aetherKey,
-      type: AetherPID.TYPE,
-      schema: AetherPID.stateZ,
+      type: pid.PID.TYPE,
+      schema: pid.PID.stateZ,
       initialState: {
         position: viewport.position,
         region: Box.ZERO,

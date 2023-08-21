@@ -11,14 +11,14 @@ import { DragEvent, useEffect } from "react";
 
 import { XY, Box } from "@synnaxlabs/x";
 
-import { UseVirtualCursorDragProps } from "./types";
-
 import { useStateRef } from "@/hooks/useStateRef";
-import { Triggers, TriggerKey } from "@/triggers";
+import { Triggers } from "@/triggers";
+
+import { UseVirtualCursorDragProps } from "./types";
 
 interface RefState {
   start: XY;
-  mouseKey: TriggerKey;
+  mouseKey: Triggers.Key;
 }
 
 const INITIAL_STATE: RefState = {

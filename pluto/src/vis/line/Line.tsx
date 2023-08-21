@@ -11,19 +11,19 @@ import { ReactElement, useLayoutEffect } from "react";
 
 import { Deep, Optional } from "@synnaxlabs/x";
 
-import { Aether } from "@/aether/main";
+import { Aether } from "@/aether";
 import { useMemoCompare } from "@/memo";
-import { Line, stateZ, State } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 
-export interface LineProps extends Optional<Omit<State, "key">, "strokeWidth"> {}
+export interface LineProps extends Optional<Omit<line.State, "key">, "strokeWidth"> {}
 
 export const Line = Aether.wrap<LineProps>(
   "Line",
   ({ aetherKey, ...props }): ReactElement | null => {
     const [, , setState] = Aether.use({
       aetherKey,
-      type: Line.TYPE,
-      schema: stateZ,
+      type: line.Line.TYPE,
+      schema: line.stateZ,
       initialState: props,
     });
     const memoProps = useMemoCompare(

@@ -10,14 +10,14 @@
 import { ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Variant } from "@/status";
+import { Status } from "@/status";
 import { Text } from "@/text";
 
 import "@/input/HelpText.css";
 
 /** Props for the {@link HelpText} component. */
 export interface HelpTextProps extends Omit<Text.TextProps<"small">, "level" | "ref"> {
-  variant?: Variant;
+  variant?: Status.Variant;
 }
 
 /**

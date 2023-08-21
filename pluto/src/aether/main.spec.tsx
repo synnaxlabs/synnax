@@ -14,10 +14,9 @@ import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { Aether } from "@/aether/main";
-
-import { MainMessage, WorkerMessage } from "../message";
+import { MainMessage, WorkerMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),

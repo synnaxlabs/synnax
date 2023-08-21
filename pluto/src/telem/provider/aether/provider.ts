@@ -74,3 +74,7 @@ export class Provider
     return telem as T;
   }
 }
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Provider.TYPE]: Provider,
+};

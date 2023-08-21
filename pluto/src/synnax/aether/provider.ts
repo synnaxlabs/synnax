@@ -67,3 +67,7 @@ const set = (ctx: aether.Context, value: ContextValue): void =>
 
 export const use = (ctx: aether.Context): Synnax | null =>
   ctx.get<ContextValue>(CONTEXT_KEY).synnax;
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [Provider.TYPE]: Provider,
+};

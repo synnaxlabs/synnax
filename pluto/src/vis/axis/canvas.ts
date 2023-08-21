@@ -20,16 +20,16 @@ import {
   ParsedAxisState,
 } from "@/vis/axis/axis";
 import { Tick, TickFactory, newTickFactory } from "@/vis/axis/ticks";
-import { RenderContext } from "@/vis/render";
+import { render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
 
 export class Canvas implements Axis {
-  ctx: RenderContext;
+  ctx: render.Context;
   state: ParsedAxisState;
   tickFactory: TickFactory;
 
-  constructor(ctx: RenderContext, state: ParsedAxisState) {
+  constructor(ctx: render.Context, state: ParsedAxisState) {
     this.ctx = ctx;
     this.state = state;
     this.tickFactory = newTickFactory(this.state);

@@ -11,38 +11,36 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
-import { Controller } from "@/telem/control/aether/control";
-import { Provider } from "@/telem/provider/aether/provider";
-import { Provider } from "@/theming/aether/provider";
-import { AetherCanvas } from "@/vis/canvas/aether";
-import { Line } from "@/vis/line/aether/line";
-import { AetherLinePlot } from "@/vis/lineplot/aether";
-import { Measure } from "@/vis/measure/aether/measure";
-import { AetherPID } from "@/vis/pid/aether";
-import { Rule } from "@/vis/rule/aether/aether";
-import { Tooltip } from "@/vis/tooltip/aether/tooltip";
-import { Value } from "@/vis/value/aether/value";
-import { Valve } from "@/vis/valve/aether/valve";
+import { control } from "@/telem/control/aether";
+import { provider } from "@/telem/provider/aether";
+import { canvas } from "@/vis/canvas/aether";
+import { line } from "@/vis/line/aether";
+import { lineplot } from "@/vis/lineplot/aether";
+import { measure } from "@/vis/measure/aether";
+import { pid } from "@/vis/pid/aether";
+import { rule } from "@/vis/rule/aether";
+import { tooltip } from "@/vis/tooltip/aether";
+import { value } from "@/vis/value/aether";
+import { valve } from "@/vis/valve/aether";
 
-export const pluto = (): void => {
+export const render = (): void => {
   // @ts-expect-error
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
 
   const REGISTRY: aether.ComponentRegistry = {
-    ...AetherLinePlot.REGISTRY,
-    ...AetherCanvas.REGISTRY,
-    [synnax.Provider.TYPE]: synnax.Provider,
-    [Provider.TYPE]: Provider,
-    [Line.TYPE]: Line,
-    [Value.TYPE]: Value,
-    [Valve.TYPE]: Valve,
-    [AetherPID.TYPE]: AetherPID,
-    [Rule.TYPE]: Rule,
-    [Provider.TYPE]: Provider,
-    [Tooltip.TYPE]: Tooltip,
-    [Measure.TYPE]: Measure,
-    [Controller.TYPE]: Controller,
+    ...lineplot.REGISTRY,
+    ...canvas.REGISTRY,
+    ...synnax.REGISTRY,
+    ...provider.REGISTRY,
+    ...line.REGISTRY,
+    ...value.REGISTRY,
+    ...valve.REGISTRY,
+    ...pid.REGISTRY,
+    ...rule.REGISTRY,
+    ...tooltip.REGISTRY,
+    ...measure.REGISTRY,
+    ...control.REGISTRY,
   };
 
   aether.render({

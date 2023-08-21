@@ -204,6 +204,7 @@ export const ButtonLeaf = <K extends Key, E extends KeyedRenderableRecord<K, E>>
   };
 
   return url != null ? (
+    // @ts-expect-error
     <Button.Link href={url} {...baseProps} level="p">
       {name}
     </Button.Link>
