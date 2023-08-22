@@ -11,19 +11,13 @@ import { ReactElement } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  List,
-  ListColumn,
-  Menu as PMenu,
-  Divider,
-  ContextMenuMenuProps,
-} from "@synnaxlabs/pluto";
-
-import type { Range } from "../store";
+import { List, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
 
-export const rangeListColumns: Array<ListColumn<string, Range>> = [
+import type { Range } from "../store";
+
+export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "name",
     name: "Name",
@@ -64,7 +58,7 @@ export const RangesList = ({
 }: RangesListProps): ReactElement => {
   const contextMenProps = PMenu.useContextMenu();
 
-  const RangesContextMenu = ({ keys }: ContextMenuMenuProps): ReactElement => {
+  const RangesContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement => {
     const handleClick = (key: string): void => {
       switch (key) {
         case "create":
@@ -76,7 +70,7 @@ export const RangesList = ({
       }
     };
     return (
-      <PMenu onChange={handleClick}>
+      <PMenu.Menu onChange={handleClick}>
         <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
           Edit Range
         </PMenu.Item>
@@ -86,9 +80,9 @@ export const RangesList = ({
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
           Create Range
         </PMenu.Item>
-        <Divider direction="x" padded />
+        <Divider.Divider direction="x" padded />
         <Menu.Item.HardReload />
-      </PMenu>
+      </PMenu.Menu>
     );
   };
 

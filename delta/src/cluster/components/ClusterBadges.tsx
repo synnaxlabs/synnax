@@ -11,8 +11,7 @@ import { ReactElement } from "react";
 
 import type { ConnectionState, ConnectionStatus } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import type { StatusVariant } from "@synnaxlabs/pluto";
-import { Text, Status, Client } from "@synnaxlabs/pluto";
+import { Text, Status, Synnax } from "@synnaxlabs/pluto";
 
 import { useSelectCluster } from "@/cluster/store";
 
@@ -21,7 +20,7 @@ export interface ConnectionStateBadgeProps {
   state: ConnectionState;
 }
 
-const statusVariants: Record<ConnectionStatus, StatusVariant> = {
+const statusVariants: Record<ConnectionStatus, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "info",
@@ -69,6 +68,6 @@ export const ClusterBadge = ({ key }: ClusterBadgeProps): ReactElement => {
  * cluster will be used.
  */
 export const ConnectionBadge = (): ReactElement => {
-  const state = Client.useConnectionState();
+  const state = Synnax.useConnectionState();
   return <ConnectionStateBadge state={state} />;
 };

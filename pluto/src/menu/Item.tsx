@@ -41,26 +41,26 @@ const menuItemFactory =
     );
   };
 
-export interface MenuItemProps extends Button.ButtonProps {
+export interface ItemProps extends Button.ButtonProps {
   itemKey: string;
 }
-export const CoreMenuItem = menuItemFactory(Button.Button, { noWrap: true });
+export const CoreItem = menuItemFactory(Button.Button, { noWrap: true });
 
-export interface MenuItemIconProps extends Button.IconProps {
+export interface ItemIconProps extends Button.IconProps {
   itemKey: string;
 }
-const MenuItemIcon = menuItemFactory(Button.Icon);
+const ItemIcon = menuItemFactory(Button.Icon);
 
-const MenuItemLink = menuItemFactory(Button.Link, { noWrap: true });
+const ItemLink = menuItemFactory(Button.Link, { noWrap: true });
 export interface MenuItemLinkProps extends Button.LinkProps {
   itemKey: string;
 }
 
-type CoreMenuItemType = typeof CoreMenuItem;
+type CoreItemType = typeof CoreItem;
 
-export interface MenuItemType extends CoreMenuItemType {
-  Icon: typeof MenuItemIcon;
-  Link: typeof MenuItemLink;
+export interface ItemType extends CoreItemType {
+  Icon: typeof ItemIcon;
+  Link: typeof ItemLink;
 }
 
 /**
@@ -71,6 +71,6 @@ export interface MenuItemType extends CoreMenuItemType {
  * @param props.itemKey - The key of the item. This is used to identify the item and
  * is passed to the onChange callback of the Menu.
  */
-export const MenuItem = CoreMenuItem as MenuItemType;
-MenuItem.Icon = MenuItemIcon;
-MenuItem.Link = MenuItemLink;
+export const Item = CoreItem as ItemType;
+Item.Icon = ItemIcon;
+Item.Link = ItemLink;

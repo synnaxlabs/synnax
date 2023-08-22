@@ -11,7 +11,7 @@ import { Box, Destructor, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { Color } from "@/color";
+import { color } from "@/color/core";
 import { telem } from "@/telem/core";
 import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
@@ -25,7 +25,7 @@ const valueState = z.object({
   telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
   units: z.string(),
   font: z.string().optional().default(""),
-  color: Color.Color.z,
+  color: color.Color.z,
   precision: z.number().optional().default(2),
   width: z.number().optional().default(100),
 });

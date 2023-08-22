@@ -18,14 +18,14 @@ import { Text } from "@/text";
 import { Theming } from "@/theming/main";
 import { Value } from "@/vis/value/aether/value";
 
-export const valueCoreProps = Value.z
+export const corePropsZ = Value.z
   .omit({ font: true })
   .partial({ color: true })
   .extend({ level: Text.levelZ });
 
-export type ValueCoreProps = z.input<typeof valueCoreProps>;
+export type CoreProps = z.input<typeof corePropsZ>;
 
-export const ValueCore = Aether.wrap<ValueCoreProps>(
+export const Core = Aether.wrap<CoreProps>(
   "ValueCore",
   ({ aetherKey, ...props }): ReactElement | null => {
     const theme = Theming.use();

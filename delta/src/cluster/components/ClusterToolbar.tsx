@@ -10,8 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
-import type { ListItemProps } from "@synnaxlabs/pluto";
+import { Align, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { connectClusterWindowLayout } from "@/cluster/components/ConnectCluster";
@@ -43,18 +42,18 @@ const Content = (): ReactElement => {
   };
 
   return (
-    <Space empty>
+    <Align.Space empty>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
-      <List<string, RenderableCluster> data={data}>
+      <List.List<string, RenderableCluster> data={data}>
         <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
         <List.Core.Virtual itemHeight={30}>
           {componentRenderProp(ListItem)}
         </List.Core.Virtual>
-      </List>
-    </Space>
+      </List.List>
+    </Align.Space>
   );
 };
 
@@ -63,8 +62,8 @@ const ListItem = ({
   selected,
   onSelect,
   style,
-}: ListItemProps<string, RenderableCluster>): ReactElement => (
-  <Space
+}: List.ItemProps<string, RenderableCluster>): ReactElement => (
+  <Align.Space
     direction="x"
     align="center"
     justify="spaceBetween"
@@ -75,8 +74,8 @@ const ListItem = ({
     )}
     style={style}
   >
-    <Text level="p">{name}</Text>
-  </Space>
+    <Text.Text level="p">{name}</Text.Text>
+  </Align.Space>
 );
 
 /** Configuration and content for the cluster nav drawer toolbar. */

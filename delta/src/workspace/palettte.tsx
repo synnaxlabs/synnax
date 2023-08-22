@@ -9,9 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { rangeWindowLayout } from "./components";
-
 import { Command } from "@/palette/Palette";
+import { rangeWindowLayout } from "@/workspace/components";
 
 export const defineRangeCommand: Command = {
   key: "define-range",

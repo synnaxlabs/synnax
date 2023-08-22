@@ -10,11 +10,10 @@
 import { ReactElement, memo, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
-import { Mosaic as PlutoMosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
+import { Mosaic, useDebouncedCallback } from "@synnaxlabs/pluto";
 import type { CrudeLocation } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { useLayoutPlacer } from "../hooks";
 import {
   useSelectMosaic,
   moveLayoutMosaicTab,
@@ -22,11 +21,12 @@ import {
   resizeLayoutMosaicTab,
   renameLayout,
   removeLayout,
-} from "../store";
+} from "@/layout/store";
+import { createVis } from "@/vis";
+
+import { useLayoutPlacer } from "../hooks";
 
 import { LayoutContent } from "./LayoutContent";
-
-import { createVis } from "@/vis";
 
 const emptyContent = <Logo.Watermark />;
 
@@ -80,7 +80,7 @@ export const LayoutMosaic = memo((): ReactElement => {
   );
 
   return (
-    <PlutoMosaic
+    <Mosaic.Mosaic
       root={mosaic}
       onDrop={handleDrop}
       onClose={handleClose}
@@ -92,7 +92,7 @@ export const LayoutMosaic = memo((): ReactElement => {
       size="medium"
     >
       {(tab) => <LayoutContent key={tab.tabKey} layoutKey={tab.tabKey} />}
-    </PlutoMosaic>
+    </Mosaic.Mosaic>
   );
 });
 LayoutMosaic.displayName = "LayoutMosaic";

@@ -92,11 +92,13 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
     },
     "./aether": {
       "import": "./dist/aether.js",
-      "require": "./dist/aether.cjs"
+      "require": "./dist/aether.cjs",
+      "types": "./dist/aetherIndex.d.ts"
     },
 
     "./dist/*": "./dist/*"

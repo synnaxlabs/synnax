@@ -15,16 +15,12 @@ import {
   setWindowFullscreen,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
-import {
-  Controls as PControls,
-  ControlVariant,
-  ControlsProps as PControlsProps,
-} from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useLayoutRemover } from "@/layout";
 
-export interface ControlsProps extends PControlsProps {}
+export interface ControlsProps extends OS.ControlsProps {}
 
 export const Controls = (props: ControlsProps): ReactElement | null => {
   const window = useSelectWindow();
@@ -32,7 +28,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   const remove = useLayoutRemover(window?.key ?? "");
   if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
-  const disabled: ControlVariant[] = [];
+  const disabled: OS.ControlsAction[] = [];
   if (maximizedDisabled) disabled.push("maximize");
   const handleMinimize = (): void => {
     dispatch(setWindowMinimized({ value: true }));
@@ -45,7 +41,7 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
   };
   if (window.fullscreen === true) return null;
   return (
-    <PControls
+    <OS.Controls
       disabled={disabled}
       focused={window.focus}
       onClose={remove}

@@ -11,11 +11,11 @@ import { OS } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 
-export type ControlVariant = "close" | "minimize" | "maximize";
+export type ControlsAction = "close" | "minimize" | "maximize";
 
-export interface OSControlsProps extends Align.SpaceProps {
+export interface InternalControlsProps extends Align.SpaceProps {
   forceOS?: OS;
-  disabled?: ControlVariant[];
+  disabled?: ControlsAction[];
   focused?: boolean;
   onMinimize?: () => void;
   onMaximize?: () => void;

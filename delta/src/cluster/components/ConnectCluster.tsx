@@ -17,10 +17,9 @@ import {
   Header,
   Input,
   Nav,
-  Space,
+  Align,
   componentRenderProp,
 } from "@synnaxlabs/pluto";
-import type { InputSwitchProps } from "@synnaxlabs/pluto";
 import { FieldValues, useForm } from "react-hook-form";
 import { AiFillApi } from "react-icons/ai";
 import { useDispatch } from "react-redux";
@@ -91,62 +90,67 @@ export const ConnectCluster = ({ onClose }: LayoutRendererProps): ReactElement =
   };
 
   return (
-    <Space grow className={CSS.B("connect-cluster")}>
-      <Header level="h4" divided>
+    <Align.Space grow className={CSS.B("connect-cluster")}>
+      <Header.Header level="h4" divided>
         <Header.Title startIcon={<AiFillApi />}>Connect a Cluster</Header.Title>
-      </Header>
-      <Space className="delta-form" grow>
+      </Header.Header>
+      <Align.Space className="delta-form" grow>
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
         <form onSubmit={handleSubmit} id="connect-cluster">
-          <Space>
-            <Input.ItemC
+          <Align.Space>
+            <Input.ItemControlled
               name="name"
               placeholder="My Synnax Cluster"
               control={c}
               autoFocus
             />
-            <Space direction="x">
-              <Input.ItemC name="host" placeholder="localhost" control={c} grow />
-              <Input.ItemC
+            <Align.Space direction="x">
+              <Input.ItemControlled
+                name="host"
+                placeholder="localhost"
+                control={c}
+                grow
+              />
+              <Input.ItemControlled
                 name="port"
                 type="number"
                 placeholder="9090"
                 control={c}
                 className={CSS.BE("input", "port")}
               />
-            </Space>
-            <Input.ItemC name="username" placeholder="Harry" control={c} />
-            <Space direction="x">
-              <Input.ItemC
+            </Align.Space>
+            <Input.ItemControlled name="username" placeholder="Harry" control={c} />
+            <Align.Space direction="x">
+              <Input.ItemControlled
                 name="password"
                 placeholder="Seldon"
                 type="password"
                 control={c}
                 className={CSS.BE("input", "password")}
               />
-              <Input.ItemC<boolean, boolean, InputSwitchProps>
+              <Input.ItemControlled<boolean, boolean, Input.SwitchProps>
                 name="secure"
                 control={c}
               >
                 {componentRenderProp(Input.Switch)}
-              </Input.ItemC>
-            </Space>
-          </Space>
+              </Input.ItemControlled>
+            </Align.Space>
+          </Align.Space>
         </form>
-      </Space>
+      </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start className={CSS.BE("footer", "start")}>
           {connState != null && <ConnectionStateBadge state={connState} />}
         </Nav.Bar.Start>
         <Nav.Bar.End className={CSS.BE("footer", "end")}>
-          <Button variant="text" onClick={handleTestConnection}>
+          <Button.Button variant="text" onClick={handleTestConnection}>
             Test Connection
-          </Button>
-          <Button type="submit" form="connect-cluster">
+          </Button.Button>
+          <Button.Button type="submit" form="connect-cluster">
             Done
-          </Button>
+          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Space>
+    </Align.Space>
   );
 };

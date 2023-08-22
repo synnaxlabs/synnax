@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { selectByKey, useMemoSelect } from "@/hooks";
+
 import {
   WorkspaceSliceState,
   WorkspaceStoreState,
   WORKSPACE_SLICE_NAME,
 } from "./slice";
 import type { Range } from "./types";
-
-import { selectByKey, useMemoSelect } from "@/hooks";
 
 /**
  * Selects the workspace state.

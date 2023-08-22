@@ -10,18 +10,18 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Accordion, Text } from "@synnaxlabs/pluto";
+import { Align, Accordion } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
+import { VisToolbar, createVis } from "@/vis";
 
 import { removeRange, setActiveRange, useSelectRange, useSelectRanges } from "../store";
 
 import { rangeWindowLayout } from "./DefineRange";
 import { RangesList } from "./RangesList";
 import { VisList } from "./VisList";
-
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { NavDrawerItem, setNavdrawerVisible, useLayoutPlacer } from "@/layout";
-import { VisToolbar, createVis } from "@/vis";
 
 const Content = (): ReactElement => {
   const newLayout = useLayoutPlacer();
@@ -50,11 +50,11 @@ const Content = (): ReactElement => {
   };
 
   return (
-    <Space empty style={{ height: "100%" }}>
+    <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Workspace />}>Workspace</ToolbarTitle>
       </ToolbarHeader>
-      <Accordion
+      <Accordion.Accordion
         data={[
           {
             key: "ranges",
@@ -89,7 +89,7 @@ const Content = (): ReactElement => {
           },
         ]}
       />
-    </Space>
+    </Align.Space>
   );
 };
 

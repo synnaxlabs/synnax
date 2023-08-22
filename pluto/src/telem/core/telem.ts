@@ -10,7 +10,7 @@
 import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Color } from "@/color";
+import { color } from "@/color/core";
 
 const transferrable = z.union([
   z.instanceof(ArrayBuffer),
@@ -113,7 +113,7 @@ export const colorSourceSpecZ = specZ.extend({
 export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
 
 export interface ColorSource extends Telem {
-  value: () => Promise<Color.Color>;
+  value: () => Promise<color.Color>;
   onChange: (f: () => void) => void;
 }
 

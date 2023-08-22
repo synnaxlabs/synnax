@@ -12,13 +12,13 @@ import { ReactElement } from "react";
 import { Icon } from "@synnaxlabs/media";
 
 import { Align } from "@/align";
-import { Button } from "@/button";
+import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
-import { OSControlsProps } from "@/os/Controls/types";
+import { InternalControlsProps } from "@/os/Controls/types";
 
 import "@/os/Controls/Windows.css";
 
-export const WindowsControls = ({
+export const Windows = ({
   disabled = [],
   onMinimize,
   onMaximize,
@@ -26,35 +26,31 @@ export const WindowsControls = ({
   // no-op on windows
   onFullscreen: _,
   ...props
-}: OSControlsProps): ReactElement => (
+}: InternalControlsProps): ReactElement => (
   <Align.Pack {...props}>
-    <WindowsControlButton onClick={onMinimize} disabled={disabled.includes("minimize")}>
+    <Button onClick={onMinimize} disabled={disabled.includes("minimize")}>
       <Icon.Subtract />
-    </WindowsControlButton>
-    <WindowsControlButton onClick={onMaximize} disabled={disabled.includes("maximize")}>
+    </Button>
+    <Button onClick={onMaximize} disabled={disabled.includes("maximize")}>
       <Icon.Box />
-    </WindowsControlButton>
-    <WindowsControlButton
+    </Button>
+    <Button
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
     >
       <Icon.Close />
-    </WindowsControlButton>
+    </Button>
   </Align.Pack>
 );
 
-interface WindowsControlButtonProps extends Button.IconProps {
-  disabled?: boolean;
-}
-
-const WindowsControlButton = ({
+const Button = ({
   disabled = false,
   className,
   ...props
-}: WindowsControlButtonProps): ReactElement | null =>
+}: CoreButton.IconProps): ReactElement | null =>
   !disabled ? (
-    <Button.Icon
+    <CoreButton.Icon
       className={CSS(CSS.B("windows-control"), className)}
       tabIndex={-1}
       {...props}

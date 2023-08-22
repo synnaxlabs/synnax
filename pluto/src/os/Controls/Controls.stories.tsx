@@ -9,17 +9,19 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Controls } from ".";
+import { OS } from "@/os";
 
-const story: Meta<typeof Controls> = {
+const story: Meta<typeof OS.Controls> = {
   title: "Core/OS/Controls",
-  component: Controls,
+  component: OS.Controls,
   argTypes: {},
 };
 
-export const MacOS: StoryFn<typeof Controls> = () => <Controls forceOS="MacOS" />;
+export const MacOS: StoryFn<typeof OS.Controls> = () => <OS.Controls forceOS="MacOS" />;
 
-export const Windows: StoryFn<typeof Controls> = () => <Controls forceOS="Windows" />;
+export const Windows: StoryFn<typeof OS.Controls> = () => (
+  <OS.Controls forceOS="Windows" />
+);
 
 // eslint-disable-next-line import/no-default-export
 export default story;

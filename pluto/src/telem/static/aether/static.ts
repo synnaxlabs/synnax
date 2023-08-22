@@ -19,9 +19,8 @@ import {
 import { z } from "zod";
 
 import { telem } from "@/telem/core";
-import { Factory } from "@/telem/core/factory";
 
-export class Factory implements Factory {
+export class Factory implements telem.Factory {
   type = "static";
 
   create(key: string, spec: telem.Spec): telem.Telem | null {

@@ -9,6 +9,7 @@
 
 import { memo, useEffect, useState } from "react";
 
+import { Logo } from "@synnaxlabs/media";
 import { Theming, Triggers } from "@synnaxlabs/pluto";
 import { URL, buildQueryString } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -19,8 +20,6 @@ import { setDocsLocation } from "@/docs/store";
 import { LayoutRenderer } from "@/layout";
 
 import "@/docs/components/DocsLayoutRenderer.css";
-
-import { Logo } from "@synnaxlabs/media";
 
 const DOCS_HOST = new URL({
   host: "docs.synnaxlabs.com",

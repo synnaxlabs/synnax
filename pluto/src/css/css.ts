@@ -16,11 +16,11 @@ import {
   CrudePosition,
 } from "@synnaxlabs/x";
 
-import { CSSGridBuilder } from "./grid";
-
 import { BEM, newBEM } from "@/css/bem";
 import { applyCSSVars } from "@/css/vars";
 import { ComponentSize } from "@/util/component";
+
+import { CSSGridBuilder } from "./grid";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;

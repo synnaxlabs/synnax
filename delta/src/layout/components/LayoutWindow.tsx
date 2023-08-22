@@ -9,26 +9,23 @@
 
 import { ReactElement, useEffect } from "react";
 
-import {
-  useSelectWindowAttribute,
-  useSelectWindowKey,
-} from "@synnaxlabs/drift/react";
-  import {setWindowDecorations} from "@synnaxlabs/drift";
+import { setWindowDecorations } from "@synnaxlabs/drift";
+import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, Space, useOS, CSS as PCSS, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Nav, OS, Align, Menu as PMenu } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
-
-import { LayoutContent } from "./LayoutContent";
 
 import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { useSelectLayout } from "@/layout/store";
 
+import { LayoutContent } from "./LayoutContent";
+
 import "@/layout/components/LayoutWindow.css";
 
 export const NavTop = (): ReactElement => {
-  const os = useOS();
+  const os = OS.use();
   return (
     <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
       <Nav.Bar.Start className="delta-main-nav-top__start">
@@ -36,23 +33,23 @@ export const NavTop = (): ReactElement => {
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
       <Nav.Bar.End>
-        <Controls className="delta-controls--windows" visibleIfOS="Windows" />
+        <OS.Controls className="delta-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>
   );
 };
 
 export const DefaultContextMenu = (): ReactElement => (
-  <PMenu>
+  <PMenu.Menu>
     <Menu.Item.HardReload />
-  </PMenu>
+  </PMenu.Menu>
 );
 
 export const LayoutWindow = (): ReactElement | null => {
   const { label } = appWindow;
   const win = useSelectWindowKey(label);
   const layout = useSelectLayout(win ?? "");
-  const os = useOS();
+  const os = OS.use();
   const dispatch = useDispatch();
   useEffect(() => {
     if (os === "Windows") {
@@ -65,7 +62,7 @@ export const LayoutWindow = (): ReactElement | null => {
   const content = <LayoutContent layoutKey={layout.key} />;
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
-      <Space
+      <Align.Space
         empty
         className={CSS(
           CSS.B("main"),
@@ -77,7 +74,7 @@ export const LayoutWindow = (): ReactElement | null => {
         {content}
         <div className="delta-background" />
         <div className="delta-border" />
-      </Space>
+      </Align.Space>
     </PMenu.ContextMenu>
   );
 };

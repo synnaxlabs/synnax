@@ -12,21 +12,15 @@ import { ReactElement } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import type {
-  InputDateProps,
-  InputTimeProps,
-  InputControl,
-  ButtonProps,
-} from "@synnaxlabs/pluto";
-import { Button, Header, Input, Nav, Space, Pack } from "@synnaxlabs/pluto";
+import { Align, Button, Header, Input, Nav } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
+import { LayoutRendererProps, LayoutState } from "@/layout";
+
 import { useSelectRange } from "../store";
 import { addRange } from "../store/slice";
-
-import { LayoutRendererProps, LayoutState } from "@/layout";
 
 const formSchema = z.object({
   name: z.string(),
@@ -100,10 +94,10 @@ export const DefineRange = ({
   };
 
   return (
-    <Space grow>
-      <Header level="h4" divided>
+    <Align.Space grow>
+      <Header.Header level="h4" divided>
         <Header.Title startIcon={<Icon.Range />}>Define a Range</Header.Title>
-      </Header>
+      </Header.Header>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -112,57 +106,57 @@ export const DefineRange = ({
         style={{ flexGrow: 1 }}
         id="define-range"
       >
-        <Space grow className="delta-form">
-          <Input.ItemC control={control} name="name" autoFocus />
-          <Space direction="x" size="small">
-            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
+        <Align.Space grow className="delta-form">
+          <Input.ItemControlled control={control} name="name" autoFocus />
+          <Align.Space direction="x" size="small">
+            <Input.ItemControlled<number, number, Input.DateProps, DefineRangeFormProps>
               name="startDate"
               control={control}
               grow
             >
               {Input.Date}
-            </Input.ItemC>
-            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
+            </Input.ItemControlled>
+            <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
               name="startTime"
               control={control}
               grow
             >
               {Input.Time}
               {(props) => <TimeModifierRow {...props} />}
-            </Input.ItemC>
-          </Space>
+            </Input.ItemControlled>
+          </Align.Space>
 
-          <Space direction="x" size="small">
-            <Input.ItemC<number, number, InputDateProps, DefineRangeFormProps>
+          <Align.Space direction="x" size="small">
+            <Input.ItemControlled<number, number, Input.DateProps, DefineRangeFormProps>
               name="endDate"
               control={control}
               grow
             >
               {Input.Date}
-            </Input.ItemC>
-            <Input.ItemC<number, number, InputTimeProps, DefineRangeFormProps>
+            </Input.ItemControlled>
+            <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
               name="endTime"
               control={control}
               grow
             >
               {Input.Time}
               {(props) => <TimeModifierRow op="add" {...props} />}
-            </Input.ItemC>
-          </Space>
-        </Space>
+            </Input.ItemControlled>
+          </Align.Space>
+        </Align.Space>
       </form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
-          <Button type="submit" form="define-range">
+          <Button.Button type="submit" form="define-range">
             Save
-          </Button>
+          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
-    </Space>
+    </Align.Space>
   );
 };
 
-interface TimeModifierRowProps extends InputControl<number> {
+interface TimeModifierRowProps extends Input.Control<number> {
   op?: "add" | "subtract";
 }
 
@@ -172,7 +166,7 @@ const TimeModifierRow = ({
   onChange,
 }: TimeModifierRowProps): ReactElement => {
   const onClickFactory =
-    (span?: TimeSpan): ButtonProps["onChange"] =>
+    (span?: TimeSpan): Button.ButtonProps["onChange"] =>
     (e) => {
       e.preventDefault();
       if (span == null) return onChange(TimeStamp.now().valueOf());
@@ -181,8 +175,8 @@ const TimeModifierRow = ({
     };
   const icon = op === "add" ? <Icon.Add /> : <Icon.Subtract />;
   return (
-    <Pack direction="x" size="medium" grow>
-      <Button
+    <Align.Pack direction="x" size="medium" grow>
+      <Button.Button
         variant="outlined"
         onClick={onClickFactory(TimeSpan.hours(1))}
         startIcon={icon}
@@ -190,8 +184,8 @@ const TimeModifierRow = ({
         grow
       >
         Hour
-      </Button>
-      <Button
+      </Button.Button>
+      <Button.Button
         variant="outlined"
         onClick={onClickFactory(TimeSpan.minutes(15))}
         startIcon={icon}
@@ -199,8 +193,8 @@ const TimeModifierRow = ({
         grow
       >
         15 Minutes
-      </Button>
-      <Button
+      </Button.Button>
+      <Button.Button
         variant="outlined"
         onClick={onClickFactory(TimeSpan.minutes(1))}
         startIcon={icon}
@@ -208,10 +202,15 @@ const TimeModifierRow = ({
         grow
       >
         Minute
-      </Button>
-      <Button variant="outlined" onClick={onClickFactory()} justify="center" grow>
+      </Button.Button>
+      <Button.Button
+        variant="outlined"
+        onClick={onClickFactory()}
+        justify="center"
+        grow
+      >
         Now
-      </Button>
-    </Pack>
+      </Button.Button>
+    </Align.Pack>
   );
 };

@@ -9,8 +9,7 @@
 
 import { AiFillApi } from "react-icons/ai";
 
-import { connectClusterWindowLayout } from "./components";
-
+import { connectClusterWindowLayout } from "@/cluster/components";
 import { Command } from "@/palette/Palette";
 
 export const connectClusterCommand: Command = {

@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { OSControlsProps } from "@/os/Controls/types";
+import { InternalControlsProps } from "@/os/Controls/types";
 import { ComponentSize } from "@/util/component";
 
 import "@/os/Controls/Mac.css";
@@ -84,7 +84,7 @@ export const MacOS = ({
   onFullscreen,
   onClose,
   ...props
-}: OSControlsProps): ReactElement => (
+}: InternalControlsProps): ReactElement => (
   <Align.Space
     size={1.5}
     direction="x"
@@ -119,12 +119,9 @@ export const MacOS = ({
   </Align.Space>
 );
 
-interface MacOSTrafficLightProps extends Button.IconProps {}
+interface TrafficLightProps extends Button.IconProps {}
 
-const TrafficLight = ({
-  className,
-  ...props
-}: MacOSTrafficLightProps): ReactElement => (
+const TrafficLight = ({ className, ...props }: TrafficLightProps): ReactElement => (
   <button
     className={CSS(CSS.B("macos-control"), className)}
     tabIndex={-1}

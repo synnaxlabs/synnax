@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Accordion } from "@/accordion";
 
 const story: Meta<typeof Accordion.Accordion> = {
-  title: "Core/Standard/Accordion",
+  title: "Accordion",
   component: Accordion.Accordion,
 };
 

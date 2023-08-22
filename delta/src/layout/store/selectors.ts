@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DriftStoreState, selectWindow } from "@synnaxlabs/drift";
-import type { Hauled, MosaicNode, Theme } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
+
+import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
+import { LayoutState } from "@/layout/types";
 
 import {
   LayoutSliceState,
@@ -17,9 +20,6 @@ import {
   NavdrawerEntryState,
   NavdrawerLocation,
 } from "./slice";
-
-import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
-import { LayoutState } from "@/layout/types";
 
 /**
  * Selects the layout state.
@@ -67,7 +67,7 @@ export const useSelectRequiredLayout = (key: string): LayoutState => {
 export const selectMosaic = (
   state: LayoutStoreState & DriftStoreState,
   windowKey?: string
-): [string, MosaicNode] => {
+): [string, Mosaic.Node] => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
   return [win.key, selectLayoutState(state).mosaics[win.key].root];
@@ -78,7 +78,7 @@ export const selectMosaic = (
  *
  * @returns The central layout mosaic.
  */
-export const useSelectMosaic = (): [string, MosaicNode] =>
+export const useSelectMosaic = (): [string, Mosaic.Node] =>
   useMemoSelect(selectMosaic, []);
 
 /**
@@ -98,15 +98,22 @@ export const selectActiveThemeKey = (state: LayoutStoreState): string =>
 export const selectTheme = (
   state: LayoutStoreState,
   key?: string
-): Theme | null | undefined =>
-  selectByKey(selectLayoutState(state).themes, key, selectActiveThemeKey(state));
+): Theming.Theme | null | undefined => {
+  const t = selectByKey(
+    selectLayoutState(state).themes,
+    key,
+    selectActiveThemeKey(state)
+  );
+  if (t == null) return t;
+  return Theming.themeZ.parse(t);
+};
 
 /**
  * Selects the current theme from the store.
  *
  * @returns  The current theme.
  */
-export const useSelectTheme = (key?: string): Theme | null | undefined =>
+export const useSelectTheme = (key?: string): Theming.Theme | null | undefined =>
   useMemoSelect((state: LayoutStoreState) => selectTheme(state, key), [key]);
 
 /**
@@ -167,7 +174,7 @@ export const useSelectActiveMosaicLayout = (): LayoutState | undefined => {
   return useMemoSelect(selectActiveMosaicLayout, []);
 };
 
-export const selectHauling = (state: LayoutStoreState): Hauled[] =>
+export const selectHauling = (state: LayoutStoreState): Haul.Item[] =>
   selectLayoutState(state).hauling;
 
-export const useSelectHauling = (): Hauled[] => useMemoSelect(selectHauling, []);
+export const useSelectHauling = (): Haul.Item[] => useMemoSelect(selectHauling, []);

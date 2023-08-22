@@ -13,14 +13,12 @@ import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  NavDrawerItem as PNavDrawerItem,
-  ThemeProviderProps,
-  useDebouncedCallback,
-  Theme,
-  useOS,
+  AsyncDestructor,
+  Nav,
+  OS,
   Theming,
   useAsyncEffect,
-  AsyncDestructor,
+  useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
@@ -71,7 +69,7 @@ export type LayoutRemover = () => void;
  */
 export const useLayoutPlacer = (): LayoutPlacer => {
   const dispatch = useDispatch();
-  const os = useOS();
+  const os = OS.use();
   const windowKey = useSelectWindowKey();
   return useCallback(
     (base) => {
@@ -118,7 +116,7 @@ export const useLayoutRemover = (key: string): LayoutRemover => {
  *
  * @returns The props to pass to a ThemeProvider from @synnaxlabs/pluto.
  */
-export const useThemeProvider = (): ThemeProviderProps => {
+export const useThemeProvider = (): Theming.ProviderProps => {
   const theme = useSelectTheme();
   const dispatch = useDispatch();
 
@@ -130,20 +128,20 @@ export const useThemeProvider = (): ThemeProviderProps => {
   }, []);
 
   return {
-    theme: Theming.schema.parse(theme),
+    theme: Theming.themeZ.parse(theme),
     setTheme: (key: string) => dispatch(setActiveTheme(key)),
     toggleTheme: () => dispatch(toggleActiveTheme()),
   };
 };
 
-export const useErrorThemeProvider = (): ThemeProviderProps => {
-  const [theme, setTheme] = useState<Theme | null>(Theming.themes.synnaxLight);
+export const useErrorThemeProvider = (): Theming.ProviderProps => {
+  const [theme, setTheme] = useState<Theming.Theme | null>(Theming.themes.synnaxLight);
   useAsyncEffect(async () => {
     const theme = matchThemeChange({ payload: await appWindow.theme() });
     setTheme(Theming.themes[theme]);
   }, []);
   return {
-    theme: Theming.schema.parse(theme),
+    theme: Theming.themeZ.parse(theme),
     setTheme: (key: string) =>
       setTheme(Theming.themes[key as keyof typeof Theming.themes]),
     toggleTheme: () =>
@@ -178,7 +176,7 @@ export interface NavMenuItem {
   tooltip: string;
 }
 
-export interface NavDrawerItem extends PNavDrawerItem, NavMenuItem {}
+export interface NavDrawerItem extends Nav.DrawerItem, NavMenuItem {}
 
 export interface UseNavDrawerReturn {
   activeItem: NavDrawerItem | undefined;

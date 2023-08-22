@@ -10,8 +10,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Mosaic, Theming } from "@synnaxlabs/pluto";
-import type { Hauled, MosaicNode, Theme } from "@synnaxlabs/pluto";
+import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
 import { CrudeLocation, DeepKey } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -24,13 +23,13 @@ export interface LayoutSliceState {
   /**
    * A record of theme keys to themes. The active theme is guaranteed to be present
    * in this record. */
-  themes: Record<string, Theme>;
+  themes: Record<string, Theming.ThemeSpec>;
   /**
    * A record of layout keys to layouts. These represent the properties of all layouts
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, LayoutState>;
-  hauling: Hauled[];
+  hauling: Haul.Item[];
   mosaics: Record<string, MosaicState>;
   nav: NavState;
   alreadyCheckedGetStarted: boolean;
@@ -38,7 +37,7 @@ export interface LayoutSliceState {
 
 export interface MosaicState {
   activeTab: string | null;
-  root: MosaicNode;
+  root: Mosaic.Node;
 }
 
 export interface NavState {
@@ -157,7 +156,7 @@ interface ResizeNavdrawerPayload {
   size: number;
 }
 interface SetHaulingPayload {
-  hauling: Hauled[];
+  hauling: Haul.Item[];
 }
 
 interface SetNavdrawerVisiblePayload {

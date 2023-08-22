@@ -9,23 +9,14 @@
 
 import { ReactElement } from "react";
 
-import {
-  InputItemProps,
-  Select,
-  SelectMultipleProps,
-  SelectProps,
-  Input,
-  Space,
-  Status,
-  Button,
-} from "@synnaxlabs/pluto";
+import { Input, Status, Button } from "@synnaxlabs/pluto";
+
+import { useLayoutPlacer } from "@/layout";
 
 import { Range } from "../store";
 
 import { rangeWindowLayout } from "./DefineRange";
 import { rangeListColumns } from "./RangesList";
-
-import { useLayoutPlacer } from "@/layout";
 
 export interface SelectMultipleRangesProps
   extends Omit<SelectMultipleProps<string, Range>, "columns"> {}

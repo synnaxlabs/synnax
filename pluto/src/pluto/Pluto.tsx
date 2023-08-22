@@ -21,9 +21,13 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { Worker } from "@/worker";
 
+// @ts-expect-error
+// eslint-disable-next-line import/no-unresolved
+import DefaultWorkerURL from "@/pluto/defaultWorker.ts&url";
+
 import "@synnaxlabs/media/dist/style.css";
 
-export interface PlutoProps
+export interface ProviderProps
   extends PropsWithChildren,
     Partial<Theming.ProviderProps>,
     Synnax.ProviderProps {
@@ -35,7 +39,7 @@ export interface PlutoProps
   haul?: Haul.ProviderProps;
 }
 
-export const Pluto = ({
+export const Provider = ({
   children,
   connParams,
   workerEnabled = true,
@@ -47,13 +51,16 @@ export const Pluto = ({
   instrumentation,
   triggers,
   haul,
-}: PlutoProps): ReactElement => {
+}: ProviderProps): ReactElement => {
   return (
     <Alamos.Provider instrumentation={instrumentation}>
       <Triggers.Provider {...triggers}>
         <Tooltip.Config {...tooltip}>
           <Haul.Provider {...haul}>
-            <Worker.Provider url={workerURL ?? new URL("")} enabled={workerEnabled}>
+            <Worker.Provider
+              url={workerURL ?? DefaultWorkerURL}
+              enabled={workerEnabled}
+            >
               <Aether.Provider workerKey="vis">
                 <Synnax.Provider connParams={connParams}>
                   <Theming.Provider

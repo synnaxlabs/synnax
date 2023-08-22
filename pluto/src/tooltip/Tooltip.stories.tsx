@@ -12,54 +12,53 @@ import { ReactElement } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 import { XYLocation } from "@synnaxlabs/x";
 
-import { Button } from "../button";
-import { Space } from "../align";
-
+import { Align } from "@/align";
+import { Button } from "@/button";
 import { Tooltip } from "@/tooltip";
 
-const story: Meta<typeof Tooltip> = {
-  title: "Core/Standard/Tooltip",
-  component: Tooltip,
+const story: Meta<typeof Tooltip.Dialog> = {
+  title: "Core/Standard/Tooltip.Dialog",
+  component: Tooltip.Dialog,
 };
 
 const Template = (): ReactElement => (
-  <Space.Centered style={{ width: "100%", height: "100%" }}>
-    <Tooltip location={XYLocation.TOP_RIGHT.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.TOP_LEFT.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.BOTTOM_RIGHT.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.BOTTOM_LEFT.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.BOTTOM_CENTER.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.LEFT_CENTER.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.RIGHT_CENTER.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-    <Tooltip location={XYLocation.TOP_CENTER.crude}>
-      <p>Tooltip Conjent</p>
-      <Button>Button</Button>
-    </Tooltip>
-  </Space.Centered>
+  <Align.Center style={{ width: "100%", height: "100%" }}>
+    <Tooltip.Dialog location={XYLocation.TOP_RIGHT.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.TOP_LEFT.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.BOTTOM_RIGHT.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.BOTTOM_LEFT.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.BOTTOM_CENTER.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.LEFT_CENTER.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.RIGHT_CENTER.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+    <Tooltip.Dialog location={XYLocation.TOP_CENTER.crude}>
+      <p>Tooltip.Dialog Conjent</p>
+      <Button.Button>Button</Button.Button>
+    </Tooltip.Dialog>
+  </Align.Center>
 );
 
-export const Primary: StoryFn<typeof Tooltip> = Template.bind({});
+export const Primary: StoryFn<typeof Tooltip.Dialog> = Template.bind({});
 
 // eslint-disable-next-line import/no-default-export
 export default story;

@@ -13,6 +13,7 @@ import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
 import { control } from "@/telem/control/aether";
 import { provider } from "@/telem/provider/aether";
+import { theming } from "@/theming/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -41,6 +42,7 @@ export const render = (): void => {
     ...tooltip.REGISTRY,
     ...measure.REGISTRY,
     ...control.REGISTRY,
+    ...theming.REGISTRY,
   };
 
   aether.render({

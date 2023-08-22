@@ -1,3 +1,3 @@
-import { pluto } from "@synnaxlabs/pluto/worker";
+import { pluto } from "@synnaxlabs/pluto/aether";
 
-pluto();
+pluto.render();

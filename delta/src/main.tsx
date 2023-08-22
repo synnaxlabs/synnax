@@ -10,13 +10,7 @@
 import { ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import {
-  Pluto,
-  Trigger,
-  TriggersProviderProps,
-  Hauled,
-  PureUseState,
-} from "@synnaxlabs/pluto";
+import { Pluto, Haul, Triggers } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -58,13 +52,13 @@ const layoutRenderers = {
   mosaic: LayoutMosaic,
 };
 
-const PREVENT_DEFAULT_TRIGGERS: Trigger[] = [
+const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
 ];
 
-const triggersProps: TriggersProviderProps = {
+const triggersProps: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
 };
 
@@ -77,7 +71,7 @@ const MainUnderContext = (): ReactElement => {
     const hauled = useSelectHauling();
     const dispatch = useDispatch();
     const onHauledChange = useCallback(
-      (hauled: Hauled[]) => {
+      (hauled: Haul.Item[]) => {
         dispatch(setHauled({ hauling: hauled }));
       },
       [dispatch]
@@ -86,7 +80,7 @@ const MainUnderContext = (): ReactElement => {
   };
 
   return (
-    <Pluto
+    <Pluto.Provider
       {...theme}
       workerEnabled
       connParams={cluster?.props}
@@ -97,7 +91,7 @@ const MainUnderContext = (): ReactElement => {
       <VisCanvas>
         <LayoutWindow />
       </VisCanvas>
-    </Pluto>
+    </Pluto.Provider>
   );
 };
 

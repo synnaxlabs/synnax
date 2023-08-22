@@ -18,12 +18,12 @@ import { useResize } from "@/hooks";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";
 import { UseTypographyReturn } from "@/theming/main/font";
-import { ValueCore, ValueCoreProps } from "@/vis/value/Core";
+import { Core, CoreProps } from "@/vis/value/Core";
 
 import "@/vis/value/Labeled.css";
 
 export interface ValueLabeledProps
-  extends Omit<ValueCoreProps, "box">,
+  extends Omit<CoreProps, "box">,
     Omit<Align.SpaceProps, "color" | "onChange"> {
   position?: XY;
   zoom?: number;
@@ -78,7 +78,7 @@ export const ValueLabeled = ({
         }}
       >
         {children}
-        <ValueCore color={textColor} level={level} {...props} box={adjustedBox} />
+        <Core color={textColor} level={level} {...props} box={adjustedBox} />
       </div>
     </Align.Space>
   );

@@ -11,21 +11,21 @@ import { ReactElement } from "react";
 
 import { OS } from "@synnaxlabs/x";
 
-import { useOS } from "@/hooks";
 import { MacOS } from "@/os/Controls/Mac";
-import { OSControlsProps } from "@/os/Controls/types";
-import { WindowsControls } from "@/os/Controls/Windows";
+import { InternalControlsProps } from "@/os/Controls/types";
+import { Windows } from "@/os/Controls/Windows";
+import { use } from "@/os/use";
 
-const Variants: Record<OS, React.FC<OSControlsProps>> = {
+const Variants: Record<OS, React.FC<InternalControlsProps>> = {
   MacOS,
-  Windows: WindowsControls,
-  Linux: WindowsControls,
-  Docker: WindowsControls,
+  Windows,
+  Linux: Windows,
+  Docker: Windows,
 };
 
 const DEFAULT_OS = "Windows";
 
-export interface ControlsProps extends OSControlsProps {
+export interface ControlsProps extends InternalControlsProps {
   visibleIfOS?: OS;
 }
 
@@ -34,7 +34,7 @@ export const Controls = ({
   visibleIfOS,
   ...props
 }: ControlsProps): ReactElement | null => {
-  const os = useOS({ force: forceOS, default: DEFAULT_OS }) as OS;
+  const os = use({ force: forceOS, default: DEFAULT_OS }) as OS;
   const C = Variants[os];
   if (visibleIfOS != null && visibleIfOS !== os) return null;
   return <C {...props} />;
