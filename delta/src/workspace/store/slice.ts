@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { Range } from "./types";
+import { Range } from "@/workspace/store/types";
 
 export interface WorkspaceSliceState {
   activeRange: string | null;

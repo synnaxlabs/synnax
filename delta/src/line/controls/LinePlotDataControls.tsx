@@ -10,7 +10,7 @@
 import { ReactElement, useCallback } from "react";
 
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { Space } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelectLinePlot } from "@/line/store/selectors";
@@ -67,7 +67,7 @@ export const LinePlotDataControls = ({
   };
 
   return (
-    <Space style={{ padding: "2rem", width: "100%" }}>
+    <Align.Space style={{ padding: "2rem", width: "100%" }}>
       <SelectMultipleAxesInputItem
         axis={"y1"}
         onChange={handleYChannelSelect}
@@ -82,7 +82,7 @@ export const LinePlotDataControls = ({
         location="top"
         grow
       />
-      <Space direction="x" grow wrap>
+      <Align.Space direction="x" grow wrap>
         <SelectMultipleRangesInputItem
           data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}
@@ -97,7 +97,7 @@ export const LinePlotDataControls = ({
           location="top"
           grow
         />
-      </Space>
-    </Space>
+      </Align.Space>
+    </Align.Space>
   );
 };

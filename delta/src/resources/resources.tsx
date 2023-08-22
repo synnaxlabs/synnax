@@ -15,7 +15,7 @@ import type {
   OntologyResourceType,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Hauled } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/pluto";
 
 import { LayoutPlacer, selectActiveMosaicLayout } from "@/layout";
 import {
@@ -37,9 +37,9 @@ export interface ResourceType {
   icon: ReactElement;
   hasChildren: boolean;
   onSelect: (ctx: ResourceSelectionContext) => void;
-  acceptsDrop: (hauled: Hauled[]) => boolean;
-  onDrop: (ctx: ResourceSelectionContext, hauled: Hauled[]) => void;
-  contextMenu: (ctx: ResourceSelectionContext, hauled: Hauled[]) => ReactElement;
+  acceptsDrop: (hauled: Haul.Item[]) => boolean;
+  onDrop: (ctx: ResourceSelectionContext, hauled: Haul.Item[]) => void;
+  contextMenu: (ctx: ResourceSelectionContext, hauled: Haul.Item[]) => ReactElement;
 }
 
 export const resourceTypes: Record<string, ResourceType> = {

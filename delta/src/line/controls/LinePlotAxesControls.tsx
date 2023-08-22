@@ -9,13 +9,13 @@
 
 import { ReactElement } from "react";
 
-import { Input, InputControl, Select, Space } from "@synnaxlabs/pluto";
+import { Input, Select, Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { AxisKey } from "@/vis";
 
 import { useSelectLinePlot } from "../store/selectors";
 import { AxisState, setLinePlotAxis, shouldDisplayAxis } from "../store/slice";
-
-import { AxisKey } from "@/vis";
 
 export interface LinePlotAxesControlsProps {
   layoutKey: string;
@@ -32,7 +32,7 @@ export const LinePlotAxesControls = ({
   };
 
   return (
-    <Space style={{ padding: "2rem", width: "100%" }}>
+    <Align.Space style={{ padding: "2rem", width: "100%" }}>
       {Object.entries(vis.axes)
         .filter(([key]) => shouldDisplayAxis(key as AxisKey, vis))
         .map(([key, axis]) => (
@@ -43,7 +43,7 @@ export const LinePlotAxesControls = ({
             onChange={handleAxisChange(key as AxisKey)}
           />
         ))}
-    </Space>
+    </Align.Space>
   );
 };
 
@@ -58,25 +58,25 @@ export const LinePlotAxisControls = ({
   axis,
   onChange,
 }: LinePlotAxisControlsProps): ReactElement => {
-  const handleLabelChange: InputControl<string>["onChange"] = (value: string) => {
+  const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
     onChange({ ...axis, label: value });
   };
 
-  const handleLowerBoundChange: InputControl<number>["onChange"] = (value: number) => {
+  const handleLowerBoundChange: Input.Control<number>["onChange"] = (value: number) => {
     onChange({ ...axis, bounds: { ...axis.bounds, lower: value } });
   };
 
-  const handleUpperBoundChange: InputControl<number>["onChange"] = (value: number) => {
+  const handleUpperBoundChange: Input.Control<number>["onChange"] = (value: number) => {
     onChange({ ...axis, bounds: { ...axis.bounds, upper: value } });
   };
 
-  const handleLabelDirectionChange: InputControl<"x" | "y">["onChange"] = (value) => {
+  const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) => {
     onChange({ ...axis, labelDirection: value });
   };
 
   return (
-    <Space direction="x">
-      <Input
+    <Align.Space direction="x">
+      <Input.Text
         value={axis.label}
         placeholder={axisKey.toUpperCase()}
         onChange={handleLabelChange}
@@ -97,7 +97,7 @@ export const LinePlotAxisControls = ({
         value={axis.labelDirection}
         onChange={handleLabelDirectionChange}
       />
-    </Space>
+    </Align.Space>
   );
 };
 

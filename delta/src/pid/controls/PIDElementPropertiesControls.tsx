@@ -9,14 +9,14 @@
 
 import { ReactElement } from "react";
 
-import { Status, Space, ColorSwatch, Color, Input } from "@synnaxlabs/pluto";
+import { Status, Color, Input, Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
-
-import { PIDElementInfo, useSelectSelectedPIDElementsProps } from "../store/selectors";
-import { setPIDElementProps } from "../store/slice";
 
 import { CSS } from "@/css";
 import { ELEMENTS } from "@/pid/elements";
+
+import { PIDElementInfo, useSelectSelectedPIDElementsProps } from "../store/selectors";
+import { setPIDElementProps } from "../store/slice";
 
 import "@/pid/controls/PIDElementPropertiesControls.css";
 
@@ -46,20 +46,20 @@ export const PIDElementPropertiesControls = ({
   if (elements.length > 1) {
     const groups: Record<string, PIDElementInfo[]> = {};
     elements.forEach((e) => {
-      let color: Color | null = null;
-      if (e.type === "edge") color = new Color(e.edge.color ?? Color.ZERO);
-      else if ("color" in e.props) color = new Color(e.props.color);
+      let color: Color.Color | null = null;
+      if (e.type === "edge") color = new Color.Color(e.edge.color ?? Color.ZERO);
+      else if ("color" in e.props) color = new Color.Color(e.props.color);
       if (color === null) return;
       const hex = color.hex;
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(e);
     });
     return (
-      <Space className={CSS.B("pid-properties")} size="small">
+      <Align.Space className={CSS.B("pid-properties")} size="small">
         <Input.Label>Selection Colors</Input.Label>
         {Object.entries(groups).map(([hex, elements]) => {
           return (
-            <ColorSwatch
+            <Color.Swatch
               key={elements[0].key}
               value={hex}
               onChange={(color) => {
@@ -70,7 +70,7 @@ export const PIDElementPropertiesControls = ({
             />
           );
         })}
-      </Space>
+      </Align.Space>
     );
   }
 
@@ -78,7 +78,7 @@ export const PIDElementPropertiesControls = ({
 
   if (selected.type === "edge") {
     return (
-      <ColorSwatch
+      <Color.Swatch
         value={selected.edge.color ?? Color.ZERO}
         onChange={(color) => {
           handleChange(selected.key, { color: color.hex });
@@ -90,11 +90,11 @@ export const PIDElementPropertiesControls = ({
   const C = ELEMENTS[selected.props.type];
 
   return (
-    <Space className={CSS.B("pid-properties")} size="small">
+    <Align.Space className={CSS.B("pid-properties")} size="small">
       <C.Form
         value={selected.props}
         onChange={(props) => handleChange(selected.key, props)}
       />
-    </Space>
+    </Align.Space>
   );
 };

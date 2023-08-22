@@ -10,24 +10,16 @@
 import { ReactElement, useCallback } from "react";
 
 import { ChannelKey } from "@synnaxlabs/client";
-import {
-  Input,
-  InputItemProps,
-  ChannelSelect,
-  ChannelSelectMultiple,
-  ChannelSelectMultipleProps,
-  ChannelSelectProps,
-  componentRenderProp,
-} from "@synnaxlabs/pluto";
+import { Input, Channel, componentRenderProp } from "@synnaxlabs/pluto";
 
 import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<
-    InputItemProps<
+    Input.ItemProps<
       readonly ChannelKey[],
       readonly ChannelKey[],
-      ChannelSelectMultipleProps
+      Channel.SelectMultipleProps
     >,
     "onChange" | "label" | "data"
   > {
@@ -40,20 +32,20 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], ChannelSelectMultipleProps>
+  <Input.Item<readonly ChannelKey[], readonly ChannelKey[], Channel.SelectMultipleProps>
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
     tagKey="name"
     {...props}
   >
-    {componentRenderProp(ChannelSelectMultiple)}
+    {componentRenderProp(Channel.SelectMultiple)}
   </Input.Item>
 );
 
 export interface SelectAxisInputItemProps
   extends Omit<
-    InputItemProps<ChannelKey, ChannelKey, ChannelSelectProps>,
+    Input.ItemProps<ChannelKey, ChannelKey, Channel.SelectSingleProps>,
     "onChange" | "label" | "data"
   > {
   axis: AxisKey;
@@ -65,13 +57,13 @@ export const SelectAxisInputItem = ({
   onChange,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item<ChannelKey, ChannelKey, ChannelSelectProps>
+  <Input.Item<ChannelKey, ChannelKey, Channel.SelectSingleProps>
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
     tagKey="name"
     {...props}
   >
-    {componentRenderProp(ChannelSelect)}
+    {componentRenderProp(Channel.SelectSingle)}
   </Input.Item>
 );

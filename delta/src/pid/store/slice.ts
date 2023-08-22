@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PIDEdge, PIDNode, PIDViewport } from "@synnaxlabs/pluto";
+import { PID } from "@synnaxlabs/pluto";
 import { Deep, XY } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -20,9 +20,9 @@ export type PIDNodeProps = object & {
 
 export interface PIDState {
   editable: boolean;
-  viewport: PIDViewport;
-  nodes: PIDNode[];
-  edges: PIDEdge[];
+  viewport: PID.Viewport;
+  nodes: PID.Node[];
+  edges: PID.Edge[];
   props: Record<string, object>;
 }
 
@@ -61,7 +61,7 @@ export const ZERO_PID_SLICE_STATE: PIDSliceState = {
 
 export interface SetPIDViewportPayload {
   layoutKey: string;
-  viewport: PIDViewport;
+  viewport: PID.Viewport;
 }
 
 export interface AddPIDelementPayload {
@@ -78,12 +78,12 @@ export interface SetPIDElementPropsPayload {
 
 export interface SetPIDNodesPayload {
   layoutKey: string;
-  nodes: PIDNode[];
+  nodes: PID.Node[];
 }
 
 export interface SetPIDEdgesPayload {
   layoutKey: string;
-  edges: PIDEdge[];
+  edges: PID.Edge[];
 }
 
 export interface CreatePIDPayload {

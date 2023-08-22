@@ -9,9 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createPID } from "./store/slice";
-
 import { Command } from "@/palette/Palette";
+import { createPID } from "@/pid/store/slice";
 
 export const createPIDCommand: Command = {
   key: "create-pid",

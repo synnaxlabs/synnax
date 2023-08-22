@@ -10,7 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Space, SpaceProps, Text } from "@synnaxlabs/pluto";
+import { Button, Align, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { LayoutRenderer, useLayoutPlacer } from "@/layout";
@@ -19,7 +19,7 @@ import { createPID } from "@/pid/store/slice";
 
 import "@/vis/components/VisLayoutSelector.css";
 
-export interface VisLayoutSelectorProps extends SpaceProps {
+export interface VisLayoutSelectorProps extends Align.SpaceProps {
   layoutKey?: string;
 }
 
@@ -31,32 +31,27 @@ export const VisLayoutSelector = ({
   const place = useLayoutPlacer();
 
   return (
-    <Space.Centered
-      className={CSS.B("vis-layout-selector")}
-      size="large"
-      {...props}
-      wrap
-    >
-      <Text level="h4" color="var(--pluto-gray-p0)">
+    <Align.Center className={CSS.B("vis-layout-selector")} size="large" {...props} wrap>
+      <Text.Text level="h4" color="var(--pluto-gray-p0)">
         Select a visualization type
-      </Text>
-      <Space direction={direction}>
-        <Button
+      </Text.Text>
+      <Align.Space direction={direction}>
+        <Button.Button
           variant="outlined"
           onClick={() => place(createLinePlot({ key: layoutKey }))}
           startIcon={<Icon.Visualize />}
         >
           Line Plot
-        </Button>
-        <Button
+        </Button.Button>
+        <Button.Button
           variant="outlined"
           onClick={() => place(createPID({ key: layoutKey }))}
           startIcon={<Icon.Acquire />}
         >
           PID
-        </Button>
-      </Space>
-    </Space.Centered>
+        </Button.Button>
+      </Align.Space>
+    </Align.Center>
   );
 };
 

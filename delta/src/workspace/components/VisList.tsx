@@ -30,7 +30,7 @@ export const VisList = (): ReactElement => {
     d(selectLayoutMosaicTab({ tabKey: key }));
   };
   return (
-    <List<string, RenderableLayout> data={layouts}>
+    <List.List<string, RenderableLayout> data={layouts}>
       <List.Selector
         value={activeLayout != null ? [activeLayout] : []}
         onChange={handleSelect}
@@ -60,6 +60,6 @@ export const VisList = (): ReactElement => {
       >
         {List.Column.Item}
       </List.Core.Virtual>
-    </List>
+    </List.List>
   );
 };

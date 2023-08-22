@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { selectByKey, useMemoSelect } from "@/hooks";
-
 import {
   WorkspaceSliceState,
   WorkspaceStoreState,
   WORKSPACE_SLICE_NAME,
-} from "./slice";
-import type { Range } from "./types";
+} from "@/workspace/store/slice";
+import type { Range } from "@/workspace/store/types";
 
 /**
  * Selects the workspace state.

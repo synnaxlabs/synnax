@@ -9,7 +9,7 @@
 
 import { ReactElement } from "react";
 
-import { Input, Status, Button } from "@synnaxlabs/pluto";
+import { Input, Status, Button, Select, Align } from "@synnaxlabs/pluto";
 
 import { useLayoutPlacer } from "@/layout";
 
@@ -19,7 +19,7 @@ import { rangeWindowLayout } from "./DefineRange";
 import { rangeListColumns } from "./RangesList";
 
 export interface SelectMultipleRangesProps
-  extends Omit<SelectMultipleProps<string, Range>, "columns"> {}
+  extends Omit<Select.MultipleProps<string, Range>, "columns"> {}
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps
@@ -27,34 +27,35 @@ export const SelectMultipleRanges = (
   <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
 );
 
-export interface SelectRangeProps extends Omit<SelectProps<string, Range>, "columns"> {}
+export interface SelectSingleRangeProps
+  extends Omit<Select.SingleProps<string, Range>, "columns"> {}
 
-export const SelectRange = (props: SelectRangeProps): ReactElement => (
-  <Select columns={rangeListColumns} {...props} tagKey="name" />
+export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
+  <Select.Single columns={rangeListColumns} {...props} tagKey="name" />
 );
 
 export interface SelectMultipleRangesInputItemProps
   extends Omit<
-    InputItemProps<readonly string[], readonly string[], SelectMultipleRangesProps>,
+    Input.ItemProps<readonly string[], readonly string[], SelectMultipleRangesProps>,
     "label"
   > {}
 
 const SelectRangesEmptyContent = (): ReactElement => {
   const newLayout = useLayoutPlacer();
   return (
-    <Space.Centered style={{ height: 150 }} direction="x">
+    <Align.Center style={{ height: 150 }} direction="x">
       <Status.Text variant="disabled" hideIcon>
         No Ranges:
       </Status.Text>
-      <Button
+      <Button.Button
         variant="outlined"
         onClick={() => {
           newLayout(rangeWindowLayout);
         }}
       >
         Define a Range
-      </Button>
-    </Space.Centered>
+      </Button.Button>
+    </Align.Center>
   );
 };
 
@@ -72,12 +73,12 @@ export const SelectMultipleRangesInputItem = (
 );
 
 export interface SelectRangeInputItemProps
-  extends Omit<InputItemProps<string, string, SelectRangeProps>, "label"> {}
+  extends Omit<Input.ItemProps<string, string, SelectSingleRangeProps>, "label"> {}
 
 export const SelectRangeInputItem = (
   props: SelectRangeInputItemProps
 ): ReactElement => (
-  <Input.Item<string, string, SelectRangeProps> label="Range:" {...props}>
+  <Input.Item<string, string, SelectSingleRangeProps> label="Range:" {...props}>
     {SelectRange}
   </Input.Item>
 );

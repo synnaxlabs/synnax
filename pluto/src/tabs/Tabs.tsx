@@ -130,12 +130,14 @@ export const Tabs = ({
       }}
     >
       <Selector size={size} />
-      <TabsContent />
+      <Content />
     </TabsContext.Provider>
   </Align.Space>
 );
 
-export const TabsContent = (): ReactElement | null => {
+export const Provider = TabsContext.Provider;
+
+export const Content = (): ReactElement | null => {
   const {
     tabs,
     selected,

@@ -10,16 +10,7 @@
 import { ReactElement, ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Divider,
-  Select,
-  Space,
-  Text,
-  Typography,
-  ViewportMode,
-} from "@synnaxlabs/pluto";
-import { XYLocation } from "@synnaxlabs/x";
+import { Align, Button, Divider, Select, Text, Viewport } from "@synnaxlabs/pluto";
 import { PiSelectionPlusBold } from "react-icons/pi";
 import { useDispatch } from "react-redux";
 
@@ -36,7 +27,7 @@ export const Controls = (): ReactElement => {
   const vis = useSelectActiveMosaicTabKey();
   const d = useDispatch();
 
-  const handleModeChange = (mode: ViewportMode): void => {
+  const handleModeChange = (mode: Viewport.Mode): void => {
     d(setLineControlState({ state: { mode } }));
   };
 
@@ -53,10 +44,10 @@ export const Controls = (): ReactElement => {
   };
 
   return (
-    <Space style={{ paddingLeft: "2rem" }} direction="x" size="small">
+    <Align.Space style={{ paddingLeft: "2rem" }} direction="x" size="small">
       <Select.Button<
-        ViewportMode,
-        { key: ViewportMode; icon: ReactElement; tooltip: ReactNode }
+        Viewport.Mode,
+        { key: Viewport.Mode; icon: ReactElement; tooltip: ReactNode }
       >
         size="medium"
         value={control.mode}
@@ -68,32 +59,32 @@ export const Controls = (): ReactElement => {
             key: "zoom",
             icon: <Icon.Zoom />,
             tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Zoom</Text>
+              <Align.Space direction="x" align="center">
+                <Text.Text level="small">Zoom</Text.Text>
                 <Text.Keyboard level="small">Drag</Text.Keyboard>
-              </Space>
+              </Align.Space>
             ),
           },
           {
             key: "pan",
             icon: <Icon.Pan />,
             tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Pan</Text>
+              <Align.Space direction="x" align="center">
+                <Text.Text level="small">Pan</Text.Text>
                 <Text.Keyboard level="small">Shift</Text.Keyboard>
                 <Text.Keyboard level="small">Drag</Text.Keyboard>
-              </Space>
+              </Align.Space>
             ),
           },
           {
             key: "select",
             icon: <PiSelectionPlusBold />,
             tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Search</Text>
+              <Align.Space direction="x" align="center">
+                <Text.Text level="small">Search</Text.Text>
                 <Text.Keyboard level="small">Alt</Text.Keyboard>
                 <Text.Keyboard level="small">Drag</Text.Keyboard>
-              </Space>
+              </Align.Space>
             ),
           },
         ]}
@@ -117,20 +108,20 @@ export const Controls = (): ReactElement => {
         variant="text"
         tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
-          <Space direction="x" align="center">
-            <Text level="small">Reset Zoom</Text>
+          <Align.Space direction="x" align="center">
+            <Text.Text level="small">Reset Zoom</Text.Text>
             <Text.Keyboard level="small">
-              <Typography.Symbols.Meta />
+              <Text.Symbols.Meta />
             </Text.Keyboard>
             <Text.Keyboard level="small">Click</Text.Keyboard>
-          </Space>
+          </Align.Space>
         }
         size="medium"
       >
         <Icon.ZoomReset />
       </Button.Icon>
 
-      <Divider />
+      <Divider.Divider />
       <Button.ToggleIcon
         value={control.enableTooltip}
         onChange={handleTooltipChange}
@@ -138,14 +129,14 @@ export const Controls = (): ReactElement => {
         uncheckedVariant="text"
         sharp
         tooltip={
-          <Space direction="x" align="center">
-            <Text level="small">Show Tooltip on Hover</Text>
-          </Space>
+          <Align.Space direction="x" align="center">
+            <Text.Text level="small">Show Tooltip on Hover</Text.Text>
+          </Align.Space>
         }
       >
         <Icon.Tooltip />
       </Button.ToggleIcon>
-      <Divider />
+      <Divider.Divider />
       <Select.Button<
         ClickMode,
         { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
@@ -162,22 +153,22 @@ export const Controls = (): ReactElement => {
             key: "measure",
             icon: <Icon.Rule />,
             tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Slope</Text>
+              <Align.Space direction="x" align="center">
+                <Text.Text level="small">Slope</Text.Text>
                 <Text.Keyboard level="small">Alt</Text.Keyboard>
                 <Text.Keyboard level="small">Drag</Text.Keyboard>
-              </Space>
+              </Align.Space>
             ),
           },
           {
             key: "annotate",
             icon: <Icon.Annotate />,
             tooltip: (
-              <Space direction="x" align="center">
-                <Text level="small">Annotate</Text>
+              <Align.Space direction="x" align="center">
+                <Text.Text level="small">Annotate</Text.Text>
                 <Text.Keyboard level="small">Alt</Text.Keyboard>
                 <Text.Keyboard level="small">Click</Text.Keyboard>
-              </Space>
+              </Align.Space>
             ),
           },
         ]}
@@ -196,6 +187,6 @@ export const Controls = (): ReactElement => {
           </Button.Icon>
         )}
       </Select.Button>
-    </Space>
+    </Align.Space>
   );
 };

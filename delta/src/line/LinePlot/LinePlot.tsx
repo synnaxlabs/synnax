@@ -10,18 +10,14 @@
 import { ReactElement, useCallback, useMemo } from "react";
 
 import {
-  LinePlot as PLinePlot,
-  AxisProps,
-  LineProps,
-  Client,
   useAsyncEffect,
-  Color,
-  RuleProps,
   Viewport,
-  UseViewportHandler,
   useDebouncedCallback,
+  Channel,
+  Synnax,
+  Color,
 } from "@synnaxlabs/pluto";
-import { Box, TimeRange, XYLocation, unique } from "@synnaxlabs/x";
+import { Box, XYLocation, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { renameLayout, useSelectRequiredLayout } from "@/layout";
@@ -52,7 +48,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const { name } = useSelectRequiredLayout(layoutKey);
   const vis = useSelectLinePlot(layoutKey);
   const ranges = useSelectLinePlotRanges(layoutKey);
-  const client = Client.use();
+  const client = Synnax.use();
   const dispatch = useDispatch();
 
   const lines = buildLines(vis, ranges);
@@ -88,7 +84,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 
   const handleLineColorChange = useCallback(
-    (key: string, color: Color): void => {
+    (key: string, color: Color.Color): void => {
       dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
     },
     [dispatch, layoutKey]
@@ -124,7 +120,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const handleViewportChange: UseViewportHandler = useDebouncedCallback(
+  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box, stage }) => {
       if (stage !== "end") return;
       dispatch(
@@ -153,7 +149,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
 
   return (
     <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
-      <PLinePlot
+      <Channel.LinePlot
         title={name}
         axes={axes}
         lines={propsLines}
@@ -177,19 +173,20 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 };
 
-const buildRules = (vis: LinePlotState): RuleProps[] =>
+const buildRules = (vis: LinePlotState): Channel.RuleProps[] =>
   vis.rules?.map((rule) => ({
     id: rule.key,
     ...rule,
   }));
 
-const buildAxes = (vis: LinePlotState): AxisProps[] =>
+const buildAxes = (vis: LinePlotState): Channel.AxisProps[] =>
   Object.entries(vis.axes)
     .filter(([key, axis]) => shouldDisplayAxis(key as AxisKey, vis))
-    .map(([key, axis]): AxisProps => {
+    .map(([key, axis]): Channel.AxisProps => {
       return {
         id: key,
-        location: axisLocation(key as AxisKey),
+        keyX: key,
+        location: axisLocation(key as AxisKey).crude,
         label: axis.label,
         type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
         bounds: axis.bounds,
@@ -200,7 +197,7 @@ const buildAxes = (vis: LinePlotState): AxisProps[] =>
 const buildLines = (
   vis: LinePlotState,
   sug: MultiXAxisRecord<Range>
-): Array<LineProps & { key: string }> =>
+): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
       Object.entries(vis.channels)
@@ -230,8 +227,8 @@ const buildLines = (
             });
             const line = vis.lines.find((l) => l.key === key);
             if (line == null) throw new Error("Line not found");
-            const v: LineProps & { key: string } = {
-              id: key,
+            const v: Channel.LineProps & { key: string } = {
+              keyX: key,
               ...line,
               downsample:
                 isNaN(line.downsample) || line.downsample == null ? 1 : line.downsample,

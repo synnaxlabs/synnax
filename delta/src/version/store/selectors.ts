@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { VersionStoreState } from "./slice";
-
 import { useMemoSelect } from "@/hooks";
+
+import { VersionStoreState } from "./slice";
 
 export const selectVersion = (state: VersionStoreState): string =>
   state.version.version;

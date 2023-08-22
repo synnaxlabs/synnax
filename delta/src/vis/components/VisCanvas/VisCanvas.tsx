@@ -14,5 +14,5 @@ import { Canvas } from "@synnaxlabs/pluto";
 import "@/vis/components/VisCanvas/VisCanvas.css";
 
 export const VisCanvas = ({ children }: PropsWithChildren): ReactElement => (
-  <Canvas className="delta-vis__canvas">{children}</Canvas>
+  <Canvas.Canvas className="delta-vis__canvas">{children}</Canvas.Canvas>
 );

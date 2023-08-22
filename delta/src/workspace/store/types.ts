@@ -17,11 +17,11 @@ interface BaseRange {
 export type StaticRange = BaseRange & {
   variant: "static";
   timeRange: CrudeTimeRange;
-}
+};
 
 export type DynamicRange = BaseRange & {
   variant: "dynamic";
   span: CrudeTimeSpan;
-}
+};
 
-export type Range  = StaticRange | DynamicRange;
+export type Range = StaticRange | DynamicRange;

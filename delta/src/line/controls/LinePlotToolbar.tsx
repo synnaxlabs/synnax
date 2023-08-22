@@ -10,8 +10,13 @@
 import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Tab, Tabs } from "@synnaxlabs/pluto";
+import { Align, Tabs } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { CSS } from "@/css";
+import { useSelectRequiredLayout } from "@/layout";
+import { LinePlotDataControls } from "@/line/controls/LinePlotDataControls";
 
 import { useSelectLineToolbar } from "../store/selectors";
 import { LineToolbarTab, setLineActiveToolbarTab } from "../store/slice";
@@ -20,11 +25,6 @@ import { LinePlotAnnotationsControls } from "./LinePlotAnnotationsControls";
 import { LinePlotAxesControls } from "./LinePlotAxesControls";
 import { LinePlotLinesControls } from "./LinePlotLineControls";
 import { LinePlotPropertiesControls } from "./LinePlotPropertiesControls";
-
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { CSS } from "@/css";
-import { useSelectRequiredLayout } from "@/layout";
-import { LinePlotDataControls } from "@/line/controls/LinePlotDataControls";
 
 import "@/line/controls/LinePlotToolbar.css";
 
@@ -60,7 +60,7 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
   const dispatch = useDispatch();
   const toolbar = useSelectLineToolbar();
   const content = useCallback(
-    ({ tabKey }: Tab): ReactElement => {
+    ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
         case "lines":
           return <LinePlotLinesControls layoutKey={layoutKey} />;
@@ -85,7 +85,7 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
   );
 
   return (
-    <Space empty className={CSS.B("line-plot-toolbar")}>
+    <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider
         value={{
           tabs: TABS,
@@ -100,6 +100,6 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>
-    </Space>
+    </Align.Space>
   );
 };

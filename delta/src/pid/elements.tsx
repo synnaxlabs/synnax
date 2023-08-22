@@ -7,17 +7,11 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import {
-  PIDElementSpec,
-  ValuePIDElementSpec,
-  ValvePIDElementSpec,
-  TankPIDElementSpec,
-  RegulatorPIDElementSpec,
-} from "@synnaxlabs/pluto";
+import { PIDElement } from "@synnaxlabs/pluto";
 
-export const ELEMENTS: Record<string, PIDElementSpec<any>> = {
-  [ValuePIDElementSpec.type]: ValuePIDElementSpec,
-  [ValvePIDElementSpec.type]: ValvePIDElementSpec,
-  [TankPIDElementSpec.type]: TankPIDElementSpec,
-  [RegulatorPIDElementSpec.type]: RegulatorPIDElementSpec,
+export const ELEMENTS: Record<string, PIDElement.Spec<any>> = {
+  [PIDElement.ValueSpec.type]: PIDElement.ValueSpec,
+  [PIDElement.RegulatorSpec.type]: PIDElement.RegulatorSpec,
+  [PIDElement.ValveSpec.type]: PIDElement.ValveSpec,
+  [PIDElement.TankSpec.type]: PIDElement.TankSpec,
 };

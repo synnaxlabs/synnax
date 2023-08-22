@@ -30,7 +30,7 @@ export interface SwatchProps
 
 const HAUL_TYPE = "color";
 
-export const ColorSwatch = ({
+export const Swatch = ({
   value,
   onChange,
   className,

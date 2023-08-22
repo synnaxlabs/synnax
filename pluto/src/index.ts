@@ -26,6 +26,7 @@ export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { OS } from "@/os";
 export { Resize } from "@/resize";
+export { Select } from "@/select";
 export { Status } from "@/status";
 export { Synnax } from "@/synnax";
 export { Tabs } from "@/tabs";

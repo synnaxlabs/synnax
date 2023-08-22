@@ -9,7 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { TypographyLevel, ViewportMode } from "@synnaxlabs/pluto";
+import { Text, Viewport } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -39,7 +39,7 @@ import { Range } from "@/workspace";
 // |||||| TITLE ||||||
 
 export interface TitleState {
-  level: TypographyLevel;
+  level: Text.Level;
   visible: boolean;
 }
 
@@ -223,7 +223,7 @@ export type ClickMode = "annotate" | "measure";
 export interface LineControlState {
   clickMode: ClickMode | null;
   enableTooltip: boolean;
-  mode: ViewportMode;
+  mode: Viewport.Mode;
 }
 
 export const ZERO_LINE_CONTROL_STATE: LineControlState = {

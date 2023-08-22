@@ -21,7 +21,7 @@ import { XY, CrudeXY, Box, XYScale, XYLocation } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
-import { ColorSwatch } from "@/color/Swatch";
+import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Input } from "@/input";
@@ -154,7 +154,7 @@ export const Legend = memo(
       >
         {lines.map(({ key, color, label }) => (
           <Align.Space key={key} direction="x" align="center">
-            <ColorSwatch
+            <Swatch
               value={color}
               onChange={(c) => onColorChange?.(key, c)}
               onVisibleChange={setPickerVisible}

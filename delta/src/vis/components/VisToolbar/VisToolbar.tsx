@@ -10,11 +10,7 @@
 import { ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Space, Status, Text } from "@synnaxlabs/pluto";
-
-import { VisLayoutSelector } from "../VisLayoutSelector";
-
-import { VisToolbarTitle } from "./VisToolbarTitle";
+import { Button, Align, Status } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem, useLayoutPlacer, useSelectActiveMosaicLayout } from "@/layout";
@@ -22,35 +18,39 @@ import { LinePlotToolBar } from "@/line/controls/LinePlotToolbar";
 import { PIDToolbar } from "@/pid/controls/PIDToolBar";
 import { createVis } from "@/vis/core";
 
+import { VisLayoutSelector } from "../VisLayoutSelector";
+
+import { VisToolbarTitle } from "./VisToolbarTitle";
+
 const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
-  <Space justify="spaceBetween" style={{ height: "100%" }} empty>
+  <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
     </ToolbarHeader>
     <VisLayoutSelector layoutKey={layoutKey} />
-  </Space>
+  </Align.Space>
 );
 
 const NoVis = (): ReactElement => {
   const placer = useLayoutPlacer();
   return (
-    <Space justify="spaceBetween" style={{ height: "100%" }} empty>
+    <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
       <ToolbarHeader>
         <VisToolbarTitle />
       </ToolbarHeader>
-      <Space.Centered direction="x" size="small">
+      <Align.Center direction="x" size="small">
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Selecte a visualization or
         </Status.Text>
-        <Button
+        <Button.Button
           startIcon={<Icon.Add />}
           variant="outlined"
           onClick={() => placer(createVis({}))}
         >
           create a new one
-        </Button>
-      </Space.Centered>
-    </Space>
+        </Button.Button>
+      </Align.Center>
+    </Align.Space>
   );
 };
 

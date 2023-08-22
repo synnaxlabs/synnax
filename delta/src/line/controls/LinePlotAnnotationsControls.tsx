@@ -13,26 +13,22 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Color,
-  ColorSwatch,
   Divider,
   Header,
   Input,
   List,
-  Space,
   Status,
   componentRenderProp,
   Select,
-  InputNumberProps,
-  CrudeColor,
-  ColorSwatchProps,
+  Align,
 } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
-import { RuleState, setLinePlotRule } from "../store/slice";
-
 import { useSelectLinePlot } from "@/line/store/selectors";
 import { AXIS_KEYS, AxisKey } from "@/vis";
+
+import { RuleState, setLinePlotRule } from "../store/slice";
 
 export interface LinePlotAnnotationsControlsProps {
   layoutKey: string;
@@ -83,7 +79,7 @@ export const LinePlotAnnotationsControls = ({
     );
   };
 
-  const handleColorChange = (color: Color): void => {
+  const handleColorChange = (color: Color.Color): void => {
     dispatch(
       setLinePlotRule({
         key: layoutKey,
@@ -147,11 +143,11 @@ export const LinePlotAnnotationsControls = ({
   const selectedRule = vis.rules.find((rule) => rule.key === selected);
 
   const emptyContent = (
-    <Space.Centered direction="x">
+    <Align.Center direction="x">
       <Status.Text variant="disabled" hideIcon>
         No annotations added:
       </Status.Text>
-      <Button
+      <Button.Button
         variant="outlined"
         onClick={(e) => {
           e.stopPropagation();
@@ -159,19 +155,19 @@ export const LinePlotAnnotationsControls = ({
         }}
       >
         Create a new annotation
-      </Button>
-    </Space.Centered>
+      </Button.Button>
+    </Align.Center>
   );
 
   let content: ReactElement = emptyContent;
 
   if (selectedRule != null) {
     content = (
-      <Space direction="y" style={{ flexGrow: "1" }} empty>
-        <Header level="p">
+      <Align.Space direction="y" style={{ flexGrow: "1" }} empty>
+        <Header.Header level="p">
           <Header.Title>{`Rule - ${selectedRule.label}`}</Header.Title>
-        </Header>
-        <Space direction="x" style={{ padding: "2rem" }} wrap>
+        </Header.Header>
+        <Align.Space direction="x" style={{ padding: "2rem" }} wrap>
           <Input.Item<string>
             label="Label"
             onChange={handleLabelChange}
@@ -192,12 +188,12 @@ export const LinePlotAnnotationsControls = ({
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
-          <Input.Item<CrudeColor, Color, ColorSwatchProps>
+          <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
             label="Color"
             onChange={handleColorChange}
-            value={new Color(selectedRule.color)}
+            value={new Color.Color(selectedRule.color)}
           >
-            {componentRenderProp(ColorSwatch)}
+            {componentRenderProp(Color.Swatch)}
           </Input.Item>
           <Input.Item<AxisKey>
             label="Axis"
@@ -205,7 +201,7 @@ export const LinePlotAnnotationsControls = ({
             value={selectedRule.axis}
           >
             {(props) => (
-              <Select
+              <Select.Single
                 columns={[{ key: "name", name: "Axis" }]}
                 data={AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
                 tagKey="name"
@@ -214,7 +210,7 @@ export const LinePlotAnnotationsControls = ({
               />
             )}
           </Input.Item>
-          <Input.Item<number, number, InputNumberProps>
+          <Input.Item<number, number, Input.NumericProps>
             label="Line Width"
             onChange={handleLineWidthChange}
             value={selectedRule.lineWidth}
@@ -223,7 +219,7 @@ export const LinePlotAnnotationsControls = ({
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
-          <Input.Item<number, number, InputNumberProps>
+          <Input.Item<number, number, Input.NumericProps>
             label="Line Dash"
             onChange={handleLineDashChange}
             value={selectedRule.lineDash}
@@ -232,16 +228,16 @@ export const LinePlotAnnotationsControls = ({
           >
             {componentRenderProp(Input.Numeric)}
           </Input.Item>
-        </Space>
-      </Space>
+        </Align.Space>
+      </Align.Space>
     );
   }
 
   return (
-    <Space direction="x" style={{ height: "100%", width: "100%" }} empty>
-      <Space direction="y" empty>
-        <List<string, RuleState> data={vis.rules}>
-          <Header level="p">
+    <Align.Space direction="x" style={{ height: "100%", width: "100%" }} empty>
+      <Align.Space direction="y" empty>
+        <List.List<string, RuleState> data={vis.rules}>
+          <Header.Header level="p">
             <Header.Title>Annotations</Header.Title>
             <Header.Actions>
               {[
@@ -253,7 +249,7 @@ export const LinePlotAnnotationsControls = ({
                 },
               ]}
             </Header.Actions>
-          </Header>
+          </Header.Header>
           <List.Selector
             value={[selected]}
             allowMultiple={false}
@@ -267,7 +263,7 @@ export const LinePlotAnnotationsControls = ({
             style={{ height: "100%", width: 200 }}
           >
             {({ onSelect, selected, style, entry: { key, label } }) => (
-              <Button
+              <Button.Button
                 key={key}
                 onClick={() => {
                   onSelect?.(key);
@@ -281,13 +277,13 @@ export const LinePlotAnnotationsControls = ({
                 variant="text"
               >
                 {label}
-              </Button>
+              </Button.Button>
             )}
           </List.Core.Virtual>
-        </List>
-      </Space>
-      <Divider direction="y" />
+        </List.List>
+      </Align.Space>
+      <Divider.Divider direction="y" />
       {content}
-    </Space>
+    </Align.Space>
   );
 };

@@ -10,21 +10,20 @@
 import { ReactElement } from "react";
 
 import { Text } from "@synnaxlabs/pluto";
-import type { TextProps, TypographyLevel } from "@synnaxlabs/pluto";
 import { Optional } from "@synnaxlabs/x";
 
 import { useSelectVersion } from "@/version/store";
 
-type VersionBadgeProps<L extends TypographyLevel> = Optional<TextProps<L>, "level">;
+type VersionBadgeProps<L extends Text.Level> = Optional<Text.TextProps<L>, "level">;
 
-export const VersionBadge = <L extends TypographyLevel>({
+export const VersionBadge = <L extends Text.Level>({
   level = "p",
   ...props
 }: VersionBadgeProps<L>): ReactElement => {
   const v = useSelectVersion();
   return (
-    <Text level={level} {...props}>
+    <Text.Text level={level} {...props}>
       {"v" + v}
-    </Text>
+    </Text.Text>
   );
 };

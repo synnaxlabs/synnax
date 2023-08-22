@@ -9,9 +9,9 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createLinePlot } from "./store/slice";
-
 import { Command } from "@/palette/Palette";
+
+import { createLinePlot } from "./store/slice";
 
 export const createLinePlotCommand: Command = {
   key: "create-line-plot",

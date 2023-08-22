@@ -9,13 +9,13 @@
 
 import { ReactElement } from "react";
 
-import { Header, HeaderProps, HeaderTitleProps } from "@synnaxlabs/pluto";
+import { Header } from "@synnaxlabs/pluto";
 
 export const ToolbarHeader = (
-  props: Omit<HeaderProps, "level" | "divided">
-): ReactElement => <Header level="h4" divided {...props} />;
+  props: Omit<Header.HeaderProps, "level" | "divided">
+): ReactElement => <Header.Header level="h4" divided {...props} />;
 
-export interface ToolbarTitleProps extends Pick<HeaderTitleProps, "children"> {
+export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
   icon: ReactElement;
 }
 

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PIDEdge } from "@synnaxlabs/pluto";
+import { PID } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  PIDNode,
   PIDSliceState,
   PIDState,
   PIDStoreState,
@@ -53,13 +52,13 @@ export type PIDElementInfo =
   | {
       key: string;
       type: "node";
-      node: PIDNode;
+      node: PID.Node;
       props: object;
     }
   | {
       key: string;
       type: "edge";
-      edge: PIDEdge;
+      edge: PID.Edge;
     };
 
 export const useSelectSelectedPIDElementsProps = (
@@ -79,7 +78,7 @@ export const selectPIDElementProps = (
   const node = pid.nodes.find((node) => node.key === key);
   return {
     key,
-    node: node as PIDNode,
+    node: node as PID.Node,
     props: pid.props[key],
   };
 };

@@ -9,13 +9,13 @@
 
 import { ReactElement } from "react";
 
-import { Input, Space, componentRenderProp } from "@synnaxlabs/pluto";
+import { Input, Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { renameLayout, useSelectRequiredLayout } from "@/layout";
 
 import { useSelectLinePlot } from "../store/selectors";
 import { setLinePlotLegend, setLinePlotTitle } from "../store/slice";
-
-import { renameLayout, useSelectRequiredLayout } from "@/layout";
 
 export interface LinePlotPropertiesControlsProps {
   layoutKey: string;
@@ -41,9 +41,9 @@ export const LinePlotPropertiesControls = ({
   };
 
   return (
-    <Space direction="y" style={{ padding: "2rem" }}>
+    <Align.Space direction="y" style={{ padding: "2rem" }}>
       <Input.Item<string> label="Title" value={name} onChange={handleTitleRename} />
-      <Space direction="x" size="small">
+      <Align.Space direction="x" size="small">
         <Input.Item<boolean>
           label="Show Title"
           value={plot.title.visible}
@@ -58,7 +58,7 @@ export const LinePlotPropertiesControls = ({
         >
           {componentRenderProp(Input.Switch)}
         </Input.Item>
-      </Space>
-    </Space>
+      </Align.Space>
+    </Align.Space>
   );
 };

@@ -25,12 +25,13 @@ export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "start",
     name: "Start",
-    stringer: ({ start }) => new TimeStamp(start).fString("dateTime", "local"),
+    stringer: ({ timeRange: { start, end } }) =>
+      new TimeStamp(start).fString("dateTime", "local"),
   },
   {
     key: "end",
     name: "End",
-    stringer: ({ start, end }) => {
+    stringer: ({ timeRange: { start, end } }) => {
       const startTS = new TimeStamp(start);
       const endTS = new TimeStamp(end);
       return endTS.fString(
@@ -92,7 +93,7 @@ export const RangesList = ({
         menu={(props) => <RangesContextMenu {...props} />}
         {...contextMenProps}
       >
-        <List data={ranges}>
+        <List.List data={ranges}>
           <List.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
             onChange={([key]: readonly string[]) => onSelect(key)}
@@ -105,7 +106,7 @@ export const RangesList = ({
           >
             {List.Column.Item}
           </List.Core.Virtual>
-        </List>
+        </List.List>
       </PMenu.ContextMenu>
     </div>
   );

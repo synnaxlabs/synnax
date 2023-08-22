@@ -14,14 +14,14 @@ import {
   useCallback,
 } from "react";
 
-import { Space, Text, PIDElementSpec } from "@synnaxlabs/pluto";
+import { Align, Text, PIDElement } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
+
 import { ELEMENTS } from "../elements";
 import { addPIDelement } from "../store/slice";
-
-import { CSS } from "@/css";
 
 import "@/pid/controls/PIDElementsControls.css";
 
@@ -44,18 +44,18 @@ export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement 
   );
 
   return (
-    <Space className={CSS.B("pid-elements")} direction="x" wrap>
+    <Align.Space className={CSS.B("pid-elements")} direction="x" wrap>
       {Object.entries(ELEMENTS).map(([type, el]) => (
         <PIDElementsButton key={type} el={el} onClick={() => handleAddElement(type)} />
       ))}
-    </Space>
+    </Align.Space>
   );
 };
 
 interface PIDElementsButtonProps
   extends PropsWithChildren,
     ComponentPropsWithoutRef<"button"> {
-  el: PIDElementSpec;
+  el: PIDElement.Spec;
 }
 
 const PIDElementsButton = ({
@@ -66,18 +66,18 @@ const PIDElementsButton = ({
   return (
     <>
       {/* @ts-expect-error */}
-      <Space
+      <Align.Space
         el="button"
         className={CSS.BE("pid-elements", "button")}
         justify="center"
         align="center"
         {...props}
       >
-        <Text level="p" color="var(--pluto-gray-p0)">
+        <Text.Text level="p" color="var(--pluto-gray-p0)">
           {title}
-        </Text>
+        </Text.Text>
         <Preview />
-      </Space>
+      </Align.Space>
     </>
   );
 };

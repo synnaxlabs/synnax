@@ -10,17 +10,17 @@
 import { ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Space, Status, Tab, Tabs, Text } from "@synnaxlabs/pluto";
+import { Align, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
+
+import { ToolbarHeader, ToolbarTitle } from "@/components";
+import { useSelectRequiredLayout } from "@/layout";
 
 import { useSelectPIDEditable, useSelectPIDToolbar } from "../store/selectors";
 import { PIDToolbarTab, setPIDActiveToolbarTab, setPIDEditable } from "../store/slice";
 
 import { PIDElementPropertiesControls } from "./PIDElementPropertiesControls";
 import { PIDElements } from "./PIDElementsControls";
-
-import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useSelectRequiredLayout } from "@/layout";
 
 export interface PIDToolbarProps {
   layoutKey: string;
@@ -44,7 +44,7 @@ const PIDNotEditableContent = ({
 }: PIDNotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
   return (
-    <Space.Centered direction="x" size="small">
+    <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
         PID is not editable. To make changes,
       </Status.Text>
@@ -57,7 +57,7 @@ const PIDNotEditableContent = ({
       >
         enable edit mode.
       </Text.Link>
-    </Space.Centered>
+    </Align.Center>
   );
 };
 
@@ -67,7 +67,7 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   const toolbar = useSelectPIDToolbar();
   const editable = useSelectPIDEditable(layoutKey);
   const content = useCallback(
-    ({ tabKey }: Tab): ReactElement => {
+    ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!editable) return <PIDNotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "elements":
@@ -87,7 +87,7 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
   );
 
   return (
-    <Space empty style={{ height: "100%" }}>
+    <Align.Space empty style={{ height: "100%" }}>
       <Tabs.Provider
         value={{
           tabs: TABS,
@@ -102,6 +102,6 @@ export const PIDToolbar = ({ layoutKey }: PIDToolbarProps): ReactElement => {
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>
-    </Space>
+    </Align.Space>
   );
 };
