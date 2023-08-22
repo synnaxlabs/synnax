@@ -9,18 +9,7 @@
 
 import { ReactElement } from "react";
 
-import {
-  Input,
-  InputControl,
-  List,
-  ListItemProps,
-  Space,
-  Status,
-  Tabs,
-  Text,
-  Color,
-  ColorSwatch,
-} from "@synnaxlabs/pluto";
+import { Input, List, Align, Status, Tabs, Text, Color } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelectLinePlot } from "../store/selectors";
@@ -40,10 +29,10 @@ export const LinePlotLinesControls = ({
     dispatch(setLinePlotLine({ key: layoutKey, line }));
   };
 
-  const { onSelect } = Tabs.useContext();
+  const { onSelect } = Tabs.useTabsContext();
 
   const emptyContent = (
-    <Space.Centered direction="x" size="small">
+    <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
         No lines plotted. Use the
       </Status.Text>
@@ -59,11 +48,11 @@ export const LinePlotLinesControls = ({
       <Status.Text variant="disabled" hideIcon>
         tab to select channels on an axis.
       </Status.Text>
-    </Space.Centered>
+    </Align.Center>
   );
 
   return (
-    <List data={vis.lines} emptyContent={emptyContent}>
+    <List.List data={vis.lines} emptyContent={emptyContent}>
       <List.Column.Header
         columns={[
           {
@@ -91,11 +80,11 @@ export const LinePlotLinesControls = ({
       <List.Core style={{ height: "calc(100% - 28px)" }}>
         {(props) => <LinePlotLineControls onChange={handleChange} {...props} />}
       </List.Core>
-    </List>
+    </List.List>
   );
 };
 
-interface LinePlotLineControlsProps extends ListItemProps<string, LineState> {
+interface LinePlotLineControlsProps extends List.ItemProps<string, LineState> {
   line: LineState;
   onChange: (line: LineState) => void;
 }
@@ -104,25 +93,27 @@ const LinePlotLineControls = ({
   entry: line,
   onChange,
 }: LinePlotLineControlsProps): ReactElement => {
-  const handleLabelChange: InputControl<string>["onChange"] = (value: string) => {
+  const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
     onChange({ ...line, label: value });
   };
 
-  const handleWidthChange: InputControl<number>["onChange"] = (value: number) => {
+  const handleWidthChange: Input.Control<number>["onChange"] = (value: number) => {
     onChange({ ...line, strokeWidth: value });
   };
 
-  const handleDownsampleChange: InputControl<number>["onChange"] = (value: number) => {
+  const handleDownsampleChange: Input.Control<number>["onChange"] = (value: number) => {
     onChange({ ...line, downsample: value });
   };
 
-  const handleColorChange: InputControl<Color>["onChange"] = (value: Color) => {
+  const handleColorChange: Input.Control<Color.Color>["onChange"] = (
+    value: Color.Color
+  ) => {
     onChange({ ...line, color: value.hex });
   };
 
   return (
-    <Space style={{ padding: "0.5rem", width: "100%" }} direction="x">
-      <Input
+    <Align.Space style={{ padding: "0.5rem", width: "100%" }} direction="x">
+      <Input.Text
         style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}
@@ -150,7 +141,7 @@ const LinePlotLineControls = ({
           upper: 51,
         }}
       />
-      <ColorSwatch value={new Color(line.color)} onChange={handleColorChange} />
-    </Space>
+      <Color.Swatch value={new Color.Color(line.color)} onChange={handleColorChange} />
+    </Align.Space>
   );
 };

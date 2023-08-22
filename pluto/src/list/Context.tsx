@@ -18,7 +18,7 @@ import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { UseTransformsReturn } from "@/hooks/useTransforms";
 import { ColumnSpec } from "@/list/types";
-import { SetState } from "@/util/state";
+import { state } from "@/state";
 
 export interface ContextProps<
   K extends Key = Key,
@@ -43,7 +43,7 @@ export interface ContextProps<
   };
   hover: {
     value: number;
-    onChange: SetState<number>;
+    onChange: state.Set<number>;
   };
   emptyContent?: ReactElement;
   setEmptyContent: (content: ReactElement) => void;

@@ -11,32 +11,27 @@ import { useCallback, useRef, useState } from "react";
 
 import { Primitive } from "@synnaxlabs/x";
 
-import {
-  InitialState,
-  SetState,
-  executeInitialSetter,
-  executeStateSetter,
-} from "@/util/state";
+import { state } from "@/state";
 
 export const useCombinedStateAndRef = <T extends Primitive | object>(
-  initialState: InitialState<T>
-): [T, SetState<T>, React.MutableRefObject<T>] => {
+  initialState: state.Initial<T>
+): [T, state.Set<T>, React.MutableRefObject<T>] => {
   const ref = useRef<T | null>(null);
-  const [state, setState] = useState<T>(() => {
-    const s = executeInitialSetter<T>(initialState);
+  const [s, setS] = useState<T>(() => {
+    const s = state.executeInitialSetter<T>(initialState);
     ref.current = s;
     return s;
   });
 
-  const setStateAndRef: SetState<T> = useCallback(
+  const setStateAndRef: state.Set<T> = useCallback(
     (nextState): void => {
-      setState((p) => {
-        ref.current = executeStateSetter<T>(nextState, p);
+      setS((p) => {
+        ref.current = state.executeSetter<T>(nextState, p);
         return ref.current;
       });
     },
-    [setState]
+    [setS]
   );
 
-  return [state, setStateAndRef, ref as React.MutableRefObject<T>];
+  return [s, setStateAndRef, ref as React.MutableRefObject<T>];
 };

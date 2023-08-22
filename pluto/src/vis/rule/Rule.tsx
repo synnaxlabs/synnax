@@ -15,7 +15,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Input } from "@/input";
+import { state } from "@/state";
 import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
 import { rule } from "@/vis/rule/aether";
@@ -41,10 +41,10 @@ export const Rule = Aether.wrap<RuleProps>(
     lineWidth,
     lineDash,
   }): ReactElement | null => {
-    const [internalLabel, setInternalLabel] = Input.usePassthrough({
+    const [internalLabel, setInternalLabel] = state.usePurePassthrough({
       value: label,
       onChange: onLabelChange,
-      initialValue: "",
+      initial: "",
     });
 
     const [, { position, pixelPosition }, setState] = Aether.use({

@@ -9,17 +9,15 @@
 
 import { ReactElement } from "react";
 
-import { Synnax } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
   Divider,
   Nav,
   Menu as PMenu,
-  MenuProps as PMenuProps,
   Button,
-  useOS,
+  OS,
   Triggers,
-  Client,
+  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
@@ -74,7 +72,7 @@ const COMMANDS = [
 ];
 
 const NavTopPalette = (): ReactElement => {
-  const client = Client.use() as Synnax;
+  const client = Synnax.use();
   return (
     <Palette
       commands={COMMANDS}
@@ -93,7 +91,7 @@ const NavTopPalette = (): ReactElement => {
 export const NavTop = (): ReactElement => {
   const placer = useLayoutPlacer();
 
-  const os = useOS();
+  const os = OS.use();
   const handleDocs = (): void => placer(createDocsLayout());
 
   return (
@@ -119,11 +117,14 @@ export const NavTop = (): ReactElement => {
         <Button.Icon
           size="medium"
           onClick={handleDocs}
-          tooltip={<Text level="small">Documentation</Text>}
+          tooltip={<Text.Text level="small">Documentation</Text.Text>}
         >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Button.Icon size="medium" tooltip={<Text level="small">Settings</Text>}>
+        <Button.Icon
+          size="medium"
+          tooltip={<Text.Text level="small">Settings</Text.Text>}
+        >
           <Icon.Settings />
         </Button.Icon>
         <Controls className="delta-controls--windows" visibleIfOS="Windows" />
@@ -137,19 +138,19 @@ export const NavMenu = ({
   ...props
 }: {
   children: NavMenuItem[];
-} & Omit<PMenuProps, "children">): ReactElement => (
-  <PMenu {...props}>
+} & Omit<PMenu.MenuProps, "children">): ReactElement => (
+  <PMenu.Menu {...props}>
     {children.map(({ key, tooltip, icon }) => (
       <PMenu.Item.Icon
         key={key}
         itemKey={key}
         size="large"
-        tooltip={<Text level="small">{tooltip}</Text>}
+        tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
       >
         {icon}
       </PMenu.Item.Icon>
     ))}
-  </PMenu>
+  </PMenu.Menu>
 );
 
 /**
@@ -158,7 +159,7 @@ export const NavMenu = ({
  */
 export const NavLeft = (): ReactElement => {
   const { onSelect, menuItems } = useNavDrawer("left", NAV_DRAWERS);
-  const os = useOS();
+  const os = OS.use();
   return (
     <Nav.Bar location="left" size={NAV_SIZES.side}>
       {os !== "Windows" && (
@@ -209,11 +210,11 @@ export const NavBottom = (): ReactElement => {
       </Nav.Bar.Start>
       <Nav.Bar.End className="delta-main-nav-bottom__end">
         <Triggers.Status variant="info" />
-        <Divider />
+        <Divider.Divider />
         <VersionBadge level="p" />
-        <Divider />
+        <Divider.Divider />
         <ClusterBadge />
-        <Divider />
+        <Divider.Divider />
         <ConnectionBadge />
       </Nav.Bar.End>
     </Nav.Bar>

@@ -24,8 +24,8 @@ import { Color } from "@/color";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Input } from "@/input";
 import { OptionalControl } from "@/input/types";
+import { state } from "@/state";
 import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
 import { useContext } from "@/vis/lineplot/LinePlot";
@@ -79,10 +79,10 @@ export const Legend = memo(
     ...props
   }: LegendProps): ReactElement | null => {
     const { lines } = useContext("Legend");
-    const [position, setPosition] = Input.usePassthrough({
+    const [position, setPosition] = state.usePurePassthrough<CrudeXY>({
       value,
       onChange,
-      initialValue: new XY(0.1, 0.1).crude,
+      initial: new XY(0.1, 0.1).crude,
     });
     const [pickerVisible, setPickerVisible] = useState(false);
     useContext("Legend");

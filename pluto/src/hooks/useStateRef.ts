@@ -11,7 +11,7 @@ import { MutableRefObject, useCallback, useRef } from "react";
 
 import { Primitive } from "@synnaxlabs/x";
 
-import { SetState, executeStateSetter } from "@/util/state";
+import { state } from "@/state";
 
 /**
  * A hook that returns a ref and a pseudo-setState function to mimic the
@@ -22,10 +22,10 @@ import { SetState, executeStateSetter } from "@/util/state";
  */
 export const useStateRef = <T extends Primitive | object>(
   initialValue: T
-): [MutableRefObject<T>, SetState<T>] => {
+): [MutableRefObject<T>, state.Set<T>] => {
   const ref = useRef<T>(initialValue);
-  const setValue: SetState<T> = useCallback((setter) => {
-    ref.current = executeStateSetter(setter, ref.current);
+  const setValue: state.Set<T> = useCallback((setter) => {
+    ref.current = state.executeSetter(setter, ref.current);
   }, []);
   return [ref, setValue];
 };

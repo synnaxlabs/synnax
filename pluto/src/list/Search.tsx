@@ -14,6 +14,7 @@ import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { List } from "@/list";
+import { state } from "@/state";
 import { Status } from "@/status";
 import { RenderProp, componentRenderProp } from "@/util/renderProp";
 
@@ -52,10 +53,10 @@ export const Search = <
   value,
   onChange,
 }: SearchProps<K, E>): ReactElement | null => {
-  const [internalValue, setInternvalValue] = Input.usePassthrough({
+  const [internalValue, setInternvalValue] = state.usePurePassthrough({
     value,
     onChange,
-    initialValue: "",
+    initial: "",
   });
   const { setSourceData, setEmptyContent } = List.useContext<K, E>();
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);

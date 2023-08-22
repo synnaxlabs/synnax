@@ -12,18 +12,17 @@ import { ReactElement, useState } from "react";
 import { OntologyID, OntologyRoot } from "@synnaxlabs/client";
 import type { OntologyResource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import type { TreeLeaf } from "@synnaxlabs/pluto";
-import { Tree, Space, Client, useAsyncEffect, Text } from "@synnaxlabs/pluto";
+import { Tree, Align, Synnax, useAsyncEffect, Text } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
-
-import { resourceTypes } from "../resources";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { NavDrawerItem, useLayoutPlacer } from "@/layout";
 import { WorkspaceSliceState } from "@/workspace";
 
+import { resourceTypes } from "../resources";
+
 const updateTreeEntry = (
-  data: TreeLeaf[],
+  data: Tree.Leaf[],
   newEntry: Partial<TreeLeaf>,
   key: string
 ): void =>

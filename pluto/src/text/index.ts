@@ -9,4 +9,6 @@
 
 import * as Text from "@/text/external";
 
+import "@/text/typography.css";
+
 export { Text };

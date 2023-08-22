@@ -30,7 +30,7 @@ import { MainMessage, WorkerMessage } from "@/aether/message";
 import { useUnmount } from "@/hooks/useMount";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
-import { SetStateArg, isStateSetter } from "@/util/state";
+import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 import { Worker } from "@/worker";
 
@@ -201,7 +201,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
     path: string[];
   },
   z.output<S>,
-  (state: SetStateArg<z.input<S>>, transfer?: Transferable[]) => void
+  (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void
 ];
 
 export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
@@ -225,10 +225,10 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
 
   const setState = useCallback(
     (
-      next: SetStateArg<z.input<S> | z.output<S>>,
+      next: state.SetArg<z.input<S> | z.output<S>>,
       transfer: Transferable[] = []
     ): void => {
-      if (isStateSetter(next))
+      if (state.isSetter(next))
         setInternalState((prev) => {
           const nextS = next(prev);
           // This makes our setter impure, so it's something we should be wary of causing

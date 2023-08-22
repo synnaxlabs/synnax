@@ -15,6 +15,7 @@ import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { useContext } from "@/list/Context";
+import { state } from "@/state";
 import { RenderProp } from "@/util/renderProp";
 
 import { OptionalControl } from "../input/types";
@@ -45,10 +46,10 @@ export const Filter = <
   onChange,
   value,
 }: FilterProps<K, E>): ReactElement | null => {
-  const [internalValue, setInternalValue] = Input.usePassthrough<string>({
+  const [internalValue, setInternalValue] = state.usePurePassthrough<string>({
     onChange,
     value,
-    initialValue: "",
+    initial: "",
   });
   const { setTransform, deleteTransform } = useContext<K, E>();
 

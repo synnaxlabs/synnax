@@ -13,7 +13,7 @@ import { Sender, SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MainMessage, WorkerMessage } from "@/aether/message";
-import { SetStateArg, executeStateSetter } from "@/util/state";
+import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
 type UpdateVariant = "state" | "context";
@@ -228,11 +228,11 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * Sets the state on the component, communicating the change to the corresponding
    * React component on the main thread.
    *
-   * @param state - The new state to set on the component. This can be the state object
+   * @param next - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(state: SetStateArg<z.input<S> | z.output<S>>): void {
-    const nextState: z.input<S> = executeStateSetter(state, this._state);
+  setState(next: state.SetArg<z.input<S> | z.output<S>>): void {
+    const nextState: z.input<S> = state.executeSetter(next, this._state);
     this._prevState = { ...this._state };
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
     this.ctx.propagateState(this.key, nextState);

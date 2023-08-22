@@ -23,7 +23,7 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
-import { convertThemeToCSSVars } from "@/theming/main/css";
+import { toCSSVars } from "@/theming/main/css";
 
 import "@/theming/main/theme.css";
 
@@ -115,7 +115,7 @@ export const Provider = Aether.wrap<ProviderProps>(
     }, [ret.theme]);
 
     useLayoutEffect(() => {
-      CSS.applyVars(document.documentElement, convertThemeToCSSVars(ret.theme));
+      CSS.applyVars(document.documentElement, toCSSVars(ret.theme));
     }, [ret.theme]);
     return (
       <Context.Provider value={ret}>

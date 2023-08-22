@@ -12,9 +12,7 @@ import { Theme } from "@/theming/core/theme";
 
 const OPACITIES: readonly number[] = [80, 60, 40, 20];
 
-export const convertThemeToCSSVars = (
-  theme: Theme
-): Record<string, number | string | undefined> =>
+export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
   Object.entries({
     "theme-name": theme.name,
     "theme-key": theme.key,

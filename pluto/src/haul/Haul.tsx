@@ -21,7 +21,7 @@ import React, {
 
 import { Key } from "@synnaxlabs/x";
 
-import { PureUseState } from "@/util/state";
+import { state } from "@/state";
 
 import "@/haul/Haul.css";
 
@@ -40,7 +40,7 @@ export interface ContextValue {
 const Context = createContext<ContextValue | null>(null);
 
 export interface ProviderProps extends PropsWithChildren {
-  useState?: PureUseState<Item[]>;
+  useState?: state.PureUse<Item[]>;
 }
 
 interface ProviderRef {
