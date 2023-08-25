@@ -109,6 +109,7 @@ export const useSelectMultiple = <
       }
       const v = unique(nextSelected);
       if (!allowNone && v.length === 0) return;
+      if (v.length === 0) shiftValueRef.current = null;
       onChange(unique(nextSelected), {
         entries: data.filter(({ key }) => nextSelected.includes(key)),
         clicked: key,

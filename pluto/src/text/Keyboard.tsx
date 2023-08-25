@@ -20,7 +20,7 @@ export type KeyboardProps<L extends Level = "h1"> = TextProps<L>;
 export const Keyboard = <L extends Level = "p">({
   className,
   ...props
-}: KeyboardProps<L>): ReactElement => {
+}: KeyboardProps<L>): ReactElement => (
   // @ts-expect-error
-  return <Text<L> className={CSS(className, CSS.BM("text", "keyboard"))} {...props} />;
-};
+  <Text<L> className={CSS(className, CSS.BM("text", "keyboard"))} {...props} />
+);

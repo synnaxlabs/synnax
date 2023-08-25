@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -24,20 +24,33 @@ export type EditableProps<L extends Level = "h1"> = Omit<
 > &
   Input.Control<string> & {
     useEditableState?: state.PureUse<boolean>;
+    allowDoubleClick?: boolean;
   };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
+
+const BASE_CLASS = CSS.BM("text", "editable");
+
+export const edit = (id: string): void => {
+  const d = document.getElementById(id);
+  if (d == null || !d.classList.contains(BASE_CLASS))
+    return console.error(`Element with id ${id} is not an instance of Text.Editable`);
+  d.setAttribute("contenteditable", "true");
+};
 
 export const Editable = <L extends Level = "h1">({
   onChange,
   value,
   useEditableState = useState,
+  allowDoubleClick = true,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
 
-  const handleDoubleClick = (): void => setEditable(true);
+  const handleDoubleClick = (): void => {
+    if (allowDoubleClick) setEditable(true);
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
@@ -59,6 +72,20 @@ export const Editable = <L extends Level = "h1">({
   }, [editable]);
 
   if (ref.current !== null && !editable) ref.current.innerHTML = value;
+
+  useEffect(() => {
+    const m = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName !== "contenteditable") return;
+        const t = mutation.target as HTMLElement;
+        const makeEditable = t.contentEditable === "true";
+        if (makeEditable) setEditable(true);
+      });
+    });
+    m.observe(ref.current as Node, {
+      attributes: true,
+    });
+  }, []);
 
   return (
     // @ts-expect-error

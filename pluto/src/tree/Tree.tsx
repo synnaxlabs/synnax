@@ -18,8 +18,8 @@ import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
 import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
-import { state } from "@/state";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 import "@/tree/Tree.css";
 
@@ -29,7 +29,7 @@ export interface Node {
   key: string;
   name: string;
   icon?: ReactElement;
-  editable?: boolean;
+  allowRename?: boolean;
   hasChildren?: boolean;
   children?: Node[];
   haulItems?: Haul.Item[];
@@ -63,11 +63,13 @@ export const use = (props?: UseProps): UseReturn => {
   const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
+  const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
+
   const handleSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"] =
     useCallback(
       (keys: string[], { clicked }): void => {
         setSelected(keys);
-        if (clicked == null) return;
+        if (clicked == null || shiftRef.current.held) return;
         const currentlyExpanded = ref.current;
         const action = currentlyExpanded.some((key) => key === clicked)
           ? "contract"
@@ -156,6 +158,7 @@ const Item = ({
   const {
     key,
     hasChildren = false,
+    allowRename = false,
     haulItems = [],
     children,
     icon,
@@ -182,8 +185,6 @@ const Item = ({
     onDrop: (props) => onDrop?.(key, props) ?? [],
     onDragOver: () => setDraggingOver(true),
   });
-
-  const [editable, setEditable] = useState(entry.editable ?? false);
 
   return (
     <Button.Button
@@ -216,13 +217,13 @@ const Item = ({
       {...dropProps}
     >
       <Text.MaybeEditable
+        id={`text-${key}`}
         level="p"
-        useEditableState={useCallback(
-          (): state.PureUseReturn<boolean> => [editable, setEditable],
-          [editable, setEditable]
-        )}
+        allowDoubleClick={false}
         value={name}
-        onChange={onRename != null ? (name) => onRename(key, name) : undefined}
+        onChange={
+          onRename != null && allowRename ? (name) => onRename(key, name) : undefined
+        }
       />
     </Button.Button>
   );
