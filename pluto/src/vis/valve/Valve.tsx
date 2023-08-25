@@ -63,7 +63,7 @@ export const Valve = Aether.wrap<ValveProps>(
     const dims = dir.isY ? BASE_VALVE_DIMS.swap() : BASE_VALVE_DIMS;
 
     // @ts-expect-error
-    if (color != null) style[CSS.var("base-color")] = new Color(color).rgbString;
+    if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
     return (
       <button
         className={CSS(

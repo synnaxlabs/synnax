@@ -10,8 +10,11 @@
 package channel
 
 import (
+	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,6 +28,7 @@ type service struct {
 	*gorp.DB
 	proxy *leaseProxy
 	otg   *ontology.Ontology
+	group group.Group
 }
 
 type Service interface {
@@ -47,6 +51,7 @@ type ServiceConfig struct {
 	TSChannel    *ts.DB
 	Transport    Transport
 	Ontology     *ontology.Ontology
+	Group        *group.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -57,6 +62,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "Group", c.Group)
 	return v.Error()
 }
 
@@ -66,21 +73,30 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
 	return c
 }
 
 var DefaultConfig = ServiceConfig{}
 
-func New(configs ...ServiceConfig) (Service, error) {
+func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	proxy, err := newLeaseProxy(cfg)
+	g, err := maybeCreateGroup(ctx, cfg.Group)
 	if err != nil {
 		return nil, err
 	}
-	return &service{DB: cfg.ClusterDB, proxy: proxy, otg: cfg.Ontology}, nil
+	proxy, err := newLeaseProxy(cfg, g)
+	if err != nil {
+		return nil, err
+	}
+	return &service{
+		DB:    cfg.ClusterDB,
+		proxy: proxy,
+		otg:   cfg.Ontology,
+	}, nil
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
@@ -88,3 +104,13 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
+
+const groupName = "Channels"
+
+func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
+	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if g.Key != uuid.Nil || err != nil {
+		return g, err
+	}
+	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
+}

@@ -376,7 +376,7 @@ export const isDriftAction = (type: string): boolean =>
   type.startsWith(DRIFT_SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
-const EXCLUDED_ACTIONS: readonly string[] = [setWindowLabel.type];
+const EXCLUDED_ACTIONS: string[] = [setWindowLabel.type];
 
 /**
  * @returns true if the action with the given type should be emitted to other

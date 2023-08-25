@@ -37,7 +37,6 @@ export interface BaseProps
 export interface ButtonProps
   extends Optional<Omit<Text.WithIconProps<"button">, "size">, "level">,
     ButtonExtensionProps {
-  children?: string | number;
   startIcon?: ReactElement | ReactElement[];
   endIcon?: ReactElement | ReactElement[];
   iconSpacing?: Align.SpaceProps["size"];

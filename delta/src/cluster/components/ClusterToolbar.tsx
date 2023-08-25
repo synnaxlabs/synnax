@@ -37,7 +37,7 @@ const Content = (): ReactElement => {
     },
   ];
 
-  const handleSelect = ([key]: readonly string[]): void => {
+  const handleSelect = ([key]: string[]): void => {
     dispatch(setActiveCluster(key ?? null));
   };
 

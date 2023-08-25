@@ -9,25 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tree__container,
-.pluto-tree__container ul {
-    list-style-type: none;
-}
+.pluto-tree {
+    height: 100%;
 
-.pluto-tree__list {
-    padding-left: 0;
-}
 
-.pluto-tree-node__container {
-    padding: 0 !important;
-    margin: 0;
-}
+    & button {
+        border-radius: 0;
+        width: 100%;
 
-.pluto-tree-leaf__button {
-    width: 100%;
-    border-radius: 0;
-}
+        & .pluto-caret path {
+            fill: var(--pluto-gray-p0) !important;
+        }
+    }
 
-.pluto-tree-leaf__button.pluto--selected {
-    background-color: var(--pluto-primary-z-40) !important;
+    .pluto--dragging-over {
+        background: var(--pluto-primary-z-20);
+        border-bottom: var(--pluto-border);
+        border-color: var(--pluto-primary-z);
+    }
+
+    .pluto--selected {
+        background: var(--pluto-primary-z-20);
+    }
 }

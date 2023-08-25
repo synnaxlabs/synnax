@@ -97,7 +97,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
           value={value.color}
         >
           {/* @ts-expect-error */}
-          {componentRenderProp(ColorSwatch)}
+          {componentRenderProp(Color.Swatch)}
         </Input.Item>
         <Input.Item<CrudeDirection>
           label="Direction"

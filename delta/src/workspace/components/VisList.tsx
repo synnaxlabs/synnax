@@ -26,7 +26,7 @@ export const VisList = (): ReactElement => {
   );
   const activeLayout = useSelectActiveMosaicTabKey();
   const d = useDispatch();
-  const handleSelect = ([key]: readonly string[]): void => {
+  const handleSelect = ([key]: string[]): void => {
     d(selectLayoutMosaicTab({ tabKey: key }));
   };
   return (

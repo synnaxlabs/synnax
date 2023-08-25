@@ -26,7 +26,6 @@ package ontology
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -44,7 +43,7 @@ import (
 type (
 	// Schema is a set of definitions that describe the structure of a resource.
 	Schema = schema.Schema
-	//  is the underlying data structure of a resource.
+	// Resource is the underlying data structure of a resource.
 	Resource = schema.Resource
 	ID       = schema.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)

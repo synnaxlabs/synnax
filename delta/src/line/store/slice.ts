@@ -271,6 +271,7 @@ export interface SetLinePlotYChannelsPayload {
   key: string;
   axisKey: YAxisKey;
   channels: ChannelKey[];
+  mode?: "set" | "add";
 }
 
 export interface AddLinePlotYChannelPayload {
@@ -423,9 +424,10 @@ export const { actions, reducer: lineReducer } = createSlice({
       state,
       { payload }: PayloadAction<SetLinePlotYChannelsPayload>
     ) => {
-      const { key: layoutKey, axisKey, channels } = payload;
+      const { key: layoutKey, axisKey, channels, mode = "set" } = payload;
       const p = state.plots[layoutKey];
-      p.channels[axisKey] = channels;
+      if (mode === "set") p.channels[axisKey] = channels;
+      else p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
       p.lines = updateLines(p);
     },
     addLinePlotYChannel: (

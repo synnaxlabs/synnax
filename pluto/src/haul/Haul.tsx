@@ -17,38 +17,58 @@ import React, {
   useContext as reactUseContext,
   useMemo,
   useRef,
+  useId,
 } from "react";
 
-import { Key } from "@synnaxlabs/x";
+import { Key, Optional } from "@synnaxlabs/x";
 
 import { state } from "@/state";
 
 import "@/haul/Haul.css";
 
+// Item represents a draggable item.
 export interface Item {
   key: Key;
   type: string;
 }
 
+export interface DraggingState {
+  source: Item;
+  items: Item[];
+}
+
+const ZERO_ITEM: Item = { key: "", type: "" };
+
+export const ZERO_DRAGGING_STATE: DraggingState = {
+  source: ZERO_ITEM,
+  items: [],
+};
+
 export interface ContextValue {
-  value: Item[];
-  start: (hauled: Item[], onSuccessfulDrop?: (hauled: Item[]) => void) => void;
+  state: DraggingState;
+  start: (
+    source: Item,
+    items: Item[],
+    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void
+  ) => void;
   end: () => void;
-  drop: () => void;
+  drop: (target: Item, dropped: Item[]) => void;
 }
 
 const Context = createContext<ContextValue | null>(null);
 
 export interface ProviderProps extends PropsWithChildren {
-  useState?: state.PureUse<Item[]>;
+  useState?: state.PureUse<DraggingState>;
 }
 
-interface ProviderRef {
-  dragging: Item[];
-  onSuccessfulDrop: (hauled: Item[]) => void;
+interface ProviderRef extends DraggingState {
+  onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void;
 }
 
-const HAUL_REF: ProviderRef = { dragging: [], onSuccessfulDrop: () => {} };
+const HAUL_REF: ProviderRef = {
+  ...ZERO_DRAGGING_STATE,
+  onSuccessfulDrop: () => {},
+};
 
 export const useContext = (): ContextValue => {
   const ctx = reactUseContext(Context);
@@ -62,63 +82,98 @@ export const Provider = ({
 }: ProviderProps): JSX.Element => {
   const ctx = reactUseContext(Context);
 
-  const [value, onChange] = useState();
-
+  const [state, setState] = useState(ZERO_DRAGGING_STATE);
   const ref = useRef<ProviderRef>(HAUL_REF);
-  const start = useCallback(
-    (hauled: Item[], onSuccessfulDrop?: (hauled: Item[]) => void) => {
-      ref.current.dragging = hauled;
-      if (onSuccessfulDrop != null) ref.current.onSuccessfulDrop = onSuccessfulDrop;
-      onChange(hauled);
-    },
-    [onChange]
-  );
-  const end = useCallback(() => {
-    ref.current = HAUL_REF;
-    onChange([]);
-  }, [onChange]);
 
-  const drop = useCallback(() => {
-    ref.current.onSuccessfulDrop(ref.current.dragging);
+  const start: ContextValue["start"] = useCallback(
+    (source, items, onSuccessfulDrop) => {
+      ref.current = { source, items, onSuccessfulDrop };
+      setState({ source, items });
+    },
+    [setState]
+  );
+
+  const end: ContextValue["end"] = useCallback(() => {
     ref.current = HAUL_REF;
-    onChange([]);
-  }, [onChange]);
+    setState(ZERO_DRAGGING_STATE);
+  }, [setState]);
+
+  const drop: ContextValue["drop"] = useCallback(
+    (target, dropped) => {
+      ref.current.onSuccessfulDrop?.({
+        target,
+        dropped,
+        hauled: ref.current.items,
+      });
+      ref.current = HAUL_REF;
+      setState(ZERO_DRAGGING_STATE);
+    },
+    [setState]
+  );
 
   const oCtx = useMemo<ContextValue>(
-    () => ctx ?? { value, start, end, drop },
-    [value, start, end, drop, ctx]
+    () => ctx ?? { state, start, end, drop },
+    [state, start, end, drop, ctx]
   );
   return <Context.Provider value={oCtx}>{children}</Context.Provider>;
 };
 
-export const useDraggingRef = (): MutableRefObject<Item[]> => {
-  const ref = useRef<Item[]>([]);
-  const { value } = useContext();
-  ref.current = value;
+// |||||| DRAGGING ||||||
+
+export const useDraggingRef = (): MutableRefObject<DraggingState> => {
+  const ref = useRef<DraggingState>(ZERO_DRAGGING_STATE);
+  const { state } = useContext();
+  ref.current = state;
   return ref;
 };
 
-export const useDraggingState = (): Item[] => {
-  const { value } = useContext();
-  return value;
+export const useDraggingState = (): DraggingState => {
+  const { state } = useContext();
+  return state;
 };
 
-export interface UseDragReturn {
-  startDrag: (entities: Item[], onSuccessfulDrop?: (hauled: Item[]) => void) => void;
-  endDrag: () => void;
+// |||||| DRAG ||||||
+
+export interface OnSuccessfulDropProps {
+  target: Item;
+  hauled: Item[];
+  dropped: Item[];
 }
 
-export const useDrag = (): UseDragReturn => {
+export interface UseDragProps extends Optional<Item, "key"> {}
+
+export interface UseDragReturn {
+  startDrag: (
+    items: Item[],
+    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void
+  ) => void;
+  onDragEnd: () => void;
+}
+
+export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
+  const key_ = key ?? useId();
+  const source: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
   const { start, end } = useContext();
-  return { startDrag: start, endDrag: end };
+  return {
+    startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
+    onDragEnd: end,
+  };
 };
 
-type CanDrop = (entities: Item[]) => boolean;
+// |||||| DROP ||||||
 
-export interface UseDropProps {
+export type CanDrop = (state: DraggingState) => boolean;
+
+export interface OnDropProps extends DraggingState {
+  event: DragEvent;
+}
+
+export type OnDragOverProps = OnDropProps;
+
+export interface UseDropProps extends Optional<Item, "key"> {
   canDrop: CanDrop;
-  onDrop: (entities: Item[], e: DragEvent) => void;
-  onDragOver?: (entities: Item[], e: DragEvent) => void;
+  onDrop: (props: OnDropProps) => Item[];
+  onDragOver?: (props: OnDragOverProps) => void;
 }
 
 export interface UseDropReturn {
@@ -127,6 +182,8 @@ export interface UseDropReturn {
 }
 
 export const useDrop = ({
+  type,
+  key,
   canDrop,
   onDrop,
   onDragOver,
@@ -134,23 +191,28 @@ export const useDrop = ({
   const ref = useDraggingRef();
   const { drop } = useContext();
 
+  const key_ = key ?? useId();
+  const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
+
   const handleDragOver = useCallback(
-    (e: DragEvent) => {
+    (event: DragEvent) => {
       if (!canDrop(ref.current)) return;
-      e.preventDefault();
-      onDragOver?.(ref.current, e);
+      event.preventDefault();
+      onDragOver?.({
+        event,
+        ...ref.current,
+      });
     },
     [ref, canDrop]
   );
 
   const handleDrop = useCallback(
-    (e: DragEvent) => {
+    (event: DragEvent) => {
       if (!canDrop(ref.current)) return;
-      e.preventDefault();
-      drop();
-      onDrop(ref.current, e);
+      event.preventDefault();
+      drop(target, onDrop({ ...ref.current, event }));
     },
-    [ref, onDrop, canDrop, drop]
+    [ref, onDrop, canDrop, drop, target]
   );
 
   return {
@@ -159,7 +221,31 @@ export const useDrop = ({
   };
 };
 
+// |||||| DRAG AND DROP ||||||
+
+export interface UseDragAndDropProps
+  extends Omit<UseDragProps, "source">,
+    Omit<UseDropProps, "target">,
+    Optional<Item, "key"> {}
+
+export interface UseDragAndDropReturn extends UseDragReturn, UseDropReturn {}
+
+export const useDragAndDrop = ({
+  type,
+  key,
+  ...props
+}: UseDragAndDropProps): UseDragAndDropReturn => {
+  const key_ = key ?? useId();
+  const sourceAndTarget: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
+  const dragProps = useDrag(sourceAndTarget);
+  const dropProps = useDrop({ ...props, ...sourceAndTarget });
+  return { ...dragProps, ...dropProps };
+};
+
 export const canDropOfType =
   (type: string): CanDrop =>
-  (entities) =>
-    entities.some((entity) => entity.type === type);
+  ({ items }) =>
+    items.some((entity) => entity.type === type);
+
+export const filterByType = (type: string, entities: Item[]): Item[] =>
+  entities.filter((entity) => entity.type === type);

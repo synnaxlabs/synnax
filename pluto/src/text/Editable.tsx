@@ -12,6 +12,7 @@ import type { KeyboardEvent, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Input } from "@/input";
+import { state } from "@/state";
 import { Text, TextProps } from "@/text/Text";
 import { Level } from "@/text/types";
 
@@ -21,16 +22,19 @@ export type EditableProps<L extends Level = "h1"> = Omit<
   TextProps<L>,
   "children" | "onChange"
 > &
-  Input.Control<string>;
+  Input.Control<string> & {
+    useEditableState?: state.PureUse<boolean>;
+  };
 
 const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
 export const Editable = <L extends Level = "h1">({
   onChange,
   value,
+  useEditableState = useState,
   ...props
 }: EditableProps<L>): ReactElement => {
-  const [editable, setEditable] = useState(false);
+  const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
 
   const handleDoubleClick = (): void => setEditable(true);

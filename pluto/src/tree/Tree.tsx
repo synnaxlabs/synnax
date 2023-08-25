@@ -7,224 +7,339 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, HtmlHTMLAttributes, ReactElement, useState } from "react";
+import { ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Input } from "@/input";
-import { ComponentSize } from "@/util/component";
-import { RenderProp } from "@/util/renderProp";
+import { Haul } from "@/haul";
+import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
+import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { List } from "@/list";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
+import { state } from "@/state";
+import { Text } from "@/text";
 
 import "@/tree/Tree.css";
 
-export interface TreeProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> extends Partial<Input.Control<readonly string[], string>>,
-    Omit<
-      DetailedHTMLProps<HtmlHTMLAttributes<HTMLUListElement>, HTMLUListElement>,
-      "children" | "onChange"
-    > {
-  data: Array<Node<K, E>>;
-  onExpand?: (key: string) => void;
-  children?: RenderProp<TreeLeafCProps<K, E>>;
-  size?: ComponentSize;
-}
+export const HAUL_TYPE = "tree-item";
 
-export const Tree = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
->({
-  data,
-  value = [],
-  onChange,
-  onExpand,
-  children = ButtonLeaf,
-  size,
-  ...props
-}: TreeProps<K, E>): JSX.Element => {
-  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(data);
-  return (
-    <ul className={CSS(CSS.BE("tree", "list"), CSS.BE("tree", "container"))} {...props}>
-      {data.map((entry) => (
-        <TreeLeafParent
-          {...entry}
-          key={entry.key}
-          prevPaddingLeft={-1.5}
-          siblingsHaveChildren={_nextSiblingsHaveChildren}
-          selected={value}
-          nodeKey={entry.key}
-          onSelect={onChange}
-          onExpand={onExpand}
-          render={children}
-          size={size}
-        />
-      ))}
-    </ul>
-  );
-};
-
-export type Node<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
-> = {
-  hasChildren?: boolean;
-  icon?: ReactElement;
-  children?: Array<Node<K, E>>;
-  url?: string;
-} & RenderableNode<K, E>;
-
-type RenderableNode<K extends Key, E extends KeyedRenderableRecord<K, E>> = {
+export interface Node {
   key: string;
   name: string;
-} & Omit<E, "name" | "key">;
-
-type LeafProps<K extends Key, E extends KeyedRenderableRecord<K, E>> = Node<K, E> & {
-  selected: readonly string[];
-  nodeKey: string;
+  icon?: ReactElement;
+  editable?: boolean;
   hasChildren?: boolean;
-  prevPaddingLeft: number;
-  onExpand?: (key: string) => void;
-  onSelect?: (key: string) => void;
-  render: RenderProp<TreeLeafCProps<K, E>>;
-  siblingsHaveChildren: boolean;
-  size?: ComponentSize;
+  children?: Node[];
+  haulItems?: Haul.Item[];
+  canDrop?: (items: Haul.Item[]) => boolean;
+}
+
+export interface FlattenedNode extends Node {
+  index: number;
+  depth: number;
+  expanded: boolean;
+}
+
+export interface HandleExpandProps {
+  current: string[];
+  action: "expand" | "contract";
+  clicked: string;
+}
+
+export interface UseProps {
+  onExpand?: (props: HandleExpandProps) => void;
+}
+
+export interface UseReturn {
+  selected: string[];
+  expanded: string[];
+  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+}
+
+export const use = (props?: UseProps): UseReturn => {
+  const { onExpand } = props ?? {};
+  const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const handleSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"] =
+    useCallback(
+      (keys: string[], { clicked }): void => {
+        setSelected(keys);
+        if (clicked == null) return;
+        const currentlyExpanded = ref.current;
+        const action = currentlyExpanded.some((key) => key === clicked)
+          ? "contract"
+          : "expand";
+        let nextExpanded = currentlyExpanded;
+        if (action === "contract")
+          nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
+        else nextExpanded = [...currentlyExpanded, clicked];
+        setExpanded(nextExpanded);
+        onExpand?.({ current: nextExpanded, action, clicked });
+      },
+      [onExpand]
+    );
+
+  return {
+    onSelect: handleSelect,
+    expanded,
+    selected,
+  };
 };
 
-const TreeLeafParent = <K extends Key, E extends KeyedRenderableRecord<K>>({
-  nodeKey,
-  name,
-  icon,
+export interface TreeProps
+  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop"> {
+  nodes: Node[];
+  selected?: string[];
+  expanded?: string[];
+  onSelect: (key: string[]) => void;
+}
+
+export const Tree = ({
+  nodes,
+  selected = [],
+  expanded = [],
   onSelect,
-  selected,
-  children = [],
-  hasChildren = false,
-  onExpand,
-  prevPaddingLeft,
-  render,
-  siblingsHaveChildren,
-  size,
-  ...rest
-}: LeafProps<K, E>): JSX.Element => {
-  const [expanded, setExpanded] = useState(recursiveSelected(children, selected));
-  const handleExpand = (key: string): void => {
-    onExpand?.(key);
-    setExpanded(!expanded);
-  };
-  hasChildren = children.length > 0 || hasChildren;
-  let paddingLeft = prevPaddingLeft + 2.5;
-  if (!hasChildren && siblingsHaveChildren) paddingLeft += 3.25;
-  const _nextSiblingsHaveChildren = nextSiblingsHaveChildren(children);
+  onDrop,
+  onRename,
+  onSuccessfulDrop,
+}: TreeProps): ReactElement => {
+  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
   return (
-    <li className={CSS.BE("tree-node", "container")}>
-      {render({
-        nodeKey,
-        style: {
-          paddingLeft: `${paddingLeft}rem`,
-        },
-        selected: selected.includes(nodeKey),
-        name,
-        icon,
-        expanded,
-        hasChildren,
-        onExpand: handleExpand,
-        onSelect,
-        size,
-        ...rest,
-      } as const as TreeLeafCProps<K, E>)}
-      {expanded && children.length > 0 && (
-        <ul className={CSS.BE("tree", "list")}>
-          {children.map((child) => (
-            <TreeLeafParent
-              {...child}
-              key={child.key}
-              nodeKey={child.key}
-              siblingsHaveChildren={_nextSiblingsHaveChildren}
-              onSelect={onSelect}
-              prevPaddingLeft={paddingLeft}
-              selected={selected}
-              onExpand={onExpand}
-              render={render}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
+    <List.List<string, FlattenedNode> data={flat}>
+      <List.Selector
+        value={selected}
+        onChange={onSelect}
+        allowMultiple
+        replaceOnSingle
+      />
+      <List.Core.Virtual<string, FlattenedNode>
+        itemHeight={27}
+        className={CSS.B("tree")}
+      >
+        {(props) => (
+          <Item
+            {...props}
+            onDrop={onDrop}
+            onRename={onRename}
+            onSuccessfulDrop={onSuccessfulDrop}
+            selectedItems={flat.filter((item) => selected.includes(item.key))}
+          />
+        )}
+      </List.Core.Virtual>
+    </List.List>
   );
 };
 
-type TreeLeafCProps<K extends Key, E extends KeyedRenderableRecord<K>> = Omit<
-  RenderableNode<K, E>,
-  "key"
-> & {
-  nodeKey: string;
-  name: string;
-  expanded: boolean;
-  selected: boolean;
-  hasChildren: boolean;
-  icon?: ReactElement;
-  url?: string;
-  style: React.CSSProperties;
-  onExpand: (key: string) => void;
-  onSelect?: (key: string) => void;
-};
+interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
+  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
+  onRename?: (key: string, name: string) => void;
+  selectedItems: FlattenedNode[];
+}
 
-export const ButtonLeaf = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
-  name,
-  icon,
-  nodeKey,
+const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
+const collapsedCaret = <Icon.Caret.Right className={CSS.B("caret")} />;
+
+const Item = ({
+  entry,
   selected,
-  expanded,
-  hasChildren = true,
   onSelect,
-  onExpand,
-  url,
-  ...props
-}: TreeLeafCProps<K, E>): JSX.Element => {
+  style,
+  onDrop,
+  onRename,
+  onSuccessfulDrop,
+  selectedItems,
+}: ItemProps): ReactElement => {
+  const {
+    key,
+    hasChildren = false,
+    haulItems = [],
+    children,
+    icon,
+    name,
+    depth,
+    expanded,
+  } = entry;
+
   const icons: ReactElement[] = [];
-  if (hasChildren) icons.push(expanded ? <Icon.Caret.Down /> : <Icon.Caret.Right />);
+  if (hasChildren || (children != null && children.length > 0))
+    icons.push(expanded ? expandedCaret : collapsedCaret);
   if (icon != null) icons.push(icon);
 
-  const handleClick = (): void => {
-    onSelect?.(nodeKey);
-    onExpand(nodeKey);
-  };
+  const [draggingOver, setDraggingOver] = useState(false);
 
-  const baseProps: Button.LinkProps | Button.ButtonExtensionProps = {
-    variant: "text",
-    onClick: handleClick,
-    className: CSS(CSS.BE("tree-leaf", "button"), CSS.selected(selected)),
-    startIcon: icons,
-    iconSpacing: "small",
-    noWrap: true,
-    ...props,
-  };
+  const { startDrag, ...dropProps } = Haul.useDragAndDrop({
+    type: "Tree.Item",
+    key,
+    canDrop: ({ items: entities, source }) => {
+      const keys = entities.map((item) => item.key);
+      setDraggingOver(false);
+      return source.type === "Tree.Item" && !keys.includes(key);
+    },
+    onDrop: (props) => onDrop?.(key, props) ?? [],
+    onDragOver: () => setDraggingOver(true),
+  });
 
-  return url != null ? (
-    // @ts-expect-error
-    <Button.Link href={url} {...baseProps} level="p">
-      {name}
-    </Button.Link>
-  ) : (
-    <Button.Button {...baseProps}>{name}</Button.Button>
+  const [editable, setEditable] = useState(entry.editable ?? false);
+
+  return (
+    <Button.Button
+      id={key}
+      variant="text"
+      draggable
+      className={CSS(
+        CONTEXT_TARGET,
+        draggingOver && CSS.M("dragging-over"),
+        selected && CONTEXT_SELECTED,
+        CSS.selected(selected)
+      )}
+      onDragLeave={() => setDraggingOver(false)}
+      onDragStart={() =>
+        startDrag(
+          selectedItems
+            .map(({ key, haulItems }) => [
+              { type: HAUL_TYPE, key },
+              ...(haulItems ?? []),
+            ])
+            .flat(),
+          (props) => onSuccessfulDrop?.(key, props)
+        )
+      }
+      onClick={() => onSelect?.(key)}
+      style={{ ...style, paddingLeft: `${depth * 1.5 + 1}rem` }}
+      startIcon={icons}
+      noWrap
+      iconSpacing="small"
+      {...dropProps}
+    >
+      <Text.MaybeEditable
+        level="p"
+        useEditableState={useCallback(
+          (): state.PureUseReturn<boolean> => [editable, setEditable],
+          [editable, setEditable]
+        )}
+        value={name}
+        onChange={onRename != null ? (name) => onRename(key, name) : undefined}
+      />
+    </Button.Button>
   );
 };
 
-const recursiveSelected = (data: Node[], selected: readonly string[]): boolean => {
-  for (const entry of data) {
-    if (selected.includes(entry.key)) return true;
-    if (entry.children != null && recursiveSelected(entry.children, selected))
-      return true;
+export const shouldExpand = (node: Node, expanded: string[]): boolean =>
+  expanded.includes(node.key);
+
+export const flatten = (
+  nodes: Node[],
+  expanded: string[],
+  depth: number = 0
+): FlattenedNode[] => {
+  const flattened: FlattenedNode[] = [];
+  nodes.forEach((node, index) => {
+    const e = shouldExpand(node, expanded);
+    flattened.push({ ...node, depth, expanded: e, index });
+    if (e && node.children != null)
+      flattened.push(...flatten(node.children, expanded, depth + 1));
+  });
+  return flattened;
+};
+
+export const moveNode = (
+  tree: Node[],
+  destination: string,
+  ...keys: string[]
+): Node[] => {
+  keys.forEach((key) => {
+    const node = findNode(tree, key);
+    if (node == null) return;
+    removeNode(tree, key);
+    addNode(tree, destination, node);
+  });
+  return tree;
+};
+
+export const removeNode = (tree: Node[], ...keys: string[]): Node[] => {
+  const treeKeys = tree.map((node) => node.key);
+  keys.forEach((key) => {
+    const index = treeKeys.indexOf(key);
+    if (index !== -1) tree.splice(index, 1);
+    else {
+      const parent = findNodeParent(tree, key);
+      if (parent != null)
+        parent.children = parent.children?.filter((child) => child.key !== key);
+    }
+  });
+  return tree;
+};
+
+export const addNode = (
+  tree: Node[],
+  destination: string,
+  ...nodes: Node[]
+): Node[] => {
+  const node = findNode(tree, destination);
+  if (node == null) throw new Error(`Could not find node with key ${destination}`);
+  if (node.children == null) node.children = [];
+  const keys = nodes.map((node) => node.key);
+  node.children = [
+    ...nodes,
+    ...node.children.filter((child) => !keys.includes(child.key)),
+  ];
+  return tree;
+};
+
+export const updateNode = (
+  tree: Node[],
+  key: string,
+  updater: (node: Node) => Node
+): Node[] => {
+  const node = findNode(tree, key);
+  if (node == null) throw new Error(`Could not find node with key ${key}`);
+  const parent = findNodeParent(tree, key);
+  if (parent != null) {
+    // splice the updated node into the parent's children
+    const index = parent.children?.findIndex((child) => child.key === key);
+    if (index != null && index !== -1) parent.children?.splice(index, 1, updater(node));
+  } else {
+    // we're in the root, so just update the node
+    tree.splice(
+      tree.findIndex((node) => node.key === key),
+      1,
+      updater(node)
+    );
   }
-  return false;
+  return tree;
 };
 
-const nextSiblingsHaveChildren = (data: Node[]): boolean =>
-  data.some(
-    (child) =>
-      child.hasChildren === true ||
-      (child.children != null && child.children.length > 0)
-  );
+export const findNode = (tree: Node[], key: string): Node | null => {
+  for (const node of tree) {
+    if (node.key === key) return node;
+    if (node.children != null) {
+      const found = findNode(node.children, key);
+      if (found != null) return found;
+    }
+  }
+  return null;
+};
+
+export const findNodes = (tree: Node[], keys: string[]): Node[] => {
+  const nodes: Node[] = [];
+  for (const key of keys) {
+    const node = findNode(tree, key);
+    if (node != null) nodes.push(node);
+  }
+  return nodes;
+};
+
+export const findNodeParent = (tree: Node[], key: string): Node | null => {
+  for (const node of tree) {
+    if (node.children != null) {
+      if (node.children.some((child) => child.key === key)) return node;
+      const found = findNodeParent(node.children, key);
+      if (found != null) return found;
+    }
+  }
+  return null;
+};

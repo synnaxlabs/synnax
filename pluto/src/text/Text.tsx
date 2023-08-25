@@ -28,7 +28,7 @@ export interface CoreProps<L extends Level = "h1"> {
 }
 
 export type TextProps<L extends Level = "h1"> = Omit<
-  Generic.GenericProps<L>,
+  Generic.ElementProps<L>,
   "el" | "color" | "children"
 > &
   CoreProps<L>;
@@ -46,7 +46,7 @@ const CoreText = <L extends Level = "h1">(
   ref: ForwardedRef<JSX.IntrinsicElements[L]>
 ): ReactElement => (
   // @ts-expect-error
-  <Generic.Generic<L>
+  <Generic.Element<L>
     el={level}
     ref={ref}
     style={{ color: Color.cssString(color), ...style }}
@@ -54,7 +54,7 @@ const CoreText = <L extends Level = "h1">(
     {...props}
   >
     {children}
-  </Generic.Generic>
+  </Generic.Element>
 );
 
 export const Text = forwardRef(CoreText) as <L extends Level = "h1">(

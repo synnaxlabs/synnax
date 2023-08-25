@@ -15,7 +15,7 @@ import { ChannelClient, ChannelCreator } from "@/channel";
 import { CacheChannelRetriever, ClusterChannelRetriever } from "@/channel/retriever";
 import { Connectivity } from "@/connectivity";
 import { FrameClient } from "@/framer";
-import { OntologyClient } from "@/ontology";
+import { ontology } from "@/ontology";
 import { RangeClient, RangeCreator, RangeRetriever } from "@/ranger";
 import { Transport } from "@/transport";
 
@@ -47,7 +47,7 @@ export default class Synnax {
   channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: Connectivity;
-  ontology: OntologyClient;
+  ontology: ontology.Client;
   props: ParsedSynnaxProps;
   static readonly connectivity = Connectivity;
 
@@ -88,7 +88,7 @@ export default class Synnax {
       this.transport.unary,
       connectivityPollFrequency
     );
-    this.ontology = new OntologyClient(this.transport.unary);
+    this.ontology = new ontology.Client(this.transport.unary);
     const rangeRetriever = new RangeRetriever(this.transport.unary);
     const rangeCreator = new RangeCreator(this.transport.unary);
     this.ranges = new RangeClient(this.telem, rangeRetriever, rangeCreator);

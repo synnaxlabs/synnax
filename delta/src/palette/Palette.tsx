@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { OntologyID, OntologyResource } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Dropdown,
@@ -56,7 +56,7 @@ export interface PaletteTriggerConfig {
 }
 
 export interface PaletteProps {
-  searcher: AsyncTermSearcher<string, string, OntologyResource>;
+  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
   resourceTypes: Record<string, ResourceType>;
   triggers: PaletteTriggerConfig;
@@ -110,7 +110,7 @@ export const Palette = ({
   const store = useStore() as RootStore;
   const placeLayout = useLayoutPlacer();
   const handleSelect = useCallback(
-    ([key]: readonly string[], [entry]: Array<OntologyResource | Command>) => {
+    ([key]: string[], [entry]: Array<ontology.Resource | Command>) => {
       dropdown.close();
       if (mode === "command") {
         (entry as Command).onSelect({
@@ -118,12 +118,12 @@ export const Palette = ({
           placeLayout,
         });
       } else {
-        const id = new OntologyID(key);
+        const id = new ontology.ID(key);
         const t = resourceTypes[id.type];
         t?.onSelect({
           store,
           placeLayout,
-          resource: entry as OntologyResource,
+          selected: entry as ontology.Resource,
         });
       }
     },
@@ -168,7 +168,7 @@ export interface PaletteInputProps
   mode: PaletteMode;
   visible: boolean;
   setMode: (mode: PaletteMode) => void;
-  searcher: AsyncTermSearcher<string, string, OntologyResource>;
+  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commandSymbol: string;
   triggerConfig: PaletteTriggerConfig;
   commands: Command[];
@@ -346,10 +346,7 @@ export const PaletteInput = ({
 
 export interface PalleteListProps extends Pick<Dropdown.DialogProps, "visible"> {
   mode: PaletteMode;
-  onSelect: (
-    keys: readonly string[],
-    entries: Array<OntologyResource | Command>
-  ) => void;
+  onSelect: (keys: string[], entries: Array<ontology.Resource | Command>) => void;
   resourceTypes: Record<string, ResourceType>;
 }
 
@@ -362,7 +359,7 @@ export const PaletteList = ({
   const item = useMemo(() => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(resourceTypes)
-    ) as FC<List.ItemProps<string, OntologyResource | Command>>;
+    ) as FC<List.ItemProps<string, ontology.Resource | Command>>;
     return componentRenderProp(Item);
   }, [mode, resourceTypes]);
   return (
@@ -403,13 +400,13 @@ export const CommandListItem = ({
 
 export const createResourceListItem = (
   resourceTypes: Record<string, ResourceType>
-): FC<List.ItemProps<string, OntologyResource>> => {
+): FC<List.ItemProps<string, ontology.Resource>> => {
   const ResourceListItem = ({
     entry: { name, key, id },
     hovered,
     onSelect,
     ...props
-  }: List.ItemProps<string, OntologyResource>): ReactElement | null => {
+  }: List.ItemProps<string, ontology.Resource>): ReactElement | null => {
     if (id == null) return null;
     const handleSelect = (): void => onSelect?.(key);
     const resourceType = resourceTypes[id.type];
@@ -434,7 +431,7 @@ export const createResourceListItem = (
 };
 
 export interface ResourceListItemProps
-  extends List.ItemProps<string, OntologyResource> {
+  extends List.ItemProps<string, ontology.Resource> {
   store: RootStore;
 }
 

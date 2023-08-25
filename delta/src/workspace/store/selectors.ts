@@ -33,7 +33,7 @@ const selectWorkSpaceState = (state: WorkspaceStoreState): WorkspaceSliceState =
  */
 export const selectRanges = (
   state: WorkspaceStoreState,
-  keys?: string[] | readonly string[]
+  keys?: string[] | string[]
 ): Range[] => {
   const all = Object.values(selectWorkSpaceState(state).ranges);
   if (keys == null) return all;

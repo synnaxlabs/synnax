@@ -12,7 +12,6 @@ package group
 import (
 	"context"
 	"errors"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -26,25 +25,42 @@ type Config struct {
 	Ontology *ontology.Ontology
 }
 
-var _ config.Config[Config] = Config{}
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
 
 // Override implements Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
 // Validate implements Config.
 func (c Config) Validate() error {
 	v := validate.New("group")
-	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "Ontology", c.Ontology)
 	return v.Error()
 }
 
 type Service struct{ Config }
 
+func NewService(configs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{Config: cfg}, nil
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx}
+	return Writer{tx: gorp.OverrideTx(s.DB, tx), otg: s.Ontology.NewWriter(tx)}
+}
+
+func (s *Service) NewRetrieve() Retrieve {
+	return newRetrieve(s.DB)
 }
 
 type Writer struct {
@@ -58,9 +74,9 @@ func (w Writer) Create(
 	name string,
 	parent ontology.ID,
 ) (g Group, err error) {
-	if err = w.validateNoChildrenWithName(ctx, name, parent); err != nil {
-		return
-	}
+	//if err = w.validateNoChildrenWithName(ctx, name, parent); err != nil {
+	//	return
+	//}
 	g.Key = uuid.New()
 	g.Name = name
 	id := OntologyID(g.Key)
@@ -83,22 +99,15 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 		Exec(ctx, w.tx)
 }
 
-func (w Writer) AddChildren(ctx context.Context, group uuid.UUID, children ...ontology.ID) error {
-	for _, child := range children {
-		if err := w.otg.DefineRelationship(ctx, OntologyID(group), ontology.ParentOf, child); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (w Writer) RemoveChildren(ctx context.Context, group uuid.UUID, children ...ontology.ID) error {
-	for _, child := range children {
-		if err := w.otg.DeleteRelationship(ctx, OntologyID(group), ontology.ParentOf, child); err != nil {
-			return err
-		}
-	}
-	return nil
+// Rename renames the Group with the given key.
+func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
+	return gorp.NewUpdate[uuid.UUID, Group]().
+		WhereKeys(key).
+		Change(func(g Group) Group {
+			g.Name = name
+			return g
+		}).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) validateNoChildrenWithName(ctx context.Context, name string, parent ontology.ID) error {

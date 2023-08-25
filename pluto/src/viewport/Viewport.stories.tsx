@@ -16,7 +16,7 @@ import { Triggers } from "@/triggers";
 import { Viewport } from "@/viewport";
 
 const story: Meta<typeof Viewport.Mask> = {
-  title: "Core/Vis/Viewport",
+  title: "Viewport",
   component: Viewport.Mask,
 };
 

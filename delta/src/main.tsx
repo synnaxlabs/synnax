@@ -10,7 +10,7 @@
 import { ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Pluto, Haul, Triggers } from "@synnaxlabs/pluto";
+import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -67,12 +67,12 @@ const MainUnderContext = (): ReactElement => {
   useLoadTauriVersion();
   const cluster = useSelectCluster();
 
-  const useHaulState: PureUseState<Hauled[]> = () => {
+  const useHaulState: state.PureUse<Haul.DraggingState> = () => {
     const hauled = useSelectHauling();
     const dispatch = useDispatch();
     const onHauledChange = useCallback(
-      (hauled: Haul.Item[]) => {
-        dispatch(setHauled({ hauling: hauled }));
+      (state: Haul.DraggingState) => {
+        dispatch(setHauled(state));
       },
       [dispatch]
     );

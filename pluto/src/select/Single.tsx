@@ -28,6 +28,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
+import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
@@ -97,15 +98,15 @@ export const Single = <
     setSelected(data.find((e) => e.key === value) ?? null);
   }, [value]);
 
-  const handleChange = useCallback(
-    ([v]: readonly K[], [e]: E[]): void => {
+  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
+    ([v], e): void => {
       close();
       if (v == null) {
         if (!allowClear) return;
         setSelected(null);
         return onChange(initialValue.current);
       }
-      setSelected(e);
+      setSelected(e.entries[0]);
       onChange(v);
     },
     [onChange, allowClear]

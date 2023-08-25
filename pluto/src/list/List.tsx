@@ -51,7 +51,7 @@ export const List = <
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
   const [columns, setColumns] = useState<Array<ColumnSpec<K, E>>>([]);
-  const [selected, setSelected] = useState<readonly K[]>([]);
+  const [selected, setSelected] = useState<K[]>([]);
   const [hover, setHover] = useState<number>(-1);
   const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
   const [clear, setClear] = useState<(() => void) | undefined>(undefined);

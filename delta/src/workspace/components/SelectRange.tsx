@@ -36,7 +36,7 @@ export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
 
 export interface SelectMultipleRangesInputItemProps
   extends Omit<
-    Input.ItemProps<readonly string[], readonly string[], SelectMultipleRangesProps>,
+    Input.ItemProps<string[], string[], SelectMultipleRangesProps>,
     "label"
   > {}
 
@@ -62,7 +62,7 @@ const SelectRangesEmptyContent = (): ReactElement => {
 export const SelectMultipleRangesInputItem = (
   props: SelectMultipleRangesInputItemProps
 ): ReactElement => (
-  <Input.Item<readonly string[], readonly string[], SelectMultipleRangesProps>
+  <Input.Item<string[], string[], SelectMultipleRangesProps>
     direction="x"
     label="Ranges"
     emptyContent={<SelectRangesEmptyContent />}

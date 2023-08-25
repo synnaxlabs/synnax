@@ -11,13 +11,12 @@ import { useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { List } from ".";
-
+import { List } from "@/list";
 import { componentRenderProp } from "@/util/renderProp";
 
-const story: Meta<typeof List> = {
-  title: "Core/Standard/List",
-  component: List,
+const story: Meta<typeof List.List> = {
+  title: "List",
+  component: List.List,
 };
 
 const dataTypes = [
@@ -61,34 +60,34 @@ const columns = [
 ];
 
 export const Column: StoryFn<typeof List> = () => (
-  <List data={data}>
+  <List.List data={data}>
     <List.Column.Header columns={columns} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
       {List.Column.Item}
     </List.Core.Virtual>
-  </List>
+  </List.List>
 );
 
 export const Search: StoryFn<typeof List> = () => (
-  <List data={data}>
+  <List.List data={data}>
     <List.Filter />
     <List.Column.Header columns={columns} />
     <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
       {componentRenderProp(List.Column.Item)}
     </List.Core.Virtual>
-  </List>
+  </List.List>
 );
 
 export const Selectable: StoryFn<typeof List> = () => {
-  const [selected, setSelected] = useState<readonly string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   return (
-    <List data={data}>
+    <List.List data={data}>
       <List.Selector value={selected} onChange={setSelected} />
       <List.Column.Header columns={columns} />
       <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
         {List.Column.Item}
       </List.Core.Virtual>
-    </List>
+    </List.List>
   );
 };
 

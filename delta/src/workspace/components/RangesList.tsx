@@ -25,20 +25,21 @@ export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "start",
     name: "Start",
-    stringer: ({ timeRange: { start, end } }) =>
-      new TimeStamp(start).fString("dateTime", "local"),
+    stringer: () => "",
+    // stringer: ({ timeRange: { start, end } }) =>
+    //   new TimeStamp(start).fString("dateTime", "local"),
   },
   {
     key: "end",
     name: "End",
-    stringer: ({ timeRange: { start, end } }) => {
-      const startTS = new TimeStamp(start);
-      const endTS = new TimeStamp(end);
-      return endTS.fString(
-        endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
-        "local"
-      );
-    },
+    // stringer: ({ timeRange: { start, end } }) => {
+    //   const startTS = new TimeStamp(start);
+    //   const endTS = new TimeStamp(end);
+    //   return endTS.fString(
+    //     endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
+    //     "local"
+    //   );
+    // },
   },
 ];
 
@@ -96,7 +97,7 @@ export const RangesList = ({
         <List.List data={ranges}>
           <List.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
-            onChange={([key]: readonly string[]) => onSelect(key)}
+            onChange={([key]: string[]) => onSelect(key)}
             allowMultiple={false}
           />
           <List.Column.Header columns={rangeListColumns} />

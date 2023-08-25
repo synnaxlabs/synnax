@@ -9,14 +9,14 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Mosaic, Node } from "@/mosaic";
+import { Mosaic } from "@/mosaic";
 
-const story: Meta<typeof Mosaic> = {
-  title: "Core/Standard/Mosaic",
-  component: Mosaic,
+const story: Meta<typeof Mosaic.Mosaic> = {
+  title: "Mosaic",
+  component: Mosaic.Mosaic,
 };
 
-const initialTree: Node = {
+const initialTree: Mosaic.Node = {
   key: 1,
   direction: "x",
   first: {
@@ -48,7 +48,7 @@ const initialTree: Node = {
 
 export const Primary: StoryFn<typeof Mosaic> = () => {
   const props = Mosaic.use({ initialTree, allowRename: true });
-  return <Mosaic {...props}>{() => <h1>Dog</h1>}</Mosaic>;
+  return <Mosaic.Mosaic {...props}>{() => <h1>Dog</h1>}</Mosaic.Mosaic>;
 };
 
 // eslint-disable-next-line import/no-default-export

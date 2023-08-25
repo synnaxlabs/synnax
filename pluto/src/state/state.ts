@@ -34,7 +34,7 @@ export const isInitialSetter = <S extends State>(arg: Initial<S>): arg is () => 
 export type UseReturn<S extends State> = [S, Set<S>];
 export type Use = <S extends State>(initial: Initial<S>) => UseReturn<S>;
 export type PureUseReturn<S extends State> = [S, PureSet<S>];
-export type PureUse<S extends State> = () => PureUseReturn<S>;
+export type PureUse<S extends State> = (initial: S) => PureUseReturn<S>;
 
 export interface UsePassthroughProps<S extends State> {
   initial: Initial<S>;

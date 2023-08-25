@@ -15,7 +15,7 @@ import { AiOutlineDelete } from "react-icons/ai";
 import { Button } from "@/button";
 
 const story: Meta<typeof Button.Button> = {
-  title: "Core/Standard/Button",
+  title: "Button",
   component: Button.Button,
   argTypes: {
     variant: {

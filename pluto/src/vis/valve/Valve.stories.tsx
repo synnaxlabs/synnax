@@ -12,38 +12,37 @@ import { ReactElement } from "react";
 import { Meta, StoryFn } from "@storybook/react";
 import { Bounds } from "@synnaxlabs/x";
 
+import { Bool } from "@/telem/bool";
+import { Control } from "@/telem/control";
 import { Controller } from "@/telem/control/Controller";
+import { Remote } from "@/telem/remote";
+import { Canvas } from "@/vis/canvas";
+import { Valve } from "@/vis/valve";
 
-import { Canvas } from "../canvas/Canvas";
-
-import { Valve } from "./Valve";
-
-import { Telem } from "@/telem";
-
-const story: Meta<typeof Valve> = {
-  title: "Core/Vis/Valve",
-  component: Valve,
+const story: Meta<typeof Valve.Valve> = {
+  title: "Valve",
+  component: Valve.Valve,
 };
 
 const Example = (): ReactElement => {
-  const numericSource = Telem.Remote.useNumeric({
+  const numericSource = Remote.useNumericSource({
     channel: 65542,
   });
-  const booleanSource = Telem.Boolean.useNumericConverterSource({
+  const booleanSource = Bool.useNumericConverterSource({
     wrap: numericSource,
     trueBound: new Bounds(30, 40),
   });
-  const numericSink = Telem.Control.useNumeric({
+  const numericSink = Control.useNumeric({
     channel: 65541,
   });
-  const booleanSink = Telem.Boolean.useNumericConverterSink({
+  const booleanSink = Bool.useNumericConverterSink({
     wrap: numericSink,
     truthy: 1,
     falsy: 0,
   });
 
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -53,9 +52,9 @@ const Example = (): ReactElement => {
       }}
     >
       <Controller authority={5}>
-        <Valve color="#fc3d03" source={booleanSource} sink={booleanSink} />
+        <Valve.Valve color="#fc3d03" source={booleanSource} sink={booleanSink} />
       </Controller>
-    </Canvas>
+    </Canvas.Canvas>
   );
 };
 

@@ -14,7 +14,7 @@ import { Button } from "@/button";
 import { ComponentSizes } from "@/util/component";
 
 const story: Meta<typeof Align.Space> = {
-  title: "Core/Standard/Space",
+  title: "Space",
   component: Align.Space,
   argTypes: {
     direction: {

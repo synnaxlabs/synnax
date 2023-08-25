@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEvent, ReactElement, useCallback, useMemo } from "react";
+import { DragEvent, ReactElement, useCallback, useId, useMemo } from "react";
 
-import { ChannelKey, ChannelPayload } from "@synnaxlabs/client";
+import { ChannelKey, ChannelKeys, ChannelPayload } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { DraggingState } from "@/haul/Haul";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
+
+import { HAUL_TYPE } from "./types";
 
 const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
   {
@@ -45,6 +48,14 @@ const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
     name: "Is Index",
   },
 ];
+
+const canDrop = (
+  { items: entities }: DraggingState,
+  value: ChannelKey[] | readonly ChannelKey[]
+): boolean => {
+  const f = Haul.filterByType(HAUL_TYPE, entities);
+  return f.length > 0 && !f.every((h) => value.includes(h.key as ChannelKey));
+};
 
 export interface SelectMultipleProps
   extends Omit<
@@ -74,26 +85,35 @@ export const SelectMultiple = ({
       </Status.Text.Centered>
     );
 
-  const { onDragOver, onDrop } = Haul.useDrop({
+  const {
+    startDrag,
+    onDragEnd: endDrag,
+    ...dropProps
+  } = Haul.useDragAndDrop({
+    type: "Channel.SelectMultiple",
     canDrop: useCallback((hauled) => canDrop(hauled, value), [value]),
     onDrop: useCallback(
-      ([channel]) => onChange(unique([...value, channel.key as ChannelKey])),
+      ({ items }) => {
+        const dropped = Haul.filterByType(HAUL_TYPE, items);
+        if (dropped.length === 0) return [];
+        onChange(unique([...value, ...(dropped.map((c) => c.key) as ChannelKeys)]));
+        return dropped;
+      },
       [onChange, value]
     ),
   });
-  const { startDrag, endDrag } = Haul.useDrag();
   const dragging = Haul.useDraggingState();
 
   const handleSuccessfulDrop = useCallback(
-    (dragging: Haul.Item[]) => {
-      onChange(value.filter((key) => !dragging.some((h) => h.key === key)));
+    ({ dropped }: Haul.OnSuccessfulDropProps) => {
+      onChange(value.filter((key) => !dropped.some((h) => h.key === key)));
     },
     [onChange, value]
   );
 
   const onDragStart = useCallback(
     (_: DragEvent<HTMLDivElement>, key: ChannelKey) =>
-      startDrag([{ key, type: "channel" }], handleSuccessfulDrop),
+      startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
     [startDrag, handleSuccessfulDrop]
   );
 
@@ -101,8 +121,6 @@ export const SelectMultiple = ({
     <Select.Multiple
       className={CSS(className, CSS.dropRegion(canDrop(dragging, value)))}
       value={value}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
       searcher={client?.channels}
@@ -110,6 +128,7 @@ export const SelectMultiple = ({
       columns={columns}
       emptyContent={emptyContent}
       tagKey={"name"}
+      {...dropProps}
       {...props}
     />
   );
@@ -119,14 +138,6 @@ export interface SelectSingleProps
   extends Omit<Select.SingleProps<ChannelKey, ChannelPayload>, "columns"> {
   columns?: string[];
 }
-
-const canDrop = (
-  hauled: Haul.Item[],
-  value: ChannelKey[] | readonly ChannelKey[]
-): boolean =>
-  hauled.length > 0 &&
-  hauled.every((h) => h.type === "channel") &&
-  !hauled.every((h) => value.includes(h.key as ChannelKey));
 
 export const SelectSingle = ({
   columns: filter = [],
@@ -148,16 +159,35 @@ export const SelectSingle = ({
       </Status.Text.Centered>
     );
 
-  const { onDragOver, onDrop } = Haul.useDrop({
+  const id = useId();
+  const sourceAndTarget: Haul.Item = useMemo(
+    () => ({ key: id, type: "Channel.SelectMultiple" }),
+    [id]
+  );
+
+  const {
+    startDrag,
+    onDragEnd: endDrag,
+    ...dragProps
+  } = Haul.useDragAndDrop({
+    type: "Channel.SelectSingle",
     canDrop: useCallback((hauled) => canDrop(hauled, [value]), [value]),
-    onDrop: useCallback(([channel]) => onChange(channel.key as ChannelKey), [onChange]),
+    onDrop: useCallback(
+      ({ items }) => {
+        const ch = Haul.filterByType(HAUL_TYPE, items);
+        if (ch.length === 0) return [];
+        onChange(ch[0].key as ChannelKey);
+        return ch;
+      },
+      [sourceAndTarget, onChange]
+    ),
   });
 
-  const { startDrag, endDrag } = Haul.useDrag();
   const dragging = Haul.useDraggingState();
-  const onDragStart = useCallback(() => {
-    startDrag([{ type: "channel", key: value }]);
-  }, [startDrag, value]);
+  const onDragStart = useCallback(
+    () => startDrag([{ type: HAUL_TYPE, key: value }]),
+    [startDrag, value]
+  );
 
   return (
     <Select.Single
@@ -165,13 +195,12 @@ export const SelectSingle = ({
       value={value}
       onDragStart={onDragStart}
       onDragEnd={endDrag}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       onChange={onChange}
       searcher={client?.channels}
       columns={columns}
       emptyContent={emptyContent}
       tagKey={"name"}
+      {...dragProps}
       {...props}
     />
   );

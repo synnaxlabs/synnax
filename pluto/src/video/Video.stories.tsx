@@ -9,15 +9,17 @@
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Video, VideoProps } from "@/video";
+import { Video } from "@/video";
 
-const story: Meta<typeof Video> = {
-  title: "Core/Standard/Video",
-  component: Video,
+const story: Meta<typeof Video.Video> = {
+  title: "Video",
+  component: Video.Video,
   argTypes: {},
 };
 
-const Template: StoryFn<typeof Video> = (args: VideoProps) => <Video {...args} />;
+const Template: StoryFn<typeof Video> = (args: Video.VideoProps) => (
+  <Video.Video {...args} />
+);
 
 export const Default: StoryFn<typeof Video> = Template.bind({});
 Default.args = {

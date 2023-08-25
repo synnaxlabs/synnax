@@ -10,10 +10,14 @@
 import { createContext, PropsWithChildren, ReactElement, useContext } from "react";
 
 import { Input } from "@/input";
+import { Text } from "@/text";
+import { ComponentSize } from "@/util/component";
 
 interface MenuContextValue {
   onClick: (key: string) => void;
   selected: string;
+  level?: Text.Level;
+  iconSpacing?: ComponentSize;
 }
 
 export const MenuContext = createContext<MenuContextValue>({
@@ -21,7 +25,10 @@ export const MenuContext = createContext<MenuContextValue>({
   selected: "",
 });
 
-export interface MenuProps extends Partial<Input.Control<string>>, PropsWithChildren {}
+export interface MenuProps
+  extends Partial<Input.Control<string>>,
+    PropsWithChildren,
+    Pick<MenuContextValue, "level" | "iconSpacing"> {}
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 

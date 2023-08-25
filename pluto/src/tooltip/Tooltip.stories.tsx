@@ -17,7 +17,7 @@ import { Button } from "@/button";
 import { Tooltip } from "@/tooltip";
 
 const story: Meta<typeof Tooltip.Dialog> = {
-  title: "Core/Standard/Tooltip.Dialog",
+  title: "Tooltip",
   component: Tooltip.Dialog,
 };
 

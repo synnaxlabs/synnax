@@ -29,6 +29,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
+import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
@@ -42,7 +43,7 @@ export interface MultipleProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
 > extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children">,
-    Input.Control<readonly K[]>,
+    Input.Control<K[]>,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
@@ -101,14 +102,14 @@ export const Multiple = <
     if (value.length === 0) return setSelected([]);
     if (Compare.primitiveArrays(selectedKeys, value) === Compare.EQUAL) return;
     const e = searchMode
-      ? await searcher.retrieve(value as K[])
+      ? await searcher.retrieve(value)
       : data?.filter((v) => value.includes(v.key)) ?? [];
     setSelected(e);
   }, [searcher, searchMode, value, data]);
 
-  const handleChange = useCallback(
-    (v: readonly K[], entries: E[]) => {
-      setSelected(entries);
+  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
+    (v, extra) => {
+      setSelected(extra.entries);
       onChange(v);
     },
     [onChange]

@@ -12,18 +12,16 @@ import { useState } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiFillDatabase, AiFillPhone } from "react-icons/ai";
 
-import { Tree, TreeLeaf } from ".";
-
 import { Haul } from "@/haul";
-import { useSelectMultiple } from "@/hooks/useSelectMultiple";
+import { Tree } from "@/tree";
 import { Triggers } from "@/triggers";
 
-const story: Meta<typeof Tree> = {
-  title: "Core/Standard/Tree",
-  component: Tree,
+const story: Meta<typeof Tree.Tree> = {
+  title: "Tree",
+  component: Tree.Tree,
 };
 
-const nodes: TreeLeaf[] = [
+const NODES: Tree.Node[] = [
   {
     key: "cluster",
     name: "Cluster",
@@ -53,17 +51,26 @@ const nodes: TreeLeaf[] = [
       },
     ],
   },
+  {
+    key: "device-2",
+    name: "Device 2",
+    icon: <AiFillPhone />,
+    children: [
+      {
+        key: "device-3",
+        name: "Device 3",
+      },
+    ],
+  },
 ];
 
 const Component = () => {
-  const [value, setValue] = useState<readonly string[]>([]);
-  const { onSelect } = useSelectMultiple({
-    allowMultiple: false,
-    value,
-    onChange: setValue,
-    data: nodes,
-  });
-  return <Tree data={nodes} value={value} onChange={onSelect} />;
+  const props = Tree.use();
+  const [nodes, setNodes] = useState(NODES);
+  const handleDrop = (key: string, items: Haul.Item[]): void => {
+    setNodes([...Tree.moveNode(nodes, key, ...items.map((item) => item.key))]);
+  };
+  return <Tree.Tree nodes={nodes} {...props} onDrop={handleDrop} />;
 };
 
 export const Primary: StoryFn<typeof Tree> = () => {

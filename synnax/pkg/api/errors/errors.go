@@ -96,10 +96,7 @@ func MaybeAuth(err error) Typed {
 
 // Query is an error that occurs when a particular query fails.
 func Query(err error) Typed {
-	if errors.Is(err, query.NotFound) {
-		return newTypedMessage(TypeQuery, err.Error())
-	}
-	if errors.Is(err, query.UniqueViolation) {
+	if errors.Is(err, query.Error) {
 		return newTypedMessage(TypeQuery, err.Error())
 	}
 	return General(err)

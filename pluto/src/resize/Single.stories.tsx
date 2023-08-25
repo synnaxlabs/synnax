@@ -13,18 +13,18 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { Resize } from "@/resize";
 
-const story: Meta<typeof Resize> = {
-  title: "Core/Standard/Resize",
-  component: Resize,
+const story: Meta<typeof Resize.Single> = {
+  title: "Resize",
+  component: Resize.Single,
 };
 
-const Template = (args: ResizeProps): ReactElement => (
-  <Resize {...args} location="right">
+const Template = (args: Resize.SingleProps): ReactElement => (
+  <Resize.Single {...args} location="right">
     <h1>Resize</h1>
-  </Resize>
+  </Resize.Single>
 );
 
-export const Primary: StoryFn<typeof Resize> = Template.bind({});
+export const Primary: StoryFn<typeof Resize.Single> = Template.bind({});
 Primary.args = {
   style: {
     position: "absolute",

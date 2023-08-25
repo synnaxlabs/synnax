@@ -22,13 +22,7 @@ export {
   ValidationError,
 } from "@/errors";
 export * from "@/framer";
-export { OntologyID, OntologyRoot } from "@/ontology";
-export type {
-  OntologyResource,
-  OntologySchema,
-  OntologySchemaField,
-  OntologyResourceType,
-} from "@/ontology";
+export { ontology } from "@/ontology";
 export {
   DataType,
   Density,

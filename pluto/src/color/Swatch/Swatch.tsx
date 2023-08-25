@@ -45,24 +45,22 @@ export const Swatch = ({
 
   const d = new color.Color(value);
 
-  const { startDrag, endDrag } = Haul.useDrag();
-
   const dragging = Haul.useDraggingState();
 
-  const canDrop = useCallback(
-    (dragging: Haul.Item[]) => {
-      const k = dragging.find((i) => i.type === HAUL_TYPE)?.key;
-      if (k == null) return false;
-      return k !== d.hex;
+  const canDrop: Haul.CanDrop = useCallback(
+    ({ items }) => {
+      const [k] = Haul.filterByType(HAUL_TYPE, items);
+      return k != null && k.key !== d.hex;
     },
     [d.hex]
   );
 
-  const dropProps = Haul.useDrop({
-    onDrop: (item) => {
-      const k = item.find((i) => i.type === HAUL_TYPE)?.key;
-      if (k == null) return;
-      onChange?.(new color.Color(k as string));
+  const { startDrag, ...haulProps } = Haul.useDragAndDrop({
+    type: "Color.Swatch",
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(HAUL_TYPE, items);
+      if (items.length > 0) onChange?.(new color.Color(dropped[0].key as string));
+      return dropped;
     },
     canDrop,
   });
@@ -77,16 +75,7 @@ export const Swatch = ({
         className
       )}
       draggable
-      onDragStart={() =>
-        startDrag([
-          {
-            type: "color",
-            key: d.hex,
-          },
-        ])
-      }
-      {...dropProps}
-      onDragEnd={endDrag}
+      onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}
       variant="text"
       onClick={open}
@@ -96,6 +85,7 @@ export const Swatch = ({
           <Text.Text level="small">Click to change color</Text.Text>
         ) : undefined
       }
+      {...haulProps}
       {...props}
     />
   );

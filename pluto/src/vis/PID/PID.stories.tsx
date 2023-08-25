@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { AetherNoopTelem } from "@/telem/noop/noop";
-import { Canvas } from "@/vis/canvas/Canvas";
+import { Canvas } from "@/vis/canvas";
 import { PID } from "@/vis/pid";
-import { ValuePIDElementSpec } from "@/visupper";
-import { ValvePIDElementSpec } from "@/visupper/PID/ValvePIDElement";
+import { Element } from "@/vis/pid/element";
 
-const story: Meta<typeof PID> = {
-  title: "Core/Vis/PID",
-  component: PID,
+const story: Meta<typeof PID.PID> = {
+  title: "PID",
+  component: PID.PID,
 };
 
 const Example = (): ReactElement => {
@@ -51,20 +49,17 @@ const Example = (): ReactElement => {
     ],
   });
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
         position: "fixed",
       }}
     >
-      {/* <div style={{ height: "50%" }} /> */}
-      <PID {...props}>
-        {(props) => (
-          <ValuePIDElementSpec.Element {...props} label="Label" units="psi" />
-        )}
-      </PID>
-    </Canvas>
+      <PID.PID {...props}>
+        {(props) => <Element.ValueSpec.Element {...props} label="Label" units="psi" />}
+      </PID.PID>
+    </Canvas.Canvas>
   );
 };
 

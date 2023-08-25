@@ -29,7 +29,7 @@ export interface LayoutSliceState {
    * currently rendered in the mosaic or in external windows.
    */
   layouts: Record<string, LayoutState>;
-  hauling: Haul.Item[];
+  hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
   nav: NavState;
   alreadyCheckedGetStarted: boolean;
@@ -102,7 +102,7 @@ const INITIAL_STATE: LayoutSliceState = {
   mosaics: {
     main: ZERO_MOSAIC_STATE,
   },
-  hauling: [],
+  hauling: Haul.ZERO_DRAGGING_STATE,
   nav: {
     drawers: {
       left: {
@@ -155,9 +155,7 @@ interface ResizeNavdrawerPayload {
   location: NavdrawerLocation;
   size: number;
 }
-interface SetHaulingPayload {
-  hauling: Haul.Item[];
-}
+interface SetHaulingPayload extends Haul.DraggingState {}
 
 interface SetNavdrawerVisiblePayload {
   key?: string;
@@ -213,8 +211,8 @@ export const { actions, reducer: layoutReducer } = createSlice({
       state.layouts[key] = layout;
       state.mosaics[layout.windowKey] = mosaic;
     },
-    setHauled: (state, { payload: { hauling } }: PayloadAction<SetHaulingPayload>) => {
-      state.hauling = hauling;
+    setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
+      state.hauling = payload;
     },
     removeLayout: (
       state,

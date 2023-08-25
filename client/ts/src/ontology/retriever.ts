@@ -12,15 +12,10 @@ import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import {
-  OntologyID,
-  OntologyResource,
-  ontologyID,
-  ontologyResourceSchema,
-} from "@/ontology/payload";
+import { ID, Resource, idZ, resourceSchemaZ } from "@/ontology/payload";
 
 const requestSchema = z.object({
-  ids: ontologyID.array().optional(),
+  ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
   includeSchema: z.boolean().optional(),
@@ -31,12 +26,10 @@ const requestSchema = z.object({
 type Request = z.infer<typeof requestSchema>;
 
 const responseSchema = z.object({
-  resources: ontologyResourceSchema.array(),
+  resources: resourceSchemaZ.array(),
 });
 
-export class OntologyRetriever
-  implements AsyncTermSearcher<string, string, OntologyResource>
-{
+export class Retriever {
   private static readonly ENDPOINT = "/ontology/retrieve";
   private readonly client: UnaryClient;
 
@@ -44,30 +37,18 @@ export class OntologyRetriever
     this.client = unary;
   }
 
-  async search(term: string): Promise<OntologyResource[]> {
+  async search(term: string): Promise<Resource[]> {
     const resources = await this.execute({ term });
     return resources;
   }
 
   async retrieve(
-    id: OntologyID | string,
-    includeSchema?: boolean,
-    includeFieldData?: boolean
-  ): Promise<OntologyResource>;
-
-  async retrieve(
-    ids: OntologyID[] | string[],
-    includeSchema?: boolean,
-    includeFieldData?: boolean
-  ): Promise<OntologyResource[]>;
-
-  async retrieve(
-    ids: OntologyID | OntologyID[] | string | string[],
-    includeSchema?: boolean,
-    includeFieldData?: boolean
-  ): Promise<OntologyResource | OntologyResource[]> {
+    ids: ID | ID[] | string | string[],
+    includeSchema: boolean = true,
+    includeFieldData: boolean = true
+  ): Promise<Resource | Resource[]> {
     const resources = await this.execute({
-      ids: toArray(ids).map((id) => new OntologyID(id).payload),
+      ids: toArray(ids).map((id) => new ID(id).payload),
       includeFieldData,
       includeSchema,
     });
@@ -78,12 +59,12 @@ export class OntologyRetriever
   }
 
   async retrieveChildren(
-    ids: OntologyID | OntologyID[],
-    includeSchema?: boolean,
-    includeFieldData?: boolean
-  ): Promise<OntologyResource[]> {
+    ids: ID | ID[],
+    includeSchema: boolean = true,
+    includeFieldData: boolean = true
+  ): Promise<Resource[]> {
     return await this.execute({
-      ids: toArray(ids).map((id) => new OntologyID(id).payload),
+      ids: toArray(ids).map((id) => new ID(id).payload),
       children: true,
       includeSchema,
       includeFieldData,
@@ -91,21 +72,21 @@ export class OntologyRetriever
   }
 
   async retrieveParents(
-    ids: OntologyID | OntologyID[],
-    includeSchema?: boolean,
-    includeFieldData?: boolean
-  ): Promise<OntologyResource[]> {
+    ids: ID | ID[],
+    includeSchema: boolean = true,
+    includeFieldData: boolean = true
+  ): Promise<Resource[]> {
     return await this.execute({
-      ids: toArray(ids).map((id) => new OntologyID(id).payload),
+      ids: toArray(ids).map((id) => new ID(id).payload),
       parents: true,
       includeSchema,
       includeFieldData,
     });
   }
 
-  private async execute(request: Request): Promise<OntologyResource[]> {
+  private async execute(request: Request): Promise<Resource[]> {
     const [res, err] = await this.client.send(
-      OntologyRetriever.ENDPOINT,
+      Retriever.ENDPOINT,
       request,
       responseSchema
     );

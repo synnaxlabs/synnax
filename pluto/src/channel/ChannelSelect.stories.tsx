@@ -15,7 +15,7 @@ import { ChannelKey } from "@synnaxlabs/client";
 import { SelectSingle, SelectMultiple } from "./Select";
 
 const story: Meta<typeof SelectMultiple> = {
-  title: "Channel/Select",
+  title: "Channel Select",
   component: SelectMultiple,
 };
 

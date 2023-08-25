@@ -114,7 +114,7 @@ func start(cmd *cobra.Command) {
 		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
-		rangeSvc, err := ranger.NewService(ranger.Config{DB: gorpDB, Ontology: dist.Ontology})
+		rangeSvc, err := ranger.NewService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
 		if err != nil {
 			return err
 		}
@@ -137,6 +137,7 @@ func start(cmd *cobra.Command) {
 			Token:           tokenSvc,
 			Cluster:         dist.Cluster,
 			Ontology:        dist.Ontology,
+			Group:           dist.Group,
 			Ranger:          rangeSvc,
 		})
 		if err != nil {

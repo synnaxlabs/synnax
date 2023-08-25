@@ -11,14 +11,14 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { Tag } from "@/tag";
 
-const story: Meta<typeof Tag> = {
-  title: "Core/Standard/Tag",
-  component: Tag,
+const story: Meta<typeof Tag.Tag> = {
+  title: "Tag",
+  component: Tag.Tag,
 };
 
-const Template: StoryFn<typeof Tag> = (props) => <Tag {...props} />;
+const Template: StoryFn<typeof Tag.Tag> = (props) => <Tag.Tag {...props} />;
 
-export const Primary: StoryFn<typeof Tag> = Template.bind({});
+export const Primary: StoryFn<typeof Tag.Tag> = Template.bind({});
 Primary.args = {
   children: "Tag",
   onClose: () => undefined,

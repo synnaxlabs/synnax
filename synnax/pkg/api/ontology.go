@@ -11,21 +11,28 @@ package api
 
 import (
 	"context"
-
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/x/gorp"
+	"go/types"
 )
 
 type OntologyService struct {
 	validationProvider
+	dbProvider
 	OntologyProvider
+	group *group.Service
 }
 
 func NewOntologyService(p Provider) *OntologyService {
 	return &OntologyService{
 		OntologyProvider:   p.ontology,
 		validationProvider: p.Validation,
+		dbProvider:         p.db,
+		group:              p.Group,
 	}
 }
 
@@ -71,4 +78,136 @@ func (o *OntologyService) Retrieve(
 	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
 
 	return res, errors.MaybeQuery(q.Entries(&res.Resources).Exec(ctx, nil))
+}
+
+type OntologyCreateGroupRequest struct {
+	Name   string      `json:"name" msgpack:"name" validate:"required"`
+	Parent ontology.ID `json:"parent" msgpack:"parent"`
+}
+
+type OntologyCreateGroupResponse struct {
+	Group group.Group `json:"group" msgpack:"group"`
+}
+
+func (o *OntologyService) CreateGroup(
+	ctx context.Context,
+	req OntologyCreateGroupRequest,
+) (res OntologyCreateGroupResponse, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return OntologyCreateGroupResponse{}, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.group.NewWriter(tx)
+		g, err_ := w.Create(ctx, req.Name, req.Parent)
+		res.Group = g
+		return errors.MaybeQuery(err_)
+	})
+}
+
+type OntologyDeleteGroupRequest struct {
+	IDs []uuid.UUID `json:"ids" msgpack:"ids" validate:"required"`
+}
+
+func (o *OntologyService) DeleteGroup(
+	ctx context.Context,
+	req OntologyDeleteGroupRequest,
+) (res types.Nil, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.group.NewWriter(tx)
+		return errors.MaybeQuery(w.Delete(ctx, req.IDs...))
+	})
+}
+
+type OntologyRenameGroupRequest struct {
+	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
+	Name string    `json:"name" msgpack:"name" validate:"required"`
+}
+
+func (o *OntologyService) RenameGroup(
+	ctx context.Context,
+	req OntologyRenameGroupRequest,
+) (res types.Nil, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.group.NewWriter(tx)
+		return errors.MaybeQuery(w.Rename(ctx, req.Key, req.Name))
+	})
+}
+
+type OntologyAddChildrenRequest struct {
+	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
+	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+}
+
+func (o *OntologyService) AddChildren(
+	ctx context.Context,
+	req OntologyAddChildrenRequest,
+) (res types.Nil, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.Ontology.NewWriter(tx)
+		for _, child := range req.Children {
+			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
+				return errors.MaybeQuery(err)
+			}
+		}
+		return errors.Nil
+	})
+}
+
+type OntologyRemoveChildrenRequest struct {
+	ID       ontology.ID   `json:"id" msgpack:"id" validate:"required"`
+	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+}
+
+func (o *OntologyService) RemoveChildren(
+	ctx context.Context,
+	req OntologyRemoveChildrenRequest,
+) (res types.Nil, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.Ontology.NewWriter(tx)
+		for _, child := range req.Children {
+			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
+				return errors.MaybeQuery(err)
+			}
+		}
+		return errors.Nil
+	})
+}
+
+type OntologyMoveChildrenRequest struct {
+	From     ontology.ID   `json:"from" msgpack:"from" validate:"required"`
+	To       ontology.ID   `json:"to" msgpack:"to" validate:"required"`
+	Children []ontology.ID `json:"children" msgpack:"children" validate:"required"`
+}
+
+func (o *OntologyService) MoveChildren(
+	ctx context.Context,
+	req OntologyMoveChildrenRequest,
+) (res types.Nil, err errors.Typed) {
+	if err = o.Validate(req); err.Occurred() {
+		return res, err
+	}
+	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		w := o.Ontology.NewWriter(tx)
+		for _, child := range req.Children {
+			if err := w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
+				return errors.MaybeQuery(err)
+			}
+			if err := w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
+				return errors.MaybeQuery(err)
+			}
+		}
+		return errors.Nil
+	})
 }

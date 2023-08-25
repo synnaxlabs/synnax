@@ -115,6 +115,9 @@ interface EntryCProps extends Omit<Entry, "key"> {
   direction: Direction;
 }
 
+const expandedIcon = <Icon.Caret.Down aria-label="contract" />;
+const collapsedIcon = <Icon.Caret.Right aria-label="expand" />;
+
 const EntryC = ({
   index,
   name,
@@ -129,11 +132,7 @@ const EntryC = ({
     const parentSize = new Box(parent.current).dim(DIRECTION);
     expanded = size * parentSize > COLLAPSED_THRESHOLD;
   }
-  const icon = expanded ? (
-    <Icon.Caret.Down aria-label="contract" />
-  ) : (
-    <Icon.Caret.Right aria-label="expand" />
-  );
+  const icon = expanded ? expandedIcon : collapsedIcon;
   return (
     <>
       <Header.Header level="p" className={CSS.expanded(expanded)} empty>

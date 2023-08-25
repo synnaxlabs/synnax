@@ -55,7 +55,7 @@ const mockOptions: MockRecord[] = [
 ];
 
 const SelectMultiple = (): ReactElement => {
-  const [value, setValue] = useState<readonly string[]>([]);
+  const [value, setValue] = useState<string[]>([]);
   return (
     <Triggers.Provider>
       <Select.Multiple<string, MockRecord>

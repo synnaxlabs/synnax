@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { FC } from "react";
+
 import { OS } from "@synnaxlabs/x";
 import {
   AiFillCaretDown,
@@ -74,11 +76,11 @@ import {
   TbZoomReset,
   TbArrowRight,
   TbArrowDown,
-  TbArrowUp,
   TbArrowLeft,
+  TbArrowUp,
 } from "react-icons/tb";
 
-const IconOS: Record<OS, React.ComponentType> = {
+const IconOS: Record<OS, IconFC> = {
   Linux: FaLinux,
   MacOS: FaApple,
   Windows: FaWindows,
@@ -120,6 +122,7 @@ export const Icon: IconType = {
   Node: MdOutlineDeviceHub,
   Channel: MdSensors,
   Resources: AiFillFolder,
+  Group: AiFillFolder,
   Workspace: MdWorkspacesFilled,
   OS: IconOS,
   Box: AiOutlineBorder,
@@ -137,7 +140,7 @@ export const Icon: IconType = {
   Arrow: {
     Right: TbArrowRight,
     Down: TbArrowDown,
-    Up: MdKeyboardArrowUp,
+    Up: TbArrowUp,
     Left: TbArrowLeft,
   },
   Keyboard: {
@@ -167,84 +170,87 @@ export const Icon: IconType = {
   ZoomReset: TbZoomReset,
 };
 
+type IconFC = FC<React.SVGProps<SVGSVGElement>>;
+
 export interface IconType {
-  Circle: React.ComponentType;
-  Edit: React.ComponentType;
-  EditOff: React.ComponentType;
-  Add: React.ComponentType;
-  Subtract: React.ComponentType;
-  Copy: React.ComponentType;
-  Close: React.ComponentType;
-  Info: React.ComponentType;
-  Warning: React.ComponentType;
-  Check: React.ComponentType;
-  Refresh: React.ComponentType;
-  Delete: React.ComponentType;
-  Time: React.ComponentType;
-  Acquire: React.ComponentType;
-  Analyze: React.ComponentType;
-  Concepts: React.ComponentType;
-  Expand: React.ComponentType;
-  Visualize: React.ComponentType;
-  Cluster: React.ComponentType;
-  Control: React.ComponentType;
-  Settings: React.ComponentType;
+  Circle: IconFC;
+  Edit: IconFC;
+  EditOff: IconFC;
+  Add: IconFC;
+  Subtract: IconFC;
+  Copy: IconFC;
+  Close: IconFC;
+  Info: IconFC;
+  Warning: IconFC;
+  Check: IconFC;
+  Refresh: IconFC;
+  Delete: IconFC;
+  Time: IconFC;
+  Acquire: IconFC;
+  Analyze: IconFC;
+  Concepts: IconFC;
+  Expand: IconFC;
+  Visualize: IconFC;
+  Cluster: IconFC;
+  Control: IconFC;
+  Settings: IconFC;
   Caret: {
-    Right: React.ComponentType;
-    Left: React.ComponentType;
-    Up: React.ComponentType;
-    Down: React.ComponentType;
+    Right: IconFC;
+    Left: IconFC;
+    Up: IconFC;
+    Down: IconFC;
   };
   Arrow: {
-    Right: React.ComponentType;
-    Left: React.ComponentType;
-    Up: React.ComponentType;
-    Down: React.ComponentType;
+    Right: IconFC;
+    Left: IconFC;
+    Up: IconFC;
+    Down: IconFC;
   };
-  Reference: React.ComponentType;
-  Bolt: React.ComponentType;
-  Download: React.ComponentType;
-  Range: React.ComponentType;
-  Node: React.ComponentType;
-  Channel: React.ComponentType;
-  Resources: React.ComponentType;
-  Workspace: React.ComponentType;
-  OS: Record<OS, React.ComponentType>;
-  Box: React.ComponentType;
-  Python: React.ComponentType;
-  Typescript: React.ComponentType;
-  NPM: React.ComponentType;
-  PNPM: React.ComponentType;
-  Yarn: React.ComponentType;
-  QuestionMark: React.ComponentType;
-  Menu: React.ComponentType;
+  Reference: IconFC;
+  Bolt: IconFC;
+  Download: IconFC;
+  Range: IconFC;
+  Node: IconFC;
+  Channel: IconFC;
+  Resources: IconFC;
+  Group: IconFC;
+  Workspace: IconFC;
+  OS: Record<OS, IconFC>;
+  Box: IconFC;
+  Python: IconFC;
+  Typescript: IconFC;
+  NPM: IconFC;
+  PNPM: IconFC;
+  Yarn: IconFC;
+  QuestionMark: IconFC;
+  Menu: IconFC;
   Logo: {
-    Github: React.ComponentType;
-    LinkedIn: React.ComponentType;
+    Github: IconFC;
+    LinkedIn: IconFC;
   };
   Keyboard: {
-    Command: React.ComponentType;
-    Windows: React.ComponentType;
-    Tab: React.ComponentType;
-    Return: React.ComponentType;
-    Backspace: React.ComponentType;
-    Capslock: React.ComponentType;
-    Hide: React.ComponentType;
-    Control: React.ComponentType;
+    Command: IconFC;
+    Windows: IconFC;
+    Tab: IconFC;
+    Return: IconFC;
+    Backspace: IconFC;
+    Capslock: IconFC;
+    Hide: IconFC;
+    Control: IconFC;
     Arrow: {
-      Up: React.ComponentType;
-      Down: React.ComponentType;
-      Left: React.ComponentType;
-      Right: React.ComponentType;
+      Up: IconFC;
+      Down: IconFC;
+      Left: IconFC;
+      Right: IconFC;
     };
-    Alt: React.ComponentType;
-    Option: React.ComponentType;
-    Shift: React.ComponentType;
+    Alt: IconFC;
+    Option: IconFC;
+    Shift: IconFC;
   };
-  Zoom: React.ComponentType;
-  Pan: React.ComponentType;
-  Tooltip: React.ComponentType;
-  Annotate: React.ComponentType;
-  Rule: React.ComponentType;
-  ZoomReset: React.ComponentType;
+  Zoom: IconFC;
+  Pan: IconFC;
+  Tooltip: IconFC;
+  Annotate: IconFC;
+  Rule: IconFC;
+  ZoomReset: IconFC;
 }

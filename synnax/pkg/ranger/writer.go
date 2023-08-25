@@ -13,13 +13,15 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	group group.Group
 }
 
 func (w Writer) Create(
@@ -35,10 +37,11 @@ func (w Writer) Create(
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	if err = w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
+	otgID := OntologyID(r.Key)
+	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return
 	}
-	return err
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
 func (w Writer) CreateMany(

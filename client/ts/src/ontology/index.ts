@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { OntologyClient } from "./client";
-
-export type {
-  OntologyResource,
-  OntologySchema,
-  OntologySchemaField,
-  OntologyResourceType,
-} from "./payload";
-
-export { OntologyID, OntologyRoot } from "./payload";
+export * as ontology from "@/ontology/external";

@@ -13,10 +13,10 @@ import type { Meta, StoryFn } from "@storybook/react";
 
 import { Align } from "@/align";
 import { List } from "@/list";
-import { Select, SelectMultipleProps } from "@/select";
+import { Select } from "@/select";
 
 const story: Meta<typeof Select.Multiple> = {
-  title: "Core/Standard/Select",
+  title: "Select",
   component: Select.Multiple,
 };
 
@@ -53,8 +53,8 @@ const sampleColumns: Array<List.ColumnSpec<string, SampleRecord>> = [
 ];
 
 export const Multiple = (): ReactElement => {
-  const [value, setValue] = useState<readonly string[]>([]);
-  const [valueTwo, setValueTwo] = useState<readonly string[]>([]);
+  const [value, setValue] = useState<string[]>([]);
+  const [valueTwo, setValueTwo] = useState<string[]>([]);
 
   return (
     <Align.Space>
@@ -76,10 +76,10 @@ export const Multiple = (): ReactElement => {
 };
 
 const Template = (
-  props: Omit<SelectMultipleProps<string, SampleRecord>, "value" | "onChange">
+  props: Omit<Select.SingleProps<string, SampleRecord>, "value" | "onChange">
 ): ReactElement => {
   const [value, setValue] = useState<string>("");
-  return <Select {...props} value={value} onChange={setValue} />;
+  return <Select.Single {...props} value={value} onChange={setValue} />;
 };
 
 export const Default: StoryFn<typeof Template> = Template.bind({});

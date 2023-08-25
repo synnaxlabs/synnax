@@ -10,7 +10,6 @@
  */
 
 .pluto-btn {
-    transition: 0.15s background-color;
     margin: 0;
     cursor: pointer;
     border-radius: var(--pluto-border-radius);

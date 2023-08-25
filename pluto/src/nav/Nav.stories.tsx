@@ -14,32 +14,32 @@ import { Menu } from "@/menu";
 import { Nav } from "@/nav";
 
 const story: Meta<typeof Nav.Bar> = {
-  title: "Core/Standard/Nav",
+  title: "Nav",
   component: Nav.Bar,
 };
 
 export const LeftBar: StoryFn<typeof Nav.Bar> = () => (
   <Nav.Bar>
     <Nav.Bar.Start>
-      <Menu>
+      <Menu.Menu>
         <Menu.Item.Icon itemKey="1">
           <MdGrain />
         </Menu.Item.Icon>
-      </Menu>
+      </Menu.Menu>
     </Nav.Bar.Start>
     <Nav.Bar.Content>
-      <Menu>
+      <Menu.Menu>
         <Menu.Item.Icon itemKey="1">
           <MdGrain />
         </Menu.Item.Icon>
-      </Menu>
+      </Menu.Menu>
     </Nav.Bar.Content>
     <Nav.Bar.End>
-      <Menu>
+      <Menu.Menu>
         <Menu.Item.Icon itemKey="1">
           <MdGrain />
         </Menu.Item.Icon>
-      </Menu>
+      </Menu.Menu>
     </Nav.Bar.End>
   </Nav.Bar>
 );

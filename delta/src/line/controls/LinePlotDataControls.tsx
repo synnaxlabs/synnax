@@ -60,7 +60,7 @@ export const LinePlotDataControls = ({
     [dispatch, layoutKey]
   );
 
-  const handleRangeSelect = (key: XAxisKey, value: readonly string[]): void => {
+  const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
     dispatch(
       setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value as string[] })
     );

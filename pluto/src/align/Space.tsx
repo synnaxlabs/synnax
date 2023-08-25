@@ -63,12 +63,12 @@ export interface SpaceExtensionProps {
 }
 
 export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
-  Generic.GenericProps<E>,
+  Generic.ElementProps<E>,
   "el"
 > &
   SpaceExtensionProps;
 
-const CoreSpace = <E extends SpaceElementType = "div">(
+const CoreSpace = <E extends SpaceElementType>(
   {
     style,
     align,
@@ -83,12 +83,12 @@ const CoreSpace = <E extends SpaceElementType = "div">(
     wrap = false,
     bordered = false,
     rounded = false,
-    el = "div" as E,
+    el = "div",
     ...props
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): ReactElement => {
-  const direction = new Direction(direction_);
+  const dir = new Direction(direction_);
 
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
@@ -96,7 +96,7 @@ const CoreSpace = <E extends SpaceElementType = "div">(
 
   style = {
     gap,
-    flexDirection: flexDirection(direction, reverse),
+    flexDirection: flexDirection(dir, reverse),
     justifyContent: justifications[justify],
     alignItems: align,
     flexWrap: wrap ? "wrap" : "nowrap",
@@ -108,12 +108,12 @@ const CoreSpace = <E extends SpaceElementType = "div">(
 
   return (
     // @ts-expect-error
-    <Generic.Generic<E>
+    <Generic.Element<E>
       el={el}
       ref={ref}
       className={CSS(
         CSS.B("space"),
-        CSS.dir(direction),
+        CSS.dir(dir),
         CSS.bordered(bordered),
         CSS.rounded(rounded),
         typeof size === "string" && CSS.BM("space", size),

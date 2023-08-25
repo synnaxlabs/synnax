@@ -54,7 +54,7 @@ const data: SampleRecord[] = [
 ];
 
 const TestList = (): ReactElement => {
-  const [selected, setSelected] = useState<readonly string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   return (
     <Triggers.Provider>
       <List.List data={data}>

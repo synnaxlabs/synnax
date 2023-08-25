@@ -9,6 +9,7 @@
 
 import { ReactElement, useCallback, useMemo } from "react";
 
+import { ChannelKeys } from "@synnaxlabs/client";
 import {
   useAsyncEffect,
   Viewport,
@@ -30,6 +31,8 @@ import {
   LinePlotState,
   setLinePlotLine,
   setLinePlotRule,
+  setLinePlotXChannel,
+  setLinePlotYChannels,
   shouldDisplayAxis,
   storeLinePlotViewport,
   typedLineKeyToString,
@@ -105,6 +108,30 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
+  const handleChannelAxisDrop = useCallback(
+    (axis: string, channels: ChannelKeys): void => {
+      if (X_AXIS_KEYS.includes(axis as XAxisKey)) {
+        dispatch(
+          setLinePlotXChannel({
+            key: layoutKey,
+            axisKey: axis as XAxisKey,
+            channel: channels[0],
+          })
+        );
+      } else {
+        dispatch(
+          setLinePlotYChannels({
+            key: layoutKey,
+            axisKey: axis as YAxisKey,
+            channels,
+            mode: "add",
+          })
+        );
+      }
+    },
+    [dispatch, layoutKey]
+  );
+
   const handleRuleLabelChange = useCallback(
     (key: string, label: string): void => {
       dispatch(
@@ -163,6 +190,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
         onLineLabelChange={handleLineLabelChange}
         onRulePositionChange={handleRulePositionChange}
         onRuleLabelChange={handleRuleLabelChange}
+        onAxisChannelDrop={handleChannelAxisDrop}
         initialViewport={initialViewport}
         onViewportChange={handleViewportChange}
         viewportTriggers={triggers}
@@ -185,7 +213,6 @@ const buildAxes = (vis: LinePlotState): Channel.AxisProps[] =>
     .map(([key, axis]): Channel.AxisProps => {
       return {
         id: key,
-        keyX: key,
         location: axisLocation(key as AxisKey).crude,
         label: axis.label,
         type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
@@ -228,7 +255,7 @@ const buildLines = (
             const line = vis.lines.find((l) => l.key === key);
             if (line == null) throw new Error("Line not found");
             const v: Channel.LineProps & { key: string } = {
-              keyX: key,
+              id: key,
               ...line,
               downsample:
                 isNaN(line.downsample) || line.downsample == null ? 1 : line.downsample,

@@ -15,6 +15,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -47,6 +48,7 @@ type Config struct {
 	Ranger        *ranger.Service
 	Framer        *framer.Service
 	Ontology      *ontology.Ontology
+	Group         *group.Service
 	Storage       *storage.Storage
 	User          *user.Service
 	Token         *token.Service
@@ -73,6 +75,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "authenticator", c.Authenticator)
 	validate.NotNil(v, "enforcer", c.Enforcer)
 	validate.NotNil(v, "cluster", c.Cluster)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "insecure", c.Insecure)
 	return v.Error()
 }
 
@@ -89,23 +93,31 @@ func (c Config) Override(other Config) Config {
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
 	c.Cluster = override.Nil(c.Cluster, other.Cluster)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	return c
 }
 
 type Transport struct {
-	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	ChannelCreate      freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve    freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	ConnectivityCheck  freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	FrameWriter        freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
-	FrameIterator      freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
-	FrameStreamer      freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
-	OntologyRetrieve   freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
-	RangeCreate        freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve      freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	AuthLogin              freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername     freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword     freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	AuthRegistration       freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	ChannelCreate          freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve        freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ConnectivityCheck      freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
+	FrameWriter            freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
+	FrameIterator          freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
+	FrameStreamer          freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
+	RangeCreate            freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve          freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
+	OntologyGroupCreate    freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
+	OntologyGroupDelete    freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
+	OntologyGroupRename    freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
+	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
+	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -155,6 +167,12 @@ func (a *API) BindTo(t Transport) {
 		t.FrameStreamer,
 		t.RangeCreate,
 		t.RangeRetrieve,
+		t.OntologyGroupCreate,
+		t.OntologyGroupDelete,
+		t.OntologyAddChildren,
+		t.OntologyRemoveChildren,
+		t.OntologyMoveChildren,
+		t.OntologyGroupRename,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -170,6 +188,12 @@ func (a *API) BindTo(t Transport) {
 	t.FrameStreamer.BindHandler(typedStreamWrapper(a.Telem.Stream))
 	t.RangeRetrieve.BindHandler(typedUnaryWrapper(a.Range.Retrieve))
 	t.RangeCreate.BindHandler(typedUnaryWrapper(a.Range.Create))
+	t.OntologyGroupCreate.BindHandler(typedUnaryWrapper(a.Ontology.CreateGroup))
+	t.OntologyGroupDelete.BindHandler(typedUnaryWrapper(a.Ontology.DeleteGroup))
+	t.OntologyGroupRename.BindHandler(typedUnaryWrapper(a.Ontology.RenameGroup))
+	t.OntologyAddChildren.BindHandler(typedUnaryWrapper(a.Ontology.AddChildren))
+	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
+	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
 }
 
 // New instantiates the delta API using the provided Config. This should probably

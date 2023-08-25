@@ -11,10 +11,12 @@ import { Meta } from "@storybook/react";
 
 import { Header } from "@/header";
 
-const story: Meta<typeof Header> = {
-  title: "Core/Standard/Header",
-  component: Header,
+const story: Meta<typeof Header.Header> = {
+  title: "Header",
+  component: Header.Header,
 };
+
+export const Default = Header.Header.bind({});
 
 // eslint-disable-next-line import/no-default-export
 export default story;

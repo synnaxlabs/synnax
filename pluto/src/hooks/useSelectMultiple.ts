@@ -13,6 +13,14 @@ import { Key, KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 
+export interface UseSelectMultipleOnChangeExtra<
+  K extends Key = Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>
+> {
+  clicked: K | null;
+  entries: E[];
+}
+
 /** Props for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleProps<
   K extends Key = Key,
@@ -21,8 +29,9 @@ export interface UseSelectMultipleProps<
   data: E[];
   allowMultiple?: boolean;
   allowNone?: boolean;
-  value: readonly K[];
-  onChange: (next: readonly K[], entries: E[]) => void;
+  replaceOnSingle?: boolean;
+  value: K[];
+  onChange: (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
 }
 
 /** Return value for the {@link useSelectMultiple} hook. */
@@ -67,6 +76,7 @@ export const useSelectMultiple = <
   value = [],
   allowMultiple = true,
   allowNone = true,
+  replaceOnSingle = false,
   onChange,
 }: UseSelectMultipleProps<K, E>): UseSelectMultipleReturn<K, E> => {
   const shiftValueRef = useRef<K | null>(null);
@@ -74,7 +84,7 @@ export const useSelectMultiple = <
 
   const handleSelect = useCallback(
     (key: K): void => {
-      let nextSelected: readonly K[] = [];
+      let nextSelected: K[] = [];
       const shiftValue = shiftValueRef.current;
       if (!allowMultiple) {
         nextSelected = value.includes(key) ? [] : [key];
@@ -92,21 +102,25 @@ export const useSelectMultiple = <
         else nextSelected = [...value, ...nextKeys];
         shiftValueRef.current = null;
       } else {
-        shiftValueRef.current = shift.current.held ? key : null;
-        if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+        shiftValueRef.current = key;
+        if (replaceOnSingle) nextSelected = value.includes(key) ? [] : [key];
+        else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }
       const v = unique(nextSelected);
       if (!allowNone && v.length === 0) return;
-      onChange(
-        unique(nextSelected),
-        data.filter(({ key }) => nextSelected.includes(key))
-      );
+      onChange(unique(nextSelected), {
+        entries: data.filter(({ key }) => nextSelected.includes(key)),
+        clicked: key,
+      });
     },
     [onChange, value, data, allowMultiple]
   );
 
-  const clear = useCallback((): void => onChange([], []), [onChange]);
+  const clear = useCallback(
+    (): void => onChange([], { entries: [], clicked: null }),
+    [onChange]
+  );
 
   return { onSelect: handleSelect, clear };
 };

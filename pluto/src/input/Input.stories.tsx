@@ -15,14 +15,14 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { Input } from "@/input";
 import { Text } from "@/text";
 
-const story: Meta<typeof Input> = {
-  title: "Core/Standard/Input",
-  component: Input,
+const story: Meta<typeof Input.Text> = {
+  title: "Input",
+  component: Input.Text,
 };
 
 export const Basic = (): ReactElement => {
   const [value, setValue] = useState("");
-  return <Input value={value} onChange={setValue} />;
+  return <Input.Text value={value} onChange={setValue} />;
 };
 
 export const Time = (): ReactElement => {
@@ -53,7 +53,7 @@ export const Date = (): ReactElement => {
 
 export const Number = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
-  return <Input.Number value={value} onChange={setValue} />;
+  return <Input.Numeric value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

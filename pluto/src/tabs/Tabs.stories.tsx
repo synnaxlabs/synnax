@@ -12,7 +12,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Tabs } from "@/tabs";
 
 const story: Meta<typeof Tabs.Tabs> = {
-  title: "Core/Standard/Tabs",
+  title: "Tabs",
   component: Tabs.Tabs,
 };
 

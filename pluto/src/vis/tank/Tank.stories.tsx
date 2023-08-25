@@ -11,15 +11,15 @@ import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { Tank } from "./Tank";
+import { Tank } from "@/vis/tank";
 
-const story: Meta<typeof Tank> = {
-  title: "Core/Vis/Tank",
-  component: Tank,
+const story: Meta<typeof Tank.Tank> = {
+  title: "Tank",
+  component: Tank.Tank,
 };
 
 const Example = (): ReactElement => {
-  return <Tank dimensions={{ width: 500, height: 200 }} />;
+  return <Tank.Tank dimensions={{ width: 500, height: 200 }} />;
 };
 
 export const Primary: StoryFn<typeof Tank> = () => <Example />;

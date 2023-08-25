@@ -10,13 +10,13 @@
 import { ReactElement } from "react";
 
 import { Meta } from "@storybook/react";
-import { TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 
-import { Canvas } from "@/core";
-import { LinePlot, AxisProps, LineProps } from "@/visupper/LinePlot";
+import { LinePlot, AxisProps, LineProps } from "@/channel/LinePlot";
+import { Canvas } from "@/vis/canvas";
 
 const story: Meta<typeof LinePlot> = {
-  title: "Vis/LinePlot",
+  title: "Channel LinePlot",
   component: LinePlot,
 };
 
@@ -31,7 +31,7 @@ const AXES: AxisProps[] = [
     id: "y",
     location: "left",
     label: "Value",
-    type: "linear"
+    type: "linear",
   },
 ];
 
@@ -55,7 +55,7 @@ const LINES: LineProps[] = [
 
 export const Primary = (): ReactElement => {
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -65,7 +65,7 @@ export const Primary = (): ReactElement => {
       }}
     >
       <LinePlot axes={AXES} lines={LINES} />
-    </Canvas>
+    </Canvas.Canvas>
   );
 };
 

@@ -9,19 +9,13 @@
 
 import { PropsWithChildren, ReactElement, useEffect } from "react";
 
-import {
-  Location,
-  CrudeOuterLocation,
-  Direction,
-  Deep,
-  CrudeDirection,
-} from "@synnaxlabs/x";
+import { Location, CrudeOuterLocation, Direction, CrudeDirection } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useMemoCompare } from "@/hooks";
+import { useMemoDeepEqualProps } from "@/hooks";
 import { Text } from "@/text";
 import { Theming } from "@/theming/main";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -58,50 +52,22 @@ export const YAxis = Aether.wrap<YAxisProps>(
   }): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
 
-    const memoProps = useMemoCompare(
-      () => ({
-        location,
-        showGrid,
-        type,
-        bounds,
-        label,
-      }),
-      (
-        [, propsLabelSize, type, showGrid, color, bounds, label],
-        [, prevPropsLabelSize, prevType, prevShowGrid, prevColor, prevBounds, prevLabel]
-      ) => {
-        return Deep.equal(
-          {
-            color,
-            propsLabelSize,
-            type,
-            showGrid,
-            bounds,
-            label,
-          },
-          {
-            color: prevColor,
-            propsLabelSize: prevPropsLabelSize,
-            type: prevType,
-            showGrid: prevShowGrid,
-            bounds: prevBounds,
-            label: prevLabel,
-          }
-        );
-      },
-      [propsLabelSize, type, showGrid, bounds, label]
-    );
+    const aetherProps = useMemoDeepEqualProps({
+      location,
+      showGrid,
+      type,
+      bounds,
+      label,
+    });
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
       type: lineplot.YAxis.TYPE,
       schema: lineplot.yAxisStateZ,
-      initialState: memoProps,
+      initialState: aetherProps,
     });
 
-    useEffect(() => {
-      setState((state) => ({ ...state, ...memoProps }));
-    }, [memoProps]);
+    useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
     const gridStyle = useGridPosition(
       {

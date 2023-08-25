@@ -19,7 +19,7 @@ export const CoreCenter = <E extends SpaceElementType = "div">(
   ref: ForwardedRef<JSX.IntrinsicElements[E]>
 ): ReactElement => (
   // @ts-expect-error
-  <Space
+  <Space<E>
     ref={ref}
     justify={justify}
     align={align}

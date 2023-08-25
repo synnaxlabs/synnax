@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, memo, useCallback, ReactElement, DragEvent } from "react";
+import { useState, memo, useCallback, ReactElement } from "react";
 
 import { Location, CrudeLocation, CSSBox } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { CanDrop } from "@/haul/Haul";
 import { Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
@@ -102,36 +103,41 @@ const TabLeaf = memo(
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
     const [dragMask, setDragMask] = useState<CrudeLocation | null>(null);
-    const { startDrag, endDrag } = Haul.useDrag();
 
-    const canDrop = useCallback(
-      (hauled: Haul.Item[]) => validDrop(tabs, hauled),
-      [tabs]
-    );
+    const canDrop: CanDrop = useCallback(({ items }) => validDrop(tabs, items), [tabs]);
 
     const handleDrop = useCallback(
-      (hauled: Haul.Item[], e: React.DragEvent<Element>): void => {
+      ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
         setDragMask(null);
-        const tabKey = hauled.map(({ key }) => key)[0];
+        const dropped = Haul.filterByType(DRAGGING_TYPE, items);
+        const tabKey = dropped.map(({ key }) => key)[0];
         const location: CrudeLocation =
           tabs.length === 0
             ? "center"
-            : insertLocation(getDragLocationPercents(e)).crude;
+            : insertLocation(getDragLocationPercents(event)).crude;
         onDrop(key, tabKey as string, location);
+        return dropped;
       },
       [onDrop, tabs.length]
     );
 
     const handleDragOver = useCallback(
-      (_: unknown, e: DragEvent): void => {
+      ({ event }: Haul.OnDragOverProps): void => {
         const location: CrudeLocation =
           tabs.length === 0
             ? "center"
-            : insertLocation(getDragLocationPercents(e)).crude;
+            : insertLocation(getDragLocationPercents(event)).crude;
         setDragMask(location);
       },
       [tabs.length]
     );
+
+    const { startDrag, ...haulProps } = Haul.useDragAndDrop({
+      type: "Mosaic",
+      canDrop,
+      onDrop: handleDrop,
+      onDragOver: handleDragOver,
+    });
 
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
@@ -143,23 +149,16 @@ const TabLeaf = memo(
 
     const handleCreate = useCallback((): void => onCreate?.(key), [key]);
 
-    const haulDropProps = Haul.useDrop({
-      canDrop,
-      onDrop: handleDrop,
-      onDragOver: handleDragOver,
-    });
-
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs.Tabs
           tabs={tabs}
           onDragLeave={handleDragLeave}
-          onDragEnd={endDrag}
           selected={node.selected}
           onDragStart={handleDragStart}
           onCreate={handleCreate}
           {...props}
-          {...haulDropProps}
+          {...haulProps}
         />
         {dragMask != null && (
           <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />

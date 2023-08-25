@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/x/errutil"
@@ -39,6 +40,7 @@ type Distribution struct {
 	Channel  channel.Service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
+	Group    *group.Service
 }
 
 // Close closes the distribution layer.
@@ -59,13 +61,19 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	gorpDB := d.Storage.Gorpify()
 
-	d.Ontology, err = ontology.Open(ctx, ontology.Config{
+	if d.Ontology, err = ontology.Open(ctx, ontology.Config{
 		Instrumentation: cfg.Instrumentation.Child("ontology"),
 		DB:              gorpDB,
-	})
-	if err != nil {
+	}); err != nil {
 		return d, err
 	}
+	if d.Group, err = group.NewService(group.Config{
+		DB:       gorpDB,
+		Ontology: d.Ontology,
+	}); err != nil {
+		return d, err
+	}
+	d.Ontology.RegisterService(d.Group)
 
 	nodeOntologySvc := &core.NodeOntologyService{
 		Ontology: d.Ontology,
@@ -80,12 +88,13 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
-	d.Channel, err = channel.New(channel.ServiceConfig{
+	d.Channel, err = channel.New(ctx, channel.ServiceConfig{
 		HostResolver: d.Cluster,
 		ClusterDB:    gorpDB,
 		TSChannel:    d.Storage.TS,
 		Transport:    channelTransport,
 		Ontology:     d.Ontology,
+		Group:        d.Group,
 	})
 	if err != nil {
 		return d, err

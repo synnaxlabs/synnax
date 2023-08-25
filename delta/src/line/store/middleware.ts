@@ -54,7 +54,7 @@ export const assignColorsEffect: MiddlewareEffect<
           key: p.key,
           line: {
             key: l.key,
-            color: colors[p.lines.indexOf(l) % colors.length] as string,
+            color: colors[p.lines.indexOf(l) % colors.length].hex,
           },
         })
       );

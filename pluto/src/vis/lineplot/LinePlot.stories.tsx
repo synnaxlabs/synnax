@@ -11,15 +11,14 @@ import { ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Telem } from "@/telem";
+import { Static } from "@/telem/static";
+import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/tooltip/Tooltip";
 
-import { Canvas } from "../canvas";
-
-const story: Meta<typeof LinePlot> = {
-  title: "Core/Vis/LinePlot",
-  component: LinePlot,
+const story: Meta<typeof LinePlot.LinePlot> = {
+  title: "LinePlot",
+  component: LinePlot.LinePlot,
 };
 
 const LENGTH = 5000;
@@ -42,22 +41,22 @@ const yData3 = Float32Array.from(
   (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400
 );
 const Example = (): ReactElement => {
-  const telem = Telem.Static.useStaticXY({
+  const telem = Static.useStaticXY({
     x: [xData],
     y: [yData],
   });
-  const telem2 = Telem.Static.useStaticXY({
+  const telem2 = Static.useStaticXY({
     x: [xData2],
     y: [yData2],
   });
-  const telem3 = Telem.Static.useStaticXY({
+  const telem3 = Static.useStaticXY({
     x: [xData3],
     y: [yData3],
   });
   const [label, setLabel] = useState("Line");
   const [xLabel, setXLabel] = useState("X");
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -66,7 +65,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot>
+      <LinePlot.LinePlot>
         <LinePlot.XAxis
           type="linear"
           label={xLabel}
@@ -100,8 +99,8 @@ const Example = (): ReactElement => {
         </LinePlot.XAxis>
         <LinePlot.Legend />
         <Tooltip />
-      </LinePlot>
-    </Canvas>
+      </LinePlot.LinePlot>
+    </Canvas.Canvas>
   );
 };
 

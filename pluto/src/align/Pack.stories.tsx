@@ -13,7 +13,7 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 
 const story: Meta<typeof Align.Pack> = {
-  title: "Core/Standard/Pack",
+  title: "Pack",
   component: Align.Pack,
   argTypes: {
     direction: {

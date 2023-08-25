@@ -12,14 +12,16 @@ import { useState } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiFillDatabase, AiOutlineDelete } from "react-icons/ai";
 
-import { Text } from ".";
+import { Text } from "@/text";
 
-const story: Meta<typeof Text> = {
-  title: "Core/Standard/Text",
-  component: Text,
+const story: Meta<typeof Text.Text> = {
+  title: "Text",
+  component: Text.Text,
 };
 
-export const Basic: StoryFn<typeof Text> = () => <Text level="h2">Hello</Text>;
+export const Basic: StoryFn<typeof Text> = () => (
+  <Text.Text level="h2">Hello</Text.Text>
+);
 
 export const WithIcon: StoryFn<typeof Text> = () => (
   <Text.WithIcon
@@ -37,7 +39,7 @@ export const Editable: StoryFn<typeof Text> = () => {
   return (
     <>
       <Text.Editable level="h1" onChange={setText} value={text} />
-      <Text level="h5">{text}</Text>
+      <Text.Text level="h5">{text}</Text.Text>
     </>
   );
 };

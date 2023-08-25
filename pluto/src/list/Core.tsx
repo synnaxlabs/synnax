@@ -35,6 +35,7 @@ const VirtualCore = <
   itemHeight,
   children,
   overscan = 5,
+  className,
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
@@ -56,7 +57,11 @@ const VirtualCore = <
   const items = virtualizer.getVirtualItems();
 
   return (
-    <div ref={parentRef} className={CSS.BE("list", "container")} {...props}>
+    <div
+      ref={parentRef}
+      className={CSS(className, CSS.BE("list", "container"))}
+      {...props}
+    >
       {data.length === 0 ? (
         emptyContent
       ) : (

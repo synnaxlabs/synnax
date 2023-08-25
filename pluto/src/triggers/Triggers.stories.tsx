@@ -14,7 +14,7 @@ import { Meta } from "@storybook/react";
 import { Triggers } from "@/triggers";
 
 const story: Meta<typeof Triggers.Provider> = {
-  title: "Core/Triggers",
+  title: "Triggers",
   component: Triggers.Provider,
 };
 

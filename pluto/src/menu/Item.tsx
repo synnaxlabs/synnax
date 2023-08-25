@@ -24,7 +24,7 @@ const menuItemFactory =
   (props): ReactElement => {
     const { itemKey, className, onClick, ...rest } = { ...defaultProps, ...props };
 
-    const { onClick: ctxOnClick, selected } = useMenuContext();
+    const { onClick: ctxOnClick, selected, level, iconSpacing } = useMenuContext();
     const handleClick: Button.ButtonProps["onClick"] = (e) => {
       ctxOnClick(itemKey);
       onClick?.(e);
@@ -33,6 +33,8 @@ const menuItemFactory =
     return (
       // @ts-expect-error
       <Base
+        level={level}
+        iconSpacing={iconSpacing}
         {...rest}
         onClick={handleClick}
         variant="text"

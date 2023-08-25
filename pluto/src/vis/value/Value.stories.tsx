@@ -7,25 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { Canvas } from "../canvas/Canvas";
+import { Remote } from "@/telem/remote";
+import { Canvas } from "@/vis/canvas";
+import { Value } from "@/vis/value";
 
-import { Value } from "./Value";
-
-import { Telem } from "@/telem";
-
-const story: Meta<typeof Value> = {
-  title: "Core/Vis/Value",
-  component: Value,
+const story: Meta<typeof Value.Value> = {
+  title: "Value",
+  component: Value.Value,
 };
 
 const Example = (): ReactElement => {
-  const telem = Telem.Remote.useNumeric({ channel: 65538 });
+  const telem = Remote.useNumericSource({ channel: 65538 });
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -34,8 +32,8 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Value telem={telem} style={{ width: 100 }} units="psi" level="h4" />
-    </Canvas>
+      <Value.Value telem={telem} style={{ width: 100 }} units="psi" level="h4" />
+    </Canvas.Canvas>
   );
 };
 

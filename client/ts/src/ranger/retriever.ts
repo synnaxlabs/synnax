@@ -14,12 +14,12 @@ import {
   RangeParams,
   RangePayload,
   analyzeRangeParams,
-  rangeKey,
-  rangePayload,
+  rangeKeyZ,
+  rangePayloadZ,
 } from "./payload";
 
 const reqZ = z.object({
-  keys: z.array(rangeKey).optional(),
+  keys: z.array(rangeKeyZ).optional(),
   names: z.array(z.string()).optional(),
   term: z.string().optional(),
 });
@@ -27,7 +27,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  ranges: z.array(rangePayload),
+  ranges: z.array(rangePayloadZ),
 });
 
 export class RangeRetriever {

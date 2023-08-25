@@ -11,18 +11,17 @@ import { ReactElement } from "react";
 
 import { Meta, StoryFn } from "@storybook/react";
 
-import { Canvas } from "../canvas/Canvas";
+import { Canvas } from "@/vis/canvas";
+import { Regulator } from "@/vis/regulator";
 
-import { Regulator } from "./Regulator";
-
-const story: Meta<typeof Regulator> = {
-  title: "Core/Vis/Regulator",
-  component: Regulator,
+const story: Meta<typeof Regulator.Regulator> = {
+  title: "Regulator",
+  component: Regulator.Regulator,
 };
 
 const Example = (): ReactElement => {
   return (
-    <Canvas
+    <Canvas.Canvas
       style={{
         width: "100%",
         height: "100%",
@@ -31,8 +30,8 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Regulator color="#fc3d03" />
-    </Canvas>
+      <Regulator.Regulator color="#fc3d03" />
+    </Canvas.Canvas>
   );
 };
 

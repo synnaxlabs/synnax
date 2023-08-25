@@ -16,7 +16,7 @@ import { Color } from "@/color";
 import { Picker } from "@/color/Picker";
 
 const story: Meta<typeof Picker> = {
-  title: "Color/Picker",
+  title: "Color.Picker",
   component: Picker,
 };
 

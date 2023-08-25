@@ -34,8 +34,8 @@ export interface ContextProps<
   sourceData: E[];
   setSourceData: (data: E[]) => void;
   select: {
-    value: readonly K[];
-    onChange: (value: readonly K[]) => void;
+    value: K[];
+    onChange: (value: K[]) => void;
     onSelect?: (key: K) => void;
     clear?: () => void;
     setOnSelect: (cbk: (key: K) => void) => void;
