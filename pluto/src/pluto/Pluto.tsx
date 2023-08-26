@@ -14,6 +14,7 @@ import { Instrumentation } from "@synnaxlabs/alamos";
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Haul } from "@/haul";
+import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { TelemProvider } from "@/telem/provider/Provider";
 import { Theming } from "@/theming/main";
@@ -62,15 +63,17 @@ export const Provider = ({
               enabled={workerEnabled}
             >
               <Aether.Provider workerKey="vis">
-                <Synnax.Provider connParams={connParams}>
-                  <Theming.Provider
-                    theme={theme}
-                    toggleTheme={toggleTheme}
-                    setTheme={setTheme}
-                  >
-                    <TelemProvider>{children}</TelemProvider>
-                  </Theming.Provider>
-                </Synnax.Provider>
+                <Status.Aggregator>
+                  <Synnax.Provider connParams={connParams}>
+                    <Theming.Provider
+                      theme={theme}
+                      toggleTheme={toggleTheme}
+                      setTheme={setTheme}
+                    >
+                      <TelemProvider>{children}</TelemProvider>
+                    </Theming.Provider>
+                  </Synnax.Provider>
+                </Status.Aggregator>
               </Aether.Provider>
             </Worker.Provider>
           </Haul.Provider>

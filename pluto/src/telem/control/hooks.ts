@@ -7,17 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  ControlNumericTelemSinkProps,
-  ControlledNumericTelemSink,
-} from "@/telem/control/aether/control";
+import { NumericSinkProps, NumericSink } from "@/telem/control/aether/control";
 import { telem } from "@/telem/core";
 
-export const useNumeric = (
-  props: ControlNumericTelemSinkProps
-): telem.NumericSinkSpec => {
+export const useNumeric = (props: NumericSinkProps): telem.NumericSinkSpec => {
   return {
-    type: ControlledNumericTelemSink.TYPE,
+    type: NumericSink.TYPE,
     props,
     variant: "numeric-sink",
   };

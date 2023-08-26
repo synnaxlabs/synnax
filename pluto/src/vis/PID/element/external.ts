@@ -12,3 +12,4 @@ export * from "@/vis/pid/element/Regulator";
 export * from "@/vis/pid/element/Value";
 export * from "@/vis/pid/element/Valve";
 export * from "@/vis/pid/element/Tank";
+export * from "@/vis/pid/element/registry";

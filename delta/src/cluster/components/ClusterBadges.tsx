@@ -12,6 +12,7 @@ import { ReactElement } from "react";
 import type { ConnectionState, ConnectionStatus } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Text, Status, Synnax } from "@synnaxlabs/pluto";
+import { Case } from "@synnaxlabs/x";
 
 import { useSelectCluster } from "@/cluster/store";
 
@@ -34,9 +35,9 @@ const statusVariants: Record<ConnectionStatus, Status.Variant> = {
  * @param props.state - The connection state of the cluster.
  */
 export const ConnectionStateBadge = ({
-  state: { message, status },
+  state: { status },
 }: ConnectionStateBadgeProps): ReactElement => (
-  <Status.Text variant={statusVariants[status]}>{message}</Status.Text>
+  <Status.Text variant={statusVariants[status]}>{Case.capitalize(status)}</Status.Text>
 );
 
 /* The props for the ClusterBadge component. */

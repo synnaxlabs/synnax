@@ -10,6 +10,7 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { control } from "@/telem/control/aether";
 import { provider } from "@/telem/provider/aether";
@@ -43,6 +44,7 @@ export const render = (): void => {
     ...measure.REGISTRY,
     ...control.REGISTRY,
     ...theming.REGISTRY,
+    ...status.REGISTRY,
   };
 
   aether.render({

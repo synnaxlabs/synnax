@@ -17,9 +17,10 @@ const resZ = z.object({
   group: payloadZ,
 });
 
-export class Creator {
+export class Writer {
   private static readonly ENDPOINT = "/ontology/create-group";
   private static readonly ENDPOINT_RENAME = "/ontology/rename-group";
+  private static readonly ENDPOINT_DELETE = "/ontology/delete-group";
   client: UnaryClient;
 
   constructor(client: UnaryClient) {
@@ -28,14 +29,20 @@ export class Creator {
 
   async create(parent: ID, name: string): Promise<Payload> {
     const req = { parent, name };
-    const [res, err] = await this.client.send(Creator.ENDPOINT, req, resZ);
+    const [res, err] = await this.client.send(Writer.ENDPOINT, req, resZ);
     if (err != null) throw err;
     return res.group;
   }
 
   async rename(key: string, name: string): Promise<void> {
     const req = { key, name };
-    const [, err] = await this.client.send(Creator.ENDPOINT_RENAME, req, z.object({}));
+    const [, err] = await this.client.send(Writer.ENDPOINT_RENAME, req, z.object({}));
+    if (err != null) throw err;
+  }
+
+  async delete(keys: string[]): Promise<void> {
+    const req = { keys };
+    const [, err] = await this.client.send(Writer.ENDPOINT_DELETE, req, z.object({}));
     if (err != null) throw err;
   }
 }

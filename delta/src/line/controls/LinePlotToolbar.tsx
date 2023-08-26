@@ -96,7 +96,7 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
+          <Tabs.Selector style={{ borderBottom: "none" }} size="medium" />
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

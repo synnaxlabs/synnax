@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PID } from "@synnaxlabs/pluto";
+import { PID, Control } from "@synnaxlabs/pluto";
 import { Deep, XY } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -24,6 +24,8 @@ export interface PIDState {
   nodes: PID.Node[];
   edges: PID.Edge[];
   props: Record<string, object>;
+  control: Control.State;
+  controlAcquireTrigger: number;
 }
 
 // ||||| TOOLBAR |||||
@@ -52,6 +54,8 @@ export const ZERO_PID_STATE: PIDState = {
   props: {},
   viewport: { position: XY.ZERO.crude, zoom: 1 },
   editable: true,
+  control: { status: "released", message: "" },
+  controlAcquireTrigger: 0,
 };
 
 export const ZERO_PID_SLICE_STATE: PIDSliceState = {
@@ -97,6 +101,16 @@ export interface DeletePIDPayload {
 export interface SetPIDEditablePayload {
   layoutKey: string;
   editable: boolean;
+}
+
+export interface SetPIDControlStatePayload {
+  layoutKey: string;
+  control: Control.State;
+}
+
+export interface TogglePIDControlPayload {
+  layoutKey: string;
+  status: Control.Status;
 }
 
 export interface SetPIDActiveToolbarTabPayload {
@@ -176,10 +190,27 @@ export const { actions, reducer: pidReducer } = createSlice({
       const pid = state.pids[layoutKey];
       pid.editable = editable;
     },
+    togglePIDControl: (state, { payload }: PayloadAction<TogglePIDControlPayload>) => {
+      let { layoutKey, status } = payload;
+      const pid = state.pids[layoutKey];
+      if (status == null)
+        status = pid.control.status === "released" ? "acquired" : "released";
+      pid.controlAcquireTrigger += -2 * Number(status === "release") + 1;
+    },
+    setPIDControlState: (
+      state,
+      { payload }: PayloadAction<SetPIDControlStatePayload>
+    ) => {
+      const { layoutKey, control } = payload;
+      const pid = state.pids[layoutKey];
+      pid.control = control;
+    },
   },
 });
 
 export const {
+  togglePIDControl,
+  setPIDControlState,
   addPIDelement,
   setPIDEdges,
   setPIDNodes,

@@ -9,20 +9,21 @@
 
 import { ReactElement, useCallback, useRef } from "react";
 
-import { PID as Core } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import { PID as Core, PIDElement, Control, Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { LayoutRenderer } from "@/layout";
-
-import { ELEMENTS } from "../elements";
-import { useSelectPID, useSelectPIDElementProps } from "../store/selectors";
+import { useSelectPID, useSelectPIDElementProps } from "@/pid/store/selectors";
 import {
+  togglePIDControl,
+  setPIDControlState,
   setPIDEdges,
   setPIDEditable,
   setPIDElementProps,
   setPIDNodes,
   setPIDViewport,
-} from "../store/slice";
+} from "@/pid/store/slice";
 
 const PIDElementRenderer = ({
   elementKey,
@@ -48,7 +49,7 @@ const PIDElementRenderer = ({
     [dispatch, elementKey, layoutKey, type]
   );
 
-  const C = ELEMENTS[type];
+  const C = PIDElement.REGISTRY[type];
 
   const refZoom = useRef(zoom);
 
@@ -91,12 +92,32 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
 
   const handleEditableChange: Core.PIDProps["onEditableChange"] = useCallback(
     (cbk) => {
-      dispatch(setPIDEditable({ layoutKey, editable: cbk(pid.editable) }));
+      dispatch(setPIDEditable({ layoutKey, editable: cbk }));
     },
-    [layoutKey, pid.editable]
+    [layoutKey]
   );
 
-  const pidElementRenderer = useCallback(
+  const handleControlStateChange: Control.ControllerProps["onStateChange"] =
+    useCallback(
+      (control) => {
+        dispatch(setPIDControlState({ layoutKey, control }));
+      },
+      [layoutKey]
+    );
+
+  const acquireControl = useCallback(
+    (v: boolean) => {
+      dispatch(
+        togglePIDControl({
+          layoutKey,
+          status: v ? "acquired" : "released",
+        })
+      );
+    },
+    [layoutKey]
+  );
+
+  const elRenderer = useCallback(
     (props: Core.ElementProps) => {
       return <PIDElementRenderer layoutKey={layoutKey} {...props} />;
     },
@@ -104,17 +125,32 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
   );
 
   return (
-    <Core.PID
-      onViewportChange={handleViewportChange}
-      edges={pid.edges}
-      nodes={pid.nodes}
-      viewport={pid.viewport}
-      onEdgesChange={handleEdgesChange}
-      onNodesChange={handleNodesChange}
-      onEditableChange={handleEditableChange}
-      editable={pid.editable}
+    <Control.Controller
+      authority={1}
+      acquireTrigger={pid.controlAcquireTrigger}
+      onStateChange={handleControlStateChange}
     >
-      {pidElementRenderer}
-    </Core.PID>
+      <Core.PID
+        onViewportChange={handleViewportChange}
+        edges={pid.edges}
+        nodes={pid.nodes}
+        viewport={pid.viewport}
+        onEdgesChange={handleEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEditableChange={handleEditableChange}
+        editable={pid.editable}
+      >
+        <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
+        <Core.Background />
+        <Core.Controls reverse>
+          <Button.ToggleIcon
+            value={pid.control.status === "acquired"}
+            onChange={acquireControl}
+          >
+            <Icon.Circle fill="white" />
+          </Button.ToggleIcon>
+        </Core.Controls>
+      </Core.PID>
+    </Control.Controller>
   );
 };

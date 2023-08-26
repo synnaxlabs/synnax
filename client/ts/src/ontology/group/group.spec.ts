@@ -21,6 +21,8 @@ describe("Group", () => {
       const g = await client.ontology.groups.create(ontology.Root, name);
       expect(g.name).toEqual(name);
     });
+  });
+  describe("rename", () => {
     it("should correctly rename a group", async () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create(ontology.Root, name);
@@ -28,6 +30,15 @@ describe("Group", () => {
       await client.ontology.groups.rename(g.key, newName);
       const g2 = await client.ontology.retrieve(g.ontologyID);
       expect(g2.name).toEqual(newName);
+    });
+  });
+  describe("delete", () => {
+    it("should correctly delete the group", async () => {
+      const name = `group-${Math.random()}`;
+      const g = await client.ontology.groups.create(ontology.Root, name);
+      await client.ontology.groups.delete(g.key);
+      const g2 = await client.ontology.retrieve(g.ontologyID);
+      expect(g2).toEqual(null);
     });
   });
 });

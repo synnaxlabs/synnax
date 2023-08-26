@@ -121,7 +121,11 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
-        <Remote.NumericForm value={value.telem} onChange={handleTelemChange} grow />
+        <Remote.NumericSourceForm
+          value={value.telem}
+          onChange={handleTelemChange}
+          grow
+        />
       </Align.Space>
     </>
   );

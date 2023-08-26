@@ -20,7 +20,6 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 
-import { ELEMENTS } from "../elements";
 import { addPIDelement } from "../store/slice";
 
 import "@/pid/controls/PIDElementsControls.css";
@@ -36,7 +35,7 @@ export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement 
           key: nanoid(),
           props: {
             type,
-            ...ELEMENTS[type].initialProps,
+            ...PIDElement.REGISTRY[type].initialProps,
           },
         })
       ),
@@ -45,7 +44,7 @@ export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement 
 
   return (
     <Align.Space className={CSS.B("pid-elements")} direction="x" wrap>
-      {Object.entries(ELEMENTS).map(([type, el]) => (
+      {Object.entries(PIDElement.REGISTRY).map(([type, el]) => (
         <PIDElementsButton key={type} el={el} onClick={() => handleAddElement(type)} />
       ))}
     </Align.Space>

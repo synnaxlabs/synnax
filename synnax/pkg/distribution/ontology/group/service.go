@@ -94,6 +94,11 @@ func (w Writer) Create(
 
 // Delete deletes the Groups with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
+	for _, key := range keys {
+		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return err
+		}
+	}
 	return gorp.NewDelete[uuid.UUID, Group]().
 		WhereKeys(keys...).
 		Exec(ctx, w.tx)

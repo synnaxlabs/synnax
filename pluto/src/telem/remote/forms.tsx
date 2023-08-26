@@ -13,12 +13,12 @@ import { ChannelKey } from "@synnaxlabs/client";
 
 import { Channel } from "@/channel";
 import { Input } from "@/input";
-import { NumericSourceProps } from "@/telem/remote/aether/numeric";
+import { remote } from "@/telem/remote/aether";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface NumericFormProps extends Input.ItemProps<NumericSourceProps> {}
+export interface NumericFormProps extends Input.ItemProps<remote.NumericSourceProps> {}
 
-export const NumericForm = ({
+export const NumericSourceForm = ({
   value,
   onChange,
   ...props

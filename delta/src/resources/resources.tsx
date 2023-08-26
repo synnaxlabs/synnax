@@ -9,10 +9,15 @@
 
 import { ReactElement } from "react";
 
-import { ontology, type ChannelKey, type Synnax } from "@synnaxlabs/client";
+import {
+  ontology,
+  type ChannelKey,
+  type Synnax,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Haul, Menu, Tree } from "@synnaxlabs/pluto";
-import { MenuProps } from "@synnaxlabs/pluto/dist/menu/Menu.js";
+import { Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
+import { rename } from "@synnaxlabs/pluto/dist/tabs/Tabs.js";
 
 import { LayoutPlacer, selectActiveMosaicLayout } from "@/layout";
 import {
@@ -43,6 +48,7 @@ export interface ResourceType {
   type: ontology.ResourceType;
   icon: ReactElement;
   hasChildren: boolean;
+  allowRename: (res: ontology.Resource) => boolean;
   onSelect: (ctx: ResourceSelectionContext) => void;
   canDrop: (hauled: Haul.Item[]) => boolean;
   onDrop: (ctx: ResourceSelectionContext, hauled: Haul.Item[]) => void;
@@ -63,6 +69,7 @@ export const convertOntologyResources = (
       hasChildren,
       children: [],
       haulItems: haulItems(res),
+      allowRename: resourceTypes[id.type].allowRename(res),
     };
   });
 };
@@ -77,6 +84,7 @@ export const resourceTypes: Record<string, ResourceType> = {
     contextMenu: () => <></>,
     onSelect: () => {},
     haulItems: () => [],
+    allowRename: () => false,
   },
   cluster: {
     type: "cluster",
@@ -87,6 +95,7 @@ export const resourceTypes: Record<string, ResourceType> = {
     contextMenu: () => <></>,
     onSelect: () => {},
     haulItems: () => [],
+    allowRename: () => false,
   },
   node: {
     type: "node",
@@ -97,11 +106,13 @@ export const resourceTypes: Record<string, ResourceType> = {
     contextMenu: () => <></>,
     onSelect: () => {},
     haulItems: () => [],
+    allowRename: () => false,
   },
   channel: {
     type: "channel",
     icon: <Icon.Channel />,
     hasChildren: false,
+    allowRename: () => true,
     canDrop: () => false,
     onDrop: () => {},
     onSelect: (ctx) => {
@@ -136,29 +147,7 @@ export const resourceTypes: Record<string, ResourceType> = {
         },
       ];
     },
-    contextMenu: (ctx) => {
-      return (
-        <Menu.Menu>
-          <Menu.Item
-            level="small"
-            itemKey="group"
-            startIcon={<Icon.Group />}
-            iconSpacing="small"
-            onClick={() => {}}
-          >
-            Group Selection
-          </Menu.Item>
-          <Menu.Item
-            itemKey="rename"
-            level="small"
-            startIcon={<Icon.Edit />}
-            iconSpacing="small"
-          >
-            Rename
-          </Menu.Item>
-        </Menu.Menu>
-      );
-    },
+    contextMenu: (ctx) => <></>,
   },
   group: {
     type: "group",
@@ -166,8 +155,31 @@ export const resourceTypes: Record<string, ResourceType> = {
     icon: <Icon.Group />,
     canDrop: () => true,
     onSelect: () => {},
-    contextMenu: () => <></>,
+    contextMenu: (ctx) => {
+      const onSelect = (key: string): void => {
+        switch (key) {
+          case "ungroup":
+            void ungroupSelection(ctx);
+            return;
+          case "rename":
+            startRenaming(ctx);
+        }
+      };
+
+      return (
+        <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
+          <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
+            Ungroup
+          </Menu.Item>
+          <Menu.Item itemKey="rename" startIcon={<Icon.Edit />}>
+            Rename
+          </Menu.Item>
+        </Menu.Menu>
+      );
+    },
     haulItems: () => [],
+    onDrop: () => {},
+    allowRename: () => true,
   },
   range: {
     type: "range",
@@ -197,6 +209,35 @@ const GroupSelectionMenuItem = (): ReactElement => (
 );
 
 const NEW_GROUP_NAME = "New Group";
+
+const startRenaming = ({ selection, state }: ResourceSelectionContext): void =>
+  Text.edit(`text-${selection.nodes[0].key}`);
+
+const ungroupSelection = async ({
+  client,
+  selection,
+  state,
+}: ResourceSelectionContext): Promise<void> => {
+  if (selection.resources.length !== 1)
+    throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
+
+  const id = selection.resources[0].id;
+  const children = Tree.findNode(state.nodes, id.toString())?.children ?? [];
+  const parentID = new ontology.ID(selection.parent.key);
+  await client.ontology.moveChildren(
+    id,
+    parentID,
+    ...children.map((c) => new ontology.ID(c.key))
+  );
+  await client.ontology.groups.delete(id.key);
+  let nextNodes = Tree.moveNode(
+    state.nodes,
+    parentID.toString(),
+    ...children.map((c) => c.key)
+  );
+  nextNodes = Tree.removeNode(nextNodes, id.toString());
+  state.setNodes([...nextNodes]);
+};
 
 const groupSelection = async ({
   client,

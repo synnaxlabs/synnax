@@ -123,10 +123,10 @@ type Writer interface {
 	// DeleteResource does nothing.
 	DeleteResource(ctx context.Context, id ID) error
 	// DefineRelationship defines a directional relationship of type t between the
-	// resources with the given IDs. If the relationship already exists, DefineRelationship
+	// resources with the given Keys. If the relationship already exists, DefineRelationship
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
-	// DeleteRelationship deletes the relationship with the given IDs and type. If the
+	// DeleteRelationship deletes the relationship with the given Keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending

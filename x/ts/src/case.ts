@@ -26,4 +26,6 @@ const camelKeys = <T extends UnknownRecord<T>>(entity: T): Record<string, T[keyo
 export namespace Case {
   export const toSnake = snakeKeys;
   export const toCamel = camelKeys;
+  export const capitalize = (str: string): string =>
+    str[0].toUpperCase() + str.slice(1);
 }

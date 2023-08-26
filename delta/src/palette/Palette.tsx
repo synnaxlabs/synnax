@@ -34,8 +34,10 @@ import {
   Tooltip,
   Text,
   Align,
+  Mosaic,
+  Divider,
 } from "@synnaxlabs/pluto";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
+import { AsyncTermSearcher, Key } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
@@ -107,10 +109,12 @@ export const Palette = ({
 
   const [mode, setMode] = useState<PaletteMode>("resource");
 
+  const notifications = Status.useNotifications({});
+
   const store = useStore() as RootStore;
   const placeLayout = useLayoutPlacer();
-  const handleSelect = useCallback(
-    ([key]: string[], [entry]: Array<ontology.Resource | Command>) => {
+  const handleSelect: List.SelectorProps["onChange"] = useCallback(
+    ([key]: Key[], { entries: [entry] }) => {
       dropdown.close();
       if (mode === "command") {
         (entry as Command).onSelect({
@@ -118,7 +122,7 @@ export const Palette = ({
           placeLayout,
         });
       } else {
-        const id = new ontology.ID(key);
+        const id = new ontology.ID(key as string);
         const t = resourceTypes[id.type];
         t?.onSelect({
           store,
@@ -130,13 +134,15 @@ export const Palette = ({
     [mode, commands, dropdown.close]
   );
 
+  const showDropdown = dropdown.visible || notifications.length > 0;
+
   return (
     <List.List>
-      <Tooltip.Dialog location="bottom" hide={dropdown.visible}>
+      <Tooltip.Dialog location="bottom" hide={showDropdown}>
         <PaletteTooltipContent />
         <Dropdown.Dialog
           ref={dropdown.ref}
-          visible={dropdown.visible}
+          visible={showDropdown}
           className={CSS.B("palette")}
           location="bottom"
           matchTriggerWidth
@@ -151,17 +157,47 @@ export const Palette = ({
             visible={dropdown.visible}
             open={dropdown.open}
           />
-          <PaletteList
-            mode={mode}
-            resourceTypes={resourceTypes}
-            onSelect={handleSelect}
-            visible={dropdown.visible}
-          />
+          <>
+            {dropdown.visible && (
+              <PaletteList
+                mode={mode}
+                resourceTypes={resourceTypes}
+                onSelect={handleSelect}
+                visible={dropdown.visible}
+              />
+            )}
+            {notifications.length > 0 && dropdown.visible && (
+              <Divider.Divider direction="x" />
+            )}
+            <ErrorsList statuses={notifications} />
+          </>
         </Dropdown.Dialog>
       </Tooltip.Dialog>
     </List.List>
   );
 };
+
+interface ErrorsListProps {
+  statuses: Status.Spec[];
+}
+
+const ErrorsList = ({ statuses }: ErrorsListProps): ReactElement => (
+  <>
+    {statuses.map(({ message, variant, time }) => (
+      <Align.Space
+        direction="x"
+        key={time.toString()}
+        style={{ height: "6rem", padding: "1rem" }}
+        align="center"
+      >
+        <Text.DateTime level="p" format="time">
+          {time}
+        </Text.DateTime>
+        <Status.Text variant={variant}>{message}</Status.Text>
+      </Align.Space>
+    ))}
+  </>
+);
 
 export interface PaletteInputProps
   extends Pick<Dropdown.UseReturn, "visible" | "open"> {
@@ -174,8 +210,8 @@ export interface PaletteInputProps
   commands: Command[];
 }
 
-const canDrop = (entities: Haul.Item[]): boolean =>
-  entities.length === 1 && entities[0].type === "pluto-mosaic-tab";
+const canDrop: Haul.CanDrop = ({ items }) =>
+  items.length === 1 && items[0].type === Mosaic.HAUL_TYPE;
 
 export const PaletteInput = ({
   mode,
@@ -308,9 +344,10 @@ export const PaletteInput = ({
   const d = useDispatch();
 
   const { onDragOver, onDrop } = Haul.useDrop({
+    type: "Palette",
     canDrop,
     onDrop: useCallback(
-      ([item]) => {
+      ({ items: [item] }) => {
         const { key } = placer(createLayoutMosaicWindow());
         d(
           moveLayoutMosaicTab({
@@ -320,6 +357,7 @@ export const PaletteInput = ({
             loc: "center",
           })
         );
+        return [item];
       },
       [placer]
     ),
@@ -346,7 +384,7 @@ export const PaletteInput = ({
 
 export interface PalleteListProps extends Pick<Dropdown.DialogProps, "visible"> {
   mode: PaletteMode;
-  onSelect: (keys: string[], entries: Array<ontology.Resource | Command>) => void;
+  onSelect: List.SelectorProps["onChange"];
   resourceTypes: Record<string, ResourceType>;
 }
 

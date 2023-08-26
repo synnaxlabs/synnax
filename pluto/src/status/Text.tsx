@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
-import { Variant } from "@/status/types";
+import { Variant } from "@/status/aether/types";
 import { Text as BaseText } from "@/text";
 
 export interface TextDigest {

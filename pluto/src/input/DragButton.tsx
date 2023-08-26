@@ -75,11 +75,11 @@ export const DragButton = ({
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         const { x, y } = normalDragThreshold ?? new XY(new Box(elRef.current).dims);
-        if (box.width > x) {
+        if (box.width > x && box.width < box.height) {
           const offset = box.signedWidth < 0 ? x : -x;
           value += (box.signedWidth + offset) * normalDragScale.x;
         }
-        if (box.height > y) {
+        if (box.height > y && box.height > box.width) {
           const offset = box.signedHeight < 0 ? y : -y;
           value += (box.signedHeight + offset) * normalDragScale.y;
         }

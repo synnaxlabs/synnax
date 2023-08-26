@@ -11,15 +11,15 @@ import { UnaryClient } from "@synnaxlabs/freighter";
 
 import { ID } from "@/ontology/payload";
 
-import { Creator } from "./creator";
 import { Group } from "./group";
 import { Payload } from "./payload";
+import { Writer } from "./writer";
 
 export class Client {
-  private readonly creator: Creator;
+  private readonly creator: Writer;
 
   constructor(unary: UnaryClient) {
-    this.creator = new Creator(unary);
+    this.creator = new Writer(unary);
   }
 
   async create(parent: ID, name: string): Promise<Group> {
@@ -28,6 +28,10 @@ export class Client {
 
   async rename(key: string, name: string): Promise<void> {
     return await this.creator.rename(key, name);
+  }
+
+  async delete(...keys: string[]): Promise<void> {
+    return await this.creator.delete(keys);
   }
 
   private sugar(payload: Payload): Group {

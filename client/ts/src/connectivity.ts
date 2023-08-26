@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { Unreachable } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -45,7 +46,7 @@ export class Connectivity {
   private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
   static readonly DEFAULT: ConnectionState = DEFAULT;
-  readonly state: ConnectionState;
+  private readonly _state: ConnectionState;
   private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
@@ -58,7 +59,7 @@ export class Connectivity {
    *   connectivity information.
    */
   constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
-    this.state = { ...DEFAULT };
+    this._state = { ...DEFAULT };
     this.id = Math.random().toString(36).substring(7);
     this.client = client;
     this.pollFrequency = pollFreq;
@@ -76,7 +77,7 @@ export class Connectivity {
    * well as calling any registered change handlers.
    */
   async check(): Promise<ConnectionState> {
-    const prevStatus = this.state.status;
+    const prevStatus = this._state.status;
     try {
       const [res, err] = await this.client.send(
         Connectivity.ENDPOINT,
@@ -84,18 +85,26 @@ export class Connectivity {
         connectivityResponseSchema
       );
       if (err != null) throw err;
-      this.state.status = "connected";
-      this.state.message = "Connected";
-      this.state.clusterKey = res.clusterKey;
+      this._state.status = "connected";
+      this._state.message = `Connected to cluster ${res.clusterKey}`;
+      this._state.clusterKey = res.clusterKey;
     } catch (err) {
-      this.state.status = "failed";
-      this.state.error = err as Error;
-      this.state.message = this.state.error.message;
+      this._state.status = "failed";
+      this._state.error = err as Error;
+      if (err instanceof Unreachable) {
+        this._state.message = `Cannot reach cluster at ${err.url.host}:${err.url.port}`;
+      } else {
+        this._state.message = this.state.error?.message;
+      }
     }
-    if (this.onChangeHandlers.length > 0 && prevStatus !== this.state.status) {
+    if (this.onChangeHandlers.length > 0 && prevStatus !== this._state.status)
       this.onChangeHandlers.forEach((handler) => handler(this.state));
-    }
     return this.state;
+  }
+
+  /** @returns a copy of the current client state. */
+  get state(): ConnectionState {
+    return { ...this._state };
   }
 
   /** @param callback - The function to call when the client status changes. */

@@ -10,7 +10,7 @@
 // Package cluster provides an interface for joining a cluster of nodes and
 // exchanging state through an SI gossip model. nodes can join the cluster without
 // needing to know all members. Cluster will automatically manage the membership of
-// new nodes by assigning them unique IDs and keeping them in sync with their peers.
+// new nodes by assigning them unique Keys and keeping them in sync with their peers.
 // To Open a cluster, simply use cluster.Open.
 package cluster
 

@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/telem/remote/aether/factory";
+export * from "@/telem/remote/aether/numeric";
+export * from "@/telem/remote/aether/xy";

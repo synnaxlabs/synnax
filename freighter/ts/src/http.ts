@@ -57,13 +57,13 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     resSchema: RS | null
   ): Promise<[z.output<RS> | null, Error | null]> {
     let rs: RS | null = null;
-    const url = this.endpoint.child(target).toString();
+    const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
     request.body = this.encoder.encode(req ?? {});
 
     const [, err] = await this.executeMiddleware(
-      { target: url, protocol: "http", params: {}, role: "client" },
+      { target: url.toString(), protocol: "http", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {
@@ -75,7 +75,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           httpRes = await fetch(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;
-          if (err.message === "Load failed") err = new Unreachable();
+          if (err.message === "Load failed") err = new Unreachable({ url });
           return [outCtx, err];
         }
         const data = await httpRes.arrayBuffer();

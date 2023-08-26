@@ -32,7 +32,7 @@ const (
 // ontology. A relationship is defined by a type, a from and a to field. This means that
 // two resources can have multiple relationships of different types between them.
 type Relationship struct {
-	// From, To are the IDs of the related resources.
+	// From, To are the Keys of the related resources.
 	From, To ID
 	// Type is the type of relationship between the two resources. For more information
 	// on relationship types, see the [RelationshipType] documentation.

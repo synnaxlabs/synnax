@@ -105,7 +105,7 @@ func (o *OntologyService) CreateGroup(
 }
 
 type OntologyDeleteGroupRequest struct {
-	IDs []uuid.UUID `json:"ids" msgpack:"ids" validate:"required"`
+	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
 }
 
 func (o *OntologyService) DeleteGroup(
@@ -117,7 +117,7 @@ func (o *OntologyService) DeleteGroup(
 	}
 	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
 		w := o.group.NewWriter(tx)
-		return errors.MaybeQuery(w.Delete(ctx, req.IDs...))
+		return errors.MaybeQuery(w.Delete(ctx, req.Keys...))
 	})
 }
 

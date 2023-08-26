@@ -7,7 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import {
+  ReactElement,
+  createContext,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useContext as reactUseContext,
+  ComponentPropsWithoutRef,
+  useEffect,
+  memo,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Box, CrudeXY, XY } from "@synnaxlabs/x";
@@ -19,7 +30,6 @@ import ReactFlow, {
   applyNodeChanges as rfApplyNodeChanges,
   addEdge as rfAddEdge,
   Background as RFBackground,
-  Node as RFNode,
   Edge as RFEdge,
   NodeProps as RFNodeProps,
   NodeChange as RFNodeChange,
@@ -35,13 +45,24 @@ import ReactFlow, {
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Status } from "@/status";
 import { RenderProp } from "@/util/renderProp";
 import { pid } from "@/vis/pid/aether";
 import { Edge as PlutoEdge } from "@/vis/pid/edge";
+
+import {
+  Edge,
+  Node,
+  Viewport,
+  edgeConverter,
+  nodeConverter,
+  translateEdgesForward,
+  translateNodesForward,
+  translateViewportBackward,
+  translateViewportForward,
+} from "./types";
 
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
@@ -52,28 +73,6 @@ export interface ElementProps {
   zoom: number;
   selected: boolean;
   editable: boolean;
-}
-
-export interface Viewport {
-  position: CrudeXY;
-  zoom: number;
-}
-
-export interface Edge {
-  key: string;
-  source: string;
-  target: string;
-  selected: boolean;
-  color: Color.Crude;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  points: CrudeXY[];
-}
-
-export interface Node {
-  key: string;
-  position: CrudeXY;
-  selected?: boolean;
 }
 
 export interface UseProps {
@@ -112,53 +111,10 @@ export interface UseReturn {
   onNodesChange: (nodes: Node[]) => void;
   onEdgesChange: (edges: Edge[]) => void;
   editable: boolean;
-  onEditableChange: (cbk: (prev: boolean) => boolean) => void;
+  onEditableChange: (v: boolean) => void;
   onViewportChange: (vp: Viewport) => void;
   viewport: Viewport;
 }
-const translateNodesForward = (
-  nodes: Node[],
-  editable: boolean
-): Array<RFNode<RFNodeData>> =>
-  nodes.map((node) => ({
-    ...node,
-    id: node.key,
-    type: "custom",
-    data: { editable },
-  }));
-
-const translateEdgesForward = (edges: Edge[]): RFEdge[] =>
-  edges.map(({ points, color, ...edge }) => ({
-    ...edge,
-    id: edge.key,
-    data: { points, color },
-  }));
-
-const translateNodesBackward = (nodes: RFNode[]): Node[] =>
-  nodes.map((node) => ({
-    key: node.id,
-    selected: node.selected,
-    ...node,
-  }));
-
-const translateEdgesBackward = (edges: RFEdge[]): Edge[] =>
-  edges.map((edge) => ({
-    key: edge.id,
-    points: edge.data?.points ?? [],
-    selected: edge.selected ?? false,
-    color: edge.data?.color,
-    ...edge,
-  }));
-
-const translateViewportForward = (viewport: Viewport): RFViewport => ({
-  ...viewport.position,
-  zoom: viewport.zoom,
-});
-
-const translateViewportBackward = (viewport: RFViewport): Viewport => ({
-  position: new XY(viewport).crude,
-  zoom: viewport.zoom,
-});
 
 const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
@@ -174,13 +130,34 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   panOnScroll: false,
 };
 
-export interface RFNodeData {
+export interface PIDProps extends UseReturn, ComponentPropsWithoutRef<"div"> {}
+
+interface ContextValue {
   editable: boolean;
+  onEditableChange: (v: boolean) => void;
+  registerNodeRenderer: (renderer: RenderProp<ElementProps>) => void;
 }
 
-export interface PIDProps extends UseReturn {
+const Context = createContext<ContextValue>({
+  editable: true,
+  onEditableChange: () => {},
+  registerNodeRenderer: (renderer: RenderProp<ElementProps>) => {},
+});
+
+export const useContext = (): ContextValue => reactUseContext(Context);
+
+export interface NodeRendererProps {
   children: RenderProp<ElementProps>;
 }
+
+export const NodeRenderer = memo(
+  ({ children }: NodeRendererProps): ReactElement | null => {
+    const { registerNodeRenderer } = useContext();
+    useEffect(() => registerNodeRenderer(children), [registerNodeRenderer, children]);
+    return null;
+  }
+);
+NodeRenderer.displayName = "NodeRenderer";
 
 const Core = Aether.wrap<PIDProps>(
   pid.PID.TYPE,
@@ -223,10 +200,20 @@ const Core = Aether.wrap<PIDProps>(
       onEnd: handleViewport,
     });
 
+    const [renderer, setRenderer] = useState<RenderProp<ElementProps>>(
+      () => () => null
+    );
+
+    const registerNodeRenderer = useCallback(
+      (renderer: RenderProp<ElementProps>) => setRenderer(() => renderer),
+      []
+    );
+
     const Node = useCallback(
-      ({ id, xPos, yPos, selected, data: { editable } }: RFNodeProps<RFNodeData>) => {
+      ({ id, xPos, yPos, selected }: RFNodeProps) => {
         const { zoom } = useViewport();
-        return children({
+        const { editable } = useContext();
+        return renderer({
           elementKey: id,
           position: { x: xPos, y: yPos },
           zoom,
@@ -234,10 +221,10 @@ const Core = Aether.wrap<PIDProps>(
           editable,
         });
       },
-      []
+      [renderer]
     );
 
-    const nodeTypes = useMemo(() => ({ custom: Node }), []);
+    const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
     const edgesRef = useRef(edges);
     const edges_ = useMemo(() => {
       edgesRef.current = edges;
@@ -246,28 +233,21 @@ const Core = Aether.wrap<PIDProps>(
     const nodesRef = useRef(nodes);
     const nodes_ = useMemo(() => {
       nodesRef.current = nodes;
-      return translateNodesForward(nodes, editable);
-    }, [nodes, editable]);
+      return translateNodesForward(nodes);
+    }, [nodes]);
 
     const handleNodesChange = useCallback(
       (changes: RFNodeChange[]) =>
         onNodesChange(
-          translateNodesBackward(
-            rfApplyNodeChanges(
-              changes,
-              translateNodesForward(nodesRef.current, editable)
-            )
-          )
+          nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n))
         ),
-      [onNodesChange, editable]
+      [onNodesChange]
     );
 
     const handleEdgesChange = useCallback(
       (changes: RFEdgeChange[]) =>
         onEdgesChange(
-          translateEdgesBackward(
-            rfApplyEdgeChanges(changes, translateEdgesForward(edgesRef.current))
-          )
+          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e))
         ),
       [onEdgesChange]
     );
@@ -275,20 +255,14 @@ const Core = Aether.wrap<PIDProps>(
     const handleEdgeUpdate = useCallback(
       (oldEdge: RFEdge, newConnection: RFConnection) =>
         onEdgesChange(
-          translateEdgesBackward(
-            updateEdge(oldEdge, newConnection, translateEdgesForward(edgesRef.current))
-          )
+          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e))
         ),
       []
     );
 
     const handleConnect = useCallback(
       (conn: RFConnection) =>
-        onEdgesChange(
-          translateEdgesBackward(
-            rfAddEdge(conn, translateEdgesForward(edgesRef.current))
-          )
-        ),
+        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e))),
       [onEdgesChange]
     );
 
@@ -302,8 +276,6 @@ const Core = Aether.wrap<PIDProps>(
       },
       [onEdgesChange]
     );
-
-    const { fitView } = useReactFlow();
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
@@ -333,68 +305,65 @@ const Core = Aether.wrap<PIDProps>(
     }
 
     return (
-      <Aether.Composite path={path}>
-        <ReactFlow
-          className={CSS(CSS.B("pid"), CSS.editable(editable))}
-          nodes={nodes_}
-          edges={edges_}
-          nodeTypes={nodeTypes}
-          edgeTypes={EDGE_TYPES}
-          ref={resizeRef}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={handleConnect}
-          onEdgeUpdate={handleEdgeUpdate}
-          defaultViewport={translateViewportForward(viewport)}
-          snapToGrid={true}
-          panOnScroll
-          selectionOnDrag
-          panOnDrag={false}
-          minZoom={0.5}
-          maxZoom={1.2}
-          selectionKeyCode={null}
-          panActivationKeyCode={"Shift"}
-          connectionMode={ConnectionMode.Loose}
-          snapGrid={[5, 5]}
-          proOptions={{
-            hideAttribution: true,
-          }}
-          {...editableProps}
-        >
-          {editable && <RFBackground />}
-          <PIDControls
-            editable={editable}
-            onEditableChange={onEditableChange}
-            onFitView={fitView}
-          />
-        </ReactFlow>
-      </Aether.Composite>
+      <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
+        <Aether.Composite path={path}>
+          <ReactFlow
+            className={CSS(CSS.B("pid"), CSS.editable(editable))}
+            nodes={nodes_}
+            edges={edges_}
+            nodeTypes={nodeTypes}
+            edgeTypes={EDGE_TYPES}
+            ref={resizeRef}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={handleConnect}
+            onEdgeUpdate={handleEdgeUpdate}
+            defaultViewport={translateViewportForward(viewport)}
+            snapToGrid={true}
+            panOnScroll
+            selectionOnDrag
+            panOnDrag={false}
+            minZoom={0.5}
+            maxZoom={1.2}
+            selectionKeyCode={null}
+            panActivationKeyCode={"Shift"}
+            connectionMode={ConnectionMode.Loose}
+            snapGrid={[5, 5]}
+            proOptions={{
+              hideAttribution: true,
+            }}
+            {...editableProps}
+          >
+            {children}
+          </ReactFlow>
+        </Aether.Composite>
+      </Context.Provider>
     );
   }
 );
 
-interface PIDControlsProps {
-  editable: boolean;
-  onEditableChange: (cbk: (prev: boolean) => boolean) => void;
-  onFitView: () => void;
-}
+export const Background = (): ReactElement | null => {
+  const { editable } = useContext();
+  return editable ? <RFBackground /> : null;
+};
 
-const PIDControls = ({
-  editable,
-  onEditableChange,
-  onFitView,
-}: PIDControlsProps): ReactElement => {
+export interface ControlsProps extends Align.PackProps {}
+
+export const Controls = ({ children, ...props }: ControlsProps): ReactElement => {
+  const { fitView } = useReactFlow();
+  const { editable, onEditableChange } = useContext();
   return (
-    <Align.Pack direction="y" className={CSS.BE("pid", "controls")}>
+    <Align.Pack direction="y" className={CSS.BE("pid", "controls")} {...props}>
       <Button.Icon
-        onClick={() => onEditableChange((prev) => !prev)}
+        onClick={() => onEditableChange(!editable)}
         variant={editable ? "outlined" : "filled"}
       >
         {editable ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Icon>
-      <Button.Icon onClick={onFitView}>
+      <Button.Icon onClick={() => fitView()}>
         <Icon.Expand />
       </Button.Icon>
+      {children}
     </Align.Pack>
   );
 };

@@ -89,11 +89,11 @@ Mosaic.displayName = "Mosaic";
 
 interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
-const DRAGGING_TYPE = "pluto-mosaic-tab";
+export const HAUL_TYPE = "pluto-mosaic-tab";
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tabs.Tab[], dragging: Haul.Item[]): boolean => {
-  const keys = dragging.filter(({ type }) => type === DRAGGING_TYPE).map((t) => t.key);
+  const keys = dragging.filter(({ type }) => type === HAUL_TYPE).map((t) => t.key);
   const willHaveTabRemaining = tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
   return keys.length > 0 && (willHaveTabRemaining || tabs.length === 0);
 };
@@ -109,7 +109,7 @@ const TabLeaf = memo(
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
         setDragMask(null);
-        const dropped = Haul.filterByType(DRAGGING_TYPE, items);
+        const dropped = Haul.filterByType(HAUL_TYPE, items);
         const tabKey = dropped.map(({ key }) => key)[0];
         const location: CrudeLocation =
           tabs.length === 0
@@ -143,7 +143,7 @@ const TabLeaf = memo(
 
     const handleDragStart = useCallback(
       (_: unknown, { tabKey }: Tabs.Tab): void =>
-        startDrag([{ key: tabKey, type: DRAGGING_TYPE }]),
+        startDrag([{ key: tabKey, type: HAUL_TYPE }]),
       [startDrag]
     );
 

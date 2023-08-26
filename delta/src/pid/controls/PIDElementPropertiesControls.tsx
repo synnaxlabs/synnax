@@ -9,11 +9,10 @@
 
 import { ReactElement } from "react";
 
-import { Status, Color, Input, Align } from "@synnaxlabs/pluto";
+import { Status, Color, Input, Align, PIDElement } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { ELEMENTS } from "@/pid/elements";
 
 import { PIDElementInfo, useSelectSelectedPIDElementsProps } from "../store/selectors";
 import { setPIDElementProps } from "../store/slice";
@@ -87,7 +86,7 @@ export const PIDElementPropertiesControls = ({
     );
   }
 
-  const C = ELEMENTS[selected.props.type];
+  const C = PIDElement.REGISTRY[selected.props.type];
 
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">

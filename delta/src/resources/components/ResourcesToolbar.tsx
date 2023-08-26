@@ -36,7 +36,6 @@ const ResourcesTree = (): ReactElement => {
     if (client == null) return;
     const resources = await client.ontology.retrieveChildren(ontology.Root, true, true);
     setNodes(convertOntologyResources(resources));
-
     const keys = resources.map(({ id }) => id.toString());
     resourcesRef.current = [
       ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
@@ -73,7 +72,6 @@ const ResourcesTree = (): ReactElement => {
     key,
     { source, items }
   ): Haul.Item[] => {
-    console.log(items);
     const dropped = Haul.filterByType(Tree.HAUL_TYPE, items);
     if (dropped.length === 0 || source.type !== "Tree.Item" || client == null)
       return [];
@@ -117,9 +115,9 @@ const ResourcesTree = (): ReactElement => {
       <Menu.ContextMenu
         menu={({ keys }) => {
           if (keys.length === 0 || client == null) return <></>;
-          const nodes_ = Tree.findNodes(nodes, keys);
-          const resources_ = resourcesRef.current.filter(({ id }) =>
-            nodes_.some(({ key }) => key === id.toString())
+          const selectedNodes = Tree.findNodes(nodes, keys);
+          const selectedResources = resourcesRef.current.filter(({ id }) =>
+            keys.includes(id.toString())
           );
           const parent = Tree.findNodeParent(nodes, keys[0]);
           if (parent == null) return <></>;
@@ -130,8 +128,8 @@ const ResourcesTree = (): ReactElement => {
             placeLayout: placer,
             selection: {
               parent,
-              nodes: nodes_,
-              resources: resources_,
+              nodes: selectedNodes,
+              resources: selectedResources,
             },
             state: {
               nodes,
@@ -140,22 +138,9 @@ const ResourcesTree = (): ReactElement => {
             },
           };
 
-          if (nodes_.length > 1) return <MultipleSelectionContextMenu {...ctx} />;
-          return resourceTypes[new ontology.ID(keys[0]).type].contextMenu({
-            client,
-            store,
-            placeLayout: placer,
-            selection: {
-              parent,
-              nodes: nodes_,
-              resources: resources_,
-            },
-            state: {
-              nodes,
-              resources: resourcesRef.current,
-              setNodes,
-            },
-          });
+          if (selectedNodes.length > 1)
+            return <MultipleSelectionContextMenu {...ctx} />;
+          return resourceTypes[new ontology.ID(keys[0]).type].contextMenu(ctx);
         }}
         {...menuProps}
       >

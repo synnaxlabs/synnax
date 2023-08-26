@@ -137,6 +137,10 @@ export class Context {
     this.changed = true;
   }
 
+  setIfNotHas(key: string, value: any): void {
+    if (!this.providers.has(key)) this.set(key, value);
+  }
+
   /**
    * Creates a new component using the given update. It is up to the caller to
    * validate that the component type is valid.
