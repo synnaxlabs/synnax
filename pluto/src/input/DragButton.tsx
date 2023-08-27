@@ -14,6 +14,7 @@ import { GrDrag } from "react-icons/gr";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
 import { Control } from "@/input/types";
 
@@ -75,13 +76,15 @@ export const DragButton = ({
         let value = vRef.current.prev;
         vRef.current.dragging = true;
         const { x, y } = normalDragThreshold ?? new XY(new Box(elRef.current).dims);
-        if (box.width > x && box.width < box.height) {
+        if (box.width > x && box.width > box.height) {
           const offset = box.signedWidth < 0 ? x : -x;
           value += (box.signedWidth + offset) * normalDragScale.x;
+          Cursor.setGlobalStyle("ew-resize");
         }
         if (box.height > y && box.height > box.width) {
           const offset = box.signedHeight < 0 ? y : -y;
           value += (box.signedHeight + offset) * normalDragScale.y;
+          Cursor.setGlobalStyle("ns-resize");
         }
         vRef.current.curr = value;
         onChange(value);
@@ -91,6 +94,7 @@ export const DragButton = ({
     onEnd: useCallback(() => {
       vRef.current.prev = vRef.current.curr;
       vRef.current.dragging = false;
+      Cursor.clearGlobalStyle();
     }, []),
   });
 
