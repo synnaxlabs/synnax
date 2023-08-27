@@ -24,7 +24,7 @@ export interface PIDState {
   nodes: PID.Node[];
   edges: PID.Edge[];
   props: Record<string, object>;
-  control: Control.State;
+  control: Control.Status;
   controlAcquireTrigger: number;
 }
 
@@ -54,7 +54,7 @@ export const ZERO_PID_STATE: PIDState = {
   props: {},
   viewport: { position: XY.ZERO.crude, zoom: 1 },
   editable: true,
-  control: { status: "released", message: "" },
+  control: "released",
   controlAcquireTrigger: 0,
 };
 
@@ -103,9 +103,9 @@ export interface SetPIDEditablePayload {
   editable: boolean;
 }
 
-export interface SetPIDControlStatePayload {
+export interface SetPIDControlStatusPayload {
   layoutKey: string;
-  control: Control.State;
+  control: Control.Status;
 }
 
 export interface TogglePIDControlPayload {
@@ -193,13 +193,12 @@ export const { actions, reducer: pidReducer } = createSlice({
     togglePIDControl: (state, { payload }: PayloadAction<TogglePIDControlPayload>) => {
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
-      if (status == null)
-        status = pid.control.status === "released" ? "acquired" : "released";
-      pid.controlAcquireTrigger += -2 * Number(status === "release") + 1;
+      if (status == null) status = pid.control === "released" ? "acquired" : "released";
+      pid.controlAcquireTrigger += -2 * Number(status === "released") + 1;
     },
     setPIDControlState: (
       state,
-      { payload }: PayloadAction<SetPIDControlStatePayload>
+      { payload }: PayloadAction<SetPIDControlStatusPayload>
     ) => {
       const { layoutKey, control } = payload;
       const pid = state.pids[layoutKey];

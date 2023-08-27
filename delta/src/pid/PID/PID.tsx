@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 import { PID as Core, PIDElement, Control, Button } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { LayoutRenderer } from "@/layout";
+import { LayoutRenderer, useSelectRequiredLayout } from "@/layout";
 import { useSelectPID, useSelectPIDElementProps } from "@/pid/store/selectors";
 import {
   togglePIDControl,
@@ -66,6 +66,7 @@ const PIDElementRenderer = ({
 };
 
 export const PID: LayoutRenderer = ({ layoutKey }) => {
+  const { name } = useSelectRequiredLayout(layoutKey);
   const pid = useSelectPID(layoutKey);
   const dispatch = useDispatch();
 
@@ -97,7 +98,7 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
     [layoutKey]
   );
 
-  const handleControlStateChange: Control.ControllerProps["onStateChange"] =
+  const handleControlStatusChange: Control.ControllerProps["onStatusChange"] =
     useCallback(
       (control) => {
         dispatch(setPIDControlState({ layoutKey, control }));
@@ -126,9 +127,10 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
 
   return (
     <Control.Controller
+      name={name}
       authority={1}
       acquireTrigger={pid.controlAcquireTrigger}
-      onStateChange={handleControlStateChange}
+      onStatusChange={handleControlStatusChange}
     >
       <Core.PID
         onViewportChange={handleViewportChange}
@@ -144,7 +146,7 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
         <Core.Background />
         <Core.Controls reverse>
           <Button.ToggleIcon
-            value={pid.control.status === "acquired"}
+            value={pid.control === "acquired"}
             onChange={acquireControl}
           >
             <Icon.Circle fill="white" />

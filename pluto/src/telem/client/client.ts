@@ -16,6 +16,7 @@ import {
   Synnax,
 } from "@synnaxlabs/client";
 import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { nanoid } from "nanoid";
 
 import { cache } from "@/telem/client/cache";
@@ -81,6 +82,7 @@ export class Core implements Client {
   private readonly cache: Map<ChannelKey, cache.Cache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
   key: string;
+  mutex: Mutex;
 
   constructor(wrap: Synnax) {
     this.key = nanoid();
@@ -88,6 +90,7 @@ export class Core implements Client {
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
+    this.mutex = new Mutex();
   }
 
   async retrieveChannel(key: ChannelKey): Promise<Channel> {
@@ -152,15 +155,17 @@ export class Core implements Client {
   }
 
   async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
-    this.listeners.set(handler, keys);
-    const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
-    for (const key of keys) {
-      const c = await this.getCache(key);
-      dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
-    }
-    handler(dynamicBuffs);
-    await this.updateStreamer();
-    return () => this.removeStreamHandler(handler);
+    return await this.mutex.runExclusive(async () => {
+      this.listeners.set(handler, keys);
+      const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
+      for (const key of keys) {
+        const c = await this.getCache(key);
+        dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
+      }
+      handler(dynamicBuffs);
+      await this.updateStreamer();
+      return () => this.removeStreamHandler(handler);
+    });
   }
 
   private removeStreamHandler(handler: StreamHandler): void {
@@ -194,10 +199,12 @@ export class Core implements Client {
       return;
 
     // Update or create the streamer.
-    if (this._streamer != null) await this._streamer.update(arrKeys);
-    this._streamer = await this.core.telem.newStreamer(arrKeys);
+    if (this._streamer == null) {
+      this._streamer = await this.core.telem.newStreamer(arrKeys);
+      void this.start(this._streamer);
+    }
 
-    void this.start(this._streamer);
+    await this._streamer.update(arrKeys);
   }
 
   private async start(streamer: Streamer): Promise<void> {

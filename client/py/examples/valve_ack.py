@@ -28,7 +28,7 @@ valve_en_cmd_time = client.channels.create(
 
 valve_en_cmd = client.channels.create(
     name="Valve Enable Command",
-    index=valve_en_time.key,
+    index=valve_en_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
@@ -60,20 +60,21 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
         while True:
             time.sleep(0.05)
             if streamer.received:
-                v = streamer.read()[valve_en_cmd.key][0]
+                f = streamer.read()
+                v = f[valve_en_cmd.key][0]
                 enabled = v > 0.5
-            if enabled > 0.5:
+            if enabled:
                 press += 10
             else:
                 press -= 10
             writer.write(pd.DataFrame({
                 valve_en_time.key: [sy.TimeStamp.now()],
-                valve_en.key: [np.float32(enabled*35)],
+                valve_en.key: [np.float32(enabled)],
                 data_ch.key: [np.float32(press)],
             }))
 
 
 
-            
+
 
 

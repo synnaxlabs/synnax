@@ -10,4 +10,4 @@
 export * from "@/telem/control/Controller";
 export * from "@/telem/control/hooks";
 export * from "@/telem/control/forms";
-export type { NumericSinkProps, State, Status } from "@/telem/control/aether/control";
+export type { NumericSinkProps, Status } from "@/telem/control/aether/control";

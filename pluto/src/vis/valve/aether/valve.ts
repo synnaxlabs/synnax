@@ -50,7 +50,7 @@ export class Valve extends aether.Leaf<typeof valveStateZ, InternalState> {
     this.internal.sink = sink;
     this.internal.cleanupSink = cleanupSink;
 
-    if (this.state.triggered !== this.prevState.triggered) {
+    if (this.state.triggered && !this.prevState.triggered) {
       this.internal.sink.set(!this.state.active).catch(console.error);
     }
 

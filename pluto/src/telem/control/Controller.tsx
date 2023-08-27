@@ -17,21 +17,34 @@ import { control } from "@/telem/control/aether";
 export interface ControllerProps
   extends z.input<typeof control.controllerStateZ>,
     PropsWithChildren {
-  onStateChange?: (state: control.State) => void;
+  onStatusChange?: (status: control.Status) => void;
+  name: string;
 }
 
 export const Controller = Aether.wrap<ControllerProps>(
   control.Controller.TYPE,
-  ({ aetherKey, authority, acquireTrigger: propsTrigger, children, onStateChange }) => {
-    const [{ path }, { state, acquireTrigger }, setState] = Aether.use({
+  ({
+    aetherKey,
+    authority,
+    acquireTrigger: propsTrigger,
+    children,
+    onStatusChange,
+    name,
+  }) => {
+    const [{ path }, { status, acquireTrigger }, setState] = Aether.use({
       aetherKey,
       type: control.Controller.TYPE,
       schema: control.controllerStateZ,
-      initialState: { authority, acquireTrigger: propsTrigger },
+      initialState: {
+        authority,
+        acquireTrigger: propsTrigger,
+        status: "released",
+        name,
+      },
     });
     useEffect(() => {
-      if (state != null) onStateChange?.(state);
-    }, [state, onStateChange]);
+      if (status != null) onStatusChange?.(status);
+    }, [status, onStatusChange]);
     if (acquireTrigger !== propsTrigger)
       setState((p) => ({ ...p, acquireTrigger: propsTrigger }));
 

@@ -101,7 +101,13 @@ export class Context extends render.GLProgram {
     const { gl } = this.ctx;
     this.bindAttrBuffer("x", x.glBuffer, downsample);
     this.bindAttrBuffer("y", y.glBuffer, downsample);
-    gl.drawArraysInstanced(gl.LINE_STRIP, 0, x.length / downsample, count);
+
+    gl.drawArraysInstanced(
+      gl.LINE_STRIP,
+      0,
+      Math.min(x.length, y.length) / downsample,
+      count
+    );
   }
 
   static create(ctx: aether.Context): Context {

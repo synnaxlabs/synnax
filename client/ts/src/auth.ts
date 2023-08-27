@@ -16,17 +16,11 @@ import { UserPayload, userPayloadSchema } from "@/user";
 export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   return async (md, next) => {
     try {
-      console.log("GET TOKEN");
-      const tk = token();
-      console.log("TOKEN PROMISE", tk);
-      const tk_ = await tk;
-      console.log("TOKEN RECEIVED", tk_);
-      md.params.Authorization = `Bearer ${tk_}`;
+      const tk = await token();
+      md.params.Authorization = `Bearer ${tk}`;
     } catch (err) {
-      console.log("ERR", err);
       return [md, err as Error];
     }
-    console.log("TOKEN", md);
     return await next(md);
   };
 };
@@ -84,18 +78,10 @@ export class AuthenticationClient {
 
   middleware(): Middleware {
     return tokenMiddleware(async () => {
-      console.log("S", this.authenticating, this.authenticated);
-      try {
-        if (!this.authenticated) await this.authenticating;
-      } catch (err) {
-        console.log("A", err);
-        throw err;
-      }
-      console.log("E");
+      if (!this.authenticated) await this.authenticating;
       if (this.token == null) {
         throw new AuthError("[auth] - attempting to authenticate without a token");
       }
-      console.log("F", this.token);
       return this.token;
     });
   }

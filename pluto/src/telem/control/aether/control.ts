@@ -26,19 +26,15 @@ import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/core";
 import { TelemMeta } from "@/telem/core/base";
 
-export const STATUSES = ["acquired", "released", "overridden"] as const;
+export const STATUSES = ["acquired", "released", "overridden", "failed"] as const;
 export const statusZ = z.enum(STATUSES);
 export type Status = z.infer<typeof statusZ>;
-export const stateZ = z.object({
-  status: statusZ,
-  message: z.string().optional(),
-});
-export type State = z.infer<typeof stateZ>;
 
 export const controllerStateZ = z.object({
+  name: z.string(),
   authority: z.number(),
   acquireTrigger: z.number(),
-  state: stateZ.optional(),
+  status: statusZ.optional(),
 });
 
 interface InternalState {
@@ -63,7 +59,8 @@ export class Controller
 
   afterUpdate(): void {
     this.internal.client = synnax.use(this.ctx);
-    this.internal.prov = telem.get(this.ctx);
+    const t = telem.get(this.ctx);
+    if (!(t instanceof Controller)) this.internal.prov = t;
     this.internal.addStatus = status.useAggregator(this.ctx);
     telem.set(this.ctx, this);
 
@@ -88,31 +85,33 @@ export class Controller
 
     try {
       const keys = await this.channelKeys();
-
-      if (keys.length === 0) {
-        this.internal.addStatus({
-          message: "No channels to acquire.",
-          variant: "warning",
-        });
-      }
+      if (keys.length === 0) return;
 
       this.writer = await this.internal.client.telem.newWriter(TimeStamp.now(), keys);
-      this.setState((p) => ({
-        ...p,
-        state: { status: "acquired", message: "Control acquired successfully." },
-      }));
+      this.setState((p) => ({ ...p, status: "acquired" }));
+      this.internal.addStatus({
+        message: `Acquired control on ${this.state.name}.`,
+        variant: "success",
+      });
     } catch (e) {
-      console.error(e);
+      this.setState((p) => ({ ...p, status: "failed" }));
+      this.internal.addStatus({
+        message: `${this.state.name} failed to acquire control: ${
+          (e as Error).message
+        }.`,
+        variant: "error",
+      });
     }
   }
 
   async release(): Promise<void> {
     await this.writer?.close();
     this.writer = undefined;
-    this.setState((p) => ({
-      ...p,
-      state: { status: "released", message: "Control released successfully." },
-    }));
+    this.setState((p) => ({ ...p, status: "released" }));
+    this.internal.addStatus({
+      message: `Released control on ${this.state.name}.`,
+      variant: "success",
+    });
   }
 
   async set(frame: CrudeFrame): Promise<void> {
@@ -166,9 +165,7 @@ export class NumericSink
   }
 
   async channelKeys(client: Synnax): Promise<ChannelKeys> {
-    console.log("FETCH CHAN");
     const chan = await client.channels.retrieve(this.props.channel);
-    console.log(chan);
     const keys = [chan.key];
     this.channels = [chan];
     if (chan.index !== 0) {
