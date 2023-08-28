@@ -16,15 +16,15 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { useSelectRequiredLayout } from "@/layout";
-import { LinePlotDataControls } from "@/line/controls/LinePlotDataControls";
+import { Data } from "@/line/controls/Data";
 
 import { useSelectLineToolbar } from "../store/selectors";
 import { LineToolbarTab, setLineActiveToolbarTab } from "../store/slice";
 
-import { LinePlotAnnotationsControls } from "./LinePlotAnnotationsControls";
-import { LinePlotAxesControls } from "./LinePlotAxesControls";
-import { LinePlotLinesControls } from "./LinePlotLineControls";
-import { LinePlotPropertiesControls } from "./LinePlotPropertiesControls";
+import { Annotations } from "./Annotations";
+import { Axes } from "./Axes";
+import { Lines } from "./Lines";
+import { Properties } from "./Properties";
 
 import "@/line/controls/LinePlotToolbar.css";
 
@@ -63,15 +63,15 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
         case "lines":
-          return <LinePlotLinesControls layoutKey={layoutKey} />;
+          return <Lines layoutKey={layoutKey} />;
         case "axes":
-          return <LinePlotAxesControls layoutKey={layoutKey} />;
+          return <Axes layoutKey={layoutKey} />;
         case "properties":
-          return <LinePlotPropertiesControls layoutKey={layoutKey} />;
+          return <Properties layoutKey={layoutKey} />;
         case "annotations":
-          return <LinePlotAnnotationsControls layoutKey={layoutKey} />;
+          return <Annotations layoutKey={layoutKey} />;
         default:
-          return <LinePlotDataControls layoutKey={layoutKey} />;
+          return <Data layoutKey={layoutKey} />;
       }
     },
     [layoutKey]
@@ -96,7 +96,7 @@ export const LinePlotToolBar = ({ layoutKey }: LinePlotToolbarProps): ReactEleme
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector style={{ borderBottom: "none" }} size="medium" />
+          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

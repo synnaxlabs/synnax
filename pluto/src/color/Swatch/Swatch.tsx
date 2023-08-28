@@ -19,7 +19,7 @@ import { UseProps } from "@/dropdown/Dropdown";
 import { Haul } from "@/haul";
 import { Input } from "@/input";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 
 import "@/color/Swatch/Swatch.css";
 

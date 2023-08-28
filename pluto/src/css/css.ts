@@ -30,6 +30,7 @@ export interface CSSType extends BEM {
   dir: (direction?: LooseDirectionT) => string | false;
   size: (size: ComponentSize | number) => string | false;
   sharp: (sharp?: boolean) => string | false;
+  disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
   bordered: (location?: CrudeLocation | CrudePosition | boolean) => string | false;
   noSelect: string;
@@ -47,6 +48,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.visible = (visible) => CSS.M(visible ? "visible" : "hidden");
   CSS.expanded = (expanded) => CSS.M(expanded ? "expanded" : "collapsed");
   CSS.loc = (location) => CSS.M(new Location(location).valueOf());
+  CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
   CSS.pos = (position) => CSS.M(position);
   CSS.dir = (direction) =>
     direction != null && CSS.M(new Direction(direction).valueOf());

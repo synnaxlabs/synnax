@@ -17,13 +17,11 @@ import { renameLayout, useSelectRequiredLayout } from "@/layout";
 import { useSelectLinePlot } from "../store/selectors";
 import { setLinePlotLegend, setLinePlotTitle } from "../store/slice";
 
-export interface LinePlotPropertiesControlsProps {
+export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const LinePlotPropertiesControls = ({
-  layoutKey,
-}: LinePlotPropertiesControlsProps): ReactElement => {
+export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const plot = useSelectLinePlot(layoutKey);
   const { name } = useSelectRequiredLayout(layoutKey);
   const dispatch = useDispatch();

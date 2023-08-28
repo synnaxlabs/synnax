@@ -53,6 +53,9 @@ export const themeZ = z.object({
       radius: z.number(),
       width: z.number(),
     }),
+    pid: z.object({
+      elementStrokeWidth: z.number(),
+    }),
   }),
   typography: z.object({
     family: z.string(),
@@ -131,6 +134,9 @@ const synnaxBase: ThemeSpec = {
     border: {
       radius: 2,
       width: 1,
+    },
+    pid: {
+      elementStrokeWidth: 3,
     },
   },
   typography: {

@@ -17,7 +17,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/hooks";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { lineplot } from "@/vis/lineplot/aether";
 import { useGridPosition } from "@/vis/lineplot/LinePlot";
 

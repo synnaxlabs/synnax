@@ -12,6 +12,7 @@ import { PropsWithChildren, useEffect } from "react";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
+import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
@@ -23,30 +24,18 @@ export interface ControllerProps
 
 export const Controller = Aether.wrap<ControllerProps>(
   control.Controller.TYPE,
-  ({
-    aetherKey,
-    authority,
-    acquireTrigger: propsTrigger,
-    children,
-    onStatusChange,
-    name,
-  }) => {
-    const [{ path }, { status, acquireTrigger }, setState] = Aether.use({
+  ({ aetherKey, children, onStatusChange, ...props }) => {
+    const memoProps = useMemoDeepEqualProps(props);
+    const [{ path }, { status }, setState] = Aether.use({
       aetherKey,
       type: control.Controller.TYPE,
       schema: control.controllerStateZ,
-      initialState: {
-        authority,
-        acquireTrigger: propsTrigger,
-        status: "released",
-        name,
-      },
+      initialState: memoProps,
     });
     useEffect(() => {
       if (status != null) onStatusChange?.(status);
     }, [status, onStatusChange]);
-    if (acquireTrigger !== propsTrigger)
-      setState((p) => ({ ...p, acquireTrigger: propsTrigger }));
+    useEffect(() => setState(memoProps), [memoProps, setState]);
 
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
   }

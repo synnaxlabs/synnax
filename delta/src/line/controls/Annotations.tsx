@@ -30,13 +30,11 @@ import { AXIS_KEYS, AxisKey } from "@/vis";
 
 import { RuleState, setLinePlotRule } from "../store/slice";
 
-export interface LinePlotAnnotationsControlsProps {
+export interface AnnotationsProps {
   layoutKey: string;
 }
 
-export const LinePlotAnnotationsControls = ({
-  layoutKey,
-}: LinePlotAnnotationsControlsProps): ReactElement => {
+export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
   const vis = useSelectLinePlot(layoutKey);
 
   const dispatch = useDispatch();

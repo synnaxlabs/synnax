@@ -22,7 +22,16 @@ export interface IconProps extends BaseProps {
 
 const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
   (
-    { children, className, variant = "text", size = "medium", sharp = false, ...props },
+    {
+      children,
+      className,
+      variant = "text",
+      size = "medium",
+      sharp = false,
+      disabled = false,
+      onClick,
+      ...props
+    },
     ref
   ): ReactElement => (
     <button
@@ -33,12 +42,14 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
         CSS.B("btn-icon"),
         CSS.size(size),
         CSS.sharp(sharp),
-        CSS.BM("btn", variant)
+        CSS.BM("btn", variant),
+        CSS.disabled(disabled)
       )}
+      onClick={disabled ? undefined : onClick}
       {...props}
     >
       {cloneElement(children, {
-        color: color_(props.disabled, props.color),
+        color: color_(disabled, props.color),
         ...children.props,
       })}
     </button>

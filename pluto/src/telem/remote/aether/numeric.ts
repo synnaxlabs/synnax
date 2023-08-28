@@ -76,7 +76,7 @@ export class NumericSource
     const { channel } = this.props;
     const handler: StreamHandler = (data) => {
       const res = data[channel];
-      if (res.data.length > 0) this.leadingBuffer = res.data[0];
+      if (res.data.length > 0) this.leadingBuffer = res.data[res.data.length - 1];
       this.notify?.();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);

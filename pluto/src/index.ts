@@ -33,7 +33,7 @@ export { Synnax } from "@/synnax";
 export { Tabs } from "@/tabs";
 export { Tag } from "@/tag";
 export { Text } from "@/text";
-export { Theming } from "@/theming/main";
+export { Theming } from "@/theming";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";

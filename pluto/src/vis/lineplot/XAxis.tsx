@@ -16,7 +16,7 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { lineplot } from "@/vis/lineplot/aether";
 import { withinSizeThreshold } from "@/vis/lineplot/aether/grid";
 import { useGridPosition } from "@/vis/lineplot/LinePlot";

@@ -15,7 +15,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { useMemoCompare } from "@/memo";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { Value } from "@/vis/value/aether/value";
 
 export const corePropsZ = Value.z

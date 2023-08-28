@@ -13,7 +13,7 @@ import { Box } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { Core, CoreProps } from "@/vis/value/Core";
 
 export interface ValueProps

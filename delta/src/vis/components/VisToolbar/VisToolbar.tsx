@@ -14,7 +14,7 @@ import { Button, Align, Status } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader } from "@/components";
 import { NavDrawerItem, useLayoutPlacer, useSelectActiveMosaicLayout } from "@/layout";
-import { LinePlotToolBar } from "@/line/controls/LinePlotToolbar";
+import { LinePlotToolBar } from "@/line/controls/Toolbar";
 import { PIDToolbar } from "@/pid/controls/PIDToolBar";
 import { createVis } from "@/vis/core";
 

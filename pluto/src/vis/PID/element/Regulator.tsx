@@ -16,6 +16,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { FormProps, Spec, Props } from "@/vis/pid/element/element";
 import { Regulator } from "@/vis/regulator";
@@ -74,19 +75,19 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   );
 };
 
-const Preview = (): ReactElement => {
-  return <Regulator.Regulator width="50" />;
+const Preview = ({ color }: ElementProps): ReactElement => {
+  return <Regulator.Regulator width="50" color={color} />;
 };
 
-const ZERO_PROPS: ElementProps = {
+const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Regulator",
-  color: "#000000",
-};
+  color: th.colors.gray.p2.hex,
+});
 
 export const RegulatorSpec: Spec<ElementProps> = {
   type: "regulator",
   title: "Regulator",
-  initialProps: ZERO_PROPS,
+  initialProps,
   Element,
   Form,
   Preview,

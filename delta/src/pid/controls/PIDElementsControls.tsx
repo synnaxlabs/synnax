@@ -14,18 +14,18 @@ import {
   useCallback,
 } from "react";
 
-import { Align, Text, PIDElement } from "@synnaxlabs/pluto";
+import { Align, Text, PIDElement, Theming, Haul } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-
-import { addPIDelement } from "../store/slice";
+import { addPIDelement } from "@/pid/store/slice";
 
 import "@/pid/controls/PIDElementsControls.css";
 
 export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const dispatch = useDispatch();
+  const theme = Theming.use();
 
   const handleAddElement = useCallback(
     (type: string) =>
@@ -35,17 +35,22 @@ export const PIDElements = ({ layoutKey }: { layoutKey: string }): ReactElement 
           key: nanoid(),
           props: {
             type,
-            ...PIDElement.REGISTRY[type].initialProps,
+            ...PIDElement.REGISTRY[type].initialProps(theme),
           },
         })
       ),
-    [dispatch, layoutKey]
+    [dispatch, layoutKey, theme]
   );
 
   return (
     <Align.Space className={CSS.B("pid-elements")} direction="x" wrap>
       {Object.entries(PIDElement.REGISTRY).map(([type, el]) => (
-        <PIDElementsButton key={type} el={el} onClick={() => handleAddElement(type)} />
+        <PIDElementsButton
+          key={type}
+          el={el}
+          onClick={() => handleAddElement(type)}
+          theme={theme}
+        />
       ))}
     </Align.Space>
   );
@@ -55,13 +60,24 @@ interface PIDElementsButtonProps
   extends PropsWithChildren,
     ComponentPropsWithoutRef<"button"> {
   el: PIDElement.Spec;
+  theme: Theming.Theme;
 }
 
 const PIDElementsButton = ({
   children,
-  el: { title, Preview },
+  el: { title, type, Preview, initialProps },
+  theme,
   ...props
 }: PIDElementsButtonProps): ReactElement => {
+  const { startDrag, ...dragProps } = Haul.useDrag({
+    type: "PID-Elements",
+    key: title,
+  });
+
+  const handleDragStart = useCallback(() => {
+    startDrag([{ type: "pid-element", key: type }]);
+  }, [type]);
+
   return (
     <>
       {/* @ts-expect-error */}
@@ -70,12 +86,15 @@ const PIDElementsButton = ({
         className={CSS.BE("pid-elements", "button")}
         justify="center"
         align="center"
+        draggable
         {...props}
+        {...dragProps}
+        onDrag={handleDragStart}
       >
         <Text.Text level="p" color="var(--pluto-gray-p0)">
           {title}
         </Text.Text>
-        <Preview />
+        <Preview {...initialProps(theme)} />
       </Align.Space>
     </>
   );

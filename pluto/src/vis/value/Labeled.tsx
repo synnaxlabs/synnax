@@ -16,8 +16,8 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
-import { UseTypographyReturn } from "@/theming/main/font";
+import { Theming } from "@/theming";
+import { UseTypographyReturn } from "@/theming/font";
 import { Core, CoreProps } from "@/vis/value/Core";
 
 import "@/vis/value/Labeled.css";

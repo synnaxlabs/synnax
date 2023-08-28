@@ -39,19 +39,20 @@
         }
     }
 
-    &:active {
-        & svg {
-            stroke: rgba(var(--pluto-base-color), 0.9);
-        }
-
-        &:hover svg {
-            fill: rgba(var(--pluto-base-color), 0.8);
-        }
+    &:active svg {
+        stroke: rgba(var(--pluto-base-color), 0.9);
+        fill: rgba(var(--pluto-base-color), 0.1);
     }
 }
 
-.pluto-valve--active svg {
-    fill: rgba(var(--pluto-base-color), 1);
+.pluto-valve--active  {
+    & svg {
+        fill: rgba(var(--pluto-base-color), 1);
+    }
+    &:active svg {
+        fill: rgba(var(--pluto-base-color), 0.7);
+        stroke: rgba(var(--pluto-base-color), 0.9);
+    }
 }
 
 .pluto-valve--triggered svg {

@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { Align } from "@/align";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { useGridPosition } from "@/vis/lineplot/LinePlot";
 
 export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>;

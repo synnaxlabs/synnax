@@ -17,13 +17,11 @@ import { AxisKey } from "@/vis";
 import { useSelectLinePlot } from "../store/selectors";
 import { AxisState, setLinePlotAxis, shouldDisplayAxis } from "../store/slice";
 
-export interface LinePlotAxesControlsProps {
+export interface AxesProps {
   layoutKey: string;
 }
 
-export const LinePlotAxesControls = ({
-  layoutKey,
-}: LinePlotAxesControlsProps): ReactElement => {
+export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
   const vis = useSelectLinePlot(layoutKey);
   const dispatch = useDispatch();
 

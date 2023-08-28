@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Text } from "@/text";
+import { useContext } from "@/theming/context";
 import { fontString } from "@/theming/core/fontString";
-import { useContext } from "@/theming/main/context";
 
 export interface UseTypographyReturn extends Text.Spec {
   toString: () => string;

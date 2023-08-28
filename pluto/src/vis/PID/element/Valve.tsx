@@ -21,6 +21,7 @@ import { Bool } from "@/telem/bool";
 import { Control } from "@/telem/control";
 import { Remote } from "@/telem/remote";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { FormProps, Spec, Props } from "@/vis/pid/element/element";
 import { Valve, ValveProps } from "@/vis/valve/Valve";
@@ -144,25 +145,25 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   );
 };
 
-const ValvePIDElementPreview = (): ReactElement => {
-  return <Valve />;
+const ValvePIDElementPreview = ({ color }: ElementProps): ReactElement => {
+  return <Valve color={color} />;
 };
 
-const ZERO_PROPS: ElementProps = {
+const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Valve",
-  color: "#ffffff",
+  color: th.colors.gray.p2.hex,
   source: {
     channel: 0,
   },
   sink: {
     channel: 0,
   },
-};
+});
 
 export const ValveSpec: Spec<ElementProps> = {
   type: "valve",
   title: "Valve",
-  initialProps: ZERO_PROPS,
+  initialProps,
   Element,
   Form,
   Preview: ValvePIDElementPreview,

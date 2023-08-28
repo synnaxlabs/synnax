@@ -11,6 +11,7 @@ import { FC } from "react";
 
 import { XY } from "@synnaxlabs/x";
 
+import { Theming } from "@/index";
 import { Input } from "@/input";
 
 export type Props<P extends object = {}> = P & {
@@ -25,8 +26,8 @@ export interface FormProps<P extends object = {}> extends Input.Control<P> {}
 export interface Spec<P extends object = {}> {
   type: string;
   title: string;
-  initialProps: P;
+  initialProps: (theme: Theming.Theme) => P;
   Element: FC<Props<P>>;
   Form: FC<FormProps<P>>;
-  Preview: FC<{}>;
+  Preview: FC<P>;
 }

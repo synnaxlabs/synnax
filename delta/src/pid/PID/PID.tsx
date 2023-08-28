@@ -10,7 +10,17 @@
 import { ReactElement, useCallback, useRef } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { PID as Core, PIDElement, Control, Button } from "@synnaxlabs/pluto";
+import {
+  PID as Core,
+  PIDElement,
+  Control,
+  Button,
+  Haul,
+  Theming,
+  Text,
+} from "@synnaxlabs/pluto";
+import { Box, XY, XYLocation, XYScale } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
 import { LayoutRenderer, useSelectRequiredLayout } from "@/layout";
@@ -23,6 +33,7 @@ import {
   setPIDElementProps,
   setPIDNodes,
   setPIDViewport,
+  addPIDelement,
 } from "@/pid/store/slice";
 
 const PIDElementRenderer = ({
@@ -69,6 +80,7 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
   const { name } = useSelectRequiredLayout(layoutKey);
   const pid = useSelectPID(layoutKey);
   const dispatch = useDispatch();
+  const theme = Theming.use();
 
   const handleEdgesChange: Core.PIDProps["onEdgesChange"] = useCallback(
     (edges) => {
@@ -125,34 +137,88 @@ export const PID: LayoutRenderer = ({ layoutKey }) => {
     [layoutKey]
   );
 
+  const ref = useRef<HTMLDivElement>(null);
+
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      const valid = Haul.filterByType("pid-element", items);
+      const region = new Box(ref.current);
+      valid.forEach(({ key: type }) => {
+        const spec = PIDElement.REGISTRY[type];
+        if (spec == null) return;
+        const zoomXY = new XY(pid.viewport.zoom);
+        const scale = XYScale.translate(region.topLeft.scale(-1))
+          .magnify(
+            new XY({
+              x: 1 / zoomXY.x,
+              y: 1 / zoomXY.y,
+            })
+          )
+          .translate(new XY(pid.viewport.position).scale(-1));
+        dispatch(
+          addPIDelement({
+            layoutKey,
+            key: nanoid(),
+            node: {
+              position: scale.pos(new XY(event.clientX, event.clientY)).crude,
+            },
+            props: {
+              type,
+              ...spec.initialProps(theme),
+            },
+          })
+        );
+      });
+      return valid;
+    },
+    [pid.viewport, theme]
+  );
+
+  const dropProps = Haul.useDrop({
+    type: "PID",
+    key: layoutKey,
+    canDrop: Haul.canDropOfType("pid-element"),
+    onDrop: handleDrop,
+  });
+
   return (
-    <Control.Controller
-      name={name}
-      authority={1}
-      acquireTrigger={pid.controlAcquireTrigger}
-      onStatusChange={handleControlStatusChange}
-    >
-      <Core.PID
-        onViewportChange={handleViewportChange}
-        edges={pid.edges}
-        nodes={pid.nodes}
-        viewport={pid.viewport}
-        onEdgesChange={handleEdgesChange}
-        onNodesChange={handleNodesChange}
-        onEditableChange={handleEditableChange}
-        editable={pid.editable}
+    <div ref={ref} style={{ width: "inherit", height: "inherit" }}>
+      <Control.Controller
+        name={name}
+        authority={1}
+        acquireTrigger={pid.controlAcquireTrigger}
+        onStatusChange={handleControlStatusChange}
       >
-        <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
-        <Core.Background />
-        <Core.Controls reverse>
-          <Button.ToggleIcon
-            value={pid.control === "acquired"}
-            onChange={acquireControl}
-          >
-            <Icon.Circle fill="white" />
-          </Button.ToggleIcon>
-        </Core.Controls>
-      </Core.PID>
-    </Control.Controller>
+        <Core.PID
+          onViewportChange={handleViewportChange}
+          edges={pid.edges}
+          nodes={pid.nodes}
+          viewport={pid.viewport}
+          onEdgesChange={handleEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEditableChange={handleEditableChange}
+          editable={pid.editable}
+          {...dropProps}
+        >
+          <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
+          <Core.Background />
+          <Core.Controls reverse>
+            <Core.ToggleEditControl disabled={pid.control !== "released"} />
+            <Core.FitViewControl />
+            <Button.ToggleIcon
+              value={pid.control === "acquired"}
+              onChange={acquireControl}
+              tooltip={
+                <Text.Text level="p">
+                  {pid.control === "acquired" ? "Release control" : "Acquire control"}
+                </Text.Text>
+              }
+            >
+              <Icon.Circle fill="white" />
+            </Button.ToggleIcon>
+          </Core.Controls>
+        </Core.PID>
+      </Control.Controller>
+    </div>
   );
 };

@@ -23,9 +23,9 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
-import { toCSSVars } from "@/theming/main/css";
+import { toCSSVars } from "@/theming/css";
 
-import "@/theming/main/theme.css";
+import "@/theming/theme.css";
 
 export interface ContextValue {
   theme: theming.Theme;

@@ -81,21 +81,26 @@ export class Controller
   }
 
   async acquire(): Promise<void> {
-    if (this.internal.client == null) return;
+    const { client, addStatus } = this.internal;
+    if (client == null)
+      return addStatus({
+        message: `Cannot acquire control on ${this.state.name} because no Cluster has been connected`,
+        variant: "error",
+      });
 
     try {
       const keys = await this.channelKeys();
       if (keys.length === 0) return;
 
-      this.writer = await this.internal.client.telem.newWriter(TimeStamp.now(), keys);
+      this.writer = await client.telem.newWriter(TimeStamp.now(), keys);
       this.setState((p) => ({ ...p, status: "acquired" }));
-      this.internal.addStatus({
+      addStatus({
         message: `Acquired control on ${this.state.name}.`,
         variant: "success",
       });
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      this.internal.addStatus({
+      addStatus({
         message: `${this.state.name} failed to acquire control: ${
           (e as Error).message
         }.`,
@@ -129,17 +134,6 @@ export class Controller
   }
 
   use<T>(key: string, spec: telem.Spec): telem.UseResult<T> {
-    if (spec.type === NumericSink.TYPE) {
-      const sink = new NumericSink(key, this);
-      this.registry.set(sink, null);
-      return [
-        sink as unknown as T,
-        () => {
-          sink.cleanup();
-          this.registry.delete(sink);
-        },
-      ];
-    }
     return this.internal.prov.use<T>(key, spec, this);
   }
 }

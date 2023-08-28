@@ -64,7 +64,9 @@ export const Button = Tooltip.wrap(
     children,
     iconSpacing,
     sharp = false,
+    disabled = false,
     level,
+    onClick,
     ...props
   }: ButtonProps): ReactElement => (
     <Text.WithIcon
@@ -73,11 +75,13 @@ export const Button = Tooltip.wrap(
         CSS.B("btn"),
         CSS.size(size),
         CSS.sharp(sharp),
+        CSS.disabled(disabled),
         CSS.BM("btn", variant),
         className
       )}
       level={level ?? Text.ComponentSizeLevels[size]}
       size={iconSpacing}
+      onClick={!disabled ? onClick : undefined}
       noWrap
       {...props}
     >

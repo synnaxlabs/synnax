@@ -48,6 +48,8 @@ const toggleFactory =
  * toggled. The callback will be passed the new value of the button.
  */
 export const Toggle = toggleFactory(Button);
+export type ToggleProps = Omit<Parameters<typeof Toggle>[0], "value" | "onChange"> &
+  ToggleExtensionProps;
 Toggle.displayName = "ButtonToggle";
 
 /**
@@ -64,4 +66,9 @@ Toggle.displayName = "ButtonToggle";
  */
 
 export const ToggleIcon = toggleFactory(Icon);
+export type ToggleIconProps = Omit<
+  Parameters<typeof ToggleIcon>[0],
+  "value" | "onChange"
+> &
+  ToggleExtensionProps;
 ToggleIcon.displayName = "ButtonToggleIcon";

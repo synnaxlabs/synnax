@@ -23,13 +23,11 @@ import { AxisKey, XAxisKey, YAxisKey } from "@/vis/axis";
 import { SelectAxisInputItem, SelectMultipleAxesInputItem } from "@/vis/components";
 import { SelectMultipleRangesInputItem, useSelectRanges } from "@/workspace";
 
-export interface LinePlotDataControlsProps {
+export interface DataProps {
   layoutKey: string;
 }
 
-export const LinePlotDataControls = ({
-  layoutKey,
-}: LinePlotDataControlsProps): ReactElement | null => {
+export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   const vis = useSelectLinePlot(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectRanges();
@@ -61,9 +59,7 @@ export const LinePlotDataControls = ({
   );
 
   const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
-    dispatch(
-      setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value as string[] })
-    );
+    dispatch(setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value }));
   };
 
   return (

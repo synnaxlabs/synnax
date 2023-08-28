@@ -15,13 +15,11 @@ import { useDispatch } from "react-redux";
 import { useSelectLinePlot } from "../store/selectors";
 import { LineState, setLinePlotLine } from "../store/slice";
 
-export interface LinePlotLinesControlsProps {
+export interface LinesProps {
   layoutKey: string;
 }
 
-export const LinePlotLinesControls = ({
-  layoutKey,
-}: LinePlotLinesControlsProps): ReactElement => {
+export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
   const vis = useSelectLinePlot(layoutKey);
   const dispatch = useDispatch();
 
@@ -78,7 +76,7 @@ export const LinePlotLinesControls = ({
         ]}
       />
       <List.Core style={{ height: "calc(100% - 28px)" }}>
-        {(props) => <LinePlotLineControls onChange={handleChange} {...props} />}
+        {(props) => <Line onChange={handleChange} {...props} />}
       </List.Core>
     </List.List>
   );
@@ -89,10 +87,7 @@ interface LinePlotLineControlsProps extends List.ItemProps<string, LineState> {
   onChange: (line: LineState) => void;
 }
 
-const LinePlotLineControls = ({
-  entry: line,
-  onChange,
-}: LinePlotLineControlsProps): ReactElement => {
+const Line = ({ entry: line, onChange }: LinePlotLineControlsProps): ReactElement => {
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
     onChange({ ...line, label: value });
   };

@@ -25,7 +25,7 @@ import { useContext } from "@/list/Context";
 import { ItemProps, ColumnSpec as ListColumnT } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 
 import "@/list/Column.css";
 

@@ -72,6 +72,7 @@ export interface AddPIDelementPayload {
   layoutKey: string;
   key: string;
   props: PIDNodeProps;
+  node?: Partial<PID.Node>;
 }
 
 export interface SetPIDElementPropsPayload {
@@ -131,13 +132,14 @@ export const { actions, reducer: pidReducer } = createSlice({
       delete state.pids[layoutKey];
     },
     addPIDelement: (state, { payload }: PayloadAction<AddPIDelementPayload>) => {
-      const { layoutKey, key, props } = payload;
+      const { layoutKey, key, props, node } = payload;
       const pid = state.pids[layoutKey];
       if (!pid.editable) return;
       pid.nodes.push({
         key,
         selected: false,
         position: XY.ZERO.crude,
+        ...node,
       });
       pid.props[key] = props;
     },

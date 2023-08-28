@@ -17,7 +17,7 @@ import { Haul } from "@/haul";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { TelemProvider } from "@/telem/provider/Provider";
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { Worker } from "@/worker";

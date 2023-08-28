@@ -92,7 +92,11 @@ export const use = (props?: UseProps): UseReturn => {
 };
 
 export interface TreeProps
-  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop"> {
+  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop">,
+    Omit<
+      List.VirtualCoreProps<string, FlattenedNode>,
+      "onDrop" | "onSelect" | "itemHeight"
+    > {
   nodes: Node[];
   selected?: string[];
   expanded?: string[];
@@ -107,6 +111,8 @@ export const Tree = ({
   onDrop,
   onRename,
   onSuccessfulDrop,
+  className,
+  ...props
 }: TreeProps): ReactElement => {
   const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
   return (
@@ -119,7 +125,8 @@ export const Tree = ({
       />
       <List.Core.Virtual<string, FlattenedNode>
         itemHeight={27}
-        className={CSS.B("tree")}
+        className={CSS(className, CSS.B("tree"))}
+        {...props}
       >
         {(props) => (
           <Item
@@ -159,7 +166,6 @@ const Item = ({
     key,
     hasChildren = false,
     allowRename = false,
-    haulItems = [],
     children,
     icon,
     name,

@@ -19,20 +19,12 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { Remote } from "@/telem/remote";
 import { Static } from "@/telem/static";
+import { Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { FormProps, Props, Spec } from "@/vis/pid/element/element";
 import { ValueLabeled, ValueLabeledProps } from "@/vis/value/Labeled";
 
 import "@/vis/pid/element/Value.css";
-
-export const ZERO_PROPS: ElementProps = {
-  label: "Value",
-  telem: {
-    channel: 0,
-  },
-  units: "psi",
-  level: "p",
-};
 
 interface ElementProps extends Omit<ValueLabeledProps, "telem"> {
   telem: Remote.NumericSourceProps;
@@ -131,15 +123,27 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   );
 };
 
-const Preview = (): ReactElement => {
+const Preview = ({ color }: ElementProps): ReactElement => {
   const telem = Static.useNumeric(500);
-  return <ValueLabeled label="Value" units="psi" telem={telem} level="p" />;
+  return (
+    <ValueLabeled label="Value" units="psi" telem={telem} level="p" color={color} />
+  );
 };
+
+export const initialProps = (th: Theming.Theme): ElementProps => ({
+  label: "Value",
+  color: th.colors.gray.p2.hex,
+  telem: {
+    channel: 0,
+  },
+  units: "psi",
+  level: "p",
+});
 
 export const ValueSpec: Spec<ElementProps> = {
   type: "value",
   title: "Value",
-  initialProps: ZERO_PROPS,
+  initialProps,
   Element,
   Form,
   Preview,

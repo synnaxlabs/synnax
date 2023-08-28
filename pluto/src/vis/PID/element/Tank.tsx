@@ -16,6 +16,7 @@ import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
+import { Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { FormProps, Spec, Props } from "@/vis/pid/element/element";
 import { Tank, TankProps } from "@/vis/tank/Tank";
@@ -102,21 +103,21 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   );
 };
 
-const Preview = (): ReactElement => (
-  <Tank color={ZERO_PROPS.color} dimensions={{ width: 30, height: 40 }}></Tank>
+const Preview = ({ color }: ElementProps): ReactElement => (
+  <Tank color={color} dimensions={{ width: 30, height: 40 }}></Tank>
 );
 
-const ZERO_PROPS = {
+const initialProps = (th: Theming.Theme): ElementProps => ({
   dimensions: { width: 100, height: 250 },
   label: "Tank",
-  color: "#ffffff",
-};
+  color: th.colors.gray.p2.hex,
+});
 
 export const TankSpec: Spec<ElementProps> = {
   type: "tank",
   title: "Tank",
-  initialProps: ZERO_PROPS,
-  Element,
+  initialProps,
   Form,
   Preview,
+  Element,
 };

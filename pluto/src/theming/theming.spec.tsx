@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Theming } from "@/theming/main";
+import { Theming } from "@/theming";
 
 const TestThemeContent = (): ReactElement => {
   const { theme } = Theming.useContext();

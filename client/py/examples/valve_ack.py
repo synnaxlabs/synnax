@@ -58,10 +58,11 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
         enabled = np.float32(0)
         press = 0
         while True:
-            time.sleep(0.05)
+            time.sleep(0.01)
             if streamer.received:
                 f = streamer.read()
                 v = f[valve_en_cmd.key][0]
+                print(f"Received valve enable command: {v}")
                 enabled = v > 0.5
             if enabled:
                 press += 10

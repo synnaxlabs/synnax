@@ -21,6 +21,8 @@ import { nanoid } from "nanoid";
 
 import { cache } from "@/telem/client/cache";
 
+export const CACHE_BUFFER_SIZE = 10000;
+
 export type StreamHandler = (data: Record<ChannelKey, ReadResponse>) => void;
 
 export interface ChannelClient {
@@ -177,7 +179,7 @@ export class Core implements Client {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache_ = new cache.Cache(10000, channel);
+    const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, channel);
     this.cache.set(key, cache_);
     return cache_;
   }
