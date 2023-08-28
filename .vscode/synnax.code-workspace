@@ -108,5 +108,11 @@
     },
     "python.formatting.provider": "none",
     "eslint.workingDirectories": [{"mode": "auto"}],
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vsliveshare.vsliveshare",
+      "golang.go"
+    ]
   }
 }
