@@ -13,7 +13,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
  * The name of the docs slice in a larger store.
  * NOTE: This must be the name of the slice in the store, or else all selectors will fail.
  */
-export const LSICE_NAME = "docs";
+export const SLICE_NAME = "docs";
 
 export interface Location {
   path: string;
@@ -30,7 +30,7 @@ export interface SliceState {
  * NOTE: This must be the name of the slice in the store, or else all selectors will fail.
  */
 export interface StoreState {
-  [LSICE_NAME]: SliceState;
+  [SLICE_NAME]: SliceState;
 }
 
 const initialState: SliceState = {
@@ -44,7 +44,7 @@ const initialState: SliceState = {
 export type SetLocationPayload = Location;
 
 export const { actions, reducer } = createSlice({
-  name: LSICE_NAME,
+  name: SLICE_NAME,
   initialState,
   reducers: {
     setDocsLocation: (state, action: PayloadAction<SetLocationPayload>) => {

@@ -12,7 +12,7 @@ import { ReactElement } from "react";
 import { Input, Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { renameLayout, useSelectRequiredLayout } from "@/layout";
+import { Layout } from "@/layout";
 import { useSelectLinePlot } from "@/line/selectors";
 import { setLinePlotLegend, setLinePlotTitle } from "@/line/slice";
 
@@ -22,11 +22,11 @@ export interface PropertiesProps {
 
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const plot = useSelectLinePlot(layoutKey);
-  const { name } = useSelectRequiredLayout(layoutKey);
+  const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
 
   const handleTitleRename = (value: string): void => {
-    dispatch(renameLayout({ key: layoutKey, name: value }));
+    dispatch(Layout.rename({ key: layoutKey, name: value }));
   };
 
   const handleTitleVisibilityChange = (value: boolean): void => {

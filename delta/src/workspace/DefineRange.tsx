@@ -20,6 +20,7 @@ import { z } from "zod";
 import { Layout } from "@/layout";
 
 import { useSelectRange } from "./selectors";
+import { addRange } from "./slice";
 
 const formSchema = z.object({
   name: z.string(),

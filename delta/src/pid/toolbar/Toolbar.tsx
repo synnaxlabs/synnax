@@ -14,7 +14,7 @@ import { Align, Status, Tabs, Text } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { useSelectRequiredLayout } from "@/layout";
+import { Layout } from "@/layout";
 import { useSelectEditable, useSelectToolbar } from "@/pid/selectors";
 import { ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
 import { Elements } from "@/pid/toolbar/Elements";
@@ -58,7 +58,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
 };
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
-  const { name } = useSelectRequiredLayout(layoutKey);
+  const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
   const editable = useSelectEditable(layoutKey);

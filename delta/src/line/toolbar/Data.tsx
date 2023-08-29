@@ -21,7 +21,8 @@ import {
 } from "@/line/slice";
 import { Vis } from "@/vis";
 import { AxisKey, XAxisKey, YAxisKey } from "@/vis/axis";
-import { SelectMultipleRangesInputItem, useSelectRanges } from "@/workspace";
+import { Workspace } from "@/workspace";
+import { useSelectRanges } from "@/workspace/selectors";
 
 export interface DataProps {
   layoutKey: string;
@@ -79,7 +80,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         grow
       />
       <Align.Space direction="x" grow wrap>
-        <SelectMultipleRangesInputItem
+        <Workspace.SelectMultipleRangesInputItem
           data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}

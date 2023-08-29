@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Location, SliceState, StoreState, SLICE_NAME } from "@/docs/slice";
 import { useMemoSelect } from "@/hooks";
 
-import { DocsLocation, DocsState, DocsStoreState, DOCS_SLICE_NAME } from "@/docs/store";
-
 /** Selects the documentation slice from a larger store state. */
-export const selectSliceState = (state: DocsStoreState): DocsState =>
-  state[DOCS_SLICE_NAME];
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 /** Selects the current documentation URL i.e. page endpoint and heading. */
-export const selectLocation = (state: DocsStoreState): DocsLocation =>
+export const selectLocation = (state: StoreState): Location =>
   selectSliceState(state).location;
 
 /** Selects the current documentation URL i.e. page endpoint and heading. */
-export const useSelectLocation = (): DocsLocation => useMemoSelect(selectLocation, []);
+export const useSelectLocation = (): Location => useMemoSelect(selectLocation, []);

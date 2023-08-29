@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 
+import { QueryError } from "@/errors";
 import { ontology } from "@/ontology";
 import { newClient } from "@/setupspecs";
 
@@ -37,8 +38,9 @@ describe("Group", () => {
       const name = `group-${Math.random()}`;
       const g = await client.ontology.groups.create(ontology.Root, name);
       await client.ontology.groups.delete(g.key);
-      const g2 = await client.ontology.retrieve(g.ontologyID);
-      expect(g2).toEqual(null);
+      await expect(
+        async () => await client.ontology.retrieve(g.ontologyID)
+      ).rejects.toThrow(QueryError);
     });
   });
 });

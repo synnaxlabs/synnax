@@ -35,7 +35,7 @@ const reducer = combineReducers({
   [PID.SLICE_NAME]: PID.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Version.SLICE_NAME]: Version.reducer,
-  [Docs.LSICE_NAME]: Docs.reducer,
+  [Docs.SLICE_NAME]: Docs.reducer,
   [Line.SLICE_NAME]: Line.reducer,
 });
 
@@ -45,7 +45,7 @@ export interface RootState {
   [Layout.SLICE_NAME]: Layout.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
-  [Docs.LSICE_NAME]: Docs.SliceState;
+  [Docs.SLICE_NAME]: Docs.SliceState;
   [PID.SLICE_NAME]: PID.SliceState;
   [Line.SLICE_NAME]: Line.SliceState;
 }

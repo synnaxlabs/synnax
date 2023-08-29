@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
-import { useSelectRequiredLayout } from "@/layout";
+import { Layout } from "@/layout";
 import { useSelectLineToolbar } from "@/line/selectors";
 import { LineToolbarTab, setLineActiveToolbarTab } from "@/line/slice";
 import { Annotations } from "@/line/toolbar/Annotations";
@@ -54,7 +54,7 @@ const TABS = [
 ];
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
-  const { name } = useSelectRequiredLayout(layoutKey);
+  const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectLineToolbar();
   const content = useCallback(

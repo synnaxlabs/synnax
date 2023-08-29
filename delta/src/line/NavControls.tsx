@@ -11,22 +11,16 @@ import { ReactElement, ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Divider, Select, Text, Viewport } from "@synnaxlabs/pluto";
-import { PiSelectionPlusBold } from "react-icons/pi";
 import { useDispatch } from "react-redux";
 
-import { useSelectActiveMosaicTabKey } from "@/layout";
-
-import { useSelectLineControlState } from "@/line/store/selectors";
-import {
-  ClickMode,
-  setLineControlState,
-  setLinePlotViewport,
-} from "@/line/store/slice";
-import { ViewportModeSelector } from "@/vis/components/ViewportModeSelector";
+import { Layout } from "@/layout";
+import { useSelectLineControlState } from "@/line/selectors";
+import { ClickMode, setLineControlState, setLinePlotViewport } from "@/line/slice";
+import { ViewportModeSelector } from "@/vis/ViewportModeSelector";
 
 export const NavControls = (): ReactElement => {
   const control = useSelectLineControlState();
-  const vis = useSelectActiveMosaicTabKey();
+  const vis = Layout.useSelectActiveMosaicTabKey();
   const d = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
@@ -63,7 +57,7 @@ export const NavControls = (): ReactElement => {
         }
         size="medium"
       >
-        <Icon.ZoomReset />
+        <Icon.Expand />
       </Button.Icon>
 
       <Divider.Divider />

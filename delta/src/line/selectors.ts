@@ -17,7 +17,7 @@ import {
   LineControlState,
 } from "@/line/slice";
 import { Vis } from "@/vis";
-import { Range, WorkspaceStoreState, selectRanges } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 export const selectLineSliceState = (state: LineStoreState): SliceState =>
   state[SLICE_NAME];
@@ -30,11 +30,11 @@ export const useSelectLinePlot = (key: string): LinePlotState =>
 
 export const useSelectLinePlotRanges = (key: string): Vis.XAxisRecord<Range[]> => {
   return useMemoSelect(
-    (state: LineStoreState & WorkspaceStoreState) => {
+    (state: LineStoreState & Workspace.StoreState) => {
       const p = selectLinePlot(state, key);
       return {
-        x1: selectRanges(state, p.ranges.x1),
-        x2: selectRanges(state, p.ranges.x2),
+        x1: Workspace.selectRanges(state, p.ranges.x1),
+        x2: Workspace.selectRanges(state, p.ranges.x2),
       };
     },
     [key]

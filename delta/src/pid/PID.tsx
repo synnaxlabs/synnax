@@ -23,7 +23,7 @@ import { Box, XY, XYScale } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
-import { LayoutRenderer, useSelectRequiredLayout } from "@/layout";
+import { Layout } from "@/layout";
 import { useSelect, useSelectElementProps } from "@/pid/selectors";
 import {
   toggleControl,
@@ -76,8 +76,8 @@ const ElementRenderer = ({
   );
 };
 
-export const PID: LayoutRenderer = ({ layoutKey }) => {
-  const { name } = useSelectRequiredLayout(layoutKey);
+export const PID: Layout.Renderer = ({ layoutKey }) => {
+  const { name } = Layout.useSelectRequired(layoutKey);
   const pid = useSelect(layoutKey);
   const dispatch = useDispatch();
   const theme = Theming.use();

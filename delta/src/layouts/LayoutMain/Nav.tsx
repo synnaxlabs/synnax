@@ -195,9 +195,6 @@ export const NavRight = (): ReactElement | null => {
 export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
-      <Nav.Bar.Start>
-        <VisControls />
-      </Nav.Bar.Start>
       <Nav.Bar.End className="delta-main-nav-bottom__end">
         <Triggers.Status variant="info" />
         <Divider.Divider />

@@ -14,8 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import { List, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
 
 import { Menu } from "@/components";
-
-import type { Range } from "../store";
+import type { Range } from "@/workspace/range";
 
 export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
@@ -25,21 +24,23 @@ export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "start",
     name: "Start",
-    stringer: () => "",
-    // stringer: ({ timeRange: { start, end } }) =>
-    //   new TimeStamp(start).fString("dateTime", "local"),
+    stringer: (r) => {
+      if (r.variant === "dynamic") return `${new TimeSpan(r.span).toString()} ago`;
+      return new TimeStamp(r.timeRange.start).fString("dateTime", "local");
+    },
   },
   {
     key: "end",
     name: "End",
-    // stringer: ({ timeRange: { start, end } }) => {
-    //   const startTS = new TimeStamp(start);
-    //   const endTS = new TimeStamp(end);
-    //   return endTS.fString(
-    //     endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
-    //     "local"
-    //   );
-    // },
+    stringer: (r) => {
+      if (r.variant === "dynamic") return "Now";
+      const startTS = new TimeStamp(r.timeRange.start);
+      const endTS = new TimeStamp(r.timeRange.end);
+      return endTS.fString(
+        endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
+        "local"
+      );
+    },
   },
 ];
 

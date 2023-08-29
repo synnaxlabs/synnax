@@ -16,3 +16,4 @@ export * from "@/workspace/SelectRange";
 export * from "@/workspace/slice";
 export * from "@/workspace/Toolbar";
 export * from "@/workspace/VisList";
+export * from "@/workspace/selectors";

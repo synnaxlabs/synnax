@@ -41,12 +41,7 @@ import { AsyncTermSearcher, Key } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import {
-  LayoutPlacer,
-  createLayoutMosaicWindow,
-  moveLayoutMosaicTab,
-  useLayoutPlacer,
-} from "@/layout";
+import { Layout } from "@/layout";
 import { ResourceType } from "@/resources/resources";
 import { RootStore } from "@/store";
 
@@ -112,7 +107,7 @@ export const Palette = ({
   const notifications = Status.useNotifications({});
 
   const store = useStore() as RootStore;
-  const placeLayout = useLayoutPlacer();
+  const placeLayout = Layout.usePlacer();
   const handleSelect: List.SelectorProps["onChange"] = useCallback(
     ([key]: Key[], { entries: [entry] }) => {
       dropdown.close();
@@ -340,7 +335,7 @@ export const PaletteInput = ({
     [mode, setMode, commandSymbol, handleFilter, handleSearch]
   );
 
-  const placer = useLayoutPlacer();
+  const placer = Layout.usePlacer();
   const d = useDispatch();
 
   const { onDragOver, onDrop } = Haul.useDrop({
@@ -348,9 +343,9 @@ export const PaletteInput = ({
     canDrop,
     onDrop: useCallback(
       ({ items: [item] }) => {
-        const { key } = placer(createLayoutMosaicWindow());
+        const { key } = placer(Layout.createMosaicWindow());
         d(
-          moveLayoutMosaicTab({
+          Layout.moveMosaicTab({
             windowKey: key,
             key: 1,
             tabKey: item.key as string,
@@ -475,7 +470,7 @@ export interface ResourceListItemProps
 
 export interface CommandSelectionContext {
   store: RootStore;
-  placeLayout: LayoutPlacer;
+  placeLayout: Layout.Placer;
 }
 
 export interface Command {

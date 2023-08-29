@@ -18,14 +18,14 @@ import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useLayoutRemover } from "@/layout";
+import { Layout } from "@/layout";
 
 export interface ControlsProps extends OS.ControlsProps {}
 
 export const Controls = (props: ControlsProps): ReactElement | null => {
   const window = useSelectWindow();
   const dispatch = useDispatch();
-  const remove = useLayoutRemover(window?.key ?? "");
+  const remove = Layout.useRemover(window?.key ?? "");
   if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: OS.ControlsAction[] = [];

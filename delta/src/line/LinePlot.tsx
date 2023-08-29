@@ -21,7 +21,7 @@ import {
 import { Box, XYLocation, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { renameLayout, useSelectRequiredLayout } from "@/layout";
+import { Layout } from "@/layout";
 import {
   useSelectLinePlot,
   useSelectLinePlotRanges,
@@ -38,10 +38,10 @@ import {
   typedLineKeyToString,
 } from "@/line/slice";
 import { Vis } from "@/vis";
-import { Range } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
-  const { name } = useSelectRequiredLayout(layoutKey);
+  const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelectLinePlot(layoutKey);
   const ranges = useSelectLinePlotRanges(layoutKey);
   const client = Synnax.use();
@@ -69,7 +69,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   }, [client, lines]);
 
   const handleTitleRename = (name: string): void => {
-    dispatch(renameLayout({ key: layoutKey, name }));
+    dispatch(Layout.rename({ key: layoutKey, name }));
   };
 
   const handleLineLabelChange = useCallback(
@@ -216,7 +216,7 @@ const buildAxes = (vis: LinePlotState): Channel.AxisProps[] =>
 
 const buildLines = (
   vis: LinePlotState,
-  sug: Vis.MultiXAxisRecord<Range>
+  sug: Vis.MultiXAxisRecord<Workspace.Range>
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
