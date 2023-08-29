@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as render from "@/vis/render/external";
-
-export { render };
+export * as render from "@/vis/render/external";

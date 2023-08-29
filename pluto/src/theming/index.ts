@@ -9,6 +9,4 @@
 
 import "@fontsource-variable/inter";
 
-import * as Theming from "@/theming/external";
-
-export { Theming };
+export * as Theming from "@/theming/external";

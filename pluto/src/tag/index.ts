@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as Tag from "@/tag/Tag";
-export { Tag };
+export * as Tag from "@/tag/Tag";

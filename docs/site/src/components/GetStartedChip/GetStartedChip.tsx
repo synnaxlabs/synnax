@@ -8,9 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Text, Header, Space } from "@synnaxlabs/pluto/std";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Header } from "@synnaxlabs/pluto/header";
+import { Text } from "@synnaxlabs/pluto/text";
 
 import "./GetStartedChip.css";
+
+import { ReactElement } from "react";
 
 export interface GetStartedChipProps {
   title: string;
@@ -33,11 +37,13 @@ export const GetStartedChip = ({
         textDecoration: "none",
       }}
     >
-      <Header level="h2" className="pluto--bordered" wrap>
-        <Space empty style={{ minWidth: 100, flex: "1 1 100px" }}>
-          <Header.Title startIcon={icon}>{title}</Header.Title>
+      <Header.Header level="h2" className="pluto--bordered" wrap>
+        <Align.Space empty style={{ minWidth: 100, flex: "1 1 100px" }}>
+          <Header.Title level="p" startIcon={icon}>
+            {title}
+          </Header.Title>
           <Header.Title level="p">{description}</Header.Title>
-        </Space>
+        </Align.Space>
         <Text.WithIcon
           level="h4"
           className="call-to-action"
@@ -47,7 +53,7 @@ export const GetStartedChip = ({
         >
           Read More
         </Text.WithIcon>
-      </Header>
+      </Header.Header>
     </a>
   );
 };

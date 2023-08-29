@@ -9,15 +9,17 @@
 
 import { ReactElement } from "react";
 
-import { Tab, Tabs as PTabs } from "@synnaxlabs/pluto/std";
+import { Tabs as Core } from "@synnaxlabs/pluto/tabs";
 
 export type TabsProps = {
-  tabs: Tab[];
+  tabs: Core.Tab[];
 } & Record<string, ReactElement | any>;
 
 export const Tabs = ({ tabs, ...props }: TabsProps): ReactElement => {
   tabs = tabs.map((tab) => ({ ...tab, icon: props[`${tab.tabKey}-icon`] }));
-  const staticProps = PTabs.useStatic({ tabs });
+  const staticProps = Core.useStatic({ tabs });
 
-  return <PTabs {...staticProps}>{(tab) => <div>{props[tab.tabKey]}</div>}</PTabs>;
+  return (
+    <Core.Tabs {...staticProps}>{(tab) => <div>{props[tab.tabKey]}</div>}</Core.Tabs>
+  );
 };

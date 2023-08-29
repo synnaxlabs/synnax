@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Dropdown, Tree, TreeLeaf } from "@synnaxlabs/pluto/std";
+import { Button } from "@synnaxlabs/pluto/button";
+import { Dropdown } from "@synnaxlabs/pluto/dropdown";
+import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { pages } from "@/pages/nav";
 
@@ -35,13 +37,13 @@ export const useDocumentSize = (): number | null => {
 
 export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const width = useDocumentSize();
-  const { visible, toggle, ref } = Dropdown.use(false);
-  const tree = <Tree data={pages} value={[currentPage]} />;
+  const { visible, toggle, ref } = Dropdown.use({ initialVisible: false });
+  const tree = <Tree.Tree data={pages} value={[currentPage]} />;
   if (width == null) return null;
   if (width > 700) return tree;
   return (
-    <Dropdown visible={visible} bordered={false} ref={ref} location="top">
-      <Button
+    <Dropdown.Dialog visible={visible} bordered={false} ref={ref} location="top">
+      <Button.Button
         justify="spaceBetween"
         endIcon={<Icon.Copy />}
         variant="text"
@@ -53,8 +55,8 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
         }}
       >
         Menu
-      </Button>
+      </Button.Button>
       {tree}
-    </Dropdown>
+    </Dropdown.Dialog>
   );
 };

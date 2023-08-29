@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useRef, useState } from "react";
+import { ReactElement, useEffect, useRef, useState } from "react";
 
-import { Space, Header, Menu } from "@synnaxlabs/pluto/std";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Header } from "@synnaxlabs/pluto/header";
+import { Menu } from "@synnaxlabs/pluto/menu";
 import { MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
@@ -80,17 +82,17 @@ export const TableOfContents = ({
   if (headings.length === 0) return <></>;
 
   return (
-    <Space
+    <Align.Space
       style={{
         paddingLeft: "2rem",
         transition: "0.2s ease-in-out",
       }}
     >
-      <Header id={onThisPageID} className="heading">
-        <Header.Title level="h3">On this page</Header.Title>
-      </Header>
+      <Header.Header id={onThisPageID} className="heading" level="h3">
+        <Header.Title>On this page</Header.Title>
+      </Header.Header>
       <div ref={toc}>
-        <Menu value={currentID}>
+        <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth < 3)
             .map((heading) => (
@@ -107,8 +109,8 @@ export const TableOfContents = ({
                 {unescape(heading.text)}
               </Menu.Item.Link>
             ))}
-        </Menu>
+        </Menu.Menu>
       </div>
-    </Space>
+    </Align.Space>
   );
 };

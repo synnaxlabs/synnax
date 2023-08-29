@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
+import { ReactElement, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, ButtonLinkProps } from "@synnaxlabs/pluto/std";
+import { Button } from "@synnaxlabs/pluto/button";
 import { OS } from "@synnaxlabs/x";
 
 export interface OSDownloadButtonEntry {
@@ -18,7 +18,7 @@ export interface OSDownloadButtonEntry {
   href: string;
 }
 
-export interface OSDownloadButtonProps extends Omit<ButtonLinkProps, "href"> {
+export interface OSDownloadButtonProps extends Omit<Button.LinkProps, "href"> {
   name: string;
   entries: OSDownloadButtonEntry[];
 }
