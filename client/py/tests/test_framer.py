@@ -33,7 +33,7 @@ class TestChannelWriteRead:
         assert data.time_range.start == start
         assert len(d) == len(data)
         assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
-        assert all(data.to_numpy() == d)
+        assert all(data == d)
 
 
 @pytest.mark.framer

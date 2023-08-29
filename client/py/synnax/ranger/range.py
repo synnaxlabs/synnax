@@ -30,8 +30,11 @@ from synnax.exceptions import QueryError
 
 
 class RangeChannel(ChannelPayload):
-    __range: Range
-    __frame_client: FrameClient
+    __range: Range | None = PrivateAttr(None)
+    __frame_client: FrameClient | None = PrivateAttr(None)
+
+    class Config:
+        arbitrary_types_allowed = True
 
     def __init__(
         self,
@@ -50,8 +53,11 @@ class RangeChannel(ChannelPayload):
     def __array__(self) -> np.ndarray:
         return self.read().__array__()
 
+    def __len__(self):
+        return len(self.read())
+
     def read(self) -> Series:
-        return self.__frame_client.read(self.time_range, super().key)
+        return self.__frame_client.read(self.time_range, self.key)
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
@@ -108,7 +114,7 @@ class Range(RangePayload):
         self.__channel_retriever = _channel_retriever
 
     def __getattr__(self, name: str) -> RangeChannel:
-        ch = self._channel_retriever.retrieve(self)
+        ch = self._channel_retriever.retrieve(name)
         if len(ch) == 0:
             raise QueryError(f"Channel {name} not found")
         return RangeChannel(rng=self, frame_client=self._frame_client, payload=ch[0])

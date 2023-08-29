@@ -104,6 +104,14 @@ class Series(Payload):
     def to_datetime(self) -> list[datetime]:
         return [pd.Timestamp(t).to_pydatetime() for t in self.__array__()]
 
+    def __eq__(self, other):
+        if isinstance(other, Series):
+            return self.data == other.data
+        elif isinstance(other, np.ndarray):
+            return self.__array__() == other
+        else:
+            return False
+
 
 TypedCrudeSeries = Series | pd.Series | np.ndarray
 CrudeSeries = Series | bytes | pd.Series | np.ndarray | list

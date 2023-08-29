@@ -153,7 +153,7 @@ def parse_payload(pld: APIExceptionPayload) -> Exception | None:
         return UnexpectedError(pld.error)
 
     if pld.type == APIErrorType.VALIDATION.value:
-        return ValidationError([pld.error])
+        return ValidationError(pld.error)
 
     if pld.type == APIErrorType.QUERY.value:
         return QueryError(pld.error["message"])
