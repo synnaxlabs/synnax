@@ -24,6 +24,7 @@ export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   {
     key: "start",
     name: "Start",
+    width: 100,
     stringer: (r) => {
       if (r.variant === "dynamic") return `${new TimeSpan(r.span).toString()} ago`;
       return new TimeStamp(r.timeRange.start).fString("dateTime", "local");

@@ -89,7 +89,7 @@ export const DefineRange = ({
     if (name.length === 0) name = range?.name as string;
     // remove leading and trailing whitespace
     const key = range?.key ?? (name ?? "").replace(/\s/g, "").toLowerCase();
-    dispatch(addRange({ name, start, end, key }));
+    dispatch(addRange({ variant: "static", name, timeRange: { start, end }, key }));
     onClose();
   };
 
