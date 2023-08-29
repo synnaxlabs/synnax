@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 )
 
@@ -56,6 +57,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
+	d.Group = lo.Must(group.NewService(group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
 		Cluster:  d.Cluster,
@@ -66,12 +68,13 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	d.Ontology.RegisterService(clusterOntologySvc)
 	nodeOntologySvc.ListenForChanges(ctx)
 
-	d.Channel = lo.Must(channel.New(channel.ServiceConfig{
+	d.Channel = lo.Must(channel.New(ctx, channel.ServiceConfig{
 		HostResolver: d.Cluster,
 		ClusterDB:    d.Storage.Gorpify(),
 		TSChannel:    d.Storage.TS,
 		Transport:    b.channelNet.New(d.Config.AdvertiseAddress),
 		Ontology:     d.Ontology,
+		Group:        d.Group,
 	}))
 
 	d.Framer = lo.Must(framer.Open(framer.Config{

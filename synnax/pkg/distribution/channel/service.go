@@ -62,8 +62,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
 	return v.Error()
 }
 
@@ -108,6 +106,9 @@ func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
 const groupName = "Channels"
 
 func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
+	if svc == nil {
+		return g, nil
+	}
 	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
 	if g.Key != uuid.Nil || err != nil {
 		return g, err
