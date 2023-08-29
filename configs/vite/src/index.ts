@@ -50,7 +50,7 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
         },
         build: {
           sourcemap: true,
-          minify: false,
+          minify: true,
           lib: {
             name,
             formats: ["es", "cjs"],
