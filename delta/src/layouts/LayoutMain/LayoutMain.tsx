@@ -12,7 +12,7 @@ import { ReactElement, useEffect } from "react";
 import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { LayoutMosaic, maybeCreateGetStartedTab } from "@/layout";
+import { Layout } from "@/layout";
 import {
   NavBottom,
   NavDrawer,
@@ -30,7 +30,7 @@ import "@/layouts/LayoutMain/LayoutMain.css";
 export const LayoutMain = (): ReactElement => {
   const d = useDispatch();
   useEffect(() => {
-    d(maybeCreateGetStartedTab());
+    d(Layout.maybeCreateGetStartedTab());
   }, []);
   return (
     <>
@@ -44,7 +44,7 @@ export const LayoutMain = (): ReactElement => {
           <Align.Space className="delta-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="delta-main--driven" style={{ position: "relative" }}>
-              <LayoutMosaic />
+              <Layout.Mosaic />
             </main>
             <NavDrawer location="right" />
           </Align.Space>

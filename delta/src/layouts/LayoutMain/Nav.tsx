@@ -22,39 +22,27 @@ import {
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
-import { ClusterBadge, ClusterToolbar, ConnectionBadge } from "@/cluster";
-import { CLUSTER_COMMANDS } from "@/cluster/palette";
+import { Cluster } from "@/cluster";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
-import { createDocsLayout } from "@/docs";
-import { DOCS_COMMANDS } from "@/docs/palette";
-import {
-  NavDrawerItem,
-  NavdrawerLocation,
-  useNavDrawer,
-  NavMenuItem,
-  useLayoutPlacer,
-} from "@/layout";
-import { LAYOUT_COMMANDS } from "@/layout/palette";
+import { Docs } from "@/docs";
+import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
-import { LINE_COMMANDS } from "@/line/palette";
+import { Line } from "@/line";
 import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
-import { PID_COMMANDS } from "@/pid/palette";
-import { ResourcesToolbar } from "@/resources";
-import { resourceTypes } from "@/resources/resources";
-import { VersionBadge } from "@/version";
-import { VisToolbar } from "@/vis";
-import { Controls as VisControls } from "@/vis/Controls";
-import { WorkspaceToolbar } from "@/workspace";
-import { WORKSPACE_COMMANDS } from "@/workspace/palettte";
+import { PID } from "@/pid";
+import { Resources } from "@/resources";
+import { Version } from "@/version";
+import { Vis } from "@/vis";
+import { Workspace } from "@/workspace";
 
 import "@/layouts/LayoutMain/Nav.css";
 
-export const NAV_DRAWERS: NavDrawerItem[] = [
-  ClusterToolbar,
-  ResourcesToolbar,
-  WorkspaceToolbar,
-  VisToolbar,
+export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
+  Cluster.Toolbar,
+  Resources.Toolbar,
+  Workspace.Toolbar,
+  Vis.Toolbar,
 ];
 
 const DEFAULT_TRIGGER: PaletteTriggerConfig = {
@@ -63,12 +51,12 @@ const DEFAULT_TRIGGER: PaletteTriggerConfig = {
 };
 
 const COMMANDS = [
-  ...LINE_COMMANDS,
-  ...CLUSTER_COMMANDS,
-  ...PID_COMMANDS,
-  ...WORKSPACE_COMMANDS,
-  ...LAYOUT_COMMANDS,
-  ...DOCS_COMMANDS,
+  ...Line.COMMANDS,
+  ...Layout.COMMANDS,
+  ...PID.COMMANDS,
+  ...Docs.COMMANDS,
+  ...Workspace.COMMANDS,
+  ...Cluster.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -78,7 +66,7 @@ const NavTopPalette = (): ReactElement => {
       commands={COMMANDS}
       searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
-      resourceTypes={resourceTypes}
+      resourceTypes={Resources.types}
       commandSymbol=">"
     />
   );
@@ -89,10 +77,12 @@ const NavTopPalette = (): ReactElement => {
  * presentational.
  */
 export const NavTop = (): ReactElement => {
-  const placer = useLayoutPlacer();
+  const placer = Layout.usePlacer();
 
   const os = OS.use();
-  const handleDocs = (): void => placer(createDocsLayout());
+  const handleDocs = (): void => {
+    placer(Docs.createLayout());
+  };
 
   return (
     <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
@@ -137,7 +127,7 @@ export const NavMenu = ({
   children,
   ...props
 }: {
-  children: NavMenuItem[];
+  children: Layout.NavMenuItem[];
 } & Omit<PMenu.MenuProps, "children">): ReactElement => (
   <PMenu.Menu {...props}>
     {children.map(({ key, tooltip, icon }) => (
@@ -158,7 +148,7 @@ export const NavMenu = ({
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
-  const { onSelect, menuItems } = useNavDrawer("left", NAV_DRAWERS);
+  const { onSelect, menuItems } = Layout.useNavDrawer("left", NAV_DRAWERS);
   const os = OS.use();
   return (
     <Nav.Bar location="left" size={NAV_SIZES.side}>
@@ -179,8 +169,8 @@ export const NavLeft = (): ReactElement => {
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
-  const { menuItems, onSelect } = useNavDrawer("right", NAV_DRAWERS);
-  const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = useNavDrawer(
+  const { menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
+  const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = Layout.useNavDrawer(
     "bottom",
     NAV_DRAWERS
   );
@@ -211,22 +201,22 @@ export const NavBottom = (): ReactElement => {
       <Nav.Bar.End className="delta-main-nav-bottom__end">
         <Triggers.Status variant="info" />
         <Divider.Divider />
-        <VersionBadge level="p" />
+        <Version.Badge level="p" />
         <Divider.Divider />
-        <ClusterBadge />
+        <Cluster.NameBadge />
         <Divider.Divider />
-        <ConnectionBadge />
+        <Cluster.ConnectionBadge />
       </Nav.Bar.End>
     </Nav.Bar>
   );
 };
 
 export interface NavDrawerProps {
-  location: NavdrawerLocation;
+  location: Layout.NavdrawerLocation;
 }
 
 export const NavDrawer = ({ location, ...props }: NavDrawerProps): ReactElement => {
-  const { activeItem, onResize, onSelect } = useNavDrawer(location, NAV_DRAWERS);
+  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(location, NAV_DRAWERS);
   return (
     <Nav.Drawer
       location={location}

@@ -12,7 +12,7 @@ import { Dimensions, unique } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { MainChecker, Manager, Properties } from "@/runtime";
-import { DriftState, setWindowProps, SetWindowPropsPayload } from "@/state";
+import { SliceState, setWindowProps, SetWindowPropsPayload } from "@/state";
 import { WindowState, MAIN_WINDOW, INITIAL_WINDOW_STATE, WindowProps } from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
@@ -35,7 +35,7 @@ const purgeWinStateToProps = (
 };
 
 export const syncInitial = async (
-  state: DriftState,
+  state: SliceState,
   dispatch: Dispatch<PayloadAction<SetWindowPropsPayload>>,
   runtime: RequiredRuntime,
   debug: boolean
@@ -65,8 +65,8 @@ export const syncInitial = async (
 };
 
 export const sync = async (
-  prev: DriftState,
-  next: DriftState,
+  prev: SliceState,
+  next: SliceState,
   runtime: RequiredRuntime,
   debug: boolean
 ): Promise<void> => {
@@ -160,8 +160,8 @@ export const syncCurrent = async (
 };
 
 export const syncMain = async (
-  prev: DriftState,
-  next: DriftState,
+  prev: SliceState,
+  next: SliceState,
   runtime: RequiredRuntime,
   debug: boolean
 ): Promise<void> => {

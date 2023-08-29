@@ -17,21 +17,17 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
-import { rename } from "@synnaxlabs/pluto/dist/tabs/Tabs.js";
 
-import { LayoutPlacer, selectActiveMosaicLayout } from "@/layout";
-import {
-  ZERO_CHANNELS_STATE,
-  addLinePlotYChannel,
-  createLinePlot,
-} from "@/line/store/slice";
+import { Layout } from "@/layout";
+import { Line } from "@/line";
+import { ZERO_CHANNELS_STATE } from "@/line/slice";
 import { RootStore } from "@/store";
-import { addRange } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 export interface ResourceSelectionContext {
   client: Synnax;
   store: RootStore;
-  placeLayout: LayoutPlacer;
+  placeLayout: Layout.Placer;
   selection: {
     parent: Tree.Node;
     resources: ontology.Resource[];
@@ -61,7 +57,7 @@ export const convertOntologyResources = (
 ): Tree.Node[] => {
   return resources.map((res) => {
     const { id, name } = res;
-    const { icon, hasChildren, haulItems } = resourceTypes[id.type];
+    const { icon, hasChildren, haulItems } = types[id.type];
     return {
       key: id.toString(),
       name,
@@ -69,12 +65,12 @@ export const convertOntologyResources = (
       hasChildren,
       children: [],
       haulItems: haulItems(res),
-      allowRename: resourceTypes[id.type].allowRename(res),
+      allowRename: types[id.type].allowRename(res),
     };
   });
 };
 
-export const resourceTypes: Record<string, ResourceType> = {
+export const types: Record<string, ResourceType> = {
   builtin: {
     type: "builtin",
     icon: <Icon.Cluster />,
@@ -117,10 +113,10 @@ export const resourceTypes: Record<string, ResourceType> = {
     onDrop: () => {},
     onSelect: (ctx) => {
       const s = ctx.store.getState();
-      const layout = selectActiveMosaicLayout(s);
+      const layout = Layout.selectActiveMosaicTab(s);
       if (layout == null) {
         ctx.placeLayout(
-          createLinePlot({
+          Line.createLinePlot({
             channels: {
               ...ZERO_CHANNELS_STATE,
               y1: [ctx.selected.data.key as ChannelKey],
@@ -131,7 +127,7 @@ export const resourceTypes: Record<string, ResourceType> = {
       switch (layout?.type) {
         case "line":
           ctx.store.dispatch(
-            addLinePlotYChannel({
+            Line.addLinePlotYChannel({
               key: layout?.key,
               axisKey: "y1",
               channels: [ctx.selected.data.key as ChannelKey],
@@ -189,7 +185,7 @@ export const resourceTypes: Record<string, ResourceType> = {
     onDrop: () => {},
     onSelect: (ctx) => {
       ctx.store.dispatch(
-        addRange({
+        Workspace.addRange({
           name: ctx.selected.data.name,
           type: "static",
           key: ctx.selected.data.key,
@@ -266,7 +262,7 @@ const groupSelection = async ({
 export const MultipleSelectionContextMenu = (
   ctx: ResourceSelectionContext
 ): ReactElement => {
-  const handleSelect: MenuProps["onChange"] = (key) => {
+  const handleSelect: Menu.MenuProps["onChange"] = (key) => {
     switch (key) {
       case "group":
         void groupSelection(ctx);

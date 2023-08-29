@@ -27,22 +27,22 @@ import {
 } from "@/window";
 
 /** The Slice State */
-export interface DriftState {
+export interface SliceState {
   label: string;
-  config: DriftConfig;
+  config: Config;
   windows: Record<string, WindowState>;
   labelKeys: Record<string, string>;
   keyLabels: Record<string, string>;
 }
 
-export interface DriftConfig {
+export interface Config {
   enablePrerender: boolean;
   defaultWindowProps: Omit<WindowProps, "key">;
 }
 
 /** State of a store with a drift slice */
 export interface StoreState {
-  drift: DriftState;
+  drift: SliceState;
 }
 
 export type PreloadedState<S extends StoreState> = BasePreloadedState<
@@ -97,10 +97,10 @@ export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
 export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
 export type SetWindowErrorPaylod = KeyPayload & { message: string };
 export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
-export type SetConfigPayload = Partial<DriftConfig>;
+export type SetConfigPayload = Partial<Config>;
 
 /** Type representing all possible actions that are drift related. */
-export type DriftPayload =
+export type Payload =
   | CreateWindowPayload
   | CloseWindowPayload
   | SetWindowStatePayload
@@ -127,9 +127,9 @@ export type DriftPayload =
   | SetConfigPayload;
 
 /** Type representing all possible actions that are drift related. */
-export type DriftAction = PayloadAction<DriftPayload>;
+export type Action = PayloadAction<Payload>;
 
-export const initialState: DriftState = {
+export const initialState: SliceState = {
   label: MAIN_WINDOW,
   config: {
     enablePrerender: true,
@@ -152,7 +152,7 @@ export const initialState: DriftState = {
 
 export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   a: PayloadAction<T>,
-  s: DriftState
+  s: SliceState
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
     if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
@@ -172,9 +172,9 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
 };
 
 const assertLabel =
-  <T extends DriftPayload>(
-    f: (state: DriftState, action: PayloadAction<T & LabelPayload>) => void
-  ): ((s: DriftState, a: PayloadAction<T>) => void) =>
+  <T extends Payload>(
+    f: (state: SliceState, action: PayloadAction<T & LabelPayload>) => void
+  ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   (s, a) => {
     if (!("label" in a.payload)) throw new Error("Missing label");
     f(s, a as PayloadAction<T & LabelPayload>);
@@ -183,7 +183,7 @@ const assertLabel =
 const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
   prop: keyof WindowProps,
   def_: boolean = false
-): ((s: DriftState, a: PayloadAction<T>) => void) =>
+): ((s: SliceState, a: PayloadAction<T>) => void) =>
   assertLabel<T>((s, a) => {
     let v = def_;
     const win = s.windows[a.payload.label];
@@ -197,7 +197,7 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
 
 const incrementCounter =
   (prop: keyof WindowState, decrement: boolean = false) =>
-  (s: DriftState, a: PayloadAction<LabelPayload>) => {
+  (s: SliceState, a: PayloadAction<LabelPayload>) => {
     const win = s.windows[a.payload.label];
     s.windows[a.payload.label] = {
       ...win,
@@ -205,13 +205,13 @@ const incrementCounter =
     };
   };
 
-export const DRIFT_SLICE_NAME = "drift";
+export const SLICE_NAME = "drift";
 
 const slice = createSlice({
-  name: DRIFT_SLICE_NAME,
+  name: SLICE_NAME,
   initialState,
   reducers: {
-    setConfig: (s: DriftState, a: PayloadAction<SetConfigPayload>) => {
+    setConfig: (s: SliceState, a: PayloadAction<SetConfigPayload>) => {
       s.config = { ...s.config, ...a.payload };
       if (s.config.enablePrerender) return;
       // If we've disabled prerendering, remove all prerendered windows
@@ -219,7 +219,7 @@ const slice = createSlice({
         Object.entries(s.windows).filter(([, v]) => v.reserved)
       );
     },
-    setWindowLabel: (s: DriftState, a: PayloadAction<SetWindowLabelPayload>) => {
+    setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
       if (s.label !== MAIN_WINDOW && !s.config.enablePrerender) return;
       const prerenderLabel = nanoid();
@@ -228,7 +228,7 @@ const slice = createSlice({
         ...s.config.defaultWindowProps,
       };
     },
-    createWindow: (s: DriftState, { payload }: PayloadAction<CreateWindowPayload>) => {
+    createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key, label, prerenderLabel } = payload;
       if (label == null || prerenderLabel == null)
         throw new Error("[drift] - bug - missing label and prerender label");
@@ -298,7 +298,7 @@ const slice = createSlice({
     completeProcess: assertLabel<MaybeKeyPayload>(
       incrementCounter("processCount", true)
     ),
-    setWindowError: (s: DriftState, a: PayloadAction<SetWindowErrorPaylod>) => {
+    setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPaylod>) => {
       s.windows[a.payload.key].error = a.payload.message;
     },
     focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
@@ -330,7 +330,7 @@ const slice = createSlice({
       s.windows[a.payload.label].title = a.payload.title;
     }),
     setWindowDecorations: assignBool("decorations"),
-    setWindowProps: (s: DriftState, a: PayloadAction<SetWindowPropsPayload>) => {
+    setWindowProps: (s: SliceState, a: PayloadAction<SetWindowPropsPayload>) => {
       const prev = s.windows[a.payload.label];
       const deepPartialEqual = Deep.partialEqual(prev, a.payload);
       if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
@@ -372,8 +372,7 @@ export const {
  * @returns true if the given action type is a drift action.
  * @param type - The action type to check.
  */
-export const isDriftAction = (type: string): boolean =>
-  type.startsWith(DRIFT_SLICE_NAME);
+export const isDriftAction = (type: string): boolean => type.startsWith(SLICE_NAME);
 
 /** A list of actions that shouldn't be emitted to other windows. */
 const EXCLUDED_ACTIONS: string[] = [setWindowLabel.type];

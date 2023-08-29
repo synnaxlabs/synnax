@@ -9,110 +9,75 @@
 
 import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
-import {
-  reducer as driftReducer,
-  configureStore,
-  DRIFT_SLICE_NAME,
-  DriftState,
-  WindowProps,
-} from "@synnaxlabs/drift";
+import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { layoutMiddleware } from "./layout/store/middleware";
-import { lineMiddleware } from "./line/store/middleware";
-import {
-  LINE_SLICE_NAME,
-  LineAction,
-  LineSliceState,
-  lineReducer,
-} from "./line/store/slice";
-import {
-  PIDAction,
-  PIDSliceState,
-  PID_SLICE_NAME,
-  pidReducer,
-} from "./pid/store/slice";
-
-import {
-  ClusterAction,
-  clusterReducer,
-  ClusterState,
-  CLUSTER_SLICE_NAME,
-} from "@/cluster";
-import { DocsAction, docsReducer, DocsState, DOCS_SLICE_NAME } from "@/docs";
-import {
-  LayoutAction,
-  layoutReducer,
-  LAYOUT_PERSIST_EXCLUDE,
-  LAYOUT_SLICE_NAME,
-  LayoutSliceState,
-} from "@/layout";
-import { openPersist } from "@/persist";
-import { versionReducer, VersionState, VERSION_SLICE_NAME } from "@/version";
-import {
-  WorkspaceAction,
-  workspaceReducer,
-  WorkspaceSliceState,
-  WORKSPACE_SLICE_NAME,
-} from "@/workspace";
+import { Cluster } from "@/cluster";
+import { Docs } from "@/docs";
+import { Layout } from "@/layout";
+import { Line } from "@/line";
+import { Persist } from "@/persist";
+import { PID } from "@/pid";
+import { Version } from "@/version";
+import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
-  DRIFT_SLICE_NAME,
-  ...LAYOUT_PERSIST_EXCLUDE,
+  Drift.SLICE_NAME,
+  ...Layout.PERSIST_EXCLUDE,
 ];
 
 const reducer = combineReducers({
-  [DRIFT_SLICE_NAME]: driftReducer,
-  [CLUSTER_SLICE_NAME]: clusterReducer,
-  [LAYOUT_SLICE_NAME]: layoutReducer,
-  [PID_SLICE_NAME]: pidReducer,
-  [WORKSPACE_SLICE_NAME]: workspaceReducer,
-  [VERSION_SLICE_NAME]: versionReducer,
-  [DOCS_SLICE_NAME]: docsReducer,
-  [LINE_SLICE_NAME]: lineReducer,
+  [Drift.SLICE_NAME]: Drift.reducer,
+  [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Layout.SLICE_NAME]: Layout.reducer,
+  [PID.SLICE_NAME]: PID.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Version.SLICE_NAME]: Version.reducer,
+  [Docs.LSICE_NAME]: Docs.reducer,
+  [Line.SLICE_NAME]: Line.reducer,
 });
 
 export interface RootState {
-  [DRIFT_SLICE_NAME]: DriftState;
-  [CLUSTER_SLICE_NAME]: ClusterState;
-  [LAYOUT_SLICE_NAME]: LayoutSliceState;
-  [WORKSPACE_SLICE_NAME]: WorkspaceSliceState;
-  [VERSION_SLICE_NAME]: VersionState;
-  [DOCS_SLICE_NAME]: DocsState;
-  [PID_SLICE_NAME]: PIDSliceState;
-  [LINE_SLICE_NAME]: LineSliceState;
+  [Drift.SLICE_NAME]: Drift.SliceState;
+  [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Layout.SLICE_NAME]: Layout.SliceState;
+  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Version.SLICE_NAME]: Version.SliceState;
+  [Docs.LSICE_NAME]: Docs.SliceState;
+  [PID.SLICE_NAME]: PID.SliceState;
+  [Line.SLICE_NAME]: Line.SliceState;
 }
 
 export type Action =
-  | LayoutAction
-  | WorkspaceAction
-  | DocsAction
-  | ClusterAction
-  | LineAction
-  | PIDAction;
+  | Layout.Action
+  | Workspace.Action
+  | Docs.Action
+  | Cluster.Action
+  | Line.Action
+  | PID.Action;
 
 export type Payload = Action["payload"];
 
 export type RootStore = Store<RootState, Action>;
 
-const DEFAULT_WINDOW_PROPS: Omit<WindowProps, "key"> = {
+const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   transparent: true,
   fileDropEnabled: false,
 };
 
 const newStore = async (): Promise<RootStore> => {
-  const [preloadedState, persistMiddleware] = await openPersist<RootState>({
+  const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
     exclude: PERSIST_EXCLUDE,
   });
-  return (await configureStore<RootState, Action>({
+  return (await Drift.configureStore<RootState, Action>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
     middleware: (def) => [
       ...def(),
-      ...lineMiddleware,
-      ...layoutMiddleware,
+      ...Line.middleware,
+      ...Layout.middleware,
       persistMiddleware,
     ],
     reducer,

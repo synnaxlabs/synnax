@@ -14,26 +14,17 @@ import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
-import { ConnectCluster, useSelectCluster } from "@/cluster";
+import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import {
-  LayoutRendererProvider,
-  LayoutWindow,
-  useThemeProvider,
-  GetStarted,
-  LayoutMosaic,
-  useSelectHauling,
-  setHauled,
-} from "@/layout";
+import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { LinePlot } from "@/line/LinePlot/LinePlot";
-import { PID } from "@/pid/PID/PID";
+import { Line } from "@/line";
+import { PID } from "@/pid";
 import { store } from "@/store";
-import { useLoadTauriVersion } from "@/version";
-import { VisCanvas } from "@/vis";
-import { VisLayoutSelectorRenderer } from "@/vis/components/VisLayoutSelector";
+import { Version } from "@/version";
+import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
-import { DefineRange } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
@@ -41,15 +32,15 @@ import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
-  connectCluster: ConnectCluster,
-  visualization: VisLayoutSelectorRenderer,
-  defineRange: DefineRange,
-  getStarted: GetStarted,
-  docs: Docs,
-  pid: PID,
-  vis: VisLayoutSelectorRenderer,
-  line: LinePlot,
-  mosaic: LayoutMosaic,
+  connectCluster: Cluster.Connect,
+  visualization: Vis.LayoutSelector,
+  defineRange: Workspace.DefineRange,
+  getStarted: Layout.GetStarted,
+  docs: Docs.Docs,
+  pid: PID.PID,
+  vis: Vis.LayoutSelector,
+  line: Line.LinePlot,
+  mosaic: Layout.Mosaic,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -63,16 +54,16 @@ const triggersProps: Triggers.ProviderProps = {
 };
 
 const MainUnderContext = (): ReactElement => {
-  const theme = useThemeProvider();
-  useLoadTauriVersion();
-  const cluster = useSelectCluster();
+  const theme = Layout.useThemeProvider();
+  Version.useLoadTauri();
+  const cluster = Cluster.useSelect();
 
   const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-    const hauled = useSelectHauling();
+    const hauled = Layout.useSelectHauling();
     const dispatch = useDispatch();
     const onHauledChange = useCallback(
       (state: Haul.DraggingState) => {
-        dispatch(setHauled(state));
+        dispatch(Layout.setHauled(state));
       },
       [dispatch]
     );
@@ -88,9 +79,9 @@ const MainUnderContext = (): ReactElement => {
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
     >
-      <VisCanvas>
-        <LayoutWindow />
-      </VisCanvas>
+      <Vis.Canvas>
+        <Layout.Window />
+      </Vis.Canvas>
     </Pluto.Provider>
   );
 };
@@ -98,9 +89,9 @@ const MainUnderContext = (): ReactElement => {
 const Main = (): ReactElement | null => {
   return (
     <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
-      <LayoutRendererProvider value={layoutRenderers}>
+      <Layout.RendererProvider value={layoutRenderers}>
         <MainUnderContext />
-      </LayoutRendererProvider>
+      </Layout.RendererProvider>
     </Provider>
   );
 };

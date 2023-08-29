@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createDocsLayout } from "@/docs/layout";
+import { createLayout } from "@/docs/layout";
 import { Command } from "@/palette/Palette";
 
-export const readTheDocsCommand: Command = {
+export const readCommand: Command = {
   key: "read-the-docs",
   name: "Read the docs",
   icon: <Icon.QuestionMark />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createDocsLayout()),
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createLayout()),
 };
 
-export const DOCS_COMMANDS = [readTheDocsCommand];
+export const COMMANDS = [readCommand];

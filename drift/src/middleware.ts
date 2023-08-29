@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Action, AnyAction, Dispatch, Middleware } from "@reduxjs/toolkit";
+import {
+  Action as CoreAction,
+  AnyAction,
+  Dispatch,
+  Middleware,
+} from "@reduxjs/toolkit";
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { log } from "@/debug";
@@ -16,9 +21,9 @@ import {
   StoreState,
   isDriftAction,
   shouldEmit,
-  DriftAction,
+  Action,
   assignLabel,
-  DriftState,
+  SliceState,
   setWindowProps,
   setWindowError,
 } from "@/state";
@@ -38,10 +43,10 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  * @returns a Redux middleware.
  */
 export const middleware =
-  <S extends StoreState, A extends Action = AnyAction>(
+  <S extends StoreState, A extends CoreAction = AnyAction>(
     runtime: Runtime<S, A>,
     debug: boolean = false
-  ): Middleware<Record<string, never>, S, Dispatch<A | DriftAction>> =>
+  ): Middleware<Record<string, never>, S, Dispatch<A | Action>> =>
   ({ getState, dispatch }) =>
   (next) =>
   (action_) => {
@@ -67,7 +72,7 @@ export const middleware =
     // If the runtime is updating its own props, no need to sync.
     const shouldSync = isDrift && action.type !== setWindowProps.type;
 
-    let prevS: DriftState | null = null;
+    let prevS: SliceState | null = null;
     if (isDrift) {
       prevS = getState().drift;
       action = assignLabel(action, prevS);
@@ -109,7 +114,7 @@ export const middleware =
  */
 export const configureMiddleware = <
   S extends StoreState,
-  A extends Action = AnyAction,
+  A extends CoreAction = AnyAction,
   M extends Middlewares<S> = Middlewares<S>
 >(
   mw: M | ((def: CurriedGetDefaultMiddleware<S>) => M) | undefined,

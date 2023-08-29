@@ -53,6 +53,7 @@ print(f"""
     Valve Enable Channel Key: {valve_en.key}
 """)
 
+i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
     with client.new_writer(sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key]) as writer:
         enabled = np.float32(0)
@@ -73,6 +74,7 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 valve_en.key: [np.float32(enabled)],
                 data_ch.key: [np.float32(press)],
             }))
+            i += 1
 
 
 

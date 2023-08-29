@@ -73,7 +73,6 @@ import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import {
   TbZoomFilled,
-  TbZoomReset,
   TbArrowRight,
   TbArrowDown,
   TbArrowLeft,
@@ -167,7 +166,6 @@ export const Icon: IconType = {
   Zoom: TbZoomFilled,
   Pan: GrPan,
   Rule: MdSquareFoot,
-  ZoomReset: TbZoomReset,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -252,5 +250,4 @@ export interface IconType {
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;
-  ZoomReset: IconFC;
 }

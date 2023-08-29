@@ -379,7 +379,10 @@ export const Controls = ({ children, ...props }: ControlsProps): ReactElement =>
   </Align.Pack>
 );
 
-export type ToggleEditControlProps = Omit<Button.ToggleIconProps, "value" | "onChange">;
+export type ToggleEditControlProps = Omit<
+  Button.ToggleIconProps,
+  "value" | "onChange" | "children"
+>;
 
 export const ToggleEditControl = ({
   onClick,
@@ -405,7 +408,7 @@ export const ToggleEditControl = ({
   );
 };
 
-export type FitViewControlProps = Button.IconProps;
+export type FitViewControlProps = Omit<Button.IconProps, "children">;
 
 export const FitViewControl = ({
   onClick,

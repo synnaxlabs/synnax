@@ -9,8 +9,7 @@
 
 import { MdDarkMode } from "react-icons/md";
 
-import { setActiveTheme } from "./store";
-
+import { setActiveTheme } from "@/layout/slice";
 import { Command, CommandSelectionContext } from "@/palette/Palette";
 
 export const toggleThemeCommand: Command = {
@@ -22,4 +21,4 @@ export const toggleThemeCommand: Command = {
   },
 };
 
-export const LAYOUT_COMMANDS = [toggleThemeCommand];
+export const COMMANDS = [toggleThemeCommand];

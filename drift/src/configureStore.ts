@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type {
-  Action,
+  Action as CoreAction,
   AnyAction,
   ConfigureStoreOptions as BaseOpts,
   EnhancedStore,
@@ -20,7 +20,7 @@ import { listen } from "@/listener";
 import { Middlewares, configureMiddleware } from "@/middleware";
 import { Runtime } from "@/runtime";
 import {
-  DriftAction,
+  Action,
   PreloadedState,
   StoreState,
   setWindowLabel,
@@ -39,7 +39,7 @@ export type Enhancers = readonly StoreEnhancer[];
  */
 export interface ConfigureStoreOptions<
   S extends StoreState,
-  A extends Action = AnyAction,
+  A extends CoreAction = AnyAction,
   M extends Middlewares<S> = Middlewares<S>,
   E extends Enhancers = [StoreEnhancer]
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
@@ -75,7 +75,7 @@ export interface ConfigureStoreOptions<
  */
 export const configureStore = async <
   S extends StoreState,
-  A extends Action = AnyAction,
+  A extends CoreAction = AnyAction,
   M extends Middlewares<S> = Middlewares<S>,
   E extends Enhancers = [StoreEnhancer]
 >({
@@ -86,9 +86,9 @@ export const configureStore = async <
   enablePrerender = true,
   defaultWindowProps,
   ...opts
-}: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | DriftAction>> => {
+}: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
   // eslint-disable-next-line prefer-const
-  let store: EnhancedStore<S, A | DriftAction> | undefined;
+  let store: EnhancedStore<S, A | Action> | undefined;
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
     ...opts,
@@ -108,10 +108,10 @@ export const configureStore = async <
 
 const receivePreloadedState = async <
   S extends StoreState,
-  A extends Action = AnyAction
+  A extends CoreAction = AnyAction
 >(
   runtime: Runtime<S, A>,
-  store: () => EnhancedStore<S, A | DriftAction> | undefined,
+  store: () => EnhancedStore<S, A | Action> | undefined,
   preloadedState:
     | (() => Promise<PreloadedState<S> | undefined>)
     | PreloadedState<S>
