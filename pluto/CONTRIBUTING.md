@@ -13,6 +13,11 @@ To run the storybook, run the following command from the root of the repository:
 pnpm dev:pluto
 ```
 
+### Important Note
+
+Vite HMR (Hot Module Reload) does not work consistently with the latest Storybook 
+version. You may need to (hard) reload the page to see your changes.
+
 ## Running the Tests
 
 To run the tests, run the following command from the root of the repository:

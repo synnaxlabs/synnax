@@ -112,7 +112,8 @@
   "extensions": {
     "recommendations": [
       "ms-vsliveshare.vsliveshare",
-      "golang.go"
+      "golang.go",
+      "rvest.vs-code-prettier-eslint"
     ]
   }
 }
