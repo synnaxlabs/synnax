@@ -382,11 +382,11 @@
   "_id": "@synnaxlabs/pluto@0.0.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/synnaxlabs/pluto.git"
+    "url": "git+https://github.com/synnaxlabs/synnax/pluto"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/synnaxlabs/pluto/issues"
+    "url": "https://github.com/synnaxlabs/synnax/issues"
   },
-  "homepage": "https://github.com/synnaxlabs/pluto#readme"
+  "homepage": "https://github.com/synnaxlabs/synnax#readme"
 }

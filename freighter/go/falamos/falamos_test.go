@@ -21,7 +21,7 @@ import (
 var _ = Describe("Falamos", func() {
 	Describe("New", func() {
 		It("Should correctly attach tracing meta data", func() {
-			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.False()})
 			clientMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: clientIns,
 			}))
@@ -36,7 +36,7 @@ var _ = Describe("Falamos", func() {
 			_, ok := oCtx.Params.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
 
-			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
+			serverIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.False()})
 			serverMw := MustSucceed(falamos.Middleware(falamos.Config{
 				Instrumentation: serverIns,
 			}))
