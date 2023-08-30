@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ = Describe("retrieveResource", Ordered, func() {
+var _ = Describe("Retrieve", Ordered, func() {
 	var (
 		db      *gorp.DB
 		kv      kv.DB

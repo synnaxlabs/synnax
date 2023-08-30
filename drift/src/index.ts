@@ -7,42 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type { Runtime } from "@/runtime";
-export { configureStore } from "@/configureStore";
-export {
-  reducer,
-  createWindow,
-  closeWindow,
-  setWindowMinimized,
-  setWindowMaximized,
-  setWindowFullscreen,
-  setWindowVisible,
-  setWindowPosition,
-  setWindowSize,
-  setWindowAlwaysOnTop,
-  setWindowMinSize,
-  setWindowMaxSize,
-  setWindowResizable,
-  setWindowTitle,
-  setWindowSkipTaskbar,
-  registerProcess,
-  completeProcess,
-  initialState,
-  setWindowDecorations,
-  DRIFT_SLICE_NAME,
-} from "@/state";
-export type { StoreState as DriftStoreState, DriftState, DriftAction } from "@/state";
-export type {
-  WindowProps,
-  WindowStage as WindowState,
-  WindowState as Window,
-} from "@/window";
-export { MAIN_WINDOW } from "@/window";
-export {
-  Provider,
-  useWindowLifecycle,
-  useSelectWindow,
-  useSelectWindowKey,
-  useSelectWindowAttribute,
-} from "@/react";
-export { TauriRuntime } from "@/tauri";
+export * as Drift from "@/external";
+export * from "@/external";

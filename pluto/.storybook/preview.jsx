@@ -37,12 +37,12 @@ const ins = devInstrumentaton()
 
 export const decorators = [
     (StoryFn) => (
-        <Pluto 
+        <Pluto.Provider
             connParams={CONN_PARAMS} 
             instrumentation={ins}
         >
             {StoryFn()}
-        </Pluto>
+        </Pluto.Provider>
     )
     
 ];

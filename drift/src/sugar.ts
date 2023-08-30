@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action as CoreAction, AnyAction } from "@reduxjs/toolkit";
 
-import { DriftAction } from "@/state";
+import { Action } from "@/state";
 
 const DRIFT_ACTION_INDICATOR = "DA@";
 const DRIFT_PREFIX_SPLITTER = "://";
@@ -30,7 +30,10 @@ const desugarType = (type: string): [string, string] => {
  * @param emitter - The window key to embed.
  * @returns - The sugared action.
  */
-export const sugar = <A extends Action = AnyAction>(action: A, emitter: string): A => ({
+export const sugar = <A extends CoreAction = AnyAction>(
+  action: A,
+  emitter: string
+): A => ({
   ...action,
   type: sugarType(action.type, emitter),
 });
@@ -44,12 +47,12 @@ export const sugar = <A extends Action = AnyAction>(action: A, emitter: string):
  *    action: The desugared action.
  * }
  */
-export const desugar = <A extends Action = AnyAction>(
-  action: A | DriftAction
+export const desugar = <A extends CoreAction = AnyAction>(
+  action: A | Action
 ): {
   emitted: boolean;
   emitter: string;
-  action: A | DriftAction;
+  action: A | Action;
 } => {
   const [type, emitter] = desugarType(action.type);
   return {

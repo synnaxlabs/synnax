@@ -120,7 +120,7 @@ class MockPrompt:
             type_=assign_default_ask_type(type_, choices, default),
             password=password,
         )
-        e.response = self.responses.pop(0) or default
+        e.response = self.responses.pop(0) if len(self.responses) > 0 else default
         if type(e.response) != e.type_:
             raise TypeError(
                 f"""

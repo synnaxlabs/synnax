@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, URL } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { AuthenticationClient } from "@/auth";
@@ -15,7 +15,7 @@ import { ChannelClient, ChannelCreator } from "@/channel";
 import { CacheChannelRetriever, ClusterChannelRetriever } from "@/channel/retriever";
 import { Connectivity } from "@/connectivity";
 import { FrameClient } from "@/framer";
-import { OntologyClient } from "@/ontology";
+import { ontology } from "@/ontology";
 import { RangeClient, RangeCreator, RangeRetriever } from "@/ranger";
 import { Transport } from "@/transport";
 
@@ -42,12 +42,13 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
   private readonly transport: Transport;
+  createdAt: TimeStamp;
   telem: FrameClient;
   ranges: RangeClient;
   channels: ChannelClient;
   auth: AuthenticationClient | undefined;
   connectivity: Connectivity;
-  ontology: OntologyClient;
+  ontology: ontology.Client;
   props: ParsedSynnaxProps;
   static readonly connectivity = Connectivity;
 
@@ -67,6 +68,7 @@ export default class Synnax {
    * the client from polling the cluster for connectivity information.
    */
   constructor(props: SynnaxProps) {
+    this.createdAt = TimeStamp.now();
     this.props = synnaxPropsZ.parse(props);
     const { host, port, username, password, connectivityPollFrequency, secure } =
       this.props;
@@ -88,7 +90,7 @@ export default class Synnax {
       this.transport.unary,
       connectivityPollFrequency
     );
-    this.ontology = new OntologyClient(this.transport.unary);
+    this.ontology = new ontology.Client(this.transport.unary);
     const rangeRetriever = new RangeRetriever(this.transport.unary);
     const rangeCreator = new RangeCreator(this.transport.unary);
     this.ranges = new RangeClient(this.telem, rangeRetriever, rangeCreator);

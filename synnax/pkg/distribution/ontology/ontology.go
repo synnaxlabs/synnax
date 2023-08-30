@@ -26,7 +26,6 @@ package ontology
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -44,7 +43,7 @@ import (
 type (
 	// Schema is a set of definitions that describe the structure of a resource.
 	Schema = schema.Schema
-	//  is the underlying data structure of a resource.
+	// Resource is the underlying data structure of a resource.
 	Resource = schema.Resource
 	ID       = schema.ID
 	// Type is a unique identifier for a particular class of resources (channel, user, etc.)
@@ -124,10 +123,10 @@ type Writer interface {
 	// DeleteResource does nothing.
 	DeleteResource(ctx context.Context, id ID) error
 	// DefineRelationship defines a directional relationship of type t between the
-	// resources with the given IDs. If the relationship already exists, DefineRelationship
+	// resources with the given Keys. If the relationship already exists, DefineRelationship
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
-	// DeleteRelationship deletes the relationship with the given IDs and type. If the
+	// DeleteRelationship deletes the relationship with the given Keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending

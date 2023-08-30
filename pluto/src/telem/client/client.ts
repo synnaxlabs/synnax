@@ -15,37 +15,46 @@ import {
   Streamer,
   Synnax,
 } from "@synnaxlabs/client";
-import { Compare, Series, TimeRange } from "@synnaxlabs/x";
+import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
+import { nanoid } from "nanoid";
 
-import { ChannelCache } from "@/telem/client/cache";
+import { cache } from "@/telem/client/cache";
 
-export type StreamHandler = (data: Record<ChannelKey, ReadResponse> | null) => void;
+export const CACHE_BUFFER_SIZE = 10000;
 
-export interface Client {
-  readonly core: Synnax;
-  read: (
-    tr: TimeRange,
-    channels: ChannelKeys
-  ) => Promise<Record<ChannelKey, ReadResponse>>;
-  setStreamHandler: (handler: StreamHandler, keys: ChannelKeys) => void;
-  removeStreamHandler: (handler: StreamHandler) => void;
+export type StreamHandler = (data: Record<ChannelKey, ReadResponse>) => void;
+
+export interface ChannelClient {
+  retrieveChannel: (key: ChannelKey) => Promise<Channel>;
+}
+
+export interface StaticClient {
+  read: (tr: TimeRange, keys: ChannelKeys) => Promise<Record<ChannelKey, ReadResponse>>;
+}
+
+export interface StreamClient {
+  stream: (handler: StreamHandler, keys: ChannelKeys) => Promise<Destructor>;
+}
+
+export interface Client extends ChannelClient, StaticClient, StreamClient {
   close: () => void;
 }
 
-export class ClientProxy implements Client {
-  private _client: Client | null;
+export class Proxy implements Client {
+  _client: Client | null;
 
   constructor() {
     this._client = null;
   }
 
+  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+    return await this.client.retrieveChannel(key);
+  }
+
   swap(client: Client | null): void {
     this._client?.close();
     this._client = client;
-  }
-
-  get core(): Synnax {
-    return this.client.core;
   }
 
   private get client(): Client {
@@ -60,12 +69,8 @@ export class ClientProxy implements Client {
     return await this.client.read(tr, channels);
   }
 
-  setStreamHandler(handler: StreamHandler, keys: ChannelKeys): void {
-    this.client.setStreamHandler(handler, keys);
-  }
-
-  removeStreamHandler(handler: StreamHandler): void {
-    this.client.removeStreamHandler(handler);
+  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+    return await this.client.stream(handler, keys);
   }
 
   close(): void {
@@ -73,17 +78,25 @@ export class ClientProxy implements Client {
   }
 }
 
-export class BaseClient implements Client {
+export class Core implements Client {
   core: Synnax;
   private _streamer: Streamer | null;
-  private readonly cache: Map<ChannelKey, ChannelCache>;
+  private readonly cache: Map<ChannelKey, cache.Cache>;
   private readonly listeners: Map<StreamHandler, ChannelKeys>;
+  key: string;
+  mutex: Mutex;
 
   constructor(wrap: Synnax) {
+    this.key = nanoid();
     this.core = wrap;
     this._streamer = null;
     this.cache = new Map();
     this.listeners = new Map();
+    this.mutex = new Mutex();
+  }
+
+  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+    return await this.core.channels.retrieve(key);
   }
 
   /**
@@ -97,6 +110,7 @@ export class BaseClient implements Client {
    * i.e. the same number of Seriess where each Series has the same length.
    * It's up to the caller to normalize the data shape if necessary.
    */
+
   async read(
     tr: TimeRange,
     channels: ChannelKeys
@@ -142,29 +156,32 @@ export class BaseClient implements Client {
     return responses;
   }
 
-  async setStreamHandler(handler: StreamHandler, keys: ChannelKeys): Promise<void> {
-    this.listeners.set(handler, keys);
-    const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
-    for (const key of keys) {
-      const c = await this.getCache(key);
-      dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
-    }
-    handler(dynamicBuffs);
-    void this.updateStreamer();
+  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+    return await this.mutex.runExclusive(async () => {
+      this.listeners.set(handler, keys);
+      const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
+      for (const key of keys) {
+        const c = await this.getCache(key);
+        dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
+      }
+      handler(dynamicBuffs);
+      await this.updateStreamer();
+      return () => this.removeStreamHandler(handler);
+    });
   }
 
-  removeStreamHandler(handler: StreamHandler): void {
+  private removeStreamHandler(handler: StreamHandler): void {
     this.listeners.delete(handler);
     void this.updateStreamer();
   }
 
-  private async getCache(key: ChannelKey): Promise<ChannelCache> {
+  private async getCache(key: ChannelKey): Promise<cache.Cache> {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache = new ChannelCache(10000, channel);
-    this.cache.set(key, cache);
-    return cache;
+    const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, channel);
+    this.cache.set(key, cache_);
+    return cache_;
   }
 
   private async updateStreamer(): Promise<void> {
@@ -174,17 +191,22 @@ export class BaseClient implements Client {
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
+      this._streamer?.close();
       this._streamer = null;
+      return;
     }
 
     const arrKeys = Array.from(keys);
-    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === 0) return;
+    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === Compare.EQUAL)
+      return;
 
     // Update or create the streamer.
-    if (this._streamer != null) return await this._streamer.update(arrKeys);
-    this._streamer = await this.core.telem.newStreamer(arrKeys);
+    if (this._streamer == null) {
+      this._streamer = await this.core.telem.newStreamer(arrKeys);
+      void this.start(this._streamer);
+    }
 
-    void this.start(this._streamer);
+    await this._streamer.update(arrKeys);
   }
 
   private async start(streamer: Streamer): Promise<void> {
@@ -208,7 +230,6 @@ export class BaseClient implements Client {
   close(): void {
     this.cache.clear();
     this._streamer?.close();
-    this.core.close();
   }
 }
 

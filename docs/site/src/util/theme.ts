@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Theme, Theming } from "@synnaxlabs/pluto/theming";
+import { Theming } from "@synnaxlabs/pluto/theming";
 
 export const applyCSSVars = (
   element: HTMLElement,
@@ -17,7 +17,7 @@ export const applyCSSVars = (
     ([key, value]) => value != null && element.style.setProperty(key, `${value}`)
   );
 
-const modifyTheme = (theme: Theme): Theme => {
+const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   const m = { ...theme };
   m.sizes.base = 6.5;
   m.typography.p.lineHeight = 3.5;
@@ -29,8 +29,8 @@ const modifyTheme = (theme: Theme): Theme => {
   return m;
 };
 
-export const DARK = Theming.schema.parse(modifyTheme(Theming.themes.synnaxDark));
-export const LIGHT = Theming.schema.parse(modifyTheme(Theming.themes.synnaxLight));
+export const DARK = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxDark));
+export const LIGHT = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxLight));
 
 export const DEFAULT_THEME = Theming.themes.synnaxLight;
 
@@ -44,20 +44,20 @@ export const toggleTheme = (): void => {
   applyTheme(theme);
 };
 
-export const getCurrentTheme = (): Theme => {
+export const getCurrentTheme = (): Theming.ThemeSpec => {
   const theme = localStorage.getItem("theme") ?? "synnaxLight";
   return Theming.themes[theme as keyof typeof Theming.themes];
 };
 
-const THEME_ALTERNATES: Record<string, Theme> = {
+const THEME_ALTERNATES: Record<string, Theming.ThemeSpec> = {
   [DARK.key]: LIGHT,
   [LIGHT.key]: DARK,
 };
 
-const applyTheme = (theme: Theme): void => {
+const applyTheme = (theme: Theming.ThemeSpec): void => {
   applyCSSVars(
     window.document.documentElement,
-    Theming.toCSSVars(Theming.schema.parse(theme))
+    Theming.toCSSVars(Theming.themeZ.parse(theme))
   );
   localStorage.setItem("theme", theme.key);
 };
@@ -65,7 +65,7 @@ const applyTheme = (theme: Theme): void => {
 const prefersDarkTheme = (): boolean =>
   window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-const getPreferredTheme = (): Theme =>
+const getPreferredTheme = (): Theming.ThemeSpec =>
   prefersDarkTheme() ? Theming.themes.synnaxDark : Theming.themes.synnaxLight;
 
 const listenForThemeChanges = (): void => {

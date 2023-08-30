@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { ChannelCache } from "@/telem/client/cache/cache";
+import * as cache from "@/telem/client/cache/external";
+
+export { cache };

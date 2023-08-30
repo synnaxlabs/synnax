@@ -39,8 +39,8 @@ interface GL {
 const FULL_BUFFER = -1;
 
 /**
- * A strongly typed array of telemetry samples backed
- * by an underlying binary buffer.
+ * Series is a strongly typed array of telemetry samples backed by an underlying binary
+ * buffer.
  */
 export class Series {
   /** The data type of the array */
@@ -56,16 +56,16 @@ export class Series {
    */
   private readonly gl: GL;
   /** The underlying data. */
-  private readonly _data: ArrayBuffer;
+  private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
   /** A cached minimum value. */
   private _min?: SampleValue;
   /** A cached maximum value. */
   private _max?: SampleValue;
   /** The write position of the buffer. */
-  private pos: number = FULL_BUFFER;
+  private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
-  private refCount: number = 0;
+  private _refCount: number = 0;
 
   static alloc(
     length: number,
@@ -84,7 +84,7 @@ export class Series {
       sampleOffset,
       glBufferUsage
     );
-    arr.pos = 0;
+    arr.writePos = 0;
     return arr;
   }
 
@@ -95,6 +95,10 @@ export class Series {
       data[i] = BigInt(start.add(rate.span(i)).valueOf());
     }
     return new Series(data, DataType.TIMESTAMP, tr);
+  }
+
+  get refCount(): number {
+    return this._refCount;
   }
 
   constructor(
@@ -125,14 +129,15 @@ export class Series {
   }
 
   acquire(gl?: GLBufferController): void {
-    this.refCount++;
+    this._refCount++;
     if (gl != null) this.updateGLBuffer(gl);
   }
 
-  release(gl?: GLBufferController): void {
-    this.refCount--;
-    if (this.refCount === 0 && gl != null) this.maybeGarbageCollectGLBuffer(gl);
-    else if (this.refCount < 0)
+  release(): void {
+    this._refCount--;
+    if (this._refCount === 0 && this.gl.control != null)
+      this.maybeGarbageCollectGLBuffer(this.gl.control);
+    else if (this._refCount < 0)
       throw new Error("cannot release an array with a negative reference count");
   }
 
@@ -140,14 +145,14 @@ export class Series {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
 
-    // We've filled the entire underlying buffer.
-    if (this.pos === FULL_BUFFER) return 0;
-    const available = this.cap - this.pos;
+    // We've filled the entire underlying buffer
+    if (this.writePos === FULL_BUFFER) return 0;
+    const available = this.cap - this.writePos;
 
     const toWrite = available < other.length ? other.slice(0, available) : other;
-    this.underlyingData.set(toWrite.data as any, this.pos);
+    this.underlyingData.set(toWrite.data as any, this.writePos);
     this.maybeRecomputeMinMax(toWrite);
-    this.pos += toWrite.length;
+    this.writePos += toWrite.length;
     return toWrite.length;
   }
 
@@ -162,8 +167,8 @@ export class Series {
 
   /** @returns a native typed array with the proper data type. */
   get data(): NativeTypedArray {
-    if (this.pos === FULL_BUFFER) return this.underlyingData;
-    return new this.dataType.Array(this._data, 0, this.pos);
+    if (this.writePos === FULL_BUFFER) return this.underlyingData;
+    return new this.dataType.Array(this._data, 0, this.writePos);
   }
 
   /** @returns the time range of this array. */
@@ -184,14 +189,14 @@ export class Series {
 
   /** @returns the length of the underlying buffer in samples. */
   get byteLength(): Size {
-    if (this.pos === FULL_BUFFER) return this.byteCap;
-    return this.dataType.density.size(this.pos);
+    if (this.writePos === FULL_BUFFER) return this.byteCap;
+    return this.dataType.density.size(this.writePos);
   }
 
   /** @returns the number of samples in this array. */
   get length(): number {
-    if (this.pos === FULL_BUFFER) return this.data.length;
-    return this.pos;
+    if (this.writePos === FULL_BUFFER) return this.data.length;
+    return this.writePos;
   }
 
   /**
@@ -228,7 +233,7 @@ export class Series {
 
   /** @returns the maximum value in the array */
   get max(): SampleValue {
-    if (this.pos === 0) return -Infinity;
+    if (this.writePos === 0) return -Infinity;
     else if (this._max == null) this._max = this.calcRawMax();
     return addSamples(this._max, this.sampleOffset);
   }
@@ -249,7 +254,7 @@ export class Series {
 
   /** @returns the minimum value in the array */
   get min(): SampleValue {
-    if (this.pos === 0) return Infinity;
+    if (this.writePos === 0) return Infinity;
     else if (this._min == null) this._min = this.calcRawMin();
     return addSamples(this._min, this.sampleOffset);
   }
@@ -306,6 +311,7 @@ export class Series {
   }
 
   updateGLBuffer(gl: GLBufferController): void {
+    this.gl.control = gl;
     if (!this.dataType.equals(DataType.FLOAT32))
       throw new Error("Only FLOAT32 arrays can be used in WebGL");
     const { buffer, bufferUsage, prevBuffer } = this.gl;
@@ -314,20 +320,20 @@ export class Series {
     if (buffer == null) this.gl.buffer = gl.createBuffer();
     // If the current write position is the same as the previous buffer, we're already
     // up date.
-    if (this.pos === prevBuffer) return;
+    if (this.writePos === prevBuffer) return;
 
     // Bind the buffer.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
 
     // This means we only need to buffer part of the array.
-    if (this.pos !== FULL_BUFFER) {
+    if (this.writePos !== FULL_BUFFER) {
       if (prevBuffer === 0) {
         gl.bufferData(gl.ARRAY_BUFFER, this.byteCap.valueOf(), gl.STATIC_DRAW);
       }
       const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
-      const slice = this.underlyingData.slice(this.gl.prevBuffer, this.pos);
+      const slice = this.underlyingData.slice(this.gl.prevBuffer, this.writePos);
       gl.bufferSubData(gl.ARRAY_BUFFER, byteOffset, slice.buffer);
-      this.gl.prevBuffer = this.pos;
+      this.gl.prevBuffer = this.writePos;
     } else {
       // This means we can buffer the entire array in a single go.
       gl.bufferData(
@@ -348,7 +354,7 @@ export class Series {
 
   get glBuffer(): WebGLBuffer {
     if (this.gl.buffer == null) throw new Error("gl buffer not initialized");
-    if (!(this.gl.prevBuffer === this.pos)) console.warn("buffer not updated");
+    if (!(this.gl.prevBuffer === this.writePos)) console.warn("buffer not updated");
     return this.gl.buffer;
   }
 

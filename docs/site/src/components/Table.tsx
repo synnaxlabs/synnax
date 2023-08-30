@@ -133,7 +133,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const elements = [];
   if (upperColors.length > 0) {
-    const background = buildGradient(upperColors, Direction.y, false);
+    const background = buildGradient(upperColors, Direction.Y, false);
     elements.push(
       <div
         style={{
@@ -149,7 +149,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }
 
   const left = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? rows.contains(index) : true;
+    const rowValid = rows != null ? new Bounds(rows).contains(index) : true;
     const colValid = columns != null ? columns[0] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
     return rowValid && colValid && !isEnd;
@@ -158,7 +158,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   const leftColors = left.map(({ color }) => color);
 
   if (leftColors.length > 0) {
-    const background = buildGradient(leftColors, Direction.x, false);
+    const background = buildGradient(leftColors, Direction.X, false);
     elements.push(
       <div
         style={{
@@ -174,7 +174,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }
 
   const right = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? rows.contains(index) : true;
+    const rowValid = rows != null ? new Bounds(rows).contains(index) : true;
     const colValid =
       columns != null ? columns[columns.length - 1] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
@@ -184,7 +184,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   const rightColors = right.map(({ color }) => color);
 
   if (rightColors.length > 0) {
-    const background = buildGradient(rightColors, Direction.x, true);
+    const background = buildGradient(rightColors, Direction.X, true);
     elements.push(
       <div
         style={{

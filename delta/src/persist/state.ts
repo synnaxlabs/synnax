@@ -13,21 +13,21 @@ import { Deep, DeepKey } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { VersionStoreState } from "../version";
+import { Version } from "@/version";
 
 import { TauriKV } from "./kv";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
-export interface RequiredState extends VersionStoreState {}
+export interface RequiredState extends Version.StoreState {}
 
-export interface PersistConfig<S extends RequiredState> {
+export interface Config<S extends RequiredState> {
   exclude: Array<DeepKey<S>>;
 }
 
-export const openPersist = async <S extends RequiredState>({
+export const open = async <S extends RequiredState>({
   exclude = [],
-}: PersistConfig<S>): Promise<[S | undefined, Middleware<{}, S>]> => {
+}: Config<S>): Promise<[S | undefined, Middleware<{}, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV<S>();
   await db.openAck();

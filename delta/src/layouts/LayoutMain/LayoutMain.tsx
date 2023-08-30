@@ -9,10 +9,10 @@
 
 import { ReactElement, useEffect } from "react";
 
-import { Space } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { LayoutMosaic, maybeCreateGetStartedTab } from "@/layout";
+import { Layout } from "@/layout";
 import {
   NavBottom,
   NavDrawer,
@@ -20,7 +20,6 @@ import {
   NavRight,
   NavTop,
 } from "@/layouts/LayoutMain/Nav";
-import { VisCanvas } from "@/vis";
 
 import "@/layouts/LayoutMain/LayoutMain.css";
 
@@ -31,28 +30,28 @@ import "@/layouts/LayoutMain/LayoutMain.css";
 export const LayoutMain = (): ReactElement => {
   const d = useDispatch();
   useEffect(() => {
-    d(maybeCreateGetStartedTab());
+    d(Layout.maybeCreateGetStartedTab());
   }, []);
   return (
     <>
       <NavTop />
-      <Space className="delta-main-fixed--y" direction="x" empty>
+      <Align.Space className="delta-main-fixed--y" direction="x" empty>
         <NavLeft />
-        <Space
+        <Align.Space
           className="delta-main-content-drawers delta-main-fixed--y delta-main-fixed--x"
           empty
         >
-          <Space className="delta-main--driven" direction="x" empty>
+          <Align.Space className="delta-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="delta-main--driven" style={{ position: "relative" }}>
-              <LayoutMosaic />
+              <Layout.Mosaic />
             </main>
             <NavDrawer location="right" />
-          </Space>
+          </Align.Space>
           <NavDrawer location="bottom" />
-        </Space>
+        </Align.Space>
         <NavRight />
-      </Space>
+      </Align.Space>
       <NavBottom />
     </>
   );

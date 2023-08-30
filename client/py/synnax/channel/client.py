@@ -59,7 +59,7 @@ class Channel(ChannelPayload):
         leaseholder: int = 0,
         key: ChannelKey = 0,
         _frame_client: FrameClient | None = None,
-    ):
+    ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
         call client.channels.create(channel).
@@ -123,7 +123,7 @@ class Channel(ChannelPayload):
         tr = TimeRange(start_or_range, end)
         return self.__frame_client.read(tr, self.key)
 
-    def write(self, start: CrudeTimeStamp, data: ndarray | Series):
+    def write(self, start: CrudeTimeStamp, data: ndarray | Series) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
 
         :param start: The starting timestamp of the first sample in data.
@@ -140,17 +140,11 @@ class Channel(ChannelPayload):
             )
         return self.___frame_client
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.key)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self.key == other.key
-
-    def __str__(self):
-        base = f"{self.name} ({self.data_type})"
-        if self.rate != 0:
-            base += f" @ {self.rate}Hz"
-        return base
 
     def to_payload(self) -> ChannelPayload:
         return ChannelPayload(
@@ -269,7 +263,7 @@ class ChannelClient:
     ) -> list[Channel]:
         ...
 
-    def retrieve(self, params: ChannelParams) -> Channel | list[Channel]:
+    def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
 
         Overload 1:
@@ -296,16 +290,16 @@ class ChannelClient:
         containing the retrieved channels and the keys or names of the channels that were
         not found.
         """
-        normal = normalize_channel_params(params)
-        res = self._retriever.retrieve(params)
+        normal = normalize_channel_params(channel)
+        res = self._retriever.retrieve(channel)
         sug = self.__sugar(res)
         if not normal.single:
             return sug
 
         if len(res) == 0:
-            raise QueryError(f"Channel matching {params} not found.")
+            raise QueryError(f"Channel matching {channel} not found.")
         elif len(res) > 1:
-            raise QueryError(f"Multiple channels matching {params} found.")
+            raise QueryError(f"Multiple channels matching {channel} found.")
         return sug[0]
 
     def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:

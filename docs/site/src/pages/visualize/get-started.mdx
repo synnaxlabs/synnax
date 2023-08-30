@@ -6,7 +6,7 @@ description: "This page will guide you through the basics of installing and usin
 Synnax managment and visualization UI, Delta."
 ---
 
-import { Space } from "@synnaxlabs/pluto/std";
+import { Align } from "@synnaxlabs/pluto/align";
 import { DeltaDownloadButton } from "@/components/OSDownloadButton";
 import { Image } from "@/components/Media";
 
@@ -32,9 +32,9 @@ Install Delta by downloading the latest release for your operating system.
 
 <br />
 <br />
-<Space direction="x" justify="center">
-    <DeltaDownloadButton client:load />
-</Space>
+<Align.Space direction="x" justify="center">
+  <DeltaDownloadButton client:load />
+</Align.Space>
 <br />
 <br />
 

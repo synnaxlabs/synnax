@@ -10,9 +10,9 @@
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
-import { Channel } from "../channel";
-import { newClient } from "../setupspecs";
-import { randomTypedArray } from "../util/telem";
+import { Channel } from "@/channel";
+import { newClient } from "@/setupspecs";
+import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
@@ -29,7 +29,7 @@ describe("Iterator", () => {
   test("happy path", async () => {
     const ch = await newChannel();
     const writer = await client.telem.newWriter(TimeStamp.SECOND, ch.key);
-    const data = randomTypedArray(25, ch.dataType);
+    const data = randomSeries(25, ch.dataType);
     try {
       await writer.write(ch.key, data);
       await writer.write(ch.key, data);

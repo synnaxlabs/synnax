@@ -16,6 +16,7 @@ import {
   LooseXYT,
   LooseBoundT,
   XYLocation,
+  Dimensions,
 } from "@/spatial/core";
 
 export type ScaleBound = "domain" | "range";
@@ -200,6 +201,8 @@ export class Scale {
     scale.reversed = !scale.reversed;
     return scale;
   }
+
+  static readonly IDENTITY = new Scale();
 }
 
 export const xyScaleToTransform = (scale: XYScale): XYTransformT => ({
@@ -248,7 +251,7 @@ export class XYScale {
     return new XYScale().magnify(xy);
   }
 
-  static scale(box: Box): XYScale {
+  static scale(box: Dimensions | Box): XYScale {
     return new XYScale().scale(box);
   }
 
@@ -283,16 +286,21 @@ export class XYScale {
     return next;
   }
 
-  scale(box: Box): XYScale {
+  scale(box: Box | Dimensions): XYScale {
     const next = this.copy();
-    const prevRoot = this.currRoot;
-    next.currRoot = box.root;
-    if (prevRoot != null && prevRoot !== box.root) {
-      if (!prevRoot.x.equals(box.root.x)) next.x = next.x.invert();
-      if (!prevRoot.y.equals(box.root.y)) next.y = next.y.invert();
+    if (box instanceof Box) {
+      const prevRoot = this.currRoot;
+      next.currRoot = box.root;
+      if (prevRoot != null && prevRoot !== box.root) {
+        if (!prevRoot.x.equals(box.root.x)) next.x = next.x.invert();
+        if (!prevRoot.y.equals(box.root.y)) next.y = next.y.invert();
+      }
+      next.x = next.x.scale(box.xBounds);
+      next.y = next.y.scale(box.yBounds);
+      return next;
     }
-    next.x = next.x.scale(box.xBounds);
-    next.y = next.y.scale(box.yBounds);
+    next.x = next.x.scale(box.width);
+    next.y = next.y.scale(box.height);
     return next;
   }
 
@@ -339,4 +347,6 @@ export class XYScale {
       this.currRoot ?? box.root
     );
   }
+
+  static readonly IDENTITY = new XYScale();
 }

@@ -31,7 +31,7 @@ export const useSelectWindow = (key?: string): WindowState | null =>
     )
   );
 
-export const useSelectWindowKey = (label: string): string | null =>
+export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowKey(state, label)),

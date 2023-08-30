@@ -42,6 +42,7 @@ const crudeTransform = z.object({ offset: z.number(), scale: z.number() });
 export const crudeXYTransform = z.object({ offset: crudeXY, scale: crudeXY });
 const crudeBounds = z.object({ lower: z.number(), upper: z.number() });
 const crudeDimension = z.enum(["width", "height"]);
+const crudeSignedDimension = z.enum(["signedWidth", "signedHeight"]);
 const crudeXYCornerLocation = z.object({
   x: crudeXLocation,
   y: crudeYLocation,
@@ -94,6 +95,7 @@ export type CrudeBounds = z.input<typeof crudeBounds>;
 export type CrudePosition = z.infer<typeof crudePosition>;
 export type CrudeOrder = z.infer<typeof crudeOrder>;
 export type Dimension = z.infer<typeof crudeDimension>;
+export type SignedDimension = z.infer<typeof crudeSignedDimension>;
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
 export type ClientXYT = z.infer<typeof crudeClientXY>;
 export type TransformT = z.infer<typeof crudeTransform>;
@@ -154,6 +156,10 @@ export class Direction extends String {
 
   get dimension(): Dimension {
     return this.isX ? "width" : "height";
+  }
+
+  get signedDimension(): SignedDimension {
+    return this.isX ? "signedWidth" : "signedHeight";
   }
 
   get isX(): boolean {
@@ -486,9 +492,18 @@ export class XY {
   }
 
   /** @returns an XY coordinate translated by the given x and y values */
-  translate(x: LooseXYT | number, y?: number): XY {
+  translate(x: LooseXYT | number | Direction, y?: number): XY {
+    if (x instanceof Direction) {
+      if (x.isX) return this.translateX(y ?? 0);
+      return this.translateY(y ?? 0);
+    }
     const t = new XY(x, y);
     return new XY(this.x + t.x, this.y + t.y);
+  }
+
+  set(direction: Direction, value: number): XY {
+    if (direction.isX) return new XY(value, this.y);
+    return new XY(this.x, value);
   }
 
   /** @returns true if the XY is semantically equal to the provided XY. */
@@ -632,6 +647,17 @@ export class Dimensions {
    */
   get couple(): NumberCouple {
     return [this.width, this.height];
+  }
+
+  /**
+   * @returns the swapped dimensions i.e. the width and height are swapped.
+   */
+  swap(): Dimensions {
+    return new Dimensions({ width: this.height, height: this.width });
+  }
+
+  svgViewBox(): string {
+    return `0 0 ${this.width} ${this.height}`;
   }
 }
 

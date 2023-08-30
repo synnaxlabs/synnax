@@ -10,21 +10,21 @@
 import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 import { describe, expect, it, vi } from "vitest";
 
-import { configureMiddleware, middleware } from "./middleware";
-import { MockRuntime } from "./mock/runtime";
-import { WindowProps } from "./window";
-
 import {
   initialState,
   setWindowStage,
   focusWindow,
-  DriftAction,
+  Action,
   centerWindow,
   setWindowFullscreen,
   setWindowMaximized,
   setWindowPosition,
   setWindowMinSize,
 } from "@/state";
+
+import { configureMiddleware, middleware } from "./middleware";
+import { MockRuntime } from "./mock/runtime";
+import { WindowProps } from "./window";
 
 const state = {
   drift: initialState,

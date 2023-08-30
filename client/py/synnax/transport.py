@@ -26,7 +26,7 @@ from freighter import (
     UnaryClient,
 )
 
-from synnax.telem import TimeSpan
+from synnax.telem import TimeSpan, Size
 
 
 class Transport:
@@ -50,21 +50,19 @@ class Transport:
         self.stream_async = WebsocketClient(
             base_url=self.url,
             encoder=MsgpackEncoder(),
-            max_message_size=int(5e6),
+            max_message_size=int(Size.MB * 5),
             secure=secure,
-            open_timeout=open_timeout.seconds(),
-            ping_interval=keep_alive.seconds(),
-            close_timeout=read_timeout.seconds(),
-            ping_timeout=read_timeout.seconds(),
+            open_timeout=open_timeout.seconds,
+            ping_interval=keep_alive.seconds,
+            close_timeout=read_timeout.seconds,
+            ping_timeout=read_timeout.seconds,
         )
         self.stream = SyncStreamClient(self.stream_async)
         self.unary = HTTPClient(
             url=self.url,
             encoder_decoder=JSONEncoder(),
             secure=secure,
-            timeout=Timeout(
-                connect=open_timeout.seconds(), read=read_timeout.seconds()
-            ),
+            timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
         )
         self.use(instrumentation_middleware(instrumentation))

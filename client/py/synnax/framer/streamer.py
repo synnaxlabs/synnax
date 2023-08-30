@@ -47,6 +47,10 @@ class Streamer:
     def __open(self):
         self.__stream.send(_Request(keys=self.__adapter.keys, start=self.from_))
 
+    @property
+    def received(self) -> bool:
+        return self.__stream.received()
+
     def read(self) -> Frame:
         res, err = self.__stream.receive()
         if err is not None:

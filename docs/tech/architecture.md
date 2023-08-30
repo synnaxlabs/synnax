@@ -10,8 +10,7 @@ point for diving into Synnax's codebase and [technical rfc's](rfc).
 At the highest level, Synnax implements three core products: A time-series engine for
 transporting and storing time-series data, a set of client libraries for communicating
 programmatically with the time-series engine, and user interfaces for interacting
-graphically
-with the time-series engine.
+graphically with the time-series engine.
 
 # 1 - Time-Series Engine
 
@@ -87,9 +86,9 @@ sets without loading them all into memory at once.
 
 If you're interested in reading more about cesium, check out the following RFC's:
 
--   [001 - Cesium Segment Storage](rfc/0001-220517-cesium-segment-storage.md)
--   [008 - Cesium Columnar Storage](rfc/0008-221012-cesium-columnar.md)
--   [0010 - Frame Specifications](rfc/0010-230104-frame-spec.md)
+- [001 - Cesium Segment Storage](rfc/0001-220517-cesium-segment-storage.md)
+- [008 - Cesium Columnar Storage](rfc/0008-221012-cesium-columnar.md)
+- [0010 - Frame Specifications](rfc/0010-230104-frame-spec.md)
 
 ### 1.3 - Layer 2 - Distribution
 
@@ -130,7 +129,7 @@ underlying key-value store.
 
 If you're interested in reading more about Aspen, check out the following RFC's:
 
--   [0002 - Aspen Distributed Storage](rfc/0002-220518-aspen-distributed-storage.md)
+- [0002 - Aspen Distributed Storage](rfc/0002-220518-aspen-distributed-storage.md)
 
 #### 1.3.2 - Framer - Distributed Time-Series Storage
 
@@ -145,7 +144,7 @@ accordingly.
 If you're interested in reading more about distributed frame reads and writes, check
 out the following RFC's:
 
--   [0003 - Segment Distribution](rfc/0003-220604-segment-distribution.md)
+- [0003 - Segment Distribution](rfc/0003-220604-segment-distribution.md)
 
 ### 1.3 - Layer 3 - Service
 

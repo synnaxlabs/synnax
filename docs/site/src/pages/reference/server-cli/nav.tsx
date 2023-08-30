@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PageNavLeaf } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav";
 
-export const serverCLINav: PageNavLeaf = {
+export const serverCLINav: PageNavNode = {
   key: "server-cli",
   name: "Server CLI",
   children: [
     {
       key: "start",
-      url: "/reference/server-cli/start",
+      href: "/reference/server-cli/start",
       name: "Start",
     },
     {
       key: "systemd-service",
-      url: "/reference/server-cli/systemd-service",
+      href: "/reference/server-cli/systemd-service",
       name: "Systemd Service",
     },
   ],

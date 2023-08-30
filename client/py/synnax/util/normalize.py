@@ -21,7 +21,7 @@ def normalize(*args: T | tuple[T] | list[T]) -> list[T]:
     Returns:
         A flattened list.
     """
-    results = list()
+    results: list[T] = list()
     for arg in args:
         if isinstance(arg, (list, tuple)):
             results.extend(arg)

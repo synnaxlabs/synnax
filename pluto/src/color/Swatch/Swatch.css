@@ -1,0 +1,30 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-color-swatch__dropdown .pluto-dropdown__dialog {
+    width: fit-content;
+}
+
+.pluto-color-swatch {
+    border-radius: var(--pluto-border-radius);
+    aspect-ratio: 1.5;
+
+    &.pluto--no-border {
+        border-color: transparent;
+    }
+
+    &.pluto-haul-drop-region {
+        border: var(--pluto-border) !important;
+        border-color: var(--haul-border-color) !important;
+        background-color: var(--haul-background-color) !important;
+    }
+}
+

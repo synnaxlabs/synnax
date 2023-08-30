@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PageNavLeaf } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav";
 
-export const clientCLINav: PageNavLeaf = {
+export const clientCLINav: PageNavNode = {
   key: "client-cli",
   name: "Client CLI",
   children: [
     {
       key: "/reference/client-cli/get-started",
-      url: "/reference/client-cli/get-started",
+      href: "/reference/client-cli/get-started",
       name: "Get Started",
     },
   ],

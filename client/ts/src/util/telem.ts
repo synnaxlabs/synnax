@@ -9,10 +9,7 @@
 
 import { DataType, NativeTypedArray } from "@synnaxlabs/x";
 
-export const randomTypedArray = (
-  length: number,
-  dataType: DataType
-): NativeTypedArray => {
+export const randomSeries = (length: number, dataType: DataType): NativeTypedArray => {
   // generate random bytes of the correct length
   const bytes = new Uint8Array(length * dataType.density.valueOf());
   for (let i = 0; i < bytes.byteLength; i++) {

@@ -7,30 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { ReactElement, useCallback } from "react";
 
-import { Provider } from "@synnaxlabs/drift";
-import { Pluto, Trigger } from "@synnaxlabs/pluto";
-import { TriggersProviderProps } from "@synnaxlabs/pluto/src/core/triggers/TriggersContext";
+import { Provider } from "@synnaxlabs/drift/react";
+import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
+import { useDispatch } from "react-redux";
 
-import { ConnectCluster, useSelectCluster } from "@/cluster";
+import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
-import {
-  LayoutRendererProvider,
-  LayoutWindow,
-  useThemeProvider,
-  GetStarted,
-} from "@/layout";
+import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { LinePlot } from "@/line/LinePlot/LinePlot";
-import { PID } from "@/pid/PID/PID";
+import { Line } from "@/line";
+import { PID } from "@/pid";
 import { store } from "@/store";
-import { useLoadTauriVersion } from "@/version";
-import { VisCanvas } from "@/vis";
-import { VisLayoutSelectorRenderer } from "@/vis/components/VisLayoutSelector";
+import { Version } from "@/version";
+import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
-import { DefineRange } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
@@ -38,51 +32,66 @@ import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
-  connectCluster: ConnectCluster,
-  visualization: VisLayoutSelectorRenderer,
-  defineRange: DefineRange,
-  getStarted: GetStarted,
-  docs: Docs,
-  pid: PID,
-  vis: VisLayoutSelectorRenderer,
-  line: LinePlot,
+  connectCluster: Cluster.Connect,
+  visualization: Vis.LayoutSelector,
+  defineRange: Workspace.DefineRange,
+  getStarted: Layout.GetStarted,
+  docs: Docs.Docs,
+  pid: PID.PID,
+  vis: Vis.LayoutSelector,
+  line: Line.LinePlot,
+  mosaic: Layout.Mosaic,
 };
 
-const PREVENT_DEFAULT_TRIGGERS: Trigger[] = [
+const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
   ["Control", "Shift", "P"],
   ["Control", "MouseLeft"],
 ];
 
-const triggersProps: TriggersProviderProps = {
+const triggersProps: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
 };
 
 const MainUnderContext = (): ReactElement => {
-  const theme = useThemeProvider();
-  useLoadTauriVersion();
-  const cluster = useSelectCluster();
+  const theme = Layout.useThemeProvider();
+  Version.useLoadTauri();
+  const cluster = Cluster.useSelect();
+
+  const useHaulState: state.PureUse<Haul.DraggingState> = () => {
+    const hauled = Layout.useSelectHauling();
+    const dispatch = useDispatch();
+    const onHauledChange = useCallback(
+      (state: Haul.DraggingState) => {
+        dispatch(Layout.setHauled(state));
+      },
+      [dispatch]
+    );
+    return [hauled, onHauledChange];
+  };
+
   return (
-    <Pluto
+    <Pluto.Provider
       {...theme}
       workerEnabled
       connParams={cluster?.props}
       workerURL={WorkerURL}
       triggers={triggersProps}
+      haul={{ useState: useHaulState }}
     >
-      <VisCanvas>
-        <LayoutWindow />
-      </VisCanvas>
-    </Pluto>
+      <Vis.Canvas>
+        <Layout.Window />
+      </Vis.Canvas>
+    </Pluto.Provider>
   );
 };
 
 const Main = (): ReactElement | null => {
   return (
     <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
-      <LayoutRendererProvider value={layoutRenderers}>
+      <Layout.RendererProvider value={layoutRenderers}>
         <MainUnderContext />
-      </LayoutRendererProvider>
+      </Layout.RendererProvider>
     </Provider>
   );
 };

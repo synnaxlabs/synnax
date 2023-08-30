@@ -10,11 +10,14 @@
 import synnax as sy
 from alamos.dev import instrumentation
 
+import matplotlib.pyplot as plt
+
 client = sy.Synnax(
     instrumentation=instrumentation(),
 )
 
-range = client.ranges.create(
-    name="My Range with a Very Strange Name",
+
+rng = client.ranges.create(
+    name="My Cool Range",
     time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
 )

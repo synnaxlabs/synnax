@@ -42,6 +42,10 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm install
 
+      - name: Build Drift
+        if: steps.filter.outputs.changed == 'true'
+        run: pnpm build:drift
+
       - name: Test
         if: steps.filter.outputs.changed == 'true'
         run: pnpm cov:drift

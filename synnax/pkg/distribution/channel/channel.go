@@ -11,7 +11,6 @@ package channel
 
 import (
 	"encoding/binary"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -19,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"strconv"
-	"strings"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -36,19 +34,8 @@ func NewKey(nodeKey core.NodeKey, localKey uint16) (key Key) {
 func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
 
 func ParseKey(s string) (k Key, err error) {
-	split := strings.Split(s, "-")
-	if len(split) != 2 {
-		return k, errors.New("[channel] - invalid key format")
-	}
-	nodeID, err := strconv.Atoi(split[0])
-	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - key - invalid node id")
-	}
-	localKey, err := strconv.Atoi(split[1])
-	if err != nil {
-		return k, errors.Wrapf(err, "[channel] - invalid local key")
-	}
-	return NewKey(core.NodeKey(nodeID), uint16(localKey)), nil
+	k_, err := strconv.Atoi(s)
+	return Key(k_), err
 }
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
@@ -72,14 +59,8 @@ func (c Key) Bytes() []byte {
 
 const strKeySep = "-"
 
-// String returns the Key as a string in the format of "Leaseholder-CesiumKey", so
-// a channel with a Leaseholder of 1 and a CesiumKey of 2 would return "1-2".
-func (c Key) String() string {
-	if c == 0 {
-		return ""
-	}
-	return strconv.Itoa(int(c.Leaseholder())) + strKeySep + strconv.Itoa(int(c.LocalKey()))
-}
+// String implements fmt.Stringer.
+func (c Key) String() string { return strconv.Itoa(int(c)) }
 
 // Keys extends []Keys with a few convenience methods.
 type Keys []Key

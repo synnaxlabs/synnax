@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL } from "@synnaxlabs/x";
+import { URL, JSONEncoderDecoder } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { JSONEncoderDecoder } from "@/encoder";
 import { BaseTypedError, EOF, TypedError, registerError } from "@/errors";
 import { Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";

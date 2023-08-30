@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -212,7 +211,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) updateHighWater(col telem.Series) error {
-	if col.DataType != telem.TimeStampT {
+	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %s, expected %s, got %s",

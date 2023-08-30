@@ -773,15 +773,31 @@ export class Density extends Number implements Stringer {
 }
 
 /**
- * TimeRange represents a range of time between two TimeStamps. It's important
- * to note that the start of the range is inclusive, while the end of the range
- * is exclusive.
+ * TimeRange is a range of time marked by a start and end timestamp. A TimeRange
+ * is start inclusive and end exclusive.
  *
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
 export class TimeRange implements Stringer {
+  /**
+   * The starting TimeStamp of the TimeRange.
+   *
+   * Note that this value is not guaranteed to be before or equal to the ending value.
+   * To ensure that this is the case, call TimeRange.make_valid().
+   *
+   * In most cases, operations should treat start as inclusive.
+   */
   start: TimeStamp;
+
+  /**
+   * The starting TimeStamp of the TimeRange.
+   *
+   * Note that this value is not guaranteed to be before or equal to the ending value.
+   * To ensure that this is the case, call TimeRange.make_valid().
+   *
+   * In most cases, operations should treat end as exclusive.
+   */
   end: TimeStamp;
 
   /**
@@ -1158,7 +1174,7 @@ export type CrudeDataType = DataType | string | NativeTypedArray;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | Number;
 export type SizeT = number;
-export interface TimeRangeT {
+export interface CrudeTimeRange {
   start: TimeStampT;
   end: TimeStampT;
 }

@@ -16,7 +16,8 @@ import { UserPayload, userPayloadSchema } from "@/user";
 export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   return async (md, next) => {
     try {
-      md.params.Authorization = `Bearer ${await token()}`;
+      const tk = await token();
+      md.params.Authorization = `Bearer ${tk}`;
     } catch (err) {
       return [md, err as Error];
     }
@@ -71,18 +72,13 @@ export class AuthenticationClient {
           this.authenticated = true;
           resolve();
         })
-        .catch(reject);
+        .catch((r) => reject(r));
     });
-  }
-
-  private async maybeWaitAuthenticated(): Promise<void> {
-    if (this.authenticating != null) await this.authenticating;
-    this.authenticating = undefined;
   }
 
   middleware(): Middleware {
     return tokenMiddleware(async () => {
-      await this.maybeWaitAuthenticated();
+      if (!this.authenticated) await this.authenticating;
       if (this.token == null) {
         throw new AuthError("[auth] - attempting to authenticate without a token");
       }

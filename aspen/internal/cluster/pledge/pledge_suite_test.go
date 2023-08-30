@@ -30,6 +30,6 @@ func TestMembership(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.True()})
+	ins = Instrumentation("pledge", InstrumentationConfig{Log: config.False()})
 	ctx = context.Background()
 })

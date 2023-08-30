@@ -35,21 +35,21 @@ class BackwardFrameAdapter:
             return
 
         fetched = self.retriever.retrieve(normal.params)
-        self.__adapter = dict()
+        self.__adapter = dict[int, str]()
         for name in normal.params:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")
-            self.__adapter[ch.key] = name
+            self.__adapter[ch.key] = ch.name
         self.keys = list(self.__adapter.keys())
 
     def adapt(self, fr: Frame):
         if self.__adapter is None:
             return fr
         keys = [
-            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.labels
+            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.columns
         ]
-        return Frame(keys=keys, series=fr.series)
+        return Frame(columns_or_data=keys, series=fr.series)
 
 
 class ForwardFrameAdapter:
@@ -60,24 +60,22 @@ class ForwardFrameAdapter:
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
         self.__adapter = None
-        self.channels = list()
         self.__keys = None
 
     def update(self, channels: ChannelParams):
         normal = normalize_channel_params(channels)
         if normal.variant == "keys":
             self.__adapter = None
-            self.channels = normal.params
             self.__keys = normal.params
             return
+
         fetched = self.retriever.retrieve(normal.params)
-        self.__adapter = dict()
+        self.__adapter = dict[ChannelName, ChannelKey]()
         for name in normal.params:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")
-            self.__adapter[name] = ch.key
-        self.channels = fetched
+            self.__adapter[ch.name] = ch.key
 
     @property
     def keys(self):
@@ -87,7 +85,7 @@ class ForwardFrameAdapter:
         if self.__adapter is None:
             return fr
         keys = [
-            self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.labels
+            self.__adapter[k] if isinstance(k, ChannelName) else k for k in fr.columns
         ]
 
-        return Frame(keys=keys, series=fr.series)
+        return Frame(columns_or_data=keys, series=fr.series)

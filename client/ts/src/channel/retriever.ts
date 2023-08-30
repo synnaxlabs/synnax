@@ -11,8 +11,6 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { QueryError } from "..";
-
 import {
   ChannelKey,
   ChannelKeyOrName,
@@ -24,6 +22,8 @@ import {
   ChannelPayload,
   channelPayload,
 } from "@/channel/payload";
+
+import { QueryError } from "..";
 
 const requestSchema = z.object({
   leaseholder: z.number().optional(),

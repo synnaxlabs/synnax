@@ -1,0 +1,125 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-btn {
+    margin: 0;
+    cursor: pointer;
+    border-radius: var(--pluto-border-radius);
+    padding: 0 2rem;
+    font-family: var(--pluto-font-family);
+
+    &.pluto--disabled {
+        user-select: none;
+        background-color: var(--pluto-gray-m2);
+    }
+
+    &.pluto--disabled:hover {
+        background-color: var(--pluto-gray-m2);
+        border: var(--pluto-border);
+    }
+
+    &:active,
+    &:hover {
+        z-index: 12;
+    }
+}
+
+/* |||| FILLED |||| */
+
+.pluto-btn--filled {
+    background-color: var(--pluto-primary-z);
+    border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+    color: var(--pluto-white);
+
+    & * {
+        color: var(--pluto-white);
+    }
+
+    &:hover {
+        background-color: var(--pluto-primary-p1);
+        border-color: var(--pluto-primary-p1);
+    }
+
+    &:active {
+        background-color: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1);
+    }
+}
+
+.pluto-btn--filled path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-white) !important;
+    fill: var(--pluto-white) !important;
+}
+
+/* |||| OUTLINED |||| */
+
+.pluto-btn--outlined {
+    background: none;
+    border: var(--pluto-border-width) solid var(--pluto-border-color);
+
+    &:hover:not(.pluto--disabled) {
+        border-color: var(--pluto-gray-m0) !important;
+        * {
+            color: var(--pluto-gray-p1) !important;
+        }
+    }
+
+    &:active:not(.pluto--disabled) {
+        border-color: var(--pluto-gray-p1) !important;
+
+        * {
+            color: var(--pluto-gray-p1) !important;
+        }
+    }
+}
+
+.pluto-btn--outlined :is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-gray-p1) !important;
+    fill: var(--pluto-gray-p1) !important;
+}
+
+/* |||| TEXT |||| */
+
+.pluto-btn--text {
+    background: none;
+    border: none;
+
+    &:hover {
+        background-color: var(--pluto-gray-m2);
+    }
+
+    & * {
+        color: var(--pluto-text-color);
+    }
+
+    &:active {
+        background-color: var(--pluto-gray-m2);
+    }
+}
+
+.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: var(--pluto-text-color) !important;
+}
+
+/* |||| ICON |||| */
+
+.pluto-btn-icon {
+    display: flex;
+    padding: 0 !important;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 1;
+}
+
+.pluto-btn-icon > svg {
+    width: 60%;
+    height: 60%;
+}

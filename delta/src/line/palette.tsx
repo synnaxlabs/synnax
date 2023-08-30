@@ -9,8 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createLinePlot } from "./store/slice";
-
+import { createLinePlot } from "@/line/slice";
 import { Command } from "@/palette/Palette";
 
 export const createLinePlotCommand: Command = {
@@ -20,4 +19,4 @@ export const createLinePlotCommand: Command = {
   onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createLinePlot({})),
 };
 
-export const LINE_COMMANDS = [createLinePlotCommand];
+export const COMMANDS = [createLinePlotCommand];

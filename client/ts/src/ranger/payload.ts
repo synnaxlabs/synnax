@@ -10,21 +10,21 @@
 import { TimeRange, toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const rangeKey = z.string().uuid();
-export type RangeKey = z.infer<typeof rangeKey>;
+export const rangeKeyZ = z.string().uuid();
+export type RangeKey = z.infer<typeof rangeKeyZ>;
 export type RangeName = string;
 export type RangeKeys = RangeKey[];
 export type RangeNames = RangeName[];
 export type RangeParams = RangeKey | RangeName | RangeKeys | RangeNames;
 
-export const rangePayload = z.object({
-  key: z.string().uuid(),
+export const rangePayloadZ = z.object({
+  key: rangeKeyZ,
   name: z.string(),
   timeRange: TimeRange.z,
 });
-export type RangePayload = z.infer<typeof rangePayload>;
+export type RangePayload = z.infer<typeof rangePayloadZ>;
 
-export const newRangePayload = rangePayload.extend({
+export const newRangePayload = rangePayloadZ.extend({
   key: z.string().uuid().optional(),
 });
 export type NewRangePayload = z.infer<typeof newRangePayload>;
@@ -60,7 +60,7 @@ export const analyzeRangeParams = (params: RangeParams): RangeParamAnalysisResul
   if (normal.length === 0) {
     throw new Error("Range params must not be empty");
   }
-  const isKey = rangeKey.safeParse(normal[0]).success;
+  const isKey = rangeKeyZ.safeParse(normal[0]).success;
   return {
     single: !Array.isArray(params),
     variant: isKey ? "keys" : "names",

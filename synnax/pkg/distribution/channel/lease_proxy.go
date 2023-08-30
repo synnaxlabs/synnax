@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -21,9 +22,10 @@ type leaseProxy struct {
 	ServiceConfig
 	router  proxy.BatchFactory[Channel]
 	counter *keyCounter
+	group   group.Group
 }
 
-func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {
+func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 	c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB)
 	if err != nil {
 		return nil, err
@@ -32,6 +34,7 @@ func newLeaseProxy(cfg ServiceConfig) (*leaseProxy, error) {
 		ServiceConfig: cfg,
 		router:        proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		counter:       c,
+		group:         g,
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
 	return p, nil
@@ -115,7 +118,19 @@ func (lp *leaseProxy) maybeSetResources(
 			if err := w.DefineResource(ctx, rtk); err != nil {
 				return err
 			}
-			if err := w.DefineRelationship(ctx, core.NodeOntologyID(ch.Leaseholder), ontology.ParentOf, rtk); err != nil {
+			if err := w.DefineRelationship(
+				ctx,
+				core.NodeOntologyID(ch.Leaseholder),
+				ontology.ParentOf,
+				rtk,
+			); err != nil {
+				return err
+			}
+			if err := w.DefineRelationship(
+				ctx, group.OntologyID(lp.group.Key),
+				ontology.ParentOf,
+				rtk,
+			); err != nil {
 				return err
 			}
 		}

@@ -9,7 +9,7 @@
 
 import { LayoutState } from "@/layout";
 
-export const createDocsLayout = (overrides?: LayoutState): LayoutState => ({
+export const createLayout = (overrides?: LayoutState): LayoutState => ({
   key: "docs",
   type: "docs",
   location: "mosaic",

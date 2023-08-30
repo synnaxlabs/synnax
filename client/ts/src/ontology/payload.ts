@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-const ontologyResourceTypeSchema = z.union([
+const resourceTypeZ = z.union([
   z.literal("builtin"),
   z.literal("cluster"),
   z.literal("channel"),
@@ -18,26 +18,26 @@ const ontologyResourceTypeSchema = z.union([
   z.literal("range"),
 ]);
 
-export type OntologyResourceType = z.infer<typeof ontologyResourceTypeSchema>;
+export type ResourceType = z.infer<typeof resourceTypeZ>;
 
-export const ontologyID = z.object({
-  type: ontologyResourceTypeSchema,
+export const idZ = z.object({
+  type: resourceTypeZ,
   key: z.string(),
 });
 
-export const crudeOntologyID = z.union([z.string(), ontologyID]);
+export const crudeIDZ = z.union([z.string(), idZ]);
 
-export class OntologyID {
-  type: OntologyResourceType;
+export class ID {
+  type: ResourceType;
   key: string;
 
-  constructor(args: z.input<typeof crudeOntologyID> | OntologyID) {
-    if (args instanceof OntologyID) {
+  constructor(args: z.input<typeof crudeIDZ> | ID) {
+    if (args instanceof ID) {
       this.type = args.type;
       this.key = args.key;
     } else if (typeof args === "string") {
       const [type, key] = args.split(":");
-      this.type = type as OntologyResourceType;
+      this.type = type as ResourceType;
       this.key = key;
     } else {
       this.type = args.type;
@@ -49,38 +49,36 @@ export class OntologyID {
     return `${this.type}:${this.key}`;
   }
 
-  get payload(): z.infer<typeof ontologyID> {
+  get payload(): z.infer<typeof idZ> {
     return {
       type: this.type,
       key: this.key,
     };
   }
 
-  static readonly z = z
-    .union([crudeOntologyID, z.instanceof(OntologyID)])
-    .transform((v) => new OntologyID(v));
+  static readonly z = z.union([crudeIDZ, z.instanceof(ID)]).transform((v) => new ID(v));
 }
 
-export const OntologyRoot = new OntologyID({ type: "builtin", key: "root" });
+export const Root = new ID({ type: "builtin", key: "root" });
 
-export const ontologySchemaFieldSchema = z.object({
+export const schemaFieldZ = z.object({
   type: z.number(),
 });
 
-export type OntologySchemaField = z.infer<typeof ontologySchemaFieldSchema>;
+export type SchemaField = z.infer<typeof schemaFieldZ>;
 
-export const ontologySchemaSchema = z.object({
-  type: ontologyResourceTypeSchema,
-  fields: z.record(ontologySchemaFieldSchema),
+export const schemaZ = z.object({
+  type: resourceTypeZ,
+  fields: z.record(schemaFieldZ),
 });
 
-export type OntologySchema = z.infer<typeof ontologySchemaSchema>;
+export type Schema = z.infer<typeof schemaZ>;
 
-export const ontologyResourceSchema = z
+export const resourceSchemaZ = z
   .object({
-    id: OntologyID.z,
+    id: ID.z,
     name: z.string(),
-    schema: ontologySchemaSchema.optional(),
+    schema: schemaZ.optional(),
     data: z.record(z.unknown()).optional(),
   })
   .transform((resource) => {
@@ -90,4 +88,4 @@ export const ontologyResourceSchema = z
     };
   });
 
-export type OntologyResource = z.infer<typeof ontologyResourceSchema>;
+export type Resource = z.infer<typeof resourceSchemaZ>;

@@ -93,6 +93,9 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 func (w *Writer) Close() error { return w.internal.Close() }
 
 func (w *Writer) validate(series telem.Series) error {
+	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (w.Channel.DataType == telem.Int64T || w.Channel.DataType == telem.TimeStampT) {
+		return nil
+	}
 	if series.DataType != w.Channel.DataType {
 		return errors.Wrapf(
 			validate.Error,

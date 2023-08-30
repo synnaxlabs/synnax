@@ -42,8 +42,7 @@ details.
 
 The pivot from alpha V1 to V2 is the main driver behind this RFC. Synnax was built as
 a database proxy that merged and synchronized network requests into several databases.
-V2
-is a single binary that implements an entire database including a storage engine.
+V2 is a single binary that implements an entire database including a storage engine.
 This means we must:
 
 1. Find an existing embedded storage engine written in Go.

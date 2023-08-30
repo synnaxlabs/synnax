@@ -13,7 +13,7 @@ import click
 
 from synnax.io import BaseReader
 from synnax.io.factory import IO_FACTORY
-from synnax.telem import convert_time_units
+from synnax.telem import convert_time_units, TimeSpanUnits
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_new_reader
 from synnax.cli.telem import ask_time_units_select
@@ -83,8 +83,8 @@ def tsconvert(
     output_path: str | None,
     input_channel: str | None,
     output_channel: str | None,
-    input_precision: str | None,
-    output_precision: str | None,
+    input_precision: TimeSpanUnits | None,
+    output_precision: TimeSpanUnits | None,
     prompt: bool,
 ) -> None:
     """Converts the time units of a channel in a file.
@@ -108,8 +108,8 @@ def pure_tsconvert(
     output_path: Path | str | None,
     input_channel: str | None,
     output_channel: str | None,
-    input_precision: str | None,
-    output_precision: str | None,
+    input_precision: TimeSpanUnits | None,
+    output_precision: TimeSpanUnits | None,
     ctx: Context,
 ) -> None:
     reader = prompt_new_reader(ctx, input_path)

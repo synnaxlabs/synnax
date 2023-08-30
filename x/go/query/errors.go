@@ -12,9 +12,12 @@ package query
 import "github.com/cockroachdb/errors"
 
 var (
+	Error = errors.New("[query] - error")
 	// NotFound is returned when a requested entity cannot be found.
-	NotFound = errors.New("[query] - entity not found")
+	NotFound = errors.Wrap(Error, "[query] - entity not found")
 	// UniqueViolation is returned when a unique constraint on a particular entity
 	// is violated.
-	UniqueViolation = errors.New("[query] - unique violation")
+	UniqueViolation = errors.Wrap(Error, "[query] - unique violation")
+	// InvalidParameters is returned when a query has invalid parameters.
+	InvalidParameters = errors.Wrap(Error, "[query] - invalid parameters")
 )

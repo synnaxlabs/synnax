@@ -10,7 +10,7 @@
 
 from typing import Unpack
 from synnax.cli.console.sugared import AskKwargs
-from synnax.telem import DataType, TimeSpan
+from synnax.telem import DataType, TimeSpan, TimeSpanUnits
 from synnax.cli.flow import Context
 
 
@@ -38,7 +38,7 @@ def ask_time_units_select(
     ctx: Context,
     question: str | None = None,
     **kwargs: Unpack[AskKwargs[str]],
-) -> str:
+) -> TimeSpanUnits:
     """Prompts the user to select a time unit from a list of all available time
     units.
 

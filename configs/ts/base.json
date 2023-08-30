@@ -3,8 +3,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "lib": ["DOM", "ESNext"],
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "allowJs": false,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -18,7 +17,9 @@
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     }
   }
 }

@@ -333,32 +333,5 @@ var _ = Describe("TypedWriter Behavior", Ordered, func() {
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
 		})
-		Specify("Invalid Data Variant for Index", func() {
-			var dtErrIndex cesium.ChannelKey = 19
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{
-					Key:      dtErrIndex,
-					DataType: telem.TimeStampT,
-					IsIndex:  true,
-				})).To(Succeed())
-			w := MustSucceed(db.NewWriter(
-				ctx,
-				cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{dtErrIndex},
-					Start:    10 * telem.SecondTS,
-				}))
-			Expect(w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{dtErrIndex},
-				[]telem.Series{
-					telem.NewArrayV[int64](1, 2, 3, 4, 5),
-				},
-			))).To(BeTrue())
-			_, ok := w.Commit()
-			Expect(ok).To(BeFalse())
-			err := w.Close()
-			Expect(err).To(MatchError(validate.Error))
-			Expect(err.Error()).To(ContainSubstring("expected timestamp, got int64"))
-		})
 	})
 })

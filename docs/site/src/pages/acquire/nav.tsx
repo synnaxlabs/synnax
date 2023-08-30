@@ -9,31 +9,31 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { PageNavLeaf } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav";
 
-export const acquireNav: PageNavLeaf = {
+export const acquireNav: PageNavNode = {
   key: "acquire",
   name: "Acquire",
   icon: <Icon.Acquire />,
   children: [
     {
       key: "/acquire/get-started",
-      url: "/acquire/get-started",
+      href: "/acquire/get-started",
       name: "Get Started",
     },
     {
       key: "/acquire/create-channels",
-      url: "/acquire/create-channels",
+      href: "/acquire/create-channels",
       name: "Create Channels",
     },
     {
       key: "/acquire/write-telemetry",
-      url: "/acquire/write-telemetry",
+      href: "/acquire/write-telemetry",
       name: "Write Telemetry",
     },
     {
       key: "/acquire/ingest-files",
-      url: "/acquire/ingest-files",
+      href: "/acquire/ingest-files",
       name: "Ingest Files",
     },
   ],

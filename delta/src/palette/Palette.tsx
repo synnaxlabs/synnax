@@ -17,88 +17,80 @@ import {
   useState,
 } from "react";
 
-import { OntologyID, OntologyResource } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Dropdown,
   Input,
   List,
-  ListItemProps,
-  Trigger,
   Triggers,
   componentRenderProp,
-  UseTriggerEvent,
   Button,
-  UseDropdownReturn,
   useDebouncedCallback,
   createFilterTransform,
   Status,
-  DropdownProps,
   Haul,
-  Hauled,
   CSS as PCSS,
   Tooltip,
   Text,
-  Typography,
-  Space,
-  TypographyLevel,
-  Pack,
+  Align,
+  Mosaic,
+  Divider,
 } from "@synnaxlabs/pluto";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
+import { AsyncTermSearcher, Key } from "@synnaxlabs/x";
+import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
-import { LayoutPlacer, useLayoutPlacer } from "@/layout";
-import { createLinePlot } from "@/line/store/slice";
+import { Layout } from "@/layout";
 import { ResourceType } from "@/resources/resources";
 import { RootStore } from "@/store";
 
 import "@/palette/Palette.css";
 
 export interface PaletteTriggerConfig {
-  command: Trigger[];
-  resource: Trigger[];
+  command: Triggers.Trigger[];
+  resource: Triggers.Trigger[];
 }
 
 export interface PaletteProps {
-  searcher: AsyncTermSearcher<string, string, OntologyResource>;
+  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
   resourceTypes: Record<string, ResourceType>;
   triggers: PaletteTriggerConfig;
   commandSymbol: string;
 }
 
-const normalizeTriggers = (triggers: PaletteTriggerConfig): Trigger[] =>
+const normalizeTriggers = (triggers: PaletteTriggerConfig): Triggers.Trigger[] =>
   Object.values(triggers).flat();
 
 type PaletteMode = "command" | "resource";
 
-const TOOLTIP_TEXT_LEVEL: TypographyLevel = "small";
+const TOOLTIP_TEXT_LEVEL: Text.Level = "small";
 
 const PaletteTooltipContent = (): ReactElement => (
-  <Space>
-    <Space direction="x" justify="spaceBetween" align="center">
-      <Text level={TOOLTIP_TEXT_LEVEL}>Search</Text>
-      <Space direction="x" size="small">
+  <Align.Space>
+    <Align.Space direction="x" justify="spaceBetween" align="center">
+      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>
+      <Align.Space direction="x" size="small">
         <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
-          <Typography.Symbols.Meta />
+          <Text.Symbols.Meta />
         </Text.Keyboard>
         <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
-      </Space>
-    </Space>
-    <Space direction="x" justify="spaceBetween" align="center">
-      <Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text>
-      <Space direction="x" size="small">
+      </Align.Space>
+    </Align.Space>
+    <Align.Space direction="x" justify="spaceBetween" align="center">
+      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text.Text>
+      <Align.Space direction="x" size="small">
         <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
-          <Typography.Symbols.Meta />
+          <Text.Symbols.Meta />
         </Text.Keyboard>
         <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
           <Icon.Keyboard.Shift />
         </Text.Keyboard>
         <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
-      </Space>
-    </Space>
-  </Space>
+      </Align.Space>
+    </Align.Space>
+  </Align.Space>
 );
 
 export const Palette = ({
@@ -112,10 +104,12 @@ export const Palette = ({
 
   const [mode, setMode] = useState<PaletteMode>("resource");
 
+  const notifications = Status.useNotifications({});
+
   const store = useStore() as RootStore;
-  const placeLayout = useLayoutPlacer();
-  const handleSelect = useCallback(
-    ([key]: readonly string[], [entry]: Array<OntologyResource | Command>) => {
+  const placeLayout = Layout.usePlacer();
+  const handleSelect: List.SelectorProps["onChange"] = useCallback(
+    ([key]: Key[], { entries: [entry] }) => {
       dropdown.close();
       if (mode === "command") {
         (entry as Command).onSelect({
@@ -123,25 +117,27 @@ export const Palette = ({
           placeLayout,
         });
       } else {
-        const id = new OntologyID(key);
+        const id = new ontology.ID(key as string);
         const t = resourceTypes[id.type];
         t?.onSelect({
           store,
           placeLayout,
-          resource: entry as OntologyResource,
+          selected: entry as ontology.Resource,
         });
       }
     },
     [mode, commands, dropdown.close]
   );
 
+  const showDropdown = dropdown.visible || notifications.length > 0;
+
   return (
-    <List>
-      <Tooltip location="bottom" hide={dropdown.visible}>
+    <List.List>
+      <Tooltip.Dialog location="bottom" hide={showDropdown}>
         <PaletteTooltipContent />
-        <Dropdown
+        <Dropdown.Dialog
           ref={dropdown.ref}
-          visible={dropdown.visible}
+          visible={showDropdown}
           className={CSS.B("palette")}
           location="bottom"
           matchTriggerWidth
@@ -156,30 +152,61 @@ export const Palette = ({
             visible={dropdown.visible}
             open={dropdown.open}
           />
-          <PaletteList
-            mode={mode}
-            resourceTypes={resourceTypes}
-            onSelect={handleSelect}
-            visible={dropdown.visible}
-          />
-        </Dropdown>
-      </Tooltip>
-    </List>
+          <>
+            {dropdown.visible && (
+              <PaletteList
+                mode={mode}
+                resourceTypes={resourceTypes}
+                onSelect={handleSelect}
+                visible={dropdown.visible}
+              />
+            )}
+            {notifications.length > 0 && dropdown.visible && (
+              <Divider.Divider direction="x" />
+            )}
+            <ErrorsList statuses={notifications} />
+          </>
+        </Dropdown.Dialog>
+      </Tooltip.Dialog>
+    </List.List>
   );
 };
 
-export interface PaletteInputProps extends Pick<UseDropdownReturn, "visible" | "open"> {
+interface ErrorsListProps {
+  statuses: Status.Spec[];
+}
+
+const ErrorsList = ({ statuses }: ErrorsListProps): ReactElement => (
+  <>
+    {statuses.map(({ message, variant, time }) => (
+      <Align.Space
+        direction="x"
+        key={time.toString()}
+        style={{ height: "6rem", padding: "1rem" }}
+        align="center"
+      >
+        <Text.DateTime level="p" format="time">
+          {time}
+        </Text.DateTime>
+        <Status.Text variant={variant}>{message}</Status.Text>
+      </Align.Space>
+    ))}
+  </>
+);
+
+export interface PaletteInputProps
+  extends Pick<Dropdown.UseReturn, "visible" | "open"> {
   mode: PaletteMode;
   visible: boolean;
   setMode: (mode: PaletteMode) => void;
-  searcher: AsyncTermSearcher<string, string, OntologyResource>;
+  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commandSymbol: string;
   triggerConfig: PaletteTriggerConfig;
   commands: Command[];
 }
 
-const canDrop = (entities: Hauled[]): boolean =>
-  entities.length === 1 && entities[0].type === "pluto-mosaic-tab";
+const canDrop: Haul.CanDrop = ({ items }) =>
+  items.length === 1 && items[0].type === Mosaic.HAUL_TYPE;
 
 export const PaletteInput = ({
   mode,
@@ -276,7 +303,7 @@ export const PaletteInput = ({
   );
 
   const handleTrigger = useCallback(
-    ({ triggers, stage }: UseTriggerEvent) => {
+    ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage !== "start" || visible) return;
       const mode = Triggers.match(triggers, triggerConfig.command)
         ? "command"
@@ -308,35 +335,36 @@ export const PaletteInput = ({
     [mode, setMode, commandSymbol, handleFilter, handleSearch]
   );
 
-  const placer = useLayoutPlacer();
+  const placer = Layout.usePlacer();
+  const d = useDispatch();
 
-  const { onDragLeave, onDragOver, onDrop } = Haul.useDropRegion({
+  const { onDragOver, onDrop } = Haul.useDrop({
+    type: "Palette",
     canDrop,
     onDrop: useCallback(
-      ([item]) => {
-        placer(
-          createLinePlot({
-            key: item.key as string,
-            location: "window",
-            window: {
-              navTop: true,
-              size: { height: 600, width: 900 },
-            },
+      ({ items: [item] }) => {
+        const { key } = placer(Layout.createMosaicWindow());
+        d(
+          Layout.moveMosaicTab({
+            windowKey: key,
+            key: 1,
+            tabKey: item.key as string,
+            loc: "center",
           })
         );
+        return [item];
       },
       [placer]
     ),
   });
 
-  const { dragging } = Haul.useState();
+  const dragging = Haul.useDraggingState();
 
   return (
-    <Input
+    <Input.Text
       className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
       placeholder="Search Synnax"
-      onDragLeave={onDragLeave}
       onDragOver={onDragOver}
       onDrop={onDrop}
       centerPlaceholder
@@ -349,12 +377,9 @@ export const PaletteInput = ({
   );
 };
 
-export interface PalleteListProps extends Pick<DropdownProps, "visible"> {
+export interface PalleteListProps extends Pick<Dropdown.DialogProps, "visible"> {
   mode: PaletteMode;
-  onSelect: (
-    keys: readonly string[],
-    entries: Array<OntologyResource | Command>
-  ) => void;
+  onSelect: List.SelectorProps["onChange"];
   resourceTypes: Record<string, ResourceType>;
 }
 
@@ -367,7 +392,7 @@ export const PaletteList = ({
   const item = useMemo(() => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(resourceTypes)
-    ) as FC<ListItemProps<string, OntologyResource | Command>>;
+    ) as FC<List.ItemProps<string, ontology.Resource | Command>>;
     return componentRenderProp(Item);
   }, [mode, resourceTypes]);
   return (
@@ -384,13 +409,13 @@ export const CommandListItem = ({
   hovered,
   onSelect,
   ...props
-}: ListItemProps<string, Command>): ReactElement => {
+}: List.ItemProps<string, Command>): ReactElement => {
   const handleSelect = (e): void => {
     e.stopPropagation();
     onSelect?.(key);
   };
   return (
-    <Button
+    <Button.Button
       startIcon={icon}
       onClick={handleSelect}
       variant="text"
@@ -402,24 +427,24 @@ export const CommandListItem = ({
       {...props}
     >
       {name}
-    </Button>
+    </Button.Button>
   );
 };
 
 export const createResourceListItem = (
   resourceTypes: Record<string, ResourceType>
-): FC<ListItemProps<string, OntologyResource>> => {
+): FC<List.ItemProps<string, ontology.Resource>> => {
   const ResourceListItem = ({
     entry: { name, key, id },
     hovered,
     onSelect,
     ...props
-  }: ListItemProps<string, OntologyResource>): ReactElement | null => {
+  }: List.ItemProps<string, ontology.Resource>): ReactElement | null => {
     if (id == null) return null;
     const handleSelect = (): void => onSelect?.(key);
     const resourceType = resourceTypes[id.type];
     return (
-      <Button
+      <Button.Button
         startIcon={resourceType?.icon}
         onClick={handleSelect}
         variant="text"
@@ -431,20 +456,21 @@ export const createResourceListItem = (
         {...props}
       >
         {name}
-      </Button>
+      </Button.Button>
     );
   };
   ResourceListItem.displayName = "ResourceListItem";
   return ResourceListItem;
 };
 
-export interface ResourceListItemProps extends ListItemProps<string, OntologyResource> {
+export interface ResourceListItemProps
+  extends List.ItemProps<string, ontology.Resource> {
   store: RootStore;
 }
 
 export interface CommandSelectionContext {
   store: RootStore;
-  placeLayout: LayoutPlacer;
+  placeLayout: Layout.Placer;
 }
 
 export interface Command {

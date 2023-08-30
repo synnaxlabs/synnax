@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const HELLO = "hello";
@@ -162,10 +163,18 @@ export class StreamClosed extends BaseTypedError implements TypedError {
   }
 }
 
+export interface UnreachableArgs {
+  url?: URL;
+}
+
 /** Thrown when a target is unreachable. */
 export class Unreachable extends BaseTypedError implements TypedError {
-  constructor() {
+  url: URL;
+
+  constructor(args: UnreachableArgs = {}) {
     super("Unreachable", FREIGHTER);
+    const { url = URL.UNKNOWN } = args;
+    this.url = url;
   }
 }
 

@@ -10,23 +10,23 @@
 import { Channel, TimeRange } from "@synnaxlabs/client";
 import { Series } from "@synnaxlabs/x";
 
-import { DynamicCache } from "@/telem/client/cache/dynamic";
-import { StaticCache } from "@/telem/client/cache/static";
+import { Dynamic } from "@/telem/client/cache/dynamic";
+import { Static } from "@/telem/client/cache/static";
 
-export class ChannelCache {
+export class Cache {
   channel: Channel;
-  static: StaticCache;
-  dynamic: DynamicCache;
+  static: Static;
+  dynamic: Dynamic;
 
   constructor(dynamicCap: number, channel: Channel) {
-    this.static = new StaticCache();
-    this.dynamic = new DynamicCache(dynamicCap, channel.dataType);
+    this.static = new Static();
+    this.dynamic = new Dynamic(dynamicCap, channel.dataType);
     this.channel = channel;
   }
 
   writeDynamic(series: Series[]): Series[] {
     const flushed = this.dynamic.write(series);
-    if (flushed.length > 0)
+    if (flushed.length > 0) {
       this.static.write(
         new TimeRange(
           flushed[0].timeRange.start,
@@ -34,6 +34,8 @@ export class ChannelCache {
         ),
         flushed
       );
+      flushed.push(this.dynamic.buffer);
+    }
     return flushed;
   }
 

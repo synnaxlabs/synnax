@@ -19,31 +19,37 @@ import {
 } from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
 
-type LabeledBy = "key" | "name" | null;
+type ColumnType = "key" | "name" | null;
 
-const labeledBy = (labels: ChannelParams): LabeledBy => {
-  const arrKeys = toArray(labels);
+const columnType = (columns: ChannelParams): ColumnType => {
+  const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
   return "name";
 };
 
-const validateMatchedLabelsAndArrays = (
-  labels: ChannelParams,
+const validateMatchedColsAndArrays = (
+  columns: ChannelParams,
   arrays: Series[]
 ): void => {
-  const labelsArr = toArray(labels);
-  if (labelsArr.length === arrays.length) return;
-  const labeledBy_ = labeledBy(labels);
-  if (labeledBy === null)
+  const colsArr = toArray(columns);
+  if (colsArr.length === arrays.length) return;
+  const colType = columnType(columns);
+  if (columnType === null)
     throw new ValidationError(
       "[Frame] - channel keys or names must be provided when constructing a frame."
     );
   throw new ValidationError(
-    `[Frame] - ${labeledBy_ as string}s and arrays must be the same length.
-    Got ${labelsArr.length} ${labeledBy_ as string}s and ${arrays.length} arrays.`
+    `[Frame] - ${colType as string}s and arrays must be the same length.
+    Got ${colsArr.length} ${colType as string}s and ${arrays.length} arrays.`
   );
 };
+
+export type CrudeFrame =
+  | Frame
+  | FramePayload
+  | Map<ChannelKeyOrName, Series[] | Series>
+  | Record<ChannelKeyOrName, Series[] | Series>;
 
 /**
  * A frame is a collection of related typed arrays keyed to a particular channel. Frames
@@ -81,46 +87,48 @@ const validateMatchedLabelsAndArrays = (
  * and array can be square.
  */
 export class Frame {
-  readonly labels: ChannelKeys | ChannelNames = [];
+  readonly columns: ChannelKeys | ChannelNames = [];
   readonly series: Series[] = [];
 
   constructor(
-    labelsOrData:
-      | FramePayload
-      | ChannelParams
-      | Map<ChannelKeyOrName, Series[] | Series>
-      | Record<ChannelKeyOrName, Series[] | Series> = [],
+    columnsOrData: ChannelParams | CrudeFrame = [],
     arrays: Series | Series[] = []
   ) {
-    // Construction from a map.
-    if (labelsOrData instanceof Map) {
-      labelsOrData.forEach((v, k) => this.push(k, ...toArray(v)));
+    if (columnsOrData instanceof Frame) {
+      this.columns = columnsOrData.columns;
+      this.series = columnsOrData.series;
       return;
     }
 
-    const isObject = typeof labelsOrData === "object" && !Array.isArray(labelsOrData);
+    // Construction from a map.
+    if (columnsOrData instanceof Map) {
+      columnsOrData.forEach((v, k) => this.push(k, ...toArray(v)));
+      return;
+    }
+
+    const isObject = typeof columnsOrData === "object" && !Array.isArray(columnsOrData);
 
     // Construction from a payload.
     if (isObject) {
-      if ("keys" in labelsOrData && "series" in labelsOrData) {
-        const data_ = labelsOrData as FramePayload;
+      if ("keys" in columnsOrData && "series" in columnsOrData) {
+        const data_ = columnsOrData as FramePayload;
         const arrays = data_.series.map((a) => arrayFromPayload(a));
-        validateMatchedLabelsAndArrays(data_.keys, arrays);
+        validateMatchedColsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
-        Object.entries(labelsOrData).forEach(([k, v]) => this.push(k, ...toArray(v)));
+        Object.entries(columnsOrData).forEach(([k, v]) => this.push(k, ...toArray(v)));
       return;
     }
 
-    // Construction from a set of arrays and labels.
+    // Construction from a set of arrays and columns.
     if (
-      Array.isArray(labelsOrData) ||
-      ["string", "number"].includes(typeof labelsOrData)
+      Array.isArray(columnsOrData) ||
+      ["string", "number"].includes(typeof columnsOrData)
     ) {
       const data_ = toArray(arrays);
-      const labels_ = toArray(labelsOrData) as ChannelKeys | ChannelNames;
-      validateMatchedLabelsAndArrays(labels_, data_);
-      data_.forEach((d, i) => this.push(labels_[i], d));
+      const cols = toArray(columnsOrData) as ChannelKeys | ChannelNames;
+      validateMatchedColsAndArrays(cols, data_);
+      data_.forEach((d, i) => this.push(cols[i], d));
       return;
     }
 
@@ -132,12 +140,12 @@ export class Frame {
   }
 
   /**
-   * @returns "key" if the frame is keyed by channel key, "name" if keyed by channel name,
-   * and null if the frame is not keyed by channel key or channel name.
+   * @returns "key" if the frame columns are channel keys, "name" if the columns are
+   * channel names, and null if the frame has no columns.
    */
-  get labeledBy(): "key" | "name" | null {
-    if (this.labels.length === 0) return null;
-    const firstKey = this.labels[0];
+  get colType(): ColumnType {
+    if (this.columns.length === 0) return null;
+    const firstKey = this.columns[0];
     return typeof firstKey === "string" ? "name" : "key";
   }
 
@@ -146,8 +154,8 @@ export class Frame {
    * otherwise.
    */
   get keys(): ChannelKeys {
-    if (this.labeledBy === "name") throw new UnexpectedError("keyVariant is not key");
-    return (this.labels as ChannelKeys) ?? [];
+    if (this.colType === "name") throw new UnexpectedError("colType is not key");
+    return (this.columns as ChannelKeys) ?? [];
   }
 
   /**
@@ -163,8 +171,8 @@ export class Frame {
    * otherwise.
    */
   get names(): ChannelNames {
-    if (this.labeledBy === "key") throw new UnexpectedError("keyVariant is not name");
-    return (this.labels as ChannelNames) ?? [];
+    if (this.colType === "key") throw new UnexpectedError("colType is not name");
+    return (this.columns as ChannelNames) ?? [];
   }
 
   /**
@@ -176,10 +184,10 @@ export class Frame {
   }
 
   /**
-   * @returns the unique labels in the frame.
+   * @returns the unique columns in the frame.
    */
-  get uniqueLabels(): ChannelKeys | ChannelNames {
-    return this.labeledBy === "key" ? this.uniqueKeys : this.uniqueNames;
+  get uniqueColumns(): ChannelKeys | ChannelNames {
+    return this.colType === "key" ? this.uniqueKeys : this.uniqueNames;
   }
 
   toPayload(): FramePayload {
@@ -195,7 +203,7 @@ export class Frame {
    * that all frames written to the database are vertical.
    */
   get isVertical(): boolean {
-    return this.uniqueLabels.length === this.labels.length;
+    return this.uniqueColumns.length === this.columns.length;
   }
 
   /**
@@ -205,7 +213,7 @@ export class Frame {
    * the arrays are continuous in time.
    */
   get isHorizontal(): boolean {
-    return this.uniqueLabels.length === 1;
+    return this.uniqueColumns.length === 1;
   }
 
   /**
@@ -223,19 +231,19 @@ export class Frame {
    * gaps betwen them.
    */
   get isWeaklyAligned(): boolean {
-    if (this.labels.length <= 1) return true;
+    if (this.columns.length <= 1) return true;
     const ranges = this.timeRanges;
     return ranges.every((tr) => tr.equals(ranges[0]));
   }
 
-  timeRange(label?: ChannelKeyOrName): TimeRange {
-    if (label == null) {
-      if (this.labels.length === 0) return TimeRange.ZERO;
+  timeRange(col?: ChannelKeyOrName): TimeRange {
+    if (col == null) {
+      if (this.columns.length === 0) return TimeRange.ZERO;
       const start = Math.min(...this.series.map((a) => a.timeRange.start.valueOf()));
       const end = Math.max(...this.series.map((a) => a.timeRange.end.valueOf()));
       return new TimeRange(start, end);
     }
-    const group = this.get(label);
+    const group = this.get(col);
     if (group == null) return TimeRange.ZERO;
     return new TimeRange(
       group[0].timeRange.start,
@@ -244,7 +252,7 @@ export class Frame {
   }
 
   get timeRanges(): TimeRange[] {
-    return this.uniqueLabels.map((label) => this.timeRange(label));
+    return this.uniqueColumns.map((col) => this.timeRange(col));
   }
 
   /**
@@ -262,7 +270,7 @@ export class Frame {
   get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): Series[] | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as ChannelKeys).includes(k as ChannelKey));
-    return this.series.filter((_, i) => this.labels[i] === key);
+    return this.series.filter((_, i) => this.columns[i] === key);
   }
 
   /**
@@ -282,17 +290,17 @@ export class Frame {
 
   push(keyOrFrame: ChannelKeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (this.labeledBy !== null && keyOrFrame.labeledBy !== this.labeledBy)
+      if (this.colType !== null && keyOrFrame.colType !== this.colType)
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
-      (this.labels as ChannelKeys).push(...(keyOrFrame.labels as ChannelKeys));
+      (this.columns as ChannelKeys).push(...(keyOrFrame.columns as ChannelKeys));
     } else {
       this.series.push(...v);
-      if (typeof keyOrFrame === "string" && this.labeledBy === "key")
+      if (typeof keyOrFrame === "string" && this.colType === "key")
         throw new ValidationError("keyVariant must match");
-      else if (typeof keyOrFrame !== "string" && this.labeledBy === "name")
+      else if (typeof keyOrFrame !== "string" && this.colType === "name")
         throw new ValidationError("keyVariant must match");
-      (this.labels as ChannelKeys).push(
+      (this.columns as ChannelKeys).push(
         ...(Array.from({ length: v.length }, () => keyOrFrame) as ChannelKeys)
       );
     }
@@ -303,7 +311,7 @@ export class Frame {
    * provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.labels, ...frame.labels] as ChannelKeys, [
+    return new Frame([...this.columns, ...frame.columns] as ChannelKeys, [
       ...this.series,
       ...frame.series,
     ]);
@@ -314,9 +322,9 @@ export class Frame {
    * @param channel the channel key or name to check.
    */
   has(channel: ChannelKeyOrName): boolean {
-    if (typeof channel === "string" && this.labeledBy === "key") return false;
-    else if (typeof channel === "number" && this.labeledBy === "name") return false;
-    return (this.labels as ChannelKeys).includes(channel as ChannelKey);
+    if (typeof channel === "string" && this.colType === "key") return false;
+    else if (typeof channel === "number" && this.colType === "name") return false;
+    return (this.columns as ChannelKeys).includes(channel as ChannelKey);
   }
 
   /**
@@ -338,7 +346,7 @@ export class Frame {
    * @param fn a function that takes a channel key and typed array.
    */
   forEach(fn: (k: ChannelKeyOrName, arr: Series, i: number) => void): void {
-    this.labels.forEach((k, i) => {
+    this.columns.forEach((k, i) => {
       const a = this.series[i];
       fn(k, a, i);
     });
@@ -351,7 +359,7 @@ export class Frame {
    */
   filter(fn: (k: ChannelKeyOrName, arr: Series, i: number) => boolean): Frame {
     const frame = new Frame();
-    this.labels.forEach((k, i) => {
+    this.columns.forEach((k, i) => {
       const a = this.series[i];
       if (fn(k, a, i)) frame.push(k, a);
     });
