@@ -37,6 +37,7 @@
 .pluto-btn--filled {
     background-color: var(--pluto-primary-z);
     border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+    color: var(--pluto-white);
 
     & * {
         color: var(--pluto-white);

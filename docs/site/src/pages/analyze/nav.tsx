@@ -9,26 +9,26 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { PageNavLeaf } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav";
 
-export const analyzeNav: PageNavLeaf = {
+export const analyzeNav: PageNavNode = {
   key: "analyze",
   name: "Analyze",
   icon: <Icon.Analyze />,
   children: [
     {
       key: "/analyze/get-started",
-      url: "/analyze/get-started",
+      href: "/analyze/get-started",
       name: "Get Started",
     },
     {
       key: "/analyze/retrieve-channels",
-      url: "/analyze/retrieve-channels",
+      href: "/analyze/retrieve-channels",
       name: "Retrieve Channels",
     },
     {
       key: "/analyze/read-telemetry",
-      url: "/analyze/read-telemetry",
+      href: "/analyze/read-telemetry",
       name: "Read Telemetry",
     },
   ],

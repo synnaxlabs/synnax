@@ -84,7 +84,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no Cluster has been connected`,
+        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected`,
         variant: "error",
       });
 

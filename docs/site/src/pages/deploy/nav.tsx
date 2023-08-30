@@ -9,21 +9,21 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { PageNavLeaf } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav";
 
-export const deployNav: PageNavLeaf = {
+export const deployNav: PageNavNode = {
   key: "deploy",
   name: "Deploy",
   icon: <Icon.Cluster />,
   children: [
     {
       key: "/deploy/get-started",
-      url: "/deploy/get-started",
+      href: "/deploy/get-started",
       name: "Get Started",
     },
     {
       key: "/deploy/requirements",
-      url: "/deploy/requirements",
+      href: "/deploy/requirements",
       name: "Requirements",
     },
   ],

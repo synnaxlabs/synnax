@@ -20,7 +20,7 @@ export const pages = [
   {
     name: "Get Started",
     key: "/",
-    url: "/",
+    href: "/",
     icon: <Icon.Bolt />,
   },
   conceptsNav,

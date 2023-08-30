@@ -114,11 +114,22 @@ export type MaybeEditableProps<L extends Level = "h1"> = Omit<
 export const MaybeEditable = <L extends Level = "h1">({
   onChange,
   value,
+  allowDoubleClick,
   ...props
 }: MaybeEditableProps<L>): ReactElement => {
   if (onChange == null || typeof onChange === "boolean")
     // @ts-expect-error
     return <Text<L> {...props}>{value}</Text>;
-  // @ts-expect-error
-  return <Editable<L> onChange={onChange} value={value} {...props} />;
+
+  return (
+    <>
+      {/* @ts-expect-error */}
+      <Editable<L>
+        allowDoubleClick={allowDoubleClick}
+        onChange={onChange}
+        value={value}
+        {...props}
+      />
+    </>
+  );
 };

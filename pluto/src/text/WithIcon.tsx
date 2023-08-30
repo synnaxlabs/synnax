@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, cloneElement, isValidElement, ReactElement } from "react";
+import { Children, cloneElement, ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -15,6 +15,7 @@ import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Text } from "@/text";
 import { Level } from "@/text/types";
+import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 

@@ -34,6 +34,7 @@ export interface Node {
   children?: Node[];
   haulItems?: Haul.Item[];
   canDrop?: (items: Haul.Item[]) => boolean;
+  href?: string;
 }
 
 export interface FlattenedNode extends Node {
@@ -171,6 +172,7 @@ const Item = ({
     name,
     depth,
     expanded,
+    href,
   } = entry;
 
   const icons: ReactElement[] = [];
@@ -192,36 +194,37 @@ const Item = ({
     onDragOver: () => setDraggingOver(true),
   });
 
+  const baseProps: Button.LinkProps | Button.ButtonProps = {
+    id: key,
+    variant: "text",
+    draggable: true,
+    className: CSS(
+      CONTEXT_TARGET,
+      draggingOver && CSS.M("dragging-over"),
+      selected && CONTEXT_SELECTED,
+      CSS.selected(selected)
+    ),
+    onDragLeave: () => setDraggingOver(false),
+    onDragStart: () =>
+      startDrag(
+        selectedItems
+          .map(({ key, haulItems }) => [{ type: HAUL_TYPE, key }, ...(haulItems ?? [])])
+          .flat(),
+        (props) => onSuccessfulDrop?.(key, props)
+      ),
+    onClick: () => onSelect?.(key),
+    style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
+    startIcon: icons,
+    iconSpacing: "small",
+    noWrap: true,
+    href,
+    ...dropProps,
+  };
+
+  const Base = href != null ? Button.Link : Button.Button;
+
   return (
-    <Button.Button
-      id={key}
-      variant="text"
-      draggable
-      className={CSS(
-        CONTEXT_TARGET,
-        draggingOver && CSS.M("dragging-over"),
-        selected && CONTEXT_SELECTED,
-        CSS.selected(selected)
-      )}
-      onDragLeave={() => setDraggingOver(false)}
-      onDragStart={() =>
-        startDrag(
-          selectedItems
-            .map(({ key, haulItems }) => [
-              { type: HAUL_TYPE, key },
-              ...(haulItems ?? []),
-            ])
-            .flat(),
-          (props) => onSuccessfulDrop?.(key, props)
-        )
-      }
-      onClick={() => onSelect?.(key)}
-      style={{ ...style, paddingLeft: `${depth * 1.5 + 1}rem` }}
-      startIcon={icons}
-      noWrap
-      iconSpacing="small"
-      {...dropProps}
-    >
+    <Base {...baseProps}>
       <Text.MaybeEditable
         id={`text-${key}`}
         level="p"
@@ -231,7 +234,7 @@ const Item = ({
           onRename != null && allowRename ? (name) => onRename(key, name) : undefined
         }
       />
-    </Button.Button>
+    </Base>
   );
 };
 

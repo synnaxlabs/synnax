@@ -70,11 +70,7 @@ const HAUL_REF: ProviderRef = {
   onSuccessfulDrop: () => {},
 };
 
-export const useContext = (): ContextValue => {
-  const ctx = reactUseContext(Context);
-  if (ctx == null) throw new Error("HaulContext not available");
-  return ctx;
-};
+export const useContext = (): ContextValue | null => reactUseContext(Context);
 
 export const Provider = ({
   children,
@@ -122,14 +118,16 @@ export const Provider = ({
 
 export const useDraggingRef = (): MutableRefObject<DraggingState> => {
   const ref = useRef<DraggingState>(ZERO_DRAGGING_STATE);
-  const { state } = useContext();
-  ref.current = state;
+  const ctx = useContext();
+  if (ctx == null) return ref;
+  ref.current = ctx.state;
   return ref;
 };
 
 export const useDraggingState = (): DraggingState => {
-  const { state } = useContext();
-  return state;
+  const ctx = useContext();
+  if (ctx == null) return ZERO_DRAGGING_STATE;
+  return ctx.state;
 };
 
 // |||||| DRAG ||||||
@@ -153,7 +151,9 @@ export interface UseDragReturn {
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const key_ = key ?? useId();
   const source: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
-  const { start, end } = useContext();
+  const ctx = useContext();
+  if (ctx == null) return { startDrag: () => {}, onDragEnd: () => {} };
+  const { start, end } = ctx;
   return {
     startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
     onDragEnd: end,
@@ -189,7 +189,9 @@ export const useDrop = ({
   onDragOver,
 }: UseDropProps): UseDropReturn => {
   const ref = useDraggingRef();
-  const { drop } = useContext();
+  const ctx = useContext();
+  if (ctx == null) return { onDragOver: () => {}, onDrop: () => {} };
+  const { drop } = ctx;
 
   const key_ = key ?? useId();
   const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
