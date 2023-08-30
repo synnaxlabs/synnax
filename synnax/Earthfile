@@ -1,5 +1,5 @@
 VERSION 0.6
-FROM golang:1.19-bullseye
+from golang:1.21-bullseye
 WORKDIR /synnax
 
 deps:
