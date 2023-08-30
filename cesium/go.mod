@@ -10,6 +10,7 @@ require (
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000
 	github.com/synnaxlabs/x v0.0.0-00010101000000-000000000000
 	go.uber.org/zap v1.21.0
+	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91
 )
 
 replace github.com/synnaxlabs/x => ../x/go
@@ -53,7 +54,6 @@ require (
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect

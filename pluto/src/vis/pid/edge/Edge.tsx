@@ -23,7 +23,7 @@ import {
   calculateLineDirection,
 } from "@/vis/pid/edge/edgeUtils";
 
-import "@/vis/pid/Edge/Edge.css";
+import "@/vis/pid/edge/Edge.css";
 
 interface CurrentlyDragging {
   root: XY;
