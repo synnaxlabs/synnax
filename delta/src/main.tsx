@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { ReactElement, StrictMode, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
@@ -96,4 +96,4 @@ const Main = (): ReactElement | null => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);
+ReactDOM.createRoot(document.body).render(<Main />);

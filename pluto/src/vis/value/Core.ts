@@ -28,19 +28,18 @@ export type CoreProps = z.input<typeof corePropsZ>;
 export const Core = Aether.wrap<CoreProps>(
   "ValueCore",
   ({ aetherKey, ...props }): ReactElement | null => {
-    const theme = Theming.use();
     const font = Theming.useTypography(props.level);
     const memoProps = useMemoCompare(
       () => {
         return {
           font: font.toString(),
           ...props,
-          color: theme.colors.text,
         };
       },
       ([prevProps], [nextProps]) => Deep.equal(prevProps, nextProps),
-      [props, theme]
+      [props]
     );
+
     const [, , setState] = Aether.use({
       aetherKey,
       type: Value.TYPE,

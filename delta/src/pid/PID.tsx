@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useRef } from "react";
+import { ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -18,6 +18,9 @@ import {
   Haul,
   Theming,
   Text,
+  Viewport,
+  Triggers,
+  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { Box, XY, XYScale } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
@@ -34,7 +37,11 @@ import {
   setNodes,
   setViewport,
   addElement,
+  copySelection,
+  calculatePos,
+  pasteSelection,
 } from "@/pid/slice";
+import { Vis } from "@/vis";
 
 const ElementRenderer = ({
   elementKey,
@@ -81,6 +88,7 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
   const pid = useSelect(layoutKey);
   const dispatch = useDispatch();
   const theme = Theming.use();
+  const viewportRef = useSyncedRef(pid.viewport);
 
   const handleEdgesChange: Core.PIDProps["onEdgesChange"] = useCallback(
     (edges) => {
@@ -181,6 +189,27 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
     onDrop: handleDrop,
   });
 
+  const mode = Vis.useSelectViewportMode();
+  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+
+  Triggers.use({
+    triggers: [
+      ["Control", "V"],
+      ["Control", "C"],
+    ],
+    callback: useCallback(
+      ({ triggers, cursor, stage }: Triggers.UseEvent) => {
+        if (ref.current == null || stage !== "end") return;
+        const region = new Box(ref.current);
+        const copy = triggers.some((t) => t.includes("C"));
+        const pos = calculatePos(region, cursor, viewportRef.current);
+        if (copy) dispatch(copySelection({ pos }));
+        else dispatch(pasteSelection({ pos, layoutKey }));
+      },
+      [dispatch, layoutKey, viewportRef]
+    ),
+  });
+
   return (
     <div ref={ref} style={{ width: "inherit", height: "inherit" }}>
       <Control.Controller
@@ -198,12 +227,13 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
           editable={pid.editable}
+          triggers={triggers}
           {...dropProps}
         >
           <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
           <Core.Background />
           <Core.Controls reverse>
-            <Core.ToggleEditControl disabled={pid.control !== "released"} />
+            <Core.ToggleEditControl disabled={pid.control === "acquired"} />
             <Core.FitViewControl />
             <Button.ToggleIcon
               value={pid.control === "acquired"}

@@ -128,9 +128,7 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = new Dimensions(threshold_);
 
-  useEffect(() => {
-    setStateRef(initial);
-  }, [initial]);
+  useEffect(() => setStateRef(initial), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -144,7 +142,7 @@ export const use = ({
         const mouseTriggers = purgeMouseTriggers(config);
         return [config, reducedTriggers, mouseTriggers, reduceConfig(mouseTriggers)];
       },
-      compareConfigs,
+      Triggers.compareConfigs,
       [initialTriggers]
     );
 
@@ -198,8 +196,9 @@ export const use = ({
       }
 
       setMaskBox((prev) => (!prev.isZero ? Box.ZERO : prev));
+      const next = handlePan(box, stateRef.current, canvas);
       onChange?.({
-        box: handlePan(box, stateRef.current, canvas),
+        box: next,
         mode,
         stage,
         cursor,
@@ -212,6 +211,8 @@ export const use = ({
       triggerConfig,
       threshold_.height,
       threshold_.width,
+      setStateRef,
+      canvasRef,
     ]
   );
 

@@ -66,8 +66,9 @@ export class Controller
 
     // If the counter has been incremented, we need to acquire control.
     // If the counter has been decremented, we need to release control.
-    if (this.state.acquireTrigger > this.prevState.acquireTrigger) void this.acquire();
-    else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
+    if (this.state.acquireTrigger > this.prevState.acquireTrigger) {
+      void this.acquire();
+    } else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
       void this.release();
   }
 

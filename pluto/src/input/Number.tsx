@@ -111,8 +111,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     if (!showDragHandle) return input;
     return (
       <Align.Pack
-        {...props}
-        className={CSS(className, CSS.BM("input", variant))}
+        className={CSS(className, CSS.BM("input", variant), CSS.BE("input", "wrapper"))}
         style={style}
       >
         {input}

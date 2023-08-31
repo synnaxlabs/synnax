@@ -9,7 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { Text, Viewport } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -26,7 +26,6 @@ import { nanoid } from "nanoid";
 
 import { Layout } from "@/layout";
 import { Vis } from "@/vis";
-import { Workspace } from "@/workspace";
 
 // |||||| TITLE ||||||
 
@@ -101,11 +100,11 @@ export interface RuleState {
   key: string;
   label: string;
   color: string;
-  position: number;
   axis: Vis.AxisKey;
   lineWidth: number;
   lineDash: number;
   units: string;
+  position?: number;
 }
 
 export type RulesState = RuleState[];
@@ -213,13 +212,11 @@ export type ClickMode = "annotate" | "measure";
 export interface LineControlState {
   clickMode: ClickMode | null;
   enableTooltip: boolean;
-  mode: Viewport.Mode;
 }
 
 export const ZERO_LINE_CONTROL_STATE: LineControlState = {
   clickMode: null,
   enableTooltip: true,
-  mode: "zoom",
 };
 
 export interface SliceState {

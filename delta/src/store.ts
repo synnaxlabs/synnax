@@ -23,6 +23,8 @@ import { PID } from "@/pid";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
+import { Vis } from "./vis";
+
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
   Drift.SLICE_NAME,
   ...Layout.PERSIST_EXCLUDE,
@@ -37,6 +39,7 @@ const reducer = combineReducers({
   [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Line.SLICE_NAME]: Line.reducer,
+  [Vis.SLICE_NAME]: Vis.reducer,
 });
 
 export interface RootState {
@@ -48,6 +51,7 @@ export interface RootState {
   [Docs.SLICE_NAME]: Docs.SliceState;
   [PID.SLICE_NAME]: PID.SliceState;
   [Line.SLICE_NAME]: Line.SliceState;
+  [Vis.SLICE_NAME]: Vis.SliceState;
 }
 
 export type Action =
@@ -81,7 +85,7 @@ const newStore = async (): Promise<RootStore> => {
       persistMiddleware,
     ],
     reducer,
-    enablePrerender: true,
+    enablePrerender: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   })) as RootStore;
 };

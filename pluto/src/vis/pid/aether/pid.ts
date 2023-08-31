@@ -36,6 +36,7 @@ interface InternalState {
 export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDElement> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidStateZ;
+  readonly eraser: render.Eraser = new render.Eraser();
   schema = PID.stateZ;
 
   afterUpdate(): void {
@@ -47,14 +48,6 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDEl
 
   afterDelete(): void {
     this.requestRender();
-  }
-
-  get region(): Box {
-    return new Box(this.state.region);
-  }
-
-  get prevRegion(): Box {
-    return new Box(this.prevState.region);
   }
 
   async render(): Promise<render.Cleanup> {
@@ -79,9 +72,13 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDEl
       clearScissor();
     }
 
-    return async () => {
-      renderCtx.eraseCanvas(this.prevRegion.isZero ? this.region : this.prevRegion);
-    };
+    return async () =>
+      this.eraser.erase(
+        this.internal.render,
+        this.state.region,
+        this.prevState.region,
+        new XY(10)
+      );
   }
 
   private requestRender(): void {

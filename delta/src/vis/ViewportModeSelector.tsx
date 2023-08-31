@@ -12,69 +12,77 @@ import { ReactElement, ReactNode } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Input, Select, Text, Viewport } from "@synnaxlabs/pluto";
 import { PiSelectionPlusBold } from "react-icons/pi";
+import { useDispatch } from "react-redux";
 
-export interface ViewportModeSelectorProps extends Input.Control<Viewport.Mode> {}
+import { useSelectViewportMode } from "./selectors";
+import { setViewportMode } from "./slice";
 
-export const ViewportModeSelector = ({
-  value,
-  onChange,
-}: ViewportModeSelectorProps): ReactElement => (
-  <Select.Button<
-    Viewport.Mode,
-    { key: Viewport.Mode; icon: ReactElement; tooltip: ReactNode }
-  >
-    size="medium"
-    value={value}
-    onChange={onChange}
-    bordered={false}
-    rounded={false}
-    data={[
-      {
-        key: "zoom",
-        icon: <Icon.Zoom />,
-        tooltip: (
-          <Align.Space direction="x" align="center">
-            <Text.Text level="small">Zoom</Text.Text>
-            <Text.Keyboard level="small">Drag</Text.Keyboard>
-          </Align.Space>
-        ),
-      },
-      {
-        key: "pan",
-        icon: <Icon.Pan />,
-        tooltip: (
-          <Align.Space direction="x" align="center">
-            <Text.Text level="small">Pan</Text.Text>
-            <Text.Keyboard level="small">Shift</Text.Keyboard>
-            <Text.Keyboard level="small">Drag</Text.Keyboard>
-          </Align.Space>
-        ),
-      },
-      {
-        key: "select",
-        icon: <PiSelectionPlusBold />,
-        tooltip: (
-          <Align.Space direction="x" align="center">
-            <Text.Text level="small">Search</Text.Text>
-            <Text.Keyboard level="small">Alt</Text.Keyboard>
-            <Text.Keyboard level="small">Drag</Text.Keyboard>
-          </Align.Space>
-        ),
-      },
-    ]}
-    entryRenderKey="icon"
-  >
-    {({ title: _, entry, ...props }) => (
-      <Button.Icon
-        {...props}
-        key={entry.key}
-        variant={props.selected ? "filled" : "text"}
-        size="medium"
-        tooltip={entry.tooltip}
-        tooltipLocation={{ x: "right", y: "top" }}
-      >
-        {entry.icon}
-      </Button.Icon>
-    )}
-  </Select.Button>
-);
+export const ViewportModeSelector = (): ReactElement => {
+  const d = useDispatch();
+  const m = useSelectViewportMode();
+
+  const handleChange = (mode: Viewport.Mode): void => {
+    d(setViewportMode({ mode }));
+  };
+
+  return (
+    <Select.Button<
+      Viewport.Mode,
+      { key: Viewport.Mode; icon: ReactElement; tooltip: ReactNode }
+    >
+      size="medium"
+      value={m}
+      onChange={handleChange}
+      bordered={false}
+      rounded={false}
+      data={[
+        {
+          key: "zoom",
+          icon: <Icon.Zoom />,
+          tooltip: (
+            <Align.Space direction="x" align="center">
+              <Text.Text level="small">Zoom</Text.Text>
+              <Text.Keyboard level="small">Drag</Text.Keyboard>
+            </Align.Space>
+          ),
+        },
+        {
+          key: "pan",
+          icon: <Icon.Pan />,
+          tooltip: (
+            <Align.Space direction="x" align="center">
+              <Text.Text level="small">Pan</Text.Text>
+              <Text.Keyboard level="small">Shift</Text.Keyboard>
+              <Text.Keyboard level="small">Drag</Text.Keyboard>
+            </Align.Space>
+          ),
+        },
+        {
+          key: "select",
+          icon: <PiSelectionPlusBold />,
+          tooltip: (
+            <Align.Space direction="x" align="center">
+              <Text.Text level="small">Search</Text.Text>
+              <Text.Keyboard level="small">Alt</Text.Keyboard>
+              <Text.Keyboard level="small">Drag</Text.Keyboard>
+            </Align.Space>
+          ),
+        },
+      ]}
+      entryRenderKey="icon"
+    >
+      {({ title: _, entry, ...props }) => (
+        <Button.Icon
+          {...props}
+          key={entry.key}
+          variant={props.selected ? "filled" : "text"}
+          size="medium"
+          tooltip={entry.tooltip}
+          tooltipLocation={{ x: "right", y: "top" }}
+        >
+          {entry.icon}
+        </Button.Icon>
+      )}
+    </Select.Button>
+  );
+};

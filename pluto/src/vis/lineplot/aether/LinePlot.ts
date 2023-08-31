@@ -129,7 +129,6 @@ export class LinePlot extends aether.Composite<
       await this.renderMeasures(plot);
       this.clearError();
     } catch (e) {
-      throw e;
       this.setError(e as Error);
     } finally {
       removeGlScissor();

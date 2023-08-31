@@ -10,23 +10,30 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { Viewport } from "@synnaxlabs/pluto";
 
-export interface VisSliceState {
+export interface SliceState {
   viewportMode: Viewport.Mode;
 }
 
-const ZERO_VIS_SLICE_STATE: VisSliceState = {
+export const SLICE_NAME = "vis";
+
+export interface StoreState {
+  [SLICE_NAME]: SliceState;
+}
+
+const ZERO_SLICE_STATE: SliceState = {
   viewportMode: "pan",
 };
-
-export const VIS_SLICE_NAME = "vis";
 
 export interface SetVisViewportModePayload {
   mode: Viewport.Mode;
 }
 
-export const { actions, reducer: visReducer } = createSlice({
-  name: VIS_SLICE_NAME,
-  initialState: ZERO_VIS_SLICE_STATE,
+export const {
+  actions: { setViewportMode },
+  reducer,
+} = createSlice({
+  name: SLICE_NAME,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     setViewportMode: (state, action) => {
       state.viewportMode = action.payload.mode;

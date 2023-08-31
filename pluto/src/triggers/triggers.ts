@@ -266,3 +266,8 @@ export const reduceConfig = <K extends string | number | symbol>(
   ) as unknown as Array<[K, Trigger[]]>;
   return e.map(([, v]) => v).flat();
 };
+
+export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
+  triggers
+    .map((t) => t.filter((k) => !k.startsWith("Mouse")))
+    .filter((t) => t.length > 0);

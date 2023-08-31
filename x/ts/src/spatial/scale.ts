@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { clamp } from "@/clamp";
-import { Box } from "@/spatial/box";
+import { Box, isBox } from "@/spatial/box";
 import {
   Bounds,
   XY,
@@ -288,10 +288,10 @@ export class XYScale {
 
   scale(box: Box | Dimensions): XYScale {
     const next = this.copy();
-    if (box instanceof Box) {
+    if (isBox(box)) {
       const prevRoot = this.currRoot;
       next.currRoot = box.root;
-      if (prevRoot != null && prevRoot !== box.root) {
+      if (prevRoot != null && !prevRoot.equals(box.root)) {
         if (!prevRoot.x.equals(box.root.x)) next.x = next.x.invert();
         if (!prevRoot.y.equals(box.root.y)) next.y = next.y.invert();
       }

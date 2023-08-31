@@ -7,21 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { FC, ReactElement } from "react";
+
+import { Align } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { NavControls as LineNavControls } from "@/line/NavControls";
 import { NavControls as PidNavControls } from "@/pid/NavControls";
 
+import { ViewportModeSelector } from "./ViewportModeSelector";
+
+const REGISTRY: Record<"line" | "pid", FC> = {
+  line: LineNavControls,
+  pid: PidNavControls,
+};
+
 export const NavControls = (): ReactElement => {
   const layout = Layout.useSelectActiveMosaicLayout();
 
-  switch (layout?.type) {
-    case "line":
-      return <LineNavControls />;
-    case "pid":
-      return <PidNavControls />;
-    default:
-      return <></>;
-  }
+  const Controls = REGISTRY[layout?.type as "line" | "pid"] ?? (() => <></>);
+
+  return (
+    <Align.Space direction="x" size="small">
+      <ViewportModeSelector />
+      <Controls />
+    </Align.Space>
+  );
 };

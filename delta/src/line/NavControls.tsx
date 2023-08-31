@@ -40,8 +40,7 @@ export const NavControls = (): ReactElement => {
   };
 
   return (
-    <Align.Space style={{ paddingLeft: "2rem" }} direction="x" size="small">
-      <ViewportModeSelector value={control.mode} onChange={handleModeChange} />
+    <>
       <Button.Icon
         onClick={handleZoomReset}
         variant="text"
@@ -126,6 +125,6 @@ export const NavControls = (): ReactElement => {
           </Button.Icon>
         )}
       </Select.Button>
-    </Align.Space>
+    </>
   );
 };

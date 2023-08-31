@@ -25,7 +25,7 @@ const valueState = z.object({
   telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
   units: z.string(),
   font: z.string().optional().default(""),
-  color: color.Color.z,
+  color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   width: z.number().optional().default(100),
 });
@@ -39,6 +39,7 @@ interface InternalState {
   telem: telem.NumericSource;
   cleanupTelem: Destructor;
   requestRender: (() => void) | null;
+  textColor: color.Color;
 }
 
 export class Value
@@ -53,6 +54,8 @@ export class Value
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
+    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.p2;
+    else this.internal.textColor = this.state.color;
     const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,
       this.key,
@@ -104,7 +107,7 @@ export class Value
         x: -dims.width / 2,
       });
 
-    canvas.fillStyle = this.state.color.hex;
+    canvas.fillStyle = this.internal.textColor.hex;
     canvas.fillText(valueStr, ...labelPosition.couple);
   }
 }

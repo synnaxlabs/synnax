@@ -379,3 +379,8 @@ export const positionInCenter = (
   const y = bound.y + (bound.height - target.height) / 2;
   return new Box({ x, y }, target.dims);
 };
+
+export const isBox = (value: unknown): value is Box => {
+  if (typeof value !== "object" || value == null) return false;
+  return "isBox" in value && (value as Box).isBox;
+};

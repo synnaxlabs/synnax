@@ -29,6 +29,7 @@ import {
 } from "@/line/selectors";
 import {
   LinePlotState,
+  RuleState,
   setLinePlotLine,
   setLinePlotRanges,
   setLinePlotRule,
@@ -102,7 +103,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const rules = buildRules(vis);
+  const rules = useMemo(() => buildRules(vis?.rules ?? []), [vis.rules]);
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
   const rng = Workspace.useSelectRange();
@@ -170,7 +171,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const { mode, enableTooltip, clickMode } = useSelectLineControlState();
+  const { enableTooltip, clickMode } = useSelectLineControlState();
+  const mode = Vis.useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(() => {
@@ -204,8 +206,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 };
 
-const buildRules = (vis: LinePlotState): Channel.RuleProps[] =>
-  vis.rules?.map((rule) => ({
+const buildRules = (rules: RuleState[]): Channel.RuleProps[] =>
+  rules.map((rule) => ({
     id: rule.key,
     ...rule,
   }));

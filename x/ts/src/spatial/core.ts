@@ -531,6 +531,12 @@ export class XY {
     return Math.abs(this.y - o.y);
   }
 
+  /** @returns the translation necessary to get from the point to the given point */
+  translation(other: LooseXYT): XY {
+    const o = new XY(other);
+    return new XY(o.x - this.x, o.y - this.y);
+  }
+
   /**
    * @returns the XY represented as a couple, where the first item is the x coordinate,
    * and the second item is the y coordinate.

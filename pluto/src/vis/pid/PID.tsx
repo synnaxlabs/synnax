@@ -47,13 +47,14 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { useMemoCompare, useResize } from "@/hooks";
 import { Status } from "@/status";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 import { RenderProp } from "@/util/renderProp";
+import { Viewport as CoreViewport } from "@/viewport";
 import { pid } from "@/vis/pid/aether";
 import { Edge as PlutoEdge } from "@/vis/pid/edge";
-
 import {
   Edge,
   Node,
@@ -64,7 +65,7 @@ import {
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
-} from "./types";
+} from "@/vis/pid/types";
 
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
@@ -134,7 +135,9 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
 
 export interface PIDProps
   extends UseReturn,
-    Omit<ComponentPropsWithoutRef<"div">, "onError"> {}
+    Omit<ComponentPropsWithoutRef<"div">, "onError"> {
+  triggers?: CoreViewport.UseTriggers;
+}
 
 interface ContextValue {
   editable: boolean;
@@ -166,204 +169,222 @@ NodeRenderer.displayName = "NodeRenderer";
 const Core = Aether.wrap<PIDProps>(
   pid.PID.TYPE,
   // eslint-disable-next-line react/display-name
-  forwardRef(
-    (
-      {
-        aetherKey,
-        children,
-        onNodesChange,
-        onEdgesChange,
-        nodes,
-        edges,
-        onEditableChange,
-        editable,
-        viewport,
-        onViewportChange,
-        ...props
+  ({
+    aetherKey,
+    children,
+    onNodesChange,
+    onEdgesChange,
+    nodes,
+    edges,
+    onEditableChange,
+    editable,
+    viewport,
+    triggers: pTriggers,
+    onViewportChange,
+    ...props
+  }): ReactElement => {
+    const [{ path }, { error }, setState] = Aether.use({
+      aetherKey,
+      type: pid.PID.TYPE,
+      schema: pid.PID.stateZ,
+      initialState: {
+        position: viewport.position,
+        region: Box.ZERO,
+        zoom: viewport.zoom,
       },
-      ref
-    ): ReactElement => {
-      const [{ path }, { error }, setState] = Aether.use({
-        aetherKey,
-        type: pid.PID.TYPE,
-        schema: pid.PID.stateZ,
-        initialState: {
-          position: viewport.position,
-          region: Box.ZERO,
-          zoom: viewport.zoom,
-        },
-      });
+    });
 
-      const resizeRef = useResize(
-        (box) => {
-          setState((prev) => ({ ...prev, region: box }));
-        },
-        { debounce: 0 }
-      );
+    const triggers = useMemoCompare(
+      () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
+      Triggers.compareConfigs,
+      [pTriggers]
+    );
 
-      // For some reason, react flow repeatedly calls onViewportChange with the same
-      // paramters, so we do a need equality check to prevent unnecessary re-renders.
-      const vpRef = useRef<RFViewport | null>(null);
-      const handleViewport = useCallback(
-        (viewport: RFViewport): void => {
-          if (vpRef.current != null && Deep.equal(viewport, vpRef.current)) return;
-          vpRef.current = viewport;
-          setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
-          onViewportChange(translateViewportBackward(viewport));
-        },
-        [setState, onViewportChange]
-      );
+    const resizeRef = useResize(
+      (box) => {
+        setState((prev) => ({ ...prev, region: box }));
+      },
+      { debounce: 0 }
+    );
 
-      useRFOnViewportChange({
-        onStart: handleViewport,
-        onChange: handleViewport,
-        onEnd: handleViewport,
-      });
+    // For some reason, react flow repeatedly calls onViewportChange with the same
+    // paramters, so we do a need equality check to prevent unnecessary re-renders.
+    const vpRef = useRef<RFViewport | null>(null);
+    const handleViewport = useCallback(
+      (viewport: RFViewport): void => {
+        if (vpRef.current != null && Deep.equal(viewport, vpRef.current)) return;
+        vpRef.current = viewport;
+        setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
+        onViewportChange(translateViewportBackward(viewport));
+      },
+      [setState, onViewportChange]
+    );
 
-      const [renderer, setRenderer] = useState<RenderProp<ElementProps>>(
-        () => () => null
-      );
+    useRFOnViewportChange({
+      onStart: handleViewport,
+      onChange: handleViewport,
+      onEnd: handleViewport,
+    });
 
-      const registerNodeRenderer = useCallback(
-        (renderer: RenderProp<ElementProps>) => setRenderer(() => renderer),
-        []
-      );
+    const [renderer, setRenderer] = useState<RenderProp<ElementProps>>(
+      () => () => null
+    );
 
-      const Node = useCallback(
-        ({ id, xPos, yPos, selected }: RFNodeProps) => {
-          const { zoom } = useViewport();
-          const { editable } = useContext();
-          return renderer({
-            elementKey: id,
-            position: { x: xPos, y: yPos },
-            zoom,
-            selected,
-            editable,
-          });
-        },
-        [renderer]
-      );
+    const registerNodeRenderer = useCallback(
+      (renderer: RenderProp<ElementProps>) => setRenderer(() => renderer),
+      []
+    );
 
-      const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
-      const edgesRef = useRef(edges);
-      const edges_ = useMemo(() => {
-        edgesRef.current = edges;
-        return translateEdgesForward(edges);
-      }, [edges]);
-      const nodesRef = useRef(nodes);
-      const nodes_ = useMemo(() => {
-        nodesRef.current = nodes;
-        return translateNodesForward(nodes);
-      }, [nodes]);
+    const Node = useCallback(
+      ({ id, xPos, yPos, selected }: RFNodeProps) => {
+        const { zoom } = useViewport();
+        const { editable } = useContext();
+        return renderer({
+          elementKey: id,
+          position: { x: xPos, y: yPos },
+          zoom,
+          selected,
+          editable,
+        });
+      },
+      [renderer]
+    );
 
-      const handleNodesChange = useCallback(
-        (changes: RFNodeChange[]) =>
-          onNodesChange(
-            nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n))
-          ),
-        [onNodesChange]
-      );
+    const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
+    const edgesRef = useRef(edges);
+    const edges_ = useMemo(() => {
+      edgesRef.current = edges;
+      return translateEdgesForward(edges);
+    }, [edges]);
+    const nodesRef = useRef(nodes);
+    const nodes_ = useMemo(() => {
+      nodesRef.current = nodes;
+      return translateNodesForward(nodes);
+    }, [nodes]);
 
-      const handleEdgesChange = useCallback(
-        (changes: RFEdgeChange[]) =>
-          onEdgesChange(
-            edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e))
-          ),
-        [onEdgesChange]
-      );
+    const handleNodesChange = useCallback(
+      (changes: RFNodeChange[]) =>
+        onNodesChange(
+          nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n))
+        ),
+      [onNodesChange]
+    );
 
-      const handleEdgeUpdate = useCallback(
-        (oldEdge: RFEdge, newConnection: RFConnection) =>
-          onEdgesChange(
-            edgeConverter(edgesRef.current, (e) =>
-              updateEdge(oldEdge, newConnection, e)
-            )
-          ),
-        []
-      );
+    const handleEdgesChange = useCallback(
+      (changes: RFEdgeChange[]) =>
+        onEdgesChange(
+          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e))
+        ),
+      [onEdgesChange]
+    );
 
-      const handleConnect = useCallback(
-        (conn: RFConnection) =>
-          onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e))),
-        [onEdgesChange]
-      );
+    const handleEdgeUpdate = useCallback(
+      (oldEdge: RFEdge, newConnection: RFConnection) =>
+        onEdgesChange(
+          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e))
+        ),
+      []
+    );
 
-      const handleEdgePointsChange = useCallback(
-        (id: string, points: CrudeXY[]) => {
-          const next = [...edgesRef.current];
-          const index = next.findIndex((e) => e.key === id);
-          if (index === -1) return;
-          next[index] = { ...next[index], points };
-          onEdgesChange(next);
-        },
-        [onEdgesChange]
-      );
+    const handleConnect = useCallback(
+      (conn: RFConnection) =>
+        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e))),
+      [onEdgesChange]
+    );
 
-      const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
+    const handleEdgePointsChange = useCallback(
+      (id: string, points: CrudeXY[]) => {
+        const next = [...edgesRef.current];
+        const index = next.findIndex((e) => e.key === id);
+        if (index === -1) return;
+        next[index] = { ...next[index], points };
+        onEdgesChange(next);
+      },
+      [onEdgesChange]
+    );
 
-      const EDGE_TYPES = useMemo(
-        () => ({
-          default: (props: any) => (
-            <PlutoEdge
-              {...props}
-              editable={props.data.editable}
-              points={props.data.points}
-              color={props.data.color}
-              onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
-            />
-          ),
-        }),
-        [handleEdgePointsChange]
-      );
+    const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-      if (error != null) {
-        return (
-          <Aether.Composite path={path}>
-            <Status.Text.Centered variant="error" hideIcon level="h4">
-              {error}
-            </Status.Text.Centered>
-          </Aether.Composite>
-        );
-      }
+    const EDGE_TYPES = useMemo(
+      () => ({
+        default: (props: any) => (
+          <PlutoEdge
+            {...props}
+            editable={props.data.editable}
+            points={props.data.points}
+            color={props.data.color}
+            onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
+          />
+        ),
+      }),
+      [handleEdgePointsChange]
+    );
 
+    if (error != null) {
       return (
-        <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
-          <Aether.Composite path={path}>
-            <ReactFlow
-              className={CSS(CSS.B("pid"), CSS.editable(editable))}
-              nodes={nodes_}
-              edges={edges_}
-              nodeTypes={nodeTypes}
-              edgeTypes={EDGE_TYPES}
-              ref={resizeRef}
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={handleConnect}
-              onEdgeUpdate={handleEdgeUpdate}
-              defaultViewport={translateViewportForward(viewport)}
-              snapToGrid={true}
-              panOnScroll
-              selectionOnDrag
-              panOnDrag={false}
-              minZoom={0.5}
-              maxZoom={1}
-              selectionKeyCode={null}
-              panActivationKeyCode={"Shift"}
-              connectionMode={ConnectionMode.Loose}
-              snapGrid={[5, 5]}
-              proOptions={{
-                hideAttribution: true,
-              }}
-              {...editableProps}
-              {...props}
-            >
-              {children}
-            </ReactFlow>
-          </Aether.Composite>
-        </Context.Provider>
+        <Aether.Composite path={path}>
+          <Status.Text.Centered variant="error" hideIcon level="h4">
+            {error}
+          </Status.Text.Centered>
+        </Aether.Composite>
       );
     }
-  )
+
+    const { fitView } = useReactFlow();
+    Triggers.use({
+      triggers: triggers.zoomReset,
+      callback: useCallback(
+        ({ stage }: Triggers.UseEvent) => {
+          if (stage === "end") fitView();
+        },
+        [fitView]
+      ),
+    });
+
+    const selectTriggers = Triggers.purgeMouse(triggers.select)[0] ?? null;
+    const panTriggers = Triggers.purgeMouse(triggers.pan)[0] ?? null;
+    const zoomTriggers = Triggers.purgeMouse(triggers.zoom)[0] ?? null;
+    const triggerProps: Partial<ReactFlowProps> = {
+      selectionOnDrag: selectTriggers == null,
+      panOnDrag: panTriggers == null,
+      selectionKeyCode: selectTriggers,
+      panActivationKeyCode: panTriggers,
+      zoomActivationKeyCode: zoomTriggers,
+    };
+
+    return (
+      <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
+        <Aether.Composite path={path}>
+          <ReactFlow
+            {...triggerProps}
+            className={CSS(CSS.B("pid"), CSS.editable(editable))}
+            nodes={nodes_}
+            edges={edges_}
+            nodeTypes={nodeTypes}
+            edgeTypes={EDGE_TYPES}
+            ref={resizeRef}
+            onNodesChange={handleNodesChange}
+            onEdgesChange={handleEdgesChange}
+            onConnect={handleConnect}
+            onEdgeUpdate={handleEdgeUpdate}
+            defaultViewport={translateViewportForward(viewport)}
+            snapToGrid={true}
+            minZoom={0.5}
+            maxZoom={1}
+            connectionMode={ConnectionMode.Loose}
+            snapGrid={[5, 5]}
+            proOptions={{
+              hideAttribution: true,
+            }}
+            {...editableProps}
+            {...props}
+          >
+            {children}
+          </ReactFlow>
+        </Aether.Composite>
+      </Context.Provider>
+    );
+  }
 );
 
 export const Background = (): ReactElement | null => {
