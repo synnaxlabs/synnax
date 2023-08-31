@@ -93,7 +93,7 @@ export const useHeldRef = ({
   });
   use({
     triggers,
-    callback: useCallback((e) => {
+    callback: useCallback((e: UseEvent) => {
       setRef((prev) => {
         let next: Trigger[] = [];
         if (e.stage === "start") {

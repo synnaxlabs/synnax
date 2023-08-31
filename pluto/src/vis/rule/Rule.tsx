@@ -10,6 +10,7 @@
 import { ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { Bounds, Box } from "@synnaxlabs/x";
+import { createPortal } from "react-dom";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
@@ -18,6 +19,7 @@ import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
 import { Text } from "@/text";
+import { selectViewportEl } from "@/vis/lineplot/Viewport";
 import { rule } from "@/vis/rule/aether";
 
 import "@/vis/rule/Rule.css";
@@ -96,10 +98,17 @@ export const Rule = Aether.wrap<RuleProps>(
       }, []),
     });
 
+    const ref = useRef<HTMLDivElement>(null);
+
     if (position == null || pixelPosition == null) return null;
 
-    return (
+    const viewportEl = selectViewportEl(ref?.current);
+
+    console.log(viewportEl, ref.current);
+
+    const content = (
       <div
+        ref={ref}
         className={CSS.B("rule")}
         style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
       >
@@ -117,5 +126,8 @@ export const Rule = Aether.wrap<RuleProps>(
         </Align.Space>
       </div>
     );
+
+    if (viewportEl == null) return content;
+    return createPortal(content, viewportEl);
   }
 );

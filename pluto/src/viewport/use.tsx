@@ -129,7 +129,6 @@ export const use = ({
   const threshold = new Dimensions(threshold_);
 
   useEffect(() => {
-    console.log("UPDATING STATE REF", stateRef.current);
     setStateRef(initial);
   }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);

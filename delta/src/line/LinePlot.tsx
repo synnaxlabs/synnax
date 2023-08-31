@@ -174,7 +174,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(() => {
-    console.log(vis.viewport.counter);
     return new Box(vis.viewport.pan, vis.viewport.zoom).reRoot(XYLocation.BOTTOM_LEFT);
   }, [vis.viewport.counter]);
 
@@ -195,6 +194,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
         onRulePositionChange={handleRulePositionChange}
         onRuleLabelChange={handleRuleLabelChange}
         onAxisChannelDrop={handleChannelAxisDrop}
+        onViewportChange={handleViewportChange}
         initialViewport={initialViewport}
         viewportTriggers={triggers}
         enableTooltip={enableTooltip}

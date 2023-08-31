@@ -13,13 +13,46 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+type Config struct {
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Group    *group.Service
+}
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("user")
+	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "Ontology", c.Ontology)
+	validate.NotNil(v, "Group", c.Group)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	return c
+}
 
 type Service struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	group    group.Group
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

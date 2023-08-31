@@ -6,7 +6,14 @@ import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
+import "@/vis/lineplot/Viewport.css";
+
 export interface ViewportProps extends PropsWithChildren<{}>, Core.UseProps {}
+
+export const selectViewportEl = (el: HTMLElement | null): Element | null =>
+  el == null
+    ? null
+    : document.querySelectorAll(".pluto-line-plot__viewport")[0] ?? null;
 
 export const Viewport = ({
   children,
@@ -17,11 +24,10 @@ export const Viewport = ({
   const { setViewport } = useContext("Viewport");
 
   useLayoutEffect(() => {
-    console.log(initial);
     setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" });
   }, [setViewport, initial]);
 
-  const updateViewport = useCallback(
+  const handleChange = useCallback(
     (e: Core.UseEvent): void => {
       setViewport(e);
       onChange?.(e);
@@ -30,7 +36,7 @@ export const Viewport = ({
   );
 
   const maskProps = Core.use({
-    onChange: updateViewport,
+    onChange: handleChange,
     initial,
     ...props,
   });

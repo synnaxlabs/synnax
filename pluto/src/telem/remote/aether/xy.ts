@@ -136,7 +136,7 @@ export const xySourcePropsZ = xySourceCorePropsZ.extend({
   timeRange: TimeRange.z,
 });
 
-export type XYSourceProps = z.infer<typeof xySourcePropsZ>;
+export type XYSourceProps = z.input<typeof xySourcePropsZ>;
 
 export class XYSource
   extends XYSourceCore<typeof xySourcePropsZ>
@@ -169,7 +169,7 @@ export const dynamicXYSourceProps = z.object({
   y: z.number(),
 });
 
-export type DynamicXYSourceProps = z.infer<typeof dynamicXYSourceProps>;
+export type DynamicXYSourceProps = z.input<typeof dynamicXYSourceProps>;
 
 export class DynamicXYSource
   extends XYSourceCore<typeof dynamicXYSourceProps, client.Client>

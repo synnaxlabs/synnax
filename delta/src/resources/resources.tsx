@@ -179,7 +179,7 @@ export const types: Record<string, ResourceType> = {
   },
   range: {
     type: "range",
-    hasChildren: true,
+    hasChildren: false,
     icon: <Icon.Range />,
     canDrop: () => true,
     onDrop: () => {},
@@ -195,6 +195,7 @@ export const types: Record<string, ResourceType> = {
     },
     contextMenu: () => <></>,
     haulItems: () => [],
+    allowRename: () => true,
   },
 };
 
