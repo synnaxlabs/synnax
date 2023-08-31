@@ -28,7 +28,7 @@ import { render } from "@/vis/render";
 export const xAxisStateZ = axis.axisStateZ
   .extend({
     location: Location.strictYZ.optional().default("bottom"),
-    bound: Bounds.looseZ.optional(),
+    bounds: Bounds.looseZ.optional(),
     autoBoundPadding: z.number().optional().default(0.01),
     size: z.number().optional().default(0),
     labelSize: z.number().optional().default(0),
@@ -104,7 +104,8 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
   }
 
   private async xBounds(): Promise<Bounds> {
-    if (this.state.bound != null && !this.state.bound.isZero) return this.state.bound;
+    if (this.state.bounds != null && !this.state.bounds.isZero)
+      return this.state.bounds;
     const bounds = (
       await Promise.all(this.children.map(async (el) => await el.xBounds()))
     ).filter((b) => b.isFinite);

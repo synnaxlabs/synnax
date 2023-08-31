@@ -42,10 +42,15 @@ export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
  * @param props.onChange - Callback executed when the selected item changes.
  * @param props.value - The selected item.
  */
-export const Menu = ({ children, onChange, value = "" }: MenuProps): ReactElement => {
+export const Menu = ({
+  children,
+  onChange,
+  level,
+  value = "",
+}: MenuProps): ReactElement => {
   const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
   return (
-    <MenuContext.Provider value={{ onClick: handleClick, selected: value }}>
+    <MenuContext.Provider value={{ onClick: handleClick, selected: value, level }}>
       {children}
     </MenuContext.Provider>
   );

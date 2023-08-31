@@ -21,12 +21,15 @@ import {
   componentRenderProp,
   Select,
   Align,
+  Theming,
+  Menu,
 } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { useSelectLinePlot } from "@/line/selectors";
-import { RuleState, setLinePlotRule } from "@/line/slice";
+import { RuleState, removeLinePlotRule, setLinePlotRule } from "@/line/slice";
 import { Vis } from "@/vis";
 
 export interface AnnotationsProps {
@@ -35,10 +38,12 @@ export interface AnnotationsProps {
 
 export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
   const vis = useSelectLinePlot(layoutKey);
+  const theme = Theming.use();
 
   const dispatch = useDispatch();
 
-  const [selected, setSelected] = useState<string>(vis?.rules[0]?.key ?? "");
+  const [allSelected, setAllSelected] = useState<string[]>([vis?.rules[0]?.key ?? ""]);
+  const selected = allSelected[0];
 
   const handleUnitsChange = (unit: string): void => {
     dispatch(
@@ -131,10 +136,11 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
         key: layoutKey,
         rule: {
           key,
+          color: theme.colors.primary.z.hex,
         },
       })
     );
-    setSelected(key);
+    setAllSelected([key]);
   };
 
   const selectedRule = vis.rules.find((rule) => rule.key === selected);
@@ -180,7 +186,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           <Input.Item<number>
             label="Position"
             onChange={handlePositionChange}
-            value={selectedRule.position}
+            value={selectedRule.position ?? 0}
             variant="shadow"
           >
             {componentRenderProp(Input.Numeric)}
@@ -230,54 +236,84 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
     );
   }
 
+  const menuProps = Menu.useContextMenu();
+
   return (
     <Align.Space direction="x" style={{ height: "100%", width: "100%" }} empty>
       <Align.Space direction="y" empty>
-        <List.List<string, RuleState> data={vis.rules}>
-          <Header.Header level="p">
-            <Header.Title>Annotations</Header.Title>
-            <Header.Actions>
-              {[
-                {
-                  key: "add",
-                  title: "Add",
-                  children: <Icon.Add />,
-                  onClick: createRule,
-                },
-              ]}
-            </Header.Actions>
-          </Header.Header>
-          <List.Selector
-            value={[selected]}
-            allowMultiple={false}
-            allowNone={false}
-            onChange={([v]) => {
-              setSelected(v);
-            }}
-          />
-          <List.Core.Virtual<string, RuleState>
-            itemHeight={27}
-            style={{ height: "100%", width: 200 }}
-          >
-            {({ onSelect, selected, style, entry: { key, label } }) => (
-              <Button.Button
-                key={key}
-                onClick={() => {
-                  onSelect?.(key);
-                }}
-                style={{
-                  ...style,
-                  width: "100%",
-                  backgroundColor: selected ? "var(--pluto-primary-z-40)" : "",
-                  borderRadius: 0,
-                }}
-                variant="text"
-              >
-                {label}
-              </Button.Button>
-            )}
-          </List.Core.Virtual>
-        </List.List>
+        <Menu.ContextMenu
+          menu={({ keys }) => {
+            const onChange = (key: string): void => {
+              switch (key) {
+                case "remove":
+                  dispatch(
+                    removeLinePlotRule({
+                      key: layoutKey,
+                      ruleKeys: keys,
+                    })
+                  );
+              }
+            };
+
+            return (
+              <Menu.Menu level="small" onChange={onChange}>
+                <Menu.Item itemKey="remove" startIcon={<Icon.Delete />}>
+                  Remove Annotation
+                </Menu.Item>
+              </Menu.Menu>
+            );
+          }}
+          {...menuProps}
+        >
+          <List.List<string, RuleState> data={vis.rules}>
+            <Header.Header level="p">
+              <Header.Title>Annotations</Header.Title>
+              <Header.Actions>
+                {[
+                  {
+                    key: "add",
+                    title: "Add",
+                    children: <Icon.Add />,
+                    onClick: createRule,
+                  },
+                ]}
+              </Header.Actions>
+            </Header.Header>
+            <List.Selector
+              value={allSelected}
+              allowNone={false}
+              replaceOnSingle
+              onChange={setAllSelected}
+            />
+            <List.Core.Virtual<string, RuleState>
+              itemHeight={27}
+              style={{ height: "100%", width: 200 }}
+            >
+              {({ onSelect, selected, style, entry: { key, label } }) => (
+                <Button.Button
+                  key={key}
+                  id={key}
+                  className={CSS(
+                    Menu.CONTEXT_TARGET,
+                    selected && Menu.CONTEXT_SELECTED
+                  )}
+                  onClick={() => {
+                    onSelect?.(key);
+                  }}
+                  style={{
+                    ...style,
+                    width: "100%",
+                    backgroundColor: selected ? "var(--pluto-primary-z-20)" : "",
+                    borderRadius: 0,
+                  }}
+                  variant="text"
+                >
+                  {label}
+                </Button.Button>
+              )}
+            </List.Core.Virtual>
+          </List.List>
+        </Menu.ContextMenu>
       </Align.Space>
       <Divider.Divider direction="y" />
       {content}

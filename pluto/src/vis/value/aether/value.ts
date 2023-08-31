@@ -56,7 +56,7 @@ export class Value
     const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,
       this.key,
-      noop.numericSourceSpec
+      this.state.telem
     );
     this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;

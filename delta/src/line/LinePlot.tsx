@@ -30,6 +30,7 @@ import {
 import {
   LinePlotState,
   setLinePlotLine,
+  setLinePlotRanges,
   setLinePlotRule,
   setLinePlotXChannel,
   setLinePlotYChannels,
@@ -101,9 +102,14 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
+  const rules = buildRules(vis);
+  const propsLines = buildLines(vis, ranges);
+  const axes = buildAxes(vis);
+  const rng = Workspace.useSelectRange();
+
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: ChannelKeys): void => {
-      if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey)) {
+      if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
         dispatch(
           setLinePlotXChannel({
             key: layoutKey,
@@ -111,7 +117,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
             channel: channels[0],
           })
         );
-      } else {
+      else
         dispatch(
           setLinePlotYChannels({
             key: layoutKey,
@@ -120,9 +126,18 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
             mode: "add",
           })
         );
+      if (propsLines.length === 0 && rng != null) {
+        dispatch(
+          setLinePlotRanges({
+            mode: "add",
+            key: layoutKey,
+            axisKey: "x1",
+            ranges: [rng.key],
+          })
+        );
       }
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey, propsLines.length, rng]
   );
 
   const handleRuleLabelChange = useCallback(
@@ -155,17 +170,13 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const rules = buildRules(vis);
-  const propsLines = buildLines(vis, ranges);
-  const axes = buildAxes(vis);
-
   const { mode, enableTooltip, clickMode } = useSelectLineControlState();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  const initialViewport = useMemo(
-    () => new Box(vis.viewport.pan, vis.viewport.zoom).reRoot(XYLocation.BOTTOM_LEFT),
-    [vis.viewport.counter]
-  );
+  const initialViewport = useMemo(() => {
+    console.log(vis.viewport.counter);
+    return new Box(vis.viewport.pan, vis.viewport.zoom).reRoot(XYLocation.BOTTOM_LEFT);
+  }, [vis.viewport.counter]);
 
   return (
     <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
@@ -185,7 +196,6 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
         onRuleLabelChange={handleRuleLabelChange}
         onAxisChannelDrop={handleChannelAxisDrop}
         initialViewport={initialViewport}
-        onViewportChange={handleViewportChange}
         viewportTriggers={triggers}
         enableTooltip={enableTooltip}
         enableMeasure={clickMode === "measure"}
@@ -221,7 +231,7 @@ const buildLines = (
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
       Object.entries(vis.channels)
-        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+        .filter(([axis]) => !Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
           const xChannel = vis.channels[xAxis as Vis.XAxisKey];
           const variantArg =

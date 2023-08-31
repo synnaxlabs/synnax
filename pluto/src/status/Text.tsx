@@ -53,8 +53,8 @@ const CoreText = ({
 
 export interface TextCenteredProps extends TextProps {}
 
-const TextCentered = (props: TextCenteredProps): ReactElement => (
-  <Align.Center>
+const TextCentered = ({ style, ...props }: TextCenteredProps): ReactElement => (
+  <Align.Center style={style}>
     <CoreText {...props} />
   </Align.Center>
 );

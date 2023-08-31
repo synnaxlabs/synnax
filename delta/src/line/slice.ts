@@ -24,9 +24,9 @@ import {
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { LayoutState, LayoutCreator } from "@/layout";
+import { Layout } from "@/layout";
 import { Vis } from "@/vis";
-import { Range } from "@/workspace";
+import { Workspace } from "@/workspace";
 
 // |||||| TITLE ||||||
 
@@ -113,7 +113,6 @@ export type RulesState = RuleState[];
 const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
   color: "#ffffff",
   label: "",
-  position: 0,
   axis: "y1",
   lineWidth: 2,
   lineDash: 3,
@@ -139,9 +138,7 @@ export const ZERO_CHANNELS_STATE: ChannelsState = {
 export const shouldDisplayAxis = (key: Vis.AxisKey, state: LinePlotState): boolean => {
   if (["x1", "y1"].includes(key)) return true;
   const channels = state.channels[key];
-  if (Array.isArray(channels)) {
-    return channels.length > 0;
-  }
+  if (Array.isArray(channels)) return channels.length > 0;
   return channels !== 0;
 };
 
@@ -283,6 +280,7 @@ export interface SetLinePlotRangesPayload {
   key: string;
   axisKey: Vis.XAxisKey;
   ranges: string[];
+  mode?: "set" | "add";
 }
 
 export interface SetLinePlotLinePaylaod {
@@ -311,6 +309,11 @@ export interface SetLinePlotAxisPayload {
 export interface SetLinePlotRulePayload {
   key: string;
   rule: Partial<RuleState> & { key: string };
+}
+
+export interface RemoveLinePlotRulePayload {
+  key: string;
+  ruleKeys: string[];
 }
 
 export interface SetActiveToolbarTabPayload {
@@ -402,7 +405,7 @@ export const { actions, reducer } = createSlice({
       { payload }: PayloadAction<SetLinePlotViewportPayload>
     ) => {
       state.plots[payload.layoutKey].viewport = {
-        ...ZERO_VIEWPORT_STATE,
+        ...Deep.copy(ZERO_VIEWPORT_STATE),
         ...payload,
         counter: state.plots[payload.layoutKey].viewport.counter + 1,
       };
@@ -411,7 +414,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<StoreLinePlotViewportPayload>
     ) => {
-      state.plots[payload.layoutKey].viewport = payload;
+      state.plots[payload.layoutKey].viewport = {
+        ...state.plots[payload.layoutKey].viewport,
+        ...payload,
+      };
     },
     setLinePlotYChannels: (
       state,
@@ -422,6 +428,7 @@ export const { actions, reducer } = createSlice({
       if (mode === "set") p.channels[axisKey] = channels;
       else p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
       p.lines = updateLines(p);
+      p.viewport = Deep.copy(ZERO_VIEWPORT_STATE);
     },
     addLinePlotYChannel: (
       state,
@@ -445,9 +452,11 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetLinePlotRangesPayload>
     ) => {
-      const { key: layoutKey, axisKey, ranges } = payload;
+      const { key: layoutKey, axisKey, ranges, mode = "set" } = payload;
       const p = state.plots[layoutKey];
-      p.ranges[axisKey] = ranges;
+      if (mode === "set") p.ranges[axisKey] = ranges;
+      else if (mode === "add")
+        p.ranges[axisKey] = unique([...p.ranges[axisKey], ...ranges]);
       p.lines = updateLines(p);
     },
     setLinePlotLine: (state, { payload }: PayloadAction<SetLinePlotLinePaylaod>) => {
@@ -491,6 +500,14 @@ export const { actions, reducer } = createSlice({
         }
       });
     },
+    removeLinePlotRule: (
+      state,
+      { payload }: PayloadAction<RemoveLinePlotRulePayload>
+    ) => {
+      const { key: layoutKey, ruleKeys } = payload;
+      const plot = state.plots[layoutKey];
+      plot.rules = plot.rules.filter((rule) => !ruleKeys.includes(rule.key));
+    },
     setLineActiveToolbarTab: (
       state,
       { payload }: PayloadAction<SetActiveToolbarTabPayload>
@@ -518,6 +535,7 @@ export const {
   setLinePlotTitle,
   setLinePlotLegend,
   setLinePlotRule,
+  removeLinePlotRule,
   setLineActiveToolbarTab,
   setLineControlState,
   storeLinePlotViewport,
@@ -528,8 +546,8 @@ export type LinePayload = Action["payload"];
 
 export const createLinePlot =
   (
-    initial: Partial<LinePlotState> & Omit<Partial<LayoutState>, "type">
-  ): LayoutCreator =>
+    initial: Partial<LinePlotState> & Omit<Partial<Layout.LayoutState>, "type">
+  ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();

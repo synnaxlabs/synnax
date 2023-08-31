@@ -14,11 +14,13 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
+import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { preventDefault } from "@/util/event";
 import { rule } from "@/vis/rule/aether";
+
+import "@/vis/rule/Rule.css";
 
 export interface RuleProps
   extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition"> {
@@ -61,8 +63,10 @@ export const Rule = Aether.wrap<RuleProps>(
     });
 
     useEffect(() => {
+      if (position == null) return;
+      if (propsPosition == null) return onPositionChange?.(position);
       const b = new Bounds(position + 0.01, position - 0.01);
-      if (!b.contains(propsPosition))
+      if (propsPosition != null && !b.contains(propsPosition))
         onPositionChange?.(Math.trunc(position * 100) / 100);
     }, [position]);
 
@@ -83,7 +87,7 @@ export const Rule = Aether.wrap<RuleProps>(
       onMove: (box: Box) => {
         setState((p) => ({
           ...p,
-          pixelPosition: dragStartRef.current + box.signedHeight,
+          pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight,
         }));
       },
       onEnd: useCallback(() => {
@@ -92,24 +96,15 @@ export const Rule = Aether.wrap<RuleProps>(
       }, []),
     });
 
+    if (position == null || pixelPosition == null) return null;
+
     return (
       <div
-        style={{
-          position: "absolute",
-          top: `calc(${pixelPosition}px - 0.5rem)`,
-          gridColumnStart: "plot-start",
-          gridColumnEnd: "plot-end",
-          width: "100%",
-        }}
+        className={CSS.B("rule")}
+        style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
       >
         <div
-          style={{
-            height: "1rem",
-            cursor: "ns-resize",
-            width: "100%",
-          }}
-          onDrag={preventDefault}
-          onDragEnd={preventDefault}
+          className={CSS.BE("rule", "drag-handle")}
           onDragStart={handleDragStart}
           draggable
         />

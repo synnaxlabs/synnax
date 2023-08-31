@@ -126,7 +126,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     });
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
-    const addViewporHandler = useCallback(
+    const addViewportHandler = useCallback(
       (handler: Viewport.UseHandler) => {
         viewportHandlers.current.set(handler, null);
         return () => viewportHandlers.current.delete(handler);
@@ -196,9 +196,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         setLine,
         removeLine,
         setViewport,
-        addViewportHandler: addViewporHandler,
+        addViewportHandler,
       }),
-      [lines, setAxis, removeAxis, setLine, removeLine, setViewport]
+      [lines, setAxis, removeAxis, setLine, removeLine, setViewport, addViewportHandler]
     );
 
     return (
@@ -209,7 +209,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         {...props}
       >
         {error != null && (
-          <Status.Text.Centered variant="error" style={{ position: "absolute" }}>
+          <Status.Text.Centered
+            variant="error"
+            style={{ position: "absolute", width: "100%", height: "100%" }}
+          >
             {error}
           </Status.Text.Centered>
         )}

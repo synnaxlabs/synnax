@@ -198,7 +198,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     let [index, series] = [-1, -1];
     data.find((x, i) => {
       const v = x.binarySearch(target);
-      const valid = v !== -1 || v !== x.length;
+      const valid = v !== -1 && v !== x.length;
       if (valid) [index, series] = [v, i];
       return valid;
     });

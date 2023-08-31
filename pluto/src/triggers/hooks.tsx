@@ -40,7 +40,7 @@ export const use = ({
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
-    ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === 0,
+    ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === Compare.EQUAL,
     [triggers]
   );
 
@@ -93,7 +93,7 @@ export const useHeldRef = ({
   });
   use({
     triggers,
-    callback: (e) => {
+    callback: useCallback((e) => {
       setRef((prev) => {
         let next: Trigger[] = [];
         if (e.stage === "start") {
@@ -103,7 +103,7 @@ export const useHeldRef = ({
         }
         return { triggers: next, held: next.length > 0 };
       });
-    },
+    }, []),
     loose,
   });
   return ref;

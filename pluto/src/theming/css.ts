@@ -10,7 +10,7 @@
 import { CSS, createHexOpacityVariants, unitProperty } from "@/css";
 import { Theme } from "@/theming/core/theme";
 
-const OPACITIES: readonly number[] = [80, 60, 40, 20];
+const OPACITIES: readonly number[] = [90, 80, 70, 60, 50, 40, 30, 20, 10];
 
 export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
   Object.entries({

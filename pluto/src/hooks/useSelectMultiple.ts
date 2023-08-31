@@ -97,13 +97,17 @@ export const useSelectMultiple = <
         const nextKeys = data.slice(start, end + 1).map(({ key }) => key);
         // We already deselect the shiftSelected key, so we don't included it
         // when checking whether to select or deselect the entire range.
-        if (nextKeys.slice(1, nextKeys.length - 1).every((k) => value.includes(k)))
+        if (
+          nextKeys.slice(1, nextKeys.length - 1).every((k) => value.includes(k)) &&
+          value.includes(key)
+        )
           nextSelected = value.filter((k) => !nextKeys.includes(k));
         else nextSelected = [...value, ...nextKeys];
         shiftValueRef.current = null;
       } else {
         shiftValueRef.current = key;
-        if (replaceOnSingle) nextSelected = value.includes(key) ? [] : [key];
+        if (replaceOnSingle)
+          nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
         else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
         else nextSelected = [...value, key];
       }

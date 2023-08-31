@@ -26,7 +26,7 @@ export const Title = <L extends Text.Level = "h2">({
   const gridStyle = useGridPosition(
     {
       key,
-      size: (font.lineHeight + 0.5) * font.baseSize,
+      size: (font.lineHeight + 1) * font.baseSize,
       loc: "top",
       order: "first",
     },

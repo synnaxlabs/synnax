@@ -105,6 +105,8 @@ export interface LinePlotProps extends Core.LinePlotProps {
   viewportTriggers?: Viewport.UseProps["triggers"];
 }
 
+const canDrop = Haul.canDropOfType(HAUL_TYPE);
+
 export const LinePlot = ({
   lines,
   axes,
@@ -192,9 +194,32 @@ const XAxis = ({
   onAxisChannelDrop,
   ...props
 }: XAxisProps): ReactElement => {
+  const dropProps = Haul.useDrop({
+    type: "Channel.LinePlot.XAxis",
+    canDrop,
+    onDrop: useCallback(
+      ({ items }) => {
+        const dropped = Haul.filterByType(HAUL_TYPE, items);
+        onAxisChannelDrop?.(
+          id,
+          dropped.map(({ key }) => key as ChannelKey)
+        );
+        return dropped;
+      },
+      [id, onAxisChannelDrop]
+    ),
+  });
+
   const _rules = rules?.filter((r) => r.axis === id);
   return (
-    <Core.XAxis {...props} showGrid={showGrid ?? index === 0}>
+    <Core.XAxis
+      {...props}
+      {...dropProps}
+      showGrid={showGrid ?? index === 0}
+      className={CSS(
+        CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState()))
+      )}
+    >
       {yAxes.map((a, i) => {
         const lines_ = lines.filter((l) => l.axes.y === a.id);
         const rules_ = rules?.filter((r) => r.axis === a.id);
@@ -245,7 +270,7 @@ const YAxis = ({
 }: YAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.YAxis",
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    canDrop,
     onDrop: useCallback(
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);

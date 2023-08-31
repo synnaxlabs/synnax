@@ -10,7 +10,7 @@
  */
 
 .pluto-dropdown.pluto--visible > :first-child {
-    z-index: 12;
+    z-index: 1001;
 }
 
 .pluto-dropdown__dialog {

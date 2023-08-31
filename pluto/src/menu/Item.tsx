@@ -25,6 +25,7 @@ const menuItemFactory =
     const { itemKey, className, onClick, ...rest } = { ...defaultProps, ...props };
 
     const { onClick: ctxOnClick, selected, level, iconSpacing } = useMenuContext();
+
     const handleClick: Button.ButtonProps["onClick"] = (e) => {
       ctxOnClick(itemKey);
       onClick?.(e);

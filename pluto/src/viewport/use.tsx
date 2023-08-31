@@ -37,7 +37,7 @@ export interface UseEvent {
 
 export type UseHandler = (e: UseEvent) => void;
 
-export type UseTriggers = Config<TriggerMOde>;
+export type UseTriggers = Config<TriggerMode>;
 
 export interface UseProps {
   triggers?: UseTriggers;
@@ -58,7 +58,7 @@ type StringLiteral<T> = T extends string ? (string extends T ? never : T) : neve
 const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
 export const MODES = [...TRIGGER_MODES, "click"] as const;
 export type Mode = StringLiteral<typeof MODES[number]>;
-type TriggerMOde = StringLiteral<typeof TRIGGER_MODES[number]>;
+type TriggerMode = StringLiteral<typeof TRIGGER_MODES[number]>;
 export const MASK_MODES: Mode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
@@ -95,7 +95,7 @@ export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {
 
 const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
   const e = Object.entries(triggers) as Array<
-    [TriggerMOde | "defaultMode", Triggers.Trigger[]]
+    [TriggerMode | "defaultMode", Triggers.Trigger[]]
   >;
   return Object.fromEntries(
     e.map(([key, value]: [string, Triggers.Trigger[]]) => {
@@ -112,11 +112,13 @@ const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
 
 const D = new Box(0, 0, 1, 1, XYLocation.TOP_LEFT);
 
+const DEFAULT_THRESHOLD = { width: 30, height: 30 };
+
 export const use = ({
   onChange,
   triggers: initialTriggers,
   initial = D,
-  threshold: threshold_ = { width: 30, height: 30 },
+  threshold: threshold_ = DEFAULT_THRESHOLD,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
@@ -126,7 +128,10 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = new Dimensions(threshold_);
 
-  useEffect(() => setStateRef(initial), [initial]);
+  useEffect(() => {
+    console.log("UPDATING STATE REF", stateRef.current);
+    setStateRef(initial);
+  }, [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -147,7 +152,7 @@ export const use = ({
   const handleDrag = useCallback<Triggers.DragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
-      const mode = determineMode<TriggerMOde>(triggerConfig, triggers);
+      const mode = determineMode<TriggerMode>(triggerConfig, triggers);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
 
@@ -188,10 +193,7 @@ export const use = ({
         return setMaskBox(
           XYScale.scale(canvas)
             .clamp(canvas)
-            .translate({
-              x: -canvas.left,
-              y: -canvas.top,
-            })
+            .translate({ x: -canvas.left, y: -canvas.top })
             .box(fullSize(threshold, box, canvas))
         );
       }
@@ -204,14 +206,21 @@ export const use = ({
         cursor,
       });
     },
-    [setMaskBox, setMaskMode, onChange, triggerConfig]
+    [
+      setMaskBox,
+      setMaskMode,
+      onChange,
+      triggerConfig,
+      threshold_.height,
+      threshold_.width,
+    ]
   );
 
   const handleZoomSelect = useCallback(
     (box: Box, prev: Box, canvas: Box): Box | null => {
       return scale(prev, canvas).box(fullSize(threshold, box, canvas));
     },
-    [threshold]
+    [threshold_]
   );
 
   Triggers.useDrag({
@@ -224,7 +233,7 @@ export const use = ({
   const handleKeyTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage === "end") return setMaskMode(defaultMode);
-      const mode = determineMode<TriggerMOde>(purgedTriggers, triggers);
+      const mode = determineMode<TriggerMode>(purgedTriggers, triggers);
       if (mode == null) return;
       setMaskMode(mode);
     },
@@ -234,7 +243,6 @@ export const use = ({
   Triggers.use({
     triggers: reducedPurgedTriggers,
     callback: handleKeyTrigger,
-    // loose: true,
     region: canvasRef,
   });
 

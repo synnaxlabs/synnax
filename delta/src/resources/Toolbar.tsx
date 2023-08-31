@@ -108,9 +108,6 @@ const ResourcesTree = (): ReactElement => {
 
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
-      <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
-      </ToolbarHeader>
       <Menu.ContextMenu
         menu={({ keys }) => {
           if (keys.length === 0 || client == null) return <></>;
@@ -143,12 +140,15 @@ const ResourcesTree = (): ReactElement => {
         }}
         {...menuProps}
       >
+        <ToolbarHeader>
+          <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
+        </ToolbarHeader>
         <Tree.Tree
           onDrop={handleDrop}
           nodes={nodes}
           onRename={handleRename}
           {...props}
-          style={{ height: "calc(100% - 100px)" }}
+          style={{ height: "calc(100% - 32px)" }}
         />
       </Menu.ContextMenu>
     </Align.Space>

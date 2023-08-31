@@ -48,6 +48,8 @@ export const YAxis = Aether.wrap<YAxisProps>(
     showGrid,
     type,
     bounds,
+    className,
+    style,
     ...props
   }): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
@@ -95,8 +97,8 @@ export const YAxis = Aether.wrap<YAxisProps>(
     return (
       <>
         <Align.Space
-          className={CSS(CSS.loc(location), CSS.B("y-axis"))}
-          style={gridStyle}
+          className={CSS(className, CSS.loc(location), CSS.B("y-axis"))}
+          style={{ ...style, ...gridStyle }}
           justify="center"
           {...props}
         >

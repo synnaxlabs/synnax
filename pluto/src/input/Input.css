@@ -15,7 +15,6 @@
     color: var(--pluto-text-color);
     padding: 0 2rem;
     margin: 0;
-    width: 100%;
     border: var(--pluto-border);
 
     &:focus {

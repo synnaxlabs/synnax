@@ -9,17 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-header--divided .pluto-header__actions {
-    padding: 0 1rem;
-}
+.pluto-rule {
+    position: absolute;
+    grid-column: plot-start / plot-end;
+    width: 100%;
 
-.pluto-header__text {
-    padding: 0 1rem;
-    & .pluto-text {
-        padding: 1rem;
+
+    & > .pluto-rule__drag-handle {
+        height: 1rem;
+        cursor: ns-resize;
+        width: 100%
     }
-}
 
-.pluto-header-button-title {
-    flex-grow: 1;
+
+    & .pluto-text {
+        z-index: 20;
+    }
 }

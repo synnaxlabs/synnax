@@ -15,6 +15,6 @@ export default defineConfig({
   plugins: [lib({ name: "alamos" })],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
   },
 });

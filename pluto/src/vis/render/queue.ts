@@ -30,7 +30,11 @@ export class Queue {
 
   async startRenderLoop(): Promise<void> {
     do {
-      await this.render();
+      try {
+        await this.render();
+      } catch (e) {
+        console.error(e);
+      }
       await this.sleep();
     } while (true);
   }

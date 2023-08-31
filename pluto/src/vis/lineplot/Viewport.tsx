@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactElement, useCallback, useEffect } from "react";
+import { PropsWithChildren, ReactElement, useCallback, useLayoutEffect } from "react";
 
 import { Box, XY } from "@synnaxlabs/x";
 
@@ -16,7 +16,8 @@ export const Viewport = ({
 }: ViewportProps): ReactElement => {
   const { setViewport } = useContext("Viewport");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    console.log(initial);
     setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" });
   }, [setViewport, initial]);
 

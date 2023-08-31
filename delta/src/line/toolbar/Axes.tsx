@@ -77,18 +77,21 @@ export const LinePlotAxisControls = ({
         value={axis.label}
         placeholder={axisKey.toUpperCase()}
         onChange={handleLabelChange}
+        grow
       />
       <Input.Numeric
         value={axis.bounds.lower}
         onChange={handleLowerBoundChange}
         resetValue={0}
         dragScale={AXES_BOUNDS_DRAG_SCALE}
+        style={{ flexGrow: 1 }}
       />
       <Input.Numeric
         value={axis.bounds.upper}
         onChange={handleUpperBoundChange}
         resetValue={0}
         dragScale={AXES_BOUNDS_DRAG_SCALE}
+        grow
       />
       <Select.Direction
         value={axis.labelDirection}

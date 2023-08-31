@@ -24,7 +24,7 @@ import { telem } from "@/telem/core";
 import { TelemMeta } from "@/telem/core/base";
 
 const xySourceCorePropsZ = z.object({
-  x: z.number().optional(),
+  x: z.number().optional().default(0),
   y: z.number(),
 });
 
@@ -84,17 +84,17 @@ class XYSourceCore<
 
   async retrieveChannels(
     y: number,
-    x?: number
+    x: number
   ): Promise<{ y: Channel; x: Channel | null }> {
     const yChan = await this.client.retrieveChannel(y);
-    if (x == null) x = yChan.index;
+    if (x === 0) x = yChan.index;
     return {
       y: yChan,
       x: x === 0 ? null : await this.client.retrieveChannel(x),
     };
   }
 
-  async readFixed(tr: TimeRange, y: number, x?: number): Promise<void> {
+  async readFixed(tr: TimeRange, y: number, x: number): Promise<void> {
     const { x: xChan } = await this.retrieveChannels(y, x);
     const toRead = [y];
     if (xChan != null) toRead.push(xChan.key);
@@ -102,12 +102,12 @@ class XYSourceCore<
     const rate = d[y].channel.rate;
     this._y = d[y].data;
     // We need to generate a time array because the channel is rate based.
-    const mustGenerate = toRead.length === 1;
+    const mustGenerate = xChan == null;
     if (mustGenerate) {
       this._x = this._y.map((arr) =>
         Series.generateTimestamps(arr.length, rate, tr.start)
       );
-    } else this._x = d[x as number].data;
+    } else this._x = d[xChan.key].data;
   }
 
   setProps(props: any): void {
@@ -165,7 +165,7 @@ export class XYSource
 
 export const dynamicXYSourceProps = z.object({
   span: TimeSpan.z,
-  x: z.number().optional(),
+  x: z.number().optional().default(0),
   y: z.number(),
 });
 

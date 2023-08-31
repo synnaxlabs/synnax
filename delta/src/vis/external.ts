@@ -16,3 +16,4 @@ export * from "@/vis/ViewportModeSelector";
 export * from "@/vis/Canvas";
 export * from "@/vis/create";
 export * from "@/vis/LayoutSelector";
+export * from "@/vis/NavControls";

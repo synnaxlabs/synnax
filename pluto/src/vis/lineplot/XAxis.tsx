@@ -15,6 +15,7 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -23,7 +24,8 @@ import { useGridPosition } from "@/vis/lineplot/LinePlot";
 
 export interface XAxisProps
   extends PropsWithChildren,
-    Omit<z.input<typeof lineplot.xAxisStateZ>, "position"> {
+    Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
+    Omit<Align.SpaceProps, "color"> {
   resizeDebounce?: number;
   label?: string;
   labelLevel?: Text.Level;
@@ -42,19 +44,33 @@ export const XAxis = Aether.wrap<XAxisProps>(
     labelLevel = "small",
     labelDirection,
     onLabelChange,
+    color,
+    labelSize: propsLabelSize,
+    showGrid,
+    type,
+    bounds,
+    className,
+    style,
     ...props
   }): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
+
+    const aetherProps = useMemoDeepEqualProps({
+      location,
+      showGrid,
+      type,
+      bounds,
+      label,
+    });
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
       aetherKey,
       type: lineplot.XAxis.TYPE,
       schema: lineplot.xAxisStateZ,
-      initialState: {
-        location,
-        ...props,
-      },
+      initialState: aetherProps,
     });
+
+    useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
     const prevLabelSize = useRef(0);
 
@@ -86,14 +102,16 @@ export const XAxis = Aether.wrap<XAxisProps>(
 
     return (
       <>
-        <Align.Space className="x-axis" style={gridStyle} justify="end" align="center">
+        <Align.Space
+          className={CSS(className, CSS.B("x-axis"), CSS.loc(location))}
+          style={{ ...style, ...gridStyle }}
+          justify="end"
+          align="center"
+          {...props}
+        >
           {showLabel && (
             <Text.MaybeEditable
-              className={CSS(
-                CSS.BE("x-axis", "label"),
-                CSS.loc(location),
-                CSS.dir(labelDirection)
-              )}
+              className={CSS(CSS.BE("x-axis", "label"), CSS.dir(labelDirection))}
               value={label as string}
               onChange={onLabelChange}
               level={labelLevel}
@@ -105,4 +123,3 @@ export const XAxis = Aether.wrap<XAxisProps>(
     );
   }
 );
-XAxis.displayName = "XAxis";

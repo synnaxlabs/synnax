@@ -17,8 +17,8 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 export const ruleStateZ = z.object({
-  position: z.number(),
-  pixelPosition: z.number().optional().default(0),
+  position: z.number().optional(),
+  pixelPosition: z.number().optional(),
   dragging: z.boolean(),
   lineWidth: z.number().optional().default(1),
   lineDash: z.number().optional().default(20),
@@ -49,21 +49,33 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     render.Controller.requestRender(this.ctx);
   }
 
+  afterDelete(): void {
+    render.Controller.requestRender(this.ctx);
+  }
+
   updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
-    if (this.state.dragging) {
+    if (this.state.dragging && this.state.pixelPosition != null) {
       const pos = scale.pos(
         (this.state.pixelPosition - plot.top + container.top) / plot.height
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
     }
+    if (this.state.position == null) {
+      // Calculate the position of the rule at the middle of the plot
+      const pos = scale.pos(0.5);
+      this.setState((p) => ({ ...p, position: pos }));
+    }
     const pixelPos =
-      scale.reverse().pos(this.state.position) * plot.height + plot.top - container.top;
+      scale.reverse().pos(this.state.position as number) * plot.height +
+      plot.top -
+      container.top;
     if (!isNaN(pixelPos)) this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
     return pixelPos;
   }
 
   async render(props: RuleProps): Promise<void> {
+    if (this.deleted) return;
     const { renderCtx } = this.internal;
     const { location, plot: plottingRegion } = props;
     const direction = location.direction;

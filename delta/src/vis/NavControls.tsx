@@ -13,7 +13,7 @@ import { Layout } from "@/layout";
 import { NavControls as LineNavControls } from "@/line/NavControls";
 import { NavControls as PidNavControls } from "@/pid/NavControls";
 
-export const Controls = (): ReactElement => {
+export const NavControls = (): ReactElement => {
   const layout = Layout.useSelectActiveMosaicLayout();
 
   switch (layout?.type) {

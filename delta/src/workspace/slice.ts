@@ -26,7 +26,14 @@ export const SLICE_NAME = "workspace";
 
 export const initialState: SliceState = {
   activeRange: null,
-  ranges: {},
+  ranges: {
+    dog: {
+      key: "dog",
+      variant: "dynamic",
+      name: "Dog",
+      span: Number(TimeSpan.seconds(5)),
+    },
+  },
 };
 
 type AddRangePayload = Range;
