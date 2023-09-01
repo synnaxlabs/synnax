@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Channel,
-  ChannelKey,
-  ChannelKeys,
+  type Channel,
+  type channel,
   QueryError,
-  Streamer,
-  Synnax,
+  type framer,
+  type Synnax,
 } from "@synnaxlabs/client";
-import { Compare, Destructor, Series, TimeRange } from "@synnaxlabs/x";
+import { Compare, type Destructor, type Series, TimeRange } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { nanoid } from "nanoid";
 
@@ -23,18 +22,21 @@ import { cache } from "@/telem/client/cache";
 
 export const CACHE_BUFFER_SIZE = 10000;
 
-export type StreamHandler = (data: Record<ChannelKey, ReadResponse>) => void;
+export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
 
 export interface ChannelClient {
-  retrieveChannel: (key: ChannelKey) => Promise<Channel>;
+  retrieveChannel: (key: channel.Key) => Promise<Channel>;
 }
 
 export interface StaticClient {
-  read: (tr: TimeRange, keys: ChannelKeys) => Promise<Record<ChannelKey, ReadResponse>>;
+  read: (
+    tr: TimeRange,
+    keys: channel.Keys,
+  ) => Promise<Record<channel.Key, ReadResponse>>;
 }
 
 export interface StreamClient {
-  stream: (handler: StreamHandler, keys: ChannelKeys) => Promise<Destructor>;
+  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<Destructor>;
 }
 
 export interface Client extends ChannelClient, StaticClient, StreamClient {
@@ -48,7 +50,7 @@ export class Proxy implements Client {
     this._client = null;
   }
 
-  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+  async retrieveChannel(key: channel.Key): Promise<Channel> {
     return await this.client.retrieveChannel(key);
   }
 
@@ -64,12 +66,12 @@ export class Proxy implements Client {
 
   async read(
     tr: TimeRange,
-    channels: ChannelKeys
-  ): Promise<Record<ChannelKey, ReadResponse>> {
+    channels: channel.Keys,
+  ): Promise<Record<channel.Key, ReadResponse>> {
     return await this.client.read(tr, channels);
   }
 
-  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
     return await this.client.stream(handler, keys);
   }
 
@@ -80,9 +82,9 @@ export class Proxy implements Client {
 
 export class Core implements Client {
   core: Synnax;
-  private _streamer: Streamer | null;
-  private readonly cache: Map<ChannelKey, cache.Cache>;
-  private readonly listeners: Map<StreamHandler, ChannelKeys>;
+  private _streamer: framer.Streamer | null;
+  private readonly cache: Map<channel.Key, cache.Cache>;
+  private readonly listeners: Map<StreamHandler, channel.Keys>;
   key: string;
   mutex: Mutex;
 
@@ -95,7 +97,7 @@ export class Core implements Client {
     this.mutex = new Mutex();
   }
 
-  async retrieveChannel(key: ChannelKey): Promise<Channel> {
+  async retrieveChannel(key: channel.Key): Promise<Channel> {
     return await this.core.channels.retrieve(key);
   }
 
@@ -113,12 +115,12 @@ export class Core implements Client {
 
   async read(
     tr: TimeRange,
-    channels: ChannelKeys
-  ): Promise<Record<ChannelKey, ReadResponse>> {
+    channels: channel.Keys,
+  ): Promise<Record<channel.Key, ReadResponse>> {
     // Instead of executing a fetch for each channel, we'll batch related time ranges
     // together to get the most out of each fetch.
-    const toFetch = new Map<string, [TimeRange, ChannelKeys]>();
-    const responses: Record<ChannelKey, ReadResponse> = {};
+    const toFetch = new Map<string, [TimeRange, channel.Keys]>();
+    const responses: Record<channel.Key, ReadResponse> = {};
 
     for (const key of channels) {
       // Read from cache.
@@ -156,10 +158,10 @@ export class Core implements Client {
     return responses;
   }
 
-  async stream(handler: StreamHandler, keys: ChannelKeys): Promise<Destructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
     return await this.mutex.runExclusive(async () => {
       this.listeners.set(handler, keys);
-      const dynamicBuffs: Record<ChannelKey, ReadResponse> = {};
+      const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
         const c = await this.getCache(key);
         dynamicBuffs[key] = new ReadResponse(c.channel, [c.dynamic.buffer]);
@@ -175,7 +177,7 @@ export class Core implements Client {
     void this.updateStreamer();
   }
 
-  private async getCache(key: ChannelKey): Promise<cache.Cache> {
+  private async getCache(key: channel.Key): Promise<cache.Cache> {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
@@ -186,7 +188,7 @@ export class Core implements Client {
 
   private async updateStreamer(): Promise<void> {
     // Assemble the set of keys we need to stream.
-    const keys = new Set<ChannelKey>();
+    const keys = new Set<channel.Key>();
     this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
 
     // If we have no keys to stream, close the streamer to save network chatter.
@@ -209,7 +211,7 @@ export class Core implements Client {
     await this._streamer.update(arrKeys);
   }
 
-  private async start(streamer: Streamer): Promise<void> {
+  private async start(streamer: framer.Streamer): Promise<void> {
     for await (const frame of streamer) {
       const changed: ReadResponse[] = [];
       for (const k of frame.keys) {

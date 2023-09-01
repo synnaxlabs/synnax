@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type ChannelKey, type ChannelKeys } from "@synnaxlabs/client";
+import { type channel.Key, type channel.Keys } from "@synnaxlabs/client";
 import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   XY,
@@ -122,8 +122,8 @@ export const ZERO_RULES_STATE: RulesState = [];
 
 // |||||| CHANNELS |||||
 
-export type ChannelsState = Vis.MultiYAxisRecord<ChannelKey[]> &
-  Vis.XAxisRecord<ChannelKey>;
+export type ChannelsState = Vis.MultiYAxisRecord<channel.Key[]> &
+  Vis.XAxisRecord<channel.Key>;
 
 export const ZERO_CHANNELS_STATE: ChannelsState = {
   x1: 0,
@@ -258,20 +258,20 @@ export interface StoreViewportPayload extends Omit<ViewportState, "counter"> {
 export interface SetYChannelsPayload {
   key: string;
   axisKey: Vis.YAxisKey;
-  channels: ChannelKey[];
+  channels: channel.Key[];
   mode?: "set" | "add";
 }
 
 export interface AddYChannelPayload {
   key: string;
   axisKey: Vis.YAxisKey;
-  channels: ChannelKey[];
+  channels: channel.Key[];
 }
 
 export interface SetXChannelPayload {
   key: string;
   axisKey: Vis.XAxisKey;
-  channel: ChannelKey;
+  channel: channel.Key;
 }
 
 export interface SetRangesPayload {
@@ -331,8 +331,8 @@ interface TypedLineKey {
   xAxis: Vis.XAxisKey;
   yAxis: Vis.YAxisKey;
   channels: {
-    x: ChannelKey;
-    y: ChannelKey;
+    x: channel.Key;
+    y: channel.Key;
   };
 }
 
@@ -360,7 +360,7 @@ const generateTypedLineKeys = (state: State): TypedLineKey[] =>
           .filter(([axis]) => !Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
           .flatMap(([yAxis, yChannels]) => {
             const xChannel = state.channels[xAxis as Vis.XAxisKey];
-            return (yChannels as ChannelKeys).map((yChannel) => ({
+            return (yChannels as channel.Keys).map((yChannel) => ({
               range,
               xAxis: xAxis as Vis.XAxisKey,
               yAxis: yAxis as Vis.YAxisKey,

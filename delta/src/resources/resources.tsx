@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import {
   ontology,
-  type ChannelKey,
+  type channel.Key,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";

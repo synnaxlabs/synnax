@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel, TimeRange } from "@synnaxlabs/client";
-import { Series } from "@synnaxlabs/x";
+import { type Channel, TimeRange } from "@synnaxlabs/client";
+import { type Series } from "@synnaxlabs/x";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
 import { Static } from "@/telem/client/cache/static";
@@ -30,9 +30,9 @@ export class Cache {
       this.static.write(
         new TimeRange(
           flushed[0].timeRange.start,
-          flushed[flushed.length - 1].timeRange.end
+          flushed[flushed.length - 1].timeRange.end,
         ),
-        flushed
+        flushed,
       );
       flushed.push(this.dynamic.buffer);
     }

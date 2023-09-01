@@ -8,15 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Channel,
-  ChannelKey,
-  ChannelKeys,
-  CrudeFrame,
+  type Channel,
+  type channel,
   Series,
-  Synnax,
+  type Synnax,
   TimeStamp,
-  Writer,
-  Frame,
+  framer,
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
@@ -44,15 +41,15 @@ interface InternalState {
 }
 
 interface AetherControllerTelem {
-  channelKeys: (client: Synnax) => Promise<ChannelKeys>;
+  channelKeys: (client: Synnax) => Promise<channel.Keys>;
 }
 
 export class Controller
   extends aether.Composite<typeof controllerStateZ, InternalState>
   implements telem.Provider, telem.Factory
 {
-  registry: Map<AetherControllerTelem, null> = new Map();
-  writer?: Writer;
+  registry = new Map<AetherControllerTelem, null>();
+  writer?: framer.Writer;
 
   static readonly TYPE = "Controller";
   schema = controllerStateZ;
@@ -72,8 +69,8 @@ export class Controller
       void this.release();
   }
 
-  private async channelKeys(): Promise<ChannelKeys> {
-    const keys = new Set<ChannelKey>([]);
+  private async channelKeys(): Promise<channel.Keys> {
+    const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
       const telemKeys = await telem.channelKeys(this.internal.client as Synnax);
       for (const key of telemKeys) keys.add(key);
@@ -120,7 +117,7 @@ export class Controller
     });
   }
 
-  async set(frame: CrudeFrame): Promise<void> {
+  async set(frame: framer.CrudeFrame): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
   }
@@ -159,7 +156,7 @@ export class NumericSink
     this.controller = controller;
   }
 
-  async channelKeys(client: Synnax): Promise<ChannelKeys> {
+  async channelKeys(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     this.channels = [chan];
@@ -175,17 +172,17 @@ export class NumericSink
   async set(value: number): Promise<void> {
     if (this.controller.internal.client == null) return;
     const ch = await this.controller.internal.client.channels.retrieve(
-      this.props.channel
+      this.props.channel,
     );
     const ch2 = await this.controller.internal.client.channels.retrieve(ch.index);
-    const frame = new Frame(
+    const frame = new framer.Frame(
       [ch.key, ch2.key],
       [
         // @ts-expect-error
         new Series(new ch.dataType.Array([value])),
         // @ts-expect-error
         new Series(new ch2.dataType.Array([BigInt(TimeStamp.now())])),
-      ]
+      ],
     );
     await this.controller.set(frame);
   }

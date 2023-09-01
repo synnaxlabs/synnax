@@ -9,7 +9,7 @@
 
 import { ReactElement, useCallback } from "react";
 
-import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
+import { channel.Key, channel.Keys } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
@@ -30,12 +30,12 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   const allRanges = useSelectRanges();
 
   const handleYChannelSelect = useCallback(
-    (key: AxisKey, value: readonly ChannelKey[]): void => {
+    (key: AxisKey, value: readonly channel.Key[]): void => {
       dispatch(
         setYChannels({
           key: layoutKey,
           axisKey: key as YAxisKey,
-          channels: value as ChannelKeys,
+          channels: value as channel.Keys,
         })
       );
     },
@@ -43,7 +43,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   );
 
   const handleXChannelSelect = useCallback(
-    (key: AxisKey, value: ChannelKey): void => {
+    (key: AxisKey, value: channel.Key): void => {
       dispatch(
         setXChannel({
           key: layoutKey,

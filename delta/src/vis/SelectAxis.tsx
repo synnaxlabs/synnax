@@ -9,18 +9,18 @@
 
 import { ReactElement, useCallback } from "react";
 
-import { ChannelKey } from "@synnaxlabs/client";
+import { channel.Key } from "@synnaxlabs/client";
 import { Input, Channel, componentRenderProp } from "@synnaxlabs/pluto";
 
 import { AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<
-    Input.ItemProps<ChannelKey[], ChannelKey[], Channel.SelectMultipleProps>,
+    Input.ItemProps<channel.Key[], channel.Key[], Channel.SelectMultipleProps>,
     "onChange" | "label" | "data"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: ChannelKey[]) => void;
+  onChange: (key: AxisKey, v: channel.Key[]) => void;
 }
 
 export const SelectMultipleAxesInputItem = ({
@@ -28,7 +28,7 @@ export const SelectMultipleAxesInputItem = ({
   onChange,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item<ChannelKey[], ChannelKey[], Channel.SelectMultipleProps>
+  <Input.Item<channel.Key[], channel.Key[], Channel.SelectMultipleProps>
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
@@ -41,11 +41,11 @@ export const SelectMultipleAxesInputItem = ({
 
 export interface SelectAxisInputItemProps
   extends Omit<
-    Input.ItemProps<ChannelKey, ChannelKey, Channel.SelectSingleProps>,
+    Input.ItemProps<channel.Key, channel.Key, Channel.SelectSingleProps>,
     "onChange" | "label" | "data"
   > {
   axis: AxisKey;
-  onChange: (key: AxisKey, v: ChannelKey) => void;
+  onChange: (key: AxisKey, v: channel.Key) => void;
 }
 
 export const SelectAxisInputItem = ({
@@ -53,7 +53,7 @@ export const SelectAxisInputItem = ({
   onChange,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item<ChannelKey, ChannelKey, Channel.SelectSingleProps>
+  <Input.Item<channel.Key, channel.Key, Channel.SelectSingleProps>
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}

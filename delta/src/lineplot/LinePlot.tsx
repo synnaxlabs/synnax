@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { type ChannelKeys } from "@synnaxlabs/client";
+import { type channel.Keys } from "@synnaxlabs/client";
 import {
   useAsyncEffect,
   Viewport,
@@ -110,7 +110,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const rng = Workspace.useSelectRange();
 
   const handleChannelAxisDrop = useCallback(
-    (axis: string, channels: ChannelKeys): void => {
+    (axis: string, channels: channel.Keys): void => {
       if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
         dispatch(
           setXChannel({

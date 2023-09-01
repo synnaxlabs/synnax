@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ChannelKeys,
+  channel.Keys,
   Channel,
   DataType,
-  ChannelKey,
+  channel.Key,
   QueryError,
   Series,
   TimeRange,
@@ -54,7 +54,7 @@ const Y_CHANNEL_ALT = new Channel({
   index: 1,
 });
 
-const CHANNELS: Record<ChannelKey, Channel> = {
+const CHANNELS: Record<channel.Key, Channel> = {
   [X_CHANNEL.key]: X_CHANNEL,
   [Y_CHANNEL.key]: Y_CHANNEL,
   [Y_CHANNEL_ALT.key]: Y_CHANNEL_ALT,
@@ -63,7 +63,7 @@ const CHANNELS: Record<ChannelKey, Channel> = {
 describe("XY", () => {
   describe("Static", () => {
     class MockClient implements client.StaticClient, client.ChannelClient {
-      data: Record<ChannelKey, client.ReadResponse>;
+      data: Record<channel.Key, client.ReadResponse>;
       retrieveChannelMock = vi.fn();
       readMock = vi.fn();
 
@@ -102,9 +102,9 @@ describe("XY", () => {
 
       async read(
         tr: TimeRange,
-        keys: ChannelKeys
+        keys: channel.Keys
       ): Promise<Record<number, client.ReadResponse>> {
-        const res: Record<ChannelKey, client.ReadResponse> = {};
+        const res: Record<channel.Key, client.ReadResponse> = {};
         keys.forEach((key) => {
           res[key] = this.data[key];
         });
@@ -231,7 +231,7 @@ describe("XY", () => {
 
     async read(
       tr: TimeRange,
-      keys: ChannelKeys
+      keys: channel.Keys
     ): Promise<Record<number, client.ReadResponse>> {
       return {
         [X_CHANNEL.key]: new client.ReadResponse(X_CHANNEL, []),
@@ -241,7 +241,7 @@ describe("XY", () => {
 
     async stream(
       handler: client.StreamHandler,
-      keys: ChannelKeys
+      keys: channel.Keys
     ): Promise<Destructor> {
       this.handler = handler;
       return () => {

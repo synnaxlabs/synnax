@@ -10,7 +10,8 @@
 export * from "@/channel";
 export { default as Synnax, synnaxPropsZ } from "@/client";
 export type { SynnaxProps } from "@/client";
-export * from "@/connection/checker";
+export * from "@/connection";
+export { Channel } from "@/channel/client";
 export {
   AuthError,
   ContiguityError,

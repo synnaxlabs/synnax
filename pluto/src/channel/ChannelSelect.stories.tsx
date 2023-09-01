@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import type { Meta } from "@storybook/react";
-import { ChannelKey } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 
 import { SelectSingle, SelectMultiple } from "./Select";
 
@@ -20,8 +20,8 @@ const story: Meta<typeof SelectMultiple> = {
 };
 
 export const Multiple = (): ReactElement => {
-  const [value, setValue] = useState<readonly ChannelKey[]>([]);
-  const [value2, setValue2] = useState<readonly ChannelKey[]>([]);
+  const [value, setValue] = useState<readonly channel.Key[]>([]);
+  const [value2, setValue2] = useState<readonly channel.Key[]>([]);
   return (
     <>
       <SelectMultiple value={value} onChange={setValue} />
@@ -31,7 +31,7 @@ export const Multiple = (): ReactElement => {
 };
 
 export const Default = (): ReactElement => {
-  const [value, setValue] = useState<ChannelKey>(0);
+  const [value, setValue] = useState<channel.Key>(0);
   return <SelectSingle value={value} onChange={setValue} />;
 };
 
