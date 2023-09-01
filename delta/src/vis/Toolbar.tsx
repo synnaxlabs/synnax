@@ -14,7 +14,7 @@ import { Button, Align, Status } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
 import { create } from "@/vis/create";
 
@@ -62,7 +62,7 @@ const Content = (): ReactElement => {
     case "pid":
       return <PID.Toolbar layoutKey={layout?.key} />;
     case "line":
-      return <Line.Toolbar layoutKey={layout?.key} />;
+      return <LinePlot.Toolbar layoutKey={layout?.key} />;
     case "vis":
       return <SelectVis layoutKey={layout?.key} />;
     default:

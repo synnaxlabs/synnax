@@ -12,19 +12,19 @@ import { ReactElement } from "react";
 import { Input, List, Align, Status, Tabs, Text, Color } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectLinePlot } from "@/line/selectors";
-import { LineState, setLinePlotLine } from "@/line/slice";
+import { useSelect } from "@/lineplot/selectors";
+import { LineState, setLine } from "@/lineplot/slice";
 
 export interface LinesProps {
   layoutKey: string;
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const vis = useSelectLinePlot(layoutKey);
+  const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
 
   const handleChange = (line: LineState): void => {
-    dispatch(setLinePlotLine({ key: layoutKey, line }));
+    dispatch(setLine({ key: layoutKey, line }));
   };
 
   const { onSelect } = Tabs.useTabsContext();

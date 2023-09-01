@@ -16,15 +16,15 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useSelectLineToolbar } from "@/line/selectors";
-import { LineToolbarTab, setLineActiveToolbarTab } from "@/line/slice";
-import { Annotations } from "@/line/toolbar/Annotations";
-import { Axes } from "@/line/toolbar/Axes";
-import { Data } from "@/line/toolbar/Data";
-import { Lines } from "@/line/toolbar/Lines";
-import { Properties } from "@/line/toolbar/Properties";
+import { useSelectToolbar } from "@/lineplot/selectors";
+import { ToolbarTab, setActiveToolbarTab } from "@/lineplot/slice";
+import { Annotations } from "@/lineplot/toolbar/Annotations";
+import { Axes } from "@/lineplot/toolbar/Axes";
+import { Data } from "@/lineplot/toolbar/Data";
+import { Lines } from "@/lineplot/toolbar/Lines";
+import { Properties } from "@/lineplot/toolbar/Properties";
 
-import "@/line/toolbar/Toolbar.css";
+import "@/lineplot/toolbar/Toolbar.css";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -56,7 +56,7 @@ const TABS = [
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectLineToolbar();
+  const toolbar = useSelectToolbar();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -77,7 +77,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
-      dispatch(setLineActiveToolbarTab({ tab: tabKey as LineToolbarTab }));
+      dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
     [dispatch]
   );

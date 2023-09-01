@@ -12,8 +12,8 @@ import { ReactElement } from "react";
 import { Input, Select, Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectLinePlot } from "@/line/selectors";
-import { AxisState, setLinePlotAxis, shouldDisplayAxis } from "@/line/slice";
+import { useSelect } from "@/lineplot/selectors";
+import { AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
 import { Vis } from "@/vis";
 
 export interface AxesProps {
@@ -21,11 +21,11 @@ export interface AxesProps {
 }
 
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
-  const vis = useSelectLinePlot(layoutKey);
+  const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
 
   const handleAxisChange = (key: Vis.AxisKey) => (axis: AxisState) => {
-    dispatch(setLinePlotAxis({ key: layoutKey, axisKey: key, axis }));
+    dispatch(setAxis({ key: layoutKey, axisKey: key, axis }));
   };
 
   return (

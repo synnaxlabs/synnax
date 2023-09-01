@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PID, Control } from "@synnaxlabs/pluto";
+import { PID, Control, Viewport } from "@synnaxlabs/pluto";
 import { Box, CrudeXY, Deep, XY, XYScale } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -52,6 +52,7 @@ export interface ToolbarState {
 }
 
 export interface SliceState {
+  mode: Viewport.Mode;
   copy: CopyBuffer;
   toolbar: ToolbarState;
   pids: Record<string, State>;
@@ -74,6 +75,7 @@ export const ZERO_STATE: State = {
 };
 
 export const ZERO_PID_SLICE_STATE: SliceState = {
+  mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
   toolbar: { activeTab: "elements" },
   pids: {},
@@ -139,6 +141,10 @@ export interface CopySelectionPayload {}
 export interface PasteSelectionPayload {
   layoutKey: string;
   pos: CrudeXY;
+}
+
+export interface SetViewportModePayload {
+  mode: Viewport.Mode;
 }
 
 export const calculatePos = (
@@ -269,6 +275,17 @@ export const { actions, reducer } = createSlice({
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
       const pid = state.pids[layoutKey];
+      // check for new edges
+      const prevKeys = pid.edges.map((edge) => edge.key);
+      const newEdges = edges.filter((edge) => !prevKeys.includes(edge.key));
+      newEdges.forEach((edge) => {
+        const source = pid.nodes.find((node) => node.key === edge.source);
+        const target = pid.nodes.find((node) => node.key === edge.target);
+        if (source == null || target == null) return;
+        const sourceProps = pid.props[source.key];
+        const targetProps = pid.props[target.key];
+        if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
+      });
       pid.edges = edges;
       const anySelected = edges.some((edge) => edge.selected);
       if (anySelected) state.toolbar.activeTab = "properties";
@@ -301,6 +318,13 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, control } = payload;
       const pid = state.pids[layoutKey];
       pid.control = control;
+      if (control === "acquired") pid.editable = false;
+    },
+    setViewportMode: (
+      state,
+      { payload: { mode } }: PayloadAction<SetViewportModePayload>
+    ) => {
+      state.mode = mode;
     },
   },
 });
@@ -317,6 +341,7 @@ export const {
   setEditable,
   copySelection,
   pasteSelection,
+  setViewportMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

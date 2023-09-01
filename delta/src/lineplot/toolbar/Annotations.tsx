@@ -28,8 +28,8 @@ import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSelectLinePlot } from "@/line/selectors";
-import { RuleState, removeLinePlotRule, setLinePlotRule } from "@/line/slice";
+import { useSelect } from "@/lineplot/selectors";
+import { RuleState, removeRule, setRule } from "@/lineplot/slice";
 import { Vis } from "@/vis";
 
 export interface AnnotationsProps {
@@ -37,7 +37,7 @@ export interface AnnotationsProps {
 }
 
 export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
-  const vis = useSelectLinePlot(layoutKey);
+  const vis = useSelect(layoutKey);
   const theme = Theming.use();
 
   const dispatch = useDispatch();
@@ -47,7 +47,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleUnitsChange = (unit: string): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -59,7 +59,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleLabelChange = (label: string): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -71,7 +71,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handlePositionChange = (position: number): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -83,7 +83,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleColorChange = (color: Color.Color): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -95,7 +95,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleAxisChange = (axis: Vis.AxisKey): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -107,7 +107,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleLineWidthChange = (lineWidth: number): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -119,7 +119,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
 
   const handleLineDashChange = (lineDash: number): void => {
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key: selected,
@@ -132,7 +132,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
   const createRule = (): void => {
     const key = nanoid();
     dispatch(
-      setLinePlotRule({
+      setRule({
         key: layoutKey,
         rule: {
           key,
@@ -247,7 +247,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
               switch (key) {
                 case "remove":
                   dispatch(
-                    removeLinePlotRule({
+                    removeRule({
                       key: layoutKey,
                       ruleKeys: keys,
                     })

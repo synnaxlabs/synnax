@@ -7,40 +7,53 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode } from "react";
+import { ReactElement, ReactNode, useMemo } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Divider, Select, Text, Viewport } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelectLineControlState } from "@/line/selectors";
-import { ClickMode, setLineControlState, setLinePlotViewport } from "@/line/slice";
-import { ViewportModeSelector } from "@/vis/ViewportModeSelector";
+import { useSelectControlState, useSelectViewportMode } from "@/lineplot/selectors";
+import {
+  ClickMode,
+  setControlState,
+  setViewport,
+  setViewportMode,
+} from "@/lineplot/slice";
 
 export const NavControls = (): ReactElement => {
-  const control = useSelectLineControlState();
+  const control = useSelectControlState();
   const vis = Layout.useSelectActiveMosaicTabKey();
+  const mode = useSelectViewportMode();
   const d = useDispatch();
 
   const handleModeChange = (mode: Viewport.Mode): void => {
-    d(setLineControlState({ state: { mode } }));
+    d(setViewportMode({ mode }));
   };
 
   const handleClickModeChange = (clickMode: ClickMode): void => {
-    d(setLineControlState({ state: { clickMode } }));
+    d(setControlState({ state: { clickMode } }));
   };
 
   const handleTooltipChange = (tooltip: boolean): void => {
-    d(setLineControlState({ state: { enableTooltip: tooltip } }));
+    d(setControlState({ state: { enableTooltip: tooltip } }));
   };
 
   const handleZoomReset = (): void => {
-    if (vis != null) d(setLinePlotViewport({ layoutKey: vis }));
+    if (vis != null) d(setViewport({ layoutKey: vis }));
   };
+
+  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   return (
     <>
+      <Viewport.SelectMode
+        value={mode}
+        onChange={handleModeChange}
+        triggers={triggers}
+        size="medium"
+      />
       <Button.Icon
         onClick={handleZoomReset}
         variant="text"

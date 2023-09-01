@@ -13,3 +13,4 @@ export * from "@/triggers/hooks";
 export * from "@/triggers/Status";
 export * from "@/triggers/triggers";
 export * from "@/triggers/useDrag";
+export * from "@/triggers/Text";

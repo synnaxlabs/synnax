@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PID } from "@synnaxlabs/pluto";
+import { PID, Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import { SliceState, State, StoreState, ToolbarState } from "@/pid/slice";
@@ -92,3 +92,9 @@ export const selectEditable = (state: StoreState, key: string): boolean =>
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
+
+export const selectViewportMode = (state: StoreState): Viewport.Mode =>
+  selectState(state).mode;
+
+export const useSelectViewporMode = (): Viewport.Mode =>
+  useMemoSelect(selectViewportMode, []);

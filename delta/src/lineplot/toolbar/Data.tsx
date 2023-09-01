@@ -13,12 +13,8 @@ import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectLinePlot } from "@/line/selectors";
-import {
-  setLinePlotRanges,
-  setLinePlotXChannel,
-  setLinePlotYChannels,
-} from "@/line/slice";
+import { useSelect } from "@/lineplot/selectors";
+import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Vis } from "@/vis";
 import { AxisKey, XAxisKey, YAxisKey } from "@/vis/axis";
 import { Workspace } from "@/workspace";
@@ -29,14 +25,14 @@ export interface DataProps {
 }
 
 export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
-  const vis = useSelectLinePlot(layoutKey);
+  const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
   const allRanges = useSelectRanges();
 
   const handleYChannelSelect = useCallback(
     (key: AxisKey, value: readonly ChannelKey[]): void => {
       dispatch(
-        setLinePlotYChannels({
+        setYChannels({
           key: layoutKey,
           axisKey: key as YAxisKey,
           channels: value as ChannelKeys,
@@ -49,7 +45,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   const handleXChannelSelect = useCallback(
     (key: AxisKey, value: ChannelKey): void => {
       dispatch(
-        setLinePlotXChannel({
+        setXChannel({
           key: layoutKey,
           axisKey: key as XAxisKey,
           channel: value,
@@ -60,7 +56,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   );
 
   const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
-    dispatch(setLinePlotRanges({ key: layoutKey, axisKey: key, ranges: value }));
+    dispatch(setRanges({ key: layoutKey, axisKey: key, ranges: value }));
   };
 
   return (

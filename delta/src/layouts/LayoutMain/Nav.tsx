@@ -28,7 +28,7 @@ import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
 import { PID } from "@/pid";
 import { Resources } from "@/resources";
@@ -51,7 +51,7 @@ const DEFAULT_TRIGGER: PaletteTriggerConfig = {
 };
 
 const COMMANDS = [
-  ...Line.COMMANDS,
+  ...LinePlot.COMMANDS,
   ...Layout.COMMANDS,
   ...PID.COMMANDS,
   ...Docs.COMMANDS,

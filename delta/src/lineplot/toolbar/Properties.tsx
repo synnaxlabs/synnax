@@ -13,15 +13,15 @@ import { Input, Align, componentRenderProp } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelectLinePlot } from "@/line/selectors";
-import { setLinePlotLegend, setLinePlotTitle } from "@/line/slice";
+import { useSelect } from "@/lineplot/selectors";
+import { setLegend, setTitle } from "@/lineplot/slice";
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const plot = useSelectLinePlot(layoutKey);
+  const plot = useSelect(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
 
@@ -30,11 +30,11 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   };
 
   const handleTitleVisibilityChange = (value: boolean): void => {
-    dispatch(setLinePlotTitle({ key: layoutKey, title: { visible: value } }));
+    dispatch(setTitle({ key: layoutKey, title: { visible: value } }));
   };
 
   const handleLegendVisibilityChange = (value: boolean): void => {
-    dispatch(setLinePlotLegend({ key: layoutKey, legend: { visible: value } }));
+    dispatch(setLegend({ key: layoutKey, legend: { visible: value } }));
   };
 
   return (

@@ -9,3 +9,4 @@
 
 export * from "@/viewport/Mask";
 export * from "@/viewport/use";
+export * from "@/viewport/SelectMode";

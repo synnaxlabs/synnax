@@ -55,11 +55,11 @@
         "devtools": "npx turbo devtools --filter delta"
     },
     "devDependencies": {
-        "eslint": "^8.40.0",
-        "eslint-plugin-prettier": "^4.2.1",
+        "eslint": "^8.48.0",
+        "eslint-plugin-prettier": "^5.0.0",
         "eslint_d": "^12.2.1",
-        "prettier": "2.7.1",
-        "turbo": "^1.10.3"
+        "prettier": "3.0.3",
+        "turbo": "^1.10.13"
     },
     "engines": {
         "node": ">=18"

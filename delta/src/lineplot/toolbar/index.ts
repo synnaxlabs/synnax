@@ -7,10 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/line/toolbar";
-export * from "@/line/LinePlot";
-export * from "@/line/middleware";
-export * from "@/line/NavControls";
-export * from "@/line/palette";
-export * from "@/line/selectors";
-export * from "@/line/slice";
+export { Toolbar } from "@/lineplot/toolbar/Toolbar";

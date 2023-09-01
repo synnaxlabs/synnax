@@ -17,13 +17,11 @@ import { appWindow } from "@tauri-apps/api/window";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { PID } from "@/pid";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
-
-import { Vis } from "./vis";
 
 const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
   Drift.SLICE_NAME,
@@ -38,8 +36,7 @@ const reducer = combineReducers({
   [Workspace.SLICE_NAME]: Workspace.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
-  [Line.SLICE_NAME]: Line.reducer,
-  [Vis.SLICE_NAME]: Vis.reducer,
+  [LinePlot.SLICE_NAME]: LinePlot.reducer,
 });
 
 export interface RootState {
@@ -50,8 +47,7 @@ export interface RootState {
   [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [PID.SLICE_NAME]: PID.SliceState;
-  [Line.SLICE_NAME]: Line.SliceState;
-  [Vis.SLICE_NAME]: Vis.SliceState;
+  [LinePlot.SLICE_NAME]: LinePlot.SliceState;
 }
 
 export type Action =
@@ -59,7 +55,7 @@ export type Action =
   | Workspace.Action
   | Docs.Action
   | Cluster.Action
-  | Line.Action
+  | LinePlot.Action
   | PID.Action;
 
 export type Payload = Action["payload"];
@@ -80,7 +76,7 @@ const newStore = async (): Promise<RootStore> => {
     preloadedState,
     middleware: (def) => [
       ...def(),
-      ...Line.middleware,
+      ...LinePlot.middleware,
       ...Layout.middleware,
       persistMiddleware,
     ],

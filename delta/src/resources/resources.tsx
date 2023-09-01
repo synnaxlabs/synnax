@@ -19,8 +19,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { Line } from "@/line";
-import { ZERO_CHANNELS_STATE } from "@/line/slice";
+import { LinePlot } from "@/lineplot";
+import { ZERO_CHANNELS_STATE } from "@/lineplot/slice";
 import { RootStore } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -116,7 +116,7 @@ export const types: Record<string, ResourceType> = {
       const layout = Layout.selectActiveMosaicTab(s);
       if (layout == null) {
         ctx.placeLayout(
-          Line.createLinePlot({
+          LinePlot.createLinePlot({
             channels: {
               ...ZERO_CHANNELS_STATE,
               y1: [ctx.selected.data.key as ChannelKey],
@@ -127,7 +127,7 @@ export const types: Record<string, ResourceType> = {
       switch (layout?.type) {
         case "line":
           ctx.store.dispatch(
-            Line.addLinePlotYChannel({
+            LinePlot.addYChannel({
               key: layout?.key,
               axisKey: "y1",
               channels: [ctx.selected.data.key as ChannelKey],

@@ -9,7 +9,7 @@
 
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { Text } from "@synnaxlabs/pluto";
+import { Text, Viewport } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
@@ -134,7 +134,7 @@ export const ZERO_CHANNELS_STATE: ChannelsState = {
   y4: [] as number[],
 };
 
-export const shouldDisplayAxis = (key: Vis.AxisKey, state: LinePlotState): boolean => {
+export const shouldDisplayAxis = (key: Vis.AxisKey, state: State): boolean => {
   if (["x1", "y1"].includes(key)) return true;
   const channels = state.channels[key];
   if (Array.isArray(channels)) return channels.length > 0;
@@ -152,7 +152,7 @@ export const ZERO_RANGES_STATE: RangesState = {
 
 export type SugaredRangesState = Vis.MultiXAxisRecord<Range>;
 
-export interface LinePlotState {
+export interface State {
   key: string;
   title: TitleState;
   legend: LegendState;
@@ -180,7 +180,7 @@ export const ZERO_AXES_STATE: AxesState = {
   x2: ZERO_AXIS_STATE,
 };
 
-export const ZERO_LINE_VIS: LinePlotState = {
+export const ZERO_LINE_VIS: State = {
   key: "",
   title: ZERO_TITLE_STATE,
   legend: ZERO_LEGEND_STATE,
@@ -201,37 +201,39 @@ const LINE_TOOLBAR_TABS = [
   "annotations",
   "properties",
 ] as const;
-export type LineToolbarTab = (typeof LINE_TOOLBAR_TABS)[number];
+export type ToolbarTab = (typeof LINE_TOOLBAR_TABS)[number];
 
-export interface LineToolbarState {
-  activeTab: LineToolbarTab;
+export interface ToolbarState {
+  activeTab: ToolbarTab;
 }
 
 export type ClickMode = "annotate" | "measure";
 
-export interface LineControlState {
+export interface ControlState {
   clickMode: ClickMode | null;
   enableTooltip: boolean;
 }
 
-export const ZERO_LINE_CONTROL_STATE: LineControlState = {
+export const ZERO_LINE_CONTROL_STATE: ControlState = {
   clickMode: null,
   enableTooltip: true,
 };
 
 export interface SliceState {
-  control: LineControlState;
-  toolbar: LineToolbarState;
-  plots: Record<string, LinePlotState>;
+  mode: Viewport.Mode;
+  control: ControlState;
+  toolbar: ToolbarState;
+  plots: Record<string, State>;
 }
 
 export const SLICE_NAME = "line";
 
-export interface LineStoreState {
+export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
 export const ZERO_LINE_SLICE_STATE: SliceState = {
+  mode: "zoom",
   control: ZERO_LINE_CONTROL_STATE,
   toolbar: {
     activeTab: "data",
@@ -239,86 +241,89 @@ export const ZERO_LINE_SLICE_STATE: SliceState = {
   plots: {},
 };
 
-export interface CreateLinePlotPayload extends LinePlotState {}
+export interface CreatePayload extends State {}
 
-export interface DeleteLinePlotPayload {
+export interface RemovePayload {
   layoutKey: string;
 }
 
-export interface SetLinePlotViewportPayload
-  extends Partial<Omit<ViewportState, "counter">> {
+export interface SetViewportPayload extends Partial<Omit<ViewportState, "counter">> {
   layoutKey: string;
 }
 
-export interface StoreLinePlotViewportPayload extends Omit<ViewportState, "counter"> {
+export interface StoreViewportPayload extends Omit<ViewportState, "counter"> {
   layoutKey: string;
 }
 
-export interface SetLinePlotYChannelsPayload {
+export interface SetYChannelsPayload {
   key: string;
   axisKey: Vis.YAxisKey;
   channels: ChannelKey[];
   mode?: "set" | "add";
 }
 
-export interface AddLinePlotYChannelPayload {
+export interface AddYChannelPayload {
   key: string;
   axisKey: Vis.YAxisKey;
   channels: ChannelKey[];
 }
 
-export interface SetLinePlotXChannelPayload {
+export interface SetXChannelPayload {
   key: string;
   axisKey: Vis.XAxisKey;
   channel: ChannelKey;
 }
 
-export interface SetLinePlotRangesPayload {
+export interface SetRangesPayload {
   key: string;
   axisKey: Vis.XAxisKey;
   ranges: string[];
   mode?: "set" | "add";
 }
 
-export interface SetLinePlotLinePaylaod {
+export interface SetLinePayload {
   key: string;
   line:
     | (Partial<LineState> & { key: string })
     | Array<Partial<LineState> & { key: string }>;
 }
 
-export interface SetLinePlotTitlePayload {
+export interface SetTitlePayload {
   key: string;
   title: Partial<TitleState>;
 }
 
-export interface SetLinePlotLegendPayload {
+export interface SetLegendPayload {
   key: string;
   legend: Partial<LegendState>;
 }
 
-export interface SetLinePlotAxisPayload {
+export interface SetAxisPayload {
   key: string;
   axisKey: Vis.AxisKey;
   axis: Partial<AxisState>;
 }
 
-export interface SetLinePlotRulePayload {
+export interface SetRulePayload {
   key: string;
   rule: Partial<RuleState> & { key: string };
 }
 
-export interface RemoveLinePlotRulePayload {
+export interface RemoveRulePayload {
   key: string;
   ruleKeys: string[];
 }
 
 export interface SetActiveToolbarTabPayload {
-  tab: LineToolbarTab;
+  tab: ToolbarTab;
 }
 
-export interface SetLineControlStatePayload {
-  state: Partial<LineControlState>;
+export interface SetControlStatePayload {
+  state: Partial<ControlState>;
+}
+
+export interface SetViewportModePayload {
+  mode: Viewport.Mode;
 }
 
 interface TypedLineKey {
@@ -347,7 +352,7 @@ export const typedLineKeyFromString = (key: string): TypedLineKey => {
   };
 };
 
-const generateTypedLineKeys = (state: LinePlotState): TypedLineKey[] =>
+const generateTypedLineKeys = (state: State): TypedLineKey[] =>
   Object.entries(state.ranges)
     .map(([xAxis, ranges]) =>
       ranges.flatMap((range) =>
@@ -369,7 +374,7 @@ const generateTypedLineKeys = (state: LinePlotState): TypedLineKey[] =>
     )
     .flat();
 
-const updateLines = (state: LinePlotState): LineState[] => {
+const updateLines = (state: State): LineState[] => {
   const keys = generateTypedLineKeys(state);
   const lines: LineState[] = [];
   unique(keys).forEach((key) => {
@@ -385,41 +390,32 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_LINE_SLICE_STATE,
   reducers: {
-    setLinePlot: (state, { payload }: PayloadAction<CreateLinePlotPayload>) => {
+    set: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       const existing = state.plots[layoutKey];
       if (existing != null) return;
       state.plots[layoutKey] = payload;
       state.plots[layoutKey].lines = updateLines(payload);
     },
-    deleteLinePlot: (state, { payload }: PayloadAction<DeleteLinePlotPayload>) => {
+    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { layoutKey } = payload;
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete state.plots[layoutKey];
     },
-    setLinePlotViewport: (
-      state,
-      { payload }: PayloadAction<SetLinePlotViewportPayload>
-    ) => {
+    setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       state.plots[payload.layoutKey].viewport = {
         ...Deep.copy(ZERO_VIEWPORT_STATE),
         ...payload,
         counter: state.plots[payload.layoutKey].viewport.counter + 1,
       };
     },
-    storeLinePlotViewport: (
-      state,
-      { payload }: PayloadAction<StoreLinePlotViewportPayload>
-    ) => {
+    storeViewport: (state, { payload }: PayloadAction<StoreViewportPayload>) => {
       state.plots[payload.layoutKey].viewport = {
         ...state.plots[payload.layoutKey].viewport,
         ...payload,
       };
     },
-    setLinePlotYChannels: (
-      state,
-      { payload }: PayloadAction<SetLinePlotYChannelsPayload>
-    ) => {
+    setYChannels: (state, { payload }: PayloadAction<SetYChannelsPayload>) => {
       const { key: layoutKey, axisKey, channels, mode = "set" } = payload;
       const p = state.plots[layoutKey];
       if (mode === "set") p.channels[axisKey] = channels;
@@ -427,28 +423,19 @@ export const { actions, reducer } = createSlice({
       p.lines = updateLines(p);
       p.viewport = Deep.copy(ZERO_VIEWPORT_STATE);
     },
-    addLinePlotYChannel: (
-      state,
-      { payload }: PayloadAction<AddLinePlotYChannelPayload>
-    ) => {
+    addYChannel: (state, { payload }: PayloadAction<AddYChannelPayload>) => {
       const { key: layoutKey, axisKey, channels } = payload;
       const p = state.plots[layoutKey];
       p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
       p.lines = updateLines(p);
     },
-    setLinePlotXChannel: (
-      state,
-      { payload }: PayloadAction<SetLinePlotXChannelPayload>
-    ) => {
+    setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
       const { key: layoutKey, axisKey, channel } = payload;
       const p = state.plots[layoutKey];
       p.channels[axisKey] = channel;
       p.lines = updateLines(p);
     },
-    setLinePlotRanges: (
-      state,
-      { payload }: PayloadAction<SetLinePlotRangesPayload>
-    ) => {
+    setRanges: (state, { payload }: PayloadAction<SetRangesPayload>) => {
       const { key: layoutKey, axisKey, ranges, mode = "set" } = payload;
       const p = state.plots[layoutKey];
       if (mode === "set") p.ranges[axisKey] = ranges;
@@ -456,7 +443,7 @@ export const { actions, reducer } = createSlice({
         p.ranges[axisKey] = unique([...p.ranges[axisKey], ...ranges]);
       p.lines = updateLines(p);
     },
-    setLinePlotLine: (state, { payload }: PayloadAction<SetLinePlotLinePaylaod>) => {
+    setLine: (state, { payload }: PayloadAction<SetLinePayload>) => {
       const { key: layoutKey, line: line_ } = payload;
       const plot = state.plots[layoutKey];
       toArray(line_).forEach((line) => {
@@ -464,25 +451,22 @@ export const { actions, reducer } = createSlice({
         if (idx >= 0) plot.lines[idx] = { ...plot.lines[idx], ...line };
       });
     },
-    setLinePlotAxis: (state, { payload }: PayloadAction<SetLinePlotAxisPayload>) => {
+    setAxis: (state, { payload }: PayloadAction<SetAxisPayload>) => {
       const { key: layoutKey, axisKey, axis } = payload;
       const plot = state.plots[layoutKey];
       plot.axes[axisKey] = { ...plot.axes[axisKey], ...axis };
     },
-    setLinePlotTitle: (state, { payload }: PayloadAction<SetLinePlotTitlePayload>) => {
+    setTitle: (state, { payload }: PayloadAction<SetTitlePayload>) => {
       const { key: layoutKey, title } = payload;
       const plot = state.plots[layoutKey];
       plot.title = { ...plot.title, ...title };
     },
-    setLinePlotLegend: (
-      state,
-      { payload }: PayloadAction<SetLinePlotLegendPayload>
-    ) => {
+    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
       const { key: layoutKey, legend } = payload;
       const plot = state.plots[layoutKey];
       plot.legend = { ...plot.legend, ...legend };
     },
-    setLinePlotRule: (state, { payload }: PayloadAction<SetLinePlotRulePayload>) => {
+    setRule: (state, { payload }: PayloadAction<SetRulePayload>) => {
       const { key: layoutKey, rule } = payload;
       const plot = state.plots[layoutKey];
       toArray(rule).forEach((r) => {
@@ -497,45 +481,46 @@ export const { actions, reducer } = createSlice({
         }
       });
     },
-    removeLinePlotRule: (
-      state,
-      { payload }: PayloadAction<RemoveLinePlotRulePayload>
-    ) => {
+    removeRule: (state, { payload }: PayloadAction<RemoveRulePayload>) => {
       const { key: layoutKey, ruleKeys } = payload;
       const plot = state.plots[layoutKey];
       plot.rules = plot.rules.filter((rule) => !ruleKeys.includes(rule.key));
     },
-    setLineActiveToolbarTab: (
+    setActiveToolbarTab: (
       state,
       { payload }: PayloadAction<SetActiveToolbarTabPayload>
     ) => {
       state.toolbar.activeTab = payload.tab;
     },
-    setLineControlState: (
-      state,
-      { payload }: PayloadAction<SetLineControlStatePayload>
-    ) => {
+    setControlState: (state, { payload }: PayloadAction<SetControlStatePayload>) => {
       state.control = { ...state.control, ...payload.state };
+    },
+    setViewportMode: (
+      state,
+      { payload: { mode } }: PayloadAction<SetViewportModePayload>
+    ) => {
+      state.mode = mode;
     },
   },
 });
 
 export const {
-  deleteLinePlot,
-  setLinePlotViewport,
-  setLinePlotYChannels,
-  setLinePlotXChannel,
-  setLinePlotRanges,
-  setLinePlotLine,
-  setLinePlotAxis,
-  addLinePlotYChannel,
-  setLinePlotTitle,
-  setLinePlotLegend,
-  setLinePlotRule,
-  removeLinePlotRule,
-  setLineActiveToolbarTab,
-  setLineControlState,
-  storeLinePlotViewport,
+  remove,
+  setViewport,
+  setYChannels,
+  setXChannel,
+  setRanges,
+  setLine,
+  setAxis,
+  addYChannel,
+  setTitle,
+  setLegend,
+  setRule,
+  removeRule,
+  setActiveToolbarTab,
+  setControlState,
+  storeViewport,
+  setViewportMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
@@ -543,12 +528,12 @@ export type LinePayload = Action["payload"];
 
 export const createLinePlot =
   (
-    initial: Partial<LinePlotState> & Omit<Partial<Layout.LayoutState>, "type">
+    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
   ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
-    dispatch(actions.setLinePlot({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
+    dispatch(actions.set({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
     return {
       key,
       name,

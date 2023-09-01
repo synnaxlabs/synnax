@@ -14,7 +14,7 @@ import { Button, Align, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
 
 import "@/vis/LayoutSelector.css";
@@ -38,7 +38,7 @@ export const LayoutSelector = ({
       <Align.Space direction={direction}>
         <Button.Button
           variant="outlined"
-          onClick={() => place(Line.createLinePlot({ key: layoutKey }))}
+          onClick={() => place(LinePlot.createLinePlot({ key: layoutKey }))}
           startIcon={<Icon.Visualize />}
         >
           Line Plot

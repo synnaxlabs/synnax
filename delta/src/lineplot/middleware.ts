@@ -8,43 +8,43 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { selectLinePlot, selectLineSliceState } from "@/line/selectors";
+import { select, selectSliceState } from "@/lineplot/selectors";
 import {
-  AddLinePlotYChannelPayload,
-  CreateLinePlotPayload,
-  DeleteLinePlotPayload,
-  LineStoreState,
-  SetLinePlotLinePaylaod,
-  SetLinePlotRangesPayload,
-  SetLinePlotXChannelPayload,
-  SetLinePlotYChannelsPayload,
+  AddYChannelPayload,
+  CreatePayload,
+  RemovePayload,
+  StoreState,
+  SetLinePayload,
+  SetRangesPayload,
+  SetXChannelPayload,
+  SetYChannelsPayload,
   actions,
-  addLinePlotYChannel,
-  deleteLinePlot,
-  setLinePlotLine,
-  setLinePlotRanges,
-  setLinePlotXChannel,
-  setLinePlotYChannels,
-} from "@/line/slice";
+  addYChannel,
+  remove,
+  setLine,
+  setRanges,
+  setXChannel,
+  setYChannels,
+} from "@/lineplot/slice";
 import { MiddlewareEffect, effectMiddleware } from "@/middleware";
 
 export const assignColorsEffect: MiddlewareEffect<
-  Layout.StoreState & LineStoreState,
-  | CreateLinePlotPayload
-  | SetLinePlotRangesPayload
-  | SetLinePlotXChannelPayload
-  | SetLinePlotYChannelsPayload
-  | AddLinePlotYChannelPayload,
-  SetLinePlotLinePaylaod
+  Layout.StoreState & StoreState,
+  | CreatePayload
+  | SetRangesPayload
+  | SetXChannelPayload
+  | SetYChannelsPayload
+  | AddYChannelPayload,
+  SetLinePayload
 > = ({ getState, action, dispatch }) => {
   const s = getState();
-  const p = selectLinePlot(s, action.payload.key);
+  const p = select(s, action.payload.key);
   p.lines.forEach((l) => {
     if (l.color === "") {
       const theme = Layout.selectTheme(s);
       const colors = theme?.colors.visualization.palettes.default ?? [];
       dispatch(
-        setLinePlotLine({
+        setLine({
           key: p.key,
           line: {
             key: l.key,
@@ -57,28 +57,28 @@ export const assignColorsEffect: MiddlewareEffect<
 };
 
 export const deleteVisualizationEffect: MiddlewareEffect<
-  Layout.StoreState & LineStoreState,
+  Layout.StoreState & StoreState,
   Layout.RemovePayload,
-  DeleteLinePlotPayload
+  RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
-  const vis = selectLineSliceState(state);
+  const vis = selectSliceState(state);
   const layout = Layout.selectSliceState(state);
-  Object.keys(vis.plots).forEach((key) => {
-    if (layout.layouts[key] == null) dispatch(deleteLinePlot({ layoutKey: key }));
-  });
-  const p = selectLinePlot(getState(), action.payload);
-  if (p != null) dispatch(deleteLinePlot({ layoutKey: action.payload }));
+  Object.keys(vis.plots).forEach(
+    (key) => layout.layouts[key] == null && dispatch(remove({ layoutKey: key }))
+  );
+  const p = select(getState(), action.payload);
+  if (p != null) dispatch(remove({ layoutKey: action.payload }));
 };
 
 export const middleware = [
   effectMiddleware(
     [
-      actions.setLinePlot.type,
-      setLinePlotXChannel.type,
-      setLinePlotYChannels.type,
-      setLinePlotRanges.type,
-      addLinePlotYChannel.type,
+      actions.set.type,
+      setXChannel.type,
+      setYChannels.type,
+      setRanges.type,
+      addYChannel.type,
     ],
     [assignColorsEffect]
   ),

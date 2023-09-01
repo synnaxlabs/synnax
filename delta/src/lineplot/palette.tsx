@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createLinePlot } from "@/line/slice";
+import { createLinePlot } from "@/lineplot/slice";
 import { Command } from "@/palette/Palette";
 
 export const createLinePlotCommand: Command = {

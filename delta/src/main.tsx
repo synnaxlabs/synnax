@@ -18,7 +18,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
 import { store } from "@/store";
 import { Version } from "@/version";
@@ -39,7 +39,7 @@ const layoutRenderers = {
   docs: Docs.Docs,
   pid: PID.PID,
   vis: Vis.LayoutSelector,
-  line: Line.LinePlot,
+  line: LinePlot.LinePlot,
   mosaic: Layout.Mosaic,
 };
 

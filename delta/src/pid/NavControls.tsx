@@ -7,7 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align } from "@synnaxlabs/pluto";
+import { ReactElement, useMemo } from "react";
+
+import { Viewport } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-export const NavControls = (): ReactElement => {};
+import { useSelectViewporMode } from "@/pid/selectors";
+import { setViewportMode } from "@/pid/slice";
+
+export const NavControls = (): ReactElement => {
+  const mode = useSelectViewporMode();
+  const d = useDispatch();
+
+  const handleModeChange = (mode: Viewport.Mode): void => {
+    d(setViewportMode({ mode }));
+  };
+
+  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], []);
+
+  return (
+    <Viewport.ModeSelector
+      value={mode}
+      onChange={handleModeChange}
+      triggers={triggers}
+      disable={["zoom", "click", "zoomReset"]}
+    />
+  );
+};

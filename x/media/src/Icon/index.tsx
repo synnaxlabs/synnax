@@ -69,6 +69,7 @@ import {
   MdSquareFoot,
   MdKeyboardControlKey,
 } from "react-icons/md";
+import { PiSelectionPlusBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import {
@@ -164,6 +165,7 @@ export const Icon: IconType = {
   Tooltip: MdInsights,
   Annotate: MdLabel,
   Zoom: TbZoomFilled,
+  Selection: PiSelectionPlusBold,
   Pan: GrPan,
   Rule: MdSquareFoot,
 };
@@ -247,6 +249,7 @@ export interface IconType {
   };
   Zoom: IconFC;
   Pan: IconFC;
+  Selection: IconFC;
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;

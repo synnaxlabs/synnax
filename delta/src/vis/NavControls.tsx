@@ -12,10 +12,8 @@ import { FC, ReactElement } from "react";
 import { Align } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { NavControls as LineNavControls } from "@/line/NavControls";
+import { NavControls as LineNavControls } from "@/lineplot/NavControls";
 import { NavControls as PidNavControls } from "@/pid/NavControls";
-
-import { ViewportModeSelector } from "./ViewportModeSelector";
 
 const REGISTRY: Record<"line" | "pid", FC> = {
   line: LineNavControls,
@@ -29,7 +27,6 @@ export const NavControls = (): ReactElement => {
 
   return (
     <Align.Space direction="x" size="small">
-      <ViewportModeSelector />
       <Controls />
     </Align.Space>
   );

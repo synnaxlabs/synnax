@@ -21,12 +21,6 @@ import {
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
 import { Triggers } from "@/triggers";
-import {
-  Config,
-  compareConfigs,
-  determineMode,
-  reduceConfig,
-} from "@/triggers/triggers";
 
 export interface UseEvent {
   box: Box;
@@ -37,7 +31,7 @@ export interface UseEvent {
 
 export type UseHandler = (e: UseEvent) => void;
 
-export type UseTriggers = Config<TriggerMode>;
+export type UseTriggers = Triggers.Config<TriggerMode>;
 
 export interface UseProps {
   triggers?: UseTriggers;
@@ -138,9 +132,14 @@ export const use = ({
           ...DEFAULT_TRIGGERS[defaultMode],
           ...initialTriggers,
         };
-        const reducedTriggers = reduceConfig(config);
+        const reducedTriggers = Triggers.reduceConfig(config);
         const mouseTriggers = purgeMouseTriggers(config);
-        return [config, reducedTriggers, mouseTriggers, reduceConfig(mouseTriggers)];
+        return [
+          config,
+          reducedTriggers,
+          mouseTriggers,
+          Triggers.reduceConfig(mouseTriggers),
+        ];
       },
       Triggers.compareConfigs,
       [initialTriggers]
@@ -149,7 +148,7 @@ export const use = ({
   const handleDrag = useCallback<Triggers.DragCallback>(
     ({ box, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
-      const mode = determineMode<TriggerMode>(triggerConfig, triggers);
+      const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
       const canvas = new Box(canvasRef.current);
       if (mode == null) return;
 
@@ -233,7 +232,7 @@ export const use = ({
   const handleKeyTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage === "end") return setMaskMode(defaultMode);
-      const mode = determineMode<TriggerMode>(purgedTriggers, triggers);
+      const mode = Triggers.determineMode<TriggerMode>(purgedTriggers, triggers);
       if (mode == null) return;
       setMaskMode(mode);
     },

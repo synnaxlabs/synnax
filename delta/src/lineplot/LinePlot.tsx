@@ -23,29 +23,30 @@ import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import {
-  useSelectLinePlot,
-  useSelectLinePlotRanges,
-  useSelectLineControlState,
-} from "@/line/selectors";
+  useSelect,
+  selectRanges,
+  useSelectControlState,
+  useSelectViewportMode,
+} from "@/lineplot/selectors";
 import {
-  LinePlotState,
+  State,
   RuleState,
-  setLinePlotLine,
-  setLinePlotRanges,
-  setLinePlotRule,
-  setLinePlotXChannel,
-  setLinePlotYChannels,
+  setLine,
+  setRanges,
+  setRule,
+  setXChannel,
+  setYChannels,
   shouldDisplayAxis,
-  storeLinePlotViewport,
+  storeViewport,
   typedLineKeyToString,
-} from "@/line/slice";
+} from "@/lineplot/slice";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
-  const vis = useSelectLinePlot(layoutKey);
-  const ranges = useSelectLinePlotRanges(layoutKey);
+  const vis = useSelect(layoutKey);
+  const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
 
@@ -63,7 +64,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
       label: fetched.find((f) => f.key === l.channels.y)?.name,
     }));
     dispatch(
-      setLinePlotLine({
+      setLine({
         key: layoutKey,
         line: update,
       })
@@ -76,14 +77,14 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
 
   const handleLineLabelChange = useCallback(
     (key: string, label: string): void => {
-      dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, label }] }));
+      dispatch(setLine({ key: layoutKey, line: [{ key, label }] }));
     },
     [dispatch, layoutKey]
   );
 
   const handleLineColorChange = useCallback(
     (key: string, color: Color.Color): void => {
-      dispatch(setLinePlotLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
+      dispatch(setLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
     },
     [dispatch, layoutKey]
   );
@@ -91,7 +92,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const handleRulePositionChange = useCallback(
     (key: string, position: number): void => {
       dispatch(
-        setLinePlotRule({
+        setRule({
           key: layoutKey,
           rule: {
             key,
@@ -112,7 +113,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     (axis: string, channels: ChannelKeys): void => {
       if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
         dispatch(
-          setLinePlotXChannel({
+          setXChannel({
             key: layoutKey,
             axisKey: axis as Vis.XAxisKey,
             channel: channels[0],
@@ -120,7 +121,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
         );
       else
         dispatch(
-          setLinePlotYChannels({
+          setYChannels({
             key: layoutKey,
             axisKey: axis as Vis.YAxisKey,
             channels,
@@ -129,7 +130,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
         );
       if (propsLines.length === 0 && rng != null) {
         dispatch(
-          setLinePlotRanges({
+          setRanges({
             mode: "add",
             key: layoutKey,
             axisKey: "x1",
@@ -144,7 +145,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const handleRuleLabelChange = useCallback(
     (key: string, label: string): void => {
       dispatch(
-        setLinePlotRule({
+        setRule({
           key: layoutKey,
           rule: {
             key,
@@ -160,7 +161,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     ({ box, stage }) => {
       if (stage !== "end") return;
       dispatch(
-        storeLinePlotViewport({
+        storeViewport({
           layoutKey,
           pan: box.bottomLeft.crude,
           zoom: box.dims.crude,
@@ -171,8 +172,8 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const { enableTooltip, clickMode } = useSelectLineControlState();
-  const mode = Vis.useSelectViewportMode();
+  const { enableTooltip, clickMode } = useSelectControlState();
+  const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(() => {
@@ -212,7 +213,7 @@ const buildRules = (rules: RuleState[]): Channel.RuleProps[] =>
     ...rule,
   }));
 
-const buildAxes = (vis: LinePlotState): Channel.AxisProps[] =>
+const buildAxes = (vis: State): Channel.AxisProps[] =>
   Object.entries(vis.axes)
     .filter(([key, axis]) => shouldDisplayAxis(key as Vis.AxisKey, vis))
     .map(([key, axis]): Channel.AxisProps => {
@@ -227,7 +228,7 @@ const buildAxes = (vis: LinePlotState): Channel.AxisProps[] =>
     });
 
 const buildLines = (
-  vis: LinePlotState,
+  vis: State,
   sug: Vis.MultiXAxisRecord<Workspace.Range>
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>

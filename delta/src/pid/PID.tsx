@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -27,7 +27,11 @@ import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelect, useSelectElementProps } from "@/pid/selectors";
+import {
+  useSelect,
+  useSelectElementProps,
+  useSelectViewporMode,
+} from "@/pid/selectors";
 import {
   toggleControl,
   setControlStatus,
@@ -189,7 +193,7 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
     onDrop: handleDrop,
   });
 
-  const mode = Vis.useSelectViewportMode();
+  const mode = useSelectViewporMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
