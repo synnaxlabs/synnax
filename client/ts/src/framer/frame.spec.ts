@@ -10,63 +10,63 @@
 import { DataType, Series, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { Frame } from "..";
+import { framer } from "@/framer";
 
-describe("Frame", () => {
+describe("framer.Frame", () => {
   describe("construction", () => {
     describe("valid", () => {
       test("from an array of channel names and an array of arrays", () => {
-        const f = new Frame(
+        const f = new framer.Frame(
           ["a", "b", "c"],
           [
             new Series(new Float32Array([1, 2, 3])),
             new Series(new Float32Array([1, 2, 3])),
             new Series(new Float32Array([1, 2, 3])),
-          ]
+          ],
         );
         expect(f.length).toEqual(9);
         expect(f.colType).toEqual("name");
       });
 
       test("from an array of channel keys and an array of arrays", () => {
-        const f = new Frame(
+        const f = new framer.Frame(
           [12, 13, 14],
           [
             new Series(new Float32Array([1, 2, 3])),
             new Series(new Float32Array([1, 2, 3])),
             new Series(new Float32Array([1, 2, 3])),
-          ]
+          ],
         );
         expect(f.length).toEqual(9);
         expect(f.colType).toEqual("key");
       });
 
       test("from a single name and an array of arrays", () => {
-        const f = new Frame("a", [new Series(new Float32Array([1, 2, 3]))]);
+        const f = new framer.Frame("a", [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
       });
 
       test("from a single key and an array of arrays", () => {
-        const f = new Frame(12, [new Series(new Float32Array([1, 2, 3]))]);
+        const f = new framer.Frame(12, [new Series(new Float32Array([1, 2, 3]))]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
       });
 
       test("from a single key and a single array", () => {
-        const f = new Frame(12, new Series(new Float32Array([1, 2, 3])));
+        const f = new framer.Frame(12, new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
       });
 
       test("from a single name and a single array", () => {
-        const f = new Frame("a", new Series(new Float32Array([1, 2, 3])));
+        const f = new framer.Frame("a", new Series(new Float32Array([1, 2, 3])));
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
       });
 
       test("from payload", () => {
-        const f = new Frame({
+        const f = new framer.Frame({
           keys: [12],
           series: [
             {
@@ -81,7 +81,7 @@ describe("Frame", () => {
       });
 
       test("from record", () => {
-        const f = new Frame({
+        const f = new framer.Frame({
           a: new Series(new Float32Array([1, 2, 3])),
         });
         expect(f.length.valueOf()).toEqual(3);
@@ -90,7 +90,9 @@ describe("Frame", () => {
       });
 
       test("from map", () => {
-        const f = new Frame(new Map([[12, new Series(new Float32Array([1, 2, 3]))]]));
+        const f = new framer.Frame(
+          new Map([[12, new Series(new Float32Array([1, 2, 3]))]]),
+        );
         expect(f.length).toEqual(3);
         expect(f.columns.length).toEqual(1);
         expect(f.series.length).toEqual(1);
@@ -101,13 +103,13 @@ describe("Frame", () => {
       test("mismatched lengths", () => {
         expect(
           () =>
-            new Frame(
+            new framer.Frame(
               ["a", "b", "c"],
               [
                 new Series(new Float32Array([1, 2, 3])),
                 new Series(new Float32Array([1, 2, 3])),
-              ]
-            )
+              ],
+            ),
         ).toThrow();
       });
     });
@@ -115,7 +117,7 @@ describe("Frame", () => {
 
   describe("vertical", () => {
     it("should return false if a key has more than one array", () => {
-      const f = new Frame(
+      const f = new framer.Frame(
         new Map([
           [12, [new Series(new Float32Array([1, 2, 3]))]],
           [
@@ -125,7 +127,7 @@ describe("Frame", () => {
               new Series(new Float32Array([1, 2, 3])),
             ],
           ],
-        ])
+        ]),
       );
       expect(f.isVertical).toEqual(false);
     });
@@ -133,11 +135,11 @@ describe("Frame", () => {
 
   describe("horizontal", () => {
     it("should return false if there is more than one key", () => {
-      const f = new Frame(
+      const f = new framer.Frame(
         new Map([
           [12, [new Series(new Float32Array([1, 2, 3]))]],
           [13, [new Series(new Float32Array([1, 2, 3]))]],
-        ])
+        ]),
       );
       expect(f.isHorizontal).toEqual(false);
     });
@@ -145,7 +147,7 @@ describe("Frame", () => {
 
   describe("weaklyAligned", () => {
     it("should return true if all keys have the same timerange", () => {
-      const f = new Frame(
+      const f = new framer.Frame(
         new Map([
           [
             12,
@@ -153,7 +155,7 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(500, 50000)
+                new TimeRange(500, 50000),
               ),
             ],
           ],
@@ -163,17 +165,17 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(500, 50000)
+                new TimeRange(500, 50000),
               ),
             ],
           ],
-        ])
+        ]),
       );
       expect(f.isWeaklyAligned).toEqual(true);
     });
 
     it("should return false if any key has a different timerange", () => {
-      const f = new Frame(
+      const f = new framer.Frame(
         new Map([
           [
             12,
@@ -181,7 +183,7 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(500, 50000)
+                new TimeRange(500, 50000),
               ),
             ],
           ],
@@ -191,11 +193,11 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(500, 50001)
+                new TimeRange(500, 50001),
               ),
             ],
           ],
-        ])
+        ]),
       );
       expect(f.isWeaklyAligned).toEqual(false);
     });
@@ -204,7 +206,7 @@ describe("Frame", () => {
   describe("timeRange", () => {
     describe("no key provided", () => {
       it("should return the maxium time range of the frame", () => {
-        const f = new Frame(
+        const f = new framer.Frame(
           new Map([
             [
               12,
@@ -212,7 +214,7 @@ describe("Frame", () => {
                 new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
-                  new TimeRange(40, 50000)
+                  new TimeRange(40, 50000),
                 ),
               ],
             ],
@@ -222,11 +224,11 @@ describe("Frame", () => {
                 new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
-                  new TimeRange(500, 50001)
+                  new TimeRange(500, 50001),
                 ),
               ],
             ],
-          ])
+          ]),
         );
         expect(f.timeRange()).toEqual(new TimeRange(40, 50001));
       });
@@ -234,16 +236,16 @@ describe("Frame", () => {
 
     describe("key provided", () => {
       it("should return the time range of the key", () => {
-        const f = new Frame({
+        const f = new framer.Frame({
           a: new Series(
             new Float32Array([1, 2, 3]),
             undefined,
-            new TimeRange(40, 50000)
+            new TimeRange(40, 50000),
           ),
           b: new Series(
             new Float32Array([1, 2, 3]),
             undefined,
-            new TimeRange(500, 50001)
+            new TimeRange(500, 50001),
           ),
         });
         expect(f.timeRange("a")).toEqual(new TimeRange(40, 50000));
@@ -252,7 +254,7 @@ describe("Frame", () => {
 
     describe("filter", () => {
       it("should return a frame filtered on a particular condition", () => {
-        const f = new Frame(
+        const f = new framer.Frame(
           new Map([
             [
               12,
@@ -260,7 +262,7 @@ describe("Frame", () => {
                 new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
-                  new TimeRange(40, 50000)
+                  new TimeRange(40, 50000),
                 ),
               ],
             ],
@@ -270,11 +272,11 @@ describe("Frame", () => {
                 new Series(
                   new Float32Array([1, 2, 3]),
                   undefined,
-                  new TimeRange(500, 50001)
+                  new TimeRange(500, 50001),
                 ),
               ],
             ],
-          ])
+          ]),
         );
         expect(f.filter((k) => k === 12).columns).toEqual([12]);
       });
@@ -282,8 +284,8 @@ describe("Frame", () => {
   });
 
   describe("toPayload", () => {
-    it("should return the frame as FramePayload", () => {
-      const f = new Frame(
+    it("should return the frame as framer.FramePayload", () => {
+      const f = new framer.Frame(
         new Map([
           [
             12,
@@ -291,7 +293,7 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(40, 50000)
+                new TimeRange(40, 50000),
               ),
             ],
           ],
@@ -301,11 +303,11 @@ describe("Frame", () => {
               new Series(
                 new Float32Array([1, 2, 3]),
                 undefined,
-                new TimeRange(500, 50001)
+                new TimeRange(500, 50001),
               ),
             ],
           ],
-        ])
+        ]),
       );
       const pld = f.toPayload();
       expect(pld.keys).toEqual([12, 13]);

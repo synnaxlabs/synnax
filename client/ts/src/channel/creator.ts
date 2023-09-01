@@ -11,18 +11,18 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import {
-  ChannelPayload,
-  channelPayload,
+  type Payload,
+  payload,
   parseChannels,
-  newChannelPayload,
-  NewChannelPayload,
+  newPayload,
+  type NewPayload,
 } from "@/channel/payload";
 
-const reqZ = z.object({ channels: newChannelPayload.array() });
+const reqZ = z.object({ channels: newPayload.array() });
 
-const resZ = z.object({ channels: channelPayload.array() });
+const resZ = z.object({ channels: payload.array() });
 
-export class ChannelCreator {
+export class Creator {
   private static readonly ENDPOINT = "/channel/create";
   private readonly client: UnaryClient;
 
@@ -30,12 +30,12 @@ export class ChannelCreator {
     this.client = client;
   }
 
-  async create(channels: NewChannelPayload[]): Promise<ChannelPayload[]> {
+  async create(channels: NewPayload[]): Promise<Payload[]> {
     const req = { channels: parseChannels(channels) };
     const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
-      ChannelCreator.ENDPOINT,
+      Creator.ENDPOINT,
       req,
-      resZ
+      resZ,
     );
     if (err != null) throw err;
     return res.channels;

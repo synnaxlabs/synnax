@@ -189,7 +189,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("OverlapsWith", func() {
+		Describe("WhereOverlapsWith", func() {
 			It("Should return true when the ranges overlap with one another", func() {
 				tr := telem.TimeStamp(0).SpanRange(5 * telem.Second)
 				Expect(tr.OverlapsWith(telem.TimeStamp(1).SpanRange(2 * telem.Second))).To(BeTrue())

@@ -10,61 +10,61 @@
 import { TimeRange, toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const rangeKeyZ = z.string().uuid();
-export type RangeKey = z.infer<typeof rangeKeyZ>;
-export type RangeName = string;
-export type RangeKeys = RangeKey[];
-export type RangeNames = RangeName[];
-export type RangeParams = RangeKey | RangeName | RangeKeys | RangeNames;
+export const keyZ = z.string().uuid();
+export type Key = z.infer<typeof keyZ>;
+export type Name = string;
+export type Keys = Key[];
+export type Names = Name[];
+export type Params = Key | Name | Keys | Names;
 
-export const rangePayloadZ = z.object({
-  key: rangeKeyZ,
+export const payloadZ = z.object({
+  key: keyZ,
   name: z.string(),
   timeRange: TimeRange.z,
 });
-export type RangePayload = z.infer<typeof rangePayloadZ>;
+export type Payload = z.infer<typeof payloadZ>;
 
-export const newRangePayload = rangePayloadZ.extend({
+export const newPayload = payloadZ.extend({
   key: z.string().uuid().optional(),
 });
-export type NewRangePayload = z.infer<typeof newRangePayload>;
+export type NewPayload = z.infer<typeof newPayload>;
 
-export type RangeParamAnalysisResult =
+export type ParamAnalsysisResult =
   | {
       single: true;
       variant: "keys";
-      normalized: RangeKeys;
-      actual: RangeKey;
+      normalized: Keys;
+      actual: Key;
     }
   | {
       single: true;
       variant: "names";
-      normalized: RangeNames;
-      actual: RangeName;
+      normalized: Names;
+      actual: Name;
     }
   | {
       single: false;
       variant: "keys";
-      normalized: RangeKeys;
-      actual: RangeKeys;
+      normalized: Keys;
+      actual: Keys;
     }
   | {
       single: false;
       variant: "names";
-      normalized: RangeNames;
-      actual: RangeNames;
+      normalized: Names;
+      actual: Names;
     };
 
-export const analyzeRangeParams = (params: RangeParams): RangeParamAnalysisResult => {
-  const normal = toArray(params) as RangeKeys | RangeNames;
+export const analyzeParams = (params: Params): ParamAnalsysisResult => {
+  const normal = toArray(params) as Keys | Names;
   if (normal.length === 0) {
     throw new Error("Range params must not be empty");
   }
-  const isKey = rangeKeyZ.safeParse(normal[0]).success;
+  const isKey = keyZ.safeParse(normal[0]).success;
   return {
     single: !Array.isArray(params),
     variant: isKey ? "keys" : "names",
     normalized: normal,
     actual: params,
-  } as const as RangeParamAnalysisResult;
+  } as const as ParamAnalsysisResult;
 };

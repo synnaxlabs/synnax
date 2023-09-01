@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import {
   ontology,
@@ -16,41 +16,15 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { ZERO_CHANNELS_STATE } from "@/lineplot/slice";
-import { RootStore } from "@/store";
+import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
 
-export interface ResourceSelectionContext {
-  client: Synnax;
-  store: RootStore;
-  placeLayout: Layout.Placer;
-  selection: {
-    parent: Tree.Node;
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-  };
-  state: {
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-    setNodes: (nodes: Tree.Node[]) => void;
-  };
-}
-
-export interface ResourceType {
-  type: ontology.ResourceType;
-  icon: ReactElement;
-  hasChildren: boolean;
-  allowRename: (res: ontology.Resource) => boolean;
-  onSelect: (ctx: ResourceSelectionContext) => void;
-  canDrop: (hauled: Haul.Item[]) => boolean;
-  onDrop: (ctx: ResourceSelectionContext, hauled: Haul.Item[]) => void;
-  contextMenu: (ctx: ResourceSelectionContext) => ReactElement;
-  haulItems: (resource: ontology.Resource) => Haul.Item[];
-}
+import { CHANNEL_SERVICE } from "./channel";
 
 export const convertOntologyResources = (
   resources: ontology.Resource[]
@@ -104,47 +78,7 @@ export const types: Record<string, ResourceType> = {
     haulItems: () => [],
     allowRename: () => false,
   },
-  channel: {
-    type: "channel",
-    icon: <Icon.Channel />,
-    hasChildren: false,
-    allowRename: () => true,
-    canDrop: () => false,
-    onDrop: () => {},
-    onSelect: (ctx) => {
-      const s = ctx.store.getState();
-      const layout = Layout.selectActiveMosaicTab(s);
-      if (layout == null) {
-        ctx.placeLayout(
-          LinePlot.createLinePlot({
-            channels: {
-              ...ZERO_CHANNELS_STATE,
-              y1: [ctx.selected.data.key as ChannelKey],
-            },
-          })
-        );
-      }
-      switch (layout?.type) {
-        case "line":
-          ctx.store.dispatch(
-            LinePlot.addYChannel({
-              key: layout?.key,
-              axisKey: "y1",
-              channels: [ctx.selected.data.key as ChannelKey],
-            })
-          );
-      }
-    },
-    haulItems: (res) => {
-      return [
-        {
-          type: "channel",
-          key: Number(res.id.key),
-        },
-      ];
-    },
-    contextMenu: (ctx) => <></>,
-  },
+  channel: CHANNEL_SERVICE,
   group: {
     type: "group",
     hasChildren: true,
@@ -207,8 +141,9 @@ const GroupSelectionMenuItem = (): ReactElement => (
 
 const NEW_GROUP_NAME = "New Group";
 
-const startRenaming = ({ selection, state }: ResourceSelectionContext): void =>
+const startRenaming = ({ selection, state }: ResourceSelectionContext): void => {
   Text.edit(`text-${selection.nodes[0].key}`);
+};
 
 const ungroupSelection = async ({
   client,

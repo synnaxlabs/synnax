@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useRef, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -18,11 +18,11 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import {
   MultipleSelectionContextMenu,
-  ResourceSelectionContext,
+  type ResourceSelectionContext,
   convertOntologyResources,
   types,
 } from "@/resources/resources";
-import { Action, RootState } from "@/store";
+import { type Action, type RootState } from "@/store";
 
 const ResourcesTree = (): ReactElement => {
   const client = Synnax.use();

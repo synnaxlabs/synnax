@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
-import { ChannelKeys } from "@synnaxlabs/client";
+import { type ChannelKeys } from "@synnaxlabs/client";
 import {
   useAsyncEffect,
   Viewport,
   useDebouncedCallback,
   Channel,
   Synnax,
-  Color,
+  type Color,
 } from "@synnaxlabs/pluto";
 import { Box, XYLocation, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
@@ -29,8 +29,8 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  State,
-  RuleState,
+  type State,
+  type RuleState,
   setLine,
   setRanges,
   setRule,

@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { ChannelKey, ChannelKeys } from "@synnaxlabs/client";
-import { Text, Viewport } from "@synnaxlabs/pluto";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { type ChannelKey, type ChannelKeys } from "@synnaxlabs/client";
+import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   XY,
   Dimensions,
-  CrudeBounds,
-  CrudeXY,
-  CrudeDimensions,
+  type CrudeBounds,
+  type CrudeXY,
+  type CrudeDimensions,
   Bounds,
   Deep,
   unique,
   toArray,
-  CrudeDirection,
+  type CrudeDirection,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Vis } from "@/vis";
 
 // |||||| TITLE ||||||
@@ -423,12 +423,6 @@ export const { actions, reducer } = createSlice({
       p.lines = updateLines(p);
       p.viewport = Deep.copy(ZERO_VIEWPORT_STATE);
     },
-    addYChannel: (state, { payload }: PayloadAction<AddYChannelPayload>) => {
-      const { key: layoutKey, axisKey, channels } = payload;
-      const p = state.plots[layoutKey];
-      p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
-      p.lines = updateLines(p);
-    },
     setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
       const { key: layoutKey, axisKey, channel } = payload;
       const p = state.plots[layoutKey];
@@ -512,7 +506,6 @@ export const {
   setRanges,
   setLine,
   setAxis,
-  addYChannel,
   setTitle,
   setLegend,
   setRule,
@@ -526,6 +519,8 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LinePayload = Action["payload"];
 
+export const LAYOUT_TYPE = "lineplot";
+
 export const createLinePlot =
   (
     initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
@@ -538,7 +533,7 @@ export const createLinePlot =
       key,
       name,
       location,
-      type: "line",
+      type: LAYOUT_TYPE,
       window,
       tab,
     };

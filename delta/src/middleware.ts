@@ -36,6 +36,8 @@ export const effectMiddleware =
   (action) => {
     const state = next(action);
     if (deps.includes(action.type))
-      effects.forEach((factory) => factory({ getState, dispatch, action }));
+      effects.forEach((factory) => {
+        factory({ getState, dispatch, action });
+      });
     return state;
   };

@@ -15,9 +15,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Range (short for time range) is an interesting, user defined regions of time in a
+// Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
-	Key       uuid.UUID       `json:"key" msgpack:"key"`
-	Name      string          `json:"name" msgpack:"name"`
+	// Key is a unique identifier for the Range. If not provided on creation, a new one
+	// will be generated.
+	Key uuid.UUID `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the range. This name does not need to be unique.
+	Name string `json:"name" msgpack:"name"`
+	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 }
 

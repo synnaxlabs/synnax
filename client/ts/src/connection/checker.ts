@@ -12,29 +12,24 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-const CONNECTION_STATUSES = [
-  "disconnected",
-  "connecting",
-  "connected",
-  "failed",
-] as const;
-export const connectionStatus = z.enum(CONNECTION_STATUSES);
-export type ConnectionStatus = z.infer<typeof connectionStatus>;
+const STATUSES = ["disconnected", "connecting", "connected", "failed"] as const;
+export const status = z.enum(STATUSES);
+export type Status = z.infer<typeof status>;
 
-export const connectionState = z.object({
-  status: connectionStatus,
+export const state = z.object({
+  status,
   error: z.instanceof(Error).optional(),
   message: z.string().optional(),
   clusterKey: z.string(),
 });
 
-export type ConnectionState = z.infer<typeof connectionState>;
+export type State = z.infer<typeof state>;
 
-const connectivityResponseSchema = z.object({
+const responseZ = z.object({
   clusterKey: z.string(),
 });
 
-const DEFAULT: ConnectionState = {
+const DEFAULT: State = {
   clusterKey: "",
   status: "disconnected",
   error: undefined,
@@ -42,16 +37,16 @@ const DEFAULT: ConnectionState = {
 };
 
 /** Polls a synnax cluster for connectivity information. */
-export class Connectivity {
+export class Checker {
   private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
-  static readonly DEFAULT: ConnectionState = DEFAULT;
-  private readonly _state: ConnectionState;
+  static readonly DEFAULT: State = DEFAULT;
+  private readonly _state: State;
   private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
   private interval?: NodeJS.Timeout;
-  private readonly onChangeHandlers: Array<(state: ConnectionState) => void> = [];
-  static readonly connectionStateZ = connectionState;
+  private readonly onChangeHandlers: Array<(state: State) => void> = [];
+  static readonly connectionStateZ = state;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -76,14 +71,10 @@ export class Connectivity {
    * Executes a connectivity check and updates the client status and error, as
    * well as calling any registered change handlers.
    */
-  async check(): Promise<ConnectionState> {
+  async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(
-        Connectivity.ENDPOINT,
-        null,
-        connectivityResponseSchema
-      );
+      const [res, err] = await this.client.send(Checker.ENDPOINT, null, responseZ);
       if (err != null) throw err;
       this._state.status = "connected";
       this._state.message = `Connected to cluster ${res.clusterKey}`;
@@ -103,12 +94,12 @@ export class Connectivity {
   }
 
   /** @returns a copy of the current client state. */
-  get state(): ConnectionState {
+  get state(): State {
     return { ...this._state };
   }
 
   /** @param callback - The function to call when the client status changes. */
-  onChange(callback: (state: ConnectionState) => void): void {
+  onChange(callback: (state: State) => void): void {
     this.onChangeHandlers.push(callback);
   }
 

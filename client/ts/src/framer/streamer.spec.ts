@@ -10,12 +10,12 @@
 import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
-import { Channel } from "@/channel";
+import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
 
-const newChannel = async (): Promise<Channel> =>
+const newChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
     name: "test",
     leaseholder: 1,

@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement, useRef } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement, useRef } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
-import { ItemProps } from "@/list/types";
-import { RenderProp } from "@/util/renderProp";
+import { type ItemProps } from "@/list/types";
+import { type RenderProp } from "@/util/renderProp";
 
 import "@/list/Core.css";
 
 export interface VirtualCoreProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: RenderProp<ItemProps<K, E>>;
@@ -30,7 +30,7 @@ export interface VirtualCoreProps<
 
 const VirtualCore = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   itemHeight,
   children,
@@ -90,11 +90,11 @@ const VirtualCore = <
 
 export const Core = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
   props: Omit<ComponentPropsWithoutRef<"div">, "children"> & {
     children: RenderProp<ItemProps<K, E>>;
-  }
+  },
 ): ReactElement => {
   const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
 
@@ -103,7 +103,7 @@ export const Core = <
       {data.length === 0 ? (
         emptyContent
       ) : (
-        <div>
+        <>
           {data.map((entry, index) =>
             props.children({
               key: entry.key,
@@ -114,9 +114,9 @@ export const Core = <
               selected: select.value.includes(entry.key),
               hovered: index === hover.value,
               style: {},
-            })
+            }),
           )}
-        </div>
+        </>
       )}
     </div>
   );

@@ -7,39 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ChannelKey, ChannelName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever, analyzeChannelParams } from "@/channel/retriever";
-import { Frame } from "@/framer/frame";
+import { type Key, type Name, type Params } from "@/channel/payload";
+import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { type Frame } from "@/framer/frame";
 
 export class BackwardFrameAdapter {
-  private adapter: Map<ChannelKey, ChannelName> | null;
-  retriever: ChannelRetriever;
-  keys: ChannelKey[];
+  private adapter: Map<Key, Name> | null;
+  retriever: Retriever;
+  keys: Key[];
 
-  private constructor(retriever: ChannelRetriever) {
+  private constructor(retriever: Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
   }
 
   static async open(
-    retriever: ChannelRetriever,
-    channels: ChannelParams
+    retriever: Retriever,
+    channels: Params,
   ): Promise<BackwardFrameAdapter> {
     const adapter = new BackwardFrameAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async update(channels: ChannelParams): Promise<void> {
-    const { variant, normalized } = analyzeChannelParams(channels);
+  async update(channels: Params): Promise<void> {
+    const { variant, normalized } = analyzeParams(channels);
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized;
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);
-    this.adapter = new Map<ChannelKey, ChannelName>();
+    this.adapter = new Map<Key, Name>();
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
       if (channel == null) throw new Error(`Channel ${name} not found`);
@@ -64,34 +64,34 @@ export class BackwardFrameAdapter {
 }
 
 export class ForwardFrameAdapter {
-  private adapter: Map<ChannelName, ChannelKey> | null;
-  retriever: ChannelRetriever;
-  keys: ChannelKey[];
+  private adapter: Map<Name, Key> | null;
+  retriever: Retriever;
+  keys: Key[];
 
-  private constructor(retriever: ChannelRetriever) {
+  private constructor(retriever: Retriever) {
     this.retriever = retriever;
     this.adapter = null;
     this.keys = [];
   }
 
   static async open(
-    retriever: ChannelRetriever,
-    channels: ChannelParams
+    retriever: Retriever,
+    channels: Params,
   ): Promise<ForwardFrameAdapter> {
     const adapter = new ForwardFrameAdapter(retriever);
     await adapter.update(channels);
     return adapter;
   }
 
-  async update(channels: ChannelParams): Promise<void> {
-    const { variant, normalized } = analyzeChannelParams(channels);
+  async update(channels: Params): Promise<void> {
+    const { variant, normalized } = analyzeParams(channels);
     if (variant === "keys") {
       this.adapter = null;
       this.keys = normalized;
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);
-    this.adapter = new Map<ChannelName, ChannelKey>();
+    this.adapter = new Map<Name, Key>();
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
       if (channel == null) throw new Error(`Channel ${name} not found`);

@@ -10,7 +10,7 @@
 import { URL } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { AuthenticationClient } from "@/auth";
+import { auth } from "@/auth";
 import { AuthError } from "@/errors";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
@@ -18,7 +18,7 @@ import { Transport } from "@/transport";
 describe("auth", () => {
   test("valid credentials", async () => {
     const transport = new Transport(new URL({ host: HOST, port: PORT }));
-    const client = new AuthenticationClient(transport.unary, {
+    const client = new auth.Client(transport.unary, {
       username: "synnax",
       password: "seldon",
     });
@@ -28,7 +28,7 @@ describe("auth", () => {
 
   test("invalid credentials", async () => {
     const transport = new Transport(new URL({ host: HOST, port: PORT }));
-    const client = new AuthenticationClient(transport.unary, {
+    const client = new auth.Client(transport.unary, {
       username: "synnax",
       password: "wrong",
     });

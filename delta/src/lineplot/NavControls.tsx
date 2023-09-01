@@ -50,6 +50,8 @@ export const NavControls = (): ReactElement => {
     <>
       <Viewport.SelectMode
         value={mode}
+        bordered={false}
+        rounded={false}
         onChange={handleModeChange}
         triggers={triggers}
         size="medium"

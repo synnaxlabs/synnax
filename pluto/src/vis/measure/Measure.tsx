@@ -28,7 +28,7 @@ const MEASURE_TRIGGERS: Config<ClickMode> = {
   empty: [[]],
 };
 
-const REDUCED_MEASURE_TRIGGERS = Triggers.reduceConfig(MEASURE_TRIGGERS);
+const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface MeasureProps {}

@@ -7,4 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as user from "@/user/payload";
+import { type Triggers } from "@synnaxlabs/pluto";
+
+export type Mode = "command" | "resource";
+
+export type TriggerConfig = Triggers.Config<Mode>;

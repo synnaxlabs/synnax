@@ -132,13 +132,13 @@ export const use = ({
           ...DEFAULT_TRIGGERS[defaultMode],
           ...initialTriggers,
         };
-        const reducedTriggers = Triggers.reduceConfig(config);
+        const reducedTriggers = Triggers.flattenConfig(config);
         const mouseTriggers = purgeMouseTriggers(config);
         return [
           config,
           reducedTriggers,
           mouseTriggers,
-          Triggers.reduceConfig(mouseTriggers),
+          Triggers.flattenConfig(mouseTriggers),
         ];
       },
       Triggers.compareConfigs,

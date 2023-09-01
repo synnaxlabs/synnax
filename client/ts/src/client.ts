@@ -10,13 +10,12 @@
 import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthenticationClient } from "@/auth";
-import { ChannelClient, ChannelCreator } from "@/channel";
-import { CacheChannelRetriever, ClusterChannelRetriever } from "@/channel/retriever";
-import { Connectivity } from "@/connectivity";
-import { FrameClient } from "@/framer";
+import { auth } from "@/auth";
+import { channel } from "@/channel";
+import { connection } from "@/connection";
+import { framer } from "@/framer";
 import { ontology } from "@/ontology";
-import { RangeClient, RangeCreator, RangeRetriever } from "@/ranger";
+import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 
 export const synnaxPropsZ = z.object({
@@ -43,14 +42,14 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
 export default class Synnax {
   private readonly transport: Transport;
   createdAt: TimeStamp;
-  telem: FrameClient;
-  ranges: RangeClient;
-  channels: ChannelClient;
-  auth: AuthenticationClient | undefined;
-  connectivity: Connectivity;
+  telem: framer.Client;
+  ranges: ranger.Client;
+  channels: channel.Client;
+  auth: auth.Client | undefined;
+  connectivity: connection.Checker;
   ontology: ontology.Client;
   props: ParsedSynnaxProps;
-  static readonly connectivity = Connectivity;
+  static readonly connectivity = connection.Checker;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -74,26 +73,26 @@ export default class Synnax {
       this.props;
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
     if (username != null && password != null) {
-      this.auth = new AuthenticationClient(this.transport.unary, {
+      this.auth = new auth.Client(this.transport.unary, {
         username,
         password,
       });
       this.transport.use(this.auth.middleware());
     }
-    const chRetriever = new CacheChannelRetriever(
-      new ClusterChannelRetriever(this.transport.unary)
+    const chRetriever = new channel.CacheRetriever(
+      new channel.ClusterRetriever(this.transport.unary),
     );
-    const chCreator = new ChannelCreator(this.transport.unary);
-    this.telem = new FrameClient(this.transport.stream, chRetriever);
-    this.channels = new ChannelClient(this.telem, chRetriever, chCreator);
-    this.connectivity = new Connectivity(
+    const chCreator = new channel.Creator(this.transport.unary);
+    this.telem = new framer.Client(this.transport.stream, chRetriever);
+    this.channels = new channel.Client(this.telem, chRetriever, chCreator);
+    this.connectivity = new connection.Checker(
       this.transport.unary,
-      connectivityPollFrequency
+      connectivityPollFrequency,
     );
     this.ontology = new ontology.Client(this.transport.unary);
-    const rangeRetriever = new RangeRetriever(this.transport.unary);
-    const rangeCreator = new RangeCreator(this.transport.unary);
-    this.ranges = new RangeClient(this.telem, rangeRetriever, rangeCreator);
+    const rangeRetriever = new ranger.Retriever(this.transport.unary);
+    const rangeCreator = new ranger.Creator(this.transport.unary);
+    this.ranges = new ranger.Client(this.telem, rangeRetriever, rangeCreator);
   }
 
   close(): void {

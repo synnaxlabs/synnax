@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
-import { Variant } from "@/status/aether/types";
+import { type Color } from "@/color";
+import { CSS } from "@/css";
+import { type Variant } from "@/status/aether/types";
 import { Text as BaseText } from "@/text";
 
 export interface TextDigest {
@@ -41,10 +42,12 @@ const CoreText = ({
   variant = "info",
   level = "p",
   hideIcon = false,
+  className,
   ...props
 }: TextProps): ReactElement => (
   <BaseText.WithIcon
     color={statusVariantColors[variant]}
+    className={CSS(className, CSS.B("status-text"))}
     level={level}
     startIcon={!hideIcon && <Icon.Circle />}
     {...props}

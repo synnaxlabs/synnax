@@ -91,7 +91,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().OverlapsWith(telem.TimeRange{
+			Expect(svc.NewRetrieve().WhereOverlapsWith(telem.TimeRange{
 				Start: telem.TimeStamp(7 * telem.Second),
 				End:   telem.TimeStamp(9 * telem.Second),
 			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())

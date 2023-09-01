@@ -18,7 +18,7 @@ import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { Trigger } from "@/triggers/triggers";
-import { Mode, UseTriggers } from "@/viewport/use";
+import { MODES, Mode, UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;
@@ -57,14 +57,13 @@ export const SelectMode = ({
   ...props
 }: SelectModeProps): ReactElement => {
   const data = Object.entries(triggers)
-    .filter(([key]) => !disable.includes(key as Mode))
+    .filter(([key]) => !disable.includes(key as Mode) && MODES.includes(key as Mode))
     .map(([key, value]) => ({
       key: key as Mode,
       icon: MODE_ICONS[key as Mode],
       tooltip: <Tooltip mode={key as Mode} triggers={value as Trigger[]} />,
-    }));
-
-  console.log(data);
+    }))
+    .sort((a, b) => MODES.indexOf(a.key) - MODES.indexOf(b.key));
 
   return (
     <Select.Button<Mode, Entry> {...props} data={data} entryRenderKey="icon">

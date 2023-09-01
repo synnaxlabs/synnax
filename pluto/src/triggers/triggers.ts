@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Compare, CompareF, XY } from "@synnaxlabs/x";
+import { Compare, type CompareF, type XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
@@ -184,13 +184,13 @@ export const mouseKey = (button: number): Key => {
 export const match = (
   options: Trigger[],
   triggers: Trigger[],
-  loose = false
+  loose = false,
 ): boolean => filter(options, triggers, loose).length > 0;
 
 export const filter = (
   options: Trigger[],
   triggers: Trigger[],
-  loose = false
+  loose = false,
 ): Trigger[] => {
   const f = compareF(loose);
   const res = options.filter((o) => triggers.some((t) => f(o, t) === 0));
@@ -200,13 +200,13 @@ export const filter = (
 export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
   source.filter(
     (t) =>
-      !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) === Compare.EQUAL)
+      !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) === Compare.EQUAL),
   );
 
 export const diff = (
   a: Trigger[],
   b: Trigger[],
-  loose = false
+  loose = false,
 ): [Trigger[], Trigger[]] => {
   const f = compareF(loose);
   const added = a.filter((t) => !b.some((t2) => f(t, t2) === 0));
@@ -232,10 +232,10 @@ export type Config<K extends string | number | symbol> = Record<K, Trigger[]> & 
 export const determineMode = <K extends string | number | symbol>(
   config: Config<K>,
   triggers: Trigger[],
-  loose = false
+  loose = false,
 ): K => {
   const e = Object.entries(config).filter(
-    ([k]) => k !== "defaultMode"
+    ([k]) => k !== "defaultMode",
   ) as unknown as Array<[K, Trigger[]]>;
   const flat = e.map(([k, v]) => v.map((t) => [k, t])).flat() as Array<[K, Trigger]>;
   const complexitySorted = flat.sort(([, a], [, b]) => b.length - a.length);
@@ -246,7 +246,7 @@ export const determineMode = <K extends string | number | symbol>(
 
 export const compareConfigs = <K extends string | number | symbol>(
   [a]: Array<Config<K> | undefined | null>,
-  [b]: Array<Config<K> | undefined | null>
+  [b]: Array<Config<K> | undefined | null>,
 ): boolean => {
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
@@ -258,11 +258,11 @@ export const compareConfigs = <K extends string | number | symbol>(
   return aKeys.every((k) => Compare.unorderedPrimitiveArrays(a[k], b[k]) === 0);
 };
 
-export const reduceConfig = <K extends string | number | symbol>(
-  config: Config<K>
+export const flattenConfig = <K extends string | number | symbol>(
+  config: Config<K>,
 ): Trigger[] => {
   const e = Object.entries(config).filter(
-    ([k]) => k !== "defaultMode"
+    ([k]) => k !== "defaultMode",
   ) as unknown as Array<[K, Trigger[]]>;
   return e.map(([, v]) => v).flat();
 };

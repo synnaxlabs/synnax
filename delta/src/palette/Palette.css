@@ -11,11 +11,25 @@
 
 .delta-palette {
     width: 100%;
+
+    & input {
+        width: 100%;
+    }
+
+    .delta-palette__list {
+        & .pluto-status-text {
+            height: 150px;
+        }
+    }
+
+    .delta-notifications {
+        & > .pluto-space {
+            height: 6rem;
+            padding: 1rem;
+        }
+    }
 }
 
-.delta-palette__input {
-    width: 100%;
-}
 
 .delta-palette__item {
     border-radius: 0;

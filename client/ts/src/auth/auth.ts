@@ -11,7 +11,7 @@ import type { Middleware, UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { AuthError } from "@/errors";
-import { UserPayload, userPayloadSchema } from "@/user";
+import { user } from "@/user";
 
 export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
   return async (md, next) => {
@@ -33,19 +33,19 @@ export type InsecureCredentials = z.infer<typeof insecureCredentialsZ>;
 
 export const tokenResponseZ = z.object({
   token: z.string(),
-  user: userPayloadSchema,
+  user: user.payloadZ,
 });
 
 export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
-export class AuthenticationClient {
+export class Client {
   private static readonly ENDPOINT = "/auth/login";
   private token: string | undefined;
   private readonly client: UnaryClient;
   private readonly credentials: InsecureCredentials;
   authenticating: Promise<void> | undefined;
   authenticated: boolean;
-  user: UserPayload | undefined;
+  user: user.Payload | undefined;
 
   constructor(client: UnaryClient, creds: InsecureCredentials) {
     this.client = client;
@@ -58,9 +58,9 @@ export class AuthenticationClient {
     this.authenticating = new Promise((resolve, reject) => {
       this.client
         .send<typeof insecureCredentialsZ, typeof tokenResponseZ>(
-          AuthenticationClient.ENDPOINT,
+          Client.ENDPOINT,
           this.credentials,
-          tokenResponseZ
+          tokenResponseZ,
         )
         .then(([res, err]) => {
           if (err != null) {

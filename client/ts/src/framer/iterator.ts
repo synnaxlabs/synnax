@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errorZ, Stream, StreamClient } from "@synnaxlabs/freighter";
+import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import {
-  CrudeTimeSpan,
-  CrudeTimeStamp,
+  type CrudeTimeSpan,
+  type CrudeTimeStamp,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelParams } from "@/channel/payload";
-import { ChannelRetriever } from "@/channel/retriever";
+import { type Params } from "@/channel/payload";
+import { type Retriever } from "@/channel/retriever";
 import { BackwardFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -77,7 +77,7 @@ export class Iterator {
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: BackwardFrameAdapter
+    adapter: BackwardFrameAdapter,
   ) {
     this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
@@ -93,9 +93,9 @@ export class Iterator {
    */
   static async _open(
     tr: TimeRange,
-    channels: ChannelParams,
-    retriever: ChannelRetriever,
-    client: StreamClient
+    channels: Params,
+    retriever: Retriever,
+    client: StreamClient,
   ): Promise<Iterator> {
     const adapter = await BackwardFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);

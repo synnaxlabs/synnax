@@ -10,13 +10,18 @@
 /* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
-import { NativeTypedArray, Series, TimeStamp, CrudeTimeStamp } from "@synnaxlabs/x";
+import {
+  type NativeTypedArray,
+  Series,
+  TimeStamp,
+  type CrudeTimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever } from "@/channel/retriever";
+import { type KeyOrName, type Params } from "@/channel/payload";
+import { type Retriever } from "@/channel/retriever";
 import { ForwardFrameAdapter } from "@/framer/adapter";
-import { CrudeFrame, Frame, frameZ } from "@/framer/frame";
+import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -92,7 +97,7 @@ export class Writer {
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: ForwardFrameAdapter
+    adapter: ForwardFrameAdapter,
   ) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
@@ -109,9 +114,9 @@ export class Writer {
    */
   static async _open(
     start: CrudeTimeStamp,
-    channels: ChannelParams,
-    retriever: ChannelRetriever,
-    client: StreamClient
+    channels: Params,
+    retriever: Retriever,
+    client: StreamClient,
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
@@ -123,7 +128,7 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: ChannelKeyOrName, data: NativeTypedArray): Promise<boolean>;
+  async write(channel: KeyOrName, data: NativeTypedArray): Promise<boolean>;
 
   async write(frame: CrudeFrame): Promise<boolean>;
 
@@ -142,8 +147,8 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    frame: CrudeFrame | ChannelKeyOrName,
-    data?: NativeTypedArray
+    frame: CrudeFrame | KeyOrName,
+    data?: NativeTypedArray,
   ): Promise<boolean> {
     const isKeyOrName = ["string", "number"].includes(typeof frame);
     if (isKeyOrName) {

@@ -10,15 +10,15 @@
 import { URL } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticationClient } from "@/auth";
-import { Connectivity } from "@/connectivity";
+import { auth } from "@/auth";
+import { Checker } from "@/connection/checker";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {
   it("should connect to the server", async () => {
     const transport = new Transport(new URL({ host: HOST, port: PORT }));
-    const client = new AuthenticationClient(transport.unary, {
+    const client = new auth.Client(transport.unary, {
       username: "synnax",
       password: "seldon",
     });
@@ -27,7 +27,7 @@ describe("connectivity", () => {
 
     transport.use(client.middleware());
 
-    const connectivity = new Connectivity(transport.unary);
+    const connectivity = new Checker(transport.unary);
 
     await connectivity.check();
     expect(connectivity.state.status).toEqual("connected");

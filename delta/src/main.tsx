@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, StrictMode, useCallback } from "react";
+import { type ReactElement, StrictMode, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
+import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -39,7 +39,7 @@ const layoutRenderers = {
   docs: Docs.Docs,
   pid: PID.PID,
   vis: Vis.LayoutSelector,
-  line: LinePlot.LinePlot,
+  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   mosaic: Layout.Mosaic,
 };
 

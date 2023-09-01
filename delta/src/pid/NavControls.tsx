@@ -26,7 +26,9 @@ export const NavControls = (): ReactElement => {
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], []);
 
   return (
-    <Viewport.ModeSelector
+    <Viewport.SelectMode
+      bordered={false}
+      rounded={false}
       value={mode}
       onChange={handleModeChange}
       triggers={triggers}

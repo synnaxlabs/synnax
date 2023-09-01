@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Series, TimeRange } from "@synnaxlabs/x";
+import { type Series, TimeRange, type Key } from "@synnaxlabs/x";
 
-import { ChannelKeyOrName, ChannelParams } from "@/channel";
-import { Frame, FrameClient } from "@/framer";
+import { type Params, type Name } from "@/channel/payload";
+import { type framer } from "@/framer";
 
 export class Range {
   key: string;
   name: string;
   readonly timeRange: TimeRange;
-  private readonly frameClient: FrameClient;
+  private readonly frameClient: framer.Client;
 
   constructor(
     name: string,
     timeRange: TimeRange = TimeRange.ZERO,
     key: string,
-    _frameClient: FrameClient
+    _frameClient: framer.Client,
   ) {
     this.key = key;
     this.name = name;
@@ -30,11 +30,11 @@ export class Range {
     this.frameClient = _frameClient;
   }
 
-  async read(channel: ChannelKeyOrName): Promise<Series>;
+  async read(channel: Key | Name): Promise<Series>;
 
-  async read(channels: ChannelParams): Promise<Frame>;
+  async read(channels: Params): Promise<framer.Frame>;
 
-  async read(channels: ChannelParams): Promise<Series | Frame> {
+  async read(channels: Params): Promise<Series | framer.Frame> {
     return await this.frameClient.read(this.timeRange, channels);
   }
 }

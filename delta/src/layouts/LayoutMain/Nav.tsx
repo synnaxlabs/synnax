@@ -29,7 +29,7 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
-import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
+import { Palette, TriggerConfig } from "@/palette/Palette";
 import { PID } from "@/pid";
 import { Resources } from "@/resources";
 import { Version } from "@/version";
@@ -45,7 +45,7 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Vis.Toolbar,
 ];
 
-const DEFAULT_TRIGGER: PaletteTriggerConfig = {
+const DEFAULT_TRIGGER: TriggerConfig = {
   resource: [["Control", "P"]],
   command: [["Control", "Shift", "P"]],
 };

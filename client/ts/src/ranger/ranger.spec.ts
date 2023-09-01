@@ -10,9 +10,9 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NewRangePayload } from "./payload";
-
 import { newClient } from "@/setupspecs";
+
+import { type NewPayload } from "./payload";
 
 const client = newClient();
 
@@ -28,7 +28,7 @@ describe("Ranger", () => {
       expect(timeRange).toEqual(range.timeRange);
     });
     it("should create multiple ranges", async () => {
-      const ranges: NewRangePayload[] = [
+      const ranges: NewPayload[] = [
         {
           name: "My New One Second Range",
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
