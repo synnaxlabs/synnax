@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MutableRefObject, RefObject, useCallback, useEffect, useState } from "react";
+import {
+  type MutableRefObject,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-import { Box, Compare, XY, unique, OS } from "@synnaxlabs/x";
+import { Box, Compare, type XY, unique, type OS } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Context";
-import { diff, filter, purge, Stage, Trigger } from "@/triggers/triggers";
+import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface UseEvent {
   triggers: Trigger[];
@@ -41,7 +47,7 @@ export const use = ({
   const memoTriggers = useMemoCompare(
     () => triggers,
     ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === Compare.EQUAL,
-    [triggers]
+    [triggers],
   );
 
   useEffect(() => {
@@ -61,7 +67,7 @@ const filterInRegion = (
   target: HTMLElement,
   cursor: XY,
   added: Trigger[],
-  region?: RefObject<HTMLElement>
+  region?: RefObject<HTMLElement>,
 ): Trigger[] => {
   if (region == null) return added;
   if (region.current == null) return [];

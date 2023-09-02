@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
-import { channel.Key } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { Input, Channel, componentRenderProp } from "@synnaxlabs/pluto";
 
-import { AxisKey, axisLabel } from "@/vis/axis";
+import { type AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<

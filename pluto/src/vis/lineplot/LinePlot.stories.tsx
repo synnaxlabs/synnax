@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
@@ -28,17 +28,17 @@ const MULT = 1000;
 const xData = Float32Array.from({ length: LENGTH }, (_, i) => i);
 const yData = Float32Array.from(
   { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * MULT + Math.random()
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random(),
 );
 const xData2 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.25);
 const yData2 = Float32Array.from(
   { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 200
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 200,
 );
 const xData3 = Float32Array.from({ length: LENGTH }, (_, i) => i + 0.5);
 const yData3 = Float32Array.from(
   { length: LENGTH },
-  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400
+  (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400,
 );
 const Example = (): ReactElement => {
   const telem = Static.useStaticXY({

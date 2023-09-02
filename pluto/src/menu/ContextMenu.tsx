@@ -8,20 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ComponentPropsWithoutRef,
-  ForwardedRef,
+  type ComponentPropsWithoutRef,
+  type ForwardedRef,
   forwardRef,
-  ReactElement,
-  RefCallback,
+  type ReactElement,
+  type RefCallback,
   useRef,
   useState,
 } from "react";
 
-import { unique, positionSoVisible, ClientXYT, CrudeXY, XY } from "@synnaxlabs/x";
+import {
+  unique,
+  positionSoVisible,
+  type ClientXYT,
+  type CrudeXY,
+  XY,
+} from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
-import { RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 
 import "@/menu/ContextMenu.css";
 
@@ -41,7 +47,7 @@ export type ContextMenuEvent = ClientXYT & {
 /** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
 export type ContextMenuOpen = (
   pos: CrudeXY | ClientXYT | ContextMenuEvent,
-  keys?: string[]
+  keys?: string[],
 ) => void;
 
 /** Return value for the {@Menu.useContextMenu} hook. */
@@ -111,7 +117,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
       if (prev.visible) {
         const [repositioned, changed] = positionSoVisible(
           el,
-          window.document.documentElement
+          window.document.documentElement,
         );
         if (changed) return { ...prev, xy: repositioned.topLeft };
       }
@@ -153,7 +159,7 @@ const ContextMenuCore = (
     className,
     ...props
   }: ContextMenuProps,
-  ref: ForwardedRef<HTMLDivElement>
+  ref: ForwardedRef<HTMLDivElement>,
 ): ReactElement => {
   return (
     <div

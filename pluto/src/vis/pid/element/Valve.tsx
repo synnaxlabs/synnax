@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Bounds, CrudeDirection, Direction } from "@synnaxlabs/x";
+import { Bounds, type CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
@@ -21,10 +21,10 @@ import { Bool } from "@/telem/bool";
 import { Control } from "@/telem/control";
 import { Remote } from "@/telem/remote";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
-import { FormProps, Spec, Props } from "@/vis/pid/element/element";
-import { Valve, ValveProps } from "@/vis/valve/Valve";
+import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
+import { Valve, type ValveProps } from "@/vis/valve/Valve";
 
 import "@/vis/pid/element/Valve.css";
 
@@ -73,7 +73,7 @@ const Element = ({
       className={CSS(
         CSS.B("valve-pid-element"),
         CSS.selected(selected),
-        CSS.editable(editable)
+        CSS.editable(editable),
       )}
       direction={parsedDirection.inverse}
     >

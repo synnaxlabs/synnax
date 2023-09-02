@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 
-import { Primitive, UnknownRecord } from "@synnaxlabs/x";
+import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
 
 type State = Primitive | UnknownRecord;
 export type SetFunc<S, PS = S> = (prev: PS) => S;

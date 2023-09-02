@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useEffect } from "react";
+import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 
-import { Location, CrudeOuterLocation, Direction, CrudeDirection } from "@synnaxlabs/x";
-import { z } from "zod";
+import {
+  Location,
+  type CrudeOuterLocation,
+  Direction,
+  type CrudeDirection,
+} from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -78,7 +83,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
         size: size + labelSize,
         order: "last",
       },
-      "YAxis"
+      "YAxis",
     );
 
     const font = Theming.useTypography(labelLevel);
@@ -114,5 +119,5 @@ export const YAxis = Aether.wrap<YAxisProps>(
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </>
     );
-  }
+  },
 );

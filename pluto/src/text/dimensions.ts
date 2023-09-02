@@ -19,7 +19,7 @@ const getCanvas = (): HTMLCanvasElement => {
 export const dimensions = (
   text: string,
   font: string,
-  context?: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
+  context?: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
 ): Dimensions => {
   if (RUNTIME === "node") return new Dimensions({ width: 0, height: 0 });
   if (context == null)
@@ -28,11 +28,12 @@ export const dimensions = (
   const metrics = context.measureText(text);
   return new Dimensions({
     width: Math.trunc(
-      Math.abs(metrics.actualBoundingBoxLeft) + Math.abs(metrics.actualBoundingBoxRight)
+      Math.abs(metrics.actualBoundingBoxLeft) +
+        Math.abs(metrics.actualBoundingBoxRight),
     ),
     height: Math.trunc(
       Math.abs(metrics.actualBoundingBoxAscent) +
-        Math.abs(metrics.actualBoundingBoxDescent)
+        Math.abs(metrics.actualBoundingBoxDescent),
     ),
   });
 };

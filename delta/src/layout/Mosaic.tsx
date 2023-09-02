@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, memo, useCallback } from "react";
+import { type ReactElement, memo, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as Core, useDebouncedCallback } from "@synnaxlabs/pluto";

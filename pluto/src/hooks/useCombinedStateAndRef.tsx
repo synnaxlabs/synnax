@@ -9,12 +9,12 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { Primitive } from "@synnaxlabs/x";
+import { type Primitive } from "@synnaxlabs/x";
 
 import { state } from "@/state";
 
 export const useCombinedStateAndRef = <T extends Primitive | object>(
-  initialState: state.Initial<T>
+  initialState: state.Initial<T>,
 ): [T, state.Set<T>, React.MutableRefObject<T>] => {
   const ref = useRef<T | null>(null);
   const [s, setS] = useState<T>(() => {
@@ -30,7 +30,7 @@ export const useCombinedStateAndRef = <T extends Primitive | object>(
         return ref.current;
       });
     },
-    [setS]
+    [setS],
   );
 
   return [s, setStateAndRef, ref as React.MutableRefObject<T>];

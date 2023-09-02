@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, type Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -16,13 +16,13 @@ import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { Canvas } from "@/vis/axis/canvas";
-import { FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/vis/line/aether/line";
 import {
   calculateGridPosition,
   autoBounds,
   withinSizeThreshold,
 } from "@/vis/lineplot/aether/grid";
-import { YAxis, YAxisProps } from "@/vis/lineplot/aether/YAxis";
+import { type YAxis, type YAxisProps } from "@/vis/lineplot/aether/YAxis";
 import { render } from "@/vis/render";
 
 export const xAxisStateZ = axis.axisStateZ
@@ -84,7 +84,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderAxis(
     props: XAxisProps,
-    decimalToDataScale: Scale
+    decimalToDataScale: Scale,
   ): Promise<void> {
     const { core } = this.internal;
     const { grid, container } = props;
@@ -97,7 +97,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderYAxes(
     props: XAxisProps,
-    xDataToDecimalScale: Scale
+    xDataToDecimalScale: Scale,
   ): Promise<void> {
     const p = { ...props, xDataToDecimalScale };
     await Promise.all(this.children.map(async (el) => await el.render(p)));

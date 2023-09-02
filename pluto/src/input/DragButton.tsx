@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { Box, CrudeDirection, LooseXYT, XY } from "@synnaxlabs/x";
+import { Box, type CrudeDirection, type LooseXYT, XY } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
 import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
-import { Control } from "@/input/types";
+import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
 
@@ -65,7 +65,7 @@ export const DragButton = ({
   }, [dragScale, dragDirection]);
   const normalDragThreshold = useMemo(
     () => (dragThreshold != null ? new XY(dragThreshold) : null),
-    [dragThreshold]
+    [dragThreshold],
   );
 
   useVirtualCursorDrag({
@@ -89,7 +89,7 @@ export const DragButton = ({
         vRef.current.curr = value;
         onChange(value);
       },
-      [onChange, normalDragScale, normalDragThreshold]
+      [onChange, normalDragScale, normalDragThreshold],
     ),
     onEnd: useCallback(() => {
       vRef.current.prev = vRef.current.curr;

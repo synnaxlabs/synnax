@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
+import { type OptionalControl } from "@/input/types";
 import { useContext } from "@/list/Context";
 import { state } from "@/state";
-import { RenderProp } from "@/util/renderProp";
-
-import { OptionalControl } from "../input/types";
+import { type RenderProp } from "@/util/renderProp";
 
 export interface FilterProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends OptionalControl<string> {
   children?: RenderProp<Input.Control<string>>;
   debounce?: number;
@@ -39,7 +38,7 @@ export interface FilterProps<
  */
 export const Filter = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   children = (props) => <Input.Text {...props} />,
   debounce = 250,
@@ -61,7 +60,7 @@ export const Filter = <
       if (term.length === 0) deleteTransform("filter");
       else debounced("filter", createFilterTransform({ term }));
     },
-    [setInternalValue]
+    [setInternalValue],
   );
 
   return children({ value: internalValue, onChange: handleChange });
@@ -69,7 +68,7 @@ export const Filter = <
 
 export interface Searcher<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
   search: (term: string) => E[];
 }

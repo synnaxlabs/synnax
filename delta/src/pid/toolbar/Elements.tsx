@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ComponentPropsWithoutRef,
-  PropsWithChildren,
-  ReactElement,
+  type ComponentPropsWithoutRef,
+  type PropsWithChildren,
+  type ReactElement,
   useCallback,
 } from "react";
 

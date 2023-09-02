@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor } from "@synnaxlabs/x";
+import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -37,12 +37,12 @@ export class Valve extends aether.Leaf<typeof valveStateZ, InternalState> {
     const [source, cleanupSource] = telem.use<telem.BooleanSource>(
       this.ctx,
       `${this.key}-source`,
-      this.state.source
+      this.state.source,
     );
     const [sink, cleanupSink] = telem.use<telem.BooleanSink>(
       this.ctx,
       `${this.key}-sink`,
-      this.state.sink
+      this.state.sink,
     );
 
     this.internal.source = source;

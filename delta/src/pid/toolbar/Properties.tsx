@@ -7,13 +7,13 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Status, Color, Input, Align, PIDElement } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { ElementInfo, useSelectSelectedElementsProps } from "@/pid/selectors";
+import { type ElementInfo, useSelectSelectedElementsProps } from "@/pid/selectors";
 import { setElementProps } from "@/pid/slice";
 
 import "@/pid/toolbar/Properties.css";

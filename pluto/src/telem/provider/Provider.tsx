@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { provider } from "@/telem/provider/aether";
@@ -24,5 +24,5 @@ export const TelemProvider = Aether.wrap<TelemProviderProps>(
       initialState: {},
     });
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
-  }
+  },
 );

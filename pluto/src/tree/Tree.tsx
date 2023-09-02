@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
@@ -15,7 +15,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
-import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
@@ -82,7 +82,7 @@ export const use = (props?: UseProps): UseReturn => {
         setExpanded(nextExpanded);
         onExpand?.({ current: nextExpanded, action, clicked });
       },
-      [onExpand]
+      [onExpand],
     );
 
   return {
@@ -202,7 +202,7 @@ const Item = ({
       CONTEXT_TARGET,
       draggingOver && CSS.M("dragging-over"),
       selected && CONTEXT_SELECTED,
-      CSS.selected(selected)
+      CSS.selected(selected),
     ),
     onDragLeave: () => setDraggingOver(false),
     onDragStart: () =>
@@ -210,7 +210,7 @@ const Item = ({
         selectedItems
           .map(({ key, haulItems }) => [{ type: HAUL_TYPE, key }, ...(haulItems ?? [])])
           .flat(),
-        (props) => onSuccessfulDrop?.(key, props)
+        (props) => onSuccessfulDrop?.(key, props),
       ),
     onClick: () => onSelect?.(key),
     style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
@@ -244,7 +244,7 @@ export const shouldExpand = (node: Node, expanded: string[]): boolean =>
 export const flatten = (
   nodes: Node[],
   expanded: string[],
-  depth: number = 0
+  depth: number = 0,
 ): FlattenedNode[] => {
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
@@ -303,7 +303,7 @@ export const addNode = (
 export const updateNode = (
   tree: Node[],
   key: string,
-  updater: (node: Node) => Node
+  updater: (node: Node) => Node,
 ): Node[] => {
   const node = findNode(tree, key);
   if (node == null) throw new Error(`Could not find node with key ${key}`);
@@ -317,7 +317,7 @@ export const updateNode = (
     tree.splice(
       tree.findIndex((node) => node.key === key),
       1,
-      updater(node)
+      updater(node),
     );
   }
   return tree;

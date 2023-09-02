@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PID, Control, Viewport } from "@synnaxlabs/pluto";
-import { Box, CrudeXY, Deep, XY, XYScale } from "@synnaxlabs/x";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
+import { type Box, type CrudeXY, Deep, XY, XYScale } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
   type: string;
@@ -347,6 +347,9 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
+export type LayoutType = "pid";
+export const LAYOUT_TYPE = "pid";
+
 export const create =
   (
     initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
@@ -359,7 +362,7 @@ export const create =
       key,
       location,
       name,
-      type: "pid",
+      type: LAYOUT_TYPE,
       window,
       tab,
     };

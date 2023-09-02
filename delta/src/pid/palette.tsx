@@ -9,13 +9,13 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 import { create } from "@/pid/slice";
 
 export const createCommand: Command = {
   key: "create-pid",
   name: "Create a PID",
-  icon: <Icon.Control />,
+  icon: <Icon.PID />,
   onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
 };
 

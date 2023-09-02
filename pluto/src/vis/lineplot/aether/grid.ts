@@ -11,7 +11,7 @@ import {
   Bounds,
   Box,
   Compare,
-  CrudeOuterLocation,
+  type CrudeOuterLocation,
   Location,
   TimeSpan,
   TimeStamp,
@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { TickType } from "@/vis/axis/ticks";
+import { type TickType } from "@/vis/axis/ticks";
 
 const AXIS_SIZE_UPADTE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
@@ -41,7 +41,7 @@ const EMPTY_TIME_BOUNDS = new Bounds({
 export const autoBounds = (
   bounds: Bounds[],
   padding: number = 0.1,
-  type: TickType
+  type: TickType,
 ): Bounds => {
   if (bounds.length === 0)
     return type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
@@ -62,7 +62,7 @@ export type GridPositionSpec = z.input<typeof gridPositionSpecZ>;
 
 export const filterGridPositions = (
   loc: CrudeOuterLocation,
-  grid: GridPositionSpec[]
+  grid: GridPositionSpec[],
 ): GridPositionSpec[] =>
   grid
     .filter(({ loc: l }) => new Location(l).equals(loc))
@@ -71,7 +71,7 @@ export const filterGridPositions = (
 export const calculateGridPosition = (
   key: string,
   grid: GridPositionSpec[],
-  container: Box
+  container: Box,
 ): XY => {
   const axis = grid.find(({ key: k }) => k === key);
   if (axis == null) return XY.ZERO;
@@ -79,7 +79,7 @@ export const calculateGridPosition = (
   const axes = filterGridPositions(loc.crude as CrudeOuterLocation, grid);
   const otherAxes = filterGridPositions(
     loc.direction.inverse.location.crude as CrudeOuterLocation,
-    grid
+    grid,
   );
   const index = axes.findIndex(({ key: k }) => k === key);
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
@@ -108,6 +108,6 @@ export const calculatePlotBox = (grid: GridPositionSpec[], container: Box): Box 
   return new Box(
     container.topLeft.translate(leftWidth, topWidth),
     container.width - leftWidth - rightWidth,
-    container.height - topWidth - bottomWidth
+    container.height - topWidth - bottomWidth,
   );
 };

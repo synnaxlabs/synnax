@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefCallback, useCallback, useEffect, useRef, useState } from "react";
+import { type RefCallback, useCallback, useEffect, useRef, useState } from "react";
 
-import { debounce as debounceF, Box, Direction, LooseDirectionT } from "@synnaxlabs/x";
+import {
+  debounce as debounceF,
+  Box,
+  Direction,
+  type LooseDirectionT,
+} from "@synnaxlabs/x";
 
 import { compareArrayDeps, useMemoCompare } from "@/hooks";
 
@@ -39,7 +44,7 @@ export interface UseResizeOpts {
  */
 export const useResize = <E extends HTMLElement>(
   onResize: (box: Box, el: E) => void,
-  opts: UseResizeOpts = {}
+  opts: UseResizeOpts = {},
 ): RefCallback<E> => {
   const { triggers: _triggers = [], debounce = 0, enabled = true } = opts;
   const prev = useRef<Box>(Box.ZERO);
@@ -48,7 +53,7 @@ export const useResize = <E extends HTMLElement>(
   const triggers = useMemoCompare(
     () => normalizeTriggers(_triggers),
     compareArrayDeps,
-    [_triggers] as const
+    [_triggers] as const,
   );
 
   const startObserving = useCallback(
@@ -65,7 +70,7 @@ export const useResize = <E extends HTMLElement>(
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [triggers, onResize, debounce]
+    [triggers, onResize, debounce],
   );
 
   useEffect(() => {
@@ -78,7 +83,7 @@ export const useResize = <E extends HTMLElement>(
       ref.current = el;
       if (el != null && enabled) startObserving(el);
     },
-    [startObserving]
+    [startObserving],
   );
 };
 
@@ -93,7 +98,7 @@ export type UseSizeOpts = UseResizeOpts;
  * the element.
  */
 export const useSize = <E extends HTMLElement>(
-  opts: UseSizeOpts
+  opts: UseSizeOpts,
 ): [Box, RefCallback<E>] => {
   const [size, onResize] = useState<Box>(Box.ZERO);
   const ref = useResize<E>(onResize, opts);
@@ -101,7 +106,7 @@ export const useSize = <E extends HTMLElement>(
 };
 
 const normalizeTriggers = (
-  triggers: Array<Direction | DirectionTrigger>
+  triggers: Array<Direction | DirectionTrigger>,
 ): DirectionTrigger[] =>
   triggers
     .map((t): DirectionTrigger | DirectionTrigger[] => {
@@ -116,7 +121,7 @@ const normalizeTriggers = (
 const shouldResize = (
   triggers: Array<DirectionTrigger | Direction>,
   prev: Box,
-  next: Box
+  next: Box,
 ): boolean => {
   if (triggers.length === 0) return !next.equals(prev);
   if (triggers.includes("resizeX") && prev.width !== next.width) return true;

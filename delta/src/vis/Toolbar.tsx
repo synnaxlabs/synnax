@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button, Align, Status } from "@synnaxlabs/pluto";
@@ -19,12 +19,17 @@ import { PID } from "@/pid";
 import { create } from "@/vis/create";
 
 import { LayoutSelector } from "./LayoutSelector";
+import { type LayoutType } from "./types";
 
 export const VisToolbarTitle = (): ReactElement => (
   <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
 );
 
-const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
+interface ToolbarProps {
+  layoutKey: string;
+}
+
+const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
   <Align.Space justify="spaceBetween" style={{ height: "100%" }} empty>
     <ToolbarHeader>
       <VisToolbarTitle />
@@ -33,6 +38,11 @@ const SelectVis = ({ layoutKey }: { layoutKey?: string }): ReactElement => (
   </Align.Space>
 );
 
+const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
+  pid: PID.Toolbar,
+  lineplot: LinePlot.Toolbar,
+  vis: SelectVis,
+};
 const NoVis = (): ReactElement => {
   const placer = Layout.usePlacer();
   return (
@@ -58,16 +68,9 @@ const NoVis = (): ReactElement => {
 
 const Content = (): ReactElement => {
   const layout = Layout.useSelectActiveMosaicLayout();
-  switch (layout?.type) {
-    case "pid":
-      return <PID.Toolbar layoutKey={layout?.key} />;
-    case "line":
-      return <LinePlot.Toolbar layoutKey={layout?.key} />;
-    case "vis":
-      return <SelectVis layoutKey={layout?.key} />;
-    default:
-      return <NoVis />;
-  }
+  if (layout == null) return <NoVis />;
+  const Toolbar = TOOLBARS[layout.type as LayoutType];
+  return <Toolbar layoutKey={layout?.key} />;
 };
 
 export const Toolbar: Layout.NavDrawerItem = {

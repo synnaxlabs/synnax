@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button, Align, Text } from "@synnaxlabs/pluto";
@@ -46,7 +46,7 @@ export const LayoutSelector = ({
         <Button.Button
           variant="outlined"
           onClick={() => place(PID.create({ key: layoutKey }))}
-          startIcon={<Icon.Acquire />}
+          startIcon={<Icon.PID />}
         >
           PID
         </Button.Button>

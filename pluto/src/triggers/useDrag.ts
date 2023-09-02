@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefObject, useCallback, useRef } from "react";
+import { type RefObject, useCallback, useRef } from "react";
 
-import { Box, ClientXYT, XY } from "@synnaxlabs/x";
+import { Box, type ClientXYT, XY } from "@synnaxlabs/x";
 
-import { use, UseEvent } from "@/triggers/hooks";
-import { Stage, Trigger } from "@/triggers/triggers";
+import { use, type UseEvent } from "@/triggers/hooks";
+import { type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface DragEvent {
   stage: Stage;
@@ -50,7 +50,7 @@ export const useDrag = ({
         stage: "during",
       });
     },
-    [onDrag]
+    [onDrag],
   );
   const handleTrigger = useCallback(
     (event: UseEvent): void => {
@@ -67,7 +67,7 @@ export const useDrag = ({
         startLoc.current = XY.ZERO;
       }
     },
-    [onDrag]
+    [onDrag],
   );
   use({ triggers, callback: handleTrigger, region: bound, loose });
 };

@@ -13,9 +13,9 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
-import { Theme } from "@/theming/core/theme";
+import { type Theme } from "@/theming/core/theme";
 import { Draw2D } from "@/vis/draw2d";
-import { FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const measureStateZ = z.object({
@@ -115,10 +115,10 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
       if (one.length === 0 || two.length === 0) return null;
       return [
         one.sort(
-          (a, b) => dataOne.distanceTo(a.value) - dataOne.distanceTo(b.value)
+          (a, b) => dataOne.distanceTo(a.value) - dataOne.distanceTo(b.value),
         )[0],
         two.sort(
-          (a, b) => dataTwo.distanceTo(a.value) - dataTwo.distanceTo(b.value)
+          (a, b) => dataTwo.distanceTo(a.value) - dataTwo.distanceTo(b.value),
         )[0],
       ];
     }
@@ -131,10 +131,10 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     if (oneValues.length === 0 || twoValues.length === 0) return null;
     const [oneValue, twoValue] = [
       oneValues.sort(
-        (a, b) => scaledOne.distanceTo(a.position) - scaledOne.distanceTo(b.position)
+        (a, b) => scaledOne.distanceTo(a.position) - scaledOne.distanceTo(b.position),
       )[0],
       twoValues.sort(
-        (a, b) => scaledTwo.distanceTo(a.position) - scaledTwo.distanceTo(b.position)
+        (a, b) => scaledTwo.distanceTo(a.position) - scaledTwo.distanceTo(b.position),
       )[0],
     ];
     this.internal.dataOne = oneValue.value;
@@ -151,7 +151,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const res = await props.findByXDecimal(scale.pos(hover).x);
     if (res.length === 0) return;
     const v = res.sort(
-      (a, b) => scaledPos.distanceTo(a.position) - scaledPos.distanceTo(b.position)
+      (a, b) => scaledPos.distanceTo(a.position) - scaledPos.distanceTo(b.position),
     )[0];
     const { draw } = this.internal;
 

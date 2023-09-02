@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Tabs, Text } from "@synnaxlabs/pluto";
@@ -16,7 +16,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { useSelectEditable, useSelectToolbar } from "@/pid/selectors";
-import { ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
+import { type ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
 import { Elements } from "@/pid/toolbar/Elements";
 import { PropertiesControls } from "@/pid/toolbar/Properties";
 
@@ -93,7 +93,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
         }}
       >
         <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Control />}>{name}</ToolbarTitle>
+          <ToolbarTitle icon={<Icon.PID />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
         <Tabs.Content />

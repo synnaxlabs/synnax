@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
 export const levelZ = z.enum(LEVELS);

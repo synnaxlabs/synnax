@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { client } from "@/telem/client";
-import { telem } from "@/telem/core";
+import { type client } from "@/telem/client";
+import { type telem } from "@/telem/core";
 import { NumericSource } from "@/telem/remote/aether/numeric";
 import { DynamicXYSource, XYSource } from "@/telem/remote/aether/xy";
 

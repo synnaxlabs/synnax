@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { GLBufferController } from "@synnaxlabs/x";
-import { vi, Mock } from "vitest";
+import { type GLBufferController } from "@synnaxlabs/x";
+import { vi, type Mock } from "vitest";
 
 export class MockGLBufferController implements GLBufferController {
   ARRAY_BUFFER: number = 1;
@@ -41,7 +41,7 @@ export class MockGLBufferController implements GLBufferController {
   bufferData(
     target: number,
     dataOrSize: ArrayBufferLike | number,
-    usage: number
+    usage: number,
   ): void {
     if (typeof dataOrSize === "number")
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);

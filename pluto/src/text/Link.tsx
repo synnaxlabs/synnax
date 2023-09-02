@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef, ReactElement } from "react";
+import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Text, TextProps } from "@/text/Text";
-import { Level } from "@/text/types";
+import { Text, type TextProps } from "@/text/Text";
+import { type Level } from "@/text/types";
 
 import "@/text/Link.css";
 
@@ -24,7 +24,7 @@ export type LinkProps<L extends Level = "h1"> = Omit<TextProps<L>, "ref"> & {
 
 const CoreLink = <L extends Level = "h1">(
   { href, download, target, rel, ...props }: LinkProps<L>,
-  ref: ForwardedRef<HTMLAnchorElement>
+  ref: ForwardedRef<HTMLAnchorElement>,
 ): ReactElement => (
   <a
     className={CSS.B("text-link")}
@@ -41,5 +41,5 @@ const CoreLink = <L extends Level = "h1">(
 
 // @ts-expect-error
 export const Link = forwardRef(CoreLink) as <L extends Level = "h1">(
-  props: LinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> }
+  props: LinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> },
 ) => ReactElement;

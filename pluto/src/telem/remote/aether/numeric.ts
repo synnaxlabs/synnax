@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor, Series, TimeSpan, TimeStamp, addSamples } from "@synnaxlabs/x";
+import {
+  type Destructor,
+  type Series,
+  TimeSpan,
+  TimeStamp,
+  addSamples,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Client, StreamHandler } from "@/telem/client/client";
-import { telem } from "@/telem/core";
+import { type Client, type StreamHandler } from "@/telem/client/client";
+import { type telem } from "@/telem/core";
 import { TelemMeta } from "@/telem/core/base";
 
 export const numericProps = z.object({

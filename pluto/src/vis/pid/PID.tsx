@@ -8,35 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ReactElement,
+  type ReactElement,
   createContext,
   useCallback,
   useMemo,
   useRef,
   useState,
   useContext as reactUseContext,
-  ComponentPropsWithoutRef,
+  type ComponentPropsWithoutRef,
   useEffect,
   memo,
-  forwardRef,
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Box, CrudeXY, Deep, XY, XYLocation } from "@synnaxlabs/x";
+import { Box, type CrudeXY, Deep, XY, XYLocation } from "@synnaxlabs/x";
 import ReactFlow, {
   ReactFlowProvider,
-  Viewport as RFViewport,
+  type Viewport as RFViewport,
   useOnViewportChange as useRFOnViewportChange,
   applyEdgeChanges as rfApplyEdgeChanges,
   applyNodeChanges as rfApplyNodeChanges,
   addEdge as rfAddEdge,
   Background as RFBackground,
-  Edge as RFEdge,
-  NodeProps as RFNodeProps,
-  NodeChange as RFNodeChange,
-  EdgeChange as RFEdgeChange,
-  Connection as RFConnection,
-  ReactFlowProps,
+  type Edge as RFEdge,
+  type NodeProps as RFNodeProps,
+  type NodeChange as RFNodeChange,
+  type EdgeChange as RFEdgeChange,
+  type Connection as RFConnection,
+  type ReactFlowProps,
   useReactFlow,
   useViewport,
   ConnectionMode,
@@ -51,14 +50,14 @@ import { useMemoCompare, useResize } from "@/hooks";
 import { Status } from "@/status";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-import { RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { pid } from "@/vis/pid/aether";
 import { Edge as PlutoEdge } from "@/vis/pid/edge";
 import {
-  Edge,
-  Node,
-  Viewport,
+  type Edge,
+  type Node,
+  type Viewport,
   edgeConverter,
   nodeConverter,
   translateEdgesForward,
@@ -162,7 +161,7 @@ export const NodeRenderer = memo(
     const { registerNodeRenderer } = useContext();
     useEffect(() => registerNodeRenderer(children), [registerNodeRenderer, children]);
     return null;
-  }
+  },
 );
 NodeRenderer.displayName = "NodeRenderer";
 
@@ -197,14 +196,14 @@ const Core = Aether.wrap<PIDProps>(
     const triggers = useMemoCompare(
       () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareConfigs,
-      [pTriggers]
+      [pTriggers],
     );
 
     const resizeRef = useResize(
       (box) => {
         setState((prev) => ({ ...prev, region: box }));
       },
-      { debounce: 0 }
+      { debounce: 0 },
     );
 
     // For some reason, react flow repeatedly calls onViewportChange with the same
@@ -217,7 +216,7 @@ const Core = Aether.wrap<PIDProps>(
         setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
         onViewportChange(translateViewportBackward(viewport));
       },
-      [setState, onViewportChange]
+      [setState, onViewportChange],
     );
 
     useRFOnViewportChange({
@@ -227,12 +226,12 @@ const Core = Aether.wrap<PIDProps>(
     });
 
     const [renderer, setRenderer] = useState<RenderProp<ElementProps>>(
-      () => () => null
+      () => () => null,
     );
 
     const registerNodeRenderer = useCallback(
       (renderer: RenderProp<ElementProps>) => setRenderer(() => renderer),
-      []
+      [],
     );
 
     const Node = useCallback(
@@ -247,7 +246,7 @@ const Core = Aether.wrap<PIDProps>(
           editable,
         });
       },
-      [renderer]
+      [renderer],
     );
 
     const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
@@ -265,31 +264,31 @@ const Core = Aether.wrap<PIDProps>(
     const handleNodesChange = useCallback(
       (changes: RFNodeChange[]) =>
         onNodesChange(
-          nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n))
+          nodeConverter(nodesRef.current, (n) => rfApplyNodeChanges(changes, n)),
         ),
-      [onNodesChange]
+      [onNodesChange],
     );
 
     const handleEdgesChange = useCallback(
       (changes: RFEdgeChange[]) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e))
+          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e)),
         ),
-      [onEdgesChange]
+      [onEdgesChange],
     );
 
     const handleEdgeUpdate = useCallback(
       (oldEdge: RFEdge, newConnection: RFConnection) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e))
+          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e)),
         ),
-      []
+      [],
     );
 
     const handleConnect = useCallback(
       (conn: RFConnection) =>
         onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e))),
-      [onEdgesChange]
+      [onEdgesChange],
     );
 
     const handleEdgePointsChange = useCallback(
@@ -300,7 +299,7 @@ const Core = Aether.wrap<PIDProps>(
         next[index] = { ...next[index], points };
         onEdgesChange(next);
       },
-      [onEdgesChange]
+      [onEdgesChange],
     );
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
@@ -317,7 +316,7 @@ const Core = Aether.wrap<PIDProps>(
           />
         ),
       }),
-      [handleEdgePointsChange]
+      [handleEdgePointsChange],
     );
 
     if (error != null) {
@@ -337,7 +336,7 @@ const Core = Aether.wrap<PIDProps>(
         ({ stage }: Triggers.UseEvent) => {
           if (stage === "end") fitView();
         },
-        [fitView]
+        [fitView],
       ),
     });
 
@@ -384,7 +383,7 @@ const Core = Aether.wrap<PIDProps>(
         </Aether.Composite>
       </Context.Provider>
     );
-  }
+  },
 );
 
 export const Background = (): ReactElement | null => {

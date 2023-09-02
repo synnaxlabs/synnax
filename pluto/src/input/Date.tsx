@@ -13,9 +13,9 @@ import { TimeStamp } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { DragButton, DragButtonExtensionProps } from "@/input/DragButton";
+import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
-import { BaseProps } from "@/input/types";
+import { type BaseProps } from "@/input/types";
 
 import "@/input/Date.css";
 
@@ -52,7 +52,7 @@ const DRAG_SCALE = {
 export const Date = forwardRef<HTMLInputElement, DateProps>(
   (
     { size = "medium", onChange, value, className, showDragHandle = true, ...props },
-    ref
+    ref,
   ) => {
     const ts = new TimeStamp(value, "UTC");
 
@@ -105,6 +105,6 @@ export const Date = forwardRef<HTMLInputElement, DateProps>(
         <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
       </Align.Pack>
     );
-  }
+  },
 );
 Date.displayName = "InputDate";

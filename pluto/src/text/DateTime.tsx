@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, ReactElement, forwardRef } from "react";
+import { type ForwardedRef, type ReactElement, forwardRef } from "react";
 
 import {
-  TimeStampStringFormat,
+  type TimeStampStringFormat,
   TimeStamp,
-  CrudeTimeStamp,
-  TZInfo,
+  type CrudeTimeStamp,
+  type TZInfo,
 } from "@synnaxlabs/x";
 
 import { Text } from "@/text/Text";
 import type { TextProps } from "@/text/Text";
-import { Level } from "@/text/types";
+import { type Level } from "@/text/types";
 
 export type DateTimeProps<L extends Level = "h1"> = Omit<
   TextProps<L>,
@@ -38,7 +38,7 @@ export const CoreDateTime = <L extends Level = "h1">(
     children,
     ...props
   }: DateTimeProps<L>,
-  ref: ForwardedRef<JSX.IntrinsicElements[L]>
+  ref: ForwardedRef<JSX.IntrinsicElements[L]>,
 ): ReactElement => (
   // @ts-expect-error
   <Text<L> ref={ref} {...props}>
@@ -48,5 +48,5 @@ export const CoreDateTime = <L extends Level = "h1">(
 
 // @ts-expect-error
 export const DateTime = forwardRef(CoreDateTime) as <L extends Level = "h1">(
-  props: DateTimeProps<L> & { ref?: React.Ref<L> }
+  props: DateTimeProps<L> & { ref?: React.Ref<L> },
 ) => ReactElement;

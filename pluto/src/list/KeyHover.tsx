@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useContext } from "@/list/Context";
 import { Triggers } from "@/triggers";
@@ -8,7 +8,7 @@ import { Triggers } from "@/triggers";
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface HoverProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {}
 
 const UP_TRIGGER: Triggers.Trigger = ["ArrowUp"];
@@ -17,9 +17,9 @@ const SELECT_TRIGGER: Triggers.Trigger = ["Enter"];
 
 export const Hover = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
-  props: HoverProps<K, E>
+  props: HoverProps<K, E>,
 ): null => {
   const {
     data,
@@ -46,7 +46,7 @@ export const Hover = <
       else if (Triggers.match(triggers, [SELECT_TRIGGER]))
         onSelect?.(data[posRef.current].key);
     },
-    [data, onSelect]
+    [data, onSelect],
   );
 
   Triggers.use({

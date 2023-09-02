@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  CrudeDirection,
+  type CrudeDirection,
   Location,
-  CrudeLocation,
-  LooseLocationT,
-  CrudeOrder,
+  type CrudeLocation,
+  type LooseLocationT,
+  type CrudeOrder,
   Deep,
 } from "@synnaxlabs/x";
 
-import { Node } from "@/mosaic/types";
+import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
 
 const TabNotFound = new Error("Tab not found");
@@ -35,7 +35,7 @@ export const insertTab = (
   root: Node,
   tab: Tabs.Tab,
   loc_: LooseLocationT = "center",
-  key?: number
+  key?: number,
 ): Node => {
   root = shallowCopyNode(root);
   const loc = new Location(loc_);
@@ -169,7 +169,7 @@ export const moveTab = (
   root: Node,
   tabKey: string,
   loc: LooseLocationT,
-  to: number
+  to: number,
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
   const [tab, entry] = findMosaicTab(root, tabKey);
@@ -206,7 +206,7 @@ export const resizeNode = (root: Node, key: number, size: number): Node => {
 export const renameTab = (root: Node, tabKey: string, name: string): Node => {
   root = shallowCopyNode(root);
   const [, leaf] = findMosaicTab(root, tabKey);
-  if (leaf == null || leaf.tabs == null) throw TabNotFound;
+  if (leaf?.tabs == null) throw TabNotFound;
   leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
   return root;
 };
@@ -256,7 +256,7 @@ const shouldGc = (node: Node): boolean =>
 
 const findMosaicTab = (
   node: Node,
-  tabKey: string
+  tabKey: string,
 ): [Tabs.Tab | undefined, Node | undefined] => {
   if (node.tabs != null) {
     const tab = node.tabs.find((t) => t.tabKey === tabKey);
@@ -278,7 +278,7 @@ const findMosaicNode = (node: Node, key: number): Node | undefined => {
 };
 
 const splitArrangement = (
-  insertPosition: CrudeLocation
+  insertPosition: CrudeLocation,
 ): [CrudeOrder, CrudeOrder, CrudeDirection] => {
   switch (insertPosition) {
     case "top":

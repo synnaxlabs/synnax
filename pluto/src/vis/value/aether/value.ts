@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Destructor, XYScale } from "@synnaxlabs/x";
+import { Box, type Destructor, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,7 +17,7 @@ import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { PIDElement } from "@/vis/pid/aether/pid";
+import { type PIDElement } from "@/vis/pid/aether/pid";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
@@ -59,7 +59,7 @@ export class Value
     const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,
       this.key,
-      this.state.telem
+      this.state.telem,
     );
     this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;

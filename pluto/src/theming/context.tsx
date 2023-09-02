@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   useContext as reactUseContext,
   useEffect,
@@ -21,7 +21,7 @@ import {
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { Input } from "@/input";
-import { SwitchProps } from "@/input/Switch";
+import { type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
 
@@ -51,16 +51,16 @@ export const useProvider = ({
   defaultTheme,
 }: UseProviderProps): UseProviderReturn => {
   const [selected, setSelected] = useState<string>(
-    defaultTheme ?? Object.keys(themes)[0]
+    defaultTheme ?? Object.keys(themes)[0],
   );
 
   const parsedThemes = useMemo(
     () =>
       Object.entries(themes).reduce<Record<string, theming.Theme>>(
         (acc, [key, value]) => ({ ...acc, [key]: theming.themeZ.parse(value) }),
-        {}
+        {},
       ),
-    [themes]
+    [themes],
   );
 
   const toggleTheme = (): void => {
@@ -122,7 +122,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </Context.Provider>
     );
-  }
+  },
 );
 
 export const Switch = ({

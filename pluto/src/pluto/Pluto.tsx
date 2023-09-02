@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Instrumentation } from "@synnaxlabs/alamos";
+import { type Instrumentation } from "@synnaxlabs/alamos";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";

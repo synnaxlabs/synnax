@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, forwardRef, ReactElement } from "react";
+import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { Level } from "@/text/types";
+import { type Level } from "@/text/types";
 
 import "@/text/Text.css";
 
@@ -43,7 +43,7 @@ const CoreText = <L extends Level = "h1">(
     noWrap = false,
     ...props
   }: TextProps<L>,
-  ref: ForwardedRef<JSX.IntrinsicElements[L]>
+  ref: ForwardedRef<JSX.IntrinsicElements[L]>,
 ): ReactElement => (
   // @ts-expect-error
   <Generic.Element<L>
@@ -58,5 +58,5 @@ const CoreText = <L extends Level = "h1">(
 );
 
 export const Text = forwardRef(CoreText) as <L extends Level = "h1">(
-  props: TextProps<L>
+  props: TextProps<L>,
 ) => ReactElement;

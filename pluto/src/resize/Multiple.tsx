@@ -9,16 +9,16 @@
 
 import {
   Children,
-  ForwardedRef,
+  type ForwardedRef,
   forwardRef,
   useCallback,
   useState,
   useEffect,
   useRef,
-  RefObject,
+  type RefObject,
 } from "react";
 
-import { Box, ClientXYT, Direction, LooseDirectionT } from "@synnaxlabs/x";
+import { Box, type ClientXYT, Direction, type LooseDirectionT } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -93,15 +93,15 @@ export const useMultiple = ({
       if (ref.current == null) return;
       const parentSize = new Box(ref.current).dim(direction);
       setState((prev) =>
-        handleResize(prev, parentSize, dragging, minSize, clientPos, targetSize)
+        handleResize(prev, parentSize, dragging, minSize, clientPos, targetSize),
       );
     },
-    [minSize, setState, direction]
+    [minSize, setState, direction],
   );
 
   useEffect(
     () => onResize?.(state.sizeDistribution),
-    [state.sizeDistribution, onResize]
+    [state.sizeDistribution, onResize],
   );
 
   const handleDragHandle = useCallback(
@@ -117,12 +117,12 @@ export const useMultiple = ({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp, { once: true });
     },
-    [setState, direction, handleResize]
+    [setState, direction, handleResize],
   );
 
   const setSize = useCallback(
     (i: number, size?: number) => _handleResize(i, undefined, size),
-    [handleResize]
+    [handleResize],
   );
 
   return {
@@ -156,7 +156,7 @@ export const Multiple = forwardRef(
       className,
       ...props
     }: MultipleProps,
-    ref: ForwardedRef<HTMLDivElement>
+    ref: ForwardedRef<HTMLDivElement>,
   ) => {
     const direction = new Direction(direction_);
     const children = Children.toArray(_children);
@@ -184,13 +184,13 @@ export const Multiple = forwardRef(
         ))}
       </Align.Space>
     );
-  }
+  },
 );
 Multiple.displayName = "Resize.Multiple";
 
 const calculateInitialSizeDistribution = (
   initial: number[],
-  count: number
+  count: number,
 ): number[] => {
   const total = initial.reduce((a, b) => a + b, 0);
   const gap = count - initial.length;
@@ -208,20 +208,20 @@ const handleResize = (
   dragging: number,
   minSize: number,
   clientPos?: number,
-  targetSize?: number
+  targetSize?: number,
 ): MultipleState => {
   const diffPercentage = calculateDiffPercentage(
     prev,
     parentSize,
     dragging,
     clientPos,
-    targetSize
+    targetSize,
   );
   const [sizeDistribution, changed] = resizeWithSibling(
     prev.sizeDistribution,
     dragging,
     diffPercentage,
-    minSize / parentSize
+    minSize / parentSize,
   );
   const root = changed ? clientPos ?? null : prev.root;
   return { ...prev, sizeDistribution, root };
@@ -232,7 +232,7 @@ export const calculateDiffPercentage = (
   parentSize: number,
   dragging: number,
   clientPos?: number,
-  targetSize?: number
+  targetSize?: number,
 ): number => {
   let diff: number;
   // If the caller provided a target size, prefer that.
@@ -251,7 +251,7 @@ const resizeWithSibling = (
   prevDistribution: number[],
   item: number,
   diff: number,
-  minSizePercent: number
+  minSizePercent: number,
 ): [number[], boolean] => {
   let next = item;
 
@@ -263,7 +263,7 @@ const resizeWithSibling = (
     next,
     prevDistribution,
     minSizePercent,
-    diff
+    diff,
   );
   const nextSiblingSize = prevDistribution[nextSibling] - diff;
   // This means we can't resize any panes so we return null to indicate that the next
@@ -285,7 +285,7 @@ const findResizableSibling = (
   item: number,
   sizes: number[],
   minSize: number,
-  diff: number
+  diff: number,
 ): number => {
   const f = item === sizes.length - 1 ? findBackward : findForward;
   return f(item, sizes, minSize, diff);
@@ -295,7 +295,7 @@ const findForward = (
   start: number,
   sizes: number[],
   minSize: number,
-  diff: number
+  diff: number,
 ): number => {
   let i = start + 1;
   while (i < sizes.length - 1 && sizes[i] - diff <= minSize) i++;
@@ -306,7 +306,7 @@ const findBackward = (
   start: number,
   sizes: number[],
   minSize: number,
-  diff: number
+  diff: number,
 ): number => {
   let i = start - 1;
   while (i > 0 && sizes[i] - diff <= minSize) i--;

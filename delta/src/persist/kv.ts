@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AsyncKV } from "@synnaxlabs/x";
+import { type AsyncKV } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api";
-import { Event } from "@tauri-apps/api/event";
+import { type Event } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
 
 enum KVCommand {

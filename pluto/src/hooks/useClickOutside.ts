@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RefObject, useCallback, useEffect } from "react";
+import { type RefObject, useCallback, useEffect } from "react";
 
 /**
  * A hooks that calls the provided callback when a click event occurs outside of the
@@ -18,7 +18,7 @@ import { RefObject, useCallback, useEffect } from "react";
  */
 export const useClickOutside = (
   ref: RefObject<HTMLElement>,
-  onClickOutside: () => void
+  onClickOutside: () => void,
 ): void => {
   const handleClickOutside = useCallback(
     ({ target }: MouseEvent): void => {
@@ -26,7 +26,7 @@ export const useClickOutside = (
       if (el == null || el.contains(target as Node)) return;
       onClickOutside();
     },
-    [onClickOutside]
+    [onClickOutside],
   );
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);

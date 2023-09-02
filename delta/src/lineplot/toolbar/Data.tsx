@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
-import { channel.Key, channel.Keys } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
 import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
 import { Vis } from "@/vis";
-import { AxisKey, XAxisKey, YAxisKey } from "@/vis/axis";
+import { type AxisKey, type XAxisKey, type YAxisKey } from "@/vis/axis";
 import { Workspace } from "@/workspace";
 import { useSelectRanges } from "@/workspace/selectors";
 

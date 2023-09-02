@@ -9,7 +9,7 @@
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { Deep } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { prettyParse } from "@/util/zod";
 
@@ -27,7 +27,7 @@ export class TelemMeta<P extends z.ZodTypeAny> {
   get props(): z.output<P> {
     if (this._props == null)
       throw new UnexpectedError(
-        "[TelemMeta] - props is not defined. Please call setProps"
+        "[TelemMeta] - props is not defined. Please call setProps",
       );
     return this._props;
   }
@@ -35,7 +35,7 @@ export class TelemMeta<P extends z.ZodTypeAny> {
   get prevProps(): z.output<P> {
     if (this._prevProps == null)
       throw new UnexpectedError(
-        "[TelemMeta] - prevProps is not defined. Please call setProps"
+        "[TelemMeta] - prevProps is not defined. Please call setProps",
       );
     return this._prevProps;
   }
@@ -44,7 +44,7 @@ export class TelemMeta<P extends z.ZodTypeAny> {
     if (this.schema == null)
       throw new ValidationError(
         `[BaseTelem] - expected subclass to define props schema, but none was found.
-    Make sure to define a property 'schema' on the class.`
+    Make sure to define a property 'schema' on the class.`,
       );
     return this.schema;
   }

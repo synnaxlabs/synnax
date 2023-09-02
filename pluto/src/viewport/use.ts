@@ -12,9 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Dimensions,
-  XY,
+  type XY,
   XYScale,
-  CrudeDimensions,
+  type CrudeDimensions,
   XYLocation,
 } from "@synnaxlabs/x";
 
@@ -51,8 +51,8 @@ type StringLiteral<T> = T extends string ? (string extends T ? never : T) : neve
 
 const TRIGGER_MODES = ["zoom", "pan", "select", "zoomReset"] as const;
 export const MODES = [...TRIGGER_MODES, "click"] as const;
-export type Mode = StringLiteral<typeof MODES[number]>;
-type TriggerMode = StringLiteral<typeof TRIGGER_MODES[number]>;
+export type Mode = StringLiteral<(typeof MODES)[number]>;
+type TriggerMode = StringLiteral<(typeof TRIGGER_MODES)[number]>;
 export const MASK_MODES: Mode[] = ["zoom", "select"];
 
 export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
@@ -100,7 +100,7 @@ const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
           .map((t) => t.filter((k) => k !== "MouseLeft"))
           .filter((t) => t.length > 0),
       ];
-    })
+    }),
   ) as unknown as UseTriggers;
 };
 
@@ -142,7 +142,7 @@ export const use = ({
         ];
       },
       Triggers.compareConfigs,
-      [initialTriggers]
+      [initialTriggers],
     );
 
   const handleDrag = useCallback<Triggers.DragCallback>(
@@ -190,7 +190,7 @@ export const use = ({
           XYScale.scale(canvas)
             .clamp(canvas)
             .translate({ x: -canvas.left, y: -canvas.top })
-            .box(fullSize(threshold, box, canvas))
+            .box(fullSize(threshold, box, canvas)),
         );
       }
 
@@ -212,14 +212,14 @@ export const use = ({
       threshold_.width,
       setStateRef,
       canvasRef,
-    ]
+    ],
   );
 
   const handleZoomSelect = useCallback(
     (box: Box, prev: Box, canvas: Box): Box | null => {
       return scale(prev, canvas).box(fullSize(threshold, box, canvas));
     },
-    [threshold_]
+    [threshold_],
   );
 
   Triggers.useDrag({
@@ -236,7 +236,7 @@ export const use = ({
       if (mode == null) return;
       setMaskMode(mode);
     },
-    [purgedTriggers, defaultMode, onChange]
+    [purgedTriggers, defaultMode, onChange],
   );
 
   Triggers.use({

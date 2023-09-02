@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { TextProps, Text } from "@/text/Text";
-import { Level } from "@/text/types";
+import { type TextProps, Text } from "@/text/Text";
+import { type Level } from "@/text/types";
 
 import "@/text/Keyboard.css";
 

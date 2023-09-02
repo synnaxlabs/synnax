@@ -17,7 +17,7 @@ import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { line } from "@/vis/line/aether";
 import {
-  GridPositionSpec,
+  type GridPositionSpec,
   calculateGridPosition,
   autoBounds,
   withinSizeThreshold,
@@ -77,7 +77,7 @@ export class YAxis extends aether.Composite<
 
   async xBounds(): Promise<Bounds> {
     return Bounds.max(
-      await Promise.all(this.lines.map(async (el) => await el.xBounds()))
+      await Promise.all(this.lines.map(async (el) => await el.xBounds())),
     );
   }
 
@@ -92,7 +92,7 @@ export class YAxis extends aether.Composite<
 
   private renderAxis(
     { grid, plot, container }: YAxisProps,
-    decimalToDataScale: Scale
+    decimalToDataScale: Scale,
   ): void {
     const { core } = this.internal;
     const position = calculateGridPosition(this.key, grid, container);
@@ -105,7 +105,7 @@ export class YAxis extends aether.Composite<
 
   private async renderLines(
     { xDataToDecimalScale: xScale, plot }: YAxisProps,
-    yScale: Scale
+    yScale: Scale,
   ): Promise<void> {
     const props: line.LineProps = {
       region: plot,
@@ -116,7 +116,7 @@ export class YAxis extends aether.Composite<
 
   private async renderRules(
     { container, plot }: YAxisProps,
-    decimalToDataScale: Scale
+    decimalToDataScale: Scale,
   ): Promise<void> {
     const { location } = this.state;
     const { render } = this.internal;
@@ -129,14 +129,14 @@ export class YAxis extends aether.Composite<
 
   async findByXValue(
     { xDataToDecimalScale, plot, viewport }: YAxisProps,
-    target: number
+    target: number,
   ): Promise<line.FindResult[]> {
     const yDataToDecimalScale = await this.dataToDecimalScale(viewport);
     const dataToDecimalScale = new XYScale(xDataToDecimalScale, yDataToDecimalScale);
     const props: line.LineProps = { region: plot, dataToDecimalScale };
     return (
       await Promise.all(
-        this.lines.map(async (el) => await el.findByXValue(props, target))
+        this.lines.map(async (el) => await el.findByXValue(props, target)),
       )
     ).map((v) => ({ ...v, units: this.state.label }));
   }

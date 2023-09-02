@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   useCallback,
   useContext,
@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { TimeSpan, CrudeTimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;

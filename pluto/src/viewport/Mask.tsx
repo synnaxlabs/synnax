@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, ReactElement, forwardRef } from "react";
+import { type CSSProperties, type ReactElement, forwardRef } from "react";
 
 import { CSS } from "@/css";
-import { UseReturn, Mode } from "@/viewport/use";
+import { type UseReturn, type Mode } from "@/viewport/use";
 
 import "@/viewport/Mask.css";
 
@@ -34,7 +34,7 @@ const MODE_CURSORS: Record<Mode, CSSProperties["cursor"]> = {
 export const Mask = forwardRef<HTMLDivElement, MaskProps>(
   (
     { className, mode, maskBox, children, style, ...props },
-    ref
+    ref,
   ): ReactElement | null => (
     <div
       ref={ref}
@@ -54,6 +54,6 @@ export const Mask = forwardRef<HTMLDivElement, MaskProps>(
       />
       {children}
     </div>
-  )
+  ),
 );
 Mask.displayName = "ZoomPanMask";

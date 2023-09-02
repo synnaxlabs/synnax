@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement, memo, useState } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  memo,
+  useState,
+} from "react";
 
 import { Box } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Theming } from "@/theming";
-import { Core, CoreProps } from "@/vis/value/Core";
+import { Core, type CoreProps } from "@/vis/value/Core";
 
 export interface ValueProps
   extends Omit<CoreProps, "box">,
@@ -39,6 +44,6 @@ export const Value = memo(
         {!box.isZero && <Core box={box} color={color} level={level} {...props} />}
       </div>
     );
-  }
+  },
 );
 Value.displayName = "Value";

@@ -16,7 +16,7 @@ import { type Haul } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 
-import { type Service, type SelectionContext } from "./types";
+import { type Service, type SelectionContext } from "./service";
 
 const TYPE = "channel";
 

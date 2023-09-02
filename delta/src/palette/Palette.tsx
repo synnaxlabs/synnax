@@ -43,7 +43,7 @@ import { Layout } from "@/layout";
 import { Notifications } from "@/palette/Notifications";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { type ResourceType } from "@/resources/resources";
+import { type Service } from "@/resources/service";
 import { type RootStore } from "@/store";
 
 import "@/palette/Palette.css";
@@ -51,7 +51,7 @@ import "@/palette/Palette.css";
 export interface PaletteProps {
   searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
-  resourceTypes: Record<string, ResourceType>;
+  resourceTypes: Record<string, Service>;
   triggers: TriggerConfig;
   commandSymbol: string;
 }
@@ -150,6 +150,12 @@ export interface PaletteInputProps
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_TYPE;
 
+const TYPE_TO_SEARCH = (
+  <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+    Type to search
+  </Status.Text.Centered>
+);
+
 export const PaletteInput = ({
   mode,
   setMode,
@@ -178,11 +184,7 @@ export const PaletteInput = ({
       if (nextMode === "command") setSourceData(commands);
       else {
         setSourceData([]);
-        setEmptyContent(
-          <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-            Type to search
-          </Status.Text.Centered>
-        );
+        setEmptyContent(TYPE_TO_SEARCH);
       }
     },
     [setMode, setSourceData, commands]
@@ -190,14 +192,7 @@ export const PaletteInput = ({
 
   const handleSearch = useDebouncedCallback(
     (term: string) => {
-      if (term.length === 0) {
-        setEmptyContent(
-          <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-            Type to search
-          </Status.Text.Centered>
-        );
-        return;
-      }
+      if (term.length === 0) return setEmptyContent(TYPE_TO_SEARCH);
       searcher
         .search(term)
         .then((d) => {
@@ -234,9 +229,7 @@ export const PaletteInput = ({
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage !== "start" || visible) return;
-      const mode = Triggers.match(triggers, triggerConfig.command)
-        ? "command"
-        : "resource";
+      const mode = Triggers.determineMode(triggerConfig, triggers);
       if (mode === "command") {
         handleChange(commandSymbol);
         updateMode("command");

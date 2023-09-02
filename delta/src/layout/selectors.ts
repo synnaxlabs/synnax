@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DriftStoreState, selectWindow } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
+import { type Drift, selectWindow } from "@synnaxlabs/drift";
+import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
-import { LayoutState } from "@/layout/layout";
-
+import { type LayoutState } from "@/layout/layout";
 import {
-  SliceState,
-  StoreState,
+  type SliceState,
+  type StoreState,
   SLICE_NAME,
-  NavdrawerEntryState,
-  NavdrawerLocation,
-} from "./slice";
+  type NavdrawerEntryState,
+  type NavdrawerLocation,
+} from "@/layout/slice";
 
 /**
  * Selects the layout state.
@@ -61,7 +60,7 @@ export const useSelectRequired = (key: string): LayoutState => {
  * @returns The central layout mosaic.
  */
 export const selectMosaic = (
-  state: StoreState & DriftStoreState,
+  state: StoreState & Drift.StoreState,
   windowKey?: string
 ): [string, Mosaic.Node] => {
   const win = selectWindow(state, windowKey);
@@ -143,7 +142,7 @@ export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState 
   useMemoSelect((state: StoreState) => selectNavDrawer(state, loc), [loc]);
 
 export const selectActiveMosaicTabKey = (
-  state: StoreState & DriftStoreState,
+  state: StoreState & Drift.StoreState,
   windowKey?: string
 ): string | null => {
   const win = selectWindow(state, windowKey);
@@ -155,7 +154,7 @@ export const useSelectActiveMosaicTabKey = (): string | null =>
   useMemoSelect(selectActiveMosaicTabKey, []);
 
 export const selectActiveMosaicTab = (
-  state: StoreState & DriftStoreState,
+  state: StoreState & Drift.StoreState,
   windowKey?: string
 ): LayoutState | undefined => {
   const activeTabKey = selectActiveMosaicTabKey(state, windowKey);

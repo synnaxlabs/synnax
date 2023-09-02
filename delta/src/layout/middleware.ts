@@ -12,13 +12,13 @@ import { Mosaic } from "@synnaxlabs/pluto";
 
 import { selectSliceState } from "@/layout/selectors";
 import {
-  StoreState,
-  MoveMosaicTabPayload,
-  RemovePayload,
+  type StoreState,
+  type MoveMosaicTabPayload,
+  type RemovePayload,
   moveMosaicTab,
   remove,
 } from "@/layout/slice";
-import { effectMiddleware, MiddlewareEffect } from "@/middleware";
+import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 
 export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,

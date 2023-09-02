@@ -1,4 +1,9 @@
-import { PropsWithChildren, ReactElement, useCallback, useLayoutEffect } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 
 import { Box, XY } from "@synnaxlabs/x";
 
@@ -8,7 +13,7 @@ import { useContext } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Viewport.css";
 
-export interface ViewportProps extends PropsWithChildren<{}>, Core.UseProps {}
+export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
   el == null
@@ -32,7 +37,7 @@ export const Viewport = ({
       setViewport(e);
       onChange?.(e);
     },
-    [onChange, setViewport]
+    [onChange, setViewport],
   );
 
   const maskProps = Core.use({

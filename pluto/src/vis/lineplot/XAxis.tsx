@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, ReactElement, useEffect, useRef } from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
-import { Location, CrudeOuterLocation, CrudeDirection, Direction } from "@synnaxlabs/x";
-import { z } from "zod";
+import {
+  Location,
+  type CrudeOuterLocation,
+  type CrudeDirection,
+  type Direction,
+} from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -81,7 +86,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
         size: size + labelSize,
         order: "last",
       },
-      "XAxis"
+      "XAxis",
     );
 
     const font = Theming.useTypography(labelLevel);
@@ -121,5 +126,5 @@ export const XAxis = Aether.wrap<XAxisProps>(
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </>
     );
-  }
+  },
 );

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Button, ButtonProps } from "@/button/Button";
-import { Text } from "@/text";
+import { Button, type ButtonProps } from "@/button/Button";
+import { type Text } from "@/text";
 
 /** Props for the {@link Link} component. */
 export interface LinkProps<L extends Text.Level = "h1">

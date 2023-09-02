@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, StrictMode, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
@@ -37,10 +37,9 @@ const layoutRenderers = {
   defineRange: Workspace.DefineRange,
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
-  pid: PID.PID,
   vis: Vis.LayoutSelector,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  mosaic: Layout.Mosaic,
+  [PID.LAYOUT_TYPE]: PID.PID,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -96,4 +95,4 @@ const Main = (): ReactElement | null => {
   );
 };
 
-ReactDOM.createRoot(document.body).render(<Main />);
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);

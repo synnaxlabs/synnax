@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEvent, Fragment, ReactElement, useCallback, useRef } from "react";
+import {
+  type DragEvent,
+  Fragment,
+  type ReactElement,
+  useCallback,
+  useRef,
+} from "react";
 
-import { XY, CrudeXY, Box } from "@synnaxlabs/x";
-import { BaseEdge, EdgeProps as RFEdgeProps, useViewport } from "reactflow";
+import { XY, type CrudeXY, type Box } from "@synnaxlabs/x";
+import { BaseEdge, type EdgeProps as RFEdgeProps, useViewport } from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Key } from "@/triggers/triggers";
+import { type Key } from "@/triggers/triggers";
 import {
   adjustToSourceOrTarget,
   handleDrag,
@@ -54,7 +60,7 @@ export const Edge = ({
   ...props
 }: EdgeProps): ReactElement => {
   const [points, setPoints, pointsRef] = useCombinedStateAndRef<XY[]>(() =>
-    propsPoints.map((p) => new XY(p))
+    propsPoints.map((p) => new XY(p)),
   );
 
   const { zoom } = useViewport();
@@ -79,7 +85,7 @@ export const Edge = ({
           return next;
         });
       },
-      [zoom]
+      [zoom],
     ),
     onEnd: useCallback(() => onPointsChange(pointsRef.current.map((p) => p.crude)), []),
   });

@@ -9,17 +9,17 @@
 
 import React, {
   createContext,
-  ReactElement,
-  ReactNode,
+  type ReactElement,
+  type ReactNode,
   useContext,
   useState,
 } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { TabSpec, Selector } from "@/tabs/Selector";
-import { ComponentSize } from "@/util/component";
-import { RenderProp } from "@/util/renderProp";
+import { type TabSpec, Selector } from "@/tabs/Selector";
+import { type ComponentSize } from "@/util/component";
+import { type RenderProp } from "@/util/renderProp";
 
 export interface Tab extends TabSpec {
   content?: ReactNode;

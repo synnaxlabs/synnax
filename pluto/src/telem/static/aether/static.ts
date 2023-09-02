@@ -9,7 +9,7 @@
 
 import {
   Series,
-  GLBufferController,
+  type GLBufferController,
   Bounds,
   nativeTypedArray,
   Rate,
@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { telem } from "@/telem/core";
+import { type telem } from "@/telem/core";
 
 export class Factory implements telem.Factory {
   type = "static";
@@ -105,7 +105,7 @@ export class XY extends XYCore implements telem.XYSource {
           x,
           DataType.FLOAT32,
           TimeRange.ZERO,
-          props.xOffsets[i] ?? 0
+          props.xOffsets[i] ?? 0,
         );
         arr.acquire();
         return arr;
@@ -115,21 +115,21 @@ export class XY extends XYCore implements telem.XYSource {
           y,
           DataType.FLOAT32,
           TimeRange.ZERO,
-          props.yOffsets[i] ?? 0
+          props.yOffsets[i] ?? 0,
         );
         arr.acquire();
         return arr;
-      })
+      }),
     );
   }
 
   setProps(props_: any): void {
     const props = xyPropsZ.parse(props_);
     this._x = props.x.map(
-      (x, i) => new Series(x, DataType.FLOAT32, TimeRange.ZERO, props.xOffsets[i] ?? 0)
+      (x, i) => new Series(x, DataType.FLOAT32, TimeRange.ZERO, props.xOffsets[i] ?? 0),
     );
     this._y = props.y.map(
-      (y, i) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffsets[i] ?? 0)
+      (y, i) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffsets[i] ?? 0),
     );
     this.onChangeHandler?.();
   }
@@ -155,7 +155,7 @@ export class IterativeXY extends XYCore implements telem.XYSource {
     super(
       key,
       x.map((x) => new Series(x)),
-      y.map((y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, yOffset))
+      y.map((y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, yOffset)),
     );
     this.position = 0;
     this.start(rate);
@@ -165,7 +165,7 @@ export class IterativeXY extends XYCore implements telem.XYSource {
     const props = iterativeXYPropsZ.parse(props_);
     this._x = props.x.map((x) => new Series(x));
     this._y = props.y.map(
-      (y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffset)
+      (y) => new Series(y, DataType.FLOAT32, TimeRange.ZERO, props.yOffset),
     );
   }
 

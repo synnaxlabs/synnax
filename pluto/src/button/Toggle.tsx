@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FunctionComponent } from "react";
+import { type FunctionComponent } from "react";
 
-import { Button, ButtonProps } from "@/button/Button";
+import { Button, type ButtonProps } from "@/button/Button";
 import { Icon } from "@/button/Icon";
 import { CSS } from "@/css";
-import { Input } from "@/input";
+import { type Input } from "@/input";
 
 export interface ToggleExtensionProps extends Input.Control<boolean> {
   checkedVariant?: ButtonProps["variant"];
@@ -21,20 +21,19 @@ export interface ToggleExtensionProps extends Input.Control<boolean> {
 
 const toggleFactory =
   <E extends Pick<ButtonProps, "className" | "variant">>(
-    Base: FunctionComponent<E>
+    Base: FunctionComponent<E>,
   ): FunctionComponent<Omit<E, "value" | "onChange"> & ToggleExtensionProps> =>
   // eslint-disable-next-line react/display-name
-  ({ value, checkedVariant = "filled", uncheckedVariant = "outlined", ...props }) =>
-    (
-      // @ts-expect-error
-      <Base
-        {...props}
-        checked={value}
-        onClick={() => props.onChange(!value)}
-        className={CSS(CSS.B("btn-toggle"), props.className)}
-        variant={value ? checkedVariant : uncheckedVariant}
-      />
-    );
+  ({ value, checkedVariant = "filled", uncheckedVariant = "outlined", ...props }) => (
+    // @ts-expect-error
+    <Base
+      {...props}
+      checked={value}
+      onClick={() => props.onChange(!value)}
+      className={CSS(CSS.B("btn-toggle"), props.className)}
+      variant={value ? checkedVariant : uncheckedVariant}
+    />
+  );
 
 /**
  * Button.Toggle renders a button that can be toggled on and off. It implements the

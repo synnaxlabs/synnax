@@ -11,10 +11,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Input } from "@/input";
-import { state } from "@/state";
-import { Text, TextProps } from "@/text/Text";
-import { Level } from "@/text/types";
+import { type Input } from "@/input";
+import { type state } from "@/state";
+import { Text, type TextProps } from "@/text/Text";
+import { type Level } from "@/text/types";
 
 import "@/text/Editable.css";
 

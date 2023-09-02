@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, RefObject } from "react";
+import { type ReactElement, type RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Box, Direction } from "@synnaxlabs/x";
 
-import { Button } from "@/button";
+import { type Button } from "@/button";
 import { CSS } from "@/css";
 import { Header } from "@/header";
 import { Resize } from "@/resize";

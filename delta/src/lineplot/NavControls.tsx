@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode, useMemo } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Divider, Select, Text, Viewport } from "@synnaxlabs/pluto";
@@ -16,7 +16,7 @@ import { useDispatch } from "react-redux";
 import { Layout } from "@/layout";
 import { useSelectControlState, useSelectViewportMode } from "@/lineplot/selectors";
 import {
-  ClickMode,
+  type ClickMode,
   setControlState,
   setViewport,
   setViewportMode,

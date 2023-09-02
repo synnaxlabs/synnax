@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Status as CoreStatus } from "@/status";
 import { useContext } from "@/triggers/Context";
-import { Trigger } from "@/triggers/triggers";
+import { type Trigger } from "@/triggers/triggers";
 
 export interface StatusProps extends CoreStatus.TextProps {}
 
@@ -24,7 +24,7 @@ export const Status = (props: StatusProps): ReactElement => {
       listen(({ next: [trigger] }) => {
         setTrigger(trigger ?? []);
       }),
-    [listen, setTrigger]
+    [listen, setTrigger],
   );
 
   return (

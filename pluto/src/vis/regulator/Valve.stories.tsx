@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Meta, StoryFn } from "@storybook/react";
+import { type Meta, type StoryFn } from "@storybook/react";
 
 import { Canvas } from "@/vis/canvas";
 import { Regulator } from "@/vis/regulator";

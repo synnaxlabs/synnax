@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, cloneElement, ReactElement } from "react";
+import { Children, cloneElement, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Text } from "@/text";
-import { Level } from "@/text/types";
+import { type Level } from "@/text/types";
 import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
-  L extends Level = "h1"
+  L extends Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   Omit<Text.CoreProps<L>, "children"> & {
     startIcon?: false | ReactElement | ReactElement[];
@@ -33,7 +33,7 @@ export type WithIconProps<
 
 export const WithIcon = <
   E extends Align.SpaceElementType = "div",
-  L extends Level = "h1"
+  L extends Level = "h1",
 >({
   level = "h1" as L,
   divided = false,
@@ -70,7 +70,7 @@ export const WithIcon = <
         CSS.B("text-icon"),
         CSS.BM("text-icon", level),
         CSS.noWrap(noWrap),
-        className
+        className,
       )}
       direction="x"
       size="small"
@@ -88,7 +88,7 @@ export const WithIcon = <
 
 const formatIcons = (
   icon: false | ReactElement | ReactElement[],
-  color?: string
+  color?: string,
 ): ReactElement[] => {
   if (icon === false) return [];
   return (Children.toArray(icon) as ReactElement[]).map((icon) =>
@@ -96,6 +96,6 @@ const formatIcons = (
       ...icon.props,
       color,
       style: { ...icon.props.style },
-    })
+    }),
   );
 };

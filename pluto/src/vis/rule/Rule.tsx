@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { Bounds, Box } from "@synnaxlabs/x";
+import { Bounds, type Box } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -127,5 +127,5 @@ export const Rule = Aether.wrap<RuleProps>(
 
     if (viewportEl == null) return content;
     return createPortal(content, viewportEl);
-  }
+  },
 );

@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createContext, PropsWithChildren, ReactElement, useContext } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  type ReactElement,
+  useContext,
+} from "react";
 
-import { Input } from "@/input";
-import { Text } from "@/text";
-import { ComponentSize } from "@/util/component";
+import { type Input } from "@/input";
+import { type Text } from "@/text";
+import { type ComponentSize } from "@/util/component";
 
 interface MenuContextValue {
   onClick: (key: string) => void;

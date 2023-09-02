@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Handle, Position } from "reactflow";
 
@@ -16,9 +16,9 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
-import { FormProps, Spec, Props } from "@/vis/pid/element/element";
+import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
 import { Regulator } from "@/vis/regulator";
 
 interface ElementProps extends Omit<Regulator.RegulatorProps, "color"> {

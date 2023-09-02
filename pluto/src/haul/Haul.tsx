@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import React, {
-  DragEvent,
-  DragEventHandler,
-  MutableRefObject,
-  PropsWithChildren,
+  type DragEvent,
+  type DragEventHandler,
+  type MutableRefObject,
+  type PropsWithChildren,
   createContext,
   useCallback,
   useContext as reactUseContext,
@@ -20,9 +20,9 @@ import React, {
   useId,
 } from "react";
 
-import { Key, Optional } from "@synnaxlabs/x";
+import { type Key, type Optional } from "@synnaxlabs/x";
 
-import { state } from "@/state";
+import { type state } from "@/state";
 
 import "@/haul/Haul.css";
 
@@ -49,7 +49,7 @@ export interface ContextValue {
   start: (
     source: Item,
     items: Item[],
-    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void
+    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
   end: () => void;
   drop: (target: Item, dropped: Item[]) => void;
@@ -86,7 +86,7 @@ export const Provider = ({
       ref.current = { source, items, onSuccessfulDrop };
       setState({ source, items });
     },
-    [setState]
+    [setState],
   );
 
   const end: ContextValue["end"] = useCallback(() => {
@@ -104,12 +104,12 @@ export const Provider = ({
       ref.current = HAUL_REF;
       setState(ZERO_DRAGGING_STATE);
     },
-    [setState]
+    [setState],
   );
 
   const oCtx = useMemo<ContextValue>(
     () => ctx ?? { state, start, end, drop },
-    [state, start, end, drop, ctx]
+    [state, start, end, drop, ctx],
   );
   return <Context.Provider value={oCtx}>{children}</Context.Provider>;
 };
@@ -143,7 +143,7 @@ export interface UseDragProps extends Optional<Item, "key"> {}
 export interface UseDragReturn {
   startDrag: (
     items: Item[],
-    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void
+    onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
   onDragEnd: () => void;
 }
@@ -205,7 +205,7 @@ export const useDrop = ({
         ...ref.current,
       });
     },
-    [ref, canDrop]
+    [ref, canDrop],
   );
 
   const handleDrop = useCallback(
@@ -214,7 +214,7 @@ export const useDrop = ({
       event.preventDefault();
       drop(target, onDrop({ ...ref.current, event }));
     },
-    [ref, onDrop, canDrop, drop, target]
+    [ref, onDrop, canDrop, drop, target],
   );
 
   return {

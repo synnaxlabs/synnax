@@ -11,10 +11,10 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { CrudeLocation, DeepKey } from "@synnaxlabs/x";
+import { type CrudeLocation, type DeepKey } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { LayoutState } from "@/layout/layout";
+import { type LayoutState } from "@/layout/layout";
 
 /** The state of the layout slice */
 export interface SliceState {

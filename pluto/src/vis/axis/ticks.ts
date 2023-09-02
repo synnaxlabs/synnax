@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Scale, TimeStamp } from "@synnaxlabs/x";
+import { type Scale, TimeStamp } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3-scale";
 import { z } from "zod";
 

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { OS } from "@synnaxlabs/x";
+import { type OS } from "@synnaxlabs/x";
 
 import { MacOS } from "@/os/Controls/Mac";
-import { InternalControlsProps } from "@/os/Controls/types";
+import { type InternalControlsProps } from "@/os/Controls/types";
 import { Windows } from "@/os/Controls/Windows";
 import { use } from "@/os/use";
 

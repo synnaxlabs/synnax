@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useLayoutEffect } from "react";
+import { type ReactElement, useLayoutEffect } from "react";
 
 import { Deep } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoCompare } from "@/memo";
@@ -37,7 +37,7 @@ export const Core = Aether.wrap<CoreProps>(
         };
       },
       ([prevProps], [nextProps]) => Deep.equal(prevProps, nextProps),
-      [props]
+      [props],
     );
 
     const [, , setState] = Aether.use({
@@ -48,5 +48,5 @@ export const Core = Aether.wrap<CoreProps>(
     });
     useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
     return null;
-  }
+  },
 );

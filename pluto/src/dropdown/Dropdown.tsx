@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import {
-  CSSProperties,
+  type CSSProperties,
   forwardRef,
-  ReactElement,
-  RefObject,
+  type ReactElement,
+  type RefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 
-import { Box, CrudeYLocation, Location, XY } from "@synnaxlabs/x";
+import { Box, type CrudeYLocation, Location, XY } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -64,7 +64,7 @@ export const use = (props?: UseProps): UseReturn => {
   const ref = useRef<HTMLDivElement>(null);
   const toggle = useCallback(
     (vis?: boolean) => setVisible((v) => vis ?? !v),
-    [setVisible, onVisibleChange]
+    [setVisible, onVisibleChange],
   );
   const open = useCallback(() => toggle(true), [toggle]);
   const close = useCallback(() => toggle(false), [toggle]);
@@ -116,7 +116,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       matchTriggerWidth = false,
       ...props
     }: DialogProps,
-    forwardedRef
+    forwardedRef,
   ): ReactElement => {
     const ref = useRef<HTMLDivElement>(null);
     const visibleRef = useRef(visible);
@@ -156,7 +156,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
             className={CSS(
               CSS.BE("dropdown", "dialog"),
               CSS.loc(loc),
-              CSS.visible(visible)
+              CSS.visible(visible),
             )}
             role="dialog"
             empty
@@ -167,6 +167,6 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
         )}
       </Align.Pack>
     );
-  }
+  },
 );
 Dialog.displayName = "Dropdown";

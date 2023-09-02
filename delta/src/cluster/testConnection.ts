@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax } from "@synnaxlabs/client";
-import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
+import type { connection, SynnaxProps } from "@synnaxlabs/client";
 
 /**
  * Tests the connection to the cluster with the given props.
@@ -17,7 +17,7 @@ import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
  * @returns The cluster key and connection state. If unsuccessful, the cluster key
  * will be undefined.
  */
-export const testConnection = async (props: SynnaxProps): Promise<ConnectionState> => {
+export const testConnection = async (props: SynnaxProps): Promise<connection.State> => {
   const client = new Synnax(props);
   const s = await client.connectivity.check();
   client.close();

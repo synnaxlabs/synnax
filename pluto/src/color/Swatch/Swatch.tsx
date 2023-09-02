@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { color } from "@/color/core";
-import { Crude, Color } from "@/color/core/color";
+import { type Crude, type Color } from "@/color/core/color";
 import { Picker } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { UseProps } from "@/dropdown/Dropdown";
+import { type UseProps } from "@/dropdown/Dropdown";
 import { Haul } from "@/haul";
-import { Input } from "@/input";
+import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -52,7 +52,7 @@ export const Swatch = ({
       const [k] = Haul.filterByType(HAUL_TYPE, items);
       return k != null && k.key !== d.hex;
     },
-    [d.hex]
+    [d.hex],
   );
 
   const { startDrag, ...haulProps } = Haul.useDragAndDrop({
@@ -72,7 +72,7 @@ export const Swatch = ({
         CSS.size(size),
         d.contrast(bg) > 1.5 && d.a > 0.5 && CSS.M("no-border"),
         CSS.dropRegion(canDrop(dragging)),
-        className
+        className,
       )}
       draggable
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { SketchPicker, ColorResult } from "react-color";
+import { SketchPicker, type ColorResult } from "react-color";
 
 import { color } from "@/color/core";
 import { CSS } from "@/css";
-import { Input } from "@/input";
+import { type Input } from "@/input";
 
 import "@/color/Picker/Picker.css";
 

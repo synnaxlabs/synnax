@@ -14,6 +14,7 @@
     cursor: pointer;
 }
 
+
 .pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon,
 .pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon:hover {
     box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
@@ -58,10 +59,6 @@
 .pluto-tabs-selector {
     border-bottom: var(--pluto-border);
     z-index: 7;
-}
-
-.pluto-tabs-selector__actions {
-    margin-left: auto;
 }
 
 .pluto-header .pluto-tabs-selector {

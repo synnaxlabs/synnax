@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { CrudeLocation } from "@synnaxlabs/x";
+import { type CrudeLocation } from "@synnaxlabs/x";
 
 import {
   moveTab,
@@ -19,7 +19,7 @@ import {
   renameTab,
   autoSelectTabs,
 } from "@/mosaic/tree";
-import { Node } from "@/mosaic/types";
+import { type Node } from "@/mosaic/types";
 
 export interface UseProps {
   allowRename?: boolean;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Tabs } from "@synnaxlabs/pluto";
@@ -17,7 +17,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { useSelectToolbar } from "@/lineplot/selectors";
-import { ToolbarTab, setActiveToolbarTab } from "@/lineplot/slice";
+import { type ToolbarTab, setActiveToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";

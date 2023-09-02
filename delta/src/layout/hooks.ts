@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, ReactElement, useCallback, useState } from "react";
+import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
 import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
-  AsyncDestructor,
-  Nav,
+  type AsyncDestructor,
+  type Nav,
   OS,
   Theming,
   useAsyncEffect,
@@ -24,10 +24,10 @@ import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
-import { LayoutState } from "@/layout/layout";
+import { type LayoutState } from "@/layout/layout";
 import { useSelect, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
-  NavdrawerLocation,
+  type NavdrawerLocation,
   place,
   remove,
   resizeNavdrawer,

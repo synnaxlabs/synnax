@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Dimensions, XY } from "@synnaxlabs/x";
+import { Bounds, Dimensions, type XY } from "@synnaxlabs/x";
 
 import { dimensions } from "@/text/dimensions";
 import { prettyParse } from "@/util/zod";
 import {
-  Axis,
-  AxisProps,
-  RenderResult,
+  type Axis,
+  type AxisProps,
+  type RenderResult,
   axisStateZ,
-  AxisState,
-  ParsedAxisState,
+  type AxisState,
+  type ParsedAxisState,
 } from "@/vis/axis/axis";
-import { Tick, TickFactory, newTickFactory } from "@/vis/axis/ticks";
-import { render } from "@/vis/render";
+import { type Tick, type TickFactory, newTickFactory } from "@/vis/axis/ticks";
+import { type render } from "@/vis/render";
 
 const TICK_LINE_SIZE = 4;
 
@@ -78,7 +78,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,
-        p.y + 5 + d.height
+        p.y + 5 + d.height,
       );
     });
     return { size: maxTickDims.height + TICK_LINE_SIZE };
@@ -104,7 +104,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x + tick.position - d.width / 2,
-        p.y - 5 - d.height
+        p.y - 5 - d.height,
       );
     });
 
@@ -131,7 +131,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x - d.width - TICK_LINE_SIZE * 2,
-        p.y + tick.position + d.height / 3
+        p.y + tick.position + d.height / 3,
       );
     });
 
@@ -158,7 +158,7 @@ export class Canvas implements Axis {
       canvas.fillText(
         tick.label,
         p.x + TICK_LINE_SIZE + 2,
-        p.y + tick.position + d.height / 3
+        p.y + tick.position + d.height / 3,
       );
     });
     return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
@@ -174,7 +174,7 @@ export class Canvas implements Axis {
 
   private drawTicks(
     ticks: Tick[],
-    f: (textDimensions: Dimensions, tick: Tick) => void
+    f: (textDimensions: Dimensions, tick: Tick) => void,
   ): Dimensions {
     let maxDimensions = Dimensions.ZERO;
     ticks.forEach((tick) => {
@@ -188,7 +188,7 @@ export class Canvas implements Axis {
   private maybeDrawGrid(
     size: number,
     ticks: Tick[],
-    f: (tick: Tick) => [XY, XY]
+    f: (tick: Tick) => [XY, XY],
   ): void {
     const { showGrid, gridColor } = this.state;
     if (showGrid) {
@@ -198,7 +198,7 @@ export class Canvas implements Axis {
       ticks
         .filter(
           ({ position }) =>
-            !startBound.contains(position) && !endBound.contains(position)
+            !startBound.contains(position) && !endBound.contains(position),
         )
         .forEach((tick) => this.drawLine(...f(tick)));
     }

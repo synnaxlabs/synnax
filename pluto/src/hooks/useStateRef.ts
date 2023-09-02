@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MutableRefObject, useCallback, useRef } from "react";
+import { type MutableRefObject, useCallback, useRef } from "react";
 
-import { Primitive } from "@synnaxlabs/x";
+import { type Primitive } from "@synnaxlabs/x";
 
 import { state } from "@/state";
 
@@ -21,7 +21,7 @@ import { state } from "@/state";
  * @returns a tuple containing the ref and the pseudo-setState function.
  */
 export const useStateRef = <T extends Primitive | object>(
-  initialValue: T
+  initialValue: T,
 ): [MutableRefObject<T>, state.Set<T>] => {
   const ref = useRef<T>(initialValue);
   const setValue: state.Set<T> = useCallback((setter) => {

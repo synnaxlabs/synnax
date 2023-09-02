@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { type channel.Keys } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   useAsyncEffect,
   Viewport,

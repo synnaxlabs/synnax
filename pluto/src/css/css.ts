@@ -10,15 +10,15 @@
 import {
   Direction,
   Location,
-  CrudeLocation,
-  LooseDirectionT,
-  LooseLocationT,
-  CrudePosition,
+  type CrudeLocation,
+  type LooseDirectionT,
+  type LooseLocationT,
+  type CrudePosition,
 } from "@synnaxlabs/x";
 
-import { BEM, newBEM } from "@/css/bem";
+import { type BEM, newBEM } from "@/css/bem";
 import { applyCSSVars } from "@/css/vars";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 import { CSSGridBuilder } from "./grid";
 

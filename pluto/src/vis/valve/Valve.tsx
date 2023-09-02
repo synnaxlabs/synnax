@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { CrudeDirection, Dimensions, Direction } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type CrudeDirection, Dimensions, Direction } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Color } from "@/color";
@@ -71,7 +71,7 @@ export const Valve = Aether.wrap<ValveProps>(
           CSS.B("valve"),
           triggered && CSS.BM("valve", "triggered"),
           active && CSS.BM("valve", "active"),
-          CSS.dir(direction)
+          CSS.dir(direction),
         )}
         onClick={handleClick}
         style={style}
@@ -86,5 +86,5 @@ export const Valve = Aether.wrap<ValveProps>(
         </svg>
       </button>
     );
-  }
+  },
 );

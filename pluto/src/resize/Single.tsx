@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { clamp, Box, Location } from "@synnaxlabs/x";
+import { clamp, type Box, Location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Core, CoreProps } from "@/resize/Core";
+import { Core, type CoreProps } from "@/resize/Core";
 
 /** Props for the {@link Single} component. */
 export interface SingleProps
@@ -65,7 +65,7 @@ export const Single = ({
       if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;
       return nextSize;
     },
-    [location, minSize, maxSize, collapseThreshold]
+    [location, minSize, maxSize, collapseThreshold],
   );
 
   const handleMove = useCallback(
@@ -74,7 +74,7 @@ export const Single = ({
       setSize(nextSize);
       onResize?.(nextSize);
     },
-    [onResize, calcNextSize]
+    [onResize, calcNextSize],
   );
 
   const handleStart = useCallback(
@@ -83,12 +83,12 @@ export const Single = ({
         marker.current = prev;
         return prev;
       }),
-    [setSize]
+    [setSize],
   );
 
   const handleEnd = useCallback(
     (box: Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
-    [onCollapse, calcNextSize]
+    [onCollapse, calcNextSize],
   );
 
   useEffect(
@@ -98,7 +98,7 @@ export const Single = ({
         marker.current = nextSize;
         return nextSize;
       }),
-    [minSize, maxSize]
+    [minSize, maxSize],
   );
 
   const handleDragStart = useCursorDrag({

@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
-import { FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
@@ -95,7 +95,7 @@ export class LinePlot extends aether.Composite<
       region: plot,
     };
     await Promise.all(
-      this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps))
+      this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps)),
     );
   }
 
@@ -106,7 +106,7 @@ export class LinePlot extends aether.Composite<
       region,
     };
     await Promise.all(
-      this.measures.map(async (measure) => await measure.render(measureProps))
+      this.measures.map(async (measure) => await measure.render(measureProps)),
     );
   }
 
@@ -121,7 +121,7 @@ export class LinePlot extends aether.Composite<
     const removeGlScissor = ctx.scissorGL(plot);
     const removeCanvasScissor = ctx.scissorCanvas(
       this.state.container,
-      new XY(this.state.clearOverscan).scale(0.5)
+      new XY(this.state.clearOverscan).scale(0.5),
     );
     try {
       await this.renderAxes(plot);
@@ -139,7 +139,7 @@ export class LinePlot extends aether.Composite<
         this.internal.render,
         this.state.container,
         this.prevState.container,
-        new XY(this.state.clearOverscan)
+        new XY(this.state.clearOverscan),
       );
     };
   }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, ReactElement, forwardRef } from "react";
+import { type ForwardedRef, type ReactElement, forwardRef } from "react";
 
-import { Space, SpaceElementType, SpaceProps } from "@/align/Space";
+import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 
 import "@/align/Pack.css";
@@ -31,7 +31,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => (
   // @ts-expect-error
   <Space<E>
@@ -43,7 +43,7 @@ const CorePack = <E extends SpaceElementType = "div">(
       CSS.dir(direction),
       typeof size !== "number" && CSS.BM("pack", size),
       reverse && CSS.BM("pack", "reverse"),
-      className
+      className,
     )}
     bordered={bordered}
     rounded={rounded}
@@ -69,5 +69,5 @@ const CorePack = <E extends SpaceElementType = "div">(
  * Defaults to "div".
  */
 export const Pack = forwardRef(CorePack) as <E extends SpaceElementType = "div">(
-  props: PackProps<E>
+  props: PackProps<E>,
 ) => ReactElement;

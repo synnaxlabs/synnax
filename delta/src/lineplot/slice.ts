@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type channel.Key, type channel.Keys } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   XY,
@@ -519,6 +519,7 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type LinePayload = Action["payload"];
 
+export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";
 
 export const createLinePlot =

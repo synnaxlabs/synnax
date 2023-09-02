@@ -9,10 +9,10 @@
 
 import type { ComponentType } from "react";
 
-import { Dispatch, AnyAction } from "@reduxjs/toolkit";
+import { type Dispatch, type AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps as DriftWindowProps } from "@synnaxlabs/drift";
-import { Tabs } from "@synnaxlabs/pluto";
-import { Location } from "@synnaxlabs/x";
+import { type Tabs } from "@synnaxlabs/pluto";
+import { type Location } from "@synnaxlabs/x";
 
 /** The location options for placing a layout */
 export type PlacementLocation = "window" | "mosaic";

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   memo,
   useContext,
   useState,
 } from "react";
 
-import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x";
+import { type TypedWorker, RoutedWorker, type SenderHandler } from "@synnaxlabs/x";
 
 import { useEffectCompare } from "@/hooks/useEffectCompare";
 import { useMemoCompare } from "@/memo";
@@ -74,13 +74,13 @@ export const Provider = memo(
         return () => worker.terminate();
       },
       ([url], [prevUrl]) => url.toString() === prevUrl.toString(),
-      [url]
+      [url],
     );
 
     if (enabled && value.route == null) return null;
 
     return <Context.Provider value={value}>{children}</Context.Provider>;
-  }
+  },
 );
 Provider.displayName = "worker.Provider";
 
@@ -90,6 +90,6 @@ export const use = <RQ, RS = RQ>(type: string): SenderHandler<RQ, RS> | null => 
   return useMemoCompare(
     () => ctx.route(type),
     ([a], [b]) => a === b,
-    [ctx.route]
+    [ctx.route],
   );
 };

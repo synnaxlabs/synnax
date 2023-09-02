@@ -15,7 +15,7 @@ import { synnax } from "@/synnax/aether";
 import { bool } from "@/telem/bool/aether";
 import { client } from "@/telem/client";
 import { telem } from "@/telem/core";
-import { CompoundTelemFactory, Factory } from "@/telem/core/factory";
+import { CompoundTelemFactory, type Factory } from "@/telem/core/factory";
 import { noop } from "@/telem/noop";
 import { remote } from "@/telem/remote/aether";
 import { staticTelem } from "@/telem/static/aether";
@@ -27,7 +27,7 @@ export class Provider
   extends aether.Composite<typeof providerStateZ>
   implements telem.Provider
 {
-  readonly telem: Map<string, telem.Telem> = new Map();
+  readonly telem = new Map<string, telem.Telem>();
   client: client.Proxy = new client.Proxy();
   factory: CompoundTelemFactory = new CompoundTelemFactory([
     new bool.Factory(),
@@ -66,7 +66,7 @@ export class Provider
       telem = this.factory.create(key, spec, this.factory);
       if (telem == null)
         throw new UnexpectedError(
-          `Telemetry service could not find a source for type ${spec.type}`
+          `Telemetry service could not find a source for type ${spec.type}`,
         );
     }
     this.telem.set(key, telem);

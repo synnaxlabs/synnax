@@ -16,6 +16,7 @@
     padding: 0 2rem;
     margin: 0;
     border: var(--pluto-border);
+    width: 100%;
 
     &:focus {
         outline: none;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Case } from "@synnaxlabs/x";
@@ -17,8 +17,8 @@ import { Button } from "@/button";
 import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-import { Trigger } from "@/triggers/triggers";
-import { MODES, Mode, UseTriggers } from "@/viewport/use";
+import { type Trigger } from "@/triggers/triggers";
+import { MODES, type Mode, type UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;
@@ -46,7 +46,7 @@ const MODE_ICONS: Record<Mode, ReactElement> = {
   click: <Icon.Bolt />,
 };
 
-export interface SelectModeProps extends Select.ButtonProps<Mode> {
+export interface SelectModeProps extends Omit<Select.ButtonProps<Mode>, "data"> {
   triggers: UseTriggers;
   disable?: Mode[];
 }

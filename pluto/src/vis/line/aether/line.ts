@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Bounds,
+  type Bounds,
   xyScaleToTransform,
-  Series,
-  CrudeDirection,
-  Destructor,
+  type Series,
+  type CrudeDirection,
+  type Destructor,
   XY,
   DataType,
-  Box,
-  XYScale,
+  type Box,
+  type XYScale,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -85,7 +85,7 @@ export class Context extends render.GLProgram {
 
   bindPropsAndState(
     { dataToDecimalScale: scale, region }: LineProps,
-    { strokeWidth, color }: ParsedState
+    { strokeWidth, color }: ParsedState,
   ): number {
     const scaleTransform = xyScaleToTransform(scale);
     const transform = xyScaleToTransform(this.ctx.scaleRegion(region));
@@ -106,7 +106,7 @@ export class Context extends render.GLProgram {
       gl.LINE_STRIP,
       0,
       Math.min(x.length, y.length) / downsample,
-      count
+      count,
     );
   }
 
@@ -124,7 +124,7 @@ export class Context extends render.GLProgram {
   private bindAttrBuffer(
     dir: CrudeDirection,
     buffer: WebGLBuffer,
-    downsample: number
+    downsample: number,
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -169,7 +169,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [t, cleanupTelem] = telem.use<telem.XYSource>(
       this.ctx,
       this.key,
-      this.state.telem
+      this.state.telem,
     );
     this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;
@@ -207,7 +207,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { color, label } = this.state;
     const position = new XY(
       props.dataToDecimalScale.x.pos(value.x),
-      props.dataToDecimalScale.y.pos(value.y)
+      props.dataToDecimalScale.y.pos(value.y),
     );
     return { key, color, label, value, position };
   }
@@ -249,7 +249,7 @@ const THICKNESS_DIVISOR = 5000;
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
   if (strokeWidth <= 1) return new Float32Array([0, 0]);
   return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
-    (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v
+    (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
 
@@ -274,7 +274,7 @@ const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
 const offsetScale = (scale: XYScale, x: Series, y: Series): XYScale =>
   scale.translate(
     scale.x.dim(Number(x.sampleOffset)),
-    scale.y.dim(Number(y.sampleOffset))
+    scale.y.dim(Number(y.sampleOffset)),
   );
 
 export const REGISTRY: aether.ComponentRegistry = {

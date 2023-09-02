@@ -11,7 +11,7 @@ import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { DeepKey } from "@synnaxlabs/x";
+import { type DeepKey } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
@@ -81,7 +81,7 @@ const newStore = async (): Promise<RootStore> => {
       persistMiddleware,
     ],
     reducer,
-    enablePrerender: false,
+    enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   })) as RootStore;
 };

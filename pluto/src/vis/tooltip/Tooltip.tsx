@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { XY } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { tooltip } from "@/vis/tooltip/aether";
@@ -34,12 +34,12 @@ export const Tooltip = Aether.wrap<TooltipProps>(
 
     const handleMove = useCallback(
       (e: MouseEvent): void => setState({ position: new XY(e) }),
-      [setState]
+      [setState],
     );
 
     const handleLeave = useCallback(
       (): void => setState({ position: null }),
-      [setState]
+      [setState],
     );
 
     useEffect(() => {
@@ -57,5 +57,5 @@ export const Tooltip = Aether.wrap<TooltipProps>(
     }, [handleMove]);
 
     return <span ref={ref} />;
-  }
+  },
 );
