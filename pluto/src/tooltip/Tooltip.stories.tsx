@@ -24,35 +24,35 @@ const story: Meta<typeof Tooltip.Dialog> = {
 const Template = (): ReactElement => (
   <Align.Center style={{ width: "100%", height: "100%" }}>
     <Tooltip.Dialog location={XYLocation.TOP_RIGHT.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Top Right - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.TOP_LEFT.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Top left - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.BOTTOM_RIGHT.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Bottom Right - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.BOTTOM_LEFT.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Bottom Left - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.BOTTOM_CENTER.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Bottom Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.LEFT_CENTER.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Left Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.RIGHT_CENTER.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Right Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
     <Tooltip.Dialog location={XYLocation.TOP_CENTER.crude}>
-      <p>Tooltip.Dialog Conjent</p>
+      <p>Top Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
   </Align.Center>

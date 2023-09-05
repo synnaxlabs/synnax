@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package user
+package workspace
 
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type User struct {
-	Key      uuid.UUID `json:"key"`
-	Username string    `json:"username"`
+type Workspace struct {
+	Key  uuid.UUID
+	Name string
 }
 
-var _ gorp.Entry[uuid.UUID] = User{}
+var _ gorp.Entry[uuid.UUID] = Workspace{}
 
-func (u User) GorpKey() uuid.UUID { return u.Key }
+func (w Workspace) GorpKey() uuid.UUID { return w.Key }
 
-func (u User) SetOptions() []interface{} { return nil }
+func (w Workspace) SetOptions() []interface{} { return nil }

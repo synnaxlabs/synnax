@@ -7,20 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package user
+package pid
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type User struct {
-	Key      uuid.UUID `json:"key"`
-	Username string    `json:"username"`
+type Writer struct {
+	tx gorp.Tx
 }
 
-var _ gorp.Entry[uuid.UUID] = User{}
+func (w Writer) Create(
+	ctx context.Context,
+	p *PID,
+) (err error) {
+	if p.Key == uuid.Nil {
+		p.Key = uuid.New()
+	}
+	if err = gorp.NewCreate[uuid.UUID, PID]().Entry(p).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	return err
+}
 
-func (u User) GorpKey() uuid.UUID { return u.Key }
-
-func (u User) SetOptions() []interface{} { return nil }
+func (w Writer) Delete(
+	ctx context.Context,
+	keys ...uuid.UUID,
+) error {
+	return gorp.NewDelete[uuid.UUID, PID]().WhereKeys(keys...).Exec(ctx, w.tx)
+}

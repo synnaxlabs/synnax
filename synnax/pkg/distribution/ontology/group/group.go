@@ -15,8 +15,12 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Group is a simple grouping of resources within the cluster's ontology.
 type Group struct {
-	Key  uuid.UUID
+	// Key is the unique identifier for the group. Will be generated on creation if not
+	// set.
+	Key uuid.UUID
+	// Name is the name for the group.
 	Name string
 }
 

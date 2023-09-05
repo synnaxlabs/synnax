@@ -22,14 +22,14 @@ import (
 
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
-	tx         gorp.Tx
+	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Range]
 	otg        *ontology.Ontology
 	searchTerm string
 }
 
 func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), tx: tx, otg: otg}
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: tx, otg: otg}
 }
 
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
@@ -71,5 +71,5 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }
