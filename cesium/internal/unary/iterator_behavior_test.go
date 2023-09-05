@@ -55,7 +55,7 @@ var _ = Describe("Iterator Behavior", func() {
 			Specify("Single Range", func() {
 				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
-				iter := db.NewIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				iter := db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))
 				Expect(iter.Next(ctx, 3*telem.Second)).To(BeTrue())
@@ -70,7 +70,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 				Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
 				Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewArrayV[int64](7, 8, 9, 10, 11, 12))).To(Succeed())
-				iter := db.NewIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(30 * telem.Second)))
+				iter := db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(30 * telem.Second)))
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
 				Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))
 				Expect(iter.Next(ctx, 3*telem.Second)).To(BeTrue())
@@ -87,7 +87,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Specify("Single Range", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
-					iter := db.NewIterator(unary.IteratorConfig{
+					iter := db.OpenIterator(unary.IteratorConfig{
 						Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
 						AutoChunkSize: 2,
 					})
@@ -108,7 +108,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Specify("Partial Range", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
-					iter := db.NewIterator(unary.IteratorConfig{
+					iter := db.OpenIterator(unary.IteratorConfig{
 						Bounds:        (10 * telem.SecondTS).SpanRange(3 * telem.Second),
 						AutoChunkSize: 2,
 					})
@@ -125,7 +125,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
 					Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewArrayV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
-					iter := db.NewIterator(unary.IteratorConfig{
+					iter := db.OpenIterator(unary.IteratorConfig{
 						Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
 						AutoChunkSize: 3,
 					})
@@ -148,7 +148,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
 					Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewArrayV[int64](7, 8, 9, 10, 11))).To(Succeed())
-					iter := db.NewIterator(unary.IteratorConfig{
+					iter := db.OpenIterator(unary.IteratorConfig{
 						Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
 						AutoChunkSize: 3,
 					})
