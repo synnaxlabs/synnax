@@ -82,11 +82,7 @@ export class Checker {
     } catch (err) {
       this._state.status = "failed";
       this._state.error = err as Error;
-      if (err instanceof Unreachable) {
-        this._state.message = `Cannot reach cluster at ${err.url.host}:${err.url.port}`;
-      } else {
-        this._state.message = this.state.error?.message;
-      }
+      this._state.message = this.state.error?.message;
     }
     if (this.onChangeHandlers.length > 0 && prevStatus !== this._state.status)
       this.onChangeHandlers.forEach((handler) => handler(this.state));

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -29,7 +29,7 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useSelect } from "@/lineplot/selectors";
-import { RuleState, removeRule, setRule } from "@/lineplot/slice";
+import { type RuleState, removeRule, setRule } from "@/lineplot/slice";
 import { Vis } from "@/vis";
 
 export interface AnnotationsProps {

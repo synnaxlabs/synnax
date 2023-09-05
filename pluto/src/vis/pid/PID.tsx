@@ -319,16 +319,6 @@ const Core = Aether.wrap<PIDProps>(
       [handleEdgePointsChange],
     );
 
-    if (error != null) {
-      return (
-        <Aether.Composite path={path}>
-          <Status.Text.Centered variant="error" hideIcon level="h4">
-            {error}
-          </Status.Text.Centered>
-        </Aether.Composite>
-      );
-    }
-
     const { fitView } = useReactFlow();
     Triggers.use({
       triggers: triggers.zoomReset,
@@ -350,6 +340,16 @@ const Core = Aether.wrap<PIDProps>(
       panActivationKeyCode: panTriggers,
       zoomActivationKeyCode: zoomTriggers,
     };
+
+    if (error != null) {
+      return (
+        <Aether.Composite path={path}>
+          <Status.Text.Centered variant="error" level="p">
+            {error}
+          </Status.Text.Centered>
+        </Aether.Composite>
+      );
+    }
 
     return (
       <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>

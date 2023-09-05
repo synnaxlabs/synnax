@@ -31,21 +31,24 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
     upper: prev + AXIS_SIZE_UPADTE_UPPER_THRESHOLD,
   }).contains(next);
 
-const EMPTY_LINEAR_BOUNDS = new Bounds({ lower: 0, upper: 1 });
+export const EMPTY_LINEAR_BOUNDS = new Bounds({ lower: 0, upper: 1 });
 const now = TimeStamp.now();
-const EMPTY_TIME_BOUNDS = new Bounds({
+export const EMPTY_TIME_BOUNDS = new Bounds({
   lower: now.valueOf(),
   upper: now.add(TimeSpan.HOUR).valueOf(),
 });
+
+export const emptyBounds = (type: TickType): Bounds =>
+  type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
 
 export const autoBounds = (
   bounds: Bounds[],
   padding: number = 0.1,
   type: TickType,
 ): Bounds => {
-  if (bounds.length === 0)
-    return type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
-  const { upper, lower } = Bounds.max(bounds);
+  const b = Bounds.max(bounds);
+  if (!b.isFinite) return emptyBounds(type);
+  const { lower, upper } = b;
   if (upper === lower) return new Bounds({ lower: lower - 1, upper: upper + 1 });
   const _padding = (upper - lower) * padding;
   return new Bounds({ lower: lower - _padding, upper: upper + _padding });

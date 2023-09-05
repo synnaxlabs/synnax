@@ -41,7 +41,8 @@ export interface SingleProps<
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
     Input.Control<K>,
-    Omit<CoreList.ListProps<K, E>, "children"> {
+    Omit<CoreList.ListProps<K, E>, "children">,
+    Pick<Input.TextProps, "variant"> {
   tagKey?: keyof E;
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
@@ -80,6 +81,7 @@ export const Single = <
   allowClear = true,
   searcher,
   className,
+  variant,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -130,6 +132,7 @@ export const Single = <
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
             <SingleInput
+              variant={variant}
               onChange={onChange}
               onFocus={open}
               selected={selected}

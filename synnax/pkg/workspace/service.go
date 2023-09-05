@@ -10,8 +10,10 @@
 package workspace
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -25,7 +27,10 @@ type Config struct {
 	Group    *group.Service
 }
 
-var _ config.Config[Config] = Config{}
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
@@ -46,4 +51,22 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
+	PID *pid.Service
+}
+
+func NewService(configs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	pidSvc, err := pid.NewService(pid.Config{DB: cfg.DB})
+	return &Service{Config: cfg, PID: pidSvc}, nil
+}
+
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{tx: gorp.OverrideTx(s.DB, tx), otg: s.Ontology.NewWriter(tx)}
+}
+
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Workspace]()}
 }

@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { Range } from "@/workspace/range";
+import { type Range } from "@/workspace/range";
 
 export interface SliceState {
   activeRange: string | null;
@@ -27,10 +27,10 @@ export const SLICE_NAME = "workspace";
 export const initialState: SliceState = {
   activeRange: null,
   ranges: {
-    dog: {
-      key: "dog",
+    recent: {
+      key: "recent",
       variant: "dynamic",
-      name: "Dog",
+      name: "Recent",
       span: Number(TimeSpan.seconds(5)),
     },
   },

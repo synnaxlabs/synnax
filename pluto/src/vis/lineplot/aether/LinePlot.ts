@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
+import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
@@ -29,6 +30,7 @@ export const linePlotStateZ = z.object({
 });
 
 interface InternalState {
+  aggregate: status.Aggregate;
   render: render.Context;
 }
 
@@ -45,6 +47,7 @@ export class LinePlot extends aether.Composite<
   schema = linePlotStateZ;
 
   afterUpdate(): void {
+    this.internal.aggregate = status.useAggregate(this.ctx);
     this.internal.render = render.Context.use(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender("low"));
     this.requestRender("high");
@@ -129,7 +132,10 @@ export class LinePlot extends aether.Composite<
       await this.renderMeasures(plot);
       this.clearError();
     } catch (e) {
-      this.setError(e as Error);
+      this.internal.aggregate({
+        variant: "error",
+        message: (e as Error).message,
+      });
     } finally {
       removeGlScissor();
       removeCanvasScissor();

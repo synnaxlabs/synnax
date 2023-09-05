@@ -76,6 +76,7 @@ module.exports = {
         "prettier/prettier": "error",
         "@typescript-eslint/no-namespace": "off",
         "@typescript-eslint/no-confusing-void-expression": "off",
+        "@typescript-eslint/ban-types": "off",
     },
     settings: {
         "import/resolver": {

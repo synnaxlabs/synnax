@@ -17,6 +17,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -51,6 +52,7 @@ type Config struct {
 	Group         *group.Service
 	Storage       *storage.Storage
 	User          *user.Service
+	Workspace     *workspace.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
@@ -71,6 +73,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotNil(v, "user", c.User)
+	validate.NotNil(v, "workspace", c.Workspace)
 	validate.NotNil(v, "token", c.Token)
 	validate.NotNil(v, "authenticator", c.Authenticator)
 	validate.NotNil(v, "enforcer", c.Enforcer)
@@ -88,6 +91,7 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.User = override.Nil(c.User, other.User)
+	c.Workspace = override.Nil(c.Workspace, other.Workspace)
 	c.Token = override.Nil(c.Token, other.Token)
 	c.Authenticator = override.Nil(c.Authenticator, other.Authenticator)
 	c.Enforcer = override.Nil(c.Enforcer, other.Enforcer)
@@ -118,6 +122,12 @@ type Transport struct {
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
+	WorkspaceCreate        freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
+	WorkspaceRetrieve      freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
+	WorkspaceDelete        freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
+	WorkspacePIDCreate     freighter.UnaryServer[WorkspacePIDCreateRequest, WorkspacePIDCreateResponse]
+	WorkspacePIDRetrieve   freighter.UnaryServer[WorkspacePIDRetrieveRequest, WorkspacePIDRetrieveResponse]
+	WorkspacePIDDelete     freighter.UnaryServer[WorkspacePIDDeleteRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -131,6 +141,7 @@ type API struct {
 	Connectivity *ConnectivityService
 	Ontology     *OntologyService
 	Range        *RangeService
+	Workspace    *WorkspaceService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -173,6 +184,9 @@ func (a *API) BindTo(t Transport) {
 		t.OntologyRemoveChildren,
 		t.OntologyMoveChildren,
 		t.OntologyGroupRename,
+		t.WorkspaceDelete,
+		t.WorkspaceCreate,
+		t.WorkspaceRetrieve,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -194,6 +208,12 @@ func (a *API) BindTo(t Transport) {
 	t.OntologyAddChildren.BindHandler(typedUnaryWrapper(a.Ontology.AddChildren))
 	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
 	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
+	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
+	t.WorkspaceRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.Retrieve))
+	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
+	t.WorkspacePIDCreate.BindHandler(typedUnaryWrapper(a.Workspace.CreatePID))
+	t.WorkspacePIDRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.RetrievePID))
+	t.WorkspacePIDDelete.BindHandler(typedUnaryWrapper(a.Workspace.DeletePID))
 }
 
 // New instantiates the delta API using the provided Config. This should probably

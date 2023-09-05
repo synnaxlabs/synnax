@@ -40,7 +40,7 @@ export const isTypedError = (error: unknown): error is TypedError => {
   if (typedError.discriminator !== "FreighterError") return false;
   if (!("type" in typedError))
     throw new Error(
-      `Freighter error is missing its type property: ${JSON.stringify(typedError)}`
+      `Freighter error is missing its type property: ${JSON.stringify(typedError)}`,
     );
   return true;
 };
@@ -52,7 +52,7 @@ export const assertErrorType = <T>(type: string, error?: Error | null): T => {
     throw new Error(`Expected a typed error, got: ${error.message}`);
   if (error.type !== type)
     throw new Error(
-      `Expected error of type ${type}, got ${error.type}: ${error.message}`
+      `Expected error of type ${type}, got ${error.type}: ${error.message}`,
     );
   return error as unknown as T;
 };
@@ -164,6 +164,7 @@ export class StreamClosed extends BaseTypedError implements TypedError {
 }
 
 export interface UnreachableArgs {
+  message?: string;
   url?: URL;
 }
 
@@ -172,8 +173,8 @@ export class Unreachable extends BaseTypedError implements TypedError {
   url: URL;
 
   constructor(args: UnreachableArgs = {}) {
-    super("Unreachable", FREIGHTER);
-    const { url = URL.UNKNOWN } = args;
+    const { message = "Unreachable", url = URL.UNKNOWN } = args;
+    super(message, FREIGHTER);
     this.url = url;
   }
 }

@@ -100,17 +100,7 @@ func (v *validator) validate(req Request) error {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
 	if req.Command == Data {
-		missing, extra := v.keys.Difference(req.Frame.Keys)
-		if len(missing) > 0 || len(extra) > 0 {
-			return errors.Wrapf(validate.Error,
-				"invalid frame: missing keys: %v, has extra keys: %v",
-				missing,
-				extra,
-			)
-		}
-		if !req.Frame.Even() {
-			return errors.Wrapf(validate.Error, "invalid frame: series have different lengths")
-		}
+
 	}
 	return nil
 }

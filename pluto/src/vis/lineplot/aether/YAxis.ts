@@ -21,6 +21,7 @@ import {
   calculateGridPosition,
   autoBounds,
   withinSizeThreshold,
+  emptyBounds,
 } from "@/vis/lineplot/aether/grid";
 import { render } from "@/vis/render";
 import { rule } from "@/vis/rule/aether";
@@ -82,10 +83,12 @@ export class YAxis extends aether.Composite<
   }
 
   async render(props: YAxisProps): Promise<void> {
-    const dataToDecimalScale = await this.dataToDecimalScale(props.viewport);
+    const [dataToDecimalScale, error] = await this.dataToDecimalScale(props.viewport);
     // We need to invert scale because the y-axis is inverted in decimal space.
     const decimalToDataScale = dataToDecimalScale.invert().reverse();
     this.renderAxis(props, decimalToDataScale);
+    // Throw the error we encounter here so that the user still has a visible axis.
+    if (error != null) throw error;
     await this.renderLines(props, dataToDecimalScale);
     await this.renderRules(props, decimalToDataScale);
   }
@@ -131,7 +134,8 @@ export class YAxis extends aether.Composite<
     { xDataToDecimalScale, plot, viewport }: YAxisProps,
     target: number,
   ): Promise<line.FindResult[]> {
-    const yDataToDecimalScale = await this.dataToDecimalScale(viewport);
+    const [yDataToDecimalScale, error] = await this.dataToDecimalScale(viewport);
+    if (error != null) throw error;
     const dataToDecimalScale = new XYScale(xDataToDecimalScale, yDataToDecimalScale);
     const props: line.LineProps = { region: plot, dataToDecimalScale };
     return (
@@ -141,19 +145,28 @@ export class YAxis extends aether.Composite<
     ).map((v) => ({ ...v, units: this.state.label }));
   }
 
-  private async yBounds(): Promise<Bounds> {
+  private async yBounds(): Promise<[Bounds, Error | null]> {
     if (this.state.bounds != null && !this.state.bounds.isZero)
-      return this.state.bounds;
-    const bounds = await Promise.all(this.lines.map(async (el) => await el.yBounds()));
-    return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
+      return [this.state.bounds, null];
+    try {
+      const bounds = await Promise.all(
+        this.lines.map(async (el) => await el.yBounds()),
+      );
+      return [autoBounds(bounds, this.state.autoBoundPadding, this.state.type), null];
+    } catch (err) {
+      return [emptyBounds(this.state.type), err as Error];
+    }
   }
 
-  private async dataToDecimalScale(viewport: Box): Promise<Scale> {
-    const bounds = await this.yBounds();
-    return Scale.scale(bounds)
-      .scale(1)
-      .translate(-viewport.y)
-      .magnify(1 / viewport.height);
+  private async dataToDecimalScale(viewport: Box): Promise<[Scale, Error | null]> {
+    const [bounds, err] = await this.yBounds();
+    return [
+      Scale.scale(bounds)
+        .scale(1)
+        .translate(-viewport.y)
+        .magnify(1 / viewport.height),
+      err,
+    ];
   }
 
   private get lines(): readonly line.Line[] {

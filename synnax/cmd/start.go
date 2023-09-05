@@ -12,6 +12,7 @@ package cmd
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"os"
 	"os/signal"
 	"time"
@@ -122,6 +123,10 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		workspaceSvc, err := workspace.NewService(workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		if err != nil {
+			return err
+		}
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
@@ -143,6 +148,7 @@ func start(cmd *cobra.Command) {
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
+			Workspace:       workspaceSvc,
 		})
 		if err != nil {
 			return err

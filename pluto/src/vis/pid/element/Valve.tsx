@@ -105,12 +105,6 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   return (
     <>
       <Align.Space direction="x">
-        <Input.Item<string>
-          label="Label"
-          value={value.label}
-          onChange={handleLabelChange}
-          grow
-        />
         <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
           label="Color"
           onChange={handleColorChange}
@@ -126,6 +120,12 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
+        <Input.Item<string>
+          label="Label"
+          value={value.label}
+          onChange={handleLabelChange}
+          grow
+        />
       </Align.Space>
       <Align.Space direction="x">
         <Remote.NumericSourceForm

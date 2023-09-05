@@ -64,14 +64,15 @@ for i in range(NUM_SENSORS):
 
 write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
 
-rate = (sy.Rate.HZ * 100).period.seconds
+rate = (sy.Rate.HZ * 5).period.seconds
 
 valve_states = {
     v.key: False for v in valve_acks
 }
 
 i = 0
-    
+
+
 with client.new_streamer([a.key for a in valve_commands]) as streamer:
     with client.new_writer(sy.TimeStamp.now(), write_to) as writer:
         while True:
@@ -87,13 +88,12 @@ with client.new_streamer([a.key for a in valve_commands]) as streamer:
 
             for v in valve_acks:
                 data[v.key] = [np.float32(valve_states[v.key])]
-                if np.random.random() > 0.9:
-                    valve_states[v.key] = not valve_states[v.key]
-                    data[v.key] = [np.float32(valve_states[v.key])]
+                # if np.random.random() > 0.9:
+                #     valve_states[v.key] = not valve_states[v.key]
+                #     data[v.key] = [np.float32(valve_states[v.key])]
             for s in sensors:
                 data[s.key] = [np.float32(np.sin(i / 1000) * 25 + np.random.random())]
-            
+
             data[sensor_idx.key] = [sy.TimeStamp.now()]
 
             writer.write(pd.DataFrame(data))
-            

@@ -233,30 +233,9 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		return v.Error()
 	}
 	var channels []channel.Channel
-	if err := s.ChannelReader.
+	return s.ChannelReader.
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
-		Exec(ctx, nil); err != nil {
-		return err
-	}
-	var (
-		refIndex channel.Key
-		refRate  telem.Rate
-	)
-	for i, c := range channels {
-		if i == 0 {
-			refIndex = c.Index()
-			refRate = c.Rate
-			continue
-		}
-		if c.Rate != 0 {
-			if c.Rate != refRate {
-				return v.Newf("channel rate mismatch: expected %s, found %s", c.Rate, refRate)
-			}
-		} else if c.Index() != refIndex {
-			return v.Newf("keys must have the same index: expected %s, found %s", refIndex, c.Index())
-		}
-	}
-	return nil
+		Exec(ctx, nil)
 }

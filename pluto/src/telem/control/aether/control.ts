@@ -37,7 +37,7 @@ export const controllerStateZ = z.object({
 interface InternalState {
   client: Synnax | null;
   prov: telem.Provider;
-  addStatus: status.Aggreagate;
+  addStatus: status.Aggregate;
 }
 
 interface AetherControllerTelem {
@@ -58,7 +58,7 @@ export class Controller
     this.internal.client = synnax.use(this.ctx);
     const t = telem.get(this.ctx);
     if (!(t instanceof Controller)) this.internal.prov = t;
-    this.internal.addStatus = status.useAggregator(this.ctx);
+    this.internal.addStatus = status.useAggregate(this.ctx);
     telem.set(this.ctx, this);
 
     // If the counter has been incremented, we need to acquire control.

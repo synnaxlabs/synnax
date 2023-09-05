@@ -35,7 +35,7 @@ import {
   Mosaic,
   Divider,
 } from "@synnaxlabs/pluto";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
@@ -70,7 +70,7 @@ export const Palette = ({
 
   const [mode, setMode] = useState<Mode>("resource");
 
-  const notifications = Status.useNotifications();
+  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(30) });
 
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
@@ -95,7 +95,8 @@ export const Palette = ({
     [mode, commands, dropdown.close]
   );
 
-  const showDropdown = dropdown.visible || notifications.statuses.length > 0;
+  // const showDropdown = dropdown.visible || notifications.statuses.length > 0;
+  const showDropdown = true;
   const showDivider = notifications.statuses.length > 0 && dropdown.visible;
 
   return (

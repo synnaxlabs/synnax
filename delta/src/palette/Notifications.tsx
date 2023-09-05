@@ -22,11 +22,17 @@ export const Notifications = ({
 }: NotificationsProps): ReactElement => (
   <List.List<string, Status.Spec> data={statuses}>
     <List.Core<string, Status.Spec> className={CSS(CSS.B("notifications"))}>
-      {({ entry: { key, time, message, variant } }) => (
+      {({ entry: { key, time, message, variant, count } }) => (
         <Align.Space direction="x" key={time.toString()} align="center">
-          <Text.DateTime level="p" format="time">
+          <Text.DateTime level="p" format="time" style={{ minWidth: "10rem" }}>
             {time}
           </Text.DateTime>
+          <Text.Text
+            level="p"
+            style={{ display: count > 1 ? "inline-block" : "none", minWidth: "4rem" }}
+          >
+            {`x${count}`}
+          </Text.Text>
           <Status.Text variant={variant} style={{ flexGrow: 1 }}>
             {message}
           </Status.Text>

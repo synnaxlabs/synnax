@@ -37,6 +37,11 @@ func New(router *fhttp.Router) (a api.Transport) {
 	a.OntologyMoveChildren = fhttp.UnaryServer[api.OntologyMoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children")
 	a.RangeRetrieve = fhttp.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse](router, "/api/v1/range/retrieve")
 	a.RangeCreate = fhttp.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse](router, "/api/v1/range/create")
-
+	a.WorkspaceCreate = fhttp.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse](router, "/api/v1/workspace/create")
+	a.WorkspaceRetrieve = fhttp.UnaryServer[api.WorkspaceRetrieveRequest, api.WorkspaceRetrieveResponse](router, "/api/v1/workspace/retrieve")
+	a.WorkspaceDelete = fhttp.UnaryServer[api.WorkspaceDeleteRequest, types.Nil](router, "/api/v1/workspace/delete")
+	a.WorkspacePIDCreate = fhttp.UnaryServer[api.WorkspacePIDCreateRequest, api.WorkspacePIDCreateResponse](router, "/api/v1/workspace/pid/create")
+	a.WorkspacePIDRetrieve = fhttp.UnaryServer[api.WorkspacePIDRetrieveRequest, api.WorkspacePIDRetrieveResponse](router, "/api/v1/workspace/pid/retrieve")
+	a.WorkspacePIDDelete = fhttp.UnaryServer[api.WorkspacePIDDeleteRequest, types.Nil](router, "/api/v1/workspace/pid/delete")
 	return a
 }

@@ -9,9 +9,8 @@
 
 import { z } from "zod";
 
-import { addSamples } from "./series";
-
-import { Stringer } from "@/primitive";
+import { type Stringer } from "@/primitive";
+import { addSamples } from "@/telem/series";
 
 export type TZInfo = "UTC" | "local";
 
@@ -29,7 +28,7 @@ export type DateComponents = [number?, number?, number?];
 
 const remainder = <T extends TimeStamp | TimeSpan>(
   value: T,
-  divisor: TimeSpan | TimeStamp
+  divisor: TimeSpan | TimeStamp,
 ): T => {
   const ts = new TimeStamp(divisor);
   if (
@@ -44,7 +43,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
     ].some((s) => s.equals(ts))
   ) {
     throw new Error(
-      "Invalid argument for remainder. Must be an even TimeSpan or Timestamp"
+      "Invalid argument for remainder. Must be an even TimeSpan or Timestamp",
     );
   }
   const v = value.valueOf() % ts.valueOf();
@@ -123,7 +122,7 @@ export class TimeStamp extends Number implements Stringer {
     if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
       d.getTime() * TimeStamp.MILLISECOND.valueOf(),
-      tzInfo
+      tzInfo,
     ).valueOf();
   }
 
@@ -1211,7 +1210,7 @@ export const convertDataType = (
   source: DataType,
   target: DataType,
   value: TelemValue,
-  offset: number | bigint = 0
+  offset: number | bigint = 0,
 ): TelemValue => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);

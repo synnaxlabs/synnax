@@ -18,6 +18,8 @@ import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 
+import { errorsMiddleware } from "./errors";
+
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
   port: z.number().or(z.string()),
@@ -72,6 +74,7 @@ export default class Synnax {
     const { host, port, username, password, connectivityPollFrequency, secure } =
       this.props;
     this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
+    this.transport.use(errorsMiddleware);
     if (username != null && password != null) {
       this.auth = new auth.Client(this.transport.unary, {
         username,

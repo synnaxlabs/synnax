@@ -19,7 +19,7 @@ export const aggregatorStateZ = z.object({
 
 const CONTEXT_KEY = "status.aggregator";
 
-export type Aggreagate = (spec: CrudeSpec) => void;
+export type Aggregate = (spec: CrudeSpec) => void;
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
@@ -38,7 +38,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 }
 
-export const useAggregator = (ctx: aether.Context): Aggreagate => {
+export const useAggregate = (ctx: aether.Context): Aggregate => {
   const agg = ctx.get<Aggregator>(CONTEXT_KEY);
   return agg.add.bind(agg);
 };

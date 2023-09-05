@@ -19,6 +19,7 @@ import {
   Triggers,
   Synnax,
   Text,
+  Select,
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
@@ -91,7 +92,7 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="delta-main-nav-top__start">
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo className="delta-main-nav-top__logo" variant="loader" />
+          <Logo className="delta-main-nav-top__logo" variant="icon" />
         )}
       </Nav.Bar.Start>
       <Nav.Bar.Content

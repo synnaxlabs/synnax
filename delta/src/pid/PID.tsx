@@ -242,7 +242,7 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
               value={pid.control === "acquired"}
               onChange={acquireControl}
               tooltip={
-                <Text.Text level="p">
+                <Text.Text level="small">
                   {pid.control === "acquired" ? "Release control" : "Acquire control"}
                 </Text.Text>
               }

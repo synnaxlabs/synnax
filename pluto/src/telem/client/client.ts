@@ -60,7 +60,7 @@ export class Proxy implements Client {
   }
 
   private get client(): Client {
-    if (this._client == null) throw new QueryError("Client is not initialized");
+    if (this._client == null) throw new QueryError("No cluster has been connected");
     return this._client;
   }
 

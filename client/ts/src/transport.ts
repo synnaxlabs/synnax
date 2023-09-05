@@ -11,11 +11,11 @@ import {
   HTTPClient,
   JSONEncoderDecoder,
   WebSocketClient,
-  Middleware,
-  StreamClient,
-  UnaryClient,
+  type Middleware,
+  type StreamClient,
+  type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { URL } from "@synnaxlabs/x";
+import { type URL } from "@synnaxlabs/x";
 
 const baseAPIEndpoint = "/api/v1/";
 
