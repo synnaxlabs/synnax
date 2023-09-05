@@ -93,7 +93,7 @@ export class Controller
       this.writer = await client.telem.newWriter(TimeStamp.now(), keys);
       this.setState((p) => ({ ...p, status: "acquired" }));
       addStatus({
-        message: `Acquired control on ${this.state.name}.`,
+        message: `Acquired control on ${this.state.name}`,
         variant: "success",
       });
     } catch (e) {
@@ -101,7 +101,7 @@ export class Controller
       addStatus({
         message: `${this.state.name} failed to acquire control: ${
           (e as Error).message
-        }.`,
+        }`,
         variant: "error",
       });
     }

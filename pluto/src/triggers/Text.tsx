@@ -25,10 +25,13 @@ export const Text = <L extends Core.Level>({
   trigger,
   ...props
 }: TextProps<L>): ReactElement => {
-  const CUSTOM_TEXT: Partial<Record<Key, ReactElement>> = {
+  const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
     Control: <Core.Symbols.Meta />,
     Alt: <Core.Symbols.Alt />,
     Shift: <Icon.Keyboard.Shift />,
+    MouseLeft: "Left Click",
+    MouseRight: "Right Click",
+    MouseMiddle: "Middle Click",
   };
   return (
     <Align.Space className={className} style={style} direction="x">

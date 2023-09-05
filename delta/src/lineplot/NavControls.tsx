@@ -89,7 +89,6 @@ export const NavControls = (): ReactElement => {
       >
         <Icon.Tooltip />
       </Button.ToggleIcon>
-      <Divider.Divider />
       <Select.Button<
         ClickMode,
         { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
@@ -108,19 +107,6 @@ export const NavControls = (): ReactElement => {
             tooltip: (
               <Align.Space direction="x" align="center">
                 <Text.Text level="small">Slope</Text.Text>
-                <Text.Keyboard level="small">Alt</Text.Keyboard>
-                <Text.Keyboard level="small">Drag</Text.Keyboard>
-              </Align.Space>
-            ),
-          },
-          {
-            key: "annotate",
-            icon: <Icon.Annotate />,
-            tooltip: (
-              <Align.Space direction="x" align="center">
-                <Text.Text level="small">Annotate</Text.Text>
-                <Text.Keyboard level="small">Alt</Text.Keyboard>
-                <Text.Keyboard level="small">Click</Text.Keyboard>
               </Align.Space>
             ),
           },

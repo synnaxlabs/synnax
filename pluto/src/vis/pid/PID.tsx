@@ -130,6 +130,9 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   elementsSelectable: false,
   panOnDrag: false,
   panOnScroll: false,
+  zoomOnScroll: false,
+  zoomOnDoubleClick: false,
+  zoomOnPinch: false,
 };
 
 export interface PIDProps

@@ -23,6 +23,7 @@ import {
   Align,
   Theming,
   Menu,
+  Text,
 } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
@@ -146,19 +147,19 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
   const selectedRule = vis.rules.find((rule) => rule.key === selected);
 
   const emptyContent = (
-    <Align.Center direction="x">
+    <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
-        No annotations added:
+        No annotations added.
       </Status.Text>
-      <Button.Button
-        variant="outlined"
+      <Text.Link
+        level="p"
         onClick={(e) => {
           e.stopPropagation();
           createRule();
         }}
       >
-        Create a new annotation
-      </Button.Button>
+        Create a new one.
+      </Text.Link>
     </Align.Center>
   );
 

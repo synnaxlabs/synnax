@@ -95,8 +95,7 @@ export const Palette = ({
     [mode, commands, dropdown.close]
   );
 
-  // const showDropdown = dropdown.visible || notifications.statuses.length > 0;
-  const showDropdown = true;
+  const showDropdown = dropdown.visible || notifications.statuses.length > 0;
   const showDivider = notifications.statuses.length > 0 && dropdown.visible;
 
   return (

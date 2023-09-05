@@ -52,7 +52,7 @@ body {
 }
 
 .pluto--sharp {
-    border-radius: 0;
+    border-radius: 0 !important;
 }
 
 .pluto--rounded {

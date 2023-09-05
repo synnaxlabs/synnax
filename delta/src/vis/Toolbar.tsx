@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Align, Status } from "@synnaxlabs/pluto";
+import { Button, Align, Status, Text } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
@@ -52,15 +52,11 @@ const NoVis = (): ReactElement => {
       </ToolbarHeader>
       <Align.Center direction="x" size="small">
         <Status.Text level="p" variant="disabled" hideIcon>
-          No visualization selected. Selecte a visualization or
+          No visualization selected. Select a visualization or
         </Status.Text>
-        <Button.Button
-          startIcon={<Icon.Add />}
-          variant="outlined"
-          onClick={() => placer(create({}))}
-        >
-          create a new one
-        </Button.Button>
+        <Text.Link level="p" onClick={() => placer(create({}))}>
+          create a new one.
+        </Text.Link>
       </Align.Center>
     </Align.Space>
   );
@@ -70,6 +66,7 @@ const Content = (): ReactElement => {
   const layout = Layout.useSelectActiveMosaicLayout();
   if (layout == null) return <NoVis />;
   const Toolbar = TOOLBARS[layout.type as LayoutType];
+  if (Toolbar == null) return <NoVis />;
   return <Toolbar layoutKey={layout?.key} />;
 };
 

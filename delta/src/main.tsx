@@ -38,6 +38,7 @@ const layoutRenderers = {
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,
+  mosaic: Layout.Mosaic,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
 };
