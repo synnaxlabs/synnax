@@ -50,15 +50,24 @@ func (c Config) Override(other Config) Config {
 }
 
 type Service struct {
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	group    group.Group
+	Config
+	group group.Group
+}
+
+func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	g, err := maybeCreateGroup(ctx, cfg.Group)
+	return &Service{Config: cfg, group: g}, err
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:      gorp.OverrideTx(s.DB, tx),
-		Service: s,
+		tx:  gorp.OverrideTx(s.DB, tx),
+		otg: s.Ontology.NewWriter(tx),
+		svc: s,
 	}
 }
 
@@ -90,8 +99,9 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 }
 
 type Writer struct {
-	tx gorp.Tx
-	*Service
+	svc *Service
+	tx  gorp.Tx
+	otg ontology.Writer
 }
 
 func (w Writer) Create(ctx context.Context, u *User) error {
@@ -99,7 +109,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		u.Key = uuid.New()
 	}
 
-	exists, err := w.UsernameExists(ctx, u.Username)
+	exists, err := w.svc.UsernameExists(ctx, u.Username)
 	if err != nil {
 		return err
 	}
@@ -107,14 +117,29 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return query.UniqueViolation
 	}
 
-	if err = w.Ontology.NewWriter(w.tx).
-		DefineResource(ctx, OntologyID(u.Key)); err != nil {
+	if err := gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 
-	return gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx)
+	otgID := OntologyID(u.Key)
+
+	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+		return err
+	}
+
+	return w.otg.DefineRelationship(ctx, w.svc.group.OntologyID(), ontology.ParentOf, otgID)
 }
 
 func (w Writer) Update(ctx context.Context, u User) error {
 	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.tx)
+}
+
+const groupName = "Users"
+
+func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
+	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if g.Key != uuid.Nil || err != nil {
+		return g, err
+	}
+	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
 }

@@ -111,7 +111,11 @@ func start(cmd *cobra.Command) {
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
-		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
+		userSvc, err := user.NewService(ctx, user.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+		})
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.NewService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
