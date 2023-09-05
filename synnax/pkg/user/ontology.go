@@ -11,7 +11,6 @@ package user
 
 import (
 	"context"
-
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -29,7 +28,7 @@ func OntologyID(key uuid.UUID) ontology.ID {
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":      {Type: schema.UUID},
+		"key":      {Type: schema.String},
 		"username": {Type: schema.String},
 	},
 }
@@ -85,7 +84,7 @@ func newNextCloser(i iter.NexterCloser[User]) iter.NexterCloser[schema.Resource]
 
 func newResource(u User) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(u.Key), u.Username)
-	schema.Set(e, "key", u.Key)
+	schema.Set(e, "key", u.Key.String())
 	schema.Set(e, "username", u.Username)
 	return e
 }

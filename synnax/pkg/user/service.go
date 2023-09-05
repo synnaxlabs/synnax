@@ -60,7 +60,12 @@ func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	g, err := maybeCreateGroup(ctx, cfg.Group)
-	return &Service{Config: cfg, group: g}, err
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg, group: g}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

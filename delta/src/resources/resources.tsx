@@ -25,6 +25,7 @@ import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
 
 import { CHANNEL_SERVICE } from "./channel";
+import { type Service } from "./service";
 
 export const convertOntologyResources = (
   resources: ontology.Resource[]
@@ -44,7 +45,18 @@ export const convertOntologyResources = (
   });
 };
 
-export const types: Record<string, ResourceType> = {
+export const types: Record<string, Service> = {
+  user: {
+    type: "user",
+    icon: <Icon.User />,
+    hasChildren: false,
+    canDrop: () => false,
+    onDrop: () => {},
+    contextMenu: () => <></>,
+    onSelect: () => {},
+    haulItems: () => [],
+    allowRename: () => false,
+  },
   builtin: {
     type: "builtin",
     icon: <Icon.Cluster />,

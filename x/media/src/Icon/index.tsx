@@ -31,7 +31,6 @@ import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
-  FaDiceD20,
   FaDocker,
   FaLinux,
   FaStream,
@@ -69,6 +68,7 @@ import {
   MdLabel,
   MdSquareFoot,
   MdKeyboardControlKey,
+  MdPerson,
 } from "react-icons/md";
 import { PiSelectionPlusBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -169,6 +169,7 @@ export const Icon: IconType = {
   Selection: PiSelectionPlusBold,
   Pan: GrPan,
   Rule: MdSquareFoot,
+  User: MdPerson,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -254,4 +255,5 @@ export interface IconType {
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;
+  User: IconFC;
 }
