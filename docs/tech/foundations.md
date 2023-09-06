@@ -8,7 +8,7 @@ of the Synnax platform.
 
 Different areas of the codebase require different skill sets to work with. Nonetheless,
 all of these areas require common foundational knowledge. This guide is organized
-by software engineering concept, and, as s a way to navigate the subsequent sections,
+by software engineering concept, and, as a way to navigate the subsequent sections,
 we've provided a general 'roadmap' for different platform components below.
 
 ## 0.0 - Roadmap
@@ -98,7 +98,7 @@ the official go tour:
 #### 1.0.0.2 - Important Supplements
 
 - The Stack, Heap, and
-  Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee)
+  Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee) 
 - Effective Go - [Effective Go](https://go.dev/doc/effective_go)
 
 ### 1.0.2 - Programming Core in Python

@@ -25,10 +25,10 @@ contribute to. There are a few ways to do this:
    something that catches your eye. Issues
    marked ["good first issue"](https://github.com/synnaxlabs/synnax/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
    are a great place to start.
-2. Read our [product strategy documents](product/psd) and our
-   technical [requests for comment (RFC)](tech/rfc). These documents outline critical
-   product strategies and technical design decisions we've made, and provide insight
-   into the different product focuses we're delivering.
+2. Read our [product strategy documents](product/psd), our [architecture overview](./tech/architecture.md) 
+   document, and our technical [requests for comments (RFCs)](tech/rfc). These documents 
+   outline critical product strategies and technical design decisions we've made, and 
+   provide insight into the different product focuses we're delivering.
 3. Explore the codebase! Read
    the [repository organization](../README.md#repository-organization)
    section of our [README](../README.md) and start digging through the code we've
@@ -40,7 +40,11 @@ contribute to. There are a few ways to do this:
     - [Transport protocols](../freighter)
     - And more!
 
-# 3 - Technical
+# 2 - Technical
 
 If you haven't already, please star the project on GitHub! This helps us grow our
-community and attract more contributors.
+community and attract more contributors. Now that you've found an area you're intersted
+in working on, it's time to get into the technical foundations of the project. All of
+our technical documentation can be found in the [docs/tech](../docs/tech) directory
+where the [README](../README.md) is the best place to get started.
+
