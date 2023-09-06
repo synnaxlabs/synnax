@@ -51,11 +51,14 @@ export const Menu = ({
   children,
   onChange,
   level,
+  iconSpacing,
   value = "",
 }: MenuProps): ReactElement => {
   const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
   return (
-    <MenuContext.Provider value={{ onClick: handleClick, selected: value, level }}>
+    <MenuContext.Provider
+      value={{ onClick: handleClick, selected: value, level, iconSpacing }}
+    >
       {children}
     </MenuContext.Provider>
   );

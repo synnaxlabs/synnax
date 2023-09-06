@@ -351,6 +351,7 @@ export const CommandListItem = ({
         hovered && CSS.BEM("palette", "item", "hovered"),
         CSS.BEM("palette", "item", "command")
       )}
+      sharp
       {...props}
     >
       {name}
