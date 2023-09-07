@@ -7,11 +7,22 @@ To get started contributing to Pluto, read the development environment setup gui
   
 ## Running the Storybook
 
-To run the storybook, run the following command from the root of the repository:
+Before running the storybook, you must build the upstream dependencies. 
+To do this, run the following command from the root of the repository:
+
+```bash
+pnpm build:pluto
+```
+
+Then, to run the storybook, run the following command from the root of the repository:
 
 ```bash
 pnpm dev:pluto
 ```
+
+If you make a change to an upstream dependency, you will need to rebuild
+it in order for the changes to reflect in the development server. For more
+information on this process, see the [Typescript Build Guide](../docs/tech/typescript/build.md).
 
 ### Important Note
 
@@ -49,8 +60,7 @@ pnpm build:pluto
 
 # Codebase Structure
 
-Pluto maintains a flat directory structure that leverages ES modules as isolated units 
-of functionality. 
+Pluto maintains a flat directory structure that leverages ES modules as isolated units of functionality. 
 
 ## Module Naming Conventions and Imports
 
