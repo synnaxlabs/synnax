@@ -37,6 +37,7 @@ class TestIngest:
                 "ingest-valid-idx",  # Enter the name of the data rate or index?,
                 0,  # Guess data types from file.
                 True,  # Is the starting timestamp correct?
+                "Random Range"
             ]
         )
         pure_ingest(

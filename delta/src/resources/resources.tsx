@@ -133,7 +133,7 @@ export const types: Record<string, Service> = {
       ctx.store.dispatch(
         Workspace.addRange({
           name: ctx.selected.data.name,
-          type: "static",
+          variant: "static",
           key: ctx.selected.data.key,
           timeRange: ctx.selected.data.timeRange,
         })

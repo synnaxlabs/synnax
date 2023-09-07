@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
@@ -17,7 +17,7 @@ import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 import { useSelectRange } from "./selectors";
 import { addRange } from "./slice";
@@ -52,13 +52,13 @@ export const DefineRange = ({
   const now = TimeStamp.now().valueOf();
   const range = useSelectRange(layoutKey);
   let defaultValues;
-  if (range != null) {
+  if (range != null && range.variant === "static") {
     defaultValues = {
       name: range.name,
-      startDate: range.start,
-      startTime: range.start,
-      endDate: range.end,
-      endTime: range.end,
+      startDate: range.timeRange.start,
+      startTime: range.timeRange.start,
+      endDate: range.timeRange.end,
+      endTime: range.timeRange.end,
     };
   } else {
     defaultValues = {
