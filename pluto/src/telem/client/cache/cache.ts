@@ -25,7 +25,9 @@ export class Cache {
   }
 
   writeDynamic(series: Series[]): Series[] {
+    const pushDynamic = this.dynamic.buffer == null;
     const flushed = this.dynamic.write(series);
+    if (pushDynamic && this.dynamic.buffer != null) flushed.push(this.dynamic.buffer);
     if (flushed.length > 0) {
       this.static.write(
         new TimeRange(
@@ -34,7 +36,8 @@ export class Cache {
         ),
         flushed,
       );
-      flushed.push(this.dynamic.buffer);
+      if (this.dynamic.buffer != null && !pushDynamic)
+        flushed.push(this.dynamic.buffer);
     }
     return flushed;
   }
@@ -44,8 +47,6 @@ export class Cache {
   }
 
   read(tr: TimeRange): [Series[], TimeRange[]] {
-    const dynamic = this.dynamic.dirtyRead(tr);
-    const [staticRes, gaps] = this.static.dirtyRead(tr);
-    return [dynamic != null ? staticRes.concat(dynamic) : staticRes, gaps];
+    return this.static.dirtyRead(tr);
   }
 }

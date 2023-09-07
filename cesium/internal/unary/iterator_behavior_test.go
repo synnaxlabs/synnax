@@ -52,7 +52,7 @@ var _ = Describe("Iterator Behavior", func() {
 			Expect(indexDB.Close()).To(Succeed())
 		})
 		Describe("Requests Exhaustion", func() {
-			Specify("Single Range", func() {
+			Specify("Single TimeRange", func() {
 				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 				iter := db.OpenIterator(unary.IterRange((5 * telem.SecondTS).SpanRange(10 * telem.Second)))
@@ -65,7 +65,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Len()).To(Equal(int64(2)))
 				Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
 			})
-			Specify("Multi Range", func() {
+			Specify("Multi TimeRange", func() {
 				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 				Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25))).To(Succeed())
@@ -84,7 +84,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Len()).To(Equal(int64(3)))
 			})
 			Describe("Auto Exhaustion", func() {
-				Specify("Single Range", func() {
+				Specify("Single TimeRange", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					iter := db.OpenIterator(unary.IteratorConfig{
@@ -105,7 +105,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
-				Specify("Partial Range", func() {
+				Specify("Partial TimeRange", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					iter := db.OpenIterator(unary.IteratorConfig{
@@ -120,7 +120,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
-				Specify("Multi Range - Uneven Crossing", func() {
+				Specify("Multi TimeRange - Uneven Crossing", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
@@ -143,7 +143,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
-				Specify("Multi Range - Even Crossing", func() {
+				Specify("Multi TimeRange - Even Crossing", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewArrayV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())

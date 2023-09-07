@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Bounds,
+  Bounds,
   xyScaleToTransform,
   type Series,
   type CrudeDirection,
@@ -97,17 +97,14 @@ export class Context extends render.GLProgram {
     return this.attrStrokeWidth(strokeWidth);
   }
 
-  draw(x: Series, y: Series, count: number, downsample: number): void {
+  draw(
+    { x, y, count, downsample, xOffset, yOffset }: DrawOperation,
+    instances: number,
+  ): void {
     const { gl } = this.ctx;
-    this.bindAttrBuffer("x", x.glBuffer, downsample);
-    this.bindAttrBuffer("y", y.glBuffer, downsample);
-
-    gl.drawArraysInstanced(
-      gl.LINE_STRIP,
-      0,
-      Math.min(x.length, y.length) / downsample,
-      count,
-    );
+    this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset);
+    this.bindAttrBuffer("y", y.glBuffer, downsample, yOffset);
+    gl.drawArraysInstanced(gl.LINE_STRIP, 0, count / downsample, instances);
   }
 
   static create(ctx: aether.Context): Context {
@@ -125,11 +122,19 @@ export class Context extends render.GLProgram {
     dir: CrudeDirection,
     buffer: WebGLBuffer,
     downsample: number,
+    alignment: number = 0,
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const n = gl.getAttribLocation(this.prog, `a_${dir}`);
-    gl.vertexAttribPointer(n, 1, gl.FLOAT, false, FLOAT_32_DENSITY * downsample, 0);
+    gl.vertexAttribPointer(
+      n,
+      1,
+      gl.FLOAT,
+      false,
+      FLOAT_32_DENSITY * downsample,
+      FLOAT_32_DENSITY * alignment,
+    );
     gl.enableVertexAttribArray(n);
   }
 
@@ -202,6 +207,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       if (valid) [index, series] = [v, i];
       return valid;
     });
+
     const value = await this.xyValue(series, index);
     const { key } = this;
     const { color, label } = this.state;
@@ -219,14 +225,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     prog.setAsActive();
     const xData = await telem.x(prog.ctx.gl);
     const yData = await telem.y(prog.ctx.gl);
-    xData.forEach((x, i) => {
-      const y = yData[i];
-      if (y == null || x.length === 0 || y.length === 0) {
-        return;
-      }
+    const ops = buildDrawOperations(xData, yData, downsample);
+    ops.forEach((op) => {
+      const { x, y } = op;
       const p = { ...props, dataToDecimalScale: offsetScale(scale, x, y) };
-      const count = prog.bindPropsAndState(p, this.state);
-      prog.draw(x, y, count, downsample);
+      const instances = prog.bindPropsAndState(p, this.state);
+      prog.draw(op, instances);
     });
   }
 
@@ -279,4 +283,49 @@ const offsetScale = (scale: XYScale, x: Series, y: Series): XYScale =>
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Line.TYPE]: Line,
+};
+
+interface DrawOperation {
+  x: Series;
+  y: Series;
+  xOffset: number;
+  yOffset: number;
+  count: number;
+  downsample: number;
+}
+
+const buildDrawOperations = (
+  x: Series[],
+  y: Series[],
+  downsample: number,
+): DrawOperation[] => {
+  if (x.length === 0 || y.length === 0) return [];
+
+  const ops: DrawOperation[] = [];
+
+  x.forEach((xs) => {
+    const b = new Bounds(xs.alignment, xs.alignment + xs.length);
+    const ySeries = y.filter((y) =>
+      b.overlapsWith(new Bounds(y.alignment, y.alignment + y.length)),
+    );
+    ySeries.forEach((ys) => {
+      let xOffset = 0;
+      let yOffset = 0;
+      if (xs.alignment < ys.alignment) xOffset = ys.alignment - xs.alignment;
+      else if (ys.alignment < xs.alignment) yOffset = xs.alignment - ys.alignment;
+      const count = Math.min(xs.length - xOffset, ys.length - yOffset);
+      if (count > 0) {
+        ops.push({
+          x: xs,
+          y: ys,
+          xOffset,
+          yOffset,
+          count,
+          downsample,
+        });
+      }
+    });
+  });
+
+  return ops;
 };

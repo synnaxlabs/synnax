@@ -51,9 +51,11 @@ type GobEncoderDecoder struct{}
 
 // Encode implements the Encoder interface.
 func (e *GobEncoderDecoder) Encode(_ context.Context, value interface{}) ([]byte, error) {
-	var buff bytes.Buffer
-	err := gob.NewEncoder(&buff).Encode(value)
-	b := buff.Bytes()
+	var (
+		buff bytes.Buffer
+		err  = gob.NewEncoder(&buff).Encode(value)
+		b    = buff.Bytes()
+	)
 	return b, err
 }
 

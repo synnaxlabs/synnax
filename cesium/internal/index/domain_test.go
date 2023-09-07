@@ -217,7 +217,7 @@ var _ = Describe("Domain", func() {
 				}
 				Expect(actual).To(Equal(expected))
 			},
-				Entry("Crossing Range",
+				Entry("Crossing TimeRange",
 					2*telem.SecondTS,
 					15,
 					index.Exactly(37*telem.SecondTS),
@@ -229,7 +229,7 @@ var _ = Describe("Domain", func() {
 					index.Exactly(63*telem.SecondTS),
 					nil,
 				),
-				Entry("End of last Range",
+				Entry("End of last TimeRange",
 					2*telem.SecondTS,
 					30,
 					index.Between(65*telem.SecondTS+1, telem.TimeStampMax),
@@ -241,7 +241,7 @@ var _ = Describe("Domain", func() {
 					index.Between(65*telem.SecondTS+1, telem.TimeStampMax),
 					nil,
 				),
-				Entry("Exactly at End of First Range",
+				Entry("Exactly at End of First TimeRange",
 					5*telem.SecondTS,
 					6,
 					index.Exactly(30*telem.SecondTS),

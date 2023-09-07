@@ -289,3 +289,5 @@ const (
 	TimeStampDensity         = Bit64
 	TimeSpanDensity          = Bit64
 )
+
+type Alignment uint32

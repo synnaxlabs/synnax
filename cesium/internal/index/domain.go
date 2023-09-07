@@ -32,7 +32,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 
 	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 
-	if !iter.SeekFirst(ctx) || (!iter.Range().ContainsRange(tr) && continuous) {
+	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous
 		return
 	}
@@ -51,7 +51,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		return
 	}
 
-	if iter.Range().ContainsStamp(tr.End) || tr.End == iter.Range().End {
+	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		endApprox, err = i.search(tr.End, r)
 		approx = Between(
 			endApprox.Lower-startApprox.Upper,
@@ -79,7 +79,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			)
 			return
 		}
-		if iter.Range().ContainsStamp(tr.End) {
+		if iter.TimeRange().ContainsStamp(tr.End) {
 			r, err = iter.NewReader(ctx)
 			if err != nil {
 				return
@@ -111,7 +111,7 @@ func (i *Domain) Stamp(
 	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
 	if !iter.SeekFirst(ctx) ||
-		!iter.Range().ContainsStamp(ref) ||
+		!iter.TimeRange().ContainsStamp(ref) ||
 		(offset >= iter.Len()/8 && continuous) {
 		err = ErrDiscontinuous
 		return
@@ -140,7 +140,7 @@ func (i *Domain) Stamp(
 					err = ErrDiscontinuous
 					return
 				}
-				approx = Between(iter.Range().End, telem.TimeStampMax)
+				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
 				return
 			}
 			gap += iter.Len() / 8

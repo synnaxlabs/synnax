@@ -15,6 +15,7 @@ import { synnax } from "@/synnax/aether";
 import { control } from "@/telem/control/aether";
 import { provider } from "@/telem/provider/aether";
 import { theming } from "@/theming/aether";
+import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -45,6 +46,7 @@ export const render = (): void => {
     ...control.REGISTRY,
     ...theming.REGISTRY,
     ...status.REGISTRY,
+    ...button.REGISTRY,
   };
 
   aether.render({

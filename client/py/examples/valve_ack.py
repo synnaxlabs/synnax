@@ -53,13 +53,15 @@ print(f"""
     Valve Enable Channel Key: {valve_en.key}
 """)
 
+rate = (sy.Rate.HZ * 50).period.seconds
+
 i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
     with client.new_writer(sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key]) as writer:
         enabled = np.float32(0)
         press = 0
         while True:
-            time.sleep(0.01)
+            time.sleep(rate)
             if streamer.received:
                 f = streamer.read()
                 v = f[valve_en_cmd.key][0]
@@ -75,6 +77,8 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 data_ch.key: [np.float32(press)],
             }))
             i += 1
+            if i % 50 == 0:
+                writer.commit()
 
 
 

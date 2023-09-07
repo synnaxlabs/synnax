@@ -70,7 +70,7 @@ export const Palette = ({
 
   const [mode, setMode] = useState<Mode>("resource");
 
-  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(30) });
+  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
 
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();

@@ -145,7 +145,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   );
 };
 
-const ValvePIDElementPreview = ({ color }: ElementProps): ReactElement => {
+const Preview = ({ color }: ElementProps): ReactElement => {
   return <Valve color={color} />;
 };
 
@@ -166,5 +166,5 @@ export const ValveSpec: Spec<ElementProps> = {
   initialProps,
   Element,
   Form,
-  Preview: ValvePIDElementPreview,
+  Preview,
 };

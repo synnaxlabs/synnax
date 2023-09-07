@@ -106,7 +106,7 @@ export class Frame {
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as FramePayload;
-        const arrays = data_.series.map((a) => arrayFromPayload(a));
+        const arrays = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
@@ -186,7 +186,7 @@ export class Frame {
 
   toPayload(): FramePayload {
     return {
-      series: this.series.map((a) => arrayToPayload(a)),
+      series: this.series.map((a) => seriesToPayload(a)),
       keys: this.keys,
     };
   }
@@ -368,8 +368,9 @@ export class Frame {
   }
 }
 
-export const array = z.object({
+export const series = z.object({
   timeRange: TimeRange.z.optional(),
+  alignment: z.number().optional(),
   dataType: DataType.z,
   data: z.string().transform(
     (s) =>
@@ -381,7 +382,7 @@ export const array = z.object({
   ),
 });
 
-export type ArrayPayload = z.infer<typeof array>;
+export type SeriesPayload = z.infer<typeof series>;
 
 export const frameZ = z.object({
   keys: z.union([
@@ -389,22 +390,23 @@ export const frameZ = z.object({
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof array>>),
-    array.array().optional().default([]),
+    z.null().transform(() => [] as Array<z.infer<typeof series>>),
+    series.array().optional().default([]),
   ]),
 });
 
 export type FramePayload = z.infer<typeof frameZ>;
 
-export const arrayFromPayload = (payload: ArrayPayload): Series => {
-  const { dataType, data, timeRange } = payload;
-  return new Series(data, dataType, timeRange);
+export const seriesFromPayload = (series: SeriesPayload): Series => {
+  const { dataType, data, timeRange, alignment } = series;
+  return new Series(data, dataType, timeRange, 0, "static", alignment);
 };
 
-export const arrayToPayload = (array: Series): ArrayPayload => {
+export const seriesToPayload = (series: Series): SeriesPayload => {
   return {
-    timeRange: array._timeRange,
-    dataType: array.dataType,
-    data: new Uint8Array(array.data.buffer),
+    timeRange: series._timeRange,
+    dataType: series.dataType,
+    data: new Uint8Array(series.data.buffer),
+    alignment: series.alignment,
   };
 };

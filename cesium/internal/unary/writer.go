@@ -41,11 +41,11 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Seri
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (int64, error) {
+func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if err := w.validate(series); err != nil {
 		return 0, err
 	}
-	alignment := w.numWritten + int64(w.start)
+	alignment := telem.Alignment(w.numWritten)
 	w.numWritten += series.Len()
 	if w.Channel.IsIndex {
 		w.updateHwm(series)

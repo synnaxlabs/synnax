@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { addExtension, pack, unpack } from "msgpackr";
-import { ZodSchema, z } from "zod";
+import { type ZodSchema, type z } from "zod";
 
 import { Case } from "@/case";
 
@@ -68,7 +68,7 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
 
   decode<P extends z.ZodTypeAny>(
     data: Uint8Array | ArrayBuffer,
-    schema?: P
+    schema?: P,
   ): z.output<P> {
     const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
@@ -93,7 +93,7 @@ export class JSONEncoderDecoder implements EncoderDecoder {
 
   decode<P extends z.ZodTypeAny>(
     data: Uint8Array | ArrayBuffer,
-    schema?: P
+    schema?: P,
   ): z.output<P> {
     const unpacked = Case.toCamel(JSON.parse(new TextDecoder().decode(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);

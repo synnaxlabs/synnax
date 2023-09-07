@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { useEffect, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { type CrudeDirection, Dimensions, Direction } from "@synnaxlabs/x";
 import { type z } from "zod";
@@ -15,6 +15,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { useMemoDeepEqualProps } from "@/memo";
 import { valve } from "@/vis/valve/aether";
 
 import "@/vis/valve/Valve.css";
@@ -44,6 +45,8 @@ export const Valve = Aether.wrap<ValveProps>(
     direction = "x",
     ...props
   }): ReactElement => {
+    const aetherProps = useMemoDeepEqualProps({ source, sink });
+
     const [, { triggered, active }, setState] = Aether.use({
       aetherKey,
       type: valve.Valve.TYPE,
@@ -51,10 +54,10 @@ export const Valve = Aether.wrap<ValveProps>(
       initialState: {
         triggered: false,
         active: false,
-        source,
-        sink,
+        ...aetherProps,
       },
     });
+    useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
     const handleClick = (): void =>
       setState((state) => ({ ...state, triggered: !state.triggered }));

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ButtonSpec } from "@/vis/pid/element/Button";
 import { type Spec } from "@/vis/pid/element/element";
 import { RegulatorSpec } from "@/vis/pid/element/Regulator";
 import { TankSpec } from "@/vis/pid/element/Tank";
@@ -18,4 +19,5 @@ export const REGISTRY: Record<string, Spec<any>> = {
   [TankSpec.type]: TankSpec,
   [RegulatorSpec.type]: RegulatorSpec,
   [ValueSpec.type]: ValueSpec,
+  [ButtonSpec.type]: ButtonSpec,
 };
