@@ -9,9 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Config } from "./triggers";
-
-import { Triggers } from ".";
+import { Triggers } from "@/triggers";
 
 describe("Triggers", () => {
   describe("Triggers.filter", () => {
@@ -23,8 +21,8 @@ describe("Triggers", () => {
               ["A", "B"],
               ["A", "C"],
             ],
-            [["A", "D"]]
-          )
+            [["A", "D"]],
+          ),
         ).toEqual([]);
       });
       it("Should return a list of triggers that match", () => {
@@ -34,8 +32,8 @@ describe("Triggers", () => {
               ["A", "B"],
               ["A", "C"],
             ],
-            [["A", "B"]]
-          )
+            [["A", "B"]],
+          ),
         ).toEqual([["A", "B"]]);
       });
       it("Should not match loose triggers", () => {
@@ -51,8 +49,8 @@ describe("Triggers", () => {
             [
               ["A", "B"],
               ["A", "C"],
-            ]
-          )
+            ],
+          ),
         ).toEqual([
           ["A", "B"],
           ["A", "C"],
@@ -68,8 +66,8 @@ describe("Triggers", () => {
               ["A", "C"],
             ],
             [["A", "D"]],
-            true
-          )
+            true,
+          ),
         ).toEqual([]);
       });
       it("Should return a list of triggers that match", () => {
@@ -87,8 +85,8 @@ describe("Triggers", () => {
             ["A", "B"],
             ["A", "C"],
           ],
-          [["A", "B"]]
-        )
+          [["A", "B"]],
+        ),
       ).toEqual([["A", "C"]]);
     });
   });
@@ -106,8 +104,8 @@ describe("Triggers", () => {
               ["A", "B"],
               ["A", "C"],
               ["A", "D"],
-            ]
-          )
+            ],
+          ),
         ).toEqual([[["A", "E"]], [["A", "D"]]]);
       });
     });
@@ -121,8 +119,8 @@ describe("Triggers", () => {
               ["A", "C"],
               ["A", "D"],
             ],
-            true
-          )
+            true,
+          ),
         ).toEqual([[], [["A", "D"]]]);
       });
     });
@@ -135,7 +133,7 @@ describe("Triggers", () => {
   describe("Config", () => {
     describe("determineMode", () => {
       it("should select the matching mode with the highest complexity", () => {
-        const config: Config<"a" | "b"> = {
+        const config: Triggers.Config<"a" | "b"> = {
           defaultMode: "a",
           a: [["Shift"]],
           b: [["Shift", "Control"]],
@@ -144,13 +142,13 @@ describe("Triggers", () => {
         expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
       });
       it("should correctly match loose trigers", () => {
-        const config: Config<"a" | "b"> = {
+        const config: Triggers.Config<"a" | "b"> = {
           defaultMode: "a",
           a: [["Shift"]],
           b: [["Shift", "Control"]],
         };
         expect(Triggers.determineMode(config, [["Shift", "Control"]], true)).toEqual(
-          "b"
+          "b",
         );
         expect(Triggers.determineMode(config, [["Shift"]], true)).toEqual("a");
       });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -89,7 +89,7 @@ describe("List", () => {
       await user.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).toContain(
-        "pluto-list-col-item__container--selected"
+        "pluto-list-col-item__container--selected",
       );
     });
     it("should allow a user to deselect an item in the list", async () => {
@@ -99,7 +99,7 @@ describe("List", () => {
       await user.click(c.getByText("John"));
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).not.toContain(
-        "pluto-list-col-item__container--selected"
+        "pluto-list-col-item__container--selected",
       );
     });
     it("should allow a user to select multiple items in the list when holding shift", async () => {
@@ -111,8 +111,8 @@ describe("List", () => {
       const selected = await c.findAllByText(/(John|Jack|Jane)/);
       selected.forEach((s) =>
         expect(s.parentElement?.className).toContain(
-          "pluto-list-col-item__container--selected"
-        )
+          "pluto-list-col-item__container--selected",
+        ),
       );
     });
     it("should allow a user to deselect multiple items in the list when holding shift", async () => {
@@ -131,8 +131,8 @@ describe("List", () => {
       expect(selected.length).toBe(3);
       selected.forEach((s) =>
         expect(s.parentElement?.className).not.toContain(
-          "pluto-list-col-item__container--selected"
-        )
+          "pluto-list-col-item__container--selected",
+        ),
       );
     });
     it("should allow a user to sort the column by name", async () => {

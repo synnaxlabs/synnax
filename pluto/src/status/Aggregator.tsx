@@ -21,9 +21,8 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
-
-import { useSyncedRef } from "..";
 
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
   add: (status: status.CrudeSpec) => void;

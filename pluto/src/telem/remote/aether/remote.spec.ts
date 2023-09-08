@@ -8,28 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import {
-  channel.Keys,
+  type channel,
   Channel,
   DataType,
-  channel.Key,
   QueryError,
   Series,
   TimeRange,
 } from "@synnaxlabs/client";
-import { Bounds, Destructor, TimeSpan } from "@synnaxlabs/x";
+import { Bounds, type Destructor, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { client } from "@/telem/client";
-import { telem } from "@/telem/core";
+import { type telem } from "@/telem/core";
 import {
   DynamicXYSource,
-  DynamicXYSourceProps,
+  type DynamicXYSourceProps,
   XYSource,
-  XYSourceProps,
+  type XYSourceProps,
 } from "@/telem/remote/aether/xy";
 
-import { NumericSource, NumericSourceProps } from "./numeric";
+import { NumericSource, type NumericSourceProps } from "./numeric";
 
 const X_CHANNEL = new Channel({
   name: "time",
@@ -71,17 +70,17 @@ describe("XY", () => {
         const X_CHANNEL_DATA = new Series(
           new Float32Array([1, 2, 3]),
           X_CHANNEL.dataType,
-          new TimeRange(0, 10)
+          new TimeRange(0, 10),
         );
         const Y_CHANNEL_DATA = new Series(
           new Float32Array([3, 4, 5]),
           Y_CHANNEL.dataType,
-          new TimeRange(0, 10)
+          new TimeRange(0, 10),
         );
         const Y_CHANNEL_ALT_DATA = new Series(
           new Float32Array([6, 7, 8]),
           Y_CHANNEL_ALT.dataType,
-          new TimeRange(0, 10)
+          new TimeRange(0, 10),
         );
 
         this.data = {
@@ -102,7 +101,7 @@ describe("XY", () => {
 
       async read(
         tr: TimeRange,
-        keys: channel.Keys
+        keys: channel.Keys,
       ): Promise<Record<number, client.ReadResponse>> {
         const res: Record<channel.Key, client.ReadResponse> = {};
         keys.forEach((key) => {
@@ -231,7 +230,7 @@ describe("XY", () => {
 
     async read(
       tr: TimeRange,
-      keys: channel.Keys
+      keys: channel.Keys,
     ): Promise<Record<number, client.ReadResponse>> {
       return {
         [X_CHANNEL.key]: new client.ReadResponse(X_CHANNEL, []),
@@ -241,7 +240,7 @@ describe("XY", () => {
 
     async stream(
       handler: client.StreamHandler,
-      keys: channel.Keys
+      keys: channel.Keys,
     ): Promise<Destructor> {
       this.handler = handler;
       return () => {

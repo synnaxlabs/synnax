@@ -12,10 +12,7 @@ import { z } from "zod";
 
 import { type color } from "@/color/core";
 
-const transferrable = z.union([
-  z.instanceof(ArrayBuffer),
-  z.instanceof(OffscreenCanvas),
-]);
+const transferrable = z.union([z.instanceof(ArrayBuffer)]);
 
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer
