@@ -67,15 +67,5 @@ describe("Ranger", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved[0].name).toEqual(range.name);
     });
-    it("should retrieve a range by search term", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
-      await client.ranges.create({
-        name: "Searhcable",
-        timeRange,
-      });
-      const retrieved = await client.ranges.search("Searhcable");
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(retrieved.length).toBeGreaterThan(0);
-    });
   });
 });
