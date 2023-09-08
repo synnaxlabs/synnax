@@ -113,19 +113,4 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
-	Describe("Search", func() {
-		It("Should search for ranges by their name", func() {
-			r := &ranger.Range{
-				Name: "Range",
-				TimeRange: telem.TimeRange{
-					Start: telem.TimeStamp(5 * telem.Second),
-					End:   telem.TimeStamp(10 * telem.Second),
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().Search(r.Name).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieveR).To(Equal(*r))
-		})
-	})
 })

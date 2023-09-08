@@ -20,6 +20,7 @@ package writer
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -233,9 +234,16 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		return v.Error()
 	}
 	var channels []channel.Channel
-	return s.ChannelReader.
+	if err := s.ChannelReader.
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
-		Exec(ctx, nil)
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	if len(channels) != len(keys) {
+		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
+		return errors.Wrapf(validate.Error, "missing channels: %v", missing)
+	}
+	return nil
 }

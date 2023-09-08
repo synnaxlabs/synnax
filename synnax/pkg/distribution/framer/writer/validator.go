@@ -12,6 +12,7 @@ package writer
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -100,6 +101,12 @@ func (v *validator) validate(req Request) error {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
 	if req.Command == Data {
+		for _, k := range req.Frame.Keys {
+			if !lo.Contains(v.keys, k) {
+				return errors.Wrapf(validate.Error, "invalid key: %s", k)
+			}
+
+		}
 
 	}
 	return nil
