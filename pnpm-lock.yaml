@@ -297,7 +297,7 @@ importers:
     dependencies:
       '@astrojs/mdx':
         specifier: ^0.14.0
-        version: 0.14.0(rollup@3.28.1)
+        version: 0.14.0(rollup@3.29.0)
       '@astrojs/react':
         specifier: ^1.2.2
         version: 1.2.2(@types/react-dom@18.2.4)(@types/react@18.2.6)(react-dom@18.2.0)(react@18.2.0)
@@ -761,8 +761,8 @@ importers:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
       react-icons:
-        specifier: ^4.10.1
-        version: 4.10.1(react@18.2.0)
+        specifier: ^4.11.0
+        version: 4.11.0(react@18.2.0)
     devDependencies:
       '@synnaxlabs/tsconfig':
         specifier: workspace:*
@@ -1015,14 +1015,14 @@ packages:
       - supports-color
     dev: false
 
-  /@astrojs/mdx@0.14.0(rollup@3.28.1):
+  /@astrojs/mdx@0.14.0(rollup@3.29.0):
     resolution: {integrity: sha512-lmNh/7CeQmdZ0OCbnDnoDxQTKWleFdlT5YkjsutGIOhabY0xgCcWwb1Rbs/9m4vvTdCkp9zsZdRzUKEPFPbcsA==}
     engines: {node: ^14.18.0 || >=16.12.0}
     dependencies:
       '@astrojs/markdown-remark': 1.2.0
       '@astrojs/prism': 1.0.2
       '@mdx-js/mdx': 2.3.0
-      '@mdx-js/rollup': 2.3.0(rollup@3.28.1)
+      '@mdx-js/rollup': 2.3.0(rollup@3.29.0)
       acorn: 8.8.2
       es-module-lexer: 0.10.5
       estree-util-visit: 1.2.1
@@ -3635,14 +3635,14 @@ packages:
       react: 18.2.0
     dev: true
 
-  /@mdx-js/rollup@2.3.0(rollup@3.28.1):
+  /@mdx-js/rollup@2.3.0(rollup@3.29.0):
     resolution: {integrity: sha512-wLvRfJS/M4UmdqTd+WoaySEE7q4BIejYf1xAHXYvtT1du/1Tl/z2450Gg2+Hu7fh05KwRRiehiTP9Yc/Dtn0fA==}
     peerDependencies:
       rollup: '>=2'
     dependencies:
       '@mdx-js/mdx': 2.3.0
-      '@rollup/pluginutils': 5.0.2(rollup@3.28.1)
-      rollup: 3.28.1
+      '@rollup/pluginutils': 5.0.2(rollup@3.29.0)
+      rollup: 3.29.0
       source-map: 0.7.4
       vfile: 5.3.7
     transitivePeerDependencies:
@@ -5648,7 +5648,7 @@ packages:
       picomatch: 2.3.1
     dev: false
 
-  /@rollup/pluginutils@5.0.2(rollup@3.28.1):
+  /@rollup/pluginutils@5.0.2(rollup@3.29.0):
     resolution: {integrity: sha512-pTd9rIsP92h+B6wWwFbW8RkZv4hiR/xKsqre4SIuAOaOEQRxi0lqLke9k2/7WegC85GgUs9pjmOjCUi3In4vwA==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
@@ -5660,7 +5660,7 @@ packages:
       '@types/estree': 1.0.1
       estree-walker: 2.0.2
       picomatch: 2.3.1
-      rollup: 3.28.1
+      rollup: 3.29.0
 
   /@rollup/pluginutils@5.0.3:
     resolution: {integrity: sha512-hfllNN4a80rwNQ9QCxhxuHCGHMAvabXqxNdaChUSSadMre7t4iEUI6fFAhBOn/eIYTgYVhBv7vCLsAJ4u3lf3g==}
@@ -7387,7 +7387,7 @@ packages:
   /@types/ioredis@4.28.10:
     resolution: {integrity: sha512-69LyhUgrXdgcNDv7ogs1qXZomnfOEnSmrmMFqKgt1XMJxmoOSG/u3wYy13yACIfKuMJ8IhKgHafDO3sx19zVQQ==}
     dependencies:
-      '@types/node': 20.5.7
+      '@types/node': 20.5.9
     dev: false
 
   /@types/istanbul-lib-coverage@2.0.4:
@@ -7534,6 +7534,9 @@ packages:
 
   /@types/node@20.5.7:
     resolution: {integrity: sha512-dP7f3LdZIysZnmvP3ANJYTSwg+wLLl8p7RqniVlV7j+oXSXAbt9h0WIBFmJy5inWZoX9wZN6eXx+YXd9Rh3RBA==}
+
+  /@types/node@20.5.9:
+    resolution: {integrity: sha512-PcGNd//40kHAS3sTlzKB9C9XL4K0sTup8nbG5lC14kzEteTNuAFh9u5nA0o5TWnSG2r/JNPRXFVcHJIIeRlmqQ==}
 
   /@types/normalize-package-data@2.4.1:
     resolution: {integrity: sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==}
@@ -7964,7 +7967,7 @@ packages:
       '@babel/plugin-transform-react-jsx-self': 7.22.5(@babel/core@7.22.11)
       '@babel/plugin-transform-react-jsx-source': 7.22.5(@babel/core@7.22.11)
       react-refresh: 0.14.0
-      vite: 4.4.9(@types/node@20.5.3)
+      vite: 4.4.9(@types/node@20.5.7)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -12467,7 +12470,7 @@ packages:
     resolution: {integrity: sha512-7vuh85V5cdDofPyxn58nrPjBktZo0u9x1g8WtjQol+jZDaE+fhN+cIvTj11GndBnMnyfrUOG1sZQxCdjKh+DKg==}
     engines: {node: '>= 10.13.0'}
     dependencies:
-      '@types/node': 20.5.7
+      '@types/node': 20.5.9
       merge-stream: 2.0.0
       supports-color: 8.1.1
     dev: true
@@ -14980,6 +14983,14 @@ packages:
     dependencies:
       react: 18.2.0
 
+  /react-icons@4.11.0(react@18.2.0):
+    resolution: {integrity: sha512-V+4khzYcE5EBk/BvcuYRq6V/osf11ODUM2J8hg2FDSswRrGvqiYUYPRy4OdrWaQOBj4NcpJfmHZLNaD+VH0TyA==}
+    peerDependencies:
+      react: '*'
+    dependencies:
+      react: 18.2.0
+    dev: false
+
   /react-inspector@6.0.2(react@18.2.0):
     resolution: {integrity: sha512-x+b7LxhmHXjHoU/VrFAzw5iutsILRoYyDq97EDYdFpPLcvqtEzk4ZSZSQjnFPbr5T57tLXnHcqFYoN1pI6u8uQ==}
     peerDependencies:
@@ -15551,6 +15562,13 @@ packages:
 
   /rollup@3.28.1:
     resolution: {integrity: sha512-R9OMQmIHJm9znrU3m3cpE8uhN0fGdXiawME7aZIpQqvpS/85+Vt1Hq1/yVIcYfOmaQiHjvXkQAoJukvLpau6Yw==}
+    engines: {node: '>=14.18.0', npm: '>=8.0.0'}
+    hasBin: true
+    optionalDependencies:
+      fsevents: 2.3.3
+
+  /rollup@3.29.0:
+    resolution: {integrity: sha512-nszM8DINnx1vSS+TpbWKMkxem0CDWk3cSit/WWCBVs9/JZ1I/XLwOsiUglYuYReaeWWSsW9kge5zE5NZtf/a4w==}
     engines: {node: '>=14.18.0', npm: '>=8.0.0'}
     hasBin: true
     optionalDependencies:
@@ -16368,12 +16386,12 @@ packages:
       jest-worker: 27.5.1
       schema-utils: 3.3.0
       serialize-javascript: 6.0.1
-      terser: 5.19.3
+      terser: 5.19.4
       webpack: 5.88.2(esbuild@0.18.20)
     dev: true
 
-  /terser@5.19.3:
-    resolution: {integrity: sha512-pQzJ9UJzM0IgmT4FAtYI6+VqFf0lj/to58AV0Xfgg0Up37RyPG7Al+1cepC6/BVuAxR9oNb41/DL4DEoHJvTdg==}
+  /terser@5.19.4:
+    resolution: {integrity: sha512-6p1DjHeuluwxDXcuT9VR8p64klWJKo1ILiy19s6C9+0Bh2+NWTX6nD9EPppiER4ICkHDVB1RkVpin/YW2nQn/g==}
     engines: {node: '>=10'}
     hasBin: true
     dependencies:
@@ -17224,7 +17242,7 @@ packages:
     dependencies:
       '@babel/parser': 7.22.10
       '@microsoft/api-extractor': 7.36.4
-      '@rollup/pluginutils': 5.0.2(rollup@3.28.1)
+      '@rollup/pluginutils': 5.0.2(rollup@3.29.0)
       '@rushstack/node-core-library': 3.59.7
       debug: 4.3.4
       fast-glob: 3.3.1
@@ -17260,7 +17278,7 @@ packages:
     peerDependencies:
       vite: ^2.6.0 || 3 || 4
     dependencies:
-      '@rollup/pluginutils': 5.0.2(rollup@3.28.1)
+      '@rollup/pluginutils': 5.0.2(rollup@3.29.0)
       '@svgr/core': 7.0.0
       '@svgr/plugin-jsx': 7.0.0
       vite: 4.4.9(@types/node@20.5.3)

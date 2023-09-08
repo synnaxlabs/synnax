@@ -11,7 +11,6 @@ package cmd
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/git"
@@ -68,10 +67,14 @@ func configureLogger() (*alamos.Logger, error) {
 }
 
 func configureTracer(logger *alamos.Logger) (*alamos.Tracer, error) {
+	commit, err := git.CurrentCommit()
+	if err != nil {
+		commit = "unknown"
+	}
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
 		uptrace.WithServiceName("synnax"),
-		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
+		uptrace.WithServiceVersion(commit),
 	)
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 		logger.Info("opentelemetry", alamos.DebugError(err))
