@@ -12,7 +12,6 @@ package unary
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -226,7 +225,6 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	series.Data = make([]byte, size)
 	series.Alignment = telem.Alignment(i.Channel.DataType.Density().SampleCount(offset))
 	r, err := i.internal.NewReader(ctx)
-	logrus.Info(i.Channel.Key, "OFFSET", offset)
 	if err != nil {
 		return
 	}
