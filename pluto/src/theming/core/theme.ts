@@ -136,7 +136,7 @@ const synnaxBase: ThemeSpec = {
       width: 1,
     },
     pid: {
-      elementStrokeWidth: 3,
+      elementStrokeWidth: 2,
     },
   },
   typography: {

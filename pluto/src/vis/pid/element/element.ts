@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC } from "react";
+import { type FC } from "react";
 
-import { XY } from "@synnaxlabs/x";
+import { type UnknownRecord, type XY } from "@synnaxlabs/x";
 
-import { Theming } from "@/index";
-import { Input } from "@/input";
+import { type Theming } from "@/index";
+import { type Input } from "@/input";
 
-export type Props<P extends object = {}> = P & {
+export type Props<P extends object = UnknownRecord> = P & {
   position: XY;
   selected: boolean;
   editable: boolean;
   onChange: (props: P) => void;
 };
 
-export interface FormProps<P extends object = {}> extends Input.Control<P> {}
+export interface FormProps<P extends object = UnknownRecord> extends Input.Control<P> {}
 
-export interface Spec<P extends object = {}> {
+export interface Spec<P extends object = UnknownRecord> {
   type: string;
   title: string;
   initialProps: (theme: Theming.Theme) => P;

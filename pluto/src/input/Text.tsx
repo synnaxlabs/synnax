@@ -10,7 +10,7 @@
 import { forwardRef } from "react";
 
 import { CSS } from "@/css";
-import { BaseProps } from "@/input/types";
+import { type BaseProps } from "@/input/types";
 
 import "@/input/Input.css";
 
@@ -43,7 +43,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       variant = "outlined",
       ...props
     },
-    ref
+    ref,
   ) => (
     <input
       ref={ref}
@@ -53,7 +53,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         CSS.size(size),
         CSS.BM("input", variant),
         centerPlaceholder && CSS.BM("input", "placeholder-centered"),
-        className
+        className,
       )}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => {
@@ -62,6 +62,6 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       }}
       {...props}
     />
-  )
+  ),
 );
 Text.displayName = "Input";

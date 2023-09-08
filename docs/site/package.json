@@ -16,6 +16,7 @@
     "@astrojs/vercel": "^3.2.0",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
+    "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
     "@types/offscreencanvas": "^2019.7.0",
     "astro": "^2.1.2",
@@ -25,14 +26,13 @@
     "html-escaper": "^3.0.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "shiki": "^0.14.1",
-    "@synnaxlabs/pluto": "workspace:*"
+    "shiki": "^0.14.1"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@types/react": "^18.0.21",
     "@types/react-dom": "^18.0.6",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^4.9.4"
+    "typescript": "^5.2.2"
   }
 }

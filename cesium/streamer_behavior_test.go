@@ -32,7 +32,7 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 				ctx,
 				cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 			)).To(Succeed())
-			w := MustSucceed(db.NewWriter(ctx, cesium.WriterConfig{
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{basic1},
 				Start:    10 * telem.SecondTS,
 			}))
@@ -53,6 +53,7 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			f := <-o.Outlet()
 			Expect(f.Frame.Keys).To(HaveLen(1))
 			Expect(f.Frame.Series).To(HaveLen(1))
+			d.Alignment = telem.Alignment(0)
 			Expect(f.Frame.Series[0]).To(Equal(d))
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())

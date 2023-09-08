@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
-export const userPayloadSchema = z.object({
+export const payloadZ = z.object({
   key: z.string(),
   username: z.string(),
 });
 
-export type UserPayload = z.infer<typeof userPayloadSchema>;
+export type Payload = z.infer<typeof payloadZ>;

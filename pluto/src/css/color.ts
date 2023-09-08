@@ -20,8 +20,8 @@ import { color } from "@/color/core";
 export const createHexOpacityVariants = (
   prefix: string,
   hex: color.Crude,
-  opacities: readonly number[]
+  opacities: readonly number[],
 ): Record<string, string> =>
   Object.fromEntries(
-    opacities.map((o) => [`${prefix}-${o}`, new color.Color(hex).setAlpha(o).hex])
+    opacities.map((o) => [`${prefix}-${o}`, new color.Color(hex).setAlpha(o).hex]),
   );

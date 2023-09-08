@@ -42,6 +42,7 @@ class Series(Payload):
     """The data type of the Series"""
     data: bytes
     """The underlying buffer"""
+    alignment: int = 0
 
     def __len__(self) -> int:
         return self.data_type.density.sample_count(len(self.data))
@@ -51,6 +52,7 @@ class Series(Payload):
         data: CrudeSeries,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
+        alignment: int = 0,
     ):
         if isinstance(data, Series):
             data_type = data_type or data.data_type
@@ -72,7 +74,7 @@ class Series(Payload):
                 )
             data_type = DataType(data_type)
             data_ = data
-        super().__init__(data_type=data_type, data=data_, time_range=time_range)
+        super().__init__(data_type=data_type, data=data_, time_range=time_range, alignment=alignment)
 
     class Config:
         arbitrary_types_allowed = True

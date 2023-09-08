@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ForwardedRef, ReactElement, forwardRef } from "react";
+import { type ForwardedRef, type ReactElement, forwardRef } from "react";
 
-import { Space, SpaceElementType, SpaceProps } from "@/align/Space";
+import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
 
 import "@/align/Center.css";
 
 export const CoreCenter = <E extends SpaceElementType = "div">(
   { className, justify = "center", align = "center", ...props }: SpaceProps<E>,
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => (
   // @ts-expect-error
   <Space<E>
@@ -33,5 +33,5 @@ export const CoreCenter = <E extends SpaceElementType = "div">(
  * is centered. Props are the same as {@link Space}.
  */
 export const Center = forwardRef(CoreCenter) as <E extends SpaceElementType = "div">(
-  props: SpaceProps<E>
+  props: SpaceProps<E>,
 ) => ReactElement;

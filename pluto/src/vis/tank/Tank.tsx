@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { CrudeDimensions } from "@synnaxlabs/x";
+import { type CrudeDimensions } from "@synnaxlabs/x";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";

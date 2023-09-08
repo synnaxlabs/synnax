@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { StreamClient } from "@synnaxlabs/freighter";
+import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  NativeTypedArray,
-  Series,
-  TimeRange,
-  CrudeTimeStamp,
+  type NativeTypedArray,
+  type Series,
+  type TimeRange,
+  type CrudeTimeStamp,
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { ChannelKeyOrName, ChannelParams } from "@/channel/payload";
-import { ChannelRetriever, analyzeChannelParams } from "@/channel/retriever";
+import { type KeyOrName, type Params } from "@/channel/payload";
+import { type Retriever, analyzeParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
 import { Writer } from "@/framer/writer";
 
-export class FrameClient {
+export class Client {
   private readonly stream: StreamClient;
-  private readonly retriever: ChannelRetriever;
+  private readonly retriever: Retriever;
 
-  constructor(stream: StreamClient, retriever: ChannelRetriever) {
+  constructor(stream: StreamClient, retriever: Retriever) {
     this.stream = stream;
     this.retriever = retriever;
   }
@@ -39,7 +39,7 @@ export class FrameClient {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(tr: TimeRange, channels: ChannelParams): Promise<Iterator> {
+  async newIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
     return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
@@ -51,13 +51,13 @@ export class FrameClient {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: CrudeTimeStamp, channels: ChannelParams): Promise<Writer> {
+  async newWriter(start: CrudeTimeStamp, channels: Params): Promise<Writer> {
     return await Writer._open(start, channels, this.retriever, this.stream);
   }
 
   async newStreamer(
-    params: ChannelParams,
-    from: TimeStamp = TimeStamp.now()
+    params: Params,
+    from: TimeStamp = TimeStamp.now(),
   ): Promise<Streamer> {
     return await Streamer._open(from, params, this.retriever, this.stream);
   }
@@ -72,9 +72,9 @@ export class FrameClient {
    * @throws if the channel does not exist.
    */
   async write(
-    to: ChannelKeyOrName,
+    to: KeyOrName,
     start: CrudeTimeStamp,
-    data: NativeTypedArray
+    data: NativeTypedArray,
   ): Promise<void> {
     const w = await this.newWriter(start, to);
     try {
@@ -85,18 +85,18 @@ export class FrameClient {
     }
   }
 
-  async read(tr: TimeRange, channel: ChannelKeyOrName): Promise<Series>;
+  async read(tr: TimeRange, channel: KeyOrName): Promise<Series>;
 
-  async read(tr: TimeRange, channels: ChannelParams): Promise<Frame>;
+  async read(tr: TimeRange, channels: Params): Promise<Frame>;
 
-  async read(tr: TimeRange, channels: ChannelParams): Promise<Series | Frame> {
-    const { single } = analyzeChannelParams(channels);
+  async read(tr: TimeRange, channels: Params): Promise<Series | Frame> {
+    const { single } = analyzeParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.series[0];
     return fr;
   }
 
-  private async readFrame(tr: TimeRange, params: ChannelParams): Promise<Frame> {
+  private async readFrame(tr: TimeRange, params: Params): Promise<Frame> {
     const i = await this.newIterator(tr, params);
     const frame = new Frame();
     for await (const f of i) frame.push(f);

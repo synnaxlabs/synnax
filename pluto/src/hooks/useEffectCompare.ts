@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DependencyList, EffectCallback, useEffect } from "react";
+import { type DependencyList, type EffectCallback, useEffect } from "react";
 
-import { useMemoCompare } from "../memo";
+import { useMemoCompare } from "@/memo";
 
 export const useEffectCompare = <D extends DependencyList>(
   cbk: EffectCallback,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
-  deps: D
+  deps: D,
 ): void => {
   const memoDeps = useMemoCompare(() => deps, areEqual, deps);
   useEffect(cbk, [memoDeps]);

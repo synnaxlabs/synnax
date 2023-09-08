@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { CrudeDirection, Direction as XDirection } from "@synnaxlabs/x";
+import { type CrudeDirection, Direction as XDirection } from "@synnaxlabs/x";
 
 import { Button as CoreButton } from "@/button";
-import { Button, ButtonOptionProps, ButtonProps } from "@/select/Button";
+import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
 
 interface Entry {
   key: CrudeDirection;

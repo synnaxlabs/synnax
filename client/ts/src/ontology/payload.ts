@@ -16,6 +16,7 @@ const resourceTypeZ = z.union([
   z.literal("node"),
   z.literal("group"),
   z.literal("range"),
+  z.literal("user"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;

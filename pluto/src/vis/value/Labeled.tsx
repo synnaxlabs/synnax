@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { Box, Direction, XY } from "@synnaxlabs/x";
+import { Box, Direction, type XY } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -17,8 +17,8 @@ import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { UseTypographyReturn } from "@/theming/font";
-import { Core, CoreProps } from "@/vis/value/Core";
+import { type UseTypographyReturn } from "@/theming/font";
+import { Core, type CoreProps } from "@/vis/value/Core";
 
 import "@/vis/value/Labeled.css";
 
@@ -58,7 +58,7 @@ export const ValueLabeled = ({
     box,
     valueBoxHeight,
     font,
-    position
+    position,
   );
 
   return (
@@ -90,20 +90,20 @@ const adjustBox = (
   box: Box,
   valueBoxHeight: number,
   font: UseTypographyReturn,
-  position?: XY
+  position?: XY,
 ): Box => {
   if (direction.isX) {
     return new Box(
       (position?.x ?? box.left) + box.width / zoom - 100,
       position?.y ?? box.top,
       100,
-      valueBoxHeight
+      valueBoxHeight,
     );
   }
   return new Box(
     position?.x ?? box.left,
     (position?.y ?? box.top) + box.height / zoom - valueBoxHeight,
     box.width / zoom,
-    valueBoxHeight
+    valueBoxHeight,
   );
 };

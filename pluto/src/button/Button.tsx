@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef, ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
+import { type Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 import "@/button/Button.css";
 
@@ -77,7 +77,7 @@ export const Button = Tooltip.wrap(
         CSS.sharp(sharp),
         CSS.disabled(disabled),
         CSS.BM("btn", variant),
-        className
+        className,
       )}
       level={level ?? Text.ComponentSizeLevels[size]}
       size={iconSpacing}
@@ -87,5 +87,5 @@ export const Button = Tooltip.wrap(
     >
       {children}
     </Text.WithIcon>
-  )
+  ),
 );

@@ -9,13 +9,13 @@
 
 import { forwardRef, useCallback } from "react";
 
-import { TimeSpan, TimeStamp, TZInfo } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { DragButton, DragButtonExtensionProps } from "@/input/DragButton";
+import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
-import { BaseProps } from "@/input/types";
+import { type BaseProps } from "@/input/types";
 
 import "@/input/Time.css";
 
@@ -64,7 +64,7 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
       className,
       ...props
     }: TimeProps,
-    ref
+    ref,
   ) => {
     const ts = new TimeStamp(value, "UTC");
 
@@ -87,7 +87,7 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
         else ts = new TimeStamp(value, "local");
         onChange(ts.valueOf());
       },
-      [onChange, tzInfo]
+      [onChange, tzInfo],
     );
 
     const inputValue = ts.fString("time", tzInfo);
@@ -115,6 +115,6 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
         />
       </Align.Pack>
     );
-  }
+  },
 );
 Time.displayName = "InputTime";

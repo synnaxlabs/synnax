@@ -37,11 +37,11 @@ var _ = Describe("TypedWriter Behavior", func() {
 			Expect(db.Close()).To(Succeed())
 		})
 		Specify("Happy Path", func() {
-			w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+			w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 				Start: telem.TimeStamp(0),
 			}))
-			Expect(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
-			Expect(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11))).To(Succeed())
+			Expect(MustSucceed(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.Alignment(0)))
+			Expect(MustSucceed(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.Alignment(6)))
 			Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 			Expect(w.Close()).To(Succeed())
 		})
@@ -78,8 +78,8 @@ var _ = Describe("TypedWriter Behavior", func() {
 		})
 		Specify("Happy Path", func() {
 			Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-			w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-			Expect(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+			Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.Alignment(0)))
 			Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 			Expect(w.Close()).To(Succeed())
 		})

@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 
-import { AsyncTermSearcher, Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import {
+  type AsyncTermSearcher,
+  type Key,
+  type KeyedRenderableRecord,
+} from "@synnaxlabs/x";
 
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { List } from "@/list";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { RenderProp, componentRenderProp } from "@/util/renderProp";
+import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
 export interface SearchProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Input.OptionalControl<string> {
   searcher: AsyncTermSearcher<string, K, E>;
   debounce?: number;
@@ -45,7 +49,7 @@ const NO_TERM = (
 
 export const Search = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   debounce = 250,
   children = componentRenderProp(Input.Text),
@@ -73,12 +77,12 @@ export const Search = <
           setEmptyContent(
             <Status.Text.Centered level="h4" variant="error">
               {e.message}
-            </Status.Text.Centered>
+            </Status.Text.Centered>,
           );
         });
     },
     debounce,
-    [setSourceData, setEmptyContent]
+    [setSourceData, setEmptyContent],
   );
 
   const handleChange = useCallback(
@@ -87,7 +91,7 @@ export const Search = <
       if (term.length === 0) setEmptyContent(NO_TERM);
       else debounced(term);
     },
-    [setInternvalValue]
+    [setInternvalValue],
   );
 
   return children({ value: internalValue, onChange: handleChange });

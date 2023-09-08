@@ -9,7 +9,7 @@
 
 import { nanoid } from "nanoid";
 
-import { LayoutState } from "@/layout/layout";
+import { type LayoutState } from "@/layout/layout";
 
 export interface Spec {
   variant: string;

@@ -9,16 +9,16 @@
 
 import { Compare } from "@/compare";
 import { Bounds } from "@/spatial/core";
-import { GLBufferController, GLBufferUsage } from "@/telem/gl";
+import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
   convertDataType,
   DataType,
-  NativeTypedArray,
-  Rate,
+  type NativeTypedArray,
+  type Rate,
   Size,
   TimeRange,
-  TimeStamp,
-  CrudeDataType,
+  type TimeStamp,
+  type CrudeDataType,
 } from "@/telem/telem";
 
 export type SampleValue = number | bigint;
@@ -58,6 +58,7 @@ export class Series {
   /** The underlying data. */
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
+  readonly alignment: number = 0;
   /** A cached minimum value. */
   private _min?: SampleValue;
   /** A cached maximum value. */
@@ -72,7 +73,8 @@ export class Series {
     dataType: CrudeDataType,
     timeRange?: TimeRange,
     sampleOffset?: SampleValue,
-    glBufferUsage: GLBufferUsage = "static"
+    glBufferUsage: GLBufferUsage = "static",
+    alignment: number = 0,
   ): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
@@ -82,7 +84,8 @@ export class Series {
       dataType,
       timeRange,
       sampleOffset,
-      glBufferUsage
+      glBufferUsage,
+      alignment,
     );
     arr.writePos = 0;
     return arr;
@@ -106,7 +109,8 @@ export class Series {
     dataType?: CrudeDataType,
     timeRange?: TimeRange,
     sampleOffset?: SampleValue,
-    glBufferUsage: GLBufferUsage = "static"
+    glBufferUsage: GLBufferUsage = "static",
+    alignment: number = 0,
   ) {
     if (dataType == null && !(data instanceof ArrayBuffer)) {
       this.dataType = new DataType(data);
@@ -114,9 +118,10 @@ export class Series {
       this.dataType = new DataType(dataType);
     } else {
       throw new Error(
-        "must provide a data type when constructing a Series from a buffer"
+        "must provide a data type when constructing a Series from a buffer",
       );
     }
+    this.alignment = alignment;
     this.sampleOffset = sampleOffset ?? 0;
     this._data = data;
     this._timeRange = timeRange;
@@ -214,7 +219,14 @@ export class Series {
     for (let i = 0; i < this.length; i++) {
       data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
     }
-    return new Series(data.buffer, target, this._timeRange, sampleOffset);
+    return new Series(
+      data.buffer,
+      target,
+      this._timeRange,
+      sampleOffset,
+      this.gl.bufferUsage,
+      this.alignment,
+    );
   }
 
   private calcRawMax(): SampleValue {
@@ -339,7 +351,7 @@ export class Series {
       gl.bufferData(
         gl.ARRAY_BUFFER,
         this.buffer,
-        bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW
+        bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW,
       );
       this.gl.prevBuffer = FULL_BUFFER;
     }

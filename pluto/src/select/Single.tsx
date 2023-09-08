@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  FocusEventHandler,
-  ReactElement,
+  type FocusEventHandler,
+  type ReactElement,
   useCallback,
   useEffect,
   useMemo,
@@ -18,9 +18,9 @@ import {
 } from "react";
 
 import {
-  AsyncTermSearcher,
-  Key,
-  KeyedRenderableRecord,
+  type AsyncTermSearcher,
+  type Key,
+  type KeyedRenderableRecord,
   primitiveIsZero,
 } from "@synnaxlabs/x";
 
@@ -28,7 +28,7 @@ import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
@@ -38,10 +38,11 @@ import "@/select/Single.css";
 
 export interface SingleProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
     Input.Control<K>,
-    Omit<CoreList.ListProps<K, E>, "children"> {
+    Omit<CoreList.ListProps<K, E>, "children">,
+    Pick<Input.TextProps, "variant"> {
   tagKey?: keyof E;
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
@@ -68,7 +69,7 @@ export interface SingleProps<
  */
 export const Single = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   onChange,
   value,
@@ -80,6 +81,7 @@ export const Single = <
   allowClear = true,
   searcher,
   className,
+  variant,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -109,12 +111,12 @@ export const Single = <
       setSelected(e.entries[0]);
       onChange(v);
     },
-    [onChange, allowClear]
+    [onChange, allowClear],
   );
 
   const InputWrapper = useMemo(
     () => (searchMode ? CoreList.Search : CoreList.Filter),
-    [searchMode]
+    [searchMode],
   );
 
   return (
@@ -130,6 +132,7 @@ export const Single = <
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
             <SingleInput
+              variant={variant}
               onChange={onChange}
               onFocus={open}
               selected={selected}

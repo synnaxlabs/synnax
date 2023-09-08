@@ -10,13 +10,13 @@
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
-import { Channel } from "@/channel";
+import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<Channel> => {
+const newChannel = async (): Promise<channel.Channel> => {
   return await client.channels.create({
     name: "test",
     leaseholder: 1,
@@ -41,7 +41,7 @@ describe("Iterator", () => {
 
     const iter = await client.telem.newIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
-      [ch.key]
+      [ch.key],
     );
 
     try {

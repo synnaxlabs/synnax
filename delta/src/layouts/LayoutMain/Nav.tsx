@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import {
@@ -19,6 +19,7 @@ import {
   Triggers,
   Synnax,
   Text,
+  Select,
 } from "@synnaxlabs/pluto";
 import { Location } from "@synnaxlabs/x";
 
@@ -28,8 +29,9 @@ import { CSS } from "@/css";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
-import { Line } from "@/line";
-import { Palette, PaletteTriggerConfig } from "@/palette/Palette";
+import { LinePlot } from "@/lineplot";
+import { Palette } from "@/palette/Palette";
+import { type TriggerConfig } from "@/palette/types";
 import { PID } from "@/pid";
 import { Resources } from "@/resources";
 import { Version } from "@/version";
@@ -45,13 +47,14 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Vis.Toolbar,
 ];
 
-const DEFAULT_TRIGGER: PaletteTriggerConfig = {
+const DEFAULT_TRIGGER: TriggerConfig = {
+  defaultMode: "command",
   resource: [["Control", "P"]],
   command: [["Control", "Shift", "P"]],
 };
 
 const COMMANDS = [
-  ...Line.COMMANDS,
+  ...LinePlot.COMMANDS,
   ...Layout.COMMANDS,
   ...PID.COMMANDS,
   ...Docs.COMMANDS,
@@ -89,7 +92,7 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="delta-main-nav-top__start">
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo className="delta-main-nav-top__logo" variant="loader" />
+          <Logo className="delta-main-nav-top__logo" variant="icon" />
         )}
       </Nav.Bar.Start>
       <Nav.Bar.Content

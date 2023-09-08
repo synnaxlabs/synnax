@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Direction, XY } from "@synnaxlabs/x";
+import { type Box, Direction, XY } from "@synnaxlabs/x";
 
 export const calculateLineDirection = (source: XY, target: XY): Direction => {
   const xDist = source.xDistanceTo(target);
@@ -20,7 +20,7 @@ export const handleDrag = (
   b: Box,
   root: XY,
   index: number,
-  zoom: number
+  zoom: number,
 ): [number, XY[]] => {
   // The first point in the line.
   const prevOne = prevPoints[index];
@@ -68,10 +68,10 @@ export const handleDrag = (
 export const formsRoughlyStraightLine = (points: XY[]): boolean => {
   // The objective is to determine if the line is roughly straight.
   const peakXDelta = Math.max(
-    ...points.slice(1).map((p, i) => p.xDistanceTo(points[i]))
+    ...points.slice(1).map((p, i) => p.xDistanceTo(points[i])),
   );
   const peakYDelta = Math.max(
-    ...points.slice(1).map((p, i) => p.yDistanceTo(points[i]))
+    ...points.slice(1).map((p, i) => p.yDistanceTo(points[i])),
   );
   return peakXDelta < 10 || peakYDelta < 10;
 };
@@ -88,7 +88,7 @@ export const adjustToSourceOrTarget = (
   sourceY: number,
   targetX: number,
   targetY: number,
-  points: XY[]
+  points: XY[],
 ): XY[] | null => {
   const source = new XY(sourceX, sourceY);
   const target = new XY(targetX, targetY);
@@ -117,11 +117,11 @@ export const adjustToSourceOrTarget = (
   } else if (targetChanged) {
     const adjustDir = calculateLineDirection(
       prevTarget,
-      points[points.length - 2]
+      points[points.length - 2],
     ).inverse;
     next[points.length - 2] = next[points.length - 2].set(
       adjustDir,
-      target[adjustDir.crude]
+      target[adjustDir.crude],
     );
     next[points.length - 1] = target;
 

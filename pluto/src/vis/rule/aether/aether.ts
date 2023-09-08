@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Location, Scale } from "@synnaxlabs/x";
+import { type Box, type Location, type Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -56,7 +56,7 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
     if (this.state.dragging && this.state.pixelPosition != null) {
       const pos = scale.pos(
-        (this.state.pixelPosition - plot.top + container.top) / plot.height
+        (this.state.pixelPosition - plot.top + container.top) / plot.height,
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;

@@ -8,15 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Channel,
-  ChannelKey,
-  ChannelKeys,
-  CrudeFrame,
+  type Channel,
+  type channel,
   Series,
-  Synnax,
+  type Synnax,
   TimeStamp,
-  Writer,
-  Frame,
+  framer,
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
@@ -40,19 +37,19 @@ export const controllerStateZ = z.object({
 interface InternalState {
   client: Synnax | null;
   prov: telem.Provider;
-  addStatus: status.Aggreagate;
+  addStatus: status.Aggregate;
 }
 
 interface AetherControllerTelem {
-  channelKeys: (client: Synnax) => Promise<ChannelKeys>;
+  channelKeys: (client: Synnax) => Promise<channel.Keys>;
 }
 
 export class Controller
   extends aether.Composite<typeof controllerStateZ, InternalState>
   implements telem.Provider, telem.Factory
 {
-  registry: Map<AetherControllerTelem, null> = new Map();
-  writer?: Writer;
+  registry = new Map<AetherControllerTelem, null>();
+  writer?: framer.Writer;
 
   static readonly TYPE = "Controller";
   schema = controllerStateZ;
@@ -61,18 +58,19 @@ export class Controller
     this.internal.client = synnax.use(this.ctx);
     const t = telem.get(this.ctx);
     if (!(t instanceof Controller)) this.internal.prov = t;
-    this.internal.addStatus = status.useAggregator(this.ctx);
+    this.internal.addStatus = status.useAggregate(this.ctx);
     telem.set(this.ctx, this);
 
     // If the counter has been incremented, we need to acquire control.
     // If the counter has been decremented, we need to release control.
-    if (this.state.acquireTrigger > this.prevState.acquireTrigger) void this.acquire();
-    else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
+    if (this.state.acquireTrigger > this.prevState.acquireTrigger) {
+      void this.acquire();
+    } else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
       void this.release();
   }
 
-  private async channelKeys(): Promise<ChannelKeys> {
-    const keys = new Set<ChannelKey>([]);
+  private async channelKeys(): Promise<channel.Keys> {
+    const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
       const telemKeys = await telem.channelKeys(this.internal.client as Synnax);
       for (const key of telemKeys) keys.add(key);
@@ -95,7 +93,7 @@ export class Controller
       this.writer = await client.telem.newWriter(TimeStamp.now(), keys);
       this.setState((p) => ({ ...p, status: "acquired" }));
       addStatus({
-        message: `Acquired control on ${this.state.name}.`,
+        message: `Acquired control on ${this.state.name}`,
         variant: "success",
       });
     } catch (e) {
@@ -103,7 +101,7 @@ export class Controller
       addStatus({
         message: `${this.state.name} failed to acquire control: ${
           (e as Error).message
-        }.`,
+        }`,
         variant: "error",
       });
     }
@@ -119,7 +117,7 @@ export class Controller
     });
   }
 
-  async set(frame: CrudeFrame): Promise<void> {
+  async set(frame: framer.CrudeFrame): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.write(frame);
   }
@@ -158,7 +156,7 @@ export class NumericSink
     this.controller = controller;
   }
 
-  async channelKeys(client: Synnax): Promise<ChannelKeys> {
+  async channelKeys(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     this.channels = [chan];
@@ -174,17 +172,17 @@ export class NumericSink
   async set(value: number): Promise<void> {
     if (this.controller.internal.client == null) return;
     const ch = await this.controller.internal.client.channels.retrieve(
-      this.props.channel
+      this.props.channel,
     );
     const ch2 = await this.controller.internal.client.channels.retrieve(ch.index);
-    const frame = new Frame(
+    const frame = new framer.Frame(
       [ch.key, ch2.key],
       [
         // @ts-expect-error
         new Series(new ch.dataType.Array([value])),
         // @ts-expect-error
         new Series(new ch2.dataType.Array([BigInt(TimeStamp.now())])),
-      ]
+      ],
     );
     await this.controller.set(frame);
   }

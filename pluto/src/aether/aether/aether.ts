@@ -9,10 +9,10 @@
 
 import { Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Sender, SenderHandler } from "@synnaxlabs/x";
+import { type Sender, type SenderHandler } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { MainMessage, WorkerMessage } from "@/aether/message";
+import { type MainMessage, type WorkerMessage } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
@@ -91,7 +91,7 @@ export class Context {
   constructor(
     sender: Sender<WorkerMessage>,
     registry: Record<string, ComponentConstructor>,
-    providers: Map<string, any> = new Map()
+    providers = new Map<string, any>(),
   ) {
     this.providers = providers;
     this.registry = registry;
@@ -223,7 +223,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     if (this.schema == null)
       throw new ValidationError(
         `[AetherLeaf] - expected subclass to define component schema, but none was found. 
-        Make sure to defne a property 'schema' on the class.`
+        Make sure to defne a property 'schema' on the class.`,
       );
     return this.schema;
   }
@@ -309,18 +309,18 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
   private validatePath(path: string[]): void {
     if (path.length === 0)
       throw new UnexpectedError(
-        `[Leaf.setState] - ${this.type}:${this.key} received an empty path`
+        `[Leaf.setState] - ${this.type}:${this.key} received an empty path`,
       );
     const key = path[path.length - 1];
     if (path.length > 1)
       throw new UnexpectedError(
         `[Leaf.setState] - ${this.type}:${this.key} received a subPath ${path.join(
-          "."
-        )} but is a leaf`
+          ".",
+        )} but is a leaf`,
       );
     if (key !== this.key)
       throw new UnexpectedError(
-        `[Leaf.setState] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
+        `[Leaf.setState] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
       );
   }
 }
@@ -333,7 +333,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
 export class Composite<
     S extends z.ZodTypeAny,
     IS extends {} = {},
-    C extends Component = Component
+    C extends Component = Component,
   >
   extends Leaf<S, IS>
   implements Component
@@ -384,7 +384,7 @@ export class Composite<
     if (child != null) return child.internalUpdate({ ...u, path: subPath });
     if (subPath.length > 1)
       throw new Error(
-        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `
+        `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `,
       );
     this._children.push(u.ctx.create({ ...u, path: subPath }));
   }
@@ -394,12 +394,12 @@ export class Composite<
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
-        `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
+        `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
       );
     super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
     this.children.forEach((c) =>
-      c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" })
+      c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" }),
     );
   }
 
@@ -408,7 +408,7 @@ export class Composite<
     if (subPath.length === 0) {
       if (key !== this.key) {
         throw new Error(
-          `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`
+          `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
         );
       }
       const c = this.children;
@@ -431,7 +431,7 @@ export class Composite<
     if (key == null)
       throw new Error(
         `Composite ${this.type}:${this.key} received an empty path` +
-          (type != null ? ` for ${type}` : "")
+          (type != null ? ` for ${type}` : ""),
       );
     return [key, subPath];
   }
@@ -454,7 +454,7 @@ export class Composite<
    */
   childrenOfType<T extends C = C>(...types: Array<T["type"]>): readonly T[] {
     return this.children.filter((c) =>
-      types.includes(c.type)
+      types.includes(c.type),
     ) as unknown as readonly T[];
   }
 }

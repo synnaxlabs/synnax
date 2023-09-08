@@ -7,15 +7,12 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { GLBufferController, Bounds, Series } from "@synnaxlabs/x";
+import { type GLBufferController, type Bounds, type Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { color } from "@/color/core";
+import { type color } from "@/color/core";
 
-const transferrable = z.union([
-  z.instanceof(ArrayBuffer),
-  z.instanceof(OffscreenCanvas),
-]);
+const transferrable = z.union([z.instanceof(ArrayBuffer)]);
 
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer

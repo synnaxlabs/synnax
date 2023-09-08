@@ -10,9 +10,9 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NewRangePayload } from "./payload";
-
 import { newClient } from "@/setupspecs";
+
+import { type NewPayload } from "./payload";
 
 const client = newClient();
 
@@ -28,7 +28,7 @@ describe("Ranger", () => {
       expect(timeRange).toEqual(range.timeRange);
     });
     it("should create multiple ranges", async () => {
-      const ranges: NewRangePayload[] = [
+      const ranges: NewPayload[] = [
         {
           name: "My New One Second Range",
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
@@ -66,16 +66,6 @@ describe("Ranger", () => {
       const retrieved = await client.ranges.retrieve([range.name]);
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved[0].name).toEqual(range.name);
-    });
-    it("should retrieve a range by search term", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
-      await client.ranges.create({
-        name: "Searhcable",
-        timeRange,
-      });
-      const retrieved = await client.ranges.search("Searhcable");
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(retrieved.length).toBeGreaterThan(0);
     });
   });
 });

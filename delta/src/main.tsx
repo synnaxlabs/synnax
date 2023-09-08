@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Pluto, Haul, Triggers, state } from "@synnaxlabs/pluto";
+import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -18,7 +18,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
 import { store } from "@/store";
 import { Version } from "@/version";
@@ -37,10 +37,10 @@ const layoutRenderers = {
   defineRange: Workspace.DefineRange,
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
-  pid: PID.PID,
   vis: Vis.LayoutSelector,
-  line: Line.LinePlot,
   mosaic: Layout.Mosaic,
+  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
+  [PID.LAYOUT_TYPE]: PID.PID,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

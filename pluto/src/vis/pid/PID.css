@@ -47,7 +47,6 @@
 
 
 .pluto-pid {
-    --pluto-pid-element-stroke-width: 3px;
 
     &.pluto--editable {
         & .react-flow__handle {

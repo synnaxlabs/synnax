@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { CrudeXY } from "@synnaxlabs/x";
+import { type CrudeXY } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
-import { Theming } from "@/theming";
+import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
-import { FormProps, Spec, Props } from "@/vis/pid/element/element";
-import { Tank, TankProps } from "@/vis/tank/Tank";
+import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
+import { Tank, type TankProps } from "@/vis/tank/Tank";
 
 import "@/vis/pid/element/Tank.css";
 
@@ -38,16 +38,12 @@ const Element = ({
 }: Props<ElementProps>): ReactElement => {
   return (
     <div className={CSS(className, CSS.B("tank-pid-element"), CSS.selected(selected))}>
-      {editable && (
-        <>
-          <Handle position={Left} type="source" id="a" style={{ top: "25%" }} />
-          <Handle position={Left} type="source" id="c" style={{ top: "75%" }} />
-          <Handle position={Right} type="source" id="e" style={{ top: "25%" }} />
-          <Handle position={Right} type="source" id="g" style={{ top: "75%" }} />
-          <Handle position={Top} type="source" id="j" />
-          <Handle position={Bottom} type="source" id="l" />
-        </>
-      )}
+      <Handle position={Left} type="source" id="a" style={{ top: "25%" }} />
+      <Handle position={Left} type="source" id="c" style={{ top: "75%" }} />
+      <Handle position={Right} type="source" id="e" style={{ top: "25%" }} />
+      <Handle position={Right} type="source" id="g" style={{ top: "75%" }} />
+      <Handle position={Top} type="source" id="j" />
+      <Handle position={Bottom} type="source" id="l" />
       <Tank {...props}></Tank>
     </div>
   );

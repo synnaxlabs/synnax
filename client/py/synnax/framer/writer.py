@@ -218,8 +218,6 @@ class Writer:
                     f"frame is missing keys {missing} and has extra keys {extra}",
                 )
             )
-        elif missing:
-            raise ValidationError(Field("keys", f"frame is missing keys {missing}"))
         elif extra:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 

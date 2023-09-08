@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, ReactElement, Ref } from "react";
+import { forwardRef, type ReactElement, type Ref } from "react";
 
 import { Direction, toArray } from "@synnaxlabs/x";
 import {
-  UseControllerProps,
+  type UseControllerProps,
   useController,
-  FieldValues,
-  FieldPath,
+  type FieldValues,
+  type FieldPath,
 } from "react-hook-form";
 
 import { Align } from "@/align";
@@ -22,9 +22,9 @@ import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
 import { Text } from "@/input/Text";
-import { BaseProps, Control, Value } from "@/input/types";
+import { type BaseProps, type Control, type Value } from "@/input/types";
 import { camelToTitle } from "@/util/case";
-import { RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 
 import "@/input/Item.css";
 
@@ -35,7 +35,7 @@ interface RenderComponent<P extends Record<string, any>> {
 interface ItemExtensionProps<
   I extends Value,
   O extends Value = I,
-  P extends Control<I, O> = Control<I, O>
+  P extends Control<I, O> = Control<I, O>,
 > extends Align.SpaceExtensionProps {
   label?: string;
   showLabel?: boolean;
@@ -51,13 +51,13 @@ interface ItemExtensionProps<
 export type ItemProps<
   I extends Value,
   O extends Value = I,
-  P extends Control<I, O> = Control<I, O>
+  P extends Control<I, O> = Control<I, O>,
 > = P & ItemExtensionProps<I, O, P>;
 
 const CoreItem = <
   I extends Value = string | number,
   O extends Value = I,
-  P extends Control<I, O> = BaseProps<I, O>
+  P extends Control<I, O> = BaseProps<I, O>,
 >(
   {
     label,
@@ -74,10 +74,10 @@ const CoreItem = <
     showLabel = true,
     ...props
   }: ItemProps<I, O, P>,
-  ref: Ref<HTMLInputElement>
+  ref: Ref<HTMLInputElement>,
 ): ReactElement => {
   const children_ = toArray(children).map((c) =>
-    typeof c === "object" ? c.render : c
+    typeof c === "object" ? c.render : c,
   );
   const direction = new Direction(direction_);
 
@@ -117,7 +117,7 @@ const CoreItem = <
 
 const maybeDefaultAlignment = (
   align?: Align.Alignment,
-  direction?: Direction
+  direction?: Direction,
 ): Align.Alignment => {
   if (align != null) return align;
   return direction?.equals("y") ?? false ? "stretch" : "center";
@@ -128,7 +128,7 @@ export type ItemControlledProps<
   O extends Value = I,
   P extends Control<I, O> = BaseProps<I, O>,
   F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>
+  TName extends FieldPath<F> = FieldPath<F>,
 > = Omit<P, "onChange" | "value"> &
   ItemExtensionProps<I, O, P> &
   UseControllerProps<F, TName>;
@@ -136,9 +136,9 @@ export type ItemControlledProps<
 export const Item = forwardRef(CoreItem) as <
   I extends Value = string | number,
   O extends Value = I,
-  P extends Control<I, O> = BaseProps<I, O>
+  P extends Control<I, O> = BaseProps<I, O>,
 >(
-  props: ItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> }
+  props: ItemProps<I, O, P> & { ref?: Ref<HTMLInputElement> },
 ) => ReactElement;
 // @ts-expect-error
 Item.displayName = "InputItem";
@@ -148,7 +148,7 @@ export const ItemControlled = <
   O extends Value = I,
   P extends Control<I, O> = BaseProps<I, O>,
   F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>
+  TName extends FieldPath<F> = FieldPath<F>,
 >({
   name,
   rules,

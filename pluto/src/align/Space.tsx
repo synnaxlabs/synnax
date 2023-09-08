@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, ForwardedRef, ReactElement, forwardRef } from "react";
+import {
+  type CSSProperties,
+  type ForwardedRef,
+  type ReactElement,
+  forwardRef,
+} from "react";
 
-import { Direction, LooseDirectionT } from "@synnaxlabs/x";
+import { Direction, type LooseDirectionT } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 import "@/align/Space.css";
 
@@ -21,7 +26,7 @@ import "@/align/Space.css";
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 
 /** The alignments for the cross axis of a space */
-export type Alignment = typeof ALIGNMENTS[number];
+export type Alignment = (typeof ALIGNMENTS)[number];
 
 /** All possible justifications for the main axis of a space */
 export const JUSTIFICATIONS = [
@@ -34,7 +39,7 @@ export const JUSTIFICATIONS = [
 ] as const;
 
 /** The justification for the main axis of a space */
-export type Justification = typeof JUSTIFICATIONS[number];
+export type Justification = (typeof JUSTIFICATIONS)[number];
 
 export type SpaceElementType =
   | "div"
@@ -86,7 +91,7 @@ const CoreSpace = <E extends SpaceElementType>(
     el = "div",
     ...props
   }: SpaceProps<E>,
-  ref: ForwardedRef<JSX.IntrinsicElements[E]>
+  ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => {
   const dir = new Direction(direction_);
 
@@ -117,7 +122,7 @@ const CoreSpace = <E extends SpaceElementType>(
         CSS.bordered(bordered),
         CSS.rounded(rounded),
         typeof size === "string" && CSS.BM("space", size),
-        className
+        className,
       )}
       style={style}
       {...props}
@@ -151,7 +156,7 @@ CoreSpace.displayName = "Space";
  * @param props.el - The element type to render as. Defaults to 'div'.
  */
 export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div">(
-  props: SpaceProps<E>
+  props: SpaceProps<E>,
 ) => ReactElement;
 
 type FlexDirection = CSSProperties["flexDirection"];

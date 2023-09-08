@@ -374,7 +374,7 @@ export class XYLocation {
 
   constructor(
     x: LooseLocationT | LooseXYLocation | Location | XYLocation,
-    y?: LooseLocationT
+    y?: LooseLocationT,
   ) {
     let one: Location;
     let two: Location;
@@ -387,7 +387,7 @@ export class XYLocation {
     }
     if (one.direction.equals(two.direction) && !one.isCenter && !two.isCenter)
       throw new Error(
-        `[XYLocation] - encountered two locations with the same direction: ${one.toString()} - ${two.toString()}`
+        `[XYLocation] - encountered two locations with the same direction: ${one.toString()} - ${two.toString()}`,
       );
     if (one.isCenter) {
       if (two.isX) [this.x, this.y] = [two, one];
@@ -529,6 +529,12 @@ export class XY {
   yDistanceTo(other: LooseXYT): number {
     const o = new XY(other);
     return Math.abs(this.y - o.y);
+  }
+
+  /** @returns the translation necessary to get from the point to the given point */
+  translation(other: LooseXYT): XY {
+    const o = new XY(other);
+    return new XY(o.x - this.x, o.y - this.y);
   }
 
   /**
@@ -718,6 +724,10 @@ export class Bounds {
    * */
   contains(v: number): boolean {
     return v >= this.lower && v < this.upper;
+  }
+
+  overlapsWith(other: Bounds): boolean {
+    return this.contains(other.lower) || this.contains(other.upper - 1);
   }
 
   /** @returns a number representing the distance between the upper and lower bounds */

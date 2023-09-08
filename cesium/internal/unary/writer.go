@@ -29,11 +29,11 @@ type Writer struct {
 }
 
 func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Series) error {
-	w, err := db.NewWriter(ctx, domain.WriterConfig{Start: start})
+	w, err := db.OpenWriter(ctx, domain.WriterConfig{Start: start})
 	if err != nil {
 		return err
 	}
-	if err = w.Write(series); err != nil {
+	if _, err = w.Write(series); err != nil {
 		return err
 	}
 	_, err = w.Commit(ctx)
@@ -41,16 +41,17 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Seri
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) error {
+func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if err := w.validate(series); err != nil {
-		return err
+		return 0, err
 	}
+	alignment := telem.Alignment(w.numWritten)
 	w.numWritten += series.Len()
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
 	_, err := w.internal.Write(series.Data)
-	return err
+	return alignment, err
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -60,7 +61,7 @@ func (w *Writer) updateHwm(series telem.Series) {
 	w.hwm = telem.ValueAt[telem.TimeStamp](series, series.Len()-1)
 }
 
-// Commit commits the written Series to the database.
+// Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)

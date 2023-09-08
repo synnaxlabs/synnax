@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import Synnax, { SynnaxProps } from "@/client";
+import Synnax, { type SynnaxProps } from "@/client";
 
 export const HOST = "localhost";
 export const PORT = 9090;

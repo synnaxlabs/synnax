@@ -7,44 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
 import { QueryError } from "@/errors";
-import { FrameClient } from "@/framer";
-import { RangeCreator } from "@/ranger/creator";
+import { type framer } from "@/framer";
+import { type Creator } from "@/ranger/creator";
 import {
-  NewRangePayload,
-  RangeKey,
-  RangeKeys,
-  RangeName,
-  RangeNames,
-  RangeParams,
-  RangePayload,
-  analyzeRangeParams,
+  type NewPayload,
+  type Key,
+  type Keys,
+  type Name,
+  type Names,
+  type Params,
+  type Payload,
+  analyzeParams,
 } from "@/ranger/payload";
 import { Range } from "@/ranger/range";
-import { RangeRetriever } from "@/ranger/retriever";
+import { type Retriever } from "@/ranger/retriever";
 
-export class RangeClient implements AsyncTermSearcher<string, RangeKey, Range> {
-  private readonly frameClient: FrameClient;
-  private readonly retriever: RangeRetriever;
-  private readonly creator: RangeCreator;
+export class Client implements AsyncTermSearcher<string, Key, Range> {
+  private readonly frameClient: framer.Client;
+  private readonly retriever: Retriever;
+  private readonly creator: Creator;
 
-  constructor(
-    frameClient: FrameClient,
-    retriever: RangeRetriever,
-    creator: RangeCreator
-  ) {
+  constructor(frameClient: framer.Client, retriever: Retriever, creator: Creator) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.creator = creator;
   }
 
-  async create(range: NewRangePayload): Promise<Range>;
+  async create(range: NewPayload): Promise<Range>;
 
-  async create(ranges: NewRangePayload[]): Promise<Range[]>;
+  async create(ranges: NewPayload[]): Promise<Range[]>;
 
-  async create(ranges: NewRangePayload | NewRangePayload[]): Promise<Range | Range[]> {
+  async create(ranges: NewPayload | NewPayload[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const res = this.sugar(await this.creator.create(toArray(ranges)));
     return single ? res[0] : res;
@@ -54,12 +50,12 @@ export class RangeClient implements AsyncTermSearcher<string, RangeKey, Range> {
     return this.sugar(await this.retriever.search(term));
   }
 
-  async retrieve(range: RangeKey | RangeName): Promise<Range>;
+  async retrieve(range: Key | Name): Promise<Range>;
 
-  async retrieve(params: RangeKeys | RangeNames): Promise<Range[]>;
+  async retrieve(params: Keys | Names): Promise<Range[]>;
 
-  async retrieve(params: RangeParams): Promise<Range | Range[]> {
-    const { single, actual } = analyzeRangeParams(params);
+  async retrieve(params: Params): Promise<Range | Range[]> {
+    const { single, actual } = analyzeParams(params);
     const res = this.sugar(await this.retriever.retrieve(params));
     if (!single) return res;
     if (res.length === 0) throw new QueryError(`range matching ${actual} not found`);
@@ -68,7 +64,7 @@ export class RangeClient implements AsyncTermSearcher<string, RangeKey, Range> {
     return res[0];
   }
 
-  private sugar(payloads: RangePayload[]): Range[] {
+  private sugar(payloads: Payload[]): Range[] {
     return payloads.map((payload) => {
       return new Range(payload.name, payload.timeRange, payload.key, this.frameClient);
     });

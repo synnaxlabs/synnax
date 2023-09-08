@@ -6,6 +6,6 @@
         "access": "public"
     },
     "dependencies": {
-      "typescript": "^4.9.4"
+        "typescript": "^5.2.2"
     }
 }

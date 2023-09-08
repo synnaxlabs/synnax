@@ -12,38 +12,37 @@ import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  ChannelKey,
-  ChannelKeyOrName,
-  ChannelKeys,
-  ChannelKeysOrNames,
-  ChannelName,
-  ChannelNames,
-  ChannelParams,
-  ChannelPayload,
-  channelPayload,
+  type Key,
+  type KeyOrName,
+  type Keys,
+  type KeysOrNames,
+  type Name,
+  type Names,
+  type Params,
+  type Payload,
+  payload,
 } from "@/channel/payload";
+import { QueryError } from "@/errors";
 
-import { QueryError } from "..";
-
-const requestSchema = z.object({
+const reqZ = z.object({
   leaseholder: z.number().optional(),
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
 });
 
-type Request = z.infer<typeof requestSchema>;
+type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  channels: channelPayload.array(),
+  channels: payload.array(),
 });
 
-export interface ChannelRetriever {
-  retrieve: (channels: ChannelParams) => Promise<ChannelPayload[]>;
-  search: (term: string) => Promise<ChannelPayload[]>;
+export interface Retriever {
+  retrieve: (channels: Params) => Promise<Payload[]>;
+  search: (term: string) => Promise<Payload[]>;
 }
 
-export class ClusterChannelRetriever implements ChannelRetriever {
+export class ClusterRetriever implements Retriever {
   private static readonly ENDPOINT = "/channel/retrieve";
   private readonly client: UnaryClient;
 
@@ -51,45 +50,41 @@ export class ClusterChannelRetriever implements ChannelRetriever {
     this.client = client;
   }
 
-  async search(term: string): Promise<ChannelPayload[]> {
+  async search(term: string): Promise<Payload[]> {
     return await this.execute({ search: term });
   }
 
-  async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
-    const { variant, normalized } = analyzeChannelParams(channels);
+  async retrieve(channels: Params): Promise<Payload[]> {
+    const { variant, normalized } = analyzeParams(channels);
     return await this.execute({ [variant]: normalized });
   }
 
-  private async execute(request: Request): Promise<ChannelPayload[]> {
-    const [res, err] = await this.client.send(
-      ClusterChannelRetriever.ENDPOINT,
-      request,
-      resZ
-    );
+  private async execute(request: Request): Promise<Payload[]> {
+    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, resZ);
     if (err != null) throw err;
     return res.channels;
   }
 }
 
-export class CacheChannelRetriever implements ChannelRetriever {
-  private readonly cache: Map<number, ChannelPayload>;
+export class CacheRetriever implements Retriever {
+  private readonly cache: Map<number, Payload>;
   private readonly namesToKeys: Map<string, number>;
-  private readonly wrapped: ChannelRetriever;
+  private readonly wrapped: Retriever;
 
-  constructor(wrapped: ChannelRetriever) {
+  constructor(wrapped: Retriever) {
     this.cache = new Map();
     this.namesToKeys = new Map();
     this.wrapped = wrapped;
   }
 
-  async search(term: string): Promise<ChannelPayload[]> {
+  async search(term: string): Promise<Payload[]> {
     return await this.wrapped.search(term);
   }
 
-  async retrieve(channels: ChannelParams): Promise<ChannelPayload[]> {
-    const { normalized } = analyzeChannelParams(channels);
-    const results: ChannelPayload[] = [];
-    const toFetch: ChannelKeysOrNames = [];
+  async retrieve(channels: Params): Promise<Payload[]> {
+    const { normalized } = analyzeParams(channels);
+    const results: Payload[] = [];
+    const toFetch: KeysOrNames = [];
     normalized.forEach((keyOrName) => {
       const c = this.getFromCache(keyOrName);
       if (c != null) results.push(c);
@@ -101,55 +96,53 @@ export class CacheChannelRetriever implements ChannelRetriever {
     return results.concat(fetched);
   }
 
-  private updateCache(channels: ChannelPayload[]): void {
+  private updateCache(channels: Payload[]): void {
     channels.forEach((channel) => {
       this.cache.set(channel.key, channel);
       this.namesToKeys.set(channel.name, channel.key);
     });
   }
 
-  private getFromCache(channel: ChannelKeyOrName): ChannelPayload | undefined {
+  private getFromCache(channel: KeyOrName): Payload | undefined {
     const key = typeof channel === "number" ? channel : this.namesToKeys.get(channel);
     if (key == null) return undefined;
     return this.cache.get(key);
   }
 }
 
-export type ChannelParamAnalysisResult =
+export type ParamAnalysisResult =
   | {
       single: true;
       variant: "names";
-      normalized: ChannelNames;
-      actual: ChannelName;
+      normalized: Names;
+      actual: Name;
     }
   | {
       single: true;
       variant: "keys";
-      normalized: ChannelKeys;
-      actual: ChannelKey;
+      normalized: Keys;
+      actual: Key;
     }
   | {
       single: false;
       variant: "keys";
-      normalized: ChannelKeys;
-      actual: ChannelKeys;
+      normalized: Keys;
+      actual: Keys;
     }
   | {
       single: false;
       variant: "names";
-      normalized: ChannelNames;
-      actual: ChannelNames;
+      normalized: Names;
+      actual: Names;
     };
 
-export const analyzeChannelParams = (
-  channels: ChannelParams
-): ChannelParamAnalysisResult => {
-  const normal = toArray(channels) as ChannelKeysOrNames;
+export const analyzeParams = (channels: Params): ParamAnalysisResult => {
+  const normal = toArray(channels) as KeysOrNames;
   if (normal.length === 0) throw new QueryError("No channels provided");
   return {
     single: !Array.isArray(channels),
     variant: typeof normal[0] === "number" ? "keys" : "names",
     normalized: normal,
     actual: channels,
-  } as const as ChannelParamAnalysisResult;
+  } as const as ParamAnalysisResult;
 };

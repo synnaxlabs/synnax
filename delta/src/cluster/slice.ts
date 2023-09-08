@@ -10,7 +10,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
-import { Cluster } from "@/cluster/core";
+import { type Cluster } from "@/cluster/core";
 
 /** The state of the cluster slice. */
 export interface SliceState {

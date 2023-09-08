@@ -8,23 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
-  CSSProperties,
-  ReactElement,
-  RefObject,
+  type CSSProperties,
+  type ReactElement,
+  type RefObject,
   memo,
   useCallback,
   useRef,
   useState,
 } from "react";
 
-import { XY, CrudeXY, Box, XYScale, XYLocation } from "@synnaxlabs/x";
+import { XY, type CrudeXY, Box, XYScale, XYLocation } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
+import { type Color } from "@/color";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { OptionalControl } from "@/input/types";
+import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
@@ -45,7 +45,7 @@ type CSSPosition = Partial<
 
 export const intelligentPosition = (
   pos: XY,
-  ref: RefObject<HTMLDivElement>
+  ref: RefObject<HTMLDivElement>,
 ): CSSPosition => {
   if (ref.current == null) return { display: "none" };
   const ret: CSSPosition = {};
@@ -113,13 +113,13 @@ export const Legend = memo(
           new Box(b.topLeft, {
             width: b.width - el.width,
             height: b.height - el.height,
-          })
+          }),
         );
         return clamp.pos(
-          new XY(positionRef.current).translate(scale.box(box).signedDims)
+          new XY(positionRef.current).translate(scale.box(box).signedDims),
         ).crude;
       },
-      [pickerVisible]
+      [pickerVisible],
     );
 
     const handleCursorDragStart = useCursorDrag({
@@ -128,11 +128,11 @@ export const Legend = memo(
           const pos = calculatePosition(box);
           setIntelligentPos(intelligentPosition(new XY(pos), ref));
         },
-        [setPosition]
+        [setPosition],
       ),
       onEnd: useCallback(
         (box: Box) => (positionRef.current = calculatePosition(box)),
-        [pickerVisible]
+        [pickerVisible],
       ),
     });
 
@@ -170,6 +170,6 @@ export const Legend = memo(
         ))}
       </Align.Space>
     );
-  }
+  },
 );
 Legend.displayName = "Legend";

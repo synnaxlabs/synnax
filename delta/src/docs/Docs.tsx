@@ -17,7 +17,7 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { useSelectLocation } from "@/docs/selectors";
 import { setDocsLocation } from "@/docs/slice";
-import { LayoutRenderer } from "@/layout";
+import { type Layout } from "@/layout";
 
 import "@/docs/Docs.css";
 
@@ -31,7 +31,7 @@ const HOST = new URL({
  * Renders a layout that loads the documentation site in an iframe. Updates the docs
  * redux store to preserve the location when re-opening the docs.
  */
-export const Docs: LayoutRenderer = memo(() => {
+export const Docs: Layout.Renderer = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.

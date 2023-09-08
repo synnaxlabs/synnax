@@ -9,7 +9,7 @@
 
 import { useCallback, useState } from "react";
 
-import { UnknownRecord, ArrayTransform } from "@synnaxlabs/x";
+import { type UnknownRecord, type ArrayTransform } from "@synnaxlabs/x";
 
 export interface ArrayTransformEntry<E extends UnknownRecord = UnknownRecord> {
   transform: ArrayTransform<E>;
@@ -41,17 +41,17 @@ export const useTransforms = <E extends UnknownRecord>({
         next.sort((a, b) => b.priority - a.priority);
         return next;
       }),
-    [setTransforms]
+    [setTransforms],
   );
 
   const deleteTransform = useCallback(
     (key: string): void => setTransforms((prev) => prev.filter((t) => t.key !== key)),
-    [setTransform]
+    [setTransform],
   );
 
   const transform = useCallback(
     (data: E[]) => transforms.reduce((data, t) => t.transform(data), data),
-    [transforms]
+    [transforms],
   );
 
   return { transform, setTransform, deleteTransform };

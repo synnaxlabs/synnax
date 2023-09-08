@@ -12,6 +12,7 @@ package writer
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -100,17 +101,13 @@ func (v *validator) validate(req Request) error {
 		return errors.Wrapf(validate.Error, "invalid writer command: %d", req.Command)
 	}
 	if req.Command == Data {
-		missing, extra := v.keys.Difference(req.Frame.Keys)
-		if len(missing) > 0 || len(extra) > 0 {
-			return errors.Wrapf(validate.Error,
-				"invalid frame: missing keys: %v, has extra keys: %v",
-				missing,
-				extra,
-			)
+		for _, k := range req.Frame.Keys {
+			if !lo.Contains(v.keys, k) {
+				return errors.Wrapf(validate.Error, "invalid key: %s", k)
+			}
+
 		}
-		if !req.Frame.Even() {
-			return errors.Wrapf(validate.Error, "invalid frame: series have different lengths")
-		}
+
 	}
 	return nil
 }

@@ -14,7 +14,7 @@ import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
-import { FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
 export const tooltipStateZ = z.object({
@@ -68,7 +68,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const scale = XYScale.scale(Box.DECIMAL).scale(region);
     const reverseScale = XYScale.scale(region).scale(Box.DECIMAL);
     const values = await props.findByXDecimal(
-      reverseScale.x.pos(this.state.position.x)
+      reverseScale.x.pos(this.state.position.x),
     );
     const { draw } = this.internal;
 
@@ -93,7 +93,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       draw.circle({
         fill: r.color.pickByContrast(
           this.internal.dotColor,
-          this.internal.dotColorContrast
+          this.internal.dotColorContrast,
         ),
         radius: 2,
         position,

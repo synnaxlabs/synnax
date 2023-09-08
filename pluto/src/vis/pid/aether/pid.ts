@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { CSS } from "@/css";
+import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
 export const pidStateZ = z.object({
@@ -31,15 +32,18 @@ export interface PIDElement extends aether.Component {
 
 interface InternalState {
   render: render.Context;
+  aggregate: status.Aggregate;
 }
 
 export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDElement> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidStateZ;
+  readonly eraser: render.Eraser = new render.Eraser();
   schema = PID.stateZ;
 
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);
+    this.internal.aggregate = status.useAggregate(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender());
     this.requestRender();
     if (this.state.error != null) this.setState((p) => ({ ...p, error: undefined }));
@@ -47,14 +51,6 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDEl
 
   afterDelete(): void {
     this.requestRender();
-  }
-
-  get region(): Box {
-    return new Box(this.state.region);
-  }
-
-  get prevRegion(): Box {
-    return new Box(this.prevState.region);
   }
 
   async render(): Promise<render.Cleanup> {
@@ -70,18 +66,25 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDEl
               scale: XYScale.magnify(new XY(this.state.zoom))
                 .translate(region.topLeft)
                 .translate(this.state.position),
-            })
-        )
+            }),
+        ),
       );
     } catch (e) {
-      this.setState((p) => ({ ...p, error: (e as Error).message }));
+      this.internal.aggregate({
+        variant: "error",
+        message: (e as Error).message,
+      });
     } finally {
       clearScissor();
     }
 
-    return async () => {
-      renderCtx.eraseCanvas(this.prevRegion.isZero ? this.region : this.prevRegion);
-    };
+    return async () =>
+      this.eraser.erase(
+        this.internal.render,
+        this.state.region,
+        this.prevState.region,
+        new XY(10),
+      );
   }
 
   private requestRender(): void {

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CrudeDirection } from "@synnaxlabs/x";
+import { type CrudeDirection } from "@synnaxlabs/x";
 
-import { Tabs } from "@/tabs";
+import { type Tabs } from "@/tabs";
 
 /**
  * Represents the data for a node in the Mosaic binary tree. Nodes can be either leaf

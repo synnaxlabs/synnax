@@ -8,10 +8,10 @@
 // included in the file licenses/apl.txt.
 
 import { bool } from "@/telem/bool/aether";
-import { telem } from "@/telem/core";
+import { type telem } from "@/telem/core";
 
 export const useNumericConverterSink = (
-  props: bool.NumericConverterSinkProps
+  props: bool.NumericConverterSinkProps,
 ): telem.BooleanSinkSpec => {
   return {
     props,
@@ -21,7 +21,7 @@ export const useNumericConverterSink = (
 };
 
 export const useNumericConverterSource = (
-  props: bool.NumericConverterSourceProps
+  props: bool.NumericConverterSourceProps,
 ): telem.BooleanSourceSpec => {
   return {
     props,

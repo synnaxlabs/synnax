@@ -14,3 +14,4 @@ export * from "@/memo/useMemoCompare";
 export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useSize";
 export * from "@/hooks/useDebouncedCallback";
+export * from "@/hooks/useSyncedRef";

@@ -11,13 +11,13 @@ import { useMemo } from "react";
 
 import { Rate } from "@synnaxlabs/x";
 
-import { telem } from "@/telem/core";
+import { type telem } from "@/telem/core";
 import { staticTelem } from "@/telem/static/aether";
 
 export const useStaticXY = (props: staticTelem.XYProps): telem.XYSourceSpec => {
   const transfer = useMemo(
     () => [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
-    [props]
+    [props],
   );
   return {
     type: staticTelem.XY.TYPE,
@@ -28,7 +28,7 @@ export const useStaticXY = (props: staticTelem.XYProps): telem.XYSourceSpec => {
 };
 
 export const useIterativeXY = (
-  props: staticTelem.IterativeXYProps
+  props: staticTelem.IterativeXYProps,
 ): telem.XYSourceSpec => {
   return useMemo(
     () => ({
@@ -40,7 +40,7 @@ export const useIterativeXY = (
       },
       transfer: [...props.x.map((x) => x.buffer), ...props.y.map((y) => y.buffer)],
     }),
-    []
+    [],
   );
 };
 

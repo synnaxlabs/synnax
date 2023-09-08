@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { ChannelKey } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 
 import { Channel } from "@/channel";
 import { Input } from "@/input";
-import { remote } from "@/telem/remote/aether";
+import { type remote } from "@/telem/remote/aether";
 import { componentRenderProp } from "@/util/renderProp";
 
 export interface NumericFormProps extends Input.ItemProps<remote.NumericSourceProps> {}
@@ -23,11 +23,11 @@ export const NumericSourceForm = ({
   onChange,
   ...props
 }: NumericFormProps): ReactElement => {
-  const handleChannelChange = (channel: ChannelKey): void =>
+  const handleChannelChange = (channel: channel.Key): void =>
     onChange({ ...value, channel });
 
   return (
-    <Input.Item<ChannelKey, ChannelKey, Channel.SelectSingleProps>
+    <Input.Item<channel.Key, channel.Key, Channel.SelectSingleProps>
       label="Channel"
       value={value.channel}
       onChange={handleChannelChange}

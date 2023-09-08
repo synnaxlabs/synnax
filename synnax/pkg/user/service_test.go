@@ -15,13 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("StreamService", Ordered, func() {
+var _ = Describe("User", Ordered, func() {
 	var (
 		db      *gorp.DB
 		svc     *user.Service
@@ -32,36 +34,35 @@ var _ = Describe("StreamService", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg, err := ontology.Open(ctx, ontology.Config{DB: db})
 		Expect(err).To(BeNil())
-		svc = &user.Service{DB: db, Ontology: otg}
+		g := MustSucceed(group.NewService(group.Config{DB: db, Ontology: otg}))
+		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 	})
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	Describe("set", func() {
-		Describe("Create", func() {
-			It("Should create a new user", func() {
-				w := svc.NewWriter(nil)
-				u := &user.User{Username: "test", Key: userKey}
-				Expect(w.Create(ctx, u)).To(Succeed())
-				Expect(u.Key).ToNot(Equal(uuid.Nil))
-			})
-			It("Should return an error if the user with the key already exists", func() {
-				w := svc.NewWriter(nil)
-				u := &user.User{Username: "test", Key: userKey}
-				Expect(errors.Is(w.Create(ctx, u), query.UniqueViolation)).To(BeTrue())
-			})
+	Describe("Create", func() {
+		It("Should create a new user", func() {
+			w := svc.NewWriter(nil)
+			u := &user.User{Username: "test", Key: userKey}
+			Expect(w.Create(ctx, u)).To(Succeed())
+			Expect(u.Key).ToNot(Equal(uuid.Nil))
 		})
-		Describe("Update", func() {
-			It("Should update the user", func() {
-				w := svc.NewWriter(nil)
-				u := user.User{Username: "test2"}
-				Expect(w.Create(ctx, &u)).To(Succeed())
-				u.Username = "test3"
-				Expect(w.Update(ctx, u)).To(Succeed())
-			})
+		It("Should return an error if the user with the key already exists", func() {
+			w := svc.NewWriter(nil)
+			u := &user.User{Username: "test", Key: userKey}
+			Expect(errors.Is(w.Create(ctx, u), query.UniqueViolation)).To(BeTrue())
 		})
 	})
-	Describe("RetrieveP", func() {
+	Describe("Update", func() {
+		It("Should update the user", func() {
+			w := svc.NewWriter(nil)
+			u := user.User{Username: "test2"}
+			Expect(w.Create(ctx, &u)).To(Succeed())
+			u.Username = "test3"
+			Expect(w.Update(ctx, u)).To(Succeed())
+		})
+	})
+	Describe("Retrieve", func() {
 		It("Should retrieve a user by its key", func() {
 			user, err := svc.Retrieve(ctx, userKey)
 			Expect(err).ToNot(HaveOccurred())

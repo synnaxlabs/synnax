@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Text, Align, Button } from "@synnaxlabs/pluto";
@@ -59,7 +59,7 @@ export const GetStarted = (): ReactElement => {
           Connect a Cluster
         </Button.Button>
         <Button.Button
-          startIcon={<Icon.Control />}
+          startIcon={<Icon.Visualize />}
           onClick={handleVisualize}
           size="large"
         >

@@ -47,13 +47,13 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	ok := i.internal.SeekFirst(ctx)
-	i.seekReset(i.internal.Range().Start)
+	i.seekReset(i.internal.TimeRange().Start)
 	return ok
 }
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	ok := i.internal.SeekLast(ctx)
-	i.seekReset(i.internal.Range().End)
+	i.seekReset(i.internal.TimeRange().End)
 	return ok
 }
 
@@ -113,7 +113,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 	nRemaining := i.IteratorConfig.AutoChunkSize
 	for {
-		if !i.internal.Range().OverlapsWith(i.view) {
+		if !i.internal.TimeRange().OverlapsWith(i.view) {
 			if !i.internal.Next() {
 				return false
 			}
@@ -191,15 +191,15 @@ func (i *Iterator) Close() error {
 }
 
 func (i *Iterator) accumulate(ctx context.Context) bool {
-	if !i.internal.Range().OverlapsWith(i.view) {
+	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
 	}
-	start, size, err := i.sliceRange(ctx)
+	offset, size, err := i.sliceDomain(ctx)
 	if err != nil {
 		i.err = err
 		return false
 	}
-	series, _, err := i.read(ctx, start, size)
+	series, _, err := i.read(ctx, offset, size)
 	if err != nil && !errors.Is(err, io.EOF) {
 		i.err = err
 		return false
@@ -219,15 +219,16 @@ func (i *Iterator) insert(series telem.Series) {
 	}
 }
 
-func (i *Iterator) read(ctx context.Context, start telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
+func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
 	series.DataType = i.Channel.DataType
-	series.TimeRange = i.internal.Range().BoundBy(i.view)
+	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
+	series.Alignment = telem.Alignment(i.Channel.DataType.Density().SampleCount(offset))
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return
 	}
-	n, err = r.ReadAt(series.Data, int64(start))
+	n, err = r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
@@ -237,7 +238,7 @@ func (i *Iterator) read(ctx context.Context, start telem.Offset, size telem.Size
 	return
 }
 
-func (i *Iterator) sliceRange(ctx context.Context) (telem.Offset, telem.Size, error) {
+func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, error) {
 	startApprox, err := i.approximateStart(ctx)
 	if err != nil {
 		return 0, 0, err
@@ -255,8 +256,8 @@ func (i *Iterator) sliceRange(ctx context.Context) (telem.Offset, telem.Size, er
 // range and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
-	if i.internal.Range().Start.Before(i.view.Start) {
-		target := i.internal.Range().Start.Range(i.view.Start)
+	if i.internal.TimeRange().Start.Before(i.view.Start) {
+		target := i.internal.TimeRange().Start.Range(i.view.Start)
 		startApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
@@ -268,8 +269,8 @@ func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.Dist
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
-	if i.internal.Range().End.After(i.view.End) {
-		target := i.internal.Range().Start.Range(i.view.End)
+	if i.internal.TimeRange().End.After(i.view.End) {
+		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return

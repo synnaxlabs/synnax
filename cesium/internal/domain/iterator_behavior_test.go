@@ -46,7 +46,7 @@ var _ = Describe("Iterator Behavior", func() {
 				r := db.NewIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 				Expect(r.SeekFirst(ctx)).To(Equal(expectedResult))
 				if expectedResult {
-					Expect(r.Range()).To(Equal(expectedFirst))
+					Expect(r.TimeRange()).To(Equal(expectedFirst))
 				}
 			},
 			Entry("Bound start equal to domain start",
@@ -87,7 +87,7 @@ var _ = Describe("Iterator Behavior", func() {
 				tr := telem.TimeRange{Start: 0, End: ts}
 				r := db.NewIterator(domain.IterRange(tr))
 				Expect(r.SeekLast(ctx)).To(Equal(expectedResult))
-				Expect(r.Range()).To(Equal(expectedLast))
+				Expect(r.TimeRange()).To(Equal(expectedLast))
 			},
 			Entry("Bound end equal to domain end",
 				40*telem.SecondTS,
@@ -123,11 +123,11 @@ var _ = Describe("Iterator Behavior", func() {
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekFirst(ctx)).To(BeTrue())
-				Expect(iter.Range()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Next()).To(BeTrue())
-				Expect(iter.Range()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Next()).To(BeTrue())
-				Expect(iter.Range()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Next()).To(BeFalse())
 			})
 		})
@@ -137,11 +137,11 @@ var _ = Describe("Iterator Behavior", func() {
 					Bounds: (15 * telem.SecondTS).SpanRange(45 * telem.Second),
 				})
 				Expect(iter.SeekLast(ctx)).To(BeTrue())
-				Expect(iter.Range()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((50 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Prev()).To(BeTrue())
-				Expect(iter.Range()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((30 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Prev()).To(BeTrue())
-				Expect(iter.Range()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
+				Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Prev()).To(BeFalse())
 			})
 		})

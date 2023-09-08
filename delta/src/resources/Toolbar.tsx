@@ -7,22 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useRef, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Tree, Align, Synnax, useAsyncEffect, Menu, Haul } from "@synnaxlabs/pluto";
-import { useStore } from "react-redux";
+import {
+  Tree,
+  Align,
+  Synnax,
+  useAsyncEffect,
+  Menu,
+  Haul,
+  Text,
+} from "@synnaxlabs/pluto";
+import { useDispatch, useStore } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { setNavdrawerVisible } from "@/layout/slice";
 import {
   MultipleSelectionContextMenu,
-  ResourceSelectionContext,
+  type ResourceSelectionContext,
   convertOntologyResources,
   types,
 } from "@/resources/resources";
-import { Action, RootState } from "@/store";
+import { type Action, type RootState } from "@/store";
 
 const ResourcesTree = (): ReactElement => {
   const client = Synnax.use();
@@ -105,6 +115,29 @@ const ResourcesTree = (): ReactElement => {
       setNodes([...next]);
     })();
   };
+
+  const dispatch = useDispatch();
+
+  const handleCluster: Text.TextProps["onClick"] = (e) => {
+    e.stopPropagation();
+    placer(Cluster.connectWindowLayout);
+    dispatch(setNavdrawerVisible({ key: Cluster.Toolbar.key, value: true }));
+  };
+
+  if (client == null)
+    return (
+      <Align.Space empty style={{ height: "100%", position: "relative" }}>
+        <ToolbarHeader>
+          <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
+        </ToolbarHeader>
+        <Align.Center direction="y" style={{ height: "100%" }} size="small">
+          <Text.Text level="p">No cluster connected.</Text.Text>
+          <Text.Link level="p" onClick={handleCluster}>
+            Connect a cluster
+          </Text.Link>
+        </Align.Center>
+      </Align.Space>
+    );
 
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>

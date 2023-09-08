@@ -10,7 +10,7 @@
 import { forwardRef } from "react";
 
 import { CSS } from "@/css";
-import { BaseProps } from "@/input/types";
+import { type BaseProps } from "@/input/types";
 
 import "@/input/Switch.css";
 
@@ -44,6 +44,6 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
         <span className="pluto-input-switch__slider" />
       </label>
     </div>
-  )
+  ),
 );
 Switch.displayName = "InputSwitch";

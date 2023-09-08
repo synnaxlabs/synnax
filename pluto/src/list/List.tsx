@@ -8,23 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useTransforms } from "@/hooks";
 import { Provider } from "@/list/Context";
-import { ColumnSpec } from "@/list/types";
+import { type ColumnSpec } from "@/list/types";
 
 export interface ListProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
@@ -44,7 +44,7 @@ export interface ListProps<
  */
 export const List = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   children,
   data: propsData,
@@ -63,7 +63,7 @@ export const List = <
   const transformedData = useMemo(() => transform(data), [data, transform]);
   const setSourceData = useCallback((data: E[]) => setData(data), [setData]);
   const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(
-    emptyContent
+    emptyContent,
   );
   return (
     <Provider<K, E>

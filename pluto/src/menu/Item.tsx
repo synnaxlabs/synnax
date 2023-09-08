@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FunctionComponent, ReactElement } from "react";
+import { type FunctionComponent, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -18,7 +18,7 @@ import "@/menu/Item.css";
 const menuItemFactory =
   <E extends Pick<Button.ButtonProps, "className" | "onClick">>(
     Base: FunctionComponent<E>,
-    defaultProps?: Partial<E>
+    defaultProps?: Partial<E>,
   ): FunctionComponent<E & { itemKey: string }> =>
   // eslint-disable-next-line react/display-name
   (props): ReactElement => {

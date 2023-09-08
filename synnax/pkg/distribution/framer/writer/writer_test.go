@@ -90,35 +90,6 @@ var _ = Describe("TypedWriter", func() {
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
 		})
-		It("Should return an error if two keys do not share the same rate", func() {
-			ch := channel.Channel{Rate: 2 * telem.Hz, DataType: telem.Int64T}
-			Expect(s.channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			_, err := s.service.New(context.TODO(), writer.Config{
-				Keys: []channel.Key{s.keys[0], ch.Key()},
-			})
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(err.Error()).To(ContainSubstring("rate"))
-		})
-		It("Should return an error if two keys do not share the same index", func() {
-			indexes := []channel.Channel{
-				{DataType: telem.TimeStampT, IsIndex: true},
-				{DataType: telem.TimeStampT, IsIndex: true},
-			}
-			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &indexes)).To(Succeed())
-			channels := []channel.Channel{
-				{DataType: telem.Int64T, LocalIndex: indexes[0].LocalKey},
-				{DataType: telem.Int64T, LocalIndex: indexes[1].LocalKey},
-			}
-			Expect(s.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-			_, err := s.service.New(context.TODO(), writer.Config{
-				Keys: []channel.Key{
-					channels[0].Key(),
-					channels[1].Key(),
-				},
-			})
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(err.Error()).To(ContainSubstring("index"))
-		})
 	})
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario

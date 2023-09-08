@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PropsWithChildren, useEffect } from "react";
+import { type PropsWithChildren, useEffect } from "react";
 
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -38,5 +38,5 @@ export const Controller = Aether.wrap<ControllerProps>(
     useEffect(() => setState(memoProps), [memoProps, setState]);
 
     return <Aether.Composite path={path}>{children}</Aether.Composite>;
-  }
+  },
 );

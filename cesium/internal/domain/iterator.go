@@ -71,7 +71,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool { return i.SeekGE(ctx, i.
 // SeekLast returns false.
 func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.Bounds.End-1) }
 
-// SeekLE seeks to the domain whose Range contain the provided timestamp. If no such domain
+// SeekLE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
 // exists, SeekLE seeks to the closes domain whose ending timestamp is less than the provided
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
@@ -80,7 +80,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	return i.reload()
 }
 
-// SeekGE seeks to the domain whose Range contain the provided timestamp. If no such domain
+// SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
 // exists, SeekGE seeks to the closes domain whose starting timestamp is greater than the
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
@@ -113,8 +113,8 @@ func (i *Iterator) Prev() bool {
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
-// Range returns the time interval occupied by current domain.
-func (i *Iterator) Range() telem.TimeRange { return i.value.TimeRange }
+// TimeRange returns the time interval occupied by current domain.
+func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 
 // NewReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have

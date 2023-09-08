@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cloneElement, forwardRef, ReactElement } from "react";
+import { cloneElement, forwardRef, type ReactElement } from "react";
 
 import clsx from "clsx";
 
@@ -32,7 +32,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       onClick,
       ...props
     },
-    ref
+    ref,
   ): ReactElement => (
     <button
       ref={ref}
@@ -43,7 +43,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
         CSS.size(size),
         CSS.sharp(sharp),
         CSS.BM("btn", variant),
-        CSS.disabled(disabled)
+        CSS.disabled(disabled),
       )}
       onClick={disabled ? undefined : onClick}
       {...props}
@@ -53,7 +53,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
         ...children.props,
       })}
     </button>
-  )
+  ),
 );
 CoreIcon.displayName = "ButtonIcon";
 

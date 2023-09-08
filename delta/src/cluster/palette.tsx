@@ -10,7 +10,7 @@
 import { AiFillApi } from "react-icons/ai";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 
 export const connectCommand: Command = {
   key: "connect-cluster",

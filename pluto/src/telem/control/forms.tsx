@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { ChannelKey } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 
 import { Channel } from "@/channel";
 import { componentRenderProp } from "@/index";
 import { Input } from "@/input";
-import { control } from "@/telem/control/aether";
+import { type control } from "@/telem/control/aether";
 
 export interface NumericSinkFormProps
   extends Input.ItemProps<control.NumericSinkProps> {}
@@ -24,11 +24,11 @@ export const NumericSinkForm = ({
   onChange,
   ...props
 }: NumericSinkFormProps): ReactElement => {
-  const handleChannelChange = (channel: ChannelKey): void =>
+  const handleChannelChange = (channel: channel.Key): void =>
     onChange({ ...value, channel });
 
   return (
-    <Input.Item<ChannelKey, ChannelKey, Channel.SelectSingleProps>
+    <Input.Item<channel.Key, channel.Key, Channel.SelectSingleProps>
       label="Channel"
       value={value.channel}
       onChange={handleChannelChange}

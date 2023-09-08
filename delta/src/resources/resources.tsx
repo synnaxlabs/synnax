@@ -7,50 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import {
   ontology,
-  type ChannelKey,
+  type channel,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Tree, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { Line } from "@/line";
-import { ZERO_CHANNELS_STATE } from "@/line/slice";
-import { RootStore } from "@/store";
+import { LinePlot } from "@/lineplot";
+import { ZERO_CHANNELS_STATE } from "@/lineplot/slice";
+import { type RootStore } from "@/store";
 import { Workspace } from "@/workspace";
 
-export interface ResourceSelectionContext {
-  client: Synnax;
-  store: RootStore;
-  placeLayout: Layout.Placer;
-  selection: {
-    parent: Tree.Node;
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-  };
-  state: {
-    resources: ontology.Resource[];
-    nodes: Tree.Node[];
-    setNodes: (nodes: Tree.Node[]) => void;
-  };
-}
-
-export interface ResourceType {
-  type: ontology.ResourceType;
-  icon: ReactElement;
-  hasChildren: boolean;
-  allowRename: (res: ontology.Resource) => boolean;
-  onSelect: (ctx: ResourceSelectionContext) => void;
-  canDrop: (hauled: Haul.Item[]) => boolean;
-  onDrop: (ctx: ResourceSelectionContext, hauled: Haul.Item[]) => void;
-  contextMenu: (ctx: ResourceSelectionContext) => ReactElement;
-  haulItems: (resource: ontology.Resource) => Haul.Item[];
-}
+import { CHANNEL_SERVICE } from "./channel";
+import { type Service } from "./service";
 
 export const convertOntologyResources = (
   resources: ontology.Resource[]
@@ -70,7 +45,18 @@ export const convertOntologyResources = (
   });
 };
 
-export const types: Record<string, ResourceType> = {
+export const types: Record<string, Service> = {
+  user: {
+    type: "user",
+    icon: <Icon.User />,
+    hasChildren: false,
+    canDrop: () => false,
+    onDrop: () => {},
+    contextMenu: () => <></>,
+    onSelect: () => {},
+    haulItems: () => [],
+    allowRename: () => false,
+  },
   builtin: {
     type: "builtin",
     icon: <Icon.Cluster />,
@@ -104,47 +90,7 @@ export const types: Record<string, ResourceType> = {
     haulItems: () => [],
     allowRename: () => false,
   },
-  channel: {
-    type: "channel",
-    icon: <Icon.Channel />,
-    hasChildren: false,
-    allowRename: () => true,
-    canDrop: () => false,
-    onDrop: () => {},
-    onSelect: (ctx) => {
-      const s = ctx.store.getState();
-      const layout = Layout.selectActiveMosaicTab(s);
-      if (layout == null) {
-        ctx.placeLayout(
-          Line.createLinePlot({
-            channels: {
-              ...ZERO_CHANNELS_STATE,
-              y1: [ctx.selected.data.key as ChannelKey],
-            },
-          })
-        );
-      }
-      switch (layout?.type) {
-        case "line":
-          ctx.store.dispatch(
-            Line.addLinePlotYChannel({
-              key: layout?.key,
-              axisKey: "y1",
-              channels: [ctx.selected.data.key as ChannelKey],
-            })
-          );
-      }
-    },
-    haulItems: (res) => {
-      return [
-        {
-          type: "channel",
-          key: Number(res.id.key),
-        },
-      ];
-    },
-    contextMenu: (ctx) => <></>,
-  },
+  channel: CHANNEL_SERVICE,
   group: {
     type: "group",
     hasChildren: true,
@@ -179,7 +125,7 @@ export const types: Record<string, ResourceType> = {
   },
   range: {
     type: "range",
-    hasChildren: true,
+    hasChildren: false,
     icon: <Icon.Range />,
     canDrop: () => true,
     onDrop: () => {},
@@ -187,7 +133,7 @@ export const types: Record<string, ResourceType> = {
       ctx.store.dispatch(
         Workspace.addRange({
           name: ctx.selected.data.name,
-          type: "static",
+          variant: "static",
           key: ctx.selected.data.key,
           timeRange: ctx.selected.data.timeRange,
         })
@@ -195,6 +141,7 @@ export const types: Record<string, ResourceType> = {
     },
     contextMenu: () => <></>,
     haulItems: () => [],
+    allowRename: () => true,
   },
 };
 
@@ -206,8 +153,9 @@ const GroupSelectionMenuItem = (): ReactElement => (
 
 const NEW_GROUP_NAME = "New Group";
 
-const startRenaming = ({ selection, state }: ResourceSelectionContext): void =>
+const startRenaming = ({ selection, state }: ResourceSelectionContext): void => {
   Text.edit(`text-${selection.nodes[0].key}`);
+};
 
 const ungroupSelection = async ({
   client,

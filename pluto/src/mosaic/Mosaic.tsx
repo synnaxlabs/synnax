@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, memo, useCallback, ReactElement } from "react";
+import { useState, memo, useCallback, type ReactElement } from "react";
 
-import { Location, CrudeLocation, CSSBox } from "@synnaxlabs/x";
+import { Location, type CrudeLocation, type CSSBox } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { CanDrop } from "@/haul/Haul";
-import { Node } from "@/mosaic/types";
+import { type CanDrop } from "@/haul/Haul";
+import { type Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
 
@@ -54,7 +54,7 @@ export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
 
   const handleResize = useCallback(
     ([size]: number[]) => onResize(key, size),
-    [onResize]
+    [onResize],
   );
 
   const { props: resizeProps } = Resize.useMultiple({
@@ -118,7 +118,7 @@ const TabLeaf = memo(
         onDrop(key, tabKey as string, location);
         return dropped;
       },
-      [onDrop, tabs.length]
+      [onDrop, tabs.length],
     );
 
     const handleDragOver = useCallback(
@@ -129,7 +129,7 @@ const TabLeaf = memo(
             : insertLocation(getDragLocationPercents(event)).crude;
         setDragMask(location);
       },
-      [tabs.length]
+      [tabs.length],
     );
 
     const { startDrag, ...haulProps } = Haul.useDragAndDrop({
@@ -144,7 +144,7 @@ const TabLeaf = memo(
     const handleDragStart = useCallback(
       (_: unknown, { tabKey }: Tabs.Tab): void =>
         startDrag([{ key: tabKey, type: HAUL_TYPE }]),
-      [startDrag]
+      [startDrag],
     );
 
     const handleCreate = useCallback((): void => onCreate?.(key), [key]);
@@ -165,7 +165,7 @@ const TabLeaf = memo(
         )}
       </div>
     );
-  }
+  },
 );
 
 TabLeaf.displayName = "MosaicTabLeaf";
@@ -179,7 +179,7 @@ const maskStyle: Record<CrudeLocation, CSSBox> = {
 };
 
 const getDragLocationPercents = (
-  e: React.DragEvent<Element>
+  e: React.DragEvent<Element>,
 ): { px: number; py: number } => {
   const rect = e.currentTarget.getBoundingClientRect();
   const x = e.clientX - rect.left;

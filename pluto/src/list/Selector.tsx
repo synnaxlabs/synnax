@@ -9,14 +9,17 @@
 
 import { useEffect } from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { useSelectMultiple, UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import {
+  useSelectMultiple,
+  type UseSelectMultipleProps,
+} from "@/hooks/useSelectMultiple";
 import { useContext } from "@/list/Context";
 
 export interface SelectorProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<UseSelectMultipleProps<K, E>, "data"> {}
 
 /**
@@ -27,7 +30,7 @@ export interface SelectorProps<
  */
 export const Selector = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   value,
   ...props

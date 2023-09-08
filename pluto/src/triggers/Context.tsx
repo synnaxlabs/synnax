@@ -13,19 +13,19 @@ import {
   useEffect,
   useCallback,
   useRef,
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
 } from "react";
 
-import { XY, TimeStamp, TimeSpan, Destructor } from "@synnaxlabs/x";
+import { XY, TimeStamp, TimeSpan, type Destructor } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import {
-  MouseKey,
+  type MouseKey,
   MOUSE_KEYS,
   eventKey,
-  Trigger,
-  Callback,
+  type Trigger,
+  type Callback,
   match,
 } from "@/triggers/triggers";
 
@@ -117,7 +117,7 @@ export const Provider = ({
     if (EXCLUDE_TRIGGERS.includes(key as string)) return;
     setCurr((prevS) => {
       const next = prevS.next.filter(
-        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey)
+        (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
       );
       const prev = prevS.next;
       const nextS: RefState = {

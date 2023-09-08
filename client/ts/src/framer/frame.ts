@@ -11,45 +11,42 @@ import { Size, Series, TimeRange, toArray, DataType, unique } from "@synnaxlabs/
 import { z } from "zod";
 
 import {
-  ChannelKey,
-  ChannelKeyOrName,
-  ChannelKeys,
-  ChannelNames,
-  ChannelParams,
+  type Key,
+  type KeyOrName,
+  type Keys,
+  type Names,
+  type Params,
 } from "@/channel/payload";
 import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
 
-const columnType = (columns: ChannelParams): ColumnType => {
+const columnType = (columns: Params): ColumnType => {
   const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
   return "name";
 };
 
-const validateMatchedColsAndArrays = (
-  columns: ChannelParams,
-  arrays: Series[]
-): void => {
+const validateMatchedColsAndArrays = (columns: Params, arrays: Series[]): void => {
   const colsArr = toArray(columns);
   if (colsArr.length === arrays.length) return;
   const colType = columnType(columns);
   if (columnType === null)
     throw new ValidationError(
-      "[Frame] - channel keys or names must be provided when constructing a frame."
+      "[Frame] - channel keys or names must be provided when constructing a frame.",
     );
   throw new ValidationError(
     `[Frame] - ${colType as string}s and arrays must be the same length.
-    Got ${colsArr.length} ${colType as string}s and ${arrays.length} arrays.`
+    Got ${colsArr.length} ${colType as string}s and ${arrays.length} arrays.`,
   );
 };
 
 export type CrudeFrame =
   | Frame
   | FramePayload
-  | Map<ChannelKeyOrName, Series[] | Series>
-  | Record<ChannelKeyOrName, Series[] | Series>;
+  | Map<KeyOrName, Series[] | Series>
+  | Record<KeyOrName, Series[] | Series>;
 
 /**
  * A frame is a collection of related typed arrays keyed to a particular channel. Frames
@@ -87,13 +84,10 @@ export type CrudeFrame =
  * and array can be square.
  */
 export class Frame {
-  readonly columns: ChannelKeys | ChannelNames = [];
+  readonly columns: Keys | Names = [];
   readonly series: Series[] = [];
 
-  constructor(
-    columnsOrData: ChannelParams | CrudeFrame = [],
-    arrays: Series | Series[] = []
-  ) {
+  constructor(columnsOrData: Params | CrudeFrame = [], arrays: Series | Series[] = []) {
     if (columnsOrData instanceof Frame) {
       this.columns = columnsOrData.columns;
       this.series = columnsOrData.series;
@@ -112,7 +106,7 @@ export class Frame {
     if (isObject) {
       if ("keys" in columnsOrData && "series" in columnsOrData) {
         const data_ = columnsOrData as FramePayload;
-        const arrays = data_.series.map((a) => arrayFromPayload(a));
+        const arrays = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
@@ -126,7 +120,7 @@ export class Frame {
       ["string", "number"].includes(typeof columnsOrData)
     ) {
       const data_ = toArray(arrays);
-      const cols = toArray(columnsOrData) as ChannelKeys | ChannelNames;
+      const cols = toArray(columnsOrData) as Keys | Names;
       validateMatchedColsAndArrays(cols, data_);
       data_.forEach((d, i) => this.push(cols[i], d));
       return;
@@ -135,7 +129,7 @@ export class Frame {
     throw new ValidationError(
       `[Frame] - invalid frame construction parameters. data parameter ust be a frame 
     payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel 
-    name. keys parameter must be a set of channel keys or channel names.`
+    name. keys parameter must be a set of channel keys or channel names.`,
     );
   }
 
@@ -153,16 +147,16 @@ export class Frame {
    * @returns the channel keys if the frame is keyed by channel key, and throws an error
    * otherwise.
    */
-  get keys(): ChannelKeys {
+  get keys(): Keys {
     if (this.colType === "name") throw new UnexpectedError("colType is not key");
-    return (this.columns as ChannelKeys) ?? [];
+    return (this.columns as Keys) ?? [];
   }
 
   /**
    * @returns the unique channel keys if the frame is keyed by channel key, and throws an
    * error otherwise.
    */
-  get uniqueKeys(): ChannelKeys {
+  get uniqueKeys(): Keys {
     return unique(this.keys);
   }
 
@@ -170,29 +164,29 @@ export class Frame {
    * @returns the channel names if the frame is keyed by channel name, and throws an error
    * otherwise.
    */
-  get names(): ChannelNames {
+  get names(): Names {
     if (this.colType === "key") throw new UnexpectedError("colType is not name");
-    return (this.columns as ChannelNames) ?? [];
+    return (this.columns as Names) ?? [];
   }
 
   /**
    * @returns the unique channel names if the frame is keyed by channel name, and throws an
    * otherwise.
    */
-  get uniqueNames(): ChannelNames {
+  get uniqueNames(): Names {
     return unique(this.names);
   }
 
   /**
    * @returns the unique columns in the frame.
    */
-  get uniqueColumns(): ChannelKeys | ChannelNames {
+  get uniqueColumns(): Keys | Names {
     return this.colType === "key" ? this.uniqueKeys : this.uniqueNames;
   }
 
   toPayload(): FramePayload {
     return {
-      series: this.series.map((a) => arrayToPayload(a)),
+      series: this.series.map((a) => seriesToPayload(a)),
       keys: this.keys,
     };
   }
@@ -236,7 +230,7 @@ export class Frame {
     return ranges.every((tr) => tr.equals(ranges[0]));
   }
 
-  timeRange(col?: ChannelKeyOrName): TimeRange {
+  timeRange(col?: KeyOrName): TimeRange {
     if (col == null) {
       if (this.columns.length === 0) return TimeRange.ZERO;
       const start = Math.min(...this.series.map((a) => a.timeRange.start.valueOf()));
@@ -247,7 +241,7 @@ export class Frame {
     if (group == null) return TimeRange.ZERO;
     return new TimeRange(
       group[0].timeRange.start,
-      group[group.length - 1].timeRange.end
+      group[group.length - 1].timeRange.end,
     );
   }
 
@@ -259,17 +253,16 @@ export class Frame {
    * @returns lazy arrays matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: ChannelKeyOrName): Series[];
+  get(key: KeyOrName): Series[];
 
   /**
    * @returns a frame with the given channel keys or names.
    * @param keys the channel keys or names.
    */
-  get(keys: ChannelKeys | ChannelNames): Frame;
+  get(keys: Keys | Names): Frame;
 
-  get(key: ChannelKeyOrName | ChannelKeys | ChannelNames): Series[] | Frame {
-    if (Array.isArray(key))
-      return this.filter((k) => (key as ChannelKeys).includes(k as ChannelKey));
+  get(key: KeyOrName | Keys | Names): Series[] | Frame {
+    if (Array.isArray(key)) return this.filter((k) => (key as Keys).includes(k as Key));
     return this.series.filter((_, i) => this.columns[i] === key);
   }
 
@@ -279,7 +272,7 @@ export class Frame {
    * @param key the channel key or name;
    * @param v the typed arrays to push.
    */
-  push(key: ChannelKeyOrName, ...v: Series[]): void;
+  push(key: KeyOrName, ...v: Series[]): void;
 
   /**
    * Pushes the frame onto the current frame.
@@ -288,20 +281,20 @@ export class Frame {
    */
   push(frame: Frame): void;
 
-  push(keyOrFrame: ChannelKeyOrName | Frame, ...v: Series[]): void {
+  push(keyOrFrame: KeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
       if (this.colType !== null && keyOrFrame.colType !== this.colType)
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
-      (this.columns as ChannelKeys).push(...(keyOrFrame.columns as ChannelKeys));
+      (this.columns as Keys).push(...(keyOrFrame.columns as Keys));
     } else {
       this.series.push(...v);
       if (typeof keyOrFrame === "string" && this.colType === "key")
         throw new ValidationError("keyVariant must match");
       else if (typeof keyOrFrame !== "string" && this.colType === "name")
         throw new ValidationError("keyVariant must match");
-      (this.columns as ChannelKeys).push(
-        ...(Array.from({ length: v.length }, () => keyOrFrame) as ChannelKeys)
+      (this.columns as Keys).push(
+        ...(Array.from({ length: v.length }, () => keyOrFrame) as Keys),
       );
     }
   }
@@ -311,7 +304,7 @@ export class Frame {
    * provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.columns, ...frame.columns] as ChannelKeys, [
+    return new Frame([...this.columns, ...frame.columns] as Keys, [
       ...this.series,
       ...frame.series,
     ]);
@@ -321,10 +314,10 @@ export class Frame {
    * @returns true if the frame contains the provided channel key or name.
    * @param channel the channel key or name to check.
    */
-  has(channel: ChannelKeyOrName): boolean {
+  has(channel: KeyOrName): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
     else if (typeof channel === "number" && this.colType === "name") return false;
-    return (this.columns as ChannelKeys).includes(channel as ChannelKey);
+    return (this.columns as Keys).includes(channel as Key);
   }
 
   /**
@@ -332,9 +325,7 @@ export class Frame {
    * @param fn a function that takes a channel key and typed array and returns a
    * boolean.
    */
-  map(
-    fn: (k: ChannelKeyOrName, arr: Series, i: number) => [ChannelKeyOrName, Series]
-  ): Frame {
+  map(fn: (k: KeyOrName, arr: Series, i: number) => [KeyOrName, Series]): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
     return frame;
@@ -345,7 +336,7 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and typed array.
    */
-  forEach(fn: (k: ChannelKeyOrName, arr: Series, i: number) => void): void {
+  forEach(fn: (k: KeyOrName, arr: Series, i: number) => void): void {
     this.columns.forEach((k, i) => {
       const a = this.series[i];
       fn(k, a, i);
@@ -357,7 +348,7 @@ export class Frame {
    * the provided filter function.
    * @param fn a function that takes a channel key and typed array and returns a boolean.
    */
-  filter(fn: (k: ChannelKeyOrName, arr: Series, i: number) => boolean): Frame {
+  filter(fn: (k: KeyOrName, arr: Series, i: number) => boolean): Frame {
     const frame = new Frame();
     this.columns.forEach((k, i) => {
       const a = this.series[i];
@@ -377,20 +368,21 @@ export class Frame {
   }
 }
 
-export const array = z.object({
+export const series = z.object({
   timeRange: TimeRange.z.optional(),
+  alignment: z.number().optional(),
   dataType: DataType.z,
   data: z.string().transform(
     (s) =>
       new Uint8Array(
         atob(s)
           .split("")
-          .map((c) => c.charCodeAt(0))
-      ).buffer
+          .map((c) => c.charCodeAt(0)),
+      ).buffer,
   ),
 });
 
-export type ArrayPayload = z.infer<typeof array>;
+export type SeriesPayload = z.infer<typeof series>;
 
 export const frameZ = z.object({
   keys: z.union([
@@ -398,22 +390,23 @@ export const frameZ = z.object({
     z.number().array().optional().default([]),
   ]),
   series: z.union([
-    z.null().transform(() => [] as Array<z.infer<typeof array>>),
-    array.array().optional().default([]),
+    z.null().transform(() => [] as Array<z.infer<typeof series>>),
+    series.array().optional().default([]),
   ]),
 });
 
 export type FramePayload = z.infer<typeof frameZ>;
 
-export const arrayFromPayload = (payload: ArrayPayload): Series => {
-  const { dataType, data, timeRange } = payload;
-  return new Series(data, dataType, timeRange);
+export const seriesFromPayload = (series: SeriesPayload): Series => {
+  const { dataType, data, timeRange, alignment } = series;
+  return new Series(data, dataType, timeRange, 0, "static", alignment);
 };
 
-export const arrayToPayload = (array: Series): ArrayPayload => {
+export const seriesToPayload = (series: Series): SeriesPayload => {
   return {
-    timeRange: array._timeRange,
-    dataType: array.dataType,
-    data: new Uint8Array(array.data.buffer),
+    timeRange: series._timeRange,
+    dataType: series.dataType,
+    data: new Uint8Array(series.data.buffer),
+    alignment: series.alignment,
   };
 };

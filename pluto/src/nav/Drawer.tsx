@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
-import { BarProps } from "@/nav/Bar";
+import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 
 import "@/nav/Drawer.css";

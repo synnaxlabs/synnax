@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   useContext as reactUseContext,
   useCallback,
@@ -17,14 +17,15 @@ import {
   useState,
 } from "react";
 
-import { Optional, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { z } from "zod";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
 interface ContextValue extends z.infer<typeof status.aggregatorStateZ> {
-  add: (status: Optional<status.Spec, "time">) => void;
+  add: (status: status.CrudeSpec) => void;
 }
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
@@ -36,11 +37,13 @@ const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
 
 export const useContext = reactUseContext;
 
-export interface AggregatorProps extends PropsWithChildren {}
+export interface AggregatorProps extends PropsWithChildren {
+  maxHistory?: number;
+}
 
 export const Aggregator = Aether.wrap<AggregatorProps>(
   status.Aggregator.TYPE,
-  ({ aetherKey, children }): ReactElement => {
+  ({ aetherKey, children, maxHistory = 500 }): ReactElement => {
     const [{ path }, { statuses }, setState] = Aether.use({
       aetherKey,
       type: status.Aggregator.TYPE,
@@ -48,17 +51,23 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
       initialState: { statuses: [] },
     });
 
+    if (maxHistory != null && statuses.length > maxHistory) {
+      const slice = Math.floor(maxHistory * 0.9);
+      setState((state) => ({ ...state, statuses: statuses.slice(slice) }));
+    }
+
     const handleAdd: ContextValue["add"] = useCallback(
       (status) => {
-        const spec: status.Spec = { time: TimeStamp.now(), ...status };
+        const t = TimeStamp.now();
+        const spec: status.Spec = { time: t, key: t.toString(), ...status };
         setState((state) => ({ ...state, statuses: [...state.statuses, spec] }));
       },
-      [setState]
+      [setState],
     );
 
     const value = useMemo<ContextValue>(
       () => ({ statuses, add: handleAdd }),
-      [statuses, handleAdd]
+      [statuses, handleAdd],
     );
 
     return (
@@ -66,7 +75,7 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </Context.Provider>
     );
-  }
+  },
 );
 
 export const useAggregator = (): ContextValue["add"] => useContext(Context).add;
@@ -77,16 +86,63 @@ export interface UseNotificationsProps {
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
-export const useNotifications = ({
-  expiration = DEFAULT_EXPIRATION,
-}): ContextValue["statuses"] => {
+interface Notification extends status.Spec {
+  count: number;
+}
+
+export interface UseNotificationsReturn {
+  statuses: Notification[];
+  silence: (key: string) => void;
+}
+
+export const useNotifications = (
+  props: UseNotificationsProps = {},
+): UseNotificationsReturn => {
   const { statuses } = useContext(Context);
+  const { expiration = DEFAULT_EXPIRATION } = props;
+  const statusesRef = useSyncedRef(statuses);
 
   const [threshold, setThreshold] = useState<TimeStamp>(() => TimeStamp.now());
+  const [silenced, setSilenced] = useState<string[]>([]);
 
-  return statuses.filter((status) => {
+  const filtered = statuses.filter((status) => {
     const new_ = status.time.after(threshold);
     if (new_) setTimeout(() => setThreshold(status.time), expiration.milliseconds);
-    return new_;
+    return new_ && !silenced.includes(status.key);
   });
+
+  const silence = useCallback(
+    (key: string) => {
+      const s = statusesRef.current.find((s) => s.key === key);
+      if (s == null) return;
+      const duplicates = findDuplicateStatus(s, statusesRef.current);
+      setSilenced((silenced) => [...silenced, ...duplicates.map((s) => s.key)]);
+    },
+    [setSilenced],
+  );
+
+  return {
+    statuses: reduceDuplicateStatuses(filtered),
+    silence,
+  };
 };
+
+const reduceDuplicateStatuses = (statuses: status.Spec[]): Notification[] =>
+  statuses.reduce<Notification[]>((acc, status) => {
+    const { message, variant } = status;
+    const existing = acc.find((s) => s.message === message && s.variant === variant);
+    if (existing != null) {
+      existing.count += 1;
+      if (existing.time.before(status.time)) existing.time = status.time;
+    } else acc.push({ ...status, count: 1 });
+    return acc;
+  }, []);
+
+const findDuplicateStatus = (
+  target: status.Spec,
+  statuses: status.Spec[],
+): status.Spec[] =>
+  statuses.filter((status) => {
+    const { message, variant } = status;
+    return message === target.message && variant === target.variant;
+  });

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Dimensions, Direction, XY } from "@synnaxlabs/x";
+import { Box, Dimensions, type Direction, XY } from "@synnaxlabs/x";
 
-import { color } from "@/color/core";
+import { type color } from "@/color/core";
 import { dimensions } from "@/text/dimensions";
-import { Level } from "@/text/types";
-import { theming } from "@/theming/aether";
+import { type Level } from "@/text/types";
+import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 
 export interface Draw2DLineProps {
@@ -157,7 +157,7 @@ export class Draw2D {
     return [
       new Dimensions({
         [direction.inverse.dimension as "width"]: Math.max(
-          ...textDims.map((d) => d[direction.inverse.dimension])
+          ...textDims.map((d) => d[direction.inverse.dimension]),
         ),
         [direction.dimension as "height"]: offset * text.length - spacingPx,
       }),

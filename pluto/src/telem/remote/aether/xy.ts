@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Channel } from "@synnaxlabs/client";
+import { type Channel } from "@synnaxlabs/client";
 import {
   Bounds,
-  Destructor,
-  GLBufferController,
+  type Destructor,
+  type GLBufferController,
   Series,
   TimeRange,
   TimeSpan,
@@ -19,8 +19,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { client } from "@/telem/client";
-import { telem } from "@/telem/core";
+import { type client } from "@/telem/client";
+import { type telem } from "@/telem/core";
 import { TelemMeta } from "@/telem/core/base";
 
 const xySourceCorePropsZ = z.object({
@@ -31,7 +31,7 @@ const xySourceCorePropsZ = z.object({
 class XYSourceCore<
   P extends z.ZodTypeAny,
   C extends client.StaticClient & client.ChannelClient = client.StaticClient &
-    client.ChannelClient
+    client.ChannelClient,
 > extends TelemMeta<P> {
   client: C;
   valid: boolean = false;
@@ -84,7 +84,7 @@ class XYSourceCore<
 
   async retrieveChannels(
     y: number,
-    x: number
+    x: number,
   ): Promise<{ y: Channel; x: Channel | null }> {
     const yChan = await this.client.retrieveChannel(y);
     if (x === 0) x = yChan.index;
@@ -105,7 +105,7 @@ class XYSourceCore<
     const mustGenerate = xChan == null;
     if (mustGenerate) {
       this._x = this._y.map((arr) =>
-        Series.generateTimestamps(arr.length, rate, tr.start)
+        Series.generateTimestamps(arr.length, rate, tr.start),
       );
     } else this._x = d[xChan.key].data;
   }
@@ -136,7 +136,7 @@ export const xySourcePropsZ = xySourceCorePropsZ.extend({
   timeRange: TimeRange.z,
 });
 
-export type XYSourceProps = z.infer<typeof xySourcePropsZ>;
+export type XYSourceProps = z.input<typeof xySourcePropsZ>;
 
 export class XYSource
   extends XYSourceCore<typeof xySourcePropsZ>
@@ -169,7 +169,7 @@ export const dynamicXYSourceProps = z.object({
   y: z.number(),
 });
 
-export type DynamicXYSourceProps = z.infer<typeof dynamicXYSourceProps>;
+export type DynamicXYSourceProps = z.input<typeof dynamicXYSourceProps>;
 
 export class DynamicXYSource
   extends XYSourceCore<typeof dynamicXYSourceProps, client.Client>
@@ -217,8 +217,8 @@ export class DynamicXYSource
       } else {
         this._x?.push(
           ...yd.data.map((arr) =>
-            Series.generateTimestamps(arr.length, y.rate, arr.timeRange.start)
-          )
+            Series.generateTimestamps(arr.length, y.rate, arr.timeRange.start),
+          ),
         );
       }
       this.notify?.();

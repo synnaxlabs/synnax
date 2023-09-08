@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Middleware } from "@reduxjs/toolkit";
+import { type Middleware } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Deep, DeepKey } from "@synnaxlabs/x";
+import { Deep, type UnknownRecord, type DeepKey } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { Version } from "@/version";
-
-import { TauriKV } from "./kv";
+import { TauriKV } from "@/persist/kv";
+import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "delta-persisted-state";
 
@@ -27,7 +26,7 @@ export interface Config<S extends RequiredState> {
 
 export const open = async <S extends RequiredState>({
   exclude = [],
-}: Config<S>): Promise<[S | undefined, Middleware<{}, S>]> => {
+}: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV<S>();
   await db.openAck();
@@ -49,7 +48,8 @@ export const open = async <S extends RequiredState>({
   ];
 };
 
-const noOpMiddleware: Middleware<{}, any> = () => (next) => (action) => next(action);
+const noOpMiddleware: Middleware<UnknownRecord, any> = () => (next) => (action) =>
+  next(action);
 
 const reconcileVersions = async <S extends RequiredState>(
   state: S

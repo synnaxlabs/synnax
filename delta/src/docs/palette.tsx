@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { createLayout } from "@/docs/layout";
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 
 export const readCommand: Command = {
   key: "read-the-docs",

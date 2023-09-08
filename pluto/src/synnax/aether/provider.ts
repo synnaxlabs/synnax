@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ConnectionState, Synnax, synnaxPropsZ } from "@synnaxlabs/client";
+import { type connection, Synnax, synnaxPropsZ } from "@synnaxlabs/client";
 import { Deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -20,7 +20,7 @@ const stateZ = z.object({
 
 export interface ContextValue {
   synnax: Synnax | null;
-  state: ConnectionState;
+  state: connection.State;
 }
 
 export const ZERO_CONTEXT_VALUE: ContextValue = {
@@ -54,7 +54,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
 
     this.internal.synnax = new Synnax(this.state.props);
     this.internal.synnax.connectivity.onChange((state) =>
-      this.setState((p) => ({ ...p, state }))
+      this.setState((p) => ({ ...p, state })),
     );
     set(this.ctx, this.internal);
   }

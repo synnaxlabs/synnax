@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties } from "react";
+import { type CSSProperties } from "react";
 
 const EL_ID = "cursor-style";
 
 export const setGlobalStyle = (
   cursor: CSSProperties["cursor"],
-  el: HTMLElement = document.head
+  el: HTMLElement = document.head,
 ): void => {
   clearGlobalStyle(el);
   const cursorStyle = document.createElement("style");

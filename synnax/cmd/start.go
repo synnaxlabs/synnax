@@ -12,6 +12,7 @@ package cmd
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"os"
 	"os/signal"
 	"time"
@@ -111,10 +112,18 @@ func start(cmd *cobra.Command) {
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
-		userSvc := &user.Service{DB: gorpDB, Ontology: dist.Ontology}
+		userSvc, err := user.NewService(ctx, user.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+		})
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.NewService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		if err != nil {
+			return err
+		}
+		workspaceSvc, err := workspace.NewService(workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
 		if err != nil {
 			return err
 		}
@@ -139,6 +148,7 @@ func start(cmd *cobra.Command) {
 			Ontology:        dist.Ontology,
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
+			Workspace:       workspaceSvc,
 		})
 		if err != nil {
 			return err

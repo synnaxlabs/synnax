@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Text } from "@/text";
+import { type Text } from "@/text";
 import { useContext } from "@/theming/context";
 import { fontString } from "@/theming/core/fontString";
 

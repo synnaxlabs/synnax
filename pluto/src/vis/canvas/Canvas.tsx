@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  CanvasHTMLAttributes,
-  DetailedHTMLProps,
-  ReactElement,
+  type CanvasHTMLAttributes,
+  type DetailedHTMLProps,
+  type ReactElement,
   useCallback,
   useRef,
 } from "react";
@@ -76,7 +76,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             dpr: window.devicePixelRatio,
           }));
       },
-      [setState]
+      [setState],
     );
 
     const resizeRef = useResize(handleResize, { debounce });
@@ -109,10 +109,10 @@ export const Canvas = Aether.wrap<CanvasProps>(
             region: new Box(gl),
             dpr: window.devicePixelRatio,
           },
-          [glCanvas, upper2dCanvas, lower2dCanvas]
+          [glCanvas, upper2dCanvas, lower2dCanvas],
         );
       },
-      [setState]
+      [setState],
     );
 
     return (
@@ -135,5 +135,5 @@ export const Canvas = Aether.wrap<CanvasProps>(
         <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
       </>
     );
-  }
+  },
 );

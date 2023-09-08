@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ReactElement,
+  type ReactElement,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -18,30 +18,30 @@ import {
 
 import {
   convertRenderV,
-  Key,
-  KeyedRenderableRecord,
-  AsyncTermSearcher,
+  type Key,
+  type KeyedRenderableRecord,
+  type AsyncTermSearcher,
   Compare,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
+import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
 import { List } from "@/select/List";
 import { Tag } from "@/tag";
-import { RenderProp, componentRenderProp } from "@/util/renderProp";
+import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/select/Multiple.css";
 
 export interface MultipleProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children">,
     Input.Control<K[]>,
     Omit<CoreList.ListProps<K, E>, "children">,
@@ -75,7 +75,7 @@ export interface MultipleProps<
  */
 export const Multiple = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   onChange,
   value,
@@ -112,12 +112,12 @@ export const Multiple = <
       setSelected(extra.entries);
       onChange(v);
     },
-    [onChange]
+    [onChange],
   );
 
   const InputWrapper = useMemo(
     () => (searchMode ? CoreList.Search : CoreList.Filter),
-    [searchMode]
+    [searchMode],
   );
 
   return (
@@ -231,7 +231,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             onClose: () => onSelect?.(e.key),
             onDragStart: (ev) => onTagDragStart?.(ev, e.key),
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
-          })
+          }),
         )}
       </Align.Space>
       <ClearButton onClick={clear} />

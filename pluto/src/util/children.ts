@@ -7,26 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, ReactElement, isValidElement as reactIsValidElement } from "react";
+import {
+  Children,
+  type ReactElement,
+  isValidElement as reactIsValidElement,
+} from "react";
 
-import { UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
 export const reactElementToArray = <
   P = any,
   T extends string | React.JSXElementConstructor<any> =
     | string
-    | React.JSXElementConstructor<any>
+    | React.JSXElementConstructor<any>,
 >(
-  children: ReactElement<P, T> | Array<ReactElement<P, T>>
+  children: ReactElement<P, T> | Array<ReactElement<P, T>>,
 ): Array<ReactElement<P, T>> => Children.toArray(children) as Array<ReactElement<P, T>>;
 
 export const isValidElement = <
   P = any,
   T extends string | React.JSXElementConstructor<any> =
     | string
-    | React.JSXElementConstructor<any>
+    | React.JSXElementConstructor<any>,
 >(
-  child: ReactElement<P, T> | string | number | null | undefined
+  child: ReactElement<P, T> | string | number | null | undefined,
 ): child is ReactElement<P, T> =>
   // The hydrate props check lets us avoid considering Astro slots as valid react
   // elements.

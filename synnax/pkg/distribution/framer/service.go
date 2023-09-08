@@ -91,7 +91,7 @@ func Open(configs ...Config) (*Service, error) {
 	return s, err
 }
 
-func (s *Service) NewIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.iterator.New(ctx, cfg)
 }
 
@@ -99,7 +99,7 @@ func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (St
 	return s.iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	return s.writer.New(ctx, cfg)
 }
 

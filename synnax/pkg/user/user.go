@@ -11,12 +11,15 @@ package user
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type User struct {
 	Key      uuid.UUID `json:"key"`
 	Username string    `json:"username"`
 }
+
+var _ gorp.Entry[uuid.UUID] = User{}
 
 func (u User) GorpKey() uuid.UUID { return u.Key }
 

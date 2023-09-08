@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Scale, XYScale } from "@synnaxlabs/x";
+import { type Scale, XYScale } from "@synnaxlabs/x";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
@@ -17,7 +17,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
-    scale: XYScale = XYScale.IDENTITY
+    scale: XYScale = XYScale.IDENTITY,
   ) {
     this.wrap = wrap;
     this.scale_ = scale;
@@ -81,7 +81,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dx: number,
     dy: number,
     dw: number,
-    dh: number
+    dh: number,
   ): void;
   drawImage(
     image: CanvasImageSource,
@@ -92,7 +92,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dx: number,
     dy: number,
     dw: number,
-    dh: number
+    dh: number,
   ): void;
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;
   drawImage(
@@ -100,7 +100,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dx: number,
     dy: number,
     dw: number,
-    dh: number
+    dh: number,
   ): void;
   drawImage(
     image: CanvasImageSource,
@@ -111,7 +111,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dx: number,
     dy: number,
     dw: number,
-    dh: number
+    dh: number,
   ): void;
   drawImage(
     image: unknown,
@@ -122,7 +122,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dx?: unknown,
     dy?: unknown,
     dw?: unknown,
-    dh?: unknown
+    dh?: unknown,
   ): void {
     // @ts-expect-error
     this.wrap.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
@@ -152,7 +152,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     path: Path2D,
     x: number,
     y: number,
-    fillRule?: CanvasFillRule | undefined
+    fillRule?: CanvasFillRule | undefined,
   ): boolean;
   isPointInPath(path: unknown, x: unknown, y?: unknown, fillRule?: unknown): boolean {
     // @ts-expect-error
@@ -183,7 +183,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   createPattern(
     image: CanvasImageSource,
-    repetition: string | null
+    repetition: string | null,
   ): CanvasPattern | null {
     return this.wrap.createPattern(image, repetition);
   }
@@ -194,7 +194,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     r0: number,
     x1: number,
     y1: number,
-    r1: number
+    r1: number,
   ): CanvasGradient {
     return this.wrap.createRadialGradient(x0, y0, r0, x1, y1, r1);
   }
@@ -210,7 +210,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   createImageData(
     sw: number,
     sh: number,
-    settings?: ImageDataSettings | undefined
+    settings?: ImageDataSettings | undefined,
   ): ImageData;
   createImageData(imagedata: ImageData): ImageData;
   createImageData(sw: unknown, sh?: unknown, settings?: unknown): ImageData {
@@ -223,7 +223,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     sy: number,
     sw: number,
     sh: number,
-    settings?: ImageDataSettings | undefined
+    settings?: ImageDataSettings | undefined,
   ): ImageData {
     return this.wrap.getImageData(sx, sy, sw, sh, settings);
   }
@@ -236,7 +236,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dirtyX: number,
     dirtyY: number,
     dirtyWidth: number,
-    dirtyHeight: number
+    dirtyHeight: number,
   ): void;
   putImageData(
     imagedata: unknown,
@@ -245,7 +245,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dirtyX?: unknown,
     dirtyY?: unknown,
     dirtyWidth?: unknown,
-    dirtyHeight?: unknown
+    dirtyHeight?: unknown,
   ): void {
     // @ts-expect-error
     this.wrap.putImageData(imagedata, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
@@ -273,7 +273,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     radius: number,
     startAngle: number,
     endAngle: number,
-    counterclockwise?: boolean | undefined
+    counterclockwise?: boolean | undefined,
   ): void {
     this.wrap.arc(
       this.scale_.x.pos(x),
@@ -281,7 +281,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.dim(radius),
       startAngle,
       endAngle,
-      counterclockwise
+      counterclockwise,
     );
   }
 
@@ -291,7 +291,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.y.pos(y1),
       this.scale_.x.pos(x2),
       this.scale_.y.pos(y2),
-      this.scale_.x.dim(radius)
+      this.scale_.x.dim(radius),
     );
   }
 
@@ -301,7 +301,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     cp2x: number,
     cp2y: number,
     x: number,
-    y: number
+    y: number,
   ): void {
     this.wrap.bezierCurveTo(
       this.scale_.x.pos(cp1x),
@@ -309,7 +309,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.pos(cp2x),
       this.scale_.y.pos(cp2y),
       this.scale_.x.pos(x),
-      this.scale_.y.pos(y)
+      this.scale_.y.pos(y),
     );
   }
 
@@ -325,7 +325,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     rotation: number,
     startAngle: number,
     endAngle: number,
-    counterclockwise?: boolean | undefined
+    counterclockwise?: boolean | undefined,
   ): void {
     this.wrap.ellipse(
       this.scale_.x.pos(x),
@@ -335,7 +335,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       rotation,
       startAngle,
       endAngle,
-      counterclockwise
+      counterclockwise,
     );
   }
 
@@ -352,7 +352,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.pos(cpx),
       this.scale_.y.pos(cpy),
       this.scale_.x.pos(x),
-      this.scale_.y.pos(y)
+      this.scale_.y.pos(y),
     );
   }
 
@@ -361,7 +361,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
-      this.scale_.y.dim(h)
+      this.scale_.y.dim(h),
     );
   }
 
@@ -370,14 +370,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
     y: number,
     w: number,
     h: number,
-    radii?: number | DOMPointInit | Array<number | DOMPointInit> | undefined
+    radii?: number | DOMPointInit | Array<number | DOMPointInit> | undefined,
   ): void {
     this.wrap.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
       this.scale_.y.dim(h),
-      typeof radii === "number" ? this.scale_.x.dim(radii) : radii
+      typeof radii === "number" ? this.scale_.x.dim(radii) : radii,
     );
   }
 
@@ -433,7 +433,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
-      this.scale_.y.dim(h)
+      this.scale_.y.dim(h),
     );
   }
 
@@ -442,7 +442,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
-      this.scale_.y.dim(h)
+      this.scale_.y.dim(h),
     );
   }
 
@@ -487,7 +487,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       text,
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined
+      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
     );
   }
 
@@ -503,7 +503,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
       text,
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined
+      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
     );
   }
 
@@ -571,7 +571,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     c?: unknown,
     d?: unknown,
     e?: unknown,
-    f?: unknown
+    f?: unknown,
   ): void {
     // @ts-expect-error
     this.wrap.setTransform(a, b, c, d, e, f);

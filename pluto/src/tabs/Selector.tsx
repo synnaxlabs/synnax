@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEventHandler, MouseEventHandler, ReactElement, useCallback } from "react";
+import {
+  type DragEventHandler,
+  type MouseEventHandler,
+  type ReactElement,
+  useCallback,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
@@ -16,7 +21,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useTabsContext } from "@/tabs/Tabs";
 import { Text } from "@/text";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 import "@/tabs/Selector.css";
 
@@ -61,20 +66,22 @@ export const Selector = ({
       empty
       {...props}
     >
-      {tabs.map((tab) => (
-        <SelectorButton
-          key={tab.tabKey}
-          selected={selected}
-          onSelect={onSelect}
-          onClose={onClose}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onRename={onRename}
-          closable={tab.closable ?? closable}
-          size={size}
-          {...tab}
-        />
-      ))}
+      <Align.Space className={CSS.BE(CLS, "tabs")} empty direction="x" grow>
+        {tabs.map((tab) => (
+          <SelectorButton
+            key={tab.tabKey}
+            selected={selected}
+            onSelect={onSelect}
+            onClose={onClose}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            onRename={onRename}
+            closable={tab.closable ?? closable}
+            size={size}
+            {...tab}
+          />
+        ))}
+      </Align.Space>
       <Align.Space className={CSS.BE(CLS, "actions")}>
         {onCreate != null && (
           <Button.Icon size={size} sharp onClick={onCreate}>
@@ -102,12 +109,12 @@ const SelectorButton = ({
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
-    [onDragStart, tabKey, name]
+    [onDragStart, tabKey, name],
   );
 
   const handleDragEnd: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => onDragEnd?.(e, { tabKey, name }),
-    [onDragEnd, tabKey, name]
+    [onDragEnd, tabKey, name],
   );
 
   const handleClose: MouseEventHandler<HTMLButtonElement> = useCallback(
@@ -115,7 +122,7 @@ const SelectorButton = ({
       e.stopPropagation();
       onClose?.(tabKey);
     },
-    [onClose, tabKey]
+    [onClose, tabKey],
   );
 
   const _onSelect = useCallback(() => onSelect?.(tabKey), [onSelect, tabKey]);
@@ -127,7 +134,7 @@ const SelectorButton = ({
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "button", "uneditable"),
         CSS.selected(selected === tabKey),
-        closable && onClose != null && CSS.BEM(CLS, "btn", "closable")
+        closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
       )}
       draggable
       direction="x"

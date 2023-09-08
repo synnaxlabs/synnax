@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LooseXYT, XY } from "@synnaxlabs/x";
+import { type LooseXYT, XY } from "@synnaxlabs/x";
 
-import { color } from "@/color/core";
-import { Context } from "@/vis/render/context";
+import { type color } from "@/color/core";
+import { type Context } from "@/vis/render/context";
 
 const errorCompile = (msg: string): Error =>
   new Error(`failed to compile webgl program: ${msg}`);

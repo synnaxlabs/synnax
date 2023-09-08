@@ -20,31 +20,38 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
-	tx         gorp.Tx
+	baseTX     gorp.Tx
 	gorp       gorp.Retrieve[uuid.UUID, Range]
 	otg        *ontology.Ontology
 	searchTerm string
 }
 
 func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), tx: tx, otg: otg}
+	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Range](), baseTX: tx, otg: otg}
 }
 
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
+// Entry binds the Range that Retrieve will fill results into. If multiple results match
+// the query, only the first result will be filled into the provided Range.
 func (r Retrieve) Entry(rng *Range) Retrieve { r.gorp.Entry(rng); return r }
 
+// Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(rng *[]Range) Retrieve { r.gorp.Entries(rng); return r }
 
+// WhereKeys filters for ranges whose Key attribute matches the provided key.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
 
+// WhereNames filters for ranges whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp.Where(func(rng *Range) bool { return lo.Contains(names, rng.Name) })
 	return r
 }
 
-func (r Retrieve) OverlapsWith(tr telem.TimeRange) Retrieve {
+// WhereOverlapsWith filters for ranges whose TimeRange overlaps with the
+func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 	r.gorp.Where(func(rng *Range) bool { return rng.TimeRange.OverlapsWith(tr) })
 	return r
 }
@@ -64,5 +71,5 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

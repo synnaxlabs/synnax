@@ -12,11 +12,9 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // NewStreamWriter implements DB.
@@ -24,8 +22,8 @@ func (db *DB) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWrit
 	return db.newStreamWriter(ctx, cfg)
 }
 
-// NewWriter implements DB.
-func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+// OpenWriter implements DB.
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	internal, err := db.newStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -33,62 +31,115 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	return wrapStreamWriter(internal), nil
 }
 
-func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (*streamWriter, error) {
+func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (w *streamWriter, err error) {
 	var (
-		idx          index.Index
-		writingToIdx bool
-		idxChannel   Channel
-		internal     = make(map[core.ChannelKey]unary.Writer, len(cfg.Channels))
+		domainWriters map[ChannelKey]*idxWriter
+		rateWriters   map[telem.Rate]*idxWriter
 	)
-	for i, key := range cfg.Channels {
+
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, idx := range domainWriters {
+			err = errors.CombineErrors(idx.Close(), err)
+		}
+		for _, idx := range rateWriters {
+			err = errors.CombineErrors(idx.Close(), err)
+		}
+	}()
+
+	for _, key := range cfg.Channels {
 		u, ok := db.dbs[key]
 		if !ok {
 			return nil, ChannelNotFound
 		}
-		if u.Channel.IsIndex {
-			writingToIdx = true
-		}
-		if i == 0 {
-			if u.Channel.Index != 0 {
-				idxU, err := db.getUnary(u.Channel.Index)
-				if err != nil {
-					return nil, err
-				}
-				idx = &index.Domain{DB: idxU.Ranger, Instrumentation: db.Instrumentation}
-				idxChannel = idxU.Channel
-			} else {
-				idx = index.Rate{Rate: u.Channel.Rate}
-				idxChannel = u.Channel
-			}
-		} else {
-			if err := validateSameIndex(u.Channel, idxChannel); err != nil {
-				return nil, err
-			}
-		}
-		w, err := u.NewWriter(ctx, domain.WriterConfig{Start: cfg.Start})
+
+		w, err := u.OpenWriter(ctx, domain.WriterConfig{Start: cfg.Start})
 		if err != nil {
 			return nil, err
 		}
-		internal[key] = *w
+
+		if u.Channel.Index != 0 {
+
+			// Hot path optimization: in the common case we only write to a rate based
+			// index or a domain indexed channel, not both. In either case we can avoid a
+			// map allocation.
+			if domainWriters == nil {
+				domainWriters = make(map[ChannelKey]*idxWriter)
+			}
+
+			idxW, exists := domainWriters[u.Channel.Index]
+			if !exists {
+				idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
+				if err != nil {
+					return nil, err
+				}
+				idxW.writingToIdx = u.Channel.IsIndex
+				domainWriters[u.Channel.Index] = idxW
+			} else if u.Channel.IsIndex {
+				idxW.writingToIdx = true
+				domainWriters[u.Channel.Index] = idxW
+			}
+
+			idxW.internal[key] = &unaryWriterState{Writer: *w}
+		} else {
+
+			// Hot path optimization: in the common case we only write to a rate based
+			// index or an indexed channel, not both. In either case we can avoid a
+			// map allocation.
+			if rateWriters == nil {
+				rateWriters = make(map[telem.Rate]*idxWriter)
+			}
+
+			idxW, ok := rateWriters[u.Channel.Rate]
+			if !ok {
+				idxW = db.openRateIdxWriter(u.Channel.Rate, cfg)
+				rateWriters[u.Channel.Rate] = idxW
+			}
+
+			idxW.internal[key] = &unaryWriterState{Writer: *w}
+		}
 	}
 
-	w := &streamWriter{internal: internal, relay: db.relay.inlet}
-	w.Start = cfg.Start
-	w.idx.key = idxChannel.Key
-	w.writingToIdx = writingToIdx
-	w.idx.highWaterMark = cfg.Start
-	w.idx.Index = idx
+	w = &streamWriter{
+		internal: make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
+		relay:    db.relay.inlet,
+	}
+	for _, idx := range domainWriters {
+		w.internal = append(w.internal, idx)
+	}
+	for _, idx := range rateWriters {
+		w.internal = append(w.internal, idx)
+	}
 	return w, nil
 }
 
-func validateSameIndex(chOne, chTwo Channel) error {
-	if chOne.Index == 0 && chTwo.Index == 0 {
-		if chOne.Rate != chTwo.Rate {
-			return errors.Wrapf(validate.Error, "channels must have the same rate")
-		}
+func (db *DB) openDomainIdxWriter(
+	chKey ChannelKey,
+	cfg WriterConfig,
+) (*idxWriter, error) {
+	u, err := db.getUnary(chKey)
+	if err != nil {
+		return nil, err
 	}
-	if chOne.Index != chTwo.Index {
-		return errors.Wrapf(validate.Error, "channels must have the same index")
-	}
-	return nil
+	idx := &index.Domain{DB: u.Ranger, Instrumentation: db.Instrumentation}
+	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
+	w.idx.key = chKey
+	w.idx.Index = idx
+	w.idx.highWaterMark = cfg.Start
+	w.writingToIdx = false
+	w.start = cfg.Start
+	return w, nil
+}
+
+func (db *DB) openRateIdxWriter(
+	rate telem.Rate,
+	cfg WriterConfig,
+) *idxWriter {
+	idx := index.Rate{Rate: rate}
+	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
+	w.idx.Index = idx
+	w.start = cfg.Start
+	return w
 }

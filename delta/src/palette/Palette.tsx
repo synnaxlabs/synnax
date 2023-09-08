@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import {
-  FC,
-  ReactElement,
+  type FC,
+  type ReactElement,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type MouseEventHandler,
 } from "react";
 
 import { ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 import {
   Dropdown,
   Input,
@@ -32,66 +32,32 @@ import {
   Haul,
   CSS as PCSS,
   Tooltip,
-  Text,
-  Align,
   Mosaic,
   Divider,
 } from "@synnaxlabs/pluto";
-import { AsyncTermSearcher, Key } from "@synnaxlabs/x";
+import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { ResourceType } from "@/resources/resources";
-import { RootStore } from "@/store";
+import { Notifications } from "@/palette/Notifications";
+import { TooltipContent } from "@/palette/Tooltip";
+import { type Mode, type TriggerConfig } from "@/palette/types";
+import { type Service } from "@/resources/service";
+import { type RootStore } from "@/store";
 
 import "@/palette/Palette.css";
-
-export interface PaletteTriggerConfig {
-  command: Triggers.Trigger[];
-  resource: Triggers.Trigger[];
-}
 
 export interface PaletteProps {
   searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
-  resourceTypes: Record<string, ResourceType>;
-  triggers: PaletteTriggerConfig;
+  resourceTypes: Record<string, Service>;
+  triggers: TriggerConfig;
   commandSymbol: string;
 }
 
-const normalizeTriggers = (triggers: PaletteTriggerConfig): Triggers.Trigger[] =>
-  Object.values(triggers).flat();
-
-type PaletteMode = "command" | "resource";
-
-const TOOLTIP_TEXT_LEVEL: Text.Level = "small";
-
-const PaletteTooltipContent = (): ReactElement => (
-  <Align.Space>
-    <Align.Space direction="x" justify="spaceBetween" align="center">
-      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Search</Text.Text>
-      <Align.Space direction="x" size="small">
-        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
-          <Text.Symbols.Meta />
-        </Text.Keyboard>
-        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
-      </Align.Space>
-    </Align.Space>
-    <Align.Space direction="x" justify="spaceBetween" align="center">
-      <Text.Text level={TOOLTIP_TEXT_LEVEL}>Command Palette</Text.Text>
-      <Align.Space direction="x" size="small">
-        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
-          <Text.Symbols.Meta />
-        </Text.Keyboard>
-        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>
-          <Icon.Keyboard.Shift />
-        </Text.Keyboard>
-        <Text.Keyboard level={TOOLTIP_TEXT_LEVEL}>P</Text.Keyboard>
-      </Align.Space>
-    </Align.Space>
-  </Align.Space>
-);
+type Entry = Command | ontology.Resource;
+type Key = string;
 
 export const Palette = ({
   commands,
@@ -102,13 +68,13 @@ export const Palette = ({
 }: PaletteProps): ReactElement => {
   const dropdown = Dropdown.use();
 
-  const [mode, setMode] = useState<PaletteMode>("resource");
+  const [mode, setMode] = useState<Mode>("resource");
 
-  const notifications = Status.useNotifications({});
+  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
 
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
-  const handleSelect: List.SelectorProps["onChange"] = useCallback(
+  const handleSelect: List.SelectorProps<Key, Entry>["onChange"] = useCallback(
     ([key]: Key[], { entries: [entry] }) => {
       dropdown.close();
       if (mode === "command") {
@@ -117,24 +83,25 @@ export const Palette = ({
           placeLayout,
         });
       } else {
-        const id = new ontology.ID(key as string);
+        const id = new ontology.ID(key);
         const t = resourceTypes[id.type];
         t?.onSelect({
           store,
           placeLayout,
-          selected: entry as ontology.Resource,
+          selected: entry,
         });
       }
     },
     [mode, commands, dropdown.close]
   );
 
-  const showDropdown = dropdown.visible || notifications.length > 0;
+  const showDropdown = dropdown.visible || notifications.statuses.length > 0;
+  const showDivider = notifications.statuses.length > 0 && dropdown.visible;
 
   return (
     <List.List>
       <Tooltip.Dialog location="bottom" hide={showDropdown}>
-        <PaletteTooltipContent />
+        <TooltipContent triggers={triggers} />
         <Dropdown.Dialog
           ref={dropdown.ref}
           visible={showDropdown}
@@ -161,52 +128,33 @@ export const Palette = ({
                 visible={dropdown.visible}
               />
             )}
-            {notifications.length > 0 && dropdown.visible && (
-              <Divider.Divider direction="x" />
-            )}
-            <ErrorsList statuses={notifications} />
+            {showDivider && <Divider.Divider direction="x" />}
+            <Notifications {...notifications} />
           </>
         </Dropdown.Dialog>
       </Tooltip.Dialog>
     </List.List>
   );
 };
-
-interface ErrorsListProps {
-  statuses: Status.Spec[];
-}
-
-const ErrorsList = ({ statuses }: ErrorsListProps): ReactElement => (
-  <>
-    {statuses.map(({ message, variant, time }) => (
-      <Align.Space
-        direction="x"
-        key={time.toString()}
-        style={{ height: "6rem", padding: "1rem" }}
-        align="center"
-      >
-        <Text.DateTime level="p" format="time">
-          {time}
-        </Text.DateTime>
-        <Status.Text variant={variant}>{message}</Status.Text>
-      </Align.Space>
-    ))}
-  </>
-);
-
 export interface PaletteInputProps
   extends Pick<Dropdown.UseReturn, "visible" | "open"> {
-  mode: PaletteMode;
+  mode: Mode;
   visible: boolean;
-  setMode: (mode: PaletteMode) => void;
+  setMode: (mode: Mode) => void;
   searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commandSymbol: string;
-  triggerConfig: PaletteTriggerConfig;
+  triggerConfig: TriggerConfig;
   commands: Command[];
 }
 
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_TYPE;
+
+const TYPE_TO_SEARCH = (
+  <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+    Type to search
+  </Status.Text.Centered>
+);
 
 export const PaletteInput = ({
   mode,
@@ -222,7 +170,7 @@ export const PaletteInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
-    List.useContext();
+    List.useContext<Key, Entry>();
 
   useEffect(() => {
     if (!visible) inputRef.current?.blur();
@@ -231,21 +179,12 @@ export const PaletteInput = ({
   const handleBlur = useCallback(() => setValue(""), []);
 
   const updateMode = useCallback(
-    (nextMode: PaletteMode) => {
+    (nextMode: Mode) => {
       setMode(nextMode);
       if (nextMode === "command") setSourceData(commands);
       else {
         setSourceData([]);
-        setEmptyContent(
-          <Status.Text.Centered
-            level="h4"
-            variant="disabled"
-            hideIcon
-            style={{ height: 150 }}
-          >
-            Type to search
-          </Status.Text.Centered>
-        );
+        setEmptyContent(TYPE_TO_SEARCH);
       }
     },
     [setMode, setSourceData, commands]
@@ -253,28 +192,13 @@ export const PaletteInput = ({
 
   const handleSearch = useDebouncedCallback(
     (term: string) => {
-      if (term.length === 0)
-        return setEmptyContent(
-          <Status.Text.Centered
-            level="h4"
-            variant="disabled"
-            hideIcon
-            style={{ height: 150 }}
-          >
-            Type to search
-          </Status.Text.Centered>
-        );
+      if (term.length === 0) return setEmptyContent(TYPE_TO_SEARCH);
       searcher
         .search(term)
         .then((d) => {
           if (d.length === 0)
             setEmptyContent(
-              <Status.Text.Centered
-                level="h4"
-                variant="disabled"
-                hideIcon
-                style={{ height: 150 }}
-              >
+              <Status.Text.Centered level="h4" variant="disabled" hideIcon>
                 No resources found
               </Status.Text.Centered>
             );
@@ -305,9 +229,7 @@ export const PaletteInput = ({
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
       if (stage !== "start" || visible) return;
-      const mode = Triggers.match(triggers, triggerConfig.command)
-        ? "command"
-        : "resource";
+      const mode = Triggers.determineMode(triggerConfig, triggers);
       if (mode === "command") {
         handleChange(commandSymbol);
         updateMode("command");
@@ -320,7 +242,10 @@ export const PaletteInput = ({
     [visible, triggerConfig.command, commandSymbol, updateMode]
   );
 
-  const triggers = useMemo(() => normalizeTriggers(triggerConfig), [triggerConfig]);
+  const triggers = useMemo(
+    () => Triggers.flattenConfig(triggerConfig),
+    [triggerConfig]
+  );
 
   Triggers.use({ triggers, callback: handleTrigger });
 
@@ -378,12 +303,12 @@ export const PaletteInput = ({
 };
 
 export interface PalleteListProps extends Pick<Dropdown.DialogProps, "visible"> {
-  mode: PaletteMode;
-  onSelect: List.SelectorProps["onChange"];
+  mode: Mode;
+  onSelect: List.SelectorProps<Key, Entry>["onChange"];
   resourceTypes: Record<string, ResourceType>;
 }
 
-export const PaletteList = ({
+const PaletteList = ({
   mode,
   onSelect,
   visible,
@@ -399,7 +324,9 @@ export const PaletteList = ({
     <>
       <List.Selector value={[]} onChange={onSelect} allowMultiple={false} />
       {visible && <List.Hover />}
-      <List.Core.Virtual itemHeight={27}>{item}</List.Core.Virtual>
+      <List.Core.Virtual className={CSS.BE("palette", "list")} itemHeight={27}>
+        {item}
+      </List.Core.Virtual>
     </>
   );
 };
@@ -410,7 +337,7 @@ export const CommandListItem = ({
   onSelect,
   ...props
 }: List.ItemProps<string, Command>): ReactElement => {
-  const handleSelect = (e): void => {
+  const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
     onSelect?.(key);
   };
@@ -424,6 +351,7 @@ export const CommandListItem = ({
         hovered && CSS.BEM("palette", "item", "hovered"),
         CSS.BEM("palette", "item", "command")
       )}
+      sharp
       {...props}
     >
       {name}

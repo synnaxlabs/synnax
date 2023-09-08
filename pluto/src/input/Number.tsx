@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, forwardRef, useCallback, useState } from "react";
+import { type ReactElement, forwardRef, useCallback, useState } from "react";
 
-import { Bounds, CrudeBounds } from "@synnaxlabs/x";
+import { Bounds, type CrudeBounds } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { DragButton, DragButtonExtensionProps } from "@/input/DragButton";
+import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
-import { BaseProps } from "@/input/types";
+import { type BaseProps } from "@/input/types";
 
 export interface NumericProps
   extends Omit<BaseProps<number>, "type">,
@@ -67,7 +67,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       className,
       ...props
     },
-    ref
+    ref,
   ): ReactElement => {
     const [internalValue, setInternalValue] = useState(value.toString());
     const [isValueValid, setIsValueValid] = useState(true);
@@ -85,7 +85,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
           setIsValueValid(false);
         }
       },
-      [setInternalValue, onChange]
+      [setInternalValue, onChange],
     );
 
     const value_ = isValueValid ? value : internalValue;
@@ -105,14 +105,13 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
 
     const onDragChange = useCallback(
       (value: number) => handleChange(Math.round(value)),
-      [onChange]
+      [onChange],
     );
 
     if (!showDragHandle) return input;
     return (
       <Align.Pack
-        {...props}
-        className={CSS(className, CSS.BM("input", variant))}
+        className={CSS(className, CSS.BM("input", variant), CSS.BE("input", "wrapper"))}
         style={style}
       >
         {input}
@@ -125,6 +124,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         />
       </Align.Pack>
     );
-  }
+  },
 );
 Numeric.displayName = "InputNumber";

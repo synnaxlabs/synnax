@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Location, Scale } from "@synnaxlabs/x";
+import { Bounds, type Box, Location, Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -16,13 +16,14 @@ import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { Canvas } from "@/vis/axis/canvas";
-import { FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/vis/line/aether/line";
 import {
   calculateGridPosition,
   autoBounds,
   withinSizeThreshold,
+  emptyBounds,
 } from "@/vis/lineplot/aether/grid";
-import { YAxis, YAxisProps } from "@/vis/lineplot/aether/YAxis";
+import { type YAxis, type YAxisProps } from "@/vis/lineplot/aether/YAxis";
 import { render } from "@/vis/render";
 
 export const xAxisStateZ = axis.axisStateZ
@@ -65,18 +66,22 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
   }
 
   async render(props: XAxisProps): Promise<void> {
-    const dataToDecimal = await this.dataToDecimalScale(props.viewport);
+    const [dataToDecimal, err] = await this.dataToDecimalScale(props.viewport);
     await this.renderAxis(props, dataToDecimal.reverse());
     await this.renderYAxes(props, dataToDecimal);
+    // Throw the error here to that the user still has a visible axis.
+    if (err != null) throw err;
   }
 
   async findByXDecimal(props: XAxisProps, target: number): Promise<FindResult[]> {
-    const scale = await this.dataToDecimalScale(props.viewport);
+    const [scale, err] = await this.dataToDecimalScale(props.viewport);
+    if (err != null) throw err;
     return await this.findByXValue(props, scale.reverse().pos(target));
   }
 
   async findByXValue(props: XAxisProps, target: number): Promise<FindResult[]> {
-    const xDataToDecimalScale = await this.dataToDecimalScale(props.viewport);
+    const [xDataToDecimalScale, error] = await this.dataToDecimalScale(props.viewport);
+    if (error != null) throw error;
     const p = { ...props, xDataToDecimalScale };
     const prom = this.children.map(async (el) => await el.findByXValue(p, target));
     return (await Promise.all(prom)).flat();
@@ -84,7 +89,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderAxis(
     props: XAxisProps,
-    decimalToDataScale: Scale
+    decimalToDataScale: Scale,
   ): Promise<void> {
     const { core } = this.internal;
     const { grid, container } = props;
@@ -97,26 +102,33 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderYAxes(
     props: XAxisProps,
-    xDataToDecimalScale: Scale
+    xDataToDecimalScale: Scale,
   ): Promise<void> {
     const p = { ...props, xDataToDecimalScale };
     await Promise.all(this.children.map(async (el) => await el.render(p)));
   }
 
-  private async xBounds(): Promise<Bounds> {
+  private async xBounds(): Promise<[Bounds, Error | null]> {
     if (this.state.bounds != null && !this.state.bounds.isZero)
-      return this.state.bounds;
-    const bounds = (
-      await Promise.all(this.children.map(async (el) => await el.xBounds()))
-    ).filter((b) => b.isFinite);
-    return autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
+      return [this.state.bounds, null];
+    try {
+      const bounds = (
+        await Promise.all(this.children.map(async (el) => await el.xBounds()))
+      ).filter((b) => b.isFinite);
+      return [autoBounds(bounds, this.state.autoBoundPadding, this.state.type), null];
+    } catch (err) {
+      return [emptyBounds(this.state.type), err as Error];
+    }
   }
 
-  private async dataToDecimalScale(viewport: Box): Promise<Scale> {
-    const bounds = await this.xBounds();
-    return Scale.scale(bounds)
-      .scale(1)
-      .translate(-viewport.x)
-      .magnify(1 / viewport.width);
+  private async dataToDecimalScale(viewport: Box): Promise<[Scale, Error | null]> {
+    const [bounds, error] = await this.xBounds();
+    return [
+      Scale.scale(bounds)
+        .scale(1)
+        .translate(-viewport.x)
+        .magnify(1 / viewport.width),
+      error,
+    ];
   }
 }

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Status } from "@/status";
+import { type Status } from "@/status";
 import { Text } from "@/text";
 
 import "@/input/HelpText.css";
@@ -40,7 +40,7 @@ export const HelpText = ({
     className={CSS(
       CSS.B("input-help-text"),
       CSS.BM("input-help-text", variant),
-      className
+      className,
     )}
     level="small"
     {...props}

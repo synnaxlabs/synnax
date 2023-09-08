@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export type Func = () => Promise<Cleanup>;
+
 export interface Request {
   key: string;
   priority: Priority;
-  render: Function;
+  render: Func;
 }
-export type Function = () => Promise<Cleanup>;
+
 export type Cleanup = () => Promise<void>;
 
 export type Priority = "high" | "low";

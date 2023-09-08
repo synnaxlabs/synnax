@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CSS, createHexOpacityVariants, unitProperty } from "@/css";
-import { Theme } from "@/theming/core/theme";
+import { type Theme } from "@/theming/core/theme";
 
 const OPACITIES: readonly number[] = [90, 80, 70, 60, 50, 40, 30, 20, 10];
 
@@ -74,5 +74,5 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
       ...acc,
       [CSS.var(key)]: value,
     }),
-    {}
+    {},
   );

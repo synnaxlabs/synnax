@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Meta } from "@storybook/react";
+import { type Meta } from "@storybook/react";
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { LinePlot, AxisProps, LineProps } from "@/channel/LinePlot";
+import { LinePlot, type AxisProps, type LineProps } from "@/channel/LinePlot";
 import { Canvas } from "@/vis/canvas";
 
 const story: Meta<typeof LinePlot> = {

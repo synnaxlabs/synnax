@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import type { ConnectionState, ConnectionStatus } from "@synnaxlabs/client";
+import type { connection } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Text, Status, Synnax } from "@synnaxlabs/pluto";
 import { Case } from "@synnaxlabs/x";
@@ -18,10 +18,10 @@ import { useSelect } from "@/cluster/selectors";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
-  state: ConnectionState;
+  state: connection.State;
 }
 
-const statusVariants: Record<ConnectionStatus, Status.Variant> = {
+const statusVariants: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "info",

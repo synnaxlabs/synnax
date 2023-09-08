@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC, ReactElement, forwardRef } from "react";
+import { type FC, type ReactElement, forwardRef } from "react";
 
-import { Dialog, DialogProps } from "@/tooltip/Dialog";
+import { Dialog, type DialogProps } from "@/tooltip/Dialog";
 
 export interface WrapProps {
   tooltipDelay?: DialogProps["delay"];
@@ -39,7 +39,7 @@ export interface WrapProps {
  * location based on the element's position on the screen.
  */
 export const wrap = <P extends {} = {}, E extends HTMLElement = HTMLElement>(
-  Component: FC<P>
+  Component: FC<P>,
 ): ReturnType<typeof forwardRef<E, P & WrapProps>> => {
   const C = forwardRef<E, P & WrapProps>(
     ({ tooltipDelay, tooltip, tooltipLocation, ...props }, ref): ReactElement => {
@@ -51,7 +51,7 @@ export const wrap = <P extends {} = {}, E extends HTMLElement = HTMLElement>(
           {c}
         </Dialog>
       );
-    }
+    },
   );
   C.displayName = `Tooltip.Wrap(${Component.displayName ?? Component.name})`;
   return C;

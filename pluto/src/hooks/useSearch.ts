@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  UnknownRecord,
-  ArrayTransform,
-  KeyedRecord,
-  Key,
-  TermSearcher,
+  type UnknownRecord,
+  type ArrayTransform,
+  type KeyedRecord,
+  type Key,
+  type TermSearcher,
 } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 
@@ -31,7 +31,7 @@ const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
 export const fuseSearcher =
   (opts?: Fuse.IFuseOptions<UnknownRecord>) =>
   <K extends Key, E extends KeyedRecord<K, E>>(
-    data: E[]
+    data: E[],
   ): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
       keys: Object.keys(data[0]),

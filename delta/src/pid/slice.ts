@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { PID, Control } from "@synnaxlabs/pluto";
-import { Deep, XY } from "@synnaxlabs/x";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
+import { type Box, type CrudeXY, Deep, XY, XYScale } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import { LayoutState, LayoutCreator } from "@/layout";
+import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
   type: string;
@@ -28,6 +28,20 @@ export interface State {
   controlAcquireTrigger: number;
 }
 
+interface CopyBuffer {
+  pos: CrudeXY;
+  nodes: PID.Node[];
+  edges: PID.Edge[];
+  props: Record<string, object>;
+}
+
+const ZERO_COPY_BUFFER: CopyBuffer = {
+  pos: XY.ZERO.crude,
+  nodes: [],
+  edges: [],
+  props: {},
+};
+
 // ||||| TOOLBAR |||||
 
 const TOOLBAR_TABS = ["elements", "properties"] as const;
@@ -38,6 +52,8 @@ export interface ToolbarState {
 }
 
 export interface SliceState {
+  mode: Viewport.Mode;
+  copy: CopyBuffer;
   toolbar: ToolbarState;
   pids: Record<string, State>;
 }
@@ -59,6 +75,8 @@ export const ZERO_STATE: State = {
 };
 
 export const ZERO_PID_SLICE_STATE: SliceState = {
+  mode: "select",
+  copy: { ...ZERO_COPY_BUFFER },
   toolbar: { activeTab: "elements" },
   pids: {},
 };
@@ -114,14 +132,104 @@ export interface TogggleControlPayload {
   status: Control.Status;
 }
 
-export interface SetPIDActiveToolbarTabPayload {
+export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
+
+export interface CopySelectionPayload {}
+
+export interface PasteSelectionPayload {
+  layoutKey: string;
+  pos: CrudeXY;
+}
+
+export interface SetViewportModePayload {
+  mode: Viewport.Mode;
+}
+
+export const calculatePos = (
+  region: Box,
+  cursor: CrudeXY,
+  viewport: PID.Viewport
+): CrudeXY => {
+  const zoomXY = new XY(viewport.zoom);
+  const scale = XYScale.translate(region.topLeft.scale(-1))
+    .magnify(
+      new XY({
+        x: 1 / zoomXY.x,
+        y: 1 / zoomXY.y,
+      })
+    )
+    .translate(new XY(viewport.position).scale(-1));
+  return scale.pos(cursor).crude;
+};
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_PID_SLICE_STATE,
   reducers: {
+    copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
+      // for each pid, find the keys of the selected nodes and edges
+      // and add them to the copy buffer. Then get the props of each
+      // selected node and edge and add them to the copy buffer.
+      const { pids } = state;
+      const copyBuffer: CopyBuffer = {
+        nodes: [],
+        edges: [],
+        props: {},
+        pos: XY.ZERO.crude,
+      };
+      Object.values(pids).forEach((pid) => {
+        const { nodes, edges, props } = pid;
+        const selectedNodes = nodes.filter((node) => node.selected);
+        const selectedEdges = edges.filter((edge) => edge.selected);
+        copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
+        copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
+        selectedNodes.forEach((node) => {
+          copyBuffer.props[node.key] = props[node.key];
+        });
+        selectedEdges.forEach((edge) => {
+          copyBuffer.props[edge.key] = props[edge.key];
+        });
+      });
+      const { nodes } = copyBuffer;
+      if (nodes.length > 0) {
+        const pos = nodes.reduce(
+          (acc, node) => new XY(acc).translate(node.position),
+          XY.ZERO
+        );
+        copyBuffer.pos = pos.scale(1 / nodes.length).crude;
+      }
+      state.copy = copyBuffer;
+    },
+    pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
+      const { pos, layoutKey } = payload;
+      const delta = new XY(state.copy.pos).translation(pos);
+      const pid = state.pids[layoutKey];
+      const keys: Record<string, string> = {};
+      const nextNodes = state.copy.nodes.map((node) => {
+        const key: string = nanoid();
+        pid.props[key] = state.copy.props[node.key];
+        keys[node.key] = key;
+        return {
+          ...node,
+          position: new XY(node.position).translate(delta).crude,
+          key,
+        };
+      });
+      const nextEdges = state.copy.edges.map((edge) => {
+        const key: string = nanoid();
+        return {
+          ...edge,
+          key,
+          source: keys[edge.source],
+          target: keys[edge.target],
+          points: edge.points.map((point) => new XY(point).translate(delta).crude),
+        };
+      });
+      pid.edges = [...pid.edges, ...nextEdges];
+      pid.nodes = [...pid.nodes, ...nextNodes];
+    },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       state.pids[layoutKey] = { ...ZERO_STATE };
@@ -167,6 +275,17 @@ export const { actions, reducer } = createSlice({
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
       const pid = state.pids[layoutKey];
+      // check for new edges
+      const prevKeys = pid.edges.map((edge) => edge.key);
+      const newEdges = edges.filter((edge) => !prevKeys.includes(edge.key));
+      newEdges.forEach((edge) => {
+        const source = pid.nodes.find((node) => node.key === edge.source);
+        const target = pid.nodes.find((node) => node.key === edge.target);
+        if (source == null || target == null) return;
+        const sourceProps = pid.props[source.key];
+        const targetProps = pid.props[target.key];
+        if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
+      });
       pid.edges = edges;
       const anySelected = edges.some((edge) => edge.selected);
       if (anySelected) state.toolbar.activeTab = "properties";
@@ -174,7 +293,7 @@ export const { actions, reducer } = createSlice({
     },
     setActiveToolbarTab: (
       state,
-      { payload }: PayloadAction<SetPIDActiveToolbarTabPayload>
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>
     ) => {
       const { tab } = payload;
       state.toolbar.activeTab = tab;
@@ -199,6 +318,13 @@ export const { actions, reducer } = createSlice({
       const { layoutKey, control } = payload;
       const pid = state.pids[layoutKey];
       pid.control = control;
+      if (control === "acquired") pid.editable = false;
+    },
+    setViewportMode: (
+      state,
+      { payload: { mode } }: PayloadAction<SetViewportModePayload>
+    ) => {
+      state.mode = mode;
     },
   },
 });
@@ -213,13 +339,21 @@ export const {
   setActiveToolbarTab,
   setViewport,
   setEditable,
+  copySelection,
+  pasteSelection,
+  setViewportMode,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
+export type LayoutType = "pid";
+export const LAYOUT_TYPE = "pid";
+
 export const create =
-  (initial: Partial<State> & Omit<Partial<LayoutState>, "type">): LayoutCreator =>
+  (
+    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
+  ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "PID", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
@@ -228,7 +362,7 @@ export const create =
       key,
       location,
       name,
-      type: "pid",
+      type: LAYOUT_TYPE,
       window,
       tab,
     };

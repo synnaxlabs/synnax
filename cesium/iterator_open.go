@@ -13,7 +13,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 )
 
-func (db *DB) NewIterator(cfg IteratorConfig) (*Iterator, error) {
+func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	internal, err := db.newStreamIterator(cfg)
 	return wrapStreamIterator(internal), err
 }
@@ -29,7 +29,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 		if err != nil {
 			return nil, err
 		}
-		internal[i] = uDB.NewIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
 	}
 
 	return &streamIterator{internal: internal}, nil

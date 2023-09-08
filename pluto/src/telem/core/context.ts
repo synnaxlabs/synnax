@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Destructor } from "@synnaxlabs/x";
+import { type Destructor } from "@synnaxlabs/x";
 
-import { aether } from "@/aether/aether";
-import { Factory } from "@/telem/core/factory";
-import { Spec } from "@/telem/core/telem";
+import { type aether } from "@/aether/aether";
+import { type Factory } from "@/telem/core/factory";
+import { type Spec } from "@/telem/core/telem";
 
 export interface Provider {
   use: <T>(key: string, props: Spec, extension?: Factory) => UseResult<T>;
@@ -28,7 +28,7 @@ export const use = <T>(
   ctx: aether.Context,
   key: string,
   props: Spec,
-  extension?: Factory
+  extension?: Factory,
 ): UseResult<T> => get(ctx).use<T>(key, props, extension);
 
 export type UseResult<T> = [T, Destructor];

@@ -10,15 +10,15 @@
 import { DataType, Rate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export type ChannelKey = number;
-export type ChannelKeys = number[];
-export type ChannelName = string;
-export type ChannelNames = string[];
-export type ChannelKeyOrName = ChannelKey | ChannelName;
-export type ChannelKeysOrNames = ChannelKeys | ChannelNames;
-export type ChannelParams = ChannelKey | ChannelName | ChannelKeys | ChannelNames;
+export type Key = number;
+export type Keys = number[];
+export type Name = string;
+export type Names = string[];
+export type KeyOrName = Key | Name;
+export type KeysOrNames = Keys | Names;
+export type Params = Key | Name | Keys | Names;
 
-export const channelPayload = z.object({
+export const payload = z.object({
   name: z.string(),
   key: z.number(),
   rate: Rate.z,
@@ -28,9 +28,9 @@ export const channelPayload = z.object({
   isIndex: z.boolean(),
 });
 
-export type ChannelPayload = z.infer<typeof channelPayload>;
+export type Payload = z.infer<typeof payload>;
 
-export const newChannelPayload = channelPayload.extend({
+export const newPayload = payload.extend({
   key: z.number().optional(),
   leaseholder: z.number().optional(),
   index: z.number().optional(),
@@ -38,9 +38,9 @@ export const newChannelPayload = channelPayload.extend({
   isIndex: z.boolean().optional(),
 });
 
-export type NewChannelPayload = z.input<typeof newChannelPayload>;
+export type NewPayload = z.input<typeof newPayload>;
 
-export const parseChannels = (channels: NewChannelPayload[]): NewChannelPayload[] =>
+export const parseChannels = (channels: NewPayload[]): NewPayload[] =>
   channels.map((channel) => ({
     name: channel.name,
     dataType: new DataType(channel.dataType),

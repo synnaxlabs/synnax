@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 export const useMount = (fn: () => void): void => {
   const ref = useRef(false);
@@ -17,6 +17,4 @@ export const useMount = (fn: () => void): void => {
   }
 };
 
-export const useUnmount = (fn: () => void): void => {
-  useLayoutEffect(() => fn, []);
-};
+export const useUnmount = (fn: () => void): void => useLayoutEffect(() => fn, []);

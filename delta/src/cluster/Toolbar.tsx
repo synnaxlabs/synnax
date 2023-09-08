@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import { RenderableCluster } from "@/cluster/core";
+import { type RenderableCluster } from "@/cluster/core";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
 import { setActive } from "@/cluster/slice";
 import { ToolbarHeader, ToolbarTitle } from "@/components";

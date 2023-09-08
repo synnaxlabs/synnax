@@ -9,14 +9,14 @@
 
 import {
   createContext,
-  ReactElement,
-  ReactNode,
+  type ReactElement,
+  type ReactNode,
   useContext as reactUseContext,
 } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { Text } from "@/text";
+import { type Text } from "@/text";
 
 import "@/header/Header.css";
 
@@ -68,7 +68,7 @@ export const Header = ({
         CSS.B("header"),
         CSS.bordered("bottom"),
         divided && CSS.BM("header", "divided"),
-        className
+        className,
       )}
       {...props}
     >

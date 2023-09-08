@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button, Align, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Line } from "@/line";
+import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
 
 import "@/vis/LayoutSelector.css";
@@ -38,7 +38,7 @@ export const LayoutSelector = ({
       <Align.Space direction={direction}>
         <Button.Button
           variant="outlined"
-          onClick={() => place(Line.createLinePlot({ key: layoutKey }))}
+          onClick={() => place(LinePlot.createLinePlot({ key: layoutKey }))}
           startIcon={<Icon.Visualize />}
         >
           Line Plot
@@ -46,7 +46,7 @@ export const LayoutSelector = ({
         <Button.Button
           variant="outlined"
           onClick={() => place(PID.create({ key: layoutKey }))}
-          startIcon={<Icon.Acquire />}
+          startIcon={<Icon.PID />}
         >
           PID
         </Button.Button>

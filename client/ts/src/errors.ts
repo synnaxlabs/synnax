@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { BaseTypedError, registerError } from "@synnaxlabs/freighter";
+import {
+  BaseTypedError,
+  type Middleware,
+  registerError,
+  Unreachable,
+} from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 const _FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors";
@@ -53,7 +58,7 @@ export class ValidationError extends BaseError {
       this.fields = [];
     } else if (Array.isArray(fieldsOrMessage)) {
       super(
-        fieldsOrMessage.map((field) => `${field.field}: ${field.message}`).join("\n")
+        fieldsOrMessage.map((field) => `${field.field}: ${field.message}`).join("\n"),
       );
       this.fields = fieldsOrMessage;
     } else {
@@ -122,7 +127,7 @@ const parsePayload = (payload: APIErrorPayload): Error | null => {
     case APIErrorType.Route:
       return new RouteError(
         payload.error.path as string,
-        payload.error.message as string
+        payload.error.message as string,
       );
     default:
       return null;
@@ -142,7 +147,21 @@ registerError({ type: _FREIGHTER_EXCEPTION_TYPE, encode, decode });
 export const validateFieldNotNull = (
   key: string,
   value: unknown,
-  message: string = "must be provided"
+  message: string = "must be provided",
 ): void => {
   if (value == null) throw new ValidationError({ field: key, message });
+};
+
+export const errorsMiddleware: Middleware = async (ctx, next) => {
+  const [res, err] = await next(ctx);
+  if (err == null) return [res, err];
+  if (err instanceof Unreachable)
+    return [
+      res,
+      new Unreachable({
+        message: `Cannot reach cluster at ${err.url.host}:${err.url.port}`,
+        url: err.url,
+      }),
+    ];
+  return [res, err];
 };

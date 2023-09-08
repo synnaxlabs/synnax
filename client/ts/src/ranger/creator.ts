@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { NewRangePayload, RangePayload, rangePayloadZ } from "@/ranger/payload";
+import { type NewPayload, type Payload, payloadZ } from "@/ranger/payload";
 
 const resZ = z.object({
-  ranges: z.array(rangePayloadZ),
+  ranges: z.array(payloadZ),
 });
 
-export class RangeCreator {
+export class Creator {
   private static readonly ENDPOINT = "/range/create";
   client: UnaryClient;
 
@@ -24,8 +24,8 @@ export class RangeCreator {
     this.client = client;
   }
 
-  async create(ranges: NewRangePayload[]): Promise<RangePayload[]> {
-    const [res, err] = await this.client.send(RangeCreator.ENDPOINT, { ranges }, resZ);
+  async create(ranges: NewPayload[]): Promise<Payload[]> {
+    const [res, err] = await this.client.send(Creator.ENDPOINT, { ranges }, resZ);
     if (err != null) throw err;
     return res.ranges;
   }

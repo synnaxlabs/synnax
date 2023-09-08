@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties, ReactElement, useEffect, useState } from "react";
+import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
   Compare,
   convertRenderV,
-  Key,
-  KeyedRenderableRecord,
-  RenderableRecord,
-  ArrayTransform,
+  type Key,
+  type KeyedRenderableRecord,
+  type RenderableRecord,
+  type ArrayTransform,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
-import { ItemProps, ColumnSpec as ListColumnT } from "@/list/types";
+import { type ItemProps, type ColumnSpec as ListColumnT } from "@/list/types";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -68,7 +68,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   useEffect(() => {
     setColumns((prev) =>
-      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font)
+      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font),
     );
   }, [font, sourceData, initialColumns]);
 
@@ -106,7 +106,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
 const Item = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   entry,
   selected,
@@ -126,7 +126,7 @@ const Item = <
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
         hovered && CSS.BEM("list-col-item", "container", "hovered"),
         selected && CSS.BEM("list-col-item", "container", "selected"),
-        selected && CONTEXT_SELECTED
+        selected && CONTEXT_SELECTED,
       )}
       direction="x"
       onClick={handleSelect}
@@ -146,7 +146,7 @@ const Item = <
 
 interface ListColumnValueProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
   entry: E;
   col: ListColumnT<K, E>;
@@ -175,11 +175,11 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
 const columnWidths = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
   columns: Array<ListColumnT<K, E>>,
   data: E[],
-  font: string
+  font: string,
 ): Array<ListColumnT<K, E>> => {
   const le = longestEntries(data, columns);
   return columns.map((col) => {
@@ -195,10 +195,10 @@ const columnWidths = <
 
 const longestEntries = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
   data: E[],
-  columns: Array<ListColumnT<K, E>>
+  columns: Array<ListColumnT<K, E>>,
 ): Record<keyof E, string> => {
   const longest = {} as const as Record<keyof E, string>;
   data.forEach((entry: E) =>
@@ -208,7 +208,7 @@ const longestEntries = <
       const value = stringer != null ? stringer(entry) : rv;
       if (!(key in longest) || value.length > longest[key as keyof E].length)
         longest[key as keyof E] = value;
-    })
+    }),
   );
   return longest;
 };
@@ -216,10 +216,10 @@ const longestEntries = <
 const sortTransform =
   <
     K extends Key = Key,
-    E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+    E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
   >(
     k: keyof E,
-    dir: boolean
+    dir: boolean,
   ): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;

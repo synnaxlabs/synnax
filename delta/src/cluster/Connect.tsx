@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsZ } from "@synnaxlabs/client";
-import type { ConnectionState, SynnaxProps } from "@synnaxlabs/client";
+import type { connection, SynnaxProps } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Button,
   Header,
@@ -20,8 +21,7 @@ import {
   Align,
   componentRenderProp,
 } from "@synnaxlabs/pluto";
-import { FieldValues, useForm } from "react-hook-form";
-import { AiFillApi } from "react-icons/ai";
+import { type FieldValues, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -29,7 +29,7 @@ import { ConnectionStateBadge } from "@/cluster/Badges";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
 
@@ -56,7 +56,7 @@ export const connectWindowLayout: Layout.LayoutState = {
  */
 export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
-  const [connState, setConnState] = useState<ConnectionState | null>(null);
+  const [connState, setConnState] = useState<connection.State | null>(null);
 
   const {
     getValues,
@@ -92,7 +92,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
       <Header.Header level="h4" divided>
-        <Header.Title startIcon={<AiFillApi />}>Connect a Cluster</Header.Title>
+        <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
       </Header.Header>
       <Align.Space className="delta-form" grow>
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}

@@ -9,13 +9,13 @@
 
 import { useCallback, useRef } from "react";
 
-import { Key, KeyedRecord, unique } from "@synnaxlabs/x";
+import { type Key, type KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 
 export interface UseSelectMultipleOnChangeExtra<
   K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>
+  E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
   clicked: K | null;
   entries: E[];
@@ -24,7 +24,7 @@ export interface UseSelectMultipleOnChangeExtra<
 /** Props for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleProps<
   K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>
+  E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
   data: E[];
   allowMultiple?: boolean;
@@ -37,7 +37,7 @@ export interface UseSelectMultipleProps<
 /** Return value for the {@link useSelectMultiple} hook. */
 export interface UseSelectMultipleReturn<
   K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>
+  E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
   onSelect: (key: K) => void;
   clear: () => void;
@@ -70,7 +70,7 @@ export interface UseSelectMultipleReturn<
  */
 export const useSelectMultiple = <
   K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>
+  E extends KeyedRecord<K, E> = KeyedRecord<K>,
 >({
   data = [],
   value = [],
@@ -119,12 +119,12 @@ export const useSelectMultiple = <
         clicked: key,
       });
     },
-    [onChange, value, data, allowMultiple]
+    [onChange, value, data, allowMultiple],
   );
 
   const clear = useCallback(
     (): void => onChange([], { entries: [], clicked: null }),
-    [onChange]
+    [onChange],
   );
 
   return { onSelect: handleSelect, clear };

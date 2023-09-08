@@ -10,8 +10,6 @@
     </a>
 </p>
 
-
-
 # Aspen
 
 Aspen is a go-embedded, eventually consistent, heavily read optimized, distributed

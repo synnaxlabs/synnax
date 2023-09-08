@@ -20,6 +20,7 @@ package writer
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -240,23 +241,9 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		Exec(ctx, nil); err != nil {
 		return err
 	}
-	var (
-		refIndex channel.Key
-		refRate  telem.Rate
-	)
-	for i, c := range channels {
-		if i == 0 {
-			refIndex = c.Index()
-			refRate = c.Rate
-			continue
-		}
-		if c.Rate != 0 {
-			if c.Rate != refRate {
-				return v.Newf("channel rate mismatch: expected %s, found %s", c.Rate, refRate)
-			}
-		} else if c.Index() != refIndex {
-			return v.Newf("keys must have the same index: expected %s, found %s", refIndex, c.Index())
-		}
+	if len(channels) != len(keys) {
+		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
+		return errors.Wrapf(validate.Error, "missing channels: %v", missing)
 	}
 	return nil
 }

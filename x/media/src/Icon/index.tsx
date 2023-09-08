@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC } from "react";
+import { type FC } from "react";
 
-import { OS } from "@synnaxlabs/x";
+import { type OS } from "@synnaxlabs/x";
 import {
   AiFillCaretDown,
   AiFillCaretLeft,
@@ -27,11 +27,10 @@ import {
   AiFillGithub,
   AiFillLinkedin,
 } from "react-icons/ai";
-import { BsStack, BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
-  FaDiceD20,
   FaDocker,
   FaLinux,
   FaStream,
@@ -40,6 +39,7 @@ import {
 import { FiMenu } from "react-icons/fi";
 import { GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
+import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
 import {
@@ -68,7 +68,9 @@ import {
   MdLabel,
   MdSquareFoot,
   MdKeyboardControlKey,
+  MdPerson,
 } from "react-icons/md";
+import { PiSelectionPlusBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import {
@@ -105,8 +107,8 @@ export const Icon: IconType = {
   Concepts: BsLightbulbFill,
   Visualize: MdAreaChart,
   Expand: AiOutlineExpand,
-  Cluster: BsStack,
-  Control: FaDiceD20,
+  Cluster: HiSquare3Stack3D,
+  PID: FaStream,
   Caret: {
     Right: AiFillCaretRight,
     Left: AiFillCaretLeft,
@@ -164,8 +166,10 @@ export const Icon: IconType = {
   Tooltip: MdInsights,
   Annotate: MdLabel,
   Zoom: TbZoomFilled,
+  Selection: PiSelectionPlusBold,
   Pan: GrPan,
   Rule: MdSquareFoot,
+  User: MdPerson,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -190,7 +194,7 @@ export interface IconType {
   Expand: IconFC;
   Visualize: IconFC;
   Cluster: IconFC;
-  Control: IconFC;
+  PID: IconFC;
   Settings: IconFC;
   Caret: {
     Right: IconFC;
@@ -247,7 +251,9 @@ export interface IconType {
   };
   Zoom: IconFC;
   Pan: IconFC;
+  Selection: IconFC;
   Tooltip: IconFC;
   Annotate: IconFC;
   Rule: IconFC;
+  User: IconFC;
 }

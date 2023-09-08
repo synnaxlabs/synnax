@@ -10,7 +10,8 @@
 export * from "@/channel";
 export { default as Synnax, synnaxPropsZ } from "@/client";
 export type { SynnaxProps } from "@/client";
-export * from "@/connectivity";
+export * from "@/connection";
+export { Channel } from "@/channel/client";
 export {
   AuthError,
   ContiguityError,
@@ -21,7 +22,8 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-export * from "@/framer";
+export { framer } from "@/framer";
+export { Frame } from "@/framer/frame";
 export { ontology } from "@/ontology";
 export {
   DataType,

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ComponentPropsWithoutRef,
-  EventHandler,
-  MouseEvent,
-  ReactElement,
-  ReactNode,
+  type ComponentPropsWithoutRef,
+  type EventHandler,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
   cloneElement,
   useRef,
   useState,
@@ -20,16 +20,16 @@ import {
 
 import {
   Box,
-  CrudeLocation,
-  CrudeOuterLocation,
-  CrudeTimeSpan,
-  CrudeXLocation,
-  CrudeXYLocation,
-  CrudeYLocation,
-  Dimensions,
+  type CrudeLocation,
+  type CrudeOuterLocation,
+  type CrudeTimeSpan,
+  type CrudeXLocation,
+  type CrudeXYLocation,
+  type CrudeYLocation,
+  type Dimensions,
   Location,
   TimeSpan,
-  XY,
+  type XY,
   XYLocation,
 } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
@@ -72,7 +72,7 @@ const LOCATION_TRANSLATIONS: Record<string, (xy: XY, container: Box) => XY> = {
 const bestLocation = <C extends CrudeLocation>(
   container: Box,
   window: Box,
-  options: C[]
+  options: C[],
 ): C => {
   for (const location of options) {
     const distance = Math.abs(window.loc(location) - container.loc(location));
@@ -142,7 +142,7 @@ export const Dialog = ({
       xy = new XYLocation(v as CrudeXYLocation);
     } else {
       const chosen = new Location(
-        bestLocation(container, window, LOCATION_PREFERENCES)
+        bestLocation(container, window, LOCATION_PREFERENCES),
       );
       xy = new XYLocation(chosen, chooseRemainingLocation(chosen));
     }
@@ -163,7 +163,7 @@ export const Dialog = ({
   const handleMouseEnter: EventHandler<MouseEvent> = (e): void => {
     timeoutRef.current = setTimeout(
       () => handleVisibleChange(e, true),
-      parsedDelay.milliseconds
+      parsedDelay.milliseconds,
     );
   };
 
@@ -182,7 +182,7 @@ export const Dialog = ({
             className={CSS(
               CSS.B("tooltip"),
               CSS.loc(state.location.x),
-              CSS.loc(state.location.y)
+              CSS.loc(state.location.y),
             )}
             style={{
               ...state.position.css,
@@ -192,7 +192,7 @@ export const Dialog = ({
           >
             {tip}
           </div>,
-          document.body
+          document.body,
         )}
       {cloneElement(children_, {
         onMouseEnter: handleMouseEnter,

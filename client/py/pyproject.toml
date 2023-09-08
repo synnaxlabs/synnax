@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.8.0"
+version = "0.9.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -22,7 +22,7 @@ PyJWT = "^2.5.0"
 rich = "^13.4.1"
 pick = "^2.0.2"
 pydantic = "^1.10.9"
-synnax-freighter = "^0.3.0"
+synnax-freighter = "^0.4.0"
 #synnax-freighter = { path = "../../freighter/py", develop = true }
 alamos = "^0.2.0"
 #alamos = { path = "../../alamos/py", develop = true }

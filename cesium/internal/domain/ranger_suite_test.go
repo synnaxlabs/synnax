@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestRanger(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Range Suite")
+	RunSpecs(t, "TimeRange Suite")
 }

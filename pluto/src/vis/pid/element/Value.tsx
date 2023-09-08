@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { CrudeDirection, Direction } from "@synnaxlabs/x";
+import { type CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
@@ -19,10 +19,10 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { Remote } from "@/telem/remote";
 import { Static } from "@/telem/static";
-import { Theming } from "@/theming";
+import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
-import { FormProps, Props, Spec } from "@/vis/pid/element/element";
-import { ValueLabeled, ValueLabeledProps } from "@/vis/value/Labeled";
+import { type FormProps, type Props, type Spec } from "@/vis/pid/element/element";
+import { ValueLabeled, type ValueLabeledProps } from "@/vis/value/Labeled";
 
 import "@/vis/pid/element/Value.css";
 

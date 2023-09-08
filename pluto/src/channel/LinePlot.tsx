@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
-import { ChannelKey } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import {
   Box,
-  CrudeBounds,
-  CrudeDirection,
-  CrudeLocation,
+  type CrudeBounds,
+  type CrudeDirection,
+  type CrudeLocation,
   Location,
-  TimeRange,
-  TimeSpan,
+  type TimeRange,
+  type TimeSpan,
 } from "@synnaxlabs/x";
 
 import { HAUL_TYPE } from "@/channel/types";
-import { Color } from "@/color";
+import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Remote } from "@/telem/remote";
-import { Text } from "@/text";
-import { Viewport } from "@/viewport";
-import { axis } from "@/vis/axis";
+import { type Text } from "@/text";
+import { type Viewport } from "@/viewport";
+import { type axis } from "@/vis/axis";
 import { LinePlot as Core } from "@/vis/lineplot";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
@@ -97,7 +97,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onLineColorChange?: (id: string, value: Color.Color) => void;
   onRuleLabelChange?: (id: string, value: string) => void;
   onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: ChannelKey[]) => void;
+  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   initialViewport?: Viewport.UseProps["initial"];
@@ -135,7 +135,7 @@ export const LinePlot = ({
         const _lines = lines.filter((l) => l.axes.x === a.id);
         const _axes = axes.filter(({ location }) => new Location(location).isX);
         const _rules = rules?.filter((r) =>
-          [..._axes.map(({ id }) => id), a.id].includes(r.axis)
+          [..._axes.map(({ id }) => id), a.id].includes(r.axis),
         );
         return (
           <XAxis
@@ -178,7 +178,7 @@ interface XAxisProps extends AxisProps {
   rules?: RuleProps[];
   onRuleLabelChange?: (id: string, value: string) => void;
   onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: ChannelKey[]) => void;
+  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   index: number;
 }
 
@@ -202,11 +202,11 @@ const XAxis = ({
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         onAxisChannelDrop?.(
           id,
-          dropped.map(({ key }) => key as ChannelKey)
+          dropped.map(({ key }) => key as channel.Key),
         );
         return dropped;
       },
-      [id, onAxisChannelDrop]
+      [id, onAxisChannelDrop],
     ),
   });
 
@@ -217,7 +217,7 @@ const XAxis = ({
       {...dropProps}
       showGrid={showGrid ?? index === 0}
       className={CSS(
-        CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState()))
+        CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),
       )}
     >
       {yAxes.map((a, i) => {
@@ -254,7 +254,7 @@ interface YAxisProps extends AxisProps {
   rules?: RuleProps[];
   onRuleLabelChange?: (id: string, value: string) => void;
   onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: ChannelKey[]) => void;
+  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
 }
 
 const lineKey = ({ channels: { x, y } }: LineProps): string => `${x ?? 0}-${y}`;
@@ -276,11 +276,11 @@ const YAxis = ({
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         onAxisChannelDrop?.(
           id,
-          dropped.map(({ key }) => key as ChannelKey)
+          dropped.map(({ key }) => key as channel.Key),
         );
         return dropped;
       },
-      [id, onAxisChannelDrop]
+      [id, onAxisChannelDrop],
     ),
   });
 

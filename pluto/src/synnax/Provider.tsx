@@ -8,14 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PropsWithChildren,
-  ReactElement,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   useCallback,
   useContext,
 } from "react";
 
-import { ConnectionState, Synnax, SynnaxProps, TimeSpan } from "@synnaxlabs/client";
+import {
+  type connection,
+  Synnax,
+  type SynnaxProps,
+  TimeSpan,
+} from "@synnaxlabs/client";
 import { Case } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
@@ -28,13 +33,13 @@ const Context = createContext<synnax.ContextValue>(synnax.ZERO_CONTEXT_VALUE);
 
 export const use = (): Synnax | null => useContext(Context).synnax;
 
-export const useConnectionState = (): ConnectionState => useContext(Context).state;
+export const useConnectionState = (): connection.State => useContext(Context).state;
 
 export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxProps;
 }
 
-const CONNECTION_STATE_VARIANT: Record<ConnectionState["status"], Status.Variant> = {
+const CONNECTION_STATE_VARIANT: Record<connection.Status, Status.Variant> = {
   connected: "success",
   connecting: "info",
   disconnected: "info",
@@ -45,7 +50,7 @@ export const Provider = Aether.wrap<ProviderProps>(
   synnax.Provider.TYPE,
   ({ aetherKey, connParams, children }): ReactElement => {
     const [state, setState, ref] = useCombinedStateAndRef<synnax.ContextValue>(
-      synnax.ZERO_CONTEXT_VALUE
+      synnax.ZERO_CONTEXT_VALUE,
     );
 
     const [{ path }, , setAetherState] = Aether.use({
@@ -58,7 +63,7 @@ export const Provider = Aether.wrap<ProviderProps>(
     const add = Status.useAggregator();
 
     const handleChange = useCallback(
-      (state: ConnectionState) => {
+      (state: connection.State) => {
         if (ref.current.state.status !== state.status) {
           add({
             variant: CONNECTION_STATE_VARIANT[state.status],
@@ -67,7 +72,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         }
         setState((prev) => ({ ...prev, state }));
       },
-      [add]
+      [add],
     );
 
     useAsyncEffect(async () => {
@@ -106,5 +111,5 @@ export const Provider = Aether.wrap<ProviderProps>(
         <Aether.Composite path={path}>{children}</Aether.Composite>
       </Context.Provider>
     );
-  }
+  },
 );

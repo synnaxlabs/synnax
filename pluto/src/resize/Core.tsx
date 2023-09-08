@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, HTMLAttributes, ReactElement } from "react";
+import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
 
-import { Location, LooseLocationT } from "@synnaxlabs/x";
+import { Location, type LooseLocationT } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";

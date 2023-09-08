@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import type { CSSProperties } from "react";
-import React from "react";
+import type React from "react";
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { RenderProp } from "@/util/renderProp";
+import { type RenderProp } from "@/util/renderProp";
 
 type RenderF<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > = RenderProp<{
   key: string | number | symbol;
   entry: E;
@@ -25,7 +25,7 @@ type RenderF<
 
 export interface ColumnSpec<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
   /** The key of the object to render. */
   key: keyof E | string;
@@ -47,7 +47,7 @@ export interface ColumnSpec<
 
 export interface ItemProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
   key: string | number;
   entry: E;

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
-import { Button } from "@/button";
+import { type Button } from "@/button";
 import { CSS } from "@/css";
-import { InternalControlsProps } from "@/os/Controls/types";
-import { ComponentSize } from "@/util/component";
+import { type InternalControlsProps } from "@/os/Controls/types";
+import { type ComponentSize } from "@/util/component";
 
 import "@/os/Controls/Mac.css";
 
@@ -91,7 +91,7 @@ export const MacOS = ({
     className={CSS(
       CSS.B("macos-controls"),
       !focused && CSS.BM("macos-controls", "blurred"),
-      className
+      className,
     )}
     {...props}
   >

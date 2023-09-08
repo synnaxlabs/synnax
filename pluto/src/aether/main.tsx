@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ComponentType,
-  FC,
-  PropsWithChildren,
-  ReactElement,
+  type ComponentType,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   memo,
   useCallback,
@@ -23,10 +23,10 @@ import {
 } from "react";
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Compare, SenderHandler } from "@synnaxlabs/x";
-import { z } from "zod";
+import { Compare, type SenderHandler } from "@synnaxlabs/x";
+import { type z } from "zod";
 
-import { MainMessage, WorkerMessage } from "@/aether/message";
+import { type MainMessage, type WorkerMessage } from "@/aether/message";
 import { useUnmount } from "@/hooks/useMount";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
@@ -66,7 +66,7 @@ export const Provider = ({
   const [ready, setReady] = useState(false);
   const worker = useMemo(
     () => propsWorker ?? contextWorker,
-    [propsWorker, contextWorker]
+    [propsWorker, contextWorker],
   );
 
   const create: ContextValue["create"] = useCallback(
@@ -74,13 +74,13 @@ export const Provider = ({
       const key = path.at(-1);
       if (key == null)
         throw new ValidationError(
-          `[Aether.Provider] - received zero length path when registering component of type ${type}`
+          `[Aether.Provider] - received zero length path when registering component of type ${type}`,
         );
       if (type.length === 0)
         console.warn(
           `[Aether.Provider] - received zero length type when registering component at ${path.join(
-            "."
-          )} This is probably a bad idea.`
+            ".",
+          )} This is probably a bad idea.`,
         );
       registry.current.set(key, { path, handler });
       return {
@@ -94,7 +94,7 @@ export const Provider = ({
         },
       };
     },
-    [worker, registry]
+    [worker, registry],
   );
 
   useEffect(() => {
@@ -103,11 +103,11 @@ export const Provider = ({
       const component = registry.current.get(key);
       if (component == null)
         throw new UnexpectedError(
-          `[Aether.Provider] - received worker update message for unregistered component with key ${key}`
+          `[Aether.Provider] - received worker update message for unregistered component with key ${key}`,
         );
       if (component.handler == null)
         throw new UnexpectedError(
-          `[Aether.Provider] - received worker update message for component with key ${key} that has no handler`
+          `[Aether.Provider] - received worker update message for component with key ${key} that has no handler`,
         );
       component.handler(state);
     });
@@ -148,13 +148,13 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   const path = useMemoCompare(
     () => [...ctx.path, key],
     ([a], [b]) => Compare.primitiveArrays(a, b) === 0,
-    [ctx.path, key] as [string[], string]
+    [ctx.path, key] as [string[], string],
   );
 
   const setState = useCallback(
     (state: z.input<S>, transfer: Transferable[] = []) =>
       comms.current?.setState(prettyParse(schema, state), transfer),
-    []
+    [],
   );
 
   // We run the first effect synchronously so that parent components are created
@@ -201,21 +201,21 @@ export type UseReturn<S extends z.ZodTypeAny> = [
     path: string[];
   },
   z.output<S>,
-  (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void
+  (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
 export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
   const { type, schema, initialState } = props;
 
   const [internalState, setInternalState] = useState<z.output<S>>(() =>
-    prettyParse(schema, initialState)
+    prettyParse(schema, initialState),
   );
 
   // Update the internal component state when we receive communications from the
   // aether.
   const handleReceive = useCallback(
     (state: any) => setInternalState(prettyParse(schema, state)),
-    [schema]
+    [schema],
   );
 
   const { path, setState: setAetherState } = useLifecycle({
@@ -226,7 +226,7 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
   const setState = useCallback(
     (
       next: state.SetArg<z.input<S> | z.output<S>>,
-      transfer: Transferable[] = []
+      transfer: Transferable[] = [],
     ): void => {
       if (state.isSetter(next))
         setInternalState((prev) => {
@@ -241,7 +241,7 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
         setAetherState(next, transfer);
       }
     },
-    [path, type]
+    [path, type],
   );
 
   return [{ path }, internalState, setState];
@@ -267,14 +267,14 @@ Composite.displayName = "AetherComposite";
 
 export const wrap = <P extends {}>(
   displayName: string,
-  Component: ComponentType<P & { aetherKey: string }>
+  Component: ComponentType<P & { aetherKey: string }>,
 ): FC<P & { aetherKey?: string }> => {
   Component.displayName = `Aether.wrap(${displayName})`;
   const Wrapped = memo<P & { aetherKey?: string }>(
     ({ aetherKey, ...props }: P & { aetherKey?: string }): JSX.Element => {
       const key = useUniqueKey(aetherKey);
       return <Component {...(props as unknown as P)} aetherKey={key} />;
-    }
+    },
   );
   Wrapped.displayName = displayName;
   return Wrapped;

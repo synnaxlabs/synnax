@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, SampleValue } from "@synnaxlabs/x";
+import { DataType, type Series, type SampleValue } from "@synnaxlabs/x";
 
 /**
  * Converts the given serie
@@ -17,7 +17,7 @@ import { DataType, Series, SampleValue } from "@synnaxlabs/x";
  * @returns
  */
 export const convertSeriesFloat32 = (series: Series, offset?: SampleValue): Series => {
-  if (offset == null && series.dataType.equals(DataType.TIMESTAMP)) 
+  if (offset == null && series.dataType.equals(DataType.TIMESTAMP))
     offset = BigInt(series.data[0]);
   return series.convert(DataType.FLOAT32, offset);
 };

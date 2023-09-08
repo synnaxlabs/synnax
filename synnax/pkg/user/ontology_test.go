@@ -14,10 +14,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Ontology", Ordered, func() {
@@ -31,7 +33,8 @@ var _ = Describe("Ontology", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg, err := ontology.Open(ctx, ontology.Config{DB: db})
 		Expect(err).To(BeNil())
-		svc = &user.Service{DB: db, Ontology: otg}
+		g := MustSucceed(group.NewService(group.Config{DB: db, Ontology: otg}))
+		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 	})
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
@@ -50,9 +53,9 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(w.Create(ctx, u)).To(Succeed())
 			entity, err := svc.RetrieveResource(ctx, userKey.String())
 			Expect(err).ToNot(HaveOccurred())
-			key, ok := schema.Get[uuid.UUID](entity, "key")
+			key, ok := schema.Get[string](entity, "key")
 			Expect(ok).To(BeTrue())
-			Expect(key).To(Equal(userKey))
+			Expect(key).To(Equal(userKey.String()))
 			username, ok := schema.Get[string](entity, "username")
 			Expect(ok).To(BeTrue())
 			Expect(username).To(Equal("test"))

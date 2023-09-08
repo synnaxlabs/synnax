@@ -13,8 +13,8 @@ import { XY } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { Triggers } from "@/triggers";
-import { Config } from "@/triggers/triggers";
-import { Viewport } from "@/viewport";
+import { type Config } from "@/triggers/triggers";
+import { type Viewport } from "@/viewport";
 import { LinePlot } from "@/vis/lineplot";
 import { measure } from "@/vis/measure/aether";
 
@@ -28,7 +28,7 @@ const MEASURE_TRIGGERS: Config<ClickMode> = {
   empty: [[]],
 };
 
-const REDUCED_MEASURE_TRIGGERS = Triggers.reduceConfig(MEASURE_TRIGGERS);
+const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface MeasureProps {}
@@ -58,7 +58,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         const measureMode = Triggers.determineMode<ClickMode>(
           MEASURE_TRIGGERS,
           triggers.current.triggers,
-          true
+          true,
         );
         if (["one", "two"].includes(measureMode))
           return setState((p) => ({ ...p, [measureMode]: cursor }));
@@ -72,7 +72,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
           }));
       }
     },
-    [setState, triggers]
+    [setState, triggers],
   );
 
   LinePlot.useViewport(handleClick);
@@ -84,7 +84,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         hover: new XY(e),
       }));
     },
-    [setState]
+    [setState],
   );
 
   const handleLeave = useCallback((): void => {

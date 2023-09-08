@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, Destructor, XYScale } from "@synnaxlabs/x";
+import { Box, type Destructor, XYScale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,7 +17,7 @@ import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { PIDElement } from "@/vis/pid/aether/pid";
+import { type PIDElement } from "@/vis/pid/aether/pid";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
@@ -25,7 +25,7 @@ const valueState = z.object({
   telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
   units: z.string(),
   font: z.string().optional().default(""),
-  color: color.Color.z,
+  color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
   width: z.number().optional().default(100),
 });
@@ -39,6 +39,7 @@ interface InternalState {
   telem: telem.NumericSource;
   cleanupTelem: Destructor;
   requestRender: (() => void) | null;
+  textColor: color.Color;
 }
 
 export class Value
@@ -53,10 +54,12 @@ export class Value
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
+    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.p2;
+    else this.internal.textColor = this.state.color;
     const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,
       this.key,
-      this.state.telem
+      this.state.telem,
     );
     this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;
@@ -104,7 +107,7 @@ export class Value
         x: -dims.width / 2,
       });
 
-    canvas.fillStyle = this.state.color.hex;
+    canvas.fillStyle = this.internal.textColor.hex;
     canvas.fillText(valueStr, ...labelPosition.couple);
   }
 }

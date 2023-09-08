@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEvent, ReactElement, useCallback, useId, useMemo } from "react";
+import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
-import { ChannelKey, ChannelKeys, ChannelPayload } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { DraggingState } from "@/haul/Haul";
-import { List } from "@/list";
+import { type DraggingState } from "@/haul/Haul";
+import { type List } from "@/list";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
 import { HAUL_TYPE } from "./types";
 
-const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
+const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
   {
     key: "name",
     name: "Name",
@@ -51,15 +51,15 @@ const channelColumns: Array<List.ColumnSpec<ChannelKey, ChannelPayload>> = [
 
 const canDrop = (
   { items: entities }: DraggingState,
-  value: ChannelKey[] | readonly ChannelKey[]
+  value: channel.Key[] | readonly channel.Key[],
 ): boolean => {
   const f = Haul.filterByType(HAUL_TYPE, entities);
-  return f.length > 0 && !f.every((h) => value.includes(h.key as ChannelKey));
+  return f.length > 0 && !f.every((h) => value.includes(h.key as channel.Key));
 };
 
 export interface SelectMultipleProps
   extends Omit<
-    Select.MultipleProps<ChannelKey, ChannelPayload>,
+    Select.MultipleProps<channel.Key, channel.Payload>,
     "columns" | "searcher"
   > {
   columns?: string[];
@@ -96,10 +96,10 @@ export const SelectMultiple = ({
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
-        onChange(unique([...value, ...(dropped.map((c) => c.key) as ChannelKeys)]));
+        onChange(unique([...value, ...(dropped.map((c) => c.key) as channel.Keys)]));
         return dropped;
       },
-      [onChange, value]
+      [onChange, value],
     ),
   });
   const dragging = Haul.useDraggingState();
@@ -108,13 +108,13 @@ export const SelectMultiple = ({
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
       onChange(value.filter((key) => !dropped.some((h) => h.key === key)));
     },
-    [onChange, value]
+    [onChange, value],
   );
 
   const onDragStart = useCallback(
-    (_: DragEvent<HTMLDivElement>, key: ChannelKey) =>
+    (_: DragEvent<HTMLDivElement>, key: channel.Key) =>
       startDrag([{ key, type: HAUL_TYPE }], handleSuccessfulDrop),
-    [startDrag, handleSuccessfulDrop]
+    [startDrag, handleSuccessfulDrop],
   );
 
   return (
@@ -135,7 +135,7 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<ChannelKey, ChannelPayload>, "columns"> {
+  extends Omit<Select.SingleProps<channel.Key, channel.Payload>, "columns"> {
   columns?: string[];
 }
 
@@ -162,7 +162,7 @@ export const SelectSingle = ({
   const id = useId();
   const sourceAndTarget: Haul.Item = useMemo(
     () => ({ key: id, type: "Channel.SelectMultiple" }),
-    [id]
+    [id],
   );
 
   const {
@@ -176,17 +176,17 @@ export const SelectSingle = ({
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
         if (ch.length === 0) return [];
-        onChange(ch[0].key as ChannelKey);
+        onChange(ch[0].key as channel.Key);
         return ch;
       },
-      [sourceAndTarget, onChange]
+      [sourceAndTarget, onChange],
     ),
   });
 
   const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(
     () => startDrag([{ type: HAUL_TYPE, key: value }]),
-    [startDrag, value]
+    [startDrag, value],
   );
 
   return (

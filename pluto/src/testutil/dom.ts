@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Mock, vi } from "vitest";
+import { type Mock, vi } from "vitest";
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const mockBoundingClientRect = (
   top: number,
   left: number,
   width: number,
-  height: number
+  height: number,
 ): Mock<any, any> =>
   vi.fn().mockReturnValue({
     top,

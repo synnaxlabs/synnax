@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
@@ -15,7 +15,7 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 import "@/tag/Tag.css";
 
