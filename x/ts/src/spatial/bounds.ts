@@ -18,7 +18,10 @@ export type Bounds = z.infer<typeof bounds>;
 export type Crude = z.infer<typeof crude>;
 
 export const construct = (lower: number | Crude, upper?: number): Bounds => {
-  if (typeof lower === "number") return { lower, upper: upper ?? lower };
+  if (typeof lower === "number") {
+    if (upper != null) return { lower, upper };
+    return { lower: 0, upper: lower };
+  }
   if (Array.isArray(lower)) return { lower: lower[0], upper: lower[1] };
   return lower;
 };

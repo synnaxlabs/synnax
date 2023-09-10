@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC, PropsWithChildren, useRef } from "react";
+import { type FC, type PropsWithChildren, useRef } from "react";
 
 import { createMockWorkers } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
@@ -16,7 +16,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { MainMessage, WorkerMessage } from "@/aether/message";
+import { type MainMessage, type WorkerMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -106,7 +106,7 @@ describe("Aether Main", () => {
       render(
         <Provider>
           <ExampleLeafC />
-        </Provider>
+        </Provider>,
       );
       expect(root.children).toHaveLength(1);
       const first = root.children[0] as ExampleLeaf;
@@ -132,7 +132,7 @@ describe("Aether Main", () => {
       render(
         <Provider>
           <ExampleLeafC />
-        </Provider>
+        </Provider>,
       );
       expect(root.children).toHaveLength(1);
       const first = root.children[0] as ExampleLeaf;

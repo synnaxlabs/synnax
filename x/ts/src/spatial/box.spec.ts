@@ -9,7 +9,6 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import { positionInCenter } from "@/spatial";
 import * as box from "@/spatial/box";
 import * as location from "@/spatial/location";
 import type * as xy from "@/spatial/xy";
@@ -83,9 +82,7 @@ describe("Box", () => {
       const v: location.Location[] = ["left", "right", "top", "bottom"];
       const expected: number[] = [20, 60, 30, 80];
       v.forEach((v, i) => {
-        test(`loc-${v}`, () => {
-          expect(box.loc(b, v)).toEqual(expected[i]);
-        });
+        test(`loc-${v}`, () => expect(box.loc(b, v)).toEqual(expected[i]));
       });
     });
     describe("xyLoc", () => {
@@ -110,9 +107,8 @@ describe("Box", () => {
         { x: 60, y: 30 },
       ];
       v.forEach((v, i) => {
-        test(`xyLoc-${i}`, () => {
-          expect(box.xyLoc(b, v)).toEqual(expected[i]);
-        });
+        test(`xyLoc-${location.xyToString(v)}`, () =>
+          expect(box.xyLoc(b, v)).toEqual(expected[i]));
       });
     });
   });
@@ -131,7 +127,7 @@ describe("Box", () => {
     it("should position the box in the center of the other box", () => {
       let b = box.construct(0, 0, 10, 10);
       const b2 = box.construct(0, 0, 20, 20);
-      b = positionInCenter(b, b2);
+      b = box.positionInCenter(b, b2);
       expect(box.topLeft(b)).toEqual({ x: 5, y: 5 });
       expect(box.topRight(b)).toEqual({ x: 15, y: 5 });
       expect(box.bottomLeft(b)).toEqual({ x: 5, y: 15 });

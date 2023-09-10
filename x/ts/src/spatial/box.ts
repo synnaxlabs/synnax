@@ -39,6 +39,15 @@ export type Box = z.infer<typeof box>;
 export type CSS = z.infer<typeof cssBox>;
 export type DOMRect = z.infer<typeof domRect>;
 
+/** A box centered at (0,0) with a width and height of 0. */
+export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
+
+/**
+ * A box centered at (0,0) with a width and height of 1, and rooted in the
+ * bottom left. Note that pixel space is typically rooted in the top left.
+ */
+export const DECIMAL = { one: xy.ZERO, two: xy.ONE, root: location.BOTTOM_LEFT };
+
 /**
  * Box represents a general box in 2D space. It typically represents a bounding box
  * for a DOM element, but can also represent a box in clip space or decimal space.
@@ -57,7 +66,7 @@ export const construct = (
   height: number = 0,
   coordinateRoot?: location.CornerXY,
 ): Box => {
-  const b: Box = ZERO;
+  const b: Box = copy(ZERO);
 
   b.root = coordinateRoot ?? location.TOP_LEFT;
 
@@ -235,15 +244,6 @@ export const copy = (b: Box, root?: location.CornerXY): Box => ({
 });
 
 export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
-
-/** A box centered at (0,0) with a width and height of 0. */
-export const ZERO = construct(xy.ZERO, xy.ZERO);
-
-/**
- * A box centered at (0,0) with a width and height of 1, and rooted in the
- * bottom left. Note that pixel space is typically rooted in the top left.
- */
-export const DECIMAL = construct(0, 0, 1, 1, location.BOTTOM_LEFT);
 
 /**
  * Reposition a box so that it is visible within a given bound.
