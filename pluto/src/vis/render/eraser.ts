@@ -9,17 +9,23 @@
 
 import { Box, type XY } from "@synnaxlabs/x";
 
-import { type Context } from "@/vis/render/context";
+import { type CanvasVariant, type Context } from "@/vis/render/context";
 
 export class Eraser {
   prevErase = Box.ZERO;
 
-  erase(ctx: Context, next: Box, prev: Box, overscan: XY): void {
+  erase(
+    ctx: Context,
+    next: Box,
+    prev: Box,
+    overscan: XY,
+    canvases: CanvasVariant[],
+  ): void {
     if (!prev.equals(next) && !this.prevErase.equals(prev)) {
-      ctx.erase(prev, overscan);
+      ctx.erase(prev, overscan, ...canvases);
       this.prevErase = prev;
     } else {
-      ctx.erase(next, overscan);
+      ctx.erase(next, overscan, ...canvases);
     }
   }
 }

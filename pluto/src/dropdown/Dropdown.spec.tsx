@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -33,7 +33,7 @@ describe("Dropdown", () => {
     const c = render(
       <Triggers.Provider>
         <TestDropdown />
-      </Triggers.Provider>
+      </Triggers.Provider>,
     );
     expect(c.getByText("Toggle")).toBeTruthy();
     const dialog = c.getByRole("dialog");
@@ -44,7 +44,7 @@ describe("Dropdown", () => {
     const c = render(
       <Triggers.Provider>
         <TestDropdown />
-      </Triggers.Provider>
+      </Triggers.Provider>,
     );
     const toggle = c.getByText("Toggle");
     const dialog = c.getByRole("dialog");

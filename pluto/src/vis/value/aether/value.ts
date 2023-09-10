@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, type Destructor, XYScale } from "@synnaxlabs/x";
+import { Box, type Destructor, XYScale, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -38,7 +38,7 @@ interface InternalState {
   render: render.Context;
   telem: telem.NumericSource;
   cleanupTelem: Destructor;
-  requestRender: (() => void) | null;
+  requestRender: render.RequestF | null;
   textColor: color.Color;
 }
 
@@ -71,13 +71,14 @@ export class Value
   afterDelete(): void {
     const { requestRender, cleanupTelem, render: renderCtx } = this.internal;
     cleanupTelem();
-    if (requestRender == null) renderCtx.erase(new Box(this.state.box));
-    else requestRender();
+    if (requestRender == null)
+      renderCtx.erase(new Box(this.state.box), XY.ZERO, "lower2d");
+    else requestRender(render.REASON_LAYOUT);
   }
 
   private requestRender(): void {
     const { requestRender } = this.internal;
-    if (requestRender != null) requestRender();
+    if (requestRender != null) requestRender(render.REASON_LAYOUT);
     else void this.render({});
   }
 

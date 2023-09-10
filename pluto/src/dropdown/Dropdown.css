@@ -20,11 +20,11 @@
 
     &.pluto--top {
         transform: translateY(calc(-100% + 1px));
-    }
+    } 
 
     &.pluto--bottom {
         transform: translateY(-1px);
-    }
+    } 
 
     &.pluto--hidden {
         opacity: 0;

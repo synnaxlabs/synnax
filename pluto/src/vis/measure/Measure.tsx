@@ -67,7 +67,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         else
           setState((p) => ({
             ...p,
-            one: p.one === null ? cursor : p.one,
+            one: p.one ?? cursor,
             two: p.one !== null ? cursor : p.two,
           }));
       }

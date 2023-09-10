@@ -11,7 +11,6 @@ import { Box, XY } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
@@ -25,7 +24,7 @@ export const linePlotStateZ = z.object({
   container: Box.z,
   viewport: Box.z,
   clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
-  error: z.string().optional(),
+  hold: z.boolean().optional().default(false),
   grid: z.array(gridPositionSpecZ),
 });
 
@@ -41,7 +40,7 @@ export class LinePlot extends aether.Composite<
   InternalState,
   Children
 > {
-  static readonly TYPE: string = CSS.B("LinePlot");
+  static readonly TYPE: string = "LinePlot";
   readonly eraser: render.Eraser = new render.Eraser();
 
   schema = linePlotStateZ;
@@ -49,18 +48,13 @@ export class LinePlot extends aether.Composite<
   afterUpdate(): void {
     this.internal.aggregate = status.useAggregate(this.ctx);
     this.internal.render = render.Context.use(this.ctx);
-    render.Controller.control(this.ctx, () => this.requestRender("low"));
-    this.requestRender("high");
+    render.Controller.control(this.ctx, (r) => this.requestRender("low", r));
+    this.requestRender("high", render.REASON_LAYOUT);
   }
 
   afterDelete(): void {
     this.internal.render = render.Context.use(this.ctx);
-    this.requestRender("high");
-  }
-
-  private get clearRegion(): Box {
-    if (this.deleted) return this.state.container;
-    return this.prevState.container;
+    this.requestRender("high", render.REASON_LAYOUT);
   }
 
   async findByXDecimal(x: number): Promise<FindResult[]> {
@@ -71,7 +65,7 @@ export class LinePlot extends aether.Composite<
 
   async findByXValue(x: number): Promise<FindResult[]> {
     const props = { ...this.state, plot: this.calculatePlot() };
-    const p = this.axes.flatMap(async (xAxis) => await xAxis.findByXValue(props, x));
+    const p = this.axes.flatMap(async (a) => await a.findByXValue(props, x));
     return (await Promise.all(p)).flat();
   }
 
@@ -87,84 +81,83 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
-  private async renderAxes(plot: Box): Promise<void> {
-    const p = { ...this.state, plot };
+  private async renderAxes(plot: Box, canvases: render.CanvasVariant[]): Promise<void> {
+    const p = { ...this.state, plot, canvases };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
-  private async renderTooltips(plot: Box): Promise<void> {
-    const tooltipProps = {
-      findByXDecimal: this.findByXDecimal.bind(this),
-      region: plot,
-    };
-    await Promise.all(
-      this.tooltips.map(async (tooltip) => await tooltip.render(tooltipProps)),
-    );
+  private async renderTooltips(
+    region: Box,
+    canvases: render.CanvasVariant[],
+  ): Promise<void> {
+    const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
+    await Promise.all(this.tooltips.map(async (t) => await t.render(p)));
   }
 
-  private async renderMeasures(region: Box): Promise<void> {
-    const measureProps = {
+  private async renderMeasures(
+    region: Box,
+    canvases: render.CanvasVariant[],
+  ): Promise<void> {
+    const p = {
       findByXDecimal: this.findByXDecimal.bind(this),
       findByXValue: this.findByXValue.bind(this),
       region,
+      canvases,
     };
-    await Promise.all(
-      this.measures.map(async (measure) => await measure.render(measureProps)),
-    );
+    await Promise.all(this.measures.map(async (m) => await m.render(p)));
   }
 
   private calculatePlot(): Box {
     return calculatePlotBox(this.state.grid, this.state.container);
   }
 
-  private async render(): Promise<render.Cleanup> {
+  private async render(canvases: render.CanvasVariant[]): Promise<render.Cleanup> {
     if (this.deleted) return async () => {};
     const plot = this.calculatePlot();
     const { render: ctx } = this.internal;
-    const removeGlScissor = ctx.scissorGL(plot);
-    const removeCanvasScissor = ctx.scissorCanvas(
+    const os = new XY(this.state.clearOverscan);
+    const removeCanvasScissor = ctx.scissor(
       this.state.container,
-      new XY(this.state.clearOverscan).scale(0.5),
+      os,
+      canvases.filter((c) => c !== "gl"),
+    );
+    const removeGLScissor = ctx.scissor(
+      plot,
+      XY.ZERO,
+      canvases.filter((c) => c === "gl"),
     );
     try {
-      await this.renderAxes(plot);
-      await this.renderTooltips(plot);
-      await this.renderMeasures(plot);
-      this.clearError();
+      await this.renderAxes(plot, canvases);
+      await this.renderTooltips(plot, canvases);
+      await this.renderMeasures(plot, canvases);
     } catch (e) {
-      this.internal.aggregate({
-        variant: "error",
-        message: (e as Error).message,
-      });
+      this.internal.aggregate({ variant: "error", message: (e as Error).message });
     } finally {
-      removeGlScissor();
       removeCanvasScissor();
+      removeGLScissor();
     }
-    return async () => {
+    return async ({ canvases }) => {
       this.eraser.erase(
-        this.internal.render,
+        ctx,
         this.state.container,
         this.prevState.container,
         new XY(this.state.clearOverscan),
+        canvases,
       );
     };
   }
 
-  private setError(error: Error): void {
-    this.setState((p) => ({ ...p, error: error.message }));
-  }
-
-  private clearError(): void {
-    if (this.state.error == null) return;
-    this.setState((p) => ({ ...p, error: undefined }));
-  }
-
-  requestRender(priority: render.Priority): void {
+  requestRender(priority: render.Priority, reason: string): void {
     const { render: ctx } = this.internal;
+    let canvases: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
+    // Optimization for tooltips, measures and other utilities. In this case, we only
+    // need to render the upper2d canvas.
+    if (reason === render.REASON_TOOL) canvases = ["upper2d"];
     ctx.queue.push({
       key: `${this.type}-${this.key}`,
-      render: this.render.bind(this),
+      render: async () => await this.render(canvases),
       priority,
+      canvases,
     });
   }
 }

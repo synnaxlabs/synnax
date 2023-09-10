@@ -60,14 +60,14 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     this.internal.theme = theming.use(this.ctx);
     this.internal.render = ctx;
     this.internal.draw = new Draw2D(ctx.upper2d, this.internal.theme);
-    render.Controller.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   afterDelete(): void {
-    render.Controller.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 
-  get verticalLineColor(): color.Color {
+  private get verticalLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
       return this.internal.theme.colors.gray.p0;
@@ -77,7 +77,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return this.internal.theme.colors.gray.p0;
   }
 
-  get horizontalLineColor(): color.Color {
+  private get horizontalLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
       return this.internal.theme.colors.gray.p0;
@@ -86,7 +86,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return this.internal.theme.colors.gray.p0;
   }
 
-  get obliqueLineColor(): color.Color {
+  private get obliqueLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
       return this.internal.theme.colors.gray.p0;
@@ -95,7 +95,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return this.internal.theme.colors.gray.p0;
   }
 
-  async find(props: MeasureProps): Promise<[FindResult, FindResult] | null> {
+  private async find(props: MeasureProps): Promise<[FindResult, FindResult] | null> {
     const { one, two } = this.state;
     if (one == null || two == null) return null;
     const { one: prevOne, two: prevTwo } = this.prevState;
@@ -142,7 +142,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     return [oneValue, twoValue];
   }
 
-  async renderHover(props: MeasureProps): Promise<void> {
+  private async renderHover(props: MeasureProps): Promise<void> {
     if (this.state.hover == null) return;
     const hover: XY = this.state.hover;
 

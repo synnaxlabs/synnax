@@ -83,12 +83,16 @@ export class Controller
     if (client == null)
       return addStatus({
         message: `Cannot acquire control on ${this.state.name} because no cluster has been connected`,
-        variant: "error",
+        variant: "warning",
       });
 
     try {
       const keys = await this.channelKeys();
-      if (keys.length === 0) return;
+      if (keys.length === 0)
+        return addStatus({
+          message: `Cannot acquire control on ${this.state.name} - no channels to control!`,
+          variant: "warning",
+        });
 
       this.writer = await client.telem.newWriter(TimeStamp.now(), keys);
       this.setState((p) => ({ ...p, status: "acquired" }));

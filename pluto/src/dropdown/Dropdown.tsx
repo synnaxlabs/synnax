@@ -119,7 +119,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     forwardedRef,
   ): ReactElement => {
     const ref = useRef<HTMLDivElement>(null);
-    const visibleRef = useRef(visible);
+    const visibleRef = useRef<boolean | null>(null);
 
     const [{ pos, loc, width }, setState] = useState<State>(ZERO_STATE);
 
@@ -128,14 +128,18 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
       const box = new Box(ref.current);
       const toTop = Math.abs(box.center.y - windowBox.top);
-      const toBottom = Math.abs(box.center.x - windowBox.bottom);
+      const toBottom = Math.abs(box.center.y - windowBox.bottom);
       const loc = new Location(location ?? (toBottom > toTop ? "bottom" : "top"));
       const pos = new XY(box.left, box.loc(loc));
       setState({ pos, loc, width: box.width });
     }, []);
 
-    if (visible && !visibleRef.current && ref.current != null) calculatePosition();
-    visibleRef.current = visible;
+    if (ref.current != null) {
+      if (visible && (visibleRef.current == null || !visibleRef.current)) {
+        calculatePosition();
+      }
+      visibleRef.current = visible;
+    }
 
     const resizeRef = useResize(calculatePosition);
     const combinedRef = useCombinedRefs(forwardedRef, ref, resizeRef);

@@ -47,6 +47,9 @@ export interface XAxisProps extends Omit<YAxisProps, "xDataToDecimalScale"> {
 interface InternalState {
   ctx: render.Context;
   core: axis.Axis;
+  // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
+  // so that we can rerender the plot in the same position even if the data changes.
+  boundSnapshot?: Bounds;
 }
 
 export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, YAxis> {
@@ -63,24 +66,37 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
       ...this.state,
       size: this.state.size + this.state.labelSize,
     });
+    render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 
   async render(props: XAxisProps): Promise<void> {
-    const [dataToDecimal, err] = await this.dataToDecimalScale(props.viewport);
+    const [dataToDecimal, err] = await this.dataToDecimalScale(
+      props.viewport,
+      props.hold,
+    );
     await this.renderAxis(props, dataToDecimal.reverse());
     await this.renderYAxes(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
 
-  async findByXDecimal(props: XAxisProps, target: number): Promise<FindResult[]> {
-    const [scale, err] = await this.dataToDecimalScale(props.viewport);
+  async findByXDecimal(
+    props: Omit<XAxisProps, "canvases">,
+    target: number,
+  ): Promise<FindResult[]> {
+    const [scale, err] = await this.dataToDecimalScale(props.viewport, props.hold);
     if (err != null) throw err;
     return await this.findByXValue(props, scale.reverse().pos(target));
   }
 
-  async findByXValue(props: XAxisProps, target: number): Promise<FindResult[]> {
-    const [xDataToDecimalScale, error] = await this.dataToDecimalScale(props.viewport);
+  async findByXValue(
+    props: Omit<XAxisProps, "canvases">,
+    target: number,
+  ): Promise<FindResult[]> {
+    const [xDataToDecimalScale, error] = await this.dataToDecimalScale(
+      props.viewport,
+      props.hold,
+    );
     if (error != null) throw error;
     const p = { ...props, xDataToDecimalScale };
     const prom = this.children.map(async (el) => await el.findByXValue(p, target));
@@ -91,6 +107,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
     props: XAxisProps,
     decimalToDataScale: Scale,
   ): Promise<void> {
+    if (!props.canvases.includes("upper2d")) return;
     const { core } = this.internal;
     const { grid, container } = props;
     const position = calculateGridPosition(this.key, grid, container);
@@ -108,21 +125,28 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
     await Promise.all(this.children.map(async (el) => await el.render(p)));
   }
 
-  private async xBounds(): Promise<[Bounds, Error | null]> {
+  private async xBounds(hold: boolean): Promise<[Bounds, Error | null]> {
+    if (hold && this.internal.boundSnapshot != null)
+      return [this.internal.boundSnapshot, null];
     if (this.state.bounds != null && !this.state.bounds.isZero)
       return [this.state.bounds, null];
     try {
       const bounds = (
         await Promise.all(this.children.map(async (el) => await el.xBounds()))
       ).filter((b) => b.isFinite);
+      const ab = autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
+      this.internal.boundSnapshot = ab;
       return [autoBounds(bounds, this.state.autoBoundPadding, this.state.type), null];
     } catch (err) {
       return [emptyBounds(this.state.type), err as Error];
     }
   }
 
-  private async dataToDecimalScale(viewport: Box): Promise<[Scale, Error | null]> {
-    const [bounds, error] = await this.xBounds();
+  private async dataToDecimalScale(
+    viewport: Box,
+    hold: boolean,
+  ): Promise<[Scale, Error | null]> {
+    const [bounds, error] = await this.xBounds(hold);
     return [
       Scale.scale(bounds)
         .scale(1)

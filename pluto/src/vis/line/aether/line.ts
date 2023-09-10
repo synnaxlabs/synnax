@@ -163,7 +163,7 @@ interface InternalState {
   prog: Context;
   telem: telem.XYSource;
   cleanupTelem: Destructor;
-  requestRender: () => void;
+  requestRender: render.RequestF;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -180,13 +180,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     this.internal.cleanupTelem = cleanupTelem;
     this.internal.prog = Context.use(this.ctx);
     this.internal.requestRender = render.Controller.useRequest(this.ctx);
-    this.internal.telem.onChange(() => this.internal.requestRender());
-    this.internal.requestRender();
+    this.internal.telem.onChange(() => this.internal.requestRender(render.REASON_DATA));
+    this.internal.requestRender(render.REASON_LAYOUT);
   }
 
   afterDelete(): void {
     this.internal.cleanupTelem();
-    this.internal.requestRender();
+    this.internal.requestRender(render.REASON_LAYOUT);
   }
 
   async xBounds(): Promise<Bounds> {
