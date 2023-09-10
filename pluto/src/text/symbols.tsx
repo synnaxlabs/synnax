@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { getOS } from "@synnaxlabs/x";
+import { runtime } from "@synnaxlabs/x";
 
-const isWindows = getOS() === "Windows";
+const isWindows = runtime.getOS() === "Windows";
 
 export const Symbols = {
   Meta: isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command,

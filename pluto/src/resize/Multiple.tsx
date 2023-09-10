@@ -18,7 +18,7 @@ import {
   type RefObject,
 } from "react";
 
-import { Box, type ClientXYT, Direction, type LooseDirectionT } from "@synnaxlabs/x";
+import { box, direction, type xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -32,13 +32,13 @@ export interface MultipleProps extends Align.SpaceProps {
   onDragHandle: (e: ResizeStartEvent, i: number) => void;
 }
 
-export type ResizeStartEvent = ClientXYT & { preventDefault: () => void };
+export type ResizeStartEvent = xy.Client & { preventDefault: () => void };
 
 /** Props for the {@link Resize.useMultiple} hook. */
 export interface UseMultipleProps {
   count: number;
   onResize?: (sizes: number[]) => void;
-  direction?: LooseDirectionT;
+  direction?: direction.Crude;
   initialSizes?: number[];
   minSize?: number;
 }
@@ -91,7 +91,7 @@ export const useMultiple = ({
   const _handleResize = useCallback(
     (dragging: number, clientPos?: number, targetSize?: number) => {
       if (ref.current == null) return;
-      const parentSize = new Box(ref.current).dim(direction);
+      const parentSize = box.dim(box.construct(ref.current), direction);
       setState((prev) =>
         handleResize(prev, parentSize, dragging, minSize, clientPos, targetSize),
       );
@@ -158,14 +158,14 @@ export const Multiple = forwardRef(
     }: MultipleProps,
     ref: ForwardedRef<HTMLDivElement>,
   ) => {
-    const direction = new Direction(direction_);
+    const dir = direction.construct(direction_);
     const children = Children.toArray(_children);
 
     return (
       <Align.Space
         {...props}
         ref={ref}
-        direction={direction}
+        direction={dir}
         className={CSS(CSS.B("resize-multiple"), className)}
         empty
         grow
@@ -174,7 +174,7 @@ export const Multiple = forwardRef(
           <Core
             onDragStart={(e) => onDrag(e, i)}
             key={i}
-            location={direction.location}
+            location={direction.location(dir)}
             size={sizeDistribution[i] * 100}
             sizeUnits="%"
             showHandle={i !== children.length - 1}

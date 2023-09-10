@@ -21,7 +21,7 @@ describe("Resize", () => {
       const c = render(
         <Resize.Single location="left" initialSize={50} minSize={20} maxSize={500}>
           <p>Hello</p>
-        </Resize.Single>
+        </Resize.Single>,
       );
       expect(c.getByText("Hello")).toBeTruthy();
     });

@@ -9,7 +9,7 @@
 
 import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
 
-import { Location, type LooseLocationT } from "@synnaxlabs/x";
+import { direction, location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
@@ -18,7 +18,7 @@ import "@/resize/Core.css";
 
 export interface CoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
-  location: LooseLocationT;
+  location: location.Crude;
   size: number;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   sizeUnits?: "px" | "%";
@@ -36,18 +36,20 @@ export const Core = ({
   showHandle = true,
   ...props
 }: CoreProps): ReactElement => {
-  const loc = new Location(loc_);
+  const loc = location.construct(loc_);
+  const dir = location.direction(loc);
+  const dim = direction.dimension(dir);
   return (
     <div
-      className={CSS(CSS.B("resize"), CSS.loc(loc), CSS.dir(loc.direction), className)}
-      style={{ [loc.direction.dimension]: `${size}${sizeUnits}`, ...style }}
+      className={CSS(CSS.B("resize"), CSS.loc(loc), CSS.dir(dir), className)}
+      style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
       {children}
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(loc.inverse.crude))}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc)))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}

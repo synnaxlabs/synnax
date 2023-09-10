@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, type Destructor, Scale, XY, XYScale } from "@synnaxlabs/x";
+import { type Destructor, box, scale, xy, dimensions } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
@@ -42,7 +42,7 @@ export class Context {
   readonly upper2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** The region the canvas occupies in pixel space */
-  region: Box;
+  region: box.Box;
 
   /** The device pixel ratio of the canvas */
   dpr: number;
@@ -88,7 +88,7 @@ export class Context {
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
 
-    this.region = Box.ZERO;
+    this.region = box.ZERO;
     this.dpr = 1;
   }
 
@@ -108,8 +108,8 @@ export class Context {
    * Resizes the canvas to the given region and device pixel ratio. Ensuring
    * that all drawing operations and viewports are scaled correctly.
    */
-  resize(region: Box, dpr: number): void {
-    if (this.region.equals(region) && this.dpr === dpr) return;
+  resize(region: box.Box, dpr: number): void {
+    if (box.equals(this.region, region) && this.dpr === dpr) return;
     this.region = region;
     this.dpr = dpr;
     this.resizeCanvas(this.glCanvas);
@@ -117,17 +117,17 @@ export class Context {
     this.resizeCanvas(this.lower2dCanvas);
     this.lower2d.scale(this.dpr, this.dpr);
     this.upper2d.scale(this.dpr, this.dpr);
-    this.gl.viewport(0, 0, region.width * dpr, region.height * dpr);
+    this.gl.viewport(0, 0, box.width(region) * dpr, box.height(region) * dpr);
   }
 
   private resizeCanvas(canvas: OffscreenCanvas): void {
-    canvas.width = this.region.width * this.dpr;
-    canvas.height = this.region.height * this.dpr;
+    canvas.width = box.width(this.region) * this.dpr;
+    canvas.height = box.height(this.region) * this.dpr;
   }
 
   /** @returns the aspect ratio of the canvas. */
   get aspect(): number {
-    return this.region.width / this.region.height;
+    return box.aspect(this.region);
   }
 
   /**
@@ -135,28 +135,28 @@ export class Context {
    * in CLIP space representing the sub-region represented by the box
    * in the canvas.
    */
-  scaleRegion(box: Box): XYScale {
-    return new XYScale(
+  scaleRegion(b: box.Box): scale.XY {
+    return new scale.XY(
       // Accept a value in decimal.
-      Scale.scale(0, 1)
+      scale.Scale.scale(0, 1)
         // Turn it to pixels relative to the child width.
-        .scale(box.width)
+        .scale(box.width(b))
         // Translate the value to the left based on the parent and childs position.
-        .translate(box.left)
+        .translate(box.left(b))
         // Rebound the scale to the canvas width.
-        .reBound(this.region.width)
+        .reBound(box.width(this.region))
         // Rescale the value to clip space.
         .scale(-1, 1),
       // Accept a value in decimal.
-      Scale.scale(0, 1)
+      scale.Scale.scale(0, 1)
         // Turn it to pixels relative to the child height.
-        .scale(box.height)
+        .scale(box.height(b))
         // Invert the scale since we read pixels from the top.
         .invert()
         // Translate the value to the top based on the parent and childs position.
-        .translate(box.top)
+        .translate(box.top(b))
         // Rebound the scale to the canvas height.
-        .reBound(this.region.height)
+        .reBound(box.height(this.region))
         // Rescale the value to clip space.
         .scale(-1, 1)
         // Invert the scale since we read clip space from the bottom.
@@ -164,7 +164,11 @@ export class Context {
     );
   }
 
-  scissor(region: Box, overscan: XY = XY.ZERO, canvases: CanvasVariant[]): Destructor {
+  scissor(
+    region: box.Box,
+    overscan: xy.XY = xy.ZERO,
+    canvases: CanvasVariant[],
+  ): Destructor {
     const destructor: Destructor[] = [];
     if (canvases.includes("upper2d"))
       destructor.push(this.scissorCanvas(this.upper2d, region, overscan));
@@ -176,37 +180,41 @@ export class Context {
 
   private scissorCanvas(
     c: OffscreenCanvasRenderingContext2D,
-    region: Box,
-    overscan: XY = XY.ZERO,
+    region: box.Box,
+    overscan: xy.XY = xy.ZERO,
   ): Destructor {
     const p = new Path2D();
     region = applyOverscan(region, overscan);
-    p.rect(...region.topLeft.couple, ...region.dims.couple);
+    p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
     c.save();
     c.clip(p);
     return () => c.restore();
   }
 
-  private scissorGL(region: Box, overscan: XY = XY.ZERO): Destructor {
+  private scissorGL(region: box.Box, overscan: xy.XY = xy.ZERO): Destructor {
     this.gl.enable(this.gl.SCISSOR_TEST);
     region = applyOverscan(region, overscan);
     this.gl.scissor(
-      (region.left - this.region.left) * this.dpr,
-      (this.region.bottom - region.bottom) * this.dpr,
-      region.width * this.dpr,
-      region.height * this.dpr,
+      (box.left(region) - box.left(this.region)) * this.dpr,
+      (box.bottom(this.region) - box.bottom(region)) * this.dpr,
+      box.width(region) * this.dpr,
+      box.height(region) * this.dpr,
     );
     return () => this.gl.disable(this.gl.SCISSOR_TEST);
   }
 
-  erase(region: Box, overscan: XY = XY.ZERO, ...canvases: CanvasVariant[]): void {
+  erase(
+    region: box.Box,
+    overscan: xy.XY = xy.ZERO,
+    ...canvases: CanvasVariant[]
+  ): void {
     if (canvases.length === 0) canvases = ["upper2d", "lower2d", "gl"];
     if (canvases.includes("upper2d")) this.eraseCanvas(this.upper2d, region, overscan);
     if (canvases.includes("lower2d")) this.eraseCanvas(this.lower2d, region, overscan);
     if (canvases.includes("gl")) this.eraseGL(region, overscan);
   }
 
-  private eraseGL(box: Box, overscan: XY = XY.ZERO): void {
+  private eraseGL(box: box.Box, overscan: xy.XY = xy.ZERO): void {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverscan(box, overscan));
     gl.clearColor(...color.ZERO.rgba1);
@@ -216,18 +224,18 @@ export class Context {
 
   private eraseCanvas(
     c: OffscreenCanvasRenderingContext2D,
-    box: Box,
-    overscan: XY = XY.ZERO,
+    b: box.Box,
+    overscan: xy.XY = xy.ZERO,
   ): void {
-    const os = applyOverscan(box, overscan);
-    c.clearRect(...os.topLeft.couple, ...os.dims.couple);
+    const os = applyOverscan(b, overscan);
+    c.clearRect(...xy.couple(box.topLeft(os)), ...dimensions.couple(box.dims(os)));
   }
 }
 
-const applyOverscan = (box: Box, overscan: XY): Box =>
-  new Box(
-    box.left - overscan.x,
-    box.top - overscan.y,
-    box.width + overscan.x * 2,
-    box.height + overscan.y * 2,
+const applyOverscan = (b: box.Box, overscan: xy.XY): box.Box =>
+  box.construct(
+    box.left(b) - overscan.x,
+    box.top(b) - overscan.y,
+    box.width(b) + overscan.x * 2,
+    box.height(b) + overscan.y * 2,
   );

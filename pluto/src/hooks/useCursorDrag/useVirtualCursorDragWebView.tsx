@@ -7,25 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { type DragEvent, useEffect } from "react";
 
-import { XY, Box } from "@synnaxlabs/x";
-
-import { UseVirtualCursorDragProps } from "./types";
+import { xy, box } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
-import { Triggers, TriggerKey } from "@/triggers";
+import { Triggers } from "@/triggers";
+
+import { type UseVirtualCursorDragProps } from "./types";
 
 interface RefState {
-  start: XY;
-  current: XY;
-  mouseKey: TriggerKey;
+  start: xy.XY;
+  current: xy.XY;
+  mouseKey: Triggers.Key;
   cursor: HTMLElement | null;
 }
 
 const INITIAL_STATE: RefState = {
-  start: XY.ZERO,
-  current: XY.ZERO,
+  start: xy.ZERO,
+  current: xy.ZERO,
   mouseKey: "MouseLeft",
   cursor: null,
 };
@@ -43,9 +43,9 @@ export const useVirtualCursorDragWebView = ({
 
     const onMouseDown = async (e: MouseEvent): Promise<void> => {
       if (document.pointerLockElement != null) return;
-      const start = new XY(e);
+      const start = xy.construct(e);
       const mouseKey = Triggers.eventKey(e);
-      onStart?.(start, mouseKey);
+      onStart?.(start, mouseKey, e as unknown as DragEvent);
 
       // push a cursor onto the document
       document.body.style.cursor = "none";
@@ -63,13 +63,13 @@ export const useVirtualCursorDragWebView = ({
 
       setRef({ start, current: start, mouseKey, cursor });
 
-      await el.requestPointerLock();
+      el.requestPointerLock();
     };
 
     // eslint-disable-next-line
     el.addEventListener("mousedown", onMouseDown);
 
-    document.addEventListener("pointerlockchange", () => {
+    document.addEventListener("pointerlockchange", (e) => {
       if (document.pointerLockElement !== el) return;
       const { start, mouseKey } = stateRef.current;
 
@@ -89,8 +89,8 @@ export const useVirtualCursorDragWebView = ({
 
           prev.cursor.style.top = `${current.y}px`;
           prev.cursor.style.left = `${current.x}px`;
-          onMove?.(new Box(start, current), mouseKey);
-          return { ...prev, current: new XY(current) };
+          onMove?.(box.construct(start, current), mouseKey, e);
+          return { ...prev, current: xy.construct(current) };
         });
       };
       document.addEventListener("mousemove", handleMove);
@@ -100,7 +100,7 @@ export const useVirtualCursorDragWebView = ({
         document.getElementById("cursor")?.remove();
         document.body.style.cursor = "";
         document.exitPointerLock();
-        onEnd?.(new Box(stateRef.current.start, new XY(e)), mouseKey);
+        onEnd?.(box.construct(stateRef.current.start, xy.construct(e)), mouseKey, e);
       };
       document.addEventListener("mouseup", handleUp, { once: true });
     });

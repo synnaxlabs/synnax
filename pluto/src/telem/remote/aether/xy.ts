@@ -9,13 +9,13 @@
 
 import { type Channel } from "@synnaxlabs/client";
 import {
-  Bounds,
   type Destructor,
   type GLBufferController,
   Series,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  bounds,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -67,14 +67,14 @@ class XYSourceCore<
     return y;
   }
 
-  async xBounds(): Promise<Bounds> {
+  async xBounds(): Promise<bounds.Bounds> {
     const x = await this.x();
-    return Bounds.max(x.map((x) => x.bounds));
+    return bounds.max(x.map((x) => x.bounds));
   }
 
-  async yBounds(): Promise<Bounds> {
+  async yBounds(): Promise<bounds.Bounds> {
     const y = await this.y();
-    return Bounds.max(y.map((y) => y.bounds));
+    return bounds.max(y.map((y) => y.bounds));
   }
 
   updateBuffers(gl: GLBufferController): void {

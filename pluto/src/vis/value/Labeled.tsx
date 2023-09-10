@@ -9,7 +9,7 @@
 
 import { type ReactElement, useState } from "react";
 
-import { Box, Direction, type XY } from "@synnaxlabs/x";
+import { box, type direction, type xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -25,7 +25,7 @@ import "@/vis/value/Labeled.css";
 export interface ValueLabeledProps
   extends Omit<CoreProps, "box">,
     Omit<Align.SpaceProps, "color" | "onChange"> {
-  position?: XY;
+  position?: xy.XY;
   zoom?: number;
   label: string;
   onLabelChange?: (label: string) => void;
@@ -47,15 +47,15 @@ export const ValueLabeled = ({
   ...props
 }: ValueLabeledProps): ReactElement => {
   const font = Theming.useTypography(level);
-  const [box, setBox] = useState<Box>(Box.ZERO);
+  const [box_, setBox] = useState<box.Box>(box.ZERO);
 
   const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
   const resizeRef = useResize(setBox, {});
 
   const adjustedBox = adjustBox(
-    new Direction(direction),
+    direction.construct(direction),
     zoom,
-    box,
+    box_,
     valueBoxHeight,
     font,
     position,
@@ -85,25 +85,25 @@ export const ValueLabeled = ({
 };
 
 const adjustBox = (
-  direction: Direction,
+  direction: direction.Direction,
   zoom: number,
-  box: Box,
+  b: box.Box,
   valueBoxHeight: number,
   font: UseTypographyReturn,
-  position?: XY,
-): Box => {
-  if (direction.isX) {
-    return new Box(
-      (position?.x ?? box.left) + box.width / zoom - 100,
-      position?.y ?? box.top,
+  position?: xy.XY,
+): box.Box => {
+  if (direction === "x") {
+    return box.construct(
+      (position?.x ?? box.left(b)) + box.width(b) / zoom - 100,
+      position?.y ?? box.top(b),
       100,
       valueBoxHeight,
     );
   }
-  return new Box(
-    position?.x ?? box.left,
-    (position?.y ?? box.top) + box.height / zoom - valueBoxHeight,
-    box.width / zoom,
+  return box.construct(
+    position?.x ?? box.left(b),
+    (position?.y ?? box.top(b)) + box.height(b) / zoom - valueBoxHeight,
+    box.width(b) / zoom,
     valueBoxHeight,
   );
 };

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Dimensions, type XY } from "@synnaxlabs/x";
+import { bounds, dimensions, xy } from "@synnaxlabs/x";
 
-import { dimensions } from "@/text/dimensions";
+import { dimensions as textDimensions } from "@/text/dimensions";
 import { prettyParse } from "@/util/zod";
 import {
   type Axis,
@@ -164,21 +164,21 @@ export class Canvas implements Axis {
     return { size: maxTickSize.width + TICK_LINE_SIZE * 2 };
   }
 
-  private drawLine(start: XY, end: XY): void {
+  private drawLine(start: xy.XY, end: xy.XY): void {
     const { lower2d: canvas } = this.ctx;
     canvas.beginPath();
-    canvas.moveTo(...start.couple);
-    canvas.lineTo(...end.couple);
+    canvas.moveTo(...xy.couple(start));
+    canvas.lineTo(...xy.couple(end));
     canvas.stroke();
   }
 
   private drawTicks(
     ticks: Tick[],
-    f: (textDimensions: Dimensions, tick: Tick) => void,
-  ): Dimensions {
-    let maxDimensions = Dimensions.ZERO;
+    f: (textDimensions: dimensions.Dimensions, tick: Tick) => void,
+  ): dimensions.Dimensions {
+    let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
-      const d = dimensions(tick.label, this.state.font, this.ctx.lower2d);
+      const d = textDimensions(tick.label, this.state.font, this.ctx.lower2d);
       maxDimensions = maxDimensions.pickGreatest(d);
       f(d, tick);
     });
@@ -188,17 +188,18 @@ export class Canvas implements Axis {
   private maybeDrawGrid(
     size: number,
     ticks: Tick[],
-    f: (tick: Tick) => [XY, XY],
+    f: (tick: Tick) => [xy.XY, xy.XY],
   ): void {
     const { showGrid, gridColor } = this.state;
     if (showGrid) {
-      const startBound = new Bounds(-1, 1);
-      const endBound = new Bounds(size - 1, size + 1);
+      const startBound = bounds.construct(-1, 1);
+      const endBound = bounds.construct(size - 1, size + 1);
       this.ctx.lower2d.strokeStyle = gridColor.hex;
       ticks
         .filter(
           ({ position }) =>
-            !startBound.contains(position) && !endBound.contains(position),
+            !bounds.contains(startBound, position) &&
+            !bounds.contains(endBound, position),
         )
         .forEach((tick) => this.drawLine(...f(tick)));
     }

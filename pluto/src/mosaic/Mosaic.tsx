@@ -9,7 +9,6 @@
 
 import { useState, memo, useCallback, type ReactElement } from "react";
 
-import { Location, type CrudeLocation, type CSSBox } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -19,12 +18,13 @@ import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
 
 import "@/mosaic/Mosaic.css";
+import { box, location } from "@synnaxlabs/x";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
   extends Omit<Tabs.TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
   root: Node;
-  onDrop: (key: number, tabKey: string, loc: CrudeLocation) => void;
+  onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number) => void;
 }
@@ -102,7 +102,7 @@ const TabLeaf = memo(
   ({ root: node, onDrop, onCreate, ...props }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
-    const [dragMask, setDragMask] = useState<CrudeLocation | null>(null);
+    const [dragMask, setDragMask] = useState<location.Location | null>(null);
 
     const canDrop: CanDrop = useCallback(({ items }) => validDrop(tabs, items), [tabs]);
 
@@ -111,10 +111,10 @@ const TabLeaf = memo(
         setDragMask(null);
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         const tabKey = dropped.map(({ key }) => key)[0];
-        const location: CrudeLocation =
+        const location: location.Location =
           tabs.length === 0
             ? "center"
-            : insertLocation(getDragLocationPercents(event)).crude;
+            : insertLocation(getDragLocationPercents(event));
         onDrop(key, tabKey as string, location);
         return dropped;
       },
@@ -123,10 +123,10 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
-        const location: CrudeLocation =
+        const location: location.Location =
           tabs.length === 0
             ? "center"
-            : insertLocation(getDragLocationPercents(event)).crude;
+            : insertLocation(getDragLocationPercents(event));
         setDragMask(location);
       },
       [tabs.length],
@@ -170,7 +170,7 @@ const TabLeaf = memo(
 
 TabLeaf.displayName = "MosaicTabLeaf";
 
-const maskStyle: Record<CrudeLocation, CSSBox> = {
+const maskStyle: Record<location.Location, box.CSS> = {
   top: { left: "0%", top: "0%", width: "100%", height: "50%" },
   bottom: { left: "0%", top: "50%", width: "100%", height: "50%" },
   left: { left: "0%", top: "0%", width: "50%", height: "100%" },
@@ -195,12 +195,12 @@ const crossHairA = (px: number): number => px;
 
 const crossHairB = (px: number): number => 1 - px;
 
-const insertLocation = ({ px, py }: { px: number; py: number }): Location => {
-  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return Location.CENTER;
+const insertLocation = ({ px, py }: { px: number; py: number }): location.Location => {
+  if (px > 0.33 && px < 0.66 && py > 0.33 && py < 0.66) return "center";
   const [aY, bY] = [crossHairA(px), crossHairB(px)];
-  if (py > aY && py > bY) return Location.BOTTOM;
-  if (py < aY && py < bY) return Location.TOP;
-  if (py > aY && py < bY) return Location.LEFT;
-  if (py < aY && py > bY) return Location.RIGHT;
+  if (py > aY && py > bY) return "bottom";
+  if (py < aY && py < bY) return "top";
+  if (py > aY && py < bY) return "left";
+  if (py < aY && py > bY) return "right";
   throw new Error("[bug] - invalid insert position");
 };

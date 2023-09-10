@@ -14,7 +14,7 @@ import {
   forwardRef,
 } from "react";
 
-import { Direction, type LooseDirectionT } from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
@@ -55,7 +55,7 @@ export type SpaceElementType =
 export interface SpaceExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number;
-  direction?: LooseDirectionT;
+  direction?: direction.Direction;
   reverse?: boolean;
   justify?: Justification;
   align?: Alignment;
@@ -93,7 +93,7 @@ const CoreSpace = <E extends SpaceElementType>(
   }: SpaceProps<E>,
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => {
-  const dir = new Direction(direction_);
+  const dir = direction.construct(direction_);
 
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
@@ -161,8 +161,11 @@ export const Space = forwardRef(CoreSpace) as <E extends SpaceElementType = "div
 
 type FlexDirection = CSSProperties["flexDirection"];
 
-const flexDirection = (direction: Direction, reverse: boolean): FlexDirection => {
-  const base = direction.isX ? "row" : "column";
+const flexDirection = (
+  direction: direction.Direction,
+  reverse: boolean,
+): FlexDirection => {
+  const base = direction === "x" ? "row" : "column";
   return reverse ? ((base + "-reverse") as FlexDirection) : base;
 };
 

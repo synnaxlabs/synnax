@@ -7,7 +7,7 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { Bounds } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { telem } from "@/telem/core";
@@ -76,7 +76,7 @@ export class NumericConverterSink
 
 const numericConverterSourceProps = z.object({
   wrap: telem.numericSourceSpecZ,
-  trueBound: Bounds.strictZ,
+  trueBound: bounds.bounds,
 });
 
 export type NumericConverterSourceProps = z.infer<typeof numericConverterSourceProps>;
@@ -108,7 +108,7 @@ export class NumericConverterSource
 
   private async update(): Promise<void> {
     const raw = await this.wrapped.value();
-    const value = this.props.trueBound.contains(raw);
+    const value = bounds.contains(this.props.trueBound, raw);
     if (this.curr !== value) {
       this.curr = value;
       this.notify?.();

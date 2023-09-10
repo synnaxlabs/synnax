@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, XY } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -21,9 +21,9 @@ import { render } from "@/vis/render";
 import { tooltip } from "@/vis/tooltip/aether";
 
 export const linePlotStateZ = z.object({
-  container: Box.z,
-  viewport: Box.z,
-  clearOverscan: z.union([z.number(), XY.z]).optional().default(10),
+  container: box.box,
+  viewport: box.box,
+  clearOverscan: z.union([z.number(), xy.xy]).optional().default(10),
   hold: z.boolean().optional().default(false),
   grid: z.array(gridPositionSpecZ),
 });
@@ -81,13 +81,16 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
-  private async renderAxes(plot: Box, canvases: render.CanvasVariant[]): Promise<void> {
+  private async renderAxes(
+    plot: box.Box,
+    canvases: render.CanvasVariant[],
+  ): Promise<void> {
     const p = { ...this.state, plot, canvases };
     await Promise.all(this.axes.map(async (xAxis) => await xAxis.render(p)));
   }
 
   private async renderTooltips(
-    region: Box,
+    region: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
     const p = { findByXDecimal: this.findByXDecimal.bind(this), region, canvases };
@@ -95,7 +98,7 @@ export class LinePlot extends aether.Composite<
   }
 
   private async renderMeasures(
-    region: Box,
+    region: box.Box,
     canvases: render.CanvasVariant[],
   ): Promise<void> {
     const p = {
@@ -107,7 +110,7 @@ export class LinePlot extends aether.Composite<
     await Promise.all(this.measures.map(async (m) => await m.render(p)));
   }
 
-  private calculatePlot(): Box {
+  private calculatePlot(): box.Box {
     return calculatePlotBox(this.state.grid, this.state.container);
   }
 
@@ -115,7 +118,7 @@ export class LinePlot extends aether.Composite<
     if (this.deleted) return async () => {};
     const plot = this.calculatePlot();
     const { render: ctx } = this.internal;
-    const os = new XY(this.state.clearOverscan);
+    const os = xy.construct(this.state.clearOverscan);
     const removeCanvasScissor = ctx.scissor(
       this.state.container,
       os,
@@ -123,7 +126,7 @@ export class LinePlot extends aether.Composite<
     );
     const removeGLScissor = ctx.scissor(
       plot,
-      XY.ZERO,
+      xy.ZERO,
       canvases.filter((c) => c === "gl"),
     );
     try {
@@ -141,7 +144,7 @@ export class LinePlot extends aether.Composite<
         ctx,
         this.state.container,
         this.prevState.container,
-        new XY(this.state.clearOverscan),
+        xy.construct(this.state.clearOverscan),
         canvases,
       );
     };

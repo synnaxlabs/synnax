@@ -9,8 +9,8 @@
 
 import { describe, it, expect, test } from "vitest";
 
-import { Box } from "@/spatial/box";
-import { XYScale, Scale } from "@/spatial/scale";
+import * as box from "@/spatial/box";
+import { XY, Scale } from "@/spatial/scale";
 
 type ScaleSpec = [name: string, scale: Scale, i: number, o: number];
 
@@ -56,19 +56,18 @@ describe("Scale", () => {
         ["translate magnify II", translateMagnifyScale, 5, 1],
       ];
       dimensionSpecs.forEach(([name, scale, i, o]) => {
-        it(`should return ${o} for ${i} on ${name}`, () => {
-          expect(scale.dim(i)).toBe(o);
-        });
+        it(`should return ${o} for ${i} on ${name}`, () =>
+          expect(scale.dim(i)).toBe(o));
       });
     });
     describe("XYScale", () => {
       test("converting a DOM rect to decimal coordinates", () => {
-        const s = XYScale.scale(new Box(100, 100, 1000, 1000)).scale(Box.DECIMAL);
-        const b1 = s.box(new Box(100, 100, 1000, 1000));
-        expect(b1.bottomLeft).toEqual({ x: 0, y: 0 });
-        const b2 = s.box(new Box(200, 200, 200, 200));
-        expect(b2.bottomLeft.x).toBeCloseTo(0.1);
-        expect(b2.bottomLeft.y).toBeCloseTo(0.7);
+        const s = XY.scale(box.construct(100, 100, 1000, 1000)).scale(box.DECIMAL);
+        const b1 = s.box(box.construct(100, 100, 1000, 1000));
+        expect(box.bottomLeft(b1)).toEqual({ x: 0, y: 0 });
+        const b2 = s.box(box.construct(200, 200, 200, 200));
+        expect(box.bottomLeft(b2).x).toBeCloseTo(0.1);
+        expect(box.bottomLeft(b2).y).toBeCloseTo(0.7);
       });
     });
   });

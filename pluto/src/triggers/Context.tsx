@@ -17,7 +17,7 @@ import {
   type ReactElement,
 } from "react";
 
-import { XY, TimeStamp, TimeSpan, type Destructor } from "@synnaxlabs/x";
+import { TimeStamp, TimeSpan, type Destructor, xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import {
@@ -66,9 +66,9 @@ export const Provider = ({
   preventDefaultOn,
 }: ProviderProps): ReactElement => {
   // We track mouse movement to allow for cursor position on keybord events;
-  const cursor = useRef<XY>(XY.ZERO);
+  const cursor = useRef<xy.XY>(xy.ZERO);
   const handleMouseMove = useCallback((e: MouseEvent): void => {
-    cursor.current = new XY(e);
+    cursor.current = xy.construct(e);
   }, []);
 
   // All registered triggers and callbacks

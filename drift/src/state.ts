@@ -15,7 +15,6 @@ import {
   nanoid,
 } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
-import { XY, Dimensions, positionInCenter, Box, Deep } from "@synnaxlabs/x";
 
 import {
   WindowState,
@@ -25,6 +24,7 @@ import {
   INITIAL_WINDOW_STATE,
   INITIAL_PRERENDER_WINDOW_STATE,
 } from "@/window";
+import { box, deep, dimensions, xy } from "@synnaxlabs/x";
 
 /** The Slice State */
 export interface SliceState {
@@ -69,7 +69,7 @@ export interface MaybeBooleanPayload {
 }
 
 export interface SizePayload {
-  size: Dimensions;
+  size: dimensions.Dimensions;
 }
 
 export type CreateWindowPayload = WindowProps & {
@@ -84,7 +84,7 @@ export type SetWindowMaximizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
 export type SetWindowVisiblePayload = MaybeKeyPayload & MaybeBooleanPayload;
 export type SetWindowFullScreenPayload = MaybeKeyPayload & MaybeBooleanPayload;
 export type CenterWindowPayload = MaybeKeyPayload;
-export type SetWindowPositionPayload = MaybeKeyPayload & { position: XY };
+export type SetWindowPositionPayload = MaybeKeyPayload & { position: xy.XY };
 export type SetWindowSizePayload = MaybeKeyPayload & SizePayload;
 export type SetWindowMinSizePayload = MaybeKeyPayload & SizePayload;
 export type SetWindowMaxSizePayload = MaybeKeyPayload & SizePayload;
@@ -277,7 +277,7 @@ const slice = createSlice({
       }
 
       if (s.config.enablePrerender)
-        s.windows[prerenderLabel] = Deep.copy({
+        s.windows[prerenderLabel] = deep.copy({
           ...s.config.defaultWindowProps,
           ...INITIAL_PRERENDER_WINDOW_STATE,
         });
@@ -332,7 +332,7 @@ const slice = createSlice({
     setWindowDecorations: assignBool("decorations"),
     setWindowProps: (s: SliceState, a: PayloadAction<SetWindowPropsPayload>) => {
       const prev = s.windows[a.payload.label];
-      const deepPartialEqual = Deep.partialEqual(prev, a.payload);
+      const deepPartialEqual = deep.partialEqual(prev, a.payload);
       if (!deepPartialEqual) s.windows[a.payload.label] = { ...prev, ...a.payload };
     },
   },
@@ -392,9 +392,9 @@ const maybePositionInCenter = (
   mainWin: WindowState
 ): CreateWindowPayload => {
   if (mainWin.position != null && mainWin.size != null && pld.position == null)
-    pld.position = positionInCenter(
-      new Box(XY.ZERO, pld.size ?? XY.ZERO),
-      new Box(mainWin.position, mainWin.size)
-    ).topLeft.crude;
+    pld.position = box.topLeft(box.positionInCenter(
+      box.construct(xy.ZERO, pld.size ?? xy.ZERO),
+      box.construct(mainWin.position, mainWin.size)
+    ))
   return pld;
 };

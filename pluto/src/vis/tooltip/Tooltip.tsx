@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { XY } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -33,7 +33,7 @@ export const Tooltip = Aether.wrap<TooltipProps>(
     const ref = useRef<HTMLSpanElement>(null);
 
     const handleMove = useCallback(
-      (e: MouseEvent): void => setState({ position: new XY(e) }),
+      (e: MouseEvent): void => setState({ position: xy.construct(e) }),
       [setState],
     );
 

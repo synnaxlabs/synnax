@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { CrudeDimensions, CrudeXY } from "@synnaxlabs/x";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
 import { WindowProps } from "@/window";
+import { dimensions, xy } from "@synnaxlabs/x";
 
 export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
   implements Runtime<S, A>
@@ -97,22 +97,22 @@ export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
     return await Promise.resolve();
   }
 
-  async setPosition(xy: CrudeXY): Promise<void> {
+  async setPosition(xy: xy.XY): Promise<void> {
     this.props.position = xy;
     return await Promise.resolve();
   }
 
-  async setSize(dims: CrudeDimensions): Promise<void> {
+  async setSize(dims: dimensions.Dimensions): Promise<void> {
     this.props.size = dims;
     return await Promise.resolve();
   }
 
-  async setMinSize(dims: CrudeDimensions): Promise<void> {
+  async setMinSize(dims: dimensions.Dimensions): Promise<void> {
     this.props.minSize = dims;
     return await Promise.resolve();
   }
 
-  async setMaxSize(dims: CrudeDimensions): Promise<void> {
+  async setMaxSize(dims: dimensions.Dimensions): Promise<void> {
     this.props.maxSize = dims;
     return await Promise.resolve();
   }

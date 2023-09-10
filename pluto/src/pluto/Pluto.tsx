@@ -22,7 +22,7 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { Worker } from "@/worker";
 
-// @ts-expect-error
+// @ts-expect-error - unable to resolve valid vite import
 // eslint-disable-next-line import/no-unresolved
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts&url";
 

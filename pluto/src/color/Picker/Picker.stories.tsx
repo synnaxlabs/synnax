@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Accordion } from "@/accordion";
+import { type Accordion } from "@/accordion";
 import { Color } from "@/color";
 import { Picker } from "@/color/Picker";
 

@@ -8,15 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Bounds,
-  xyScaleToTransform,
-  type Series,
-  type CrudeDirection,
-  type Destructor,
-  XY,
   DataType,
-  type Box,
-  type XYScale,
+  bounds,
+  type Destructor,
+  type box,
+  scale,
+  xy,
+  type Series,
+  type direction,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -44,9 +43,9 @@ export interface FindResult {
   // The line key that the point belongs to.
   key: string;
   // The decimal position of the point in the region.
-  position: XY;
+  position: xy.XY;
   // The data value of the point.
-  value: XY;
+  value: xy.XY;
   // The color of the line.
   color: color.Color;
   // The label of the line.
@@ -57,8 +56,8 @@ export interface FindResult {
 
 export const ZERO_FIND_RESULT: FindResult = {
   key: "",
-  position: XY.NAN,
-  value: XY.NAN,
+  position: xy.NAN,
+  value: xy.NAN,
   color: color.ZERO,
 };
 
@@ -68,9 +67,9 @@ export interface LineProps {
    * should be rendered in. The root of the pixel coordinate system is the top
    * left of the canvas.
    */
-  region: Box;
+  region: box.Box;
   /** An XY scale that maps from the data space to decimal space. */
-  dataToDecimalScale: XYScale;
+  dataToDecimalScale: scale.XY;
 }
 
 export class Context extends render.GLProgram {
@@ -84,11 +83,11 @@ export class Context extends render.GLProgram {
   }
 
   bindPropsAndState(
-    { dataToDecimalScale: scale, region }: LineProps,
+    { dataToDecimalScale: s, region }: LineProps,
     { strokeWidth, color }: ParsedState,
   ): number {
-    const scaleTransform = xyScaleToTransform(scale);
-    const transform = xyScaleToTransform(this.ctx.scaleRegion(region));
+    const scaleTransform = scale.xyScaleToTransform(s);
+    const transform = scale.xyScaleToTransform(this.ctx.scaleRegion(region));
     this.uniformXY("u_region_scale", transform.scale);
     this.uniformXY("u_region_offset", transform.offset);
     this.uniformColor("u_color", color);
@@ -119,7 +118,7 @@ export class Context extends render.GLProgram {
   }
 
   private bindAttrBuffer(
-    dir: CrudeDirection,
+    dir: direction.Crude,
     buffer: WebGLBuffer,
     downsample: number,
     alignment: number = 0,
@@ -189,11 +188,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     this.internal.requestRender(render.REASON_LAYOUT);
   }
 
-  async xBounds(): Promise<Bounds> {
+  async xBounds(): Promise<bounds.Bounds> {
     return await this.internal.telem.xBounds();
   }
 
-  async yBounds(): Promise<Bounds> {
+  async yBounds(): Promise<bounds.Bounds> {
     return await this.internal.telem.yBounds();
   }
 
@@ -211,10 +210,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const value = await this.xyValue(series, index);
     const { key } = this;
     const { color, label } = this.state;
-    const position = new XY(
-      props.dataToDecimalScale.x.pos(value.x),
-      props.dataToDecimalScale.y.pos(value.y),
-    );
+    const position = {
+      x: props.dataToDecimalScale.x.pos(value.x),
+      y: props.dataToDecimalScale.y.pos(value.y),
+    };
     return { key, color, label, value, position };
   }
 
@@ -234,11 +233,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     });
   }
 
-  private async xyValue(series: number, index: number): Promise<XY> {
+  private async xyValue(series: number, index: number): Promise<xy.XY> {
     const { telem, prog } = this.internal;
     const x = await telem.x(prog.ctx.gl);
     const y = await telem.y(prog.ctx.gl);
-    return new XY(this.getValue(series, index, x), this.getValue(series, index, y));
+    return xy.construct(
+      this.getValue(series, index, x),
+      this.getValue(series, index, y),
+    );
   }
 
   private getValue(series: number, index: number, data: Series[]): number {
@@ -275,7 +277,7 @@ const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
   return newBuf;
 };
 
-const offsetScale = (scale: XYScale, x: Series, y: Series): XYScale =>
+const offsetScale = (scale: scale.XY, x: Series, y: Series): scale.XY =>
   scale.translate(
     scale.x.dim(Number(x.sampleOffset)),
     scale.y.dim(Number(y.sampleOffset)),
@@ -304,9 +306,9 @@ const buildDrawOperations = (
   const ops: DrawOperation[] = [];
 
   x.forEach((xs) => {
-    const b = new Bounds(xs.alignment, xs.alignment + xs.length);
+    const b = bounds.construct(xs.alignment, xs.alignment + xs.length);
     const ySeries = y.filter((y) =>
-      b.overlapsWith(new Bounds(y.alignment, y.alignment + y.length)),
+      bounds.overlapsWith(b, bounds.construct(y.alignment, y.alignment + y.length)),
     );
     ySeries.forEach((ys) => {
       let xOffset = 0;

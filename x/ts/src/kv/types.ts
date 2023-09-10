@@ -8,45 +8,45 @@
 // included in the file licenses/APL.txt.
 
 export interface KV<K = string, V = string, WK = K, WV = V, D = K>
-  extends KVReader<K, V>,
-    KVWriter<WK, WV>,
-    KVDeleter<D> {}
+  extends Reader<K, V>,
+    Writer<WK, WV>,
+    Deleter<D> {}
 
-export interface KVReader<K = string, V = string> {
+export interface Reader<K = string, V = string> {
   /** @returns the value for a given key, or null if the key is not present. */
   get: (key: K) => V | null;
 }
 
-export interface KVWriter<K = string, V = string> {
+export interface Writer<K = string, V = string> {
   /** Sets a key-value pair in the store. */
   set: (key: K, value: V) => void;
 }
 
-export interface KVDeleter<K = string> {
+export interface Deleter<K = string> {
   /** Deletes a key-value pair from the store. */
   delete: (key: K) => void;
 }
 
 /** A read-writable key-value store. */
-export interface AsyncKV<K = string, V = string, WK = K, WV = V, D = K>
-  extends AsyncKVReader<K, V>,
-    AsyncKVWriter<WK, WV>,
-    AsyncKVDeleter<D> {}
+export interface Async<K = string, V = string, WK = K, WV = V, D = K>
+  extends AsyncReader<K, V>,
+    AsyncWriter<WK, WV>,
+    AsyncDeleter<D> {}
 
 /** A readable key-value store. */
-export interface AsyncKVReader<K = string, V = string> {
+export interface AsyncReader<K = string, V = string> {
   /** Get the value for a given key. */
   get: (key: K) => Promise<V | null>;
 }
 
 /** A writable key-value store. */
-export interface AsyncKVWriter<K = string, V = string> {
+export interface AsyncWriter<K = string, V = string> {
   /** Sets a key-value pair in the store. The value must be serializable. */
   set: (key: K, value: V) => Promise<void>;
 }
 
 /** A key-value store that can delete key-value pairs. */
-export interface AsyncKVDeleter<K = string> {
+export interface AsyncDeleter<K = string> {
   /** Deletes a key-value pair from the store. */
   delete: (key: K) => Promise<void>;
 }

@@ -9,8 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { type CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
+
+import {direction} from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -73,7 +74,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
     onChange({ ...value, units });
   };
 
-  const handleDirectionChange = (direction: CrudeDirection): void => {
+  const handleDirectionChange = (direction: direction.Direction): void => {
     onChange({ ...value, direction });
   };
 
@@ -106,9 +107,9 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
           {/* @ts-expect-error */}
           {componentRenderProp(Color.Swatch)}
         </Input.Item>
-        <Input.Item<CrudeDirection>
+        <Input.Item<direction.Direction>
           label="Direction"
-          value={new Direction(value.direction ?? "x").crude}
+          value={value.direction ?? "x"}
           onChange={handleDirectionChange}
         >
           {componentRenderProp(Select.Direction)}

@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Scale, XYScale } from "@synnaxlabs/x";
+import { scale } from "@synnaxlabs/x";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
 {
-  readonly scale_: XYScale;
+  readonly scale_: scale.XY;
   private readonly wrap: OffscreenCanvasRenderingContext2D;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
-    scale: XYScale = XYScale.IDENTITY,
+    scale_: scale.XY = scale.XY.IDENTITY,
   ) {
     this.wrap = wrap;
-    this.scale_ = scale;
+    this.scale_ = scale_;
   }
 
   reset(): void {
     this.wrap.reset();
   }
 
-  applyScale(scale: XYScale): SugaredOffscreenCanvasRenderingContext2D {
+  applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
     return new SugaredOffscreenCanvasRenderingContext2D(this.wrap, scale);
   }
 
@@ -594,7 +594,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
 // /(\d+)px/ is wrong, so don't use it.
 const FONT_REGEX = /(\d+(\.\d+)?)px/;
 
-const scaleFontSize = (font: string, scale: Scale): string => {
+const scaleFontSize = (font: string, scale: scale.Scale): string => {
   const fontSize = Number(font.match(FONT_REGEX)?.[1]);
   if (fontSize == null) return font;
   const scaled = scale.dim(fontSize);

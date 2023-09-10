@@ -27,7 +27,7 @@ import { value } from "@/vis/value/aether";
 import { valve } from "@/vis/valve/aether";
 
 export const render = (): void => {
-  // @ts-expect-error
+  // @ts-expect-error - for some reason post-message can't type transfer correctly
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
 

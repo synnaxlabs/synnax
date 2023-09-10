@@ -17,13 +17,7 @@ import {
   useState,
 } from "react";
 
-import {
-  unique,
-  positionSoVisible,
-  type ClientXYT,
-  type CrudeXY,
-  XY,
-} from "@synnaxlabs/x";
+import { box, unique, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
@@ -34,11 +28,11 @@ import "@/menu/ContextMenu.css";
 interface ContextMenuState {
   visible: boolean;
   keys: string[];
-  xy: XY;
+  xy: xy.XY;
 }
 
 /** Supported event types for triggering a context menu. */
-export type ContextMenuEvent = ClientXYT & {
+export type ContextMenuEvent = xy.Client & {
   preventDefault: () => void;
   stopPropagation: () => void;
   target: Element;
@@ -46,7 +40,7 @@ export type ContextMenuEvent = ClientXYT & {
 
 /** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
 export type ContextMenuOpen = (
-  pos: CrudeXY | ClientXYT | ContextMenuEvent,
+  pos: xy.Crude | ContextMenuEvent,
   keys?: string[],
 ) => void;
 
@@ -61,7 +55,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
 const INITIAL_STATE: ContextMenuState = {
   visible: false,
   keys: [],
-  xy: XY.ZERO,
+  xy: xy.ZERO,
 };
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
@@ -100,14 +94,14 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
   const handleOpen: ContextMenuOpen = (e, keys) => {
-    const xy = new XY(e);
+    const p = xy.construct(e);
     if ("preventDefault" in e) {
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();
       keys = keys ?? unique(findSelected(e.target as HTMLElement).map((el) => el.id));
     } else keys = [];
-    setMenuState({ visible: true, keys, xy });
+    setMenuState({ visible: true, keys, xy: p });
   };
 
   const refCallback = (el: HTMLDivElement): void => {
@@ -115,11 +109,11 @@ export const useContextMenu = (): UseContextMenuReturn => {
     if (el == null) return;
     setMenuState((prev) => {
       if (prev.visible) {
-        const [repositioned, changed] = positionSoVisible(
+        const [repositioned, changed] = box.positionSoVisible(
           el,
           window.document.documentElement,
         );
-        if (changed) return { ...prev, xy: repositioned.topLeft };
+        if (changed) return { ...prev, xy: box.topLeft(repositioned) };
       }
       return prev;
     });

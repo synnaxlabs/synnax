@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { clamp, type Box, Location } from "@synnaxlabs/x";
+import { box, clamp, location } from "@synnaxlabs/x";
 import { clsx } from "clsx";
 
 import { CSS } from "@/css";
@@ -52,24 +52,24 @@ export const Single = ({
 }: SingleProps): ReactElement => {
   const [size, setSize] = useState(clamp(initialSize, minSize, maxSize));
   const marker = useRef<number | null>(null);
-  const location = new Location(location_);
+  const loc = location.construct(location_);
 
   const calcNextSize = useCallback(
-    (box: Box) => {
+    (b: box.Box) => {
       if (marker.current === null) return 0;
       const dim =
-        box.dim(location.direction, true) *
-        (1 - 2 * Number(["bottom", "right"].includes(location.crude)));
+        box.dim(b, location.direction(loc), true) *
+        (1 - 2 * Number(["bottom", "right"].includes(loc)));
       const rawNextSize = marker.current + dim;
       const nextSize = clamp(rawNextSize, minSize, maxSize);
       if ((nextSize - rawNextSize) / minSize > collapseThreshold) return COLLAPSED_SIZE;
       return nextSize;
     },
-    [location, minSize, maxSize, collapseThreshold],
+    [loc, minSize, maxSize, collapseThreshold],
   );
 
   const handleMove = useCallback(
-    (box: Box) => {
+    (box: box.Box) => {
       const nextSize = calcNextSize(box);
       setSize(nextSize);
       onResize?.(nextSize);
@@ -87,7 +87,7 @@ export const Single = ({
   );
 
   const handleEnd = useCallback(
-    (box: Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
+    (box: box.Box) => calcNextSize(box) === COLLAPSED_SIZE && onCollapse?.(),
     [onCollapse, calcNextSize],
   );
 
@@ -109,7 +109,7 @@ export const Single = ({
 
   return (
     <Core
-      location={location}
+      location={loc}
       size={size}
       onDragStart={handleDragStart}
       className={clsx(className, CSS.expanded(size !== COLLAPSED_SIZE))}

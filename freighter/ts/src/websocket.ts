@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RUNTIME, URL, buildQueryString } from "@synnaxlabs/x";
-import type { EncoderDecoder } from "@synnaxlabs/x";
+import { runtime, URL, buildQueryString } from "@synnaxlabs/x";
+import type { binary } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
@@ -17,7 +17,7 @@ import { MiddlewareCollector, Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): typeof WebSocket =>
-  RUNTIME === "node" ? require("ws") : WebSocket;
+  runtime.RUNTIME === "node" ? require("ws") : WebSocket;
 
 const MessageSchema = z.object({
   type: z.union([z.literal("data"), z.literal("close")]),
@@ -36,7 +36,7 @@ type ReceiveCallbacksQueue = Array<{
 class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   implements Stream<RQ, RS>
 {
-  private readonly encoder: EncoderDecoder;
+  private readonly encoder: binary.EncoderDecoder;
   private readonly reqSchema: RQ;
   private readonly resSchema: RS;
   private readonly ws: WebSocket;
@@ -45,7 +45,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
-  constructor(ws: WebSocket, encoder: EncoderDecoder, reqSchema: RQ, resSchema: RS) {
+  constructor(ws: WebSocket, encoder: binary.EncoderDecoder, reqSchema: RQ, resSchema: RS) {
     this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
@@ -128,7 +128,7 @@ const isNormalClosure = (ev: CloseEvent): boolean => NormalClosures.includes(ev.
  */
 export class WebSocketClient extends MiddlewareCollector implements StreamClient {
   baseUrl: URL;
-  encoder: EncoderDecoder;
+  encoder: binary.EncoderDecoder;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -137,7 +137,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    *   responses.
    * @param baseEndpoint - A base url to use as a prefix for all requests.
    */
-  constructor(baseEndpoint: URL, encoder: EncoderDecoder, secure = false) {
+  constructor(baseEndpoint: URL, encoder: binary.EncoderDecoder, secure = false) {
     super();
     this.baseUrl = baseEndpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = encoder;

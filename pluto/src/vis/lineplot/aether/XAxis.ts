@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, type Box, Location, Scale } from "@synnaxlabs/x";
+import { location, bounds, box, scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -28,8 +28,8 @@ import { render } from "@/vis/render";
 
 export const xAxisStateZ = axis.axisStateZ
   .extend({
-    location: Location.strictYZ.optional().default("bottom"),
-    bounds: Bounds.looseZ.optional(),
+    location: location.y.optional().default("bottom"),
+    bounds: bounds.bounds.optional(),
     autoBoundPadding: z.number().optional().default(0.01),
     size: z.number().optional().default(0),
     labelSize: z.number().optional().default(0),
@@ -41,7 +41,7 @@ export const xAxisStateZ = axis.axisStateZ
   });
 
 export interface XAxisProps extends Omit<YAxisProps, "xDataToDecimalScale"> {
-  viewport: Box;
+  viewport: box.Box;
 }
 
 interface InternalState {
@@ -49,7 +49,7 @@ interface InternalState {
   core: axis.Axis;
   // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
   // so that we can rerender the plot in the same position even if the data changes.
-  boundSnapshot?: Bounds;
+  boundSnapshot?: bounds.Bounds;
 }
 
 export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, YAxis> {
@@ -105,7 +105,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderAxis(
     props: XAxisProps,
-    decimalToDataScale: Scale,
+    decimalToDataScale: scale.Scale,
   ): Promise<void> {
     if (!props.canvases.includes("upper2d")) return;
     const { core } = this.internal;
@@ -119,39 +119,39 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
 
   private async renderYAxes(
     props: XAxisProps,
-    xDataToDecimalScale: Scale,
+    xDataToDecimalScale: scale.Scale,
   ): Promise<void> {
     const p = { ...props, xDataToDecimalScale };
     await Promise.all(this.children.map(async (el) => await el.render(p)));
   }
 
-  private async xBounds(hold: boolean): Promise<[Bounds, Error | null]> {
+  private async xBounds(hold: boolean): Promise<[bounds.Bounds, Error | null]> {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
-    if (this.state.bounds != null && !this.state.bounds.isZero)
+    if (this.state.bounds != null && !bounds.isZero(this.state.bounds))
       return [this.state.bounds, null];
     try {
-      const bounds = (
+      const b = (
         await Promise.all(this.children.map(async (el) => await el.xBounds()))
-      ).filter((b) => b.isFinite);
-      const ab = autoBounds(bounds, this.state.autoBoundPadding, this.state.type);
+      ).filter((b) => bounds.isFinite(b));
+      const ab = autoBounds(b, this.state.autoBoundPadding, this.state.type);
       this.internal.boundSnapshot = ab;
-      return [autoBounds(bounds, this.state.autoBoundPadding, this.state.type), null];
+      return [autoBounds(b, this.state.autoBoundPadding, this.state.type), null];
     } catch (err) {
       return [emptyBounds(this.state.type), err as Error];
     }
   }
 
   private async dataToDecimalScale(
-    viewport: Box,
+    viewport: box.Box,
     hold: boolean,
-  ): Promise<[Scale, Error | null]> {
+  ): Promise<[scale.Scale, Error | null]> {
     const [bounds, error] = await this.xBounds(hold);
     return [
-      Scale.scale(bounds)
+      scale.Scale.scale(bounds)
         .scale(1)
-        .translate(-viewport.x)
-        .magnify(1 / viewport.width),
+        .translate(-box.x(viewport))
+        .magnify(1 / box.width(viewport)),
       error,
     ];
   }

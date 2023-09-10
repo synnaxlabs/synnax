@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type GetOSProps, type OS, getOS } from "@synnaxlabs/x";
+import { runtime } from "@synnaxlabs/x";
 
-export const use = (props?: GetOSProps): OS | undefined => getOS(props);
+export const use = (props?: runtime.GetOSProps): runtime.OS | undefined =>
+  runtime.getOS(props);

@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 
-import { Box, Compare, type XY, unique, type OS } from "@synnaxlabs/x";
+import { box, Compare, runtime, unique, xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";
@@ -25,7 +25,7 @@ import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/trigge
 export interface UseEvent {
   triggers: Trigger[];
   stage: Stage;
-  cursor: XY;
+  cursor: xy.XY;
 }
 
 export interface UseProps {
@@ -33,7 +33,7 @@ export interface UseProps {
   callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
-  os?: OS;
+  os?: runtime.OS;
 }
 
 export const use = ({
@@ -65,17 +65,17 @@ export const use = ({
 
 const filterInRegion = (
   target: HTMLElement,
-  cursor: XY,
+  cursor: xy.XY,
   added: Trigger[],
   region?: RefObject<HTMLElement>,
 ): Trigger[] => {
   if (region == null) return added;
   if (region.current == null) return [];
-  const b = new Box(region.current);
+  const b = box.construct(region.current);
   return added.filter((t) => {
     if (t.some((v) => v.includes("Mouse")))
-      return b.contains(cursor) && target === region.current;
-    return b.contains(cursor);
+      return box.contains(b, cursor) && target === region.current;
+    return box.contains(b, cursor);
   });
 };
 

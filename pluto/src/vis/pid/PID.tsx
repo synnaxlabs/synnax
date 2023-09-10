@@ -21,7 +21,6 @@ import {
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Box, type CrudeXY, Deep, XY, XYLocation } from "@synnaxlabs/x";
 import ReactFlow, {
   ReactFlowProvider,
   type Viewport as RFViewport,
@@ -47,7 +46,6 @@ import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useMemoCompare, useResize } from "@/hooks";
-import { Status } from "@/status";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
@@ -68,10 +66,11 @@ import {
 
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
+import { box, deep, location, xy } from "@synnaxlabs/x";
 
 export interface ElementProps {
   elementKey: string;
-  position: CrudeXY;
+  position: xy.XY;
   zoom: number;
   selected: boolean;
   editable: boolean;
@@ -88,7 +87,7 @@ export const use = ({
   initialNodes,
   initialEdges,
   allowEdit = true,
-  initialViewport = { position: XY.ZERO, zoom: 1 },
+  initialViewport = { position: xy.ZERO, zoom: 1 },
 }: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
@@ -185,13 +184,13 @@ const Core = Aether.wrap<PIDProps>(
     onViewportChange,
     ...props
   }): ReactElement => {
-    const [{ path }, { error }, setState] = Aether.use({
+    const [{ path }, , setState] = Aether.use({
       aetherKey,
       type: pid.PID.TYPE,
       schema: pid.PID.stateZ,
       initialState: {
         position: viewport.position,
-        region: Box.ZERO,
+        region: box.ZERO,
         zoom: viewport.zoom,
       },
     });
@@ -214,7 +213,7 @@ const Core = Aether.wrap<PIDProps>(
     const vpRef = useRef<RFViewport | null>(null);
     const handleViewport = useCallback(
       (viewport: RFViewport): void => {
-        if (vpRef.current != null && Deep.equal(viewport, vpRef.current)) return;
+        if (vpRef.current != null && deep.equal(viewport, vpRef.current)) return;
         vpRef.current = viewport;
         setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
         onViewportChange(translateViewportBackward(viewport));
@@ -295,7 +294,7 @@ const Core = Aether.wrap<PIDProps>(
     );
 
     const handleEdgePointsChange = useCallback(
-      (id: string, points: CrudeXY[]) => {
+      (id: string, points: xy.XY[]) => {
         const next = [...edgesRef.current];
         const index = next.findIndex((e) => e.key === id);
         if (index === -1) return;
@@ -343,16 +342,6 @@ const Core = Aether.wrap<PIDProps>(
       panActivationKeyCode: panTriggers,
       zoomActivationKeyCode: zoomTriggers,
     };
-
-    if (error != null) {
-      return (
-        <Aether.Composite path={path}>
-          <Status.Text.Centered variant="error" level="p">
-            {error}
-          </Status.Text.Centered>
-        </Aether.Composite>
-      );
-    }
 
     return (
       <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
@@ -416,7 +405,7 @@ export const ToggleEditControl = ({
     <Button.ToggleIcon
       onChange={() => onEditableChange(!editable)}
       value={editable}
-      tooltipLocation={XYLocation.RIGHT_CENTER.crude}
+      tooltipLocation={location.RIGHT_CENTER}
       tooltip={
         editable ? (
           <Text.Text level="small">Enable edit mode</Text.Text>
@@ -445,7 +434,7 @@ export const FitViewControl = ({
         onClick?.(e);
       }}
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
-      tooltipLocation={XYLocation.RIGHT_CENTER.crude}
+      tooltipLocation={location.RIGHT_CENTER}
       {...props}
     >
       <Icon.Expand />

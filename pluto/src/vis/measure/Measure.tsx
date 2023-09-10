@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { XY } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { Triggers } from "@/triggers";
@@ -78,12 +78,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   LinePlot.useViewport(handleClick);
 
   const handleMove = useCallback(
-    (e: MouseEvent): void => {
-      setState((p) => ({
-        ...p,
-        hover: new XY(e),
-      }));
-    },
+    (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),
     [setState],
   );
 

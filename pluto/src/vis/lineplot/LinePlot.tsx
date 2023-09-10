@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 
-import { Box, Deep, type Destructor, Location } from "@synnaxlabs/x";
+import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -72,17 +72,18 @@ export const useGridPosition = (
   const { key } = meta;
   useEffectCompare(
     () => {
-      Location.strictOuterZ.parse(meta.loc);
+      location.outer.parse(meta.loc);
       setAxis(meta);
       return () => removeAxis(meta.key);
     },
-    ([a], [b]) => Deep.equal(a, b),
+    ([a], [b]) => deep.equal(a, b),
     [meta],
   );
-  const dir = new Location(meta.loc).direction.inverse;
-  const gridArea = dir.equals("x")
-    ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
-    : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
+  const dir = direction.swap(location.direction(meta.loc));
+  const gridArea =
+    dir === "x"
+      ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
+      : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
   return { gridArea };
 };
 
@@ -117,8 +118,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       type: lineplot.LinePlot.TYPE,
       schema: lineplot.linePlotStateZ,
       initialState: {
-        container: Box.ZERO,
-        viewport: Box.DECIMAL,
+        container: box.ZERO,
+        viewport: box.DECIMAL,
         grid: [],
         clearOverscan,
         ...props,
@@ -151,7 +152,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     // the container is guaranteed to only resize if the plotting region does. This allows
     // us to save a window observer.
     const handleResize = useCallback(
-      (container: Box) => setState((prev) => ({ ...prev, container })),
+      (container: box.Box) => setState((prev) => ({ ...prev, container })),
       [setState],
     );
 

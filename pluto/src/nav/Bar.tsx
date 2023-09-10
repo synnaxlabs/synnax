@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FunctionComponent, ReactElement } from "react";
+import { type FunctionComponent, type ReactElement } from "react";
 
-import { Location, LooseLocationT, CrudePosition } from "@synnaxlabs/x";
+import { direction, location, type spatial } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -17,7 +17,7 @@ import { CSS } from "@/css";
 import "@/nav/Bar.css";
 
 export interface BarProps extends Omit<Align.SpaceProps, "direction" | "size" | "ref"> {
-  location?: LooseLocationT;
+  location?: location.Crude;
   size?: string | number;
 }
 
@@ -28,19 +28,21 @@ const CoreBar = ({
   style,
   ...props
 }: BarProps): ReactElement => {
-  const location = new Location(location_);
+  const loc = location.construct(location_);
+  const dir = location.direction(loc);
+  const oppositeDir = direction.swap(dir);
   return (
     <Align.Space
       className={CSS(
         CSS.B("navbar"),
-        CSS.bordered(location.inverse.crude),
-        CSS.dir(location.direction.inverse),
-        CSS.loc(location),
-        className
+        CSS.bordered(location.swap(loc)),
+        CSS.dir(oppositeDir),
+        CSS.loc(loc),
+        className,
       )}
-      direction={location.direction.inverse}
+      direction={oppositeDir}
       style={{
-        [location.direction.dimension]: size,
+        [direction.dimension(dir)]: size,
         ...style,
       }}
       align="center"
@@ -56,21 +58,20 @@ export interface BarContentProps extends Omit<Align.SpaceProps<"div">, "ref"> {
 }
 
 const contentFactory =
-  (pos: CrudePosition | ""): FunctionComponent<BarContentProps> =>
+  (pos: spatial.Alignment | ""): FunctionComponent<BarContentProps> =>
   // eslint-disable-next-line react/display-name
-  ({ bordered = false, className, ...props }: BarContentProps): ReactElement =>
-    (
-      <Align.Space
-        className={CSS(
-          CSS.BE("navbar", "content"),
-          CSS.pos(pos),
-          pos !== "" && bordered && CSS.bordered(pos),
-          className
-        )}
-        align="center"
-        {...props}
-      />
-    );
+  ({ bordered = false, className, ...props }: BarContentProps): ReactElement => (
+    <Align.Space
+      className={CSS(
+        CSS.BE("navbar", "content"),
+        CSS.align(pos),
+        pos !== "" && bordered && CSS.bordered(pos),
+        className,
+      )}
+      align="center"
+      {...props}
+    />
+  );
 
 type CoreBarType = typeof CoreBar;
 

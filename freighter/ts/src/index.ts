@@ -8,14 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export {
-  ENCODERS,
-  JSONEncoderDecoder,
-  MsgpackEncoderDecoder,
-  registerCustomTypeEncoder,
-} from "@synnaxlabs/x";
-
-export type { EncoderDecoder } from "@synnaxlabs/x";
-export {
   BaseTypedError,
   decodeError,
   encodeError,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RUNTIME, URL, EncoderDecoder } from "@synnaxlabs/x";
+import { runtime, URL, binary } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { errorZ, decodeError, Unreachable } from "@/errors";
@@ -17,7 +17,7 @@ import { UnaryClient } from "@/unary";
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
 const resolveFetchAPI = (): typeof fetch =>
-  RUNTIME === "node" ? require("node-fetch") : fetch;
+  runtime.RUNTIME === "node" ? require("node-fetch") : fetch;
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary
@@ -28,10 +28,10 @@ const resolveFetchAPI = (): typeof fetch =>
  */
 export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   endpoint: URL;
-  encoder: EncoderDecoder;
+  encoder: binary.EncoderDecoder;
   fetch: typeof fetch;
 
-  constructor(endpoint: URL, encoder: EncoderDecoder, secure: boolean = false) {
+  constructor(endpoint: URL, encoder: binary.EncoderDecoder, secure: boolean = false) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;

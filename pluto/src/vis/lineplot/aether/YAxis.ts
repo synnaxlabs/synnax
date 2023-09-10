@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Bounds, Box, Location, Scale, XY, XYScale } from "@synnaxlabs/x";
+import { box, bounds, scale, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -28,8 +28,8 @@ import { rule } from "@/vis/rule/aether";
 
 export const yAxisStateZ = axis.axisStateZ
   .extend({
-    location: Location.strictXZ.optional().default("left"),
-    bounds: Bounds.looseZ.optional(),
+    location: location.x.optional().default("left"),
+    bounds: bounds.bounds.optional(),
     autoBoundPadding: z.number().optional().default(0.05),
     size: z.number().optional().default(0),
     labelSize: z.number().optional().default(0),
@@ -43,10 +43,10 @@ export const yAxisStateZ = axis.axisStateZ
 
 export interface YAxisProps {
   grid: GridPositionSpec[];
-  plot: Box;
-  viewport: Box;
-  container: Box;
-  xDataToDecimalScale: Scale;
+  plot: box.Box;
+  viewport: box.Box;
+  container: box.Box;
+  xDataToDecimalScale: scale.Scale;
   canvases: render.CanvasVariant[];
   hold: boolean;
 }
@@ -57,7 +57,7 @@ interface InternalState {
   // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
   // so that we can rerender the plot in the same position even if the data changes.
   // changes.
-  boundSnapshot?: Bounds;
+  boundSnapshot?: bounds.Bounds;
 }
 
 type Children = line.Line | rule.Rule;
@@ -83,8 +83,8 @@ export class YAxis extends aether.Composite<
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 
-  async xBounds(): Promise<Bounds> {
-    return Bounds.max(
+  async xBounds(): Promise<bounds.Bounds> {
+    return bounds.max(
       await Promise.all(this.lines.map(async (el) => await el.xBounds())),
     );
   }
@@ -105,7 +105,7 @@ export class YAxis extends aether.Composite<
 
   private renderAxis(
     { grid, plot, container, canvases }: YAxisProps,
-    decimalToDataScale: Scale,
+    decimalToDataScale: scale.Scale,
   ): void {
     if (!canvases.includes("lower2d")) return;
     const { core } = this.internal;
@@ -119,25 +119,30 @@ export class YAxis extends aether.Composite<
 
   private async renderLines(
     { xDataToDecimalScale: xScale, plot, canvases }: YAxisProps,
-    yScale: Scale,
+    yScale: scale.Scale,
   ): Promise<void> {
     if (!canvases.includes("gl")) return;
     const props: line.LineProps = {
       region: plot,
-      dataToDecimalScale: new XYScale(xScale, yScale),
+      dataToDecimalScale: new scale.XY(xScale, yScale),
     };
     await Promise.all(this.lines.map(async (el) => await el.render(props)));
   }
 
   private async renderRules(
     { container, plot, canvases }: YAxisProps,
-    decimalToDataScale: Scale,
+    decimalToDataScale: scale.Scale,
   ): Promise<void> {
     if (!canvases.includes("upper2d")) return;
     const { location } = this.state;
     const { render } = this.internal;
-    const scissor = new Box(container.left, plot.top, container.width, plot.height);
-    const clearScissor = render.scissor(scissor, XY.ZERO, ["upper2d"]);
+    const scissor = box.construct(
+      box.left(container),
+      box.top(plot),
+      box.width(container),
+      box.height(plot),
+    );
+    const clearScissor = render.scissor(scissor, xy.ZERO, ["upper2d"]);
     const props = { container, plot, decimalToDataScale, location };
     await Promise.all(this.rules.map(async (el) => await el.render(props)));
     clearScissor();
@@ -149,7 +154,7 @@ export class YAxis extends aether.Composite<
   ): Promise<line.FindResult[]> {
     const [yDataToDecimalScale, error] = await this.dataToDecimalScale(viewport, hold);
     if (error != null) throw error;
-    const dataToDecimalScale = new XYScale(xDataToDecimalScale, yDataToDecimalScale);
+    const dataToDecimalScale = new scale.XY(xDataToDecimalScale, yDataToDecimalScale);
     const props: line.LineProps = { region: plot, dataToDecimalScale };
     return (
       await Promise.all(
@@ -158,10 +163,10 @@ export class YAxis extends aether.Composite<
     ).map((v) => ({ ...v, units: this.state.label }));
   }
 
-  private async yBounds(hold: boolean): Promise<[Bounds, Error | null]> {
+  private async yBounds(hold: boolean): Promise<[bounds.Bounds, Error | null]> {
     if (hold && this.internal.boundSnapshot != null)
       return [this.internal.boundSnapshot, null];
-    if (this.state.bounds != null && !this.state.bounds.isZero)
+    if (this.state.bounds != null && !bounds.isZero(this.state.bounds))
       return [this.state.bounds, null];
     try {
       const bounds = await Promise.all(
@@ -176,15 +181,15 @@ export class YAxis extends aether.Composite<
   }
 
   private async dataToDecimalScale(
-    viewport: Box,
+    viewport: box.Box,
     hold: boolean,
-  ): Promise<[Scale, Error | null]> {
+  ): Promise<[scale.Scale, Error | null]> {
     const [bounds, err] = await this.yBounds(hold);
     return [
-      Scale.scale(bounds)
+      scale.Scale.scale(bounds)
         .scale(1)
-        .translate(-viewport.y)
-        .magnify(1 / viewport.height),
+        .translate(-box.y(viewport))
+        .magnify(1 / box.height(viewport)),
       err,
     ];
   }

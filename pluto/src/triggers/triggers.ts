@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Compare, type CompareF, type XY } from "@synnaxlabs/x";
+import { Compare, type xy, type CompareF } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
@@ -142,7 +142,7 @@ export interface Event {
   target: HTMLElement;
   prev: Trigger[];
   next: Trigger[];
-  cursor: XY;
+  cursor: xy.XY;
 }
 
 export type Callback = (e: Event) => void;

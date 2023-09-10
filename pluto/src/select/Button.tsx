@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Key, KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
-import { UseSelectMultipleProps, useSelectMultiple } from "@/hooks/useSelectMultiple";
-import { Input } from "@/input";
-import { RenderProp } from "@/util/renderProp";
+import {
+  type UseSelectMultipleProps,
+  useSelectMultiple,
+} from "@/hooks/useSelectMultiple";
+import { type Input } from "@/input";
+import { type RenderProp } from "@/util/renderProp";
 
 export interface ButtonOptionProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Pick<CoreButton.ButtonProps, "onClick"> {
   key: K;
   selected: boolean;
@@ -27,7 +30,7 @@ export interface ButtonOptionProps<
 
 export interface ButtonProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Input.Control<K>,
     Omit<Align.PackProps, "children" | "onChange">,
     Pick<UseSelectMultipleProps, "allowNone" | "allowMultiple"> {
@@ -38,7 +41,7 @@ export interface ButtonProps<
 
 export const Button = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   children = defaultSelectButtonOption,
   value,
@@ -74,7 +77,7 @@ export const Button = <
 
 const defaultSelectButtonOption = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   key,
   onClick,

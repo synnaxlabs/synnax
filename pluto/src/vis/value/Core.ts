@@ -9,7 +9,6 @@
 
 import { type ReactElement, useLayoutEffect } from "react";
 
-import { Deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -17,6 +16,7 @@ import { useMemoCompare } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Value } from "@/vis/value/aether/value";
+import { deep } from "@synnaxlabs/x";
 
 export const corePropsZ = Value.z
   .omit({ font: true })
@@ -36,7 +36,7 @@ export const Core = Aether.wrap<CoreProps>(
           ...props,
         };
       },
-      ([prevProps], [nextProps]) => Deep.equal(prevProps, nextProps),
+      ([prevProps], [nextProps]) => deep.equal(prevProps, nextProps),
       [props],
     );
 

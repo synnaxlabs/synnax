@@ -11,11 +11,10 @@ import { type ReactElement, useCallback } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import {
-  Box,
-  type CrudeBounds,
-  type CrudeDirection,
-  type CrudeLocation,
-  Location,
+  box,
+  type bounds,
+  type direction,
+  location,
   type TimeRange,
   type TimeSpan,
 } from "@synnaxlabs/x";
@@ -37,10 +36,10 @@ import "@/channel/LinePlot.css";
 
 export interface AxisProps {
   id: string;
-  location: CrudeLocation;
+  location: location.Crude;
   label: string;
-  labelDirection?: CrudeDirection;
-  bounds?: CrudeBounds;
+  labelDirection?: direction.Crude;
+  bounds?: bounds.Crude;
   color: Color.Crude;
   showGrid?: boolean;
   type: axis.TickType;
@@ -123,17 +122,17 @@ export const LinePlot = ({
   rules,
   enableTooltip = true,
   enableMeasure = false,
-  initialViewport = Box.DECIMAL,
+  initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
   ...restProps
 }: LinePlotProps): ReactElement => {
-  const xAxes = axes.filter(({ location }) => new Location(location).isY);
+  const xAxes = axes.filter(({ location: l }) => location.isY(l));
   return (
     <Core.LinePlot {...restProps}>
       {xAxes.map((a, i) => {
         const _lines = lines.filter((l) => l.axes.x === a.id);
-        const _axes = axes.filter(({ location }) => new Location(location).isX);
+        const _axes = axes.filter(({ location: l }) => location.isX(l));
         const _rules = rules?.filter((r) =>
           [..._axes.map(({ id }) => id), a.id].includes(r.axis),
         );

@@ -9,7 +9,7 @@
 
 import { camelKeys as _camelKeys, snakeKeys as _snakeKeys } from "js-convert-case";
 
-import { UnknownRecord } from "@/record";
+import { type UnknownRecord } from "@/record";
 
 const options = {
   recursive: true,

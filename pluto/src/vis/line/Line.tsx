@@ -9,10 +9,10 @@
 
 import { type ReactElement, useLayoutEffect } from "react";
 
-import { Deep, type Optional } from "@synnaxlabs/x";
+import { type Optional } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
-import { useMemoCompare } from "@/memo";
+import { useMemoDeepEqualProps } from "@/memo";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps extends Optional<Omit<line.State, "key">, "strokeWidth"> {}
@@ -26,11 +26,7 @@ export const Line = Aether.wrap<LineProps>(
       schema: line.stateZ,
       initialState: props,
     });
-    const memoProps = useMemoCompare(
-      () => props,
-      ([a], [b]) => Deep.equal(a, b),
-      [props],
-    );
+    const memoProps = useMemoDeepEqualProps(props);
     useLayoutEffect(() => setState(memoProps), [memoProps]);
     return null;
   },

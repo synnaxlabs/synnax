@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { CrudeDimensions, CrudeXY, debounce as debounceF } from "@synnaxlabs/x";
+import { debounce as debounceF, dimensions, xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
 import {
@@ -176,19 +176,19 @@ export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
     return await this.win.center();
   }
 
-  async setPosition(xy: CrudeXY): Promise<void> {
+  async setPosition(xy: xy.XY): Promise<void> {
     void this.win.setPosition(new LogicalPosition(xy.x, xy.y));
   }
 
-  async setSize(dims: CrudeDimensions): Promise<void> {
+  async setSize(dims: dimensions.Dimensions): Promise<void> {
     void this.win.setSize(new LogicalSize(dims.width, dims.height));
   }
 
-  async setMinSize(dims: CrudeDimensions): Promise<void> {
+  async setMinSize(dims: dimensions.Dimensions): Promise<void> {
     void this.win.setMinSize(new LogicalSize(dims.width, dims.height));
   }
 
-  async setMaxSize(dims: CrudeDimensions): Promise<void> {
+  async setMaxSize(dims: dimensions.Dimensions): Promise<void> {
     void this.win.setMaxSize(new LogicalSize(dims.width, dims.height));
   }
 
@@ -298,7 +298,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
 const parsePosition = async (
   position: PhysicalPosition,
   scaleFactor: number
-): Promise<CrudeXY> => {
+): Promise<xy.XY> => {
   const logical = position.toLogical(scaleFactor);
   return { x: logical.x, y: logical.y };
 };
@@ -306,7 +306,7 @@ const parsePosition = async (
 const parseSize = async (
   size: PhysicalSize,
   scaleFactor: number
-): Promise<CrudeDimensions> => {
+): Promise<dimensions.Dimensions> => {
   const logical = size.toLogical(scaleFactor);
   return { width: logical.width, height: logical.height };
 };

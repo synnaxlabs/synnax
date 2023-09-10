@@ -15,18 +15,10 @@ export type Runtime = "browser" | "node" | "webworker";
  *
  * @returns The runtime environment.
  */
-export const detectRuntime = (): Runtime => {
-  if (
-    typeof process !== "undefined" &&
-    process.versions != null &&
-    process.versions.node != null
-  )
-    return "node";
-
-  if (typeof window === "undefined" || window.document === undefined)
-    return "webworker";
-
+export const detect = (): Runtime => {
+  if (process?.versions?.node != null) return "node";
+  if (window?.document === undefined) return "webworker";
   return "browser";
 };
 
-export const RUNTIME = detectRuntime();
+export const RUNTIME = detect();

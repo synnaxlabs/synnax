@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DeepKey } from "@/deep/key";
-import { UnknownRecord } from "@/record";
+import { type Key } from "@/deep/key";
+import { type UnknownRecord } from "@/record";
 
-export const deepDelete = <T extends UnknownRecord<T>, D extends number = 5>(
+export const deleteD = <T extends UnknownRecord<T>, D extends number = 5>(
   target: T,
-  ...keys: Array<DeepKey<T, D>>
+  ...keys: Array<Key<T, D>>
 ): T => {
   keys.forEach((key) => {
     let curr: any = target;

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, AnyAction } from "@reduxjs/toolkit";
-import { CrudeDimensions, CrudeXY } from "@synnaxlabs/x";
 
 import { PreloadedState, StoreState } from "@/state";
 import { WindowProps } from "@/window";
+import { dimensions, xy } from "@synnaxlabs/x";
 
 /**
  * An event emitted by drift to communicate state changes.
@@ -98,10 +98,10 @@ export interface Manager {
   setVisible: (value: boolean) => Promise<void>;
   setFullscreen: (value: boolean) => Promise<void>;
   center: () => Promise<void>;
-  setPosition: (xy: CrudeXY) => Promise<void>;
-  setSize: (dims: CrudeDimensions) => Promise<void>;
-  setMinSize: (dims: CrudeDimensions) => Promise<void>;
-  setMaxSize: (dimss: CrudeDimensions) => Promise<void>;
+  setPosition: (xy: xy.XY) => Promise<void>;
+  setSize: (dims: dimensions.Dimensions) => Promise<void>;
+  setMinSize: (dims: dimensions.Dimensions) => Promise<void>;
+  setMaxSize: (dimss: dimensions.Dimensions) => Promise<void>;
   setResizable: (value: boolean) => Promise<void>;
   setSkipTaskbar: (value: boolean) => Promise<void>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;

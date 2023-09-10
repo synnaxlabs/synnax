@@ -9,7 +9,7 @@
 
 import { useEffect, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { type CrudeDirection, Dimensions, Direction } from "@synnaxlabs/x";
+import { dimensions, direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -25,13 +25,13 @@ export interface ValveProps
     Omit<ComponentPropsWithoutRef<"button">, "color"> {
   color?: Color.Crude;
   label?: string;
-  direction?: CrudeDirection;
+  direction?: direction.Direction;
 }
 
-const BASE_VALVE_DIMS = new Dimensions({
+const BASE_VALVE_DIMS: dimensions.Dimensions = {
   width: 106,
   height: 54,
-});
+};
 
 export const Valve = Aether.wrap<ValveProps>(
   valve.Valve.TYPE,
@@ -42,7 +42,7 @@ export const Valve = Aether.wrap<ValveProps>(
     className,
     source,
     sink,
-    direction = "x",
+    direction: dir = "x",
     ...props
   }): ReactElement => {
     const aetherProps = useMemoDeepEqualProps({ source, sink });
@@ -62,8 +62,8 @@ export const Valve = Aether.wrap<ValveProps>(
     const handleClick = (): void =>
       setState((state) => ({ ...state, triggered: !state.triggered }));
 
-    const dir = new Direction(direction);
-    const dims = dir.isY ? BASE_VALVE_DIMS.swap() : BASE_VALVE_DIMS;
+    const dir_ = direction.construct(dir);
+    const dims = dir_ === "y" ? dimensions.swap(BASE_VALVE_DIMS) : BASE_VALVE_DIMS;
 
     // @ts-expect-error
     if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
@@ -74,7 +74,7 @@ export const Valve = Aether.wrap<ValveProps>(
           CSS.B("valve"),
           triggered && CSS.BM("valve", "triggered"),
           active && CSS.BM("valve", "active"),
-          CSS.dir(direction),
+          CSS.dir(dir_),
         )}
         onClick={handleClick}
         style={style}
@@ -83,7 +83,7 @@ export const Valve = Aether.wrap<ValveProps>(
         <svg
           width={dims.width * 0.75}
           height={dims.height * 0.75}
-          viewBox={dims.svgViewBox()}
+          viewBox={dimensions.svgViewBox(dims)}
         >
           <path
             vectorEffect="non-scaling-stroke"

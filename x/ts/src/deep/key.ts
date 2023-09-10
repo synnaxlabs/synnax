@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Join } from "@/join";
+import { type Join } from "@/join";
 
 type Prev = [
   never,
@@ -32,15 +32,15 @@ type Prev = [
   18,
   19,
   20,
-  ...Array<0>
+  ...Array<0>,
 ];
 
-export type DeepKey<T, D extends number = 5> = [D] extends [never]
+export type Key<T, D extends number = 5> = [D] extends [never]
   ? never
   : T extends object
   ? {
       [K in keyof T]-?: K extends string | number
-        ? `${K}` | Join<K, DeepKey<T[K], Prev[D]>>
+        ? `${K}` | Join<K, Key<T[K], Prev[D]>>
         : never;
     }[keyof T]
   : "";

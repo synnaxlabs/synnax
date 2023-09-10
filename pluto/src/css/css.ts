@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Direction,
-  Location,
-  type CrudeLocation,
-  type LooseDirectionT,
-  type LooseLocationT,
-  type CrudePosition,
-} from "@synnaxlabs/x";
+import { location, direction, type spatial } from "@synnaxlabs/x";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { applyCSSVars } from "@/css/vars";
@@ -25,14 +18,14 @@ import { CSSGridBuilder } from "./grid";
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
   expanded: (expanded: boolean) => string;
-  loc: (location: LooseLocationT) => string;
-  pos: (position: CrudePosition | "") => string;
-  dir: (direction?: LooseDirectionT) => string | false;
+  loc: (location: location.Crude) => string;
+  align: (position: spatial.Alignment | "") => string;
+  dir: (direction?: direction.Crude) => string | false;
   size: (size: ComponentSize | number) => string | false;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
-  bordered: (location?: CrudeLocation | CrudePosition | boolean) => string | false;
+  bordered: (location?: location.Crude | spatial.Alignment | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
   editable: (editable: boolean) => string | false;
@@ -47,11 +40,10 @@ const newCSS = (prefix: string): CSSType => {
   const CSS = newBEM(prefix) as CSSType;
   CSS.visible = (visible) => CSS.M(visible ? "visible" : "hidden");
   CSS.expanded = (expanded) => CSS.M(expanded ? "expanded" : "collapsed");
-  CSS.loc = (location) => CSS.M(new Location(location).valueOf());
+  CSS.loc = (l) => CSS.M(location.construct(l));
   CSS.disabled = (disabled) => disabled === true && CSS.M("disabled");
-  CSS.pos = (position) => CSS.M(position);
-  CSS.dir = (direction) =>
-    direction != null && CSS.M(new Direction(direction).valueOf());
+  CSS.align = (position) => CSS.M(position);
+  CSS.dir = (dir) => dir != null && CSS.M(direction.construct(dir));
   CSS.size = (size) => typeof size === "string" && CSS.M(size);
   CSS.sharp = (sharp) => !(sharp === false) && CSS.M("sharp");
   CSS.rounded = (rounded) => !(rounded === false) && CSS.M("rounded");

@@ -14,12 +14,12 @@ import {
   useState,
 } from "react";
 
-import { Box } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Theming } from "@/theming";
 import { Core, type CoreProps } from "@/vis/value/Core";
+import { box } from "@synnaxlabs/x";
 
 export interface ValueProps
   extends Omit<CoreProps, "box">,
@@ -27,7 +27,7 @@ export interface ValueProps
 
 export const Value = memo(
   ({ style, color, level = "p", className, ...props }: ValueProps): ReactElement => {
-    const [box, setBox] = useState(Box.ZERO);
+    const [b, setBox] = useState(box.ZERO);
     const ref = useResize(setBox);
     const font = Theming.useTypography(level ?? "p");
     return (
@@ -41,7 +41,7 @@ export const Value = memo(
         }}
         {...props}
       >
-        {!box.isZero && <Core box={box} color={color} level={level} {...props} />}
+        {!box.isZero(b) && <Core box={b} color={color} level={level} {...props} />}
       </div>
     );
   },

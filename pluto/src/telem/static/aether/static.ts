@@ -10,11 +10,11 @@
 import {
   Series,
   type GLBufferController,
-  Bounds,
   nativeTypedArray,
   Rate,
   DataType,
   TimeRange,
+  bounds,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -68,14 +68,14 @@ class XYCore {
     return this._y;
   }
 
-  async yBounds(): Promise<Bounds> {
+  async yBounds(): Promise<bounds.Bounds> {
     const y = await this.y();
-    return Bounds.max(y.map((x) => x.bounds));
+    return bounds.max(y.map((x) => x.bounds));
   }
 
-  async xBounds(): Promise<Bounds> {
+  async xBounds(): Promise<bounds.Bounds> {
     const x = await this.x();
-    return Bounds.max(x.map((x) => x.bounds));
+    return bounds.max(x.map((x) => x.bounds));
   }
 
   release(gl: GLBufferController): void {}

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, Synnax, synnaxPropsZ } from "@synnaxlabs/client";
-import { Deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -46,7 +46,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
 
     if (
       this.prevState.props != null &&
-      Deep.equal(this.state.props, this.prevState.props) &&
+      deep.equal(this.state.props, this.prevState.props) &&
       this.internal.synnax != null
     ) {
       return;

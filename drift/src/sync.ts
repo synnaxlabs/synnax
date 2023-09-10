@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
-import { Dimensions, unique } from "@synnaxlabs/x";
+import { dimensions, unique } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { MainChecker, Manager, Properties } from "@/runtime";
@@ -116,22 +116,22 @@ export const syncCurrent = async (
 
   if (
     nextWin.minSize != null &&
-    !new Dimensions(nextWin.minSize).equals(prevWin.minSize)
+    !dimensions.equals(nextWin.minSize, prevWin.minSize)
   )
     changes.push(["minSize", runtime.setMinSize(nextWin.minSize)]);
 
   if (
     nextWin.maxSize != null &&
-    !new Dimensions(nextWin.maxSize).equals(prevWin.maxSize)
+    !dimensions.equals(nextWin.maxSize, prevWin.maxSize)
   )
     changes.push(["maxSize", runtime.setMaxSize(nextWin.maxSize)]);
 
-  if (nextWin.size != null && !new Dimensions(nextWin.size).equals(prevWin.size))
+  if (nextWin.size != null && !dimensions.equals(nextWin.size, prevWin.size))
     changes.push(["size", runtime.setSize(nextWin.size)]);
 
   if (
     nextWin.position != null &&
-    !new Dimensions(nextWin.position).equals(prevWin.position)
+    !dimensions.equals(nextWin.position, prevWin.position)
   )
     changes.push(["position", runtime.setPosition(nextWin.position)]);
 

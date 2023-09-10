@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { type CrudeXY } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
@@ -49,7 +49,7 @@ const Element = ({
   );
 };
 
-const DIMENSIONS_DRAG_SCALE: CrudeXY = { y: 2, x: 0.25 };
+const DIMENSIONS_DRAG_SCALE: xy.Crude = { y: 2, x: 0.25 };
 
 const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleWidthChange = (width: number): void =>

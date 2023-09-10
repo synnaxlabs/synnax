@@ -9,15 +9,15 @@
 
 import { type RefObject, useCallback, useRef } from "react";
 
-import { Box, type ClientXYT, XY } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 
 import { use, type UseEvent } from "@/triggers/hooks";
 import { type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface DragEvent {
   stage: Stage;
-  box: Box;
-  cursor: XY;
+  box: box.Box;
+  cursor: xy.XY;
   triggers: Trigger[];
 }
 
@@ -37,14 +37,14 @@ export const useDrag = ({
   loose = false,
 }: UseDragProps): void => {
   const triggerRef = useRef<UseEvent | null>(null);
-  const startLoc = useRef<XY>(XY.ZERO);
+  const startLoc = useRef<xy.XY>(xy.ZERO);
   const onMove = useCallback(
-    (e: ClientXYT & { buttons: number }) => {
-      const cursor = new XY(e);
+    (e: xy.Client & { buttons: number }) => {
+      const cursor = xy.construct(e);
       if (triggerRef.current === null) return;
       const { triggers } = triggerRef.current;
       onDrag({
-        box: new Box(startLoc.current, cursor),
+        box: box.construct(startLoc.current, cursor),
         cursor,
         triggers,
         stage: "during",
@@ -56,15 +56,15 @@ export const useDrag = ({
     (event: UseEvent): void => {
       const { stage, cursor } = event;
       if (stage === "start") {
-        onDrag({ box: new Box(cursor), ...event });
+        onDrag({ box: box.construct(cursor), ...event });
         window.addEventListener("mousemove", onMove);
         triggerRef.current = event;
         startLoc.current = cursor;
       } else if (stage === "end" && triggerRef.current != null) {
-        onDrag({ box: new Box(startLoc.current, cursor), ...event });
+        onDrag({ box: box.construct(startLoc.current, cursor), ...event });
         window.removeEventListener("mousemove", onMove);
         triggerRef.current = null;
-        startLoc.current = XY.ZERO;
+        startLoc.current = xy.ZERO;
       }
     },
     [onDrag],
