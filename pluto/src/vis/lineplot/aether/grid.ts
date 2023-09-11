@@ -13,6 +13,7 @@ import {
   TimeStamp,
   bounds,
   box,
+  direction,
   location,
   spatial,
   xy,
@@ -82,7 +83,7 @@ export const calculateGridPosition = (
   if (axis == null) return xy.ZERO;
   const loc = location.construct(axis.loc);
   const axes = filterGridPositions(loc as location.Outer, grid);
-  const filterLoc = location.construct(location.direction(location.swap(loc)));
+  const filterLoc = location.construct(direction.swap(location.direction(loc)));
   const otherAxes = filterGridPositions(filterLoc as location.Outer, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
@@ -112,8 +113,8 @@ export const calculatePlotBox = (
   const topWidth = top.reduce((acc, { size }) => acc + size, 0);
   const bottomWidth = bottom.reduce((acc, { size }) => acc + size, 0);
   return box.construct(
-    xy.translate(box.topLeft(container), [leftWidth, topWidth]),
+    xy.translate(box.topLeft(container), { x: leftWidth, y: topWidth }),
     box.width(container) - leftWidth - rightWidth,
-    box.width(container) - topWidth - bottomWidth,
+    box.height(container) - topWidth - bottomWidth,
   );
 };

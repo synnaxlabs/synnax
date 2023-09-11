@@ -9,7 +9,7 @@
 
 import { type Primitive, isStringer, type PrimitiveRecord } from "@/primitive";
 
-import { type CrudeOrder } from "./spatial";
+import { type spatial } from ".";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
@@ -92,7 +92,7 @@ const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
-const order = (a: CrudeOrder, b: CrudeOrder): number => {
+const order = (a: spatial.Order, b: spatial.Order): number => {
   if (a === b) return 0;
   if (a === "first" && b === "last") return 1;
   return -1;
