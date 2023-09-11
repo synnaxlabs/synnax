@@ -1,6 +1,4 @@
-# X
-
-[![codecov](https://codecov.io/gh/synnaxlabs/synnax/branch/main/graph/badge.svg?token=6xqpN1pFt8&flag=x)](https://codecov.io/gh/synnaxlabs/synnax?flag=x)
+# Go X - Common Utilities for the Synnax Codebase
 
 X is a library holding common utilities used across the Synnax projects. It requires
 go 1.20 or higher.
