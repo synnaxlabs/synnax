@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
-import { XYLocation } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -23,35 +23,35 @@ const story: Meta<typeof Tooltip.Dialog> = {
 
 const Template = (): ReactElement => (
   <Align.Center style={{ width: "100%", height: "100%" }}>
-    <Tooltip.Dialog location={XYLocation.TOP_RIGHT.crude}>
+    <Tooltip.Dialog location={location.TOP_RIGHT}>
       <p>Top Right - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.TOP_LEFT.crude}>
+    <Tooltip.Dialog location={location.TOP_LEFT}>
       <p>Top left - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.BOTTOM_RIGHT.crude}>
+    <Tooltip.Dialog location={location.BOTTOM_RIGHT}>
       <p>Bottom Right - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.BOTTOM_LEFT.crude}>
+    <Tooltip.Dialog location={location.BOTTOM_LEFT}>
       <p>Bottom Left - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.BOTTOM_CENTER.crude}>
+    <Tooltip.Dialog location={location.BOTTOM_CENTER}>
       <p>Bottom Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.LEFT_CENTER.crude}>
+    <Tooltip.Dialog location={location.LEFT_CENTER}>
       <p>Left Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.RIGHT_CENTER.crude}>
+    <Tooltip.Dialog location={location.RIGHT_CENTER}>
       <p>Right Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>
-    <Tooltip.Dialog location={XYLocation.TOP_CENTER.crude}>
+    <Tooltip.Dialog location={location.TOP_CENTER}>
       <p>Top Center - Super Cool Stuff</p>
       <Button.Button>Button</Button.Button>
     </Tooltip.Dialog>

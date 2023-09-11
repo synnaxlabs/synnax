@@ -18,7 +18,7 @@ import {
   Synnax,
   type Color,
 } from "@synnaxlabs/pluto";
-import { Box, XYLocation, unique } from "@synnaxlabs/x";
+import { box, location, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -158,13 +158,13 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box, stage }) => {
+    ({ box: b, stage }) => {
       if (stage !== "end") return;
       dispatch(
         storeViewport({
           layoutKey,
-          pan: box.bottomLeft.crude,
-          zoom: box.dims.crude,
+          pan: box.bottomLeft(b),
+          zoom: box.dims(b),
         })
       );
     },
@@ -177,7 +177,10 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   const initialViewport = useMemo(() => {
-    return new Box(vis.viewport.pan, vis.viewport.zoom).reRoot(XYLocation.BOTTOM_LEFT);
+    return box.reRoot(
+      box.construct(vis.viewport.pan, vis.viewport.zoom),
+      location.BOTTOM_LEFT
+    );
   }, [vis.viewport.counter]);
 
   return (
@@ -219,7 +222,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .map(([key, axis]): Channel.AxisProps => {
       return {
         id: key,
-        location: Vis.axisLocation(key as Vis.AxisKey).crude,
+        location: Vis.axisLocation(key as Vis.AxisKey),
         label: axis.label,
         type: Vis.X_AXIS_KEYS.includes(key as Vis.XAxisKey) ? "time" : "linear",
         bounds: axis.bounds,

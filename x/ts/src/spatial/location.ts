@@ -15,7 +15,6 @@ import {
   type Location,
   xLocation,
   yLocation,
-  direction as dir,
   DIRECTIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
@@ -24,8 +23,10 @@ import {
   type OuterLocation,
   type YLocation,
   outerLocation,
+  type Direction,
+  crudeLocation,
+  type CrudeLocation,
 } from "@/spatial/base";
-import { type Direction } from "@/spatial/direction";
 
 export {
   location,
@@ -51,9 +52,9 @@ const SWAPPED: Record<Location, Location> = {
   center: "center",
 };
 
-export const crude = z.union([dir, location, z.instanceof(String)]);
+export const crude = crudeLocation;
 
-export type Crude = z.infer<typeof crude>;
+export type Crude = CrudeLocation;
 
 export const construct = (cl: Crude): Location => {
   if (cl instanceof String) return cl as Location;
@@ -95,3 +96,29 @@ export const isX = (a: Crude): boolean => direction(construct(a)) === "x";
 export const isY = (a: Crude): boolean => direction(construct(a)) === "y";
 
 export const xyToString = (a: XY): string => `${a.x}${Case.capitalize(a.y)}`;
+
+export const constructXY = (x: Crude | XY, y?: Crude): XY => {
+  let one: Location;
+  let two: Location;
+  if (typeof x === "object" && "x" in x) {
+    one = x.x;
+    two = x.y;
+  } else {
+    one = construct(x);
+    two = construct(y ?? x);
+  }
+  if (direction(one) === direction(two) && one !== "center" && two !== "center")
+    throw new Error(
+      `[XYLocation] - encountered two locations with the same direction: ${one.toString()} - ${two.toString()}`,
+    );
+  const xy = CENTER;
+  if (one === "center") {
+    if (direction(two) === "x") [xy.x, xy.y] = [two, one];
+    else [xy.x, xy.y] = [one, two];
+  } else if (two === "center") {
+    if (direction(one) === "x") [xy.x, xy.y] = [one, two];
+    else [xy.x, xy.y] = [two, one];
+  } else if (direction(one) === "x") [xy.x, xy.y] = [one, two];
+  else [xy.x, xy.y] = [two, one];
+  return xy;
+};

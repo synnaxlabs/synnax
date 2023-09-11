@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, dimensions, xy } from "@synnaxlabs/x";
+import { bounds, box, dimensions, xy } from "@synnaxlabs/x";
 
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { prettyParse } from "@/util/zod";
@@ -46,7 +46,7 @@ export class Canvas implements Axis {
     canvas.fillStyle = this.state.color.hex;
     canvas.lineWidth = 1;
 
-    switch (this.state.location.crude) {
+    switch (this.state.location) {
       case "left":
         return this.drawLeft(props);
       case "right":
@@ -61,16 +61,16 @@ export class Canvas implements Axis {
   drawBottom(ctx: AxisProps): RenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plot: plottingRegion } = ctx;
-    const size = plottingRegion.width;
-    const gridSize = plottingRegion.height;
+    const size = box.width(plottingRegion);
+    const gridSize = box.height(plottingRegion);
     const p = ctx.position;
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
-      p.translateX(tick.position),
-      p.translate({ x: tick.position, y: -gridSize }),
+      xy.translateX(p, tick.position),
+      xy.translate(p, { x: tick.position, y: -gridSize }),
     ]);
     canvas.strokeStyle = this.state.color.hex;
-    this.drawLine(p, p.translateX(size));
+    this.drawLine(p, xy.translateX(p, size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
       canvas.lineTo(p.x + tick.position, p.y + TICK_LINE_SIZE);
@@ -87,16 +87,16 @@ export class Canvas implements Axis {
   drawTop(ctx: AxisProps): RenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plot: plottingRegion } = ctx;
-    const size = plottingRegion.width;
-    const gridSize = plottingRegion.height;
-    const p = ctx.position.translateY(this.state.size);
+    const size = box.width(plottingRegion);
+    const gridSize = box.height(plottingRegion);
+    const p = xy.translateY(ctx.position, this.state.size);
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
-      p.translateX(tick.position),
-      p.translate({ x: tick.position, y: gridSize }),
+      xy.translateX(p, tick.position),
+      xy.translate(p, { x: tick.position, y: gridSize }),
     ]);
     canvas.strokeStyle = this.state.color.hex;
-    this.drawLine(p, p.translateX(size));
+    this.drawLine(p, xy.translateX(p, size));
     const maxTickDims = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x + tick.position, p.y);
       canvas.lineTo(p.x + tick.position, p.y - TICK_LINE_SIZE);
@@ -114,16 +114,16 @@ export class Canvas implements Axis {
   drawLeft(ctx: AxisProps): RenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plot: plottingRegion } = ctx;
-    const size = plottingRegion.height;
-    const gridSize = plottingRegion.width;
-    const p = ctx.position.translateX(this.state.size);
+    const size = box.height(plottingRegion);
+    const gridSize = box.width(plottingRegion);
+    const p = xy.translateX(ctx.position, this.state.size);
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
-      p.translateY(tick.position),
-      p.translate({ x: gridSize, y: tick.position }),
+      xy.translateY(p, tick.position),
+      xy.translate(p, { x: gridSize, y: tick.position }),
     ]);
     canvas.strokeStyle = this.state.color.hex;
-    this.drawLine(p, p.translateY(size));
+    this.drawLine(p, xy.translateY(p, size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
       canvas.lineTo(p.x - TICK_LINE_SIZE, p.y + tick.position);
@@ -141,16 +141,16 @@ export class Canvas implements Axis {
   drawRight(ctx: AxisProps): RenderResult {
     const { lower2d: canvas } = this.ctx;
     const { plot: plottingRegion } = ctx;
-    const size = plottingRegion.height;
-    const gridSize = plottingRegion.width;
+    const size = box.height(plottingRegion);
+    const gridSize = box.width(plottingRegion);
     const p = ctx.position;
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
-      p.translateY(tick.position),
-      p.translate({ x: -gridSize, y: tick.position }),
+      xy.translateY(p, tick.position),
+      xy.translate(p, { x: -gridSize, y: tick.position }),
     ]);
     canvas.strokeStyle = this.state.color.hex;
-    this.drawLine(p, p.translateY(size));
+    this.drawLine(p, xy.translateY(p, size));
     const maxTickSize = this.drawTicks(ticks, (d, tick) => {
       canvas.moveTo(p.x, p.y + tick.position);
       canvas.lineTo(p.x + TICK_LINE_SIZE, p.y + tick.position);
@@ -179,7 +179,7 @@ export class Canvas implements Axis {
     let maxDimensions = dimensions.ZERO;
     ticks.forEach((tick) => {
       const d = textDimensions(tick.label, this.state.font, this.ctx.lower2d);
-      maxDimensions = maxDimensions.pickGreatest(d);
+      maxDimensions = dimensions.max([maxDimensions, d]);
       f(d, tick);
     });
     return maxDimensions;

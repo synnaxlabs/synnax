@@ -159,7 +159,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
           <Align.Space
             className={CSS(
               CSS.BE("dropdown", "dialog"),
-              CSS.loc(loc),
+              CSS.loc(loc_),
               CSS.visible(visible),
             )}
             role="dialog"

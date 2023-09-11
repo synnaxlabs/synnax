@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
 
-import { numberCouple } from "./base";
+export { type Bounds, bounds };
 
-export const bounds = z.object({ lower: z.number(), upper: z.number() });
-export const crude = z.union([bounds, numberCouple]);
-
-export type Bounds = z.infer<typeof bounds>;
-export type Crude = z.infer<typeof crude>;
+export type Crude = CrudeBounds;
 
 export const construct = (lower: number | Crude, upper?: number): Bounds => {
   if (typeof lower === "number") {

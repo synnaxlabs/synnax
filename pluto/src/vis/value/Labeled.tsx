@@ -9,7 +9,7 @@
 
 import { type ReactElement, useState } from "react";
 
-import { box, type direction, type xy } from "@synnaxlabs/x";
+import { box, direction, type xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -37,7 +37,7 @@ export const ValueLabeled = ({
   label,
   onLabelChange,
   level = "p",
-  direction = "y",
+  direction: dir = "y",
   position,
   className,
   children,
@@ -53,7 +53,7 @@ export const ValueLabeled = ({
   const resizeRef = useResize(setBox, {});
 
   const adjustedBox = adjustBox(
-    direction.construct(direction),
+    direction.construct(dir),
     zoom,
     box_,
     valueBoxHeight,
@@ -66,7 +66,7 @@ export const ValueLabeled = ({
       className={CSS(className, CSS.B("value-labeled"))}
       align="center"
       ref={resizeRef}
-      direction={direction}
+      direction={dir}
       {...props}
     >
       <Text.MaybeEditable value={label} onChange={onLabelChange} level={level} />

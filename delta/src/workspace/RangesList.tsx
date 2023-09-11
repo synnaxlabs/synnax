@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";

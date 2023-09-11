@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type AsyncKV } from "@synnaxlabs/x";
+import { type kv } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api";
 import { type Event } from "@tauri-apps/api/event";
 import { appWindow } from "@tauri-apps/api/window";
@@ -39,7 +39,7 @@ export const multipleWindowsOpen = new Error("[persist] - windows open");
  * TauriKV an implementation of AsyncKV that communicates with a rust key-value
  * store running on the backend.
  */
-export class TauriKV<V> implements AsyncKV<string, V> {
+export class TauriKV<V> implements kv.Async<string, V> {
   isOpen: boolean;
 
   constructor() {

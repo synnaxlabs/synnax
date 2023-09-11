@@ -7,25 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import {
   type Dimension,
   type Direction,
   type Location,
-  location as coreLocation,
-  direction,
+  type direction,
   DIRECTIONS,
   Y_LOCATIONS,
   type YLocation,
-  SignedDimension,
-} from "./base";
+  type SignedDimension,
+  crudeDirection,
+  type CrudeDirection,
+} from "@/spatial/base";
 
 export type { Direction, direction };
 
-export const crude = z.union([direction, coreLocation]);
+export const crude = crudeDirection;
 
-export type Crude = z.infer<typeof crude>;
+export type Crude = CrudeDirection;
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;

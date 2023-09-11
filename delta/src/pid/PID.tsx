@@ -22,7 +22,7 @@ import {
   Triggers,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { Box, XY, XYScale } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
@@ -153,25 +153,24 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType("pid-element", items);
-      const region = new Box(ref.current);
+      if (ref.current == null) return valid;
+      const region = box.construct(ref.current);
       valid.forEach(({ key: type }) => {
         const spec = PIDElement.REGISTRY[type];
         if (spec == null) return;
-        const zoomXY = new XY(pid.viewport.zoom);
-        const scale = XYScale.translate(region.topLeft.scale(-1))
-          .magnify(
-            new XY({
-              x: 1 / zoomXY.x,
-              y: 1 / zoomXY.y,
-            })
-          )
-          .translate(new XY(pid.viewport.position).scale(-1));
+        const zoomXY = xy.construct(pid.viewport.zoom);
+        const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
+          .magnify({
+            x: 1 / zoomXY.x,
+            y: 1 / zoomXY.y,
+          })
+          .translate(xy.scale(pid.viewport.position, -1));
         dispatch(
           addElement({
             layoutKey,
             key: nanoid(),
             node: {
-              position: scale.pos(new XY(event.clientX, event.clientY)).crude,
+              position: s.pos({ x: event.clientX, y: event.clientY }),
             },
             props: {
               type,
@@ -203,7 +202,7 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
         if (ref.current == null || stage !== "end") return;
-        const region = new Box(ref.current);
+        const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const pos = calculatePos(region, cursor, viewportRef.current);
         if (copy) dispatch(copySelection({ pos }));

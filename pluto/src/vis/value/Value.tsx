@@ -14,12 +14,12 @@ import {
   useState,
 } from "react";
 
+import { box } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Theming } from "@/theming";
 import { Core, type CoreProps } from "@/vis/value/Core";
-import { box } from "@synnaxlabs/x";
 
 export interface ValueProps
   extends Omit<CoreProps, "box">,

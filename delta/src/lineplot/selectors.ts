@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Viewport } from "@synnaxlabs/pluto";
+import { type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  State,
-  SliceState,
-  StoreState,
+  type State,
+  type SliceState,
+  type StoreState,
   SLICE_NAME,
-  ToolbarState,
-  ControlState,
+  type ToolbarState,
+  type ControlState,
 } from "@/lineplot/slice";
-import { Vis } from "@/vis";
+import { type Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];

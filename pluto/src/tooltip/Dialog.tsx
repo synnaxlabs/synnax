@@ -126,34 +126,31 @@ export const Dialog = ({
 
     let xy: location.XY = location.CENTER;
     if (parse.success) {
-      xy = XYLocation(parse.data, chooseRemainingLocation(parse.data));
+      xy = location.constructXY(parse.data, chooseRemainingLocation(parse.data));
     } else if (cornerOrLocation != null) {
-      const v = cornerOrLocation as Partial<CrudeXYLocation>;
+      const v = cornerOrLocation as Partial<location.XY>;
       if (v.x == null && v.y != null)
-        v.x = chooseRemainingLocation(new Location(v.y)).crude as CrudeXLocation;
+        v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
       else if (v.y == null && v.x != null)
-        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
       else if (v.x == null && v.y == null) {
-        v.x = new Location(bestLocation(container, window, LOCATION_PREFERENCES))
-          .crude as CrudeXLocation;
-        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+        v.x = bestLocation(container, window, LOCATION_PREFERENCES) as location.X;
+        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
       }
-      xy = new XYLocation(v);
+      xy = location.constructXY(v as location.XY);
     } else {
-      const chosen = new Location(
-        bestLocation(container, window, LOCATION_PREFERENCES),
-      );
-      xy = new XYLocation(chosen, chooseRemainingLocation(chosen));
+      const chosen = bestLocation(container, window, LOCATION_PREFERENCES);
+      xy = location.constructXY(chosen, chooseRemainingLocation(chosen));
     }
 
-    let pos = container.xyLoc(xy);
-    const translate = LOCATION_TRANSLATIONS[xy.toString()];
+    let pos = box.xyLoc(container, xy);
+    const translate = LOCATION_TRANSLATIONS[location.xyToString(xy)];
     if (translate != null) pos = translate(pos, container);
 
     setState({
       location: xy,
       position: pos,
-      elDims: container.dims,
+      elDims: box.dims(container),
     });
   };
 
@@ -184,8 +181,8 @@ export const Dialog = ({
               CSS.loc(state.location.y),
             )}
             style={{
-              ...state.position.css,
-              // @ts-expect-error
+              ...xy.css(state.position),
+              // @ts-expect-error - css
               "--el-width": CSS.px(state.elDims.width),
             }}
           >

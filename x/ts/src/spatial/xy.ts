@@ -13,21 +13,21 @@ import {
   clientXY,
   dimensions,
   numberCouple,
-  signedDimension,
   xy,
   type NumberCouple,
   type ClientXY,
+  type XY,
+  signedDimensions,
+  type Direction,
 } from "@/spatial/base";
-import type * as direction from "@/spatial/direction";
 
-export { clientXY, xy, type ClientXY as Client };
+export { clientXY, xy, type ClientXY as Client, type XY };
 
-export type XY = z.infer<typeof xy>;
 export const crude = z.union([
   xy,
   numberCouple,
   dimensions,
-  signedDimension,
+  signedDimensions,
   clientXY,
 ]);
 export type Crude = z.infer<typeof crude>;
@@ -81,7 +81,7 @@ export const translate = (...cb: Crude[]): XY =>
     return { x: p.x + xy.x, y: p.y + xy.y };
   }, ZERO);
 
-export const set = (c: Crude, direction: direction.Crude, value: number): XY => {
+export const set = (c: Crude, direction: Direction, value: number): XY => {
   const xy = construct(c);
   if (direction === "x") return { x: value, y: xy.y };
   return { x: xy.x, y: value };

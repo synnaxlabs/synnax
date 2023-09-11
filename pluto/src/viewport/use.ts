@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { box, type xy, dimensions, location, scale } from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
@@ -142,19 +142,19 @@ export const use = ({
     ({ box: box_, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
       const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
-      const canvas = box_.construct(canvasRef.current);
+      const canvas = box.construct(canvasRef.current);
       if (mode == null) return;
 
       if (mode === "zoomReset") {
-        setMaskBox(box_.ZERO);
-        onChange?.({ box: box_.DECIMAL, mode, stage, cursor });
-        return setStateRef(box_.DECIMAL);
+        setMaskBox(box.ZERO);
+        onChange?.({ box: box.DECIMAL, mode, stage, cursor });
+        return setStateRef(box.DECIMAL);
       }
 
       if (stage === "end") {
         // This prevents clicks from being registered as a drag
-        if (box_.width < 5 && box_.height < 5) {
-          if (mode === "zoom") setMaskBox(box_.ZERO);
+        if (box.width(box_) < 5 && box.height(box_) < 5) {
+          if (mode === "zoom") setMaskBox(box.ZERO);
           onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
         }
@@ -178,16 +178,16 @@ export const use = ({
       }
 
       if (MASK_MODES.includes(mode)) {
-        if (box_.height < 5 && box_.width < 5) return;
+        if (box.height(box_) < 5 && box.width(box_) < 5) return;
         return setMaskBox(
           scale.XY.scale(canvas)
             .clamp(canvas)
-            .translate({ x: -canvas.left, y: -canvas.top })
+            .translate({ x: -box.left(canvas), y: -box.top(canvas) })
             .box(fullSize(threshold, box_, canvas)),
         );
       }
 
-      setMaskBox((prev) => (!box.isZero(prev) ? box_.ZERO : prev));
+      setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
       const next = handlePan(box_, stateRef.current, canvas);
       onChange?.({
         box: next,
@@ -250,7 +250,7 @@ const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return scale.XY.translate(dims).box(prev);
+  return scale.XY.translate(xy.construct(dims)).box(prev);
 };
 
 const fullSize = (

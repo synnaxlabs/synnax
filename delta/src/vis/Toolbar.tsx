@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Align, Status, Text } from "@synnaxlabs/pluto";
+import { Align, Status, Text } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";

@@ -9,7 +9,7 @@
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
-import { type Box, type CrudeXY, Deep, XY, XYScale } from "@synnaxlabs/x";
+import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 import { type Layout } from "@/layout";
@@ -29,14 +29,14 @@ export interface State {
 }
 
 interface CopyBuffer {
-  pos: CrudeXY;
+  pos: xy.Crude;
   nodes: PID.Node[];
   edges: PID.Edge[];
   props: Record<string, object>;
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: XY.ZERO.crude,
+  pos: xy.ZERO,
   nodes: [],
   edges: [],
   props: {},
@@ -68,7 +68,7 @@ export const ZERO_STATE: State = {
   nodes: [],
   edges: [],
   props: {},
-  viewport: { position: XY.ZERO.crude, zoom: 1 },
+  viewport: { position: xy.ZERO, zoom: 1 },
   editable: true,
   control: "released",
   controlAcquireTrigger: 0,
@@ -140,7 +140,7 @@ export interface CopySelectionPayload {}
 
 export interface PasteSelectionPayload {
   layoutKey: string;
-  pos: CrudeXY;
+  pos: xy.XY;
 }
 
 export interface SetViewportModePayload {
@@ -148,20 +148,18 @@ export interface SetViewportModePayload {
 }
 
 export const calculatePos = (
-  region: Box,
-  cursor: CrudeXY,
+  region: box.Box,
+  cursor: xy.XY,
   viewport: PID.Viewport
-): CrudeXY => {
-  const zoomXY = new XY(viewport.zoom);
-  const scale = XYScale.translate(region.topLeft.scale(-1))
-    .magnify(
-      new XY({
-        x: 1 / zoomXY.x,
-        y: 1 / zoomXY.y,
-      })
-    )
-    .translate(new XY(viewport.position).scale(-1));
-  return scale.pos(cursor).crude;
+): xy.XY => {
+  const zoomXY = xy.construct(viewport.zoom);
+  const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
+    .magnify({
+      x: 1 / zoomXY.x,
+      y: 1 / zoomXY.y,
+    })
+    .translate(xy.scale(viewport.position, -1));
+  return s.pos(cursor);
 };
 
 export const { actions, reducer } = createSlice({
@@ -177,7 +175,7 @@ export const { actions, reducer } = createSlice({
         nodes: [],
         edges: [],
         props: {},
-        pos: XY.ZERO.crude,
+        pos: xy.ZERO,
       };
       Object.values(pids).forEach((pid) => {
         const { nodes, edges, props } = pid;
@@ -195,16 +193,16 @@ export const { actions, reducer } = createSlice({
       const { nodes } = copyBuffer;
       if (nodes.length > 0) {
         const pos = nodes.reduce(
-          (acc, node) => new XY(acc).translate(node.position),
-          XY.ZERO
+          (acc, node) => xy.translate(acc, node.position),
+          xy.ZERO
         );
-        copyBuffer.pos = pos.scale(1 / nodes.length).crude;
+        copyBuffer.pos = xy.scale(pos, 1 / nodes.length);
       }
       state.copy = copyBuffer;
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
       const { pos, layoutKey } = payload;
-      const delta = new XY(state.copy.pos).translation(pos);
+      const delta = xy.translation(state.copy.pos, pos);
       const pid = state.pids[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
@@ -213,7 +211,7 @@ export const { actions, reducer } = createSlice({
         keys[node.key] = key;
         return {
           ...node,
-          position: new XY(node.position).translate(delta).crude,
+          position: xy.translate(node.position, delta),
           key,
         };
       });
@@ -224,7 +222,7 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
-          points: edge.points.map((point) => new XY(point).translate(delta).crude),
+          points: edge.points.map((point) => xy.translate(point, delta)),
         };
       });
       pid.edges = [...pid.edges, ...nextEdges];
@@ -246,7 +244,7 @@ export const { actions, reducer } = createSlice({
       pid.nodes.push({
         key,
         selected: false,
-        position: XY.ZERO.crude,
+        position: xy.ZERO,
         ...node,
       });
       pid.props[key] = props;
@@ -357,7 +355,7 @@ export const create =
   ({ dispatch }) => {
     const { name = "PID", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
-    dispatch(actions.create({ ...Deep.copy(ZERO_STATE), key, ...rest }));
+    dispatch(actions.create({ ...deep.copy(ZERO_STATE), key, ...rest }));
     return {
       key,
       location,

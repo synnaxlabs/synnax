@@ -12,7 +12,7 @@ import type { ComponentType } from "react";
 import { type Dispatch, type AnyAction } from "@reduxjs/toolkit";
 import type { WindowProps as DriftWindowProps } from "@synnaxlabs/drift";
 import { type Tabs } from "@synnaxlabs/pluto";
-import { type Location } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 
 /** The location options for placing a layout */
 export type PlacementLocation = "window" | "mosaic";
@@ -108,6 +108,6 @@ export type WindowProps = Omit<DriftWindowProps, "key" | "url"> & {
  */
 export interface LayoutTabProps extends Pick<Tabs.Tab, "closable" | "editable"> {
   tab: Tabs.Tab;
-  location?: Location;
+  location?: location.Location;
   mosaicKey?: number;
 }

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 import { rangeWindowLayout } from "@/workspace/DefineRange";
 
 export const defineRangeCommand: Command = {

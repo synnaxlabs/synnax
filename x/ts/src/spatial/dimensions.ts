@@ -17,6 +17,9 @@ export const signed = z.object({ signedWidth: z.number(), signedHeight: z.number
 export const crude = z.union([dimensions, signed, xy, numberCouple]);
 export type Crude = z.infer<typeof crude>;
 
+export const ZERO = { width: 0, height: 0 };
+export const DECIMAL = { width: 1, height: 1 };
+
 export const construct = (width: number | Crude, height?: number): Dimensions => {
   if (typeof width === "number") return { width, height: height ?? width };
   if (Array.isArray(width)) return { width: width[0], height: width[1] };
@@ -49,3 +52,13 @@ export const couple = (ca: Crude): [number, number] => {
   const a = construct(ca);
   return [a.width, a.height];
 };
+
+export const max = (crude: Crude[]): Dimensions => ({
+  width: Math.max(...crude.map((c) => construct(c).width)),
+  height: Math.max(...crude.map((c) => construct(c).height)),
+});
+
+export const min = (crude: Crude[]): Dimensions => ({
+  width: Math.min(...crude.map((c) => construct(c).width)),
+  height: Math.min(...crude.map((c) => construct(c).height)),
+});

@@ -16,8 +16,18 @@ export type Runtime = "browser" | "node" | "webworker";
  * @returns The runtime environment.
  */
 export const detect = (): Runtime => {
-  if (process?.versions?.node != null) return "node";
-  if (window?.document === undefined) return "webworker";
+  if (
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+    typeof process !== "undefined" &&
+    process.versions != null &&
+    process.versions.node != null
+  )
+    return "node";
+
+  // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+  if (typeof window === "undefined" || window.document === undefined)
+    return "webworker";
+
   return "browser";
 };
 

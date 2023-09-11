@@ -66,7 +66,7 @@ export const Drawer = ({
       className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
-      location={location}
+      location={loc_}
       {...rest}
       {...props}
     >

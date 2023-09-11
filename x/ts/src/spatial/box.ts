@@ -48,6 +48,12 @@ export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
  */
 export const DECIMAL = { one: xy.ZERO, two: xy.ONE, root: location.BOTTOM_LEFT };
 
+export const copy = (b: Box, root?: location.CornerXY): Box => ({
+  one: b.one,
+  two: b.two,
+  root: root ?? b.root,
+});
+
 /**
  * Box represents a general box in 2D space. It typically represents a bounding box
  * for a DOM element, but can also represent a box in clip space or decimal space.
@@ -58,7 +64,6 @@ export const DECIMAL = { one: xy.ZERO, two: xy.ONE, root: location.BOTTOM_LEFT }
  * Many of the properties and methods on a Box access the same semantic value. The
  * different accessors are there for ease of use and semantics.
  */
-
 export const construct = (
   first: number | DOMRect | xy.XY | Box | { getBoundingClientRect: () => DOMRect },
   second?: number | xy.XY | dimensions.Dimensions | dimensions.Signed,
@@ -66,7 +71,7 @@ export const construct = (
   height: number = 0,
   coordinateRoot?: location.CornerXY,
 ): Box => {
-  const b: Box = copy(ZERO);
+  const b: Box = { one: { ...xy.ZERO }, two: { ...xy.ZERO }, root: location.TOP_LEFT };
 
   b.root = coordinateRoot ?? location.TOP_LEFT;
 
@@ -236,12 +241,6 @@ export const y = (b: Box): number => (b.root.y === "top" ? top(b) : bottom(b));
 export const xBounds = (b: Box): bounds.Bounds => ({ lower: b.one.x, upper: b.two.x });
 
 export const yBounds = (b: Box): bounds.Bounds => ({ lower: b.one.y, upper: b.two.y });
-
-export const copy = (b: Box, root?: location.CornerXY): Box => ({
-  one: b.one,
-  two: b.two,
-  root: root ?? b.root,
-});
 
 export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
 

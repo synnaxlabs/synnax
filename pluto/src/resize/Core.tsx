@@ -26,7 +26,7 @@ export interface CoreProps
 }
 
 export const Core = ({
-  location: loc_,
+  location: cloc,
   style,
   size,
   className,
@@ -36,12 +36,12 @@ export const Core = ({
   showHandle = true,
   ...props
 }: CoreProps): ReactElement => {
-  const loc = location.construct(loc_);
-  const dir = location.direction(loc);
+  const loc_ = location.construct(cloc);
+  const dir = location.direction(loc_);
   const dim = direction.dimension(dir);
   return (
     <div
-      className={CSS(CSS.B("resize"), CSS.loc(loc), CSS.dir(dir), className)}
+      className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
       style={{ [dim]: `${size}${sizeUnits}`, ...style }}
       {...props}
     >
@@ -49,7 +49,7 @@ export const Core = ({
       {showHandle && (
         <div
           draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc)))}
+          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc_)))}
           onDragStart={onDragStart}
           onDrag={preventDefault}
           onDragEnd={preventDefault}
