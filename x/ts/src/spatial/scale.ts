@@ -17,7 +17,7 @@ import type * as dims from "@/spatial/dimensions";
 import * as location from "@/spatial/location";
 import * as xy from "@/spatial/xy";
 
-export const crudeXYTransform = z.object({ offset: xy.crude, scale: xy.crude });
+export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
 
 export type XYTransformT = z.infer<typeof crudeXYTransform>;
 
