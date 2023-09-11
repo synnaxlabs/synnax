@@ -21,8 +21,8 @@
       "path": "../client/py"
     },
     {
-      "name": "docs/site",
-      "path": "../docs/site"
+      "name": "docs",
+      "path": "../docs"
     },
     {
       "name": "drift",
