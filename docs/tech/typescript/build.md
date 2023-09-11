@@ -2,8 +2,7 @@
 
 ## How the Build System Works
 
-Synnax is organized as a monorepo. Our front end software consists of five different
-libraries:
+Synnax is organized as a monorepo. Our front end software consists of five different libraries:
 
 - `@synnaxlabs/x` - path `x/ts` - Common utilities and types used by all other
   packages.
@@ -34,11 +33,10 @@ various build/developments tools:
   typescript applications using [vite](https://vitejs.dev/). We'll discuss vite in
   more detail later.
 
-Each of these packages are developed, built, and published independently. The current
-dependency hierarchy for these _internal_ packages is as follows:
+Each of these packages are developed, built, and published independently. The current dependency hierarchy for these packages is as follows:
 
 <p align="middle">
-    <img src="img/build/deps.png" width="500px">
+    <img src="./img/build/deps.png" width="500px">
     <h6 align="Middle">Synnax Front End Dependency Graph</h6>
 </p>
 

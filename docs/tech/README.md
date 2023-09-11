@@ -52,3 +52,9 @@ While there's a lot to be learned by actively contributing to the project, it's 
 to have solid software engineering foundations in place. The [foundations](foundations.md)
 document walks you through all the essential (and advanced) technologies and concepts
 you need to be familiar with when working on a specific area of the codebase.
+
+# 6 - Language Specific Guides
+
+We also have language specific guides for developing in [python](./python/python.md) and
+[typescript](./typescript/typescript.md). These includes information on the correct 
+processes for working on the codebase in that language.
