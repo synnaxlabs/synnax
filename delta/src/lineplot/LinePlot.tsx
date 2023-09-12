@@ -172,7 +172,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
     [dispatch, layoutKey]
   );
 
-  const { enableTooltip, clickMode } = useSelectControlState();
+  const { enableTooltip, clickMode, hold } = useSelectControlState();
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
@@ -186,6 +186,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   return (
     <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
       <Channel.LinePlot
+        hold={hold}
         title={name}
         axes={axes}
         lines={propsLines}

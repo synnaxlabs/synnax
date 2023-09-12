@@ -69,6 +69,7 @@ import {
   MdSquareFoot,
   MdKeyboardControlKey,
   MdPerson,
+  MdPause,
 } from "react-icons/md";
 import { PiSelectionPlusBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -89,6 +90,7 @@ const IconOS: Record<OS, IconFC> = {
 };
 
 export const Icon: IconType = {
+  Pause: MdPause,
   Circle: MdFiberManualRecord,
   Edit: MdEdit,
   EditOff: MdEditOff,
@@ -175,6 +177,7 @@ export const Icon: IconType = {
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
 
 export interface IconType {
+  Pause: IconFC;
   Circle: IconFC;
   Edit: IconFC;
   EditOff: IconFC;

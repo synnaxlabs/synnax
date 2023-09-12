@@ -24,6 +24,7 @@ import {
   resizeMosaicTab,
   selectMosaicTab,
 } from "@/layout/slice";
+import { LinePlot } from "@/lineplot";
 import { Vis } from "@/vis";
 
 const emptyContent = <Logo.Watermark />;
@@ -40,6 +41,12 @@ export const Mosaic = memo((): ReactElement => {
     },
     [dispatch, windowKey]
   );
+
+  LinePlot.useTriggerHold({
+    defaultMode: "hold",
+    hold: [["H"]],
+    toggle: [["H", "H"]],
+  });
 
   const handleClose = useCallback(
     (tabKey: string): void => {

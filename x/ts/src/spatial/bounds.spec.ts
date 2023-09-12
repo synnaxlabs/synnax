@@ -17,6 +17,7 @@ describe("Bounds", () => {
     const TESTS: T[] = [
       ["from couple", [1, 2]],
       ["from bounds", { lower: 1, upper: 2 }],
+      ["from invalid bounds", { upper: 1, lower: 2 }],
     ];
     TESTS.forEach(([name, arg]) => {
       test(name, () => {

@@ -42,7 +42,7 @@ export type Crude = z.infer<typeof crudeZ>;
  * @param y - If x is a number, the y coordinate. If x is a number and this argument is
  * not given, the y coordinate is assumed to be the same as the x coordinate.
  */
-export const construct = (x: Crude | number, y: number): XY => {
+export const construct = (x: Crude | number, y?: number): XY => {
   if (typeof x === "number") return { x, y: y ?? x };
   if (Array.isArray(x)) return { x: x[0], y: x[1] };
   if ("signedWidth" in x) return { x: x.signedWidth, y: x.signedHeight };

@@ -207,12 +207,14 @@ export interface ToolbarState {
 export type ClickMode = "annotate" | "measure";
 
 export interface ControlState {
+  hold: boolean;
   clickMode: ClickMode | null;
   enableTooltip: boolean;
 }
 
 export const ZERO_LINE_CONTROL_STATE: ControlState = {
   clickMode: null,
+  hold: false,
   enableTooltip: true,
 };
 

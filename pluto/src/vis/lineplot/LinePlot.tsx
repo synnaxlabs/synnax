@@ -28,9 +28,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { useMemoDeepEqualProps, useResize } from "@/hooks";
 import { useEffectCompare } from "@/hooks/useEffectCompare";
-import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 import { lineplot } from "@/vis/lineplot/aether";
 import { type GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
@@ -97,7 +96,7 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverscan">,
+    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverscan" | "hold">,
     HTMLDivProps {
   resizeDebounce?: number;
 }
@@ -110,9 +109,13 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     resizeDebounce: debounce = 0,
     clearOverscan,
     children,
+    hold,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
+
+    const aetherMemoProps = useMemoDeepEqualProps({ clearOverscan, hold });
+
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
       type: lineplot.LinePlot.TYPE,
@@ -121,10 +124,15 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         container: box.ZERO,
         viewport: box.DECIMAL,
         grid: [],
-        clearOverscan,
-        ...props,
+        ...aetherMemoProps,
       },
     });
+
+    useEffect(
+      () => setState((prev) => ({ ...prev, ...aetherMemoProps })),
+      [aetherMemoProps],
+    );
+
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
     const addViewportHandler = useCallback(
@@ -186,17 +194,6 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
       [setLine],
     );
-
-    Triggers.use({
-      triggers: [["H"]],
-      callback: useCallback(
-        (e: Triggers.UseEvent) => {
-          setState((p) => ({ ...p, hold: e.stage === "start" }));
-        },
-        [setState],
-      ),
-      loose: true,
-    });
 
     const cssGrid = buildPlotGrid(grid);
 

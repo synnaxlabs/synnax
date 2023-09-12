@@ -71,9 +71,11 @@ export const construct = (
   height: number = 0,
   coordinateRoot?: location.CornerXY,
 ): Box => {
-  const b: Box = { one: { ...xy.ZERO }, two: { ...xy.ZERO }, root: location.TOP_LEFT };
-
-  b.root = coordinateRoot ?? location.TOP_LEFT;
+  const b: Box = {
+    one: { ...xy.ZERO },
+    two: { ...xy.ZERO },
+    root: coordinateRoot ?? location.TOP_LEFT,
+  };
 
   if (typeof first === "number") {
     if (typeof second !== "number")
@@ -83,7 +85,8 @@ export const construct = (
     return b;
   }
 
-  if ("one" in first && "two" in first && "root" in first) return { ...first };
+  if ("one" in first && "two" in first && "root" in first)
+    return { ...first, root: coordinateRoot ?? first.root };
 
   if ("getBoundingClientRect" in first) first = first.getBoundingClientRect();
   if ("left" in first) {
@@ -93,9 +96,8 @@ export const construct = (
   }
 
   b.one = first;
-  if (second == null) {
-    b.two = { x: b.one.x + width, y: b.one.y + height };
-  } else if (typeof second === "number")
+  if (second == null) b.two = { x: b.one.x + width, y: b.one.y + height };
+  else if (typeof second === "number")
     b.two = { x: b.one.x + second, y: b.one.y + width };
   else if ("width" in second)
     b.two = {

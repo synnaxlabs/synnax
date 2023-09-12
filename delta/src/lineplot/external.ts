@@ -14,3 +14,4 @@ export * from "@/lineplot/NavControls";
 export * from "@/lineplot/palette";
 export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
+export * from "@/lineplot/useTriggerHold";

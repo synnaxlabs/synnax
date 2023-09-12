@@ -14,12 +14,22 @@ export { type Bounds, bounds };
 export type Crude = CrudeBounds;
 
 export const construct = (lower: number | Crude, upper?: number): Bounds => {
+  const b = { lower: 0, upper: 0 };
   if (typeof lower === "number") {
-    if (upper != null) return { lower, upper };
-    return { lower: 0, upper: lower };
+    if (upper != null) {
+      b.lower = lower;
+      b.upper = upper;
+    } else {
+      b.lower = 0;
+      b.upper = lower;
+    }
+  } else if (Array.isArray(lower)) {
+    [b.lower, b.upper] = lower;
+  } else {
+    b.lower = lower.lower;
+    b.upper = lower.upper;
   }
-  if (Array.isArray(lower)) return { lower: lower[0], upper: lower[1] };
-  return lower;
+  return makeValid(b);
 };
 
 export const ZERO = { lower: 0, upper: 0 };
