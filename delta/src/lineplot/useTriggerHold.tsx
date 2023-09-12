@@ -12,9 +12,8 @@ import { useCallback } from "react";
 import { Triggers, useSyncedRef } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
+import { useSelectControlState } from "@/lineplot/selectors";
 import { setControlState } from "@/lineplot/slice";
-
-import { useSelectControlState } from "./selectors";
 
 export type Config = Triggers.Config<"toggle" | "hold">;
 

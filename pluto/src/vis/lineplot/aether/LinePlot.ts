@@ -41,7 +41,7 @@ export class LinePlot extends aether.Composite<
   Children
 > {
   static readonly TYPE: string = "LinePlot";
-  readonly eraser: render.Eraser = new render.Eraser();
+  private readonly eraser: render.Eraser = new render.Eraser();
 
   schema = linePlotStateZ;
 
