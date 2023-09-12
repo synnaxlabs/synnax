@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Compare } from "@/compare";
-import { Bounds } from "@/spatial/core";
+import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
   convertDataType,
@@ -272,8 +272,8 @@ export class Series {
   }
 
   /** @returns the bounds of this array. */
-  get bounds(): Bounds {
-    return new Bounds(Number(this.min), Number(this.max));
+  get bounds(): bounds.Bounds {
+    return bounds.construct(Number(this.min), Number(this.max));
   }
 
   private maybeRecomputeMinMax(update: Series): void {

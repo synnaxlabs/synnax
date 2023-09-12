@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useState } from "react";
 
-import { Location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
@@ -52,13 +52,13 @@ export const Drawer = ({
   activeItem,
   children,
   onSelect,
-  location = "left",
+  location: loc_ = "left",
   collapseThreshold = 0.65,
   className,
   ...props
 }: DrawerProps): ReactElement | null => {
   if (activeItem == null) return null;
-  const dir = new Location(location).direction;
+  const dir = location.direction(loc_);
   const { key, content, ...rest } = activeItem;
   const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
   return (
@@ -66,7 +66,7 @@ export const Drawer = ({
       className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
-      location={location}
+      location={loc_}
       {...rest}
       {...props}
     >

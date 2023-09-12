@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CompareF } from "@/compare";
-import { Key, KeyedRecord } from "@/record";
+import { type CompareF } from "@/compare";
+import { type Key, type KeyedRecord } from "@/record";
 
 const binary = <T>(arr: T[], target: T, compare: CompareF<T>): number => {
   let left = 0;

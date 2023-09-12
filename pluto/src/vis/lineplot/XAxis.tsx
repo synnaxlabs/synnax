@@ -9,12 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement, useEffect, useRef } from "react";
 
-import {
-  Location,
-  type CrudeOuterLocation,
-  type CrudeDirection,
-  type Direction,
-} from "@synnaxlabs/x";
+import { type location, type direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -34,7 +29,7 @@ export interface XAxisProps
   resizeDebounce?: number;
   label?: string;
   labelLevel?: Text.Level;
-  labelDirection?: CrudeDirection | Direction;
+  labelDirection?: direction.Direction;
   onLabelChange?: (label: string) => void;
 }
 
@@ -81,7 +76,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
 
     const gridStyle = useGridPosition(
       {
-        loc: new Location(location).crude as CrudeOuterLocation,
+        loc: location as location.Outer,
         key: aetherKey,
         size: size + labelSize,
         order: "last",

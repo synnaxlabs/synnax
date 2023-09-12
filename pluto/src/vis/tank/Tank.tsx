@@ -9,15 +9,15 @@
 
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { type CrudeDimensions } from "@synnaxlabs/x";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 
 import "@/vis/tank/Tank.css";
+import { dimensions } from "@synnaxlabs/x";
 
 export interface TankProps extends Omit<ComponentPropsWithoutRef<"div">, "color"> {
-  dimensions: CrudeDimensions;
+  dimensions: dimensions.Dimensions;
   color: Color.Crude;
 }
 

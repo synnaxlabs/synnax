@@ -10,7 +10,7 @@
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { ENCODERS } from "@/encode";
+import { binary } from "@/binary";
 
 const SampleSchema = z.object({
   channelKey: z.string(),
@@ -18,7 +18,7 @@ const SampleSchema = z.object({
   value: z.unknown(),
 });
 
-describe.each(ENCODERS)("encoder", (e) => {
+describe.each(binary.ENCODERS)("encoder", (e) => {
   test(`[encoder] - encoder ${e.contentType} should encode correctly`, () => {
     const sample = {
       channelKey: "test",

@@ -7,17 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type CanvasVariant } from "@/vis/render/context";
+
 export type Func = () => Promise<Cleanup>;
 
 export interface Request {
   key: string;
   priority: Priority;
   render: Func;
+  canvases: CanvasVariant[];
 }
 
-export type Cleanup = () => Promise<void>;
+export type Cleanup = (req: Request) => Promise<void>;
 
 export type Priority = "high" | "low";
+
+const PRIOTITY_ORDER: Record<Priority, number> = {
+  high: 1,
+  low: 0,
+};
 
 export class Queue {
   queue: Record<string, Request>;
@@ -47,7 +55,10 @@ export class Queue {
       this.queue[req.key] = req;
       return;
     }
-    this.queue[req.key] = req;
+    const priorityOK =
+      PRIOTITY_ORDER[req.priority] >= PRIOTITY_ORDER[existing.priority];
+    const canvasesOK = req.canvases.length >= existing.canvases.length;
+    if (priorityOK && canvasesOK) this.queue[req.key] = req;
   }
 
   async sleep(): Promise<number> {
@@ -60,7 +71,7 @@ export class Queue {
     this.queue = {};
     for (const [k, f] of Object.entries(cleanup)) {
       if (k in queue) {
-        await f();
+        await f(queue[k]);
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete cleanup[k];
       }

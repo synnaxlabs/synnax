@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeDirection,
-  Location,
-  type CrudeLocation,
-  type LooseLocationT,
-  type CrudeOrder,
-  Deep,
-} from "@synnaxlabs/x";
+
 
 import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
+import { deep, direction, location, spatial } from "@synnaxlabs/x";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
@@ -34,18 +28,17 @@ const InvalidMosaic = new Error("Invalid Mosaic");
 export const insertTab = (
   root: Node,
   tab: Tabs.Tab,
-  loc_: LooseLocationT = "center",
+  loc: location.Location = "center",
   key?: number,
 ): Node => {
   root = shallowCopyNode(root);
-  const loc = new Location(loc_);
   if (key === undefined) return insertAnywhere(root, tab);
 
   const node = findNodeOrAncestor(root, key);
 
   // In the case where we're dropping the node in the center,
   // simply add the tab, change the selection, and return.
-  if (loc.equals("center")) {
+  if (loc === "center") {
     node.tabs?.push(tab);
     node.selected = tab.tabKey;
     return root;
@@ -57,7 +50,7 @@ export const insertTab = (
   // so we do nothing.
   if (node.tabs == null || node.tabs.length === 0) return root;
 
-  const [insertOrder, siblingOrder, dir] = splitArrangement(loc.crude);
+  const [insertOrder, siblingOrder, dir] = splitArrangement(loc);
   node.direction = dir;
 
   node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
@@ -168,7 +161,7 @@ export const selectTab = (root: Node, tabKey: string): Node => {
 export const moveTab = (
   root: Node,
   tabKey: string,
-  loc: LooseLocationT,
+  loc: location.Location,
   to: number,
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
@@ -278,8 +271,8 @@ const findMosaicNode = (node: Node, key: number): Node | undefined => {
 };
 
 const splitArrangement = (
-  insertPosition: CrudeLocation,
-): [CrudeOrder, CrudeOrder, CrudeDirection] => {
+  insertPosition: location.Location,
+): [spatial.Order, spatial.Order, direction.Direction] => {
   switch (insertPosition) {
     case "top":
       return ["first", "last", "y"];
@@ -294,4 +287,4 @@ const splitArrangement = (
   }
 };
 
-const shallowCopyNode = (node: Node): Node => Deep.copy(node);
+const shallowCopyNode = (node: Node): Node => deep.copy(node);

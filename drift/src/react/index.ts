@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export { DriftProvider as Provider } from "./Provider";
-export * from "./selectors";
-export * from "./hooks";
+export * from "@/react/selectors";
+export * from "@/react/hooks";

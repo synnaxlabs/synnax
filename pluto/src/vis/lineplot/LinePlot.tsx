@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  CSSProperties,
-  DetailedHTMLProps,
-  HTMLAttributes,
-  PropsWithChildren,
-  ReactElement,
+  type CSSProperties,
+  type DetailedHTMLProps,
+  type HTMLAttributes,
+  type PropsWithChildren,
+  type ReactElement,
   createContext,
   useCallback,
   useContext as reactUseContext,
@@ -22,18 +22,17 @@ import {
   useState,
 } from "react";
 
-import { Box, Deep, Destructor, Location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Color } from "@/color";
+import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { useMemoDeepEqualProps, useResize } from "@/hooks";
 import { useEffectCompare } from "@/hooks/useEffectCompare";
-import { Status } from "@/status";
-import { Viewport } from "@/viewport";
+import { type Viewport } from "@/viewport";
 import { lineplot } from "@/vis/lineplot/aether";
-import { GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
+import { type GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
 
 import "@/vis/lineplot/LinePlot.css";
 
@@ -66,23 +65,24 @@ export const useViewport = (handle: Viewport.UseHandler): void => {
 
 export const useGridPosition = (
   meta: GridPositionSpec,
-  component: string
+  component: string,
 ): CSSProperties => {
   const { setAxis, removeAxis } = useContext(component);
   const { key } = meta;
   useEffectCompare(
     () => {
-      Location.strictOuterZ.parse(meta.loc);
+      location.outer.parse(meta.loc);
       setAxis(meta);
       return () => removeAxis(meta.key);
     },
-    ([a], [b]) => Deep.equal(a, b),
-    [meta]
+    ([a], [b]) => deep.equal(a, b),
+    [meta],
   );
-  const dir = new Location(meta.loc).direction.inverse;
-  const gridArea = dir.equals("x")
-    ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
-    : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
+  const dir = direction.swap(location.direction(meta.loc));
+  const gridArea =
+    dir === "x"
+      ? `axis-start-${key} / plot-start / axis-end-${key} / plot-end`
+      : `plot-start / axis-start-${key} / plot-end / axis-end-${key}`;
   return { gridArea };
 };
 
@@ -96,7 +96,7 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverscan">,
+    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverscan" | "hold">,
     HTMLDivProps {
   resizeDebounce?: number;
 }
@@ -109,21 +109,30 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     resizeDebounce: debounce = 0,
     clearOverscan,
     children,
+    hold,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
-    const [{ path }, { error, grid }, setState] = Aether.use({
+
+    const aetherMemoProps = useMemoDeepEqualProps({ clearOverscan, hold });
+
+    const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
       type: lineplot.LinePlot.TYPE,
       schema: lineplot.linePlotStateZ,
       initialState: {
-        container: Box.ZERO,
-        viewport: Box.DECIMAL,
+        container: box.ZERO,
+        viewport: box.DECIMAL,
         grid: [],
-        clearOverscan,
-        ...props,
+        ...aetherMemoProps,
       },
     });
+
+    useEffect(
+      () => setState((prev) => ({ ...prev, ...aetherMemoProps })),
+      [aetherMemoProps],
+    );
+
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
     const addViewportHandler = useCallback(
@@ -131,7 +140,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         viewportHandlers.current.set(handler, null);
         return () => viewportHandlers.current.delete(handler);
       },
-      [viewportHandlers]
+      [viewportHandlers],
     );
 
     const setViewport: Viewport.UseHandler = useCallback(
@@ -144,15 +153,15 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         });
         viewportHandlers.current.forEach((_, handler) => handler(args));
       },
-      [setState]
+      [setState],
     );
 
     // We use a single resize handler for both the container and plotting region because
     // the container is guaranteed to only resize if the plotting region does. This allows
     // us to save a window observer.
     const handleResize = useCallback(
-      (container: Box) => setState((prev) => ({ ...prev, container })),
-      [setState]
+      (container: box.Box) => setState((prev) => ({ ...prev, container })),
+      [setState],
     );
 
     const ref = useResize(handleResize, { debounce });
@@ -163,7 +172,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
           ...prev,
           grid: [...prev.grid.filter(({ key }) => key !== meta.key), meta],
         })),
-      [setState]
+      [setState],
     );
 
     const removeAxis = useCallback(
@@ -172,18 +181,18 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
           ...prev,
           grid: prev.grid.filter(({ key: k }) => k !== key),
         })),
-      [setState]
+      [setState],
     );
 
     const setLine = useCallback(
       (meta: LineSpec) =>
         setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
-      [setLines]
+      [setLines],
     );
 
     const removeLine = useCallback(
       (key: string) => setLines((prev) => prev.filter(({ key: k }) => k !== key)),
-      [setLine]
+      [setLine],
     );
 
     const cssGrid = buildPlotGrid(grid);
@@ -198,7 +207,15 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         setViewport,
         addViewportHandler,
       }),
-      [lines, setAxis, removeAxis, setLine, removeLine, setViewport, addViewportHandler]
+      [
+        lines,
+        setAxis,
+        removeAxis,
+        setLine,
+        removeLine,
+        setViewport,
+        addViewportHandler,
+      ],
     );
 
     return (
@@ -208,37 +225,29 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         ref={ref}
         {...props}
       >
-        {error != null && (
-          <Status.Text.Centered
-            variant="error"
-            style={{ position: "absolute", width: "100%", height: "100%" }}
-          >
-            {error}
-          </Status.Text.Centered>
-        )}
         <Context.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </Context.Provider>
       </div>
     );
-  }
+  },
 );
 
 const buildPlotGrid = (grid: GridPositionSpec[]): CSSProperties => {
   const builder = CSS.newGridBuilder();
   filterGridPositions("top", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
+    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
   filterGridPositions("bottom", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size)
+    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   filterGridPositions("left", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
+    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
   filterGridPositions("right", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size)
+    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   return builder.build();
 };

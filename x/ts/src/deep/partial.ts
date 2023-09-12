@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type DeepPartial<T> = T extends object
+export type Partial<T> = T extends object
   ? {
-      [P in keyof T]?: DeepPartial<T[P]>;
+      [P in keyof T]?: Partial<T[P]>;
     }
   : T;

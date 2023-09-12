@@ -9,12 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 
-import {
-  Location,
-  type CrudeOuterLocation,
-  Direction,
-  type CrudeDirection,
-} from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -35,7 +30,7 @@ export interface YAxisProps
   label?: string;
   labelLevel?: Text.Level;
   onLabelChange?: (label: string) => void;
-  labelDirection?: Direction | CrudeDirection;
+  labelDirection?: direction.Crude;
 }
 
 export const YAxis = Aether.wrap<YAxisProps>(
@@ -43,11 +38,11 @@ export const YAxis = Aether.wrap<YAxisProps>(
   ({
     aetherKey,
     children,
-    location = "left",
+    location: l = "left",
     label,
     labelLevel = "small",
     onLabelChange,
-    labelDirection = Direction.X,
+    labelDirection = "x",
     color,
     labelSize: propsLabelSize,
     showGrid,
@@ -60,7 +55,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     const showLabel = (label?.length ?? 0) > 0;
 
     const aetherProps = useMemoDeepEqualProps({
-      location,
+      location: l,
       showGrid,
       type,
       bounds,
@@ -78,7 +73,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
 
     const gridStyle = useGridPosition(
       {
-        loc: new Location(location).crude as CrudeOuterLocation,
+        loc: l,
         key: aetherKey,
         size: size + labelSize,
         order: "last",
@@ -91,7 +86,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     useEffect(() => {
       if (label == null) return;
       const dims = Text.dimensions(label, font.toString());
-      let labelSize = dims[new Direction(labelDirection).dimension];
+      let labelSize = dims[direction.dimension(direction.construct(labelDirection))];
       if (labelSize > 0) labelSize += 6;
       setState((state) => ({
         ...state,
@@ -102,7 +97,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     return (
       <>
         <Align.Space
-          className={CSS(className, CSS.loc(location), CSS.B("y-axis"))}
+          className={CSS(className, CSS.loc(l), CSS.B("y-axis"))}
           style={{ ...style, ...gridStyle }}
           justify="center"
           {...props}

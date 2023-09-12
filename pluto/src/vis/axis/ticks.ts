@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Scale, TimeStamp } from "@synnaxlabs/x";
+import { type scale, TimeStamp } from "@synnaxlabs/x";
 import { scaleLinear, scaleTime } from "d3-scale";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ export interface TickFactoryContext {
   /**
    * Scale takes a value in decimal space and returns the corresponding data value.
    */
-  decimalToDataScale: Scale;
+  decimalToDataScale: scale.Scale;
   /**
    * Size is the length of the axis in pixels.
    */

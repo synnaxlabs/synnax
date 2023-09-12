@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CrudeXY, CrudeDimensions } from "@synnaxlabs/x";
+import { dimensions, xy } from "@synnaxlabs/x";
 
 /** Represents the state of a window in it's lifecycle  */
 export type WindowStage = "creating" | "created" | "closing" | "closed";
@@ -66,13 +66,13 @@ export interface WindowProps {
   /* Whether the window should be centered on the screen. */
   center?: boolean;
   /* The x and y coordinates of the window. */
-  position?: CrudeXY;
+  position?: xy.XY;
   /* The dimensions of the window. */
-  size?: CrudeDimensions;
+  size?: dimensions.Dimensions;
   /* The minimum dimensions of the window. */
-  minSize?: CrudeDimensions;
+  minSize?: dimensions.Dimensions;
   /* The maximum dimensions of the window. */
-  maxSize?: CrudeDimensions;
+  maxSize?: dimensions.Dimensions;
   /* Whether the window should be resizable. */
   resizable?: boolean;
   /* Whether the window is fullscreen. */

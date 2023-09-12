@@ -7,7 +7,7 @@
 // license, use of this software will be governed by the apache license, version 2.0,
 // included in the file licenses/apl.txt.
 
-import { type GLBufferController, type Bounds, type Series } from "@synnaxlabs/x";
+import { type bounds, type GLBufferController, type Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type color } from "@/color/core";
@@ -77,12 +77,12 @@ export interface XYSource extends Telem {
    * @returns the maximum possible bound of the X axis data. This is useful for
    * automatically scaling the X axis of a plot.
    */
-  xBounds: () => Promise<Bounds>;
+  xBounds: () => Promise<bounds.Bounds>;
   /**
    * @returns the maximum possible bound of the Y axis data. This is useful for
    * automatically scaling the Y axis of a plot.
    */
-  yBounds: () => Promise<Bounds>;
+  yBounds: () => Promise<bounds.Bounds>;
   /**
    * Binds the provided callback to the source, and calls the callback whenever
    * x or y data changes.

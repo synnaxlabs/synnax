@@ -11,16 +11,13 @@ import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
-  XY,
-  Dimensions,
-  type CrudeBounds,
-  type CrudeXY,
-  type CrudeDimensions,
-  Bounds,
-  Deep,
+  bounds,
+  dimensions,
+  xy,
+  type direction,
   unique,
+  deep,
   toArray,
-  type CrudeDirection,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -53,22 +50,22 @@ const ZERO_LEGEND_STATE = {
 
 export interface ViewportState {
   counter: number;
-  zoom: CrudeDimensions;
-  pan: CrudeXY;
+  zoom: dimensions.Dimensions;
+  pan: xy.XY;
 }
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
   counter: 0,
-  zoom: Dimensions.DECIMAL.crude,
-  pan: XY.ZERO.crude,
+  zoom: dimensions.DECIMAL,
+  pan: xy.ZERO,
 };
 
 // |||||| AXES ||||||
 
 export interface AxisState {
   label?: string;
-  labelDirection: CrudeDirection;
-  bounds: CrudeBounds;
+  labelDirection: direction.Direction;
+  bounds: bounds.Bounds;
   driven: boolean;
 }
 
@@ -168,7 +165,7 @@ export const ZERO_AXIS_STATE: AxisState = {
   label: "",
   labelDirection: "x",
   driven: true,
-  bounds: Bounds.ZERO.crude,
+  bounds: bounds.ZERO,
 };
 
 export const ZERO_AXES_STATE: AxesState = {
@@ -210,12 +207,14 @@ export interface ToolbarState {
 export type ClickMode = "annotate" | "measure";
 
 export interface ControlState {
+  hold: boolean;
   clickMode: ClickMode | null;
   enableTooltip: boolean;
 }
 
 export const ZERO_LINE_CONTROL_STATE: ControlState = {
   clickMode: null,
+  hold: false,
   enableTooltip: true,
 };
 
@@ -404,7 +403,7 @@ export const { actions, reducer } = createSlice({
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       state.plots[payload.layoutKey].viewport = {
-        ...Deep.copy(ZERO_VIEWPORT_STATE),
+        ...deep.copy(ZERO_VIEWPORT_STATE),
         ...payload,
         counter: state.plots[payload.layoutKey].viewport.counter + 1,
       };
@@ -421,7 +420,7 @@ export const { actions, reducer } = createSlice({
       if (mode === "set") p.channels[axisKey] = channels;
       else p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
       p.lines = updateLines(p);
-      p.viewport = Deep.copy(ZERO_VIEWPORT_STATE);
+      p.viewport = deep.copy(ZERO_VIEWPORT_STATE);
     },
     setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
       const { key: layoutKey, axisKey, channel } = payload;
@@ -529,7 +528,7 @@ export const createLinePlot =
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
-    dispatch(actions.set({ ...Deep.copy(ZERO_LINE_VIS), ...rest, key }));
+    dispatch(actions.set({ ...deep.copy(ZERO_LINE_VIS), ...rest, key }));
     return {
       key,
       name,

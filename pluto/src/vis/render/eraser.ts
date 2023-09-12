@@ -7,19 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, type XY } from "@synnaxlabs/x";
+import { box, type xy } from "@synnaxlabs/x";
 
-import { type Context } from "@/vis/render/context";
+import { type CanvasVariant, type Context } from "@/vis/render/context";
 
 export class Eraser {
-  prevErase = Box.ZERO;
+  prevErase = box.ZERO;
 
-  erase(ctx: Context, next: Box, prev: Box, overscan: XY): void {
-    if (!prev.equals(next) && !this.prevErase.equals(prev)) {
-      ctx.erase(prev, overscan);
+  erase(
+    ctx: Context,
+    next: box.Box,
+    prev: box.Box,
+    overscan: xy.XY,
+    canvases: CanvasVariant[],
+  ): void {
+    if (!box.equals(prev, next) && !box.equals(this.prevErase, prev)) {
+      ctx.erase(prev, overscan, ...canvases);
       this.prevErase = prev;
     } else {
-      ctx.erase(next, overscan);
+      ctx.erase(next, overscan, ...canvases);
     }
   }
 }

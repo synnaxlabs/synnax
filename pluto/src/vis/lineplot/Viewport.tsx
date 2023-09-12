@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -5,13 +14,13 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { Box, XY } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Viewport.css";
+import { box, xy } from "@synnaxlabs/x";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 
@@ -22,14 +31,14 @@ export const selectViewportEl = (el: HTMLElement | null): Element | null =>
 
 export const Viewport = ({
   children,
-  initial = Box.DECIMAL,
+  initial = box.DECIMAL,
   onChange,
   ...props
 }: ViewportProps): ReactElement => {
   const { setViewport } = useContext("Viewport");
 
   useLayoutEffect(() => {
-    setViewport({ box: initial, mode: "zoom", cursor: XY.ZERO, stage: "start" });
+    setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
   }, [setViewport, initial]);
 
   const handleChange = useCallback(

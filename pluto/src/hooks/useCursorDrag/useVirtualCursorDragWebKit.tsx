@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DragEvent, useEffect } from "react";
+import { type DragEvent, useEffect } from "react";
 
-import { XY, Box } from "@synnaxlabs/x";
+import { xy, box } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { Triggers } from "@/triggers";
 
-import { UseVirtualCursorDragProps } from "./types";
+import { type UseVirtualCursorDragProps } from "./types";
 
 interface RefState {
-  start: XY;
+  start: xy.XY;
   mouseKey: Triggers.Key;
 }
 
 const INITIAL_STATE: RefState = {
-  start: XY.ZERO,
+  start: xy.ZERO,
   mouseKey: "MouseLeft",
 };
 
@@ -38,15 +38,15 @@ export const useVirtualCursorDragWebKit = ({
     const { current: el } = ref;
 
     const handleMove = (e: MouseEvent): void => {
-      const next = new XY(e);
+      const next = xy.construct(e);
       const { mouseKey, start } = stateRef.current;
-      onMove?.(new Box(start, next), mouseKey, e);
+      onMove?.(box.construct(start, next), mouseKey, e);
     };
 
     const handleDown = (e: PointerEvent): void => {
       el.setPointerCapture(e.pointerId);
       el.onpointermove = handleMove;
-      const start = new XY(e);
+      const start = xy.construct(e);
       const mouseKey = Triggers.eventKey(e);
       setRef({ start, mouseKey });
       onStart?.(start, mouseKey, e as unknown as DragEvent);
@@ -58,7 +58,11 @@ export const useVirtualCursorDragWebKit = ({
       el.onpointermove = null;
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
-      onEnd?.(new Box(start, new XY(e)), mouseKey, e as unknown as MouseEvent);
+      onEnd?.(
+        box.construct(start, xy.construct(e)),
+        mouseKey,
+        e as unknown as MouseEvent,
+      );
     };
 
     return () => el.removeEventListener("pointerdown", handleDown);

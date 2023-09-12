@@ -7,23 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Scale, XYScale } from "@synnaxlabs/x";
+import { scale } from "@synnaxlabs/x";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
 {
-  readonly scale_: XYScale;
+  readonly scale_: scale.XY;
   private readonly wrap: OffscreenCanvasRenderingContext2D;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
-    scale: XYScale = XYScale.IDENTITY,
+    scale_: scale.XY = scale.XY.IDENTITY,
   ) {
     this.wrap = wrap;
-    this.scale_ = scale;
+    this.scale_ = scale_;
   }
 
-  applyScale(scale: XYScale): SugaredOffscreenCanvasRenderingContext2D {
+  reset(): void {
+    this.wrap.reset();
+  }
+
+  applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
     return new SugaredOffscreenCanvasRenderingContext2D(this.wrap, scale);
   }
 
@@ -124,7 +128,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dw?: unknown,
     dh?: unknown,
   ): void {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     this.wrap.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
   }
 
@@ -135,7 +139,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   clip(fillRule?: CanvasFillRule | undefined): void;
   clip(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   clip(path?: unknown, fillRule?: unknown): void {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     this.wrap.clip(path, fillRule);
   }
 
@@ -143,7 +147,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   fill(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   fill(path?: unknown, fillRule?: unknown): void {
     if (path == null) return this.wrap.fill();
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     this.wrap.fill(path, fillRule);
   }
 
@@ -155,14 +159,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
     fillRule?: CanvasFillRule | undefined,
   ): boolean;
   isPointInPath(path: unknown, x: unknown, y?: unknown, fillRule?: unknown): boolean {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     return this.wrap.isPointInPath(path, x, y, fillRule);
   }
 
   isPointInStroke(x: number, y: number): boolean;
   isPointInStroke(path: Path2D, x: number, y: number): boolean;
   isPointInStroke(path: unknown, x: unknown, y?: unknown): boolean {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     return this.wrap.isPointInStroke(path, x, y);
   }
 
@@ -214,7 +218,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   ): ImageData;
   createImageData(imagedata: ImageData): ImageData;
   createImageData(sw: unknown, sh?: unknown, settings?: unknown): ImageData {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     return this.wrap.createImageData(sw, sh, settings);
   }
 
@@ -247,7 +251,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dirtyWidth?: unknown,
     dirtyHeight?: unknown,
   ): void {
-    // @ts-expect-error
+    // @ts-expect-error - typescript overloads cause issues here
     this.wrap.putImageData(imagedata, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
   }
 
@@ -590,7 +594,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
 // /(\d+)px/ is wrong, so don't use it.
 const FONT_REGEX = /(\d+(\.\d+)?)px/;
 
-const scaleFontSize = (font: string, scale: Scale): string => {
+const scaleFontSize = (font: string, scale: scale.Scale): string => {
   const fontSize = Number(font.match(FONT_REGEX)?.[1]);
   if (fontSize == null) return font;
   const scaled = scale.dim(fontSize);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LooseXYT, XY } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 
 import { type color } from "@/color/core";
 import { type Context } from "@/vis/render/context";
@@ -59,8 +59,8 @@ export class GLProgram {
    * @param name - The name of the uniform.
    * @param value - The value to set.
    */
-  uniformXY(name: string, value: LooseXYT): void {
-    this.ctx.gl.uniform2fv(this.getUniformLoc(name), new XY(value).couple);
+  uniformXY(name: string, value: xy.Crude): void {
+    this.ctx.gl.uniform2fv(this.getUniformLoc(name), xy.couple(xy.construct(value)));
   }
 
   /**

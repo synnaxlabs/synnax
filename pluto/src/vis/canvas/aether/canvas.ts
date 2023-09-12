@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Box } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,7 +17,7 @@ import { render } from "@/vis/render";
 
 export const canvasStateZ = z.object({
   dpr: z.number(),
-  region: Box.z,
+  region: box.box,
   bootstrap: z.boolean().optional().default(false),
   bootstrapped: z.boolean().optional().default(false),
   glCanvas: z.instanceof(OffscreenCanvas).optional(),
@@ -36,20 +36,20 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
     if (renderCtx == null) {
       if (this.renderContextSet) {
         throw new UnexpectedError(
-          "[vis.worker.Canvas] - expected render context to be set"
+          "[vis.worker.Canvas] - expected render context to be set",
         );
       }
       if (!this.state.bootstrap) return;
       const { glCanvas, lower2dCanvas, upper2dCanvas } = this.state;
       if (glCanvas == null || lower2dCanvas == null || upper2dCanvas == null)
         throw new UnexpectedError(
-          "[vis.worker.Canvas] - expected render context bootstrap to include all canvases"
+          "[vis.worker.Canvas] - expected render context bootstrap to include all canvases",
         );
       renderCtx = render.Context.create(
         this.ctx,
         glCanvas,
         lower2dCanvas,
-        upper2dCanvas
+        upper2dCanvas,
       );
       Context.create(this.ctx);
       this.setState((p) => ({

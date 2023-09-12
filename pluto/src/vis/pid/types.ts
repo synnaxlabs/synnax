@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeXY, XY } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
 
 import { type Color } from "@/color";
+import { xy } from "@synnaxlabs/x";
 
 export interface Viewport {
-  position: CrudeXY;
+  position: xy.XY;
   zoom: number;
 }
 
@@ -25,12 +25,12 @@ export interface Edge {
   color: Color.Crude;
   sourceHandle?: string | null;
   targetHandle?: string | null;
-  points: CrudeXY[];
+  points: xy.XY[];
 }
 
 export interface Node {
   key: string;
-  position: CrudeXY;
+  position: xy.XY;
   selected?: boolean;
 }
 
@@ -71,7 +71,7 @@ export const translateViewportForward = (viewport: Viewport): rf.Viewport => ({
 });
 
 export const translateViewportBackward = (viewport: rf.Viewport): Viewport => ({
-  position: new XY(viewport).crude,
+  position: xy.construct(viewport),
   zoom: viewport.zoom,
 });
 

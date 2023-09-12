@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoSelect } from "@/hooks";
-import { StoreState } from "@/version/slice";
+import { type StoreState } from "@/version/slice";
 
 export const select = (state: StoreState): string => state.version.version;
 

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Input, Status, Button, Select, Align } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { rangeWindowLayout } from "@/workspace/DefineRange";
-import { Range } from "@/workspace/range";
+import { type Range } from "@/workspace/range";
 import { rangeListColumns } from "@/workspace/RangesList";
 
 export interface SelectMultipleRangesProps

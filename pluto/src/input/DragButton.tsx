@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { Box, type CrudeDirection, type LooseXYT, XY } from "@synnaxlabs/x";
+import { xy, type direction, box } from "@synnaxlabs/x";
 import { GrDrag } from "react-icons/gr";
 
 import { Button } from "@/button";
@@ -21,10 +21,10 @@ import { type Control } from "@/input/types";
 import "@/input/DragButton.css";
 
 export interface DragButtonExtensionProps {
-  direction?: CrudeDirection;
-  dragDirection?: CrudeDirection;
-  dragScale?: LooseXYT | number;
-  dragThreshold?: LooseXYT | number;
+  direction?: direction.Crude;
+  dragDirection?: direction.Crude;
+  dragScale?: xy.Crude | number;
+  dragThreshold?: xy.Crude | number;
   resetValue?: number;
 }
 
@@ -58,32 +58,33 @@ export const DragButton = ({
   if (!vRef.current.dragging) vRef.current.prev = value;
 
   const normalDragScale = useMemo(() => {
-    const scale = new XY(dragScale);
-    if (dragDirection === "x") return new XY(scale.x, 0);
-    if (dragDirection === "y") return new XY(0, scale.y);
+    const scale = xy.construct(dragScale);
+    if (dragDirection === "x") return xy.construct(scale.x, 0);
+    if (dragDirection === "y") return xy.construct(0, scale.y);
     return scale;
   }, [dragScale, dragDirection]);
   const normalDragThreshold = useMemo(
-    () => (dragThreshold != null ? new XY(dragThreshold) : null),
+    () => (dragThreshold != null ? xy.construct(dragThreshold) : null),
     [dragThreshold],
   );
 
   useVirtualCursorDrag({
     ref: elRef,
     onMove: useCallback(
-      (box: Box) => {
+      (b: box.Box) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
         vRef.current.dragging = true;
-        const { x, y } = normalDragThreshold ?? new XY(new Box(elRef.current).dims);
-        if (box.width > x && box.width > box.height) {
-          const offset = box.signedWidth < 0 ? x : -x;
-          value += (box.signedWidth + offset) * normalDragScale.x;
+        const { x, y } =
+          normalDragThreshold ?? xy.construct(box.dims(box.construct(elRef.current)));
+        if (box.width(b) > x && box.width(b) > box.height(b)) {
+          const offset = box.signedWidth(b) < 0 ? x : -x;
+          value += (box.signedWidth(b) + offset) * normalDragScale.x;
           Cursor.setGlobalStyle("ew-resize");
         }
-        if (box.height > y && box.height > box.width) {
-          const offset = box.signedHeight < 0 ? y : -y;
-          value += (box.signedHeight + offset) * normalDragScale.y;
+        if (box.height(b) > y && box.height(b) > box.width(b)) {
+          const offset = box.signedHeight(b) < 0 ? y : -y;
+          value += (box.signedHeight(b) + offset) * normalDragScale.y;
           Cursor.setGlobalStyle("ns-resize");
         }
         vRef.current.curr = value;

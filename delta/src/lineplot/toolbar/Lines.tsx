@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Input, List, Align, Status, Tabs, Text, Color } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
-import { LineState, setLine } from "@/lineplot/slice";
+import { type LineState, setLine } from "@/lineplot/slice";
 
 export interface LinesProps {
   layoutKey: string;

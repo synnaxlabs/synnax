@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CrudeOrder } from "./spatial";
+import { type Primitive, isStringer, type PrimitiveRecord } from "@/primitive";
 
-import { Primitive, isStringer, PrimitiveRecord } from "@/primitive";
+import { type spatial } from ".";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
@@ -59,7 +59,7 @@ const newF = <T extends Primitive>(v: T, reverse: boolean = false): CompareF<T> 
 const newFieldF = <T extends PrimitiveRecord>(
   key: keyof T,
   value: T,
-  reverse?: boolean
+  reverse?: boolean,
 ): CompareF<T> => {
   const f = newF(value[key], reverse);
   return (a: T, b: T) => f(a[key], b[key]);
@@ -74,7 +74,7 @@ const newFieldF = <T extends PrimitiveRecord>(
  */
 const primitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
-  b: readonly T[] | T[]
+  b: readonly T[] | T[],
 ): number => {
   if (a.length !== b.length) return a.length - b.length;
   return a.every((v, i) => v === b[i]) ? 0 : -1;
@@ -82,7 +82,7 @@ const primitiveArrays = <T extends Primitive>(
 
 const unorderedPrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
-  b: readonly T[] | T[]
+  b: readonly T[] | T[],
 ): number => {
   if (a.length !== b.length) return a.length - b.length;
   if (a.length === 0) return 0;
@@ -92,7 +92,7 @@ const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
-const order = (a: CrudeOrder, b: CrudeOrder): number => {
+const order = (a: spatial.Order, b: spatial.Order): number => {
   if (a === b) return 0;
   if (a === "first" && b === "last") return 1;
   return -1;

@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Box, Direction, XY } from "@synnaxlabs/x";
+import { box, direction, xy } from "@synnaxlabs/x";
 
-export const calculateLineDirection = (source: XY, target: XY): Direction => {
-  const xDist = source.xDistanceTo(target);
-  const yDist = source.yDistanceTo(target);
-  return xDist > yDist ? Direction.X : Direction.Y;
+
+export const calculateLineDirection = (source: xy.XY, target: xy.XY): direction.Direction => {
+  const xDist = xy.xDistance(source, target);
+  const yDist = xy.yDistance(source, target);
+  return xDist > yDist ? "x" : "y";
 };
 
 export const handleDrag = (
-  prevPoints: XY[],
-  b: Box,
-  root: XY,
+  prevPoints: xy.XY[],
+  b: box.Box,
+  root: xy.XY,
   index: number,
   zoom: number,
-): [number, XY[]] => {
+): [number, xy.XY[]] => {
   // The first point in the line.
   const prevOne = prevPoints[index];
   // The second point in the line
@@ -29,10 +30,10 @@ export const handleDrag = (
   // The direction of the line
   const dir = calculateLineDirection(prevOne, prevTwo);
 
-  const translateDir = dir.inverse;
-  const translateBy = root[translateDir.crude] + b[translateDir.signedDimension] / zoom;
-  const nextOne = prevOne.set(translateDir, translateBy);
-  const nextTwo = prevTwo.set(translateDir, translateBy);
+  const translateDir = direction.swap(dir);
+  const translateBy = root[translateDir] + box.signedDims(b)[direction.signedDimension(translateDir)] / zoom;
+  const nextOne = xy.set(prevOne, translateDir, translateBy);
+  const nextTwo = xy.set(prevTwo, translateDir, translateBy);
 
   const next = [...prevPoints];
   const isFirst = index === 0;
@@ -65,21 +66,21 @@ export const handleDrag = (
   return [index, next];
 };
 
-export const formsRoughlyStraightLine = (points: XY[]): boolean => {
+export const formsRoughlyStraightLine = (points: xy.XY[]): boolean => {
   // The objective is to determine if the line is roughly straight.
   const peakXDelta = Math.max(
-    ...points.slice(1).map((p, i) => p.xDistanceTo(points[i])),
+    ...points.slice(1).map((p, i) => xy.xDistance(p, points[i])),
   );
   const peakYDelta = Math.max(
-    ...points.slice(1).map((p, i) => p.yDistanceTo(points[i])),
+    ...points.slice(1).map((p, i) => xy.yDistance(p, points[i])),
   );
   return peakXDelta < 10 || peakYDelta < 10;
 };
 
-const newConnectorPoints = (source: XY, target: XY): XY[] => [
+const newConnectorPoints = (source: xy.XY, target: xy.XY): xy.XY[] => [
   source,
-  new XY((source.x + target.x) / 2, source.y),
-  new XY((source.x + target.x) / 2, target.y),
+  {x: (source.x + target.x) / 2, y: source.y},
+  {x: (source.x + target.x) / 2, y: target.y},
   target,
 ];
 
@@ -88,40 +89,41 @@ export const adjustToSourceOrTarget = (
   sourceY: number,
   targetX: number,
   targetY: number,
-  points: XY[],
-): XY[] | null => {
-  const source = new XY(sourceX, sourceY);
-  const target = new XY(targetX, targetY);
+  points: xy.XY[],
+): xy.XY[] | null => {
+  const source = xy.construct(sourceX, sourceY);
+  const target = xy.construct(targetX, targetY);
   const prevSource = points[0];
   const prevTarget = points[points.length - 1];
 
   const linear = formsRoughlyStraightLine([source, target]);
   if (points.length === 0) return newConnectorPoints(source, target);
 
-  const sourceChanged = source.distanceTo(prevSource) > 1;
-  const targetChanged = target.distanceTo(prevTarget) > 1;
+  const sourceChanged = xy.distance(source, prevSource) > 1;
+  const targetChanged = xy.distance(target, prevTarget) > 1;
 
   if (!sourceChanged && !targetChanged) return null;
   if (linear && points.length === 2) return [source, target];
   if (!linear && points.length === 2) return newConnectorPoints(source, target);
 
-  const next: XY[] = [...points];
+  const next: xy.XY[] = [...points];
 
   if (sourceChanged) {
-    const adjustDir = calculateLineDirection(prevSource, points[1]).inverse;
+    const adjustDir = direction.swap(calculateLineDirection(prevSource, points[1]));
     next[0] = source;
-    next[1] = next[1].set(adjustDir, source[adjustDir.crude]);
+    next[1] = xy.set(next[1], adjustDir, source[adjustDir]);
 
     if (points.length >= 3 && formsRoughlyStraightLine(next.slice(0, 3)))
       next.splice(1, 1);
   } else if (targetChanged) {
-    const adjustDir = calculateLineDirection(
+    const adjustDir = direction.swap(calculateLineDirection(
       prevTarget,
       points[points.length - 2],
-    ).inverse;
-    next[points.length - 2] = next[points.length - 2].set(
+    ))
+    next[points.length - 2] = xy.set(
+      next[points.length - 2],
       adjustDir,
-      target[adjustDir.crude],
+      target[adjustDir],
     );
     next[points.length - 1] = target;
 

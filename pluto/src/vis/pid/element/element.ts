@@ -9,13 +9,13 @@
 
 import { type FC } from "react";
 
-import { type UnknownRecord, type XY } from "@synnaxlabs/x";
+import { type xy, type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Theming } from "@/index";
 import { type Input } from "@/input";
 
 export type Props<P extends object = UnknownRecord> = P & {
-  position: XY;
+  position: xy.XY;
   selected: boolean;
   editable: boolean;
   onChange: (props: P) => void;

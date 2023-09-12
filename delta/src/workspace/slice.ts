@@ -31,7 +31,13 @@ export const initialState: SliceState = {
       key: "recent",
       variant: "dynamic",
       name: "Recent",
-      span: Number(TimeSpan.minutes(1)),
+      span: Number(TimeSpan.minutes(60)),
+    },
+    hour: {
+      key: "hour",
+      variant: "dynamic",
+      name: "Recent",
+      span: Number(TimeSpan.minutes(60)),
     },
   },
 };

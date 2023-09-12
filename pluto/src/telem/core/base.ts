@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { prettyParse } from "@/util/zod";
@@ -60,7 +60,7 @@ export class TelemMeta<P extends z.ZodTypeAny> {
   }
 
   get propsDeepEqual(): boolean {
-    return Deep.equal(this.prevProps, this.props);
+    return deep.equal(this.prevProps, this.props);
   }
 
   cleanup(): void {

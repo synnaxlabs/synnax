@@ -9,7 +9,7 @@
 
 import { type ReactElement, forwardRef, useCallback, useState } from "react";
 
-import { Bounds, type CrudeBounds } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -22,7 +22,7 @@ export interface NumericProps
     DragButtonExtensionProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
-  bounds?: CrudeBounds;
+  bounds?: bounds.Crude;
 }
 
 const toNumber = (v: string | number): [number, boolean] => {
@@ -60,7 +60,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       showDragHandle = true,
       dragScale,
       selectOnFocus = true,
-      bounds = Bounds.INFINITE,
+      bounds: b = bounds.INFINITE,
       resetValue,
       style,
       variant = "outlined",
@@ -77,7 +77,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         let [n, ok] = toNumber(v);
         if (ok) {
           setIsValueValid(true);
-          n = new Bounds(bounds).clamp(n);
+          n = bounds.clamp(bounds.construct(b), n);
           setInternalValue(v.toString());
           onChange(n);
         } else {

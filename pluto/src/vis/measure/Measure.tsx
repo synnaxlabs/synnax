@@ -9,18 +9,17 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { XY } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { Triggers } from "@/triggers";
-import { type Config } from "@/triggers/triggers";
 import { type Viewport } from "@/viewport";
 import { LinePlot } from "@/vis/lineplot";
 import { measure } from "@/vis/measure/aether";
 
 type ClickMode = "one" | "two" | "clear" | "empty";
 
-const MEASURE_TRIGGERS: Config<ClickMode> = {
+const MEASURE_TRIGGERS: Triggers.Config<ClickMode> = {
   defaultMode: "empty",
   one: [["1"]],
   two: [["2"]],
@@ -67,7 +66,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
         else
           setState((p) => ({
             ...p,
-            one: p.one === null ? cursor : p.one,
+            one: p.one ?? cursor,
             two: p.one !== null ? cursor : p.two,
           }));
       }
@@ -78,12 +77,7 @@ export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {
   LinePlot.useViewport(handleClick);
 
   const handleMove = useCallback(
-    (e: MouseEvent): void => {
-      setState((p) => ({
-        ...p,
-        hover: new XY(e),
-      }));
-    },
+    (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),
     [setState],
   );
 

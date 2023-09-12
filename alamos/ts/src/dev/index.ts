@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { trace } from "@opentelemetry/api";
-import { RUNTIME } from "@synnaxlabs/x";
+import { runtime } from "@synnaxlabs/x";
 import uptrace from "@uptrace/web";
 
 import { Instrumentation } from "@/instrumentation";
@@ -16,7 +16,7 @@ import { Logger } from "@/log";
 import { Tracer } from "@/trace";
 
 const configureOpentelemetry = (config: uptrace.Config): void => {
-  if (RUNTIME === "browser") {
+  if (runtime.RUNTIME === "browser") {
     uptrace.configureOpentelemetry(config);
   } else {
     // eslint-disable-next-line @typescript-eslint/no-var-requires

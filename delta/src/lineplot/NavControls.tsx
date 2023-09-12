@@ -10,9 +10,10 @@
 import { type ReactElement, type ReactNode, useMemo } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Divider, Select, Text, Viewport } from "@synnaxlabs/pluto";
+import { Align, Button, Select, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { useSelectControlState, useSelectViewportMode } from "@/lineplot/selectors";
 import {
@@ -21,6 +22,8 @@ import {
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
+
+import "@/lineplot/NavControls.css";
 
 export const NavControls = (): ReactElement => {
   const control = useSelectControlState();
@@ -42,6 +45,10 @@ export const NavControls = (): ReactElement => {
 
   const handleZoomReset = (): void => {
     if (vis != null) d(setViewport({ layoutKey: vis }));
+  };
+
+  const handleHoldChange = (hold: boolean): void => {
+    d(setControlState({ state: { hold } }));
   };
 
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
@@ -73,8 +80,6 @@ export const NavControls = (): ReactElement => {
       >
         <Icon.Expand />
       </Button.Icon>
-
-      <Divider.Divider />
       <Button.ToggleIcon
         value={control.enableTooltip}
         onChange={handleTooltipChange}
@@ -126,6 +131,24 @@ export const NavControls = (): ReactElement => {
           </Button.Icon>
         )}
       </Select.Button>
+      <Button.ToggleIcon
+        className={CSS.BE("control", "pause")}
+        value={control.hold}
+        onChange={handleHoldChange}
+        sharp
+        uncheckedVariant="text"
+        tooltipLocation="right"
+        tooltip={
+          <Align.Space direction="x" align="center">
+            <Text.Text level="small">
+              {control.hold ? "Resume live plotting" : "Pause live plotting"}
+            </Text.Text>
+            <Triggers.Text level="small" trigger={["H"]}></Triggers.Text>
+          </Align.Space>
+        }
+      >
+        <Icon.Pause />
+      </Button.ToggleIcon>
     </>
   );
 };

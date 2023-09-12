@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Box, type Destructor, XYScale } from "@synnaxlabs/x";
+import { type Destructor, box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -21,7 +21,7 @@ import { type PIDElement } from "@/vis/pid/aether/pid";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
-  box: Box.z,
+  box: box.box,
   telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
   units: z.string(),
   font: z.string().optional().default(""),
@@ -31,14 +31,14 @@ const valueState = z.object({
 });
 
 export interface ValueProps {
-  scale?: XYScale;
+  scale?: scale.XY;
 }
 
 interface InternalState {
   render: render.Context;
   telem: telem.NumericSource;
   cleanupTelem: Destructor;
-  requestRender: (() => void) | null;
+  requestRender: render.RequestF | null;
   textColor: color.Color;
 }
 
@@ -71,44 +71,49 @@ export class Value
   afterDelete(): void {
     const { requestRender, cleanupTelem, render: renderCtx } = this.internal;
     cleanupTelem();
-    if (requestRender == null) renderCtx.erase(new Box(this.state.box));
-    else requestRender();
+    if (requestRender == null)
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "lower2d");
+    else requestRender(render.REASON_LAYOUT);
   }
 
   private requestRender(): void {
     const { requestRender } = this.internal;
-    if (requestRender != null) requestRender();
+    if (requestRender != null) requestRender(render.REASON_LAYOUT);
     else void this.render({});
   }
 
-  async render({ scale = XYScale.IDENTITY }): Promise<void> {
+  async render({ s = scale.XY.IDENTITY }): Promise<void> {
     const { render: renderCtx, telem } = this.internal;
-    const box = new Box(this.state.box);
-    if (box.isZero) return;
-    const canvas = renderCtx.lower2d.applyScale(scale);
+    const b = box.construct(this.state.box);
+    if (box.isZero(b)) return;
+    const canvas = renderCtx.lower2d.applyScale(s);
 
     const value = (await telem.value()).toFixed(this.state.precision);
     const valueStr = `${value} ${this.state.units}`;
 
     canvas.font = this.state.font;
     const dims = dimensions(valueStr, this.state.font, canvas);
-    renderCtx.erase(new Box(this.prevState.box));
+    renderCtx.erase(box.construct(this.prevState.box));
 
     if (this.state.width < dims.width)
       this.setState((p) => ({ ...p, width: dims.width }));
 
-    const labelPosition = box.topLeft
-      .translate({
-        x: box.width / 2,
-        y: box.height / 2,
-      })
-      .translate({
-        y: dims.height / 2,
-        x: -dims.width / 2,
-      });
+    const labelPosition = xy.couple(
+      xy.translate(
+        box.topLeft(b),
+        {
+          x: box.width(b) / 2,
+          y: box.height(b) / 2,
+        },
+        {
+          y: dims.height / 2,
+          x: -dims.width / 2,
+        },
+      ),
+    );
 
     canvas.fillStyle = this.internal.textColor.hex;
-    canvas.fillText(valueStr, ...labelPosition.couple);
+    canvas.fillText(valueStr, ...labelPosition);
   }
 }
 

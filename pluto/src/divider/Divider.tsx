@@ -9,7 +9,7 @@
 
 import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
-import { type LooseDirectionT } from "@synnaxlabs/x";
+import { type direction } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 
@@ -18,7 +18,7 @@ import "@/divider/Divider.css";
 /** The props for the {@link Divider} component. */
 export interface DividerProps
   extends PropsWithChildren<HTMLAttributes<HTMLDivElement>> {
-  direction?: LooseDirectionT;
+  direction?: direction.Direction;
   padded?: boolean;
 }
 

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Meta, StoryFn } from "@storybook/react";
-import { Bounds } from "@synnaxlabs/x";
+import { type Meta, type StoryFn } from "@storybook/react";
 
 import { Bool } from "@/telem/bool";
 import { Control } from "@/telem/control";
@@ -30,7 +29,7 @@ const Example = (): ReactElement => {
   });
   const booleanSource = Bool.useNumericConverterSource({
     wrap: numericSource,
-    trueBound: new Bounds(30, 40),
+    trueBound: { lower: 30, upper: 40 },
   });
   const numericSink = Control.useNumeric({
     channel: 65541,
@@ -51,7 +50,7 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Controller authority={5}>
+      <Controller authority={5} acquireTrigger={0} name="Controller">
         <Valve.Valve color="#fc3d03" source={booleanSource} sink={booleanSink} />
       </Controller>
     </Canvas.Canvas>

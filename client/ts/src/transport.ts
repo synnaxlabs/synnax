@@ -9,13 +9,12 @@
 
 import {
   HTTPClient,
-  JSONEncoderDecoder,
   WebSocketClient,
   type Middleware,
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { type URL } from "@synnaxlabs/x";
+import { binary, type URL } from "@synnaxlabs/x";
 
 const baseAPIEndpoint = "/api/v1/";
 
@@ -28,7 +27,7 @@ export class Transport {
   constructor(url: URL, secure: boolean = false) {
     this.secure = secure;
     this.url = url.child(baseAPIEndpoint);
-    const ecd = new JSONEncoderDecoder();
+    const ecd = new binary.JSONEncoderDecoder();
     this.unary = new HTTPClient(this.url, ecd, this.secure);
     this.stream = new WebSocketClient(this.url, ecd, this.secure);
   }

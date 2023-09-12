@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { Deep } from "@/deep";
+import { deep } from "@/deep";
 
 interface TestRecord {
   a: number;
@@ -31,6 +31,6 @@ describe("deepDelete", () => {
       a: 1,
       b: {},
     };
-    expect(Deep.delete<TestRecord, 2>(a, "b.c")).toEqual(b);
+    expect(deep.deleteD<TestRecord, 2>(a, "b.c")).toEqual(b);
   });
 });

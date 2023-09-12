@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { Deep } from "@/deep";
+import { deep } from "@/deep";
 
 interface TestRecord {
   a: number;
@@ -40,7 +40,7 @@ describe("deepMerge", () => {
         d: 4,
       },
     };
-    expect(Deep.merge(a, b)).toEqual(c);
+    expect(deep.merge(a, b)).toEqual(c);
   });
   it("Should set a value even when its parent is undefined", () => {
     const a: TestRecord = {
@@ -58,6 +58,6 @@ describe("deepMerge", () => {
         d: 4,
       },
     };
-    expect(Deep.merge(a, b)).toEqual(c);
+    expect(deep.merge(a, b)).toEqual(c);
   });
 });

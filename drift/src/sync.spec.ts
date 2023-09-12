@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { MockRuntime } from "@/mock";
@@ -36,7 +36,7 @@ describe("sync", () => {
   TESTS.forEach(([keyToSet, keyToCheck, valueToSet, expectedValue]) => {
     it(`should set ${keyToSet} to ${JSON.stringify(valueToSet)}`, async () => {
       const runtime = new MockRuntime(true, { key: "main" });
-      const nextState = Deep.copy(initialState);
+      const nextState = deep.copy(initialState);
       const win = nextState.windows[runtime.label()];
       nextState.windows[runtime.label()] = { ...win, [keyToSet]: valueToSet };
       await sync(initialState, nextState, runtime, false);

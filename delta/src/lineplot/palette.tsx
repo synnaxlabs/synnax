@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { createLinePlot } from "@/lineplot/slice";
-import { Command } from "@/palette/Palette";
+import { type Command } from "@/palette/Palette";
 
 export const createLinePlotCommand: Command = {
   key: "create-line-plot",

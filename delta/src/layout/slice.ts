@@ -11,7 +11,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { type CrudeLocation, type DeepKey } from "@synnaxlabs/x";
+import { type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 import { type LayoutState } from "@/layout/layout";
@@ -123,7 +123,7 @@ const ZERO_STATE: SliceState = {
 
 export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`
-) as Array<DeepKey<StoreState>>;
+) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayut action. */
 export type PlacePayload = LayoutState;
@@ -136,7 +136,7 @@ export interface MoveMosaicTabPayload {
   tabKey: string;
   windowKey?: string;
   key: number;
-  loc: CrudeLocation;
+  loc: location.Location;
 }
 interface ResizeMosaicTabPayload {
   windowKey: string;

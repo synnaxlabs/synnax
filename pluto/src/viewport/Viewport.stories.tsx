@@ -56,7 +56,7 @@ export default story;
 
 const ZoomMiniMap = ({ box }: { box: Box }): ReactElement => {
   const scaled = XYScale.scale(Box.DECIMAL)
-    .scale(new Box(0, 0, 400, 400))
+    .scale(box.construct(0, 0, 400, 400))
     .box(box)
     .reRoot({ x: "left", y: "top" });
   return (

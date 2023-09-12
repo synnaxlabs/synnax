@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Box, type Location, type Scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -15,6 +14,7 @@ import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+import { box, location, scale } from "@synnaxlabs/x";
 
 export const ruleStateZ = z.object({
   position: z.number().optional(),
@@ -26,10 +26,10 @@ export const ruleStateZ = z.object({
 });
 
 export interface RuleProps {
-  location: Location;
-  decimalToDataScale: Scale;
-  plot: Box;
-  container: Box;
+  location: location.Location;
+  decimalToDataScale: scale.Scale;
+  plot: box.Box;
+  container: box.Box;
 }
 
 interface InternalState {
@@ -46,17 +46,17 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
-    render.Controller.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   afterDelete(): void {
-    render.Controller.requestRender(this.ctx);
+    render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
     if (this.state.dragging && this.state.pixelPosition != null) {
       const pos = scale.pos(
-        (this.state.pixelPosition - plot.top + container.top) / plot.height,
+        (this.state.pixelPosition - box.top(plot) + box.top(container)) / box.height(plot),
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;
@@ -67,9 +67,9 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
       this.setState((p) => ({ ...p, position: pos }));
     }
     const pixelPos =
-      scale.reverse().pos(this.state.position as number) * plot.height +
-      plot.top -
-      container.top;
+      scale.reverse().pos(this.state.position as number) * box.height(plot) +
+      box.top(plot) -
+      box.top(container);
     if (!isNaN(pixelPos)) this.setState((p) => ({ ...p, pixelPosition: pixelPos }));
     return pixelPos;
   }
@@ -77,13 +77,13 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
   async render(props: RuleProps): Promise<void> {
     if (this.deleted) return;
     const { renderCtx } = this.internal;
-    const { location, plot: plottingRegion } = props;
-    const direction = location.direction;
+    const { location: l, plot: plottingRegion } = props;
+    const direction = location.direction(l);
     const { upper2d: canvas } = renderCtx;
     const draw = this.internal.draw;
 
     let pixelPos = this.updatePositions(props);
-    pixelPos += props.container.top;
+    pixelPos += box.top(props.container);
 
     draw.rule({
       stroke: this.state.color,
@@ -96,14 +96,14 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
 
     canvas.fillStyle = this.state.color.hex;
     canvas.beginPath();
-    if (location.isLeft) {
-      canvas.moveTo(plottingRegion.left, pixelPos);
-      canvas.lineTo(plottingRegion.left - 5, pixelPos - 5);
-      canvas.lineTo(plottingRegion.left - 5, pixelPos + 5);
-    } else if (location.isRight) {
-      canvas.moveTo(plottingRegion.right, pixelPos);
-      canvas.lineTo(plottingRegion.right + 5, pixelPos - 5);
-      canvas.lineTo(plottingRegion.right + 5, pixelPos + 5);
+    if (l === "left") {
+      canvas.moveTo(box.left(plottingRegion), pixelPos);
+      canvas.lineTo(box.left(plottingRegion) - 5, pixelPos - 5);
+      canvas.lineTo(box.left(plottingRegion) - 5, pixelPos + 5);
+    } else if (l === "right") {
+      canvas.moveTo(box.right(plottingRegion), pixelPos);
+      canvas.lineTo(box.right(plottingRegion) + 5, pixelPos - 5);
+      canvas.lineTo(box.right(plottingRegion) + 5, pixelPos + 5);
     }
     canvas.closePath();
     canvas.fill();

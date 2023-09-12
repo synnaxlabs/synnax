@@ -9,8 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { Bounds, type CrudeDirection, Direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
+
+import {bounds, direction} from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -43,7 +44,7 @@ const Element = ({
   onChange,
   label,
   position: _,
-  direction = "x",
+  direction: dir = "x",
   source,
   sink,
   ...props
@@ -51,13 +52,12 @@ const Element = ({
   const handleLabelChange = (label: string): void =>
     onChange({ ...props, label, source, sink });
 
-  const parsedDirection = new Direction(direction);
 
   const sourceN = Remote.useNumericSource(source);
   const sinkN = Control.useNumeric(sink);
   const sourceB = Bool.useNumericConverterSource({
     wrap: sourceN,
-    trueBound: new Bounds(0.9, 1.1),
+    trueBound: bounds.construct(0.9, 1.1),
   });
   const sinkB = Bool.useNumericConverterSink({
     wrap: sinkN,
@@ -75,13 +75,13 @@ const Element = ({
         CSS.selected(selected),
         CSS.editable(editable),
       )}
-      direction={parsedDirection.inverse}
+      direction={direction.swap(dir)}
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div className={CSS.BE("valve-pid-element", "valve-container")}>
-        <Handle position={parsedDirection.isX ? Left : Top} id="a" type="source" />
-        <Handle position={parsedDirection.isX ? Right : Bottom} id="b" type="source" />
-        <Valve source={sourceB} sink={sinkB} direction={direction} {...props} />
+        <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
+        <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
+        <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
       </div>
     </Align.Space>
   );
@@ -99,7 +99,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleColorChange = (color: Color.Color): void =>
     onChange({ ...value, color: color.hex });
 
-  const handleDirectionChange = (direction: CrudeDirection): void =>
+  const handleDirectionChange = (direction: direction.Direction): void =>
     onChange({ ...value, direction });
 
   return (
@@ -113,9 +113,9 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
           {/* @ts-expect-error */}
           {componentRenderProp(Color.Swatch)}
         </Input.Item>
-        <Input.Item<CrudeDirection>
+        <Input.Item<direction.Direction>
           label="Direction"
-          value={new Direction(value.direction ?? "x").crude}
+          value={value.direction ?? "x"}
           onChange={handleDirectionChange}
         >
           {componentRenderProp(Select.Direction)}

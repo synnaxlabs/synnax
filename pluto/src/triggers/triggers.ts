@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Compare, type CompareF, type XY } from "@synnaxlabs/x";
+import { Compare, type xy, type CompareF } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import { useMemoCompare } from "@/memo";
 
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
 
@@ -142,7 +144,7 @@ export interface Event {
   target: HTMLElement;
   prev: Trigger[];
   next: Trigger[];
-  cursor: XY;
+  cursor: xy.XY;
 }
 
 export type Callback = (e: Event) => void;
@@ -266,6 +268,10 @@ export const flattenConfig = <K extends string | number | symbol>(
   ) as unknown as Array<[K, Trigger[]]>;
   return e.map(([, v]) => v).flat();
 };
+
+export const useFlattenedConfig = <K extends string | number | symbol>(
+  config: Config<K>,
+): Trigger[] => useMemoCompare(() => flattenConfig(config), compareConfigs, [config]);
 
 export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
   triggers

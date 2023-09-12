@@ -15,7 +15,6 @@ import {
   useRef,
 } from "react";
 
-import { XY, type CrudeXY, type Box } from "@synnaxlabs/x";
 import { BaseEdge, type EdgeProps as RFEdgeProps, useViewport } from "reactflow";
 
 import { Color } from "@/color";
@@ -30,16 +29,17 @@ import {
 } from "@/vis/pid/edge/edgeUtils";
 
 import "@/vis/pid/edge/Edge.css";
+import { box, direction, xy } from "@synnaxlabs/x";
 
 interface CurrentlyDragging {
-  root: XY;
+  root: xy.XY;
   index: number;
 }
 
 export interface EdgeProps extends RFEdgeProps {
   editable: boolean;
-  points: CrudeXY[];
-  onPointsChange: (p: CrudeXY[]) => void;
+  points: xy.XY[];
+  onPointsChange: (p: xy.XY[]) => void;
   color?: Color.Crude;
 }
 
@@ -59,9 +59,7 @@ export const Edge = ({
   color,
   ...props
 }: EdgeProps): ReactElement => {
-  const [points, setPoints, pointsRef] = useCombinedStateAndRef<XY[]>(() =>
-    propsPoints.map((p) => new XY(p)),
-  );
+  const [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints)
 
   const { zoom } = useViewport();
 
@@ -71,12 +69,12 @@ export const Edge = ({
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
-    onStart: useCallback((_: XY, __: Key, e: DragEvent) => {
+    onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
       const index = Number(e.currentTarget.id.split("-")[1]);
       dragRef.current = { root: pointsRef.current[index], index };
     }, []),
     onMove: useCallback(
-      (b: Box) => {
+      (b: box.Box) => {
         setPoints((prev) => {
           if (dragRef.current == null) return prev;
           const { root, index } = dragRef.current;
@@ -87,7 +85,7 @@ export const Edge = ({
       },
       [zoom],
     ),
-    onEnd: useCallback(() => onPointsChange(pointsRef.current.map((p) => p.crude)), []),
+    onEnd: useCallback(() => onPointsChange(pointsRef.current), [onPointsChange]),
   });
 
   return (
@@ -99,13 +97,14 @@ export const Edge = ({
       />
       {calcMidPoints(points).map((p, i) => {
         const dir = calculateLineDirection(points[i], points[i + 1]);
+        const swapped = direction.swap(dir);
         const dims = {
-          [dir.dimension]: "18px",
-          [dir.inverse.dimension]: "4px",
+          [direction.dimension(dir)]: "18px",
+          [direction.dimension(swapped)]: "4px",
         };
         const pos = {
-          [dir.crude]: p[dir.crude] - 9,
-          [dir.inverse.crude]: p[dir.inverse.crude] - 2,
+          [dir]: p[dir] - 9,
+          [swapped]: p[swapped] - 2,
         };
         return (
           <Fragment key={i}>
@@ -133,16 +132,16 @@ export const Edge = ({
   );
 };
 
-export const calcPath = (points: XY[]): string => {
+export const calcPath = (points: xy.XY[]): string => {
   if (points.length === 0) return "";
   const [start, ...rest] = points;
   // Generate a path string of lines between each point with a corner radius of 2px
   return `M ${start.x} ${start.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(" ")}`;
 };
 
-export const calcMidPoints = (points: XY[]): XY[] => {
+export const calcMidPoints = (points: xy.XY[]): xy.XY[] => {
   return points.slice(1).map((p, i) => {
     const prev = points[i];
-    return new XY((p.x + prev.x) / 2, (p.y + prev.y) / 2);
+    return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
   });
 };

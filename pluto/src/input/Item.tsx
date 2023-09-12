@@ -9,7 +9,7 @@
 
 import { forwardRef, type ReactElement, type Ref } from "react";
 
-import { Direction, toArray } from "@synnaxlabs/x";
+import { direction, toArray } from "@synnaxlabs/x";
 import {
   type UseControllerProps,
   useController,
@@ -79,14 +79,14 @@ const CoreItem = <
   const children_ = toArray(children).map((c) =>
     typeof c === "object" ? c.render : c,
   );
-  const direction = new Direction(direction_);
+  const dir = direction.construct(direction_);
 
   let content: ReactElement | null;
   if (children_.length === 1) {
     content = children_[0]({ ref, key: 0, ...(props as unknown as P) });
   } else {
     content = (
-      <Align.Pack direction={direction}>
+      <Align.Pack direction={dir}>
         {
           children_
             // Unlikely to change order here so we can use index as key
@@ -100,12 +100,12 @@ const CoreItem = <
   return (
     <Align.Space
       justify={justify}
-      align={maybeDefaultAlignment(align, direction)}
+      align={maybeDefaultAlignment(align, dir)}
       empty={empty}
       grow={grow}
       size={size}
       className={CSS(CSS.B("input-item"), className)}
-      direction={direction}
+      direction={dir}
       style={style}
     >
       {showLabel && <Label>{label}</Label>}
@@ -117,10 +117,10 @@ const CoreItem = <
 
 const maybeDefaultAlignment = (
   align?: Align.Alignment,
-  direction?: Direction,
+  dir?: direction.Direction,
 ): Align.Alignment => {
   if (align != null) return align;
-  return direction?.equals("y") ?? false ? "stretch" : "center";
+  return dir === "y" ?? false ? "stretch" : "center";
 };
 
 export type ItemControlledProps<

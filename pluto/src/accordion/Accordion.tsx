@@ -10,7 +10,7 @@
 import { type ReactElement, type RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Box, Direction } from "@synnaxlabs/x";
+import { box, type direction } from "@synnaxlabs/x";
 
 import { type Button } from "@/button";
 import { CSS } from "@/css";
@@ -48,7 +48,7 @@ export interface AccordionProps
   data: Entry[];
 }
 
-const DIRECTION = Direction.Y;
+const DIRECTION: direction.Direction = "y";
 const MIN_SIZE = 28;
 const COLLAPSED_THRESHOLD = 32;
 const EXPAND_THRESHOLD = 40;
@@ -77,7 +77,7 @@ export const Accordion = ({ data, ...props }: AccordionProps): ReactElement => {
 
   const onExpand = (index: number): void => {
     if (ref.current == null) return;
-    const parentSize = new Box(ref.current).dim(DIRECTION);
+    const parentSize = box.dim(box.construct(ref.current), DIRECTION);
     if (sizes[index] < EXPAND_THRESHOLD / parentSize)
       setSize(index, data[index].initialSize ?? DEFAULT_EXPAND_SIZE);
     else setSize(index, MIN_SIZE + 1);
@@ -112,7 +112,7 @@ interface EntryCProps extends Omit<Entry, "key"> {
   size: number;
   parent: RefObject<HTMLDivElement>;
   onExpand: (i: number) => void;
-  direction: Direction;
+  direction: direction.Direction;
 }
 
 const expandedIcon = <Icon.Caret.Down aria-label="contract" />;
@@ -129,7 +129,7 @@ const EntryC = ({
 }: EntryCProps): ReactElement => {
   let expanded = true;
   if (parent.current != null) {
-    const parentSize = new Box(parent.current).dim(DIRECTION);
+    const parentSize = box.dim(box.construct(parent.current), DIRECTION);
     expanded = size * parentSize > COLLAPSED_THRESHOLD;
   }
   const icon = expanded ? expandedIcon : collapsedIcon;

@@ -9,7 +9,7 @@
 
 import { type Middleware } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Deep, type UnknownRecord, type DeepKey } from "@synnaxlabs/x";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -21,7 +21,7 @@ const PERSISTED_STATE_KEY = "delta-persisted-state";
 export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
-  exclude: Array<DeepKey<S>>;
+  exclude: Array<deep.Key<S>>;
 }
 
 export const open = async <S extends RequiredState>({
@@ -40,8 +40,8 @@ export const open = async <S extends RequiredState>({
       if (appWindow.label !== MAIN_WINDOW) return result;
       // We need to make a deep copy here to make immer happy
       // when we do exclusions.
-      const deepCopy = Deep.copy(store.getState());
-      const filtered = Deep.delete<S>(deepCopy, ...exclude);
+      const deepCopy = deep.copy(store.getState());
+      const filtered = deep.deleteD<S>(deepCopy, ...exclude);
       void db.set(PERSISTED_STATE_KEY, filtered);
       return result;
     },

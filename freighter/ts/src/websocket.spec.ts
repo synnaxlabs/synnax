@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL, JSONEncoderDecoder } from "@synnaxlabs/x";
+import { URL, binary } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -25,7 +25,7 @@ const MessageSchema = z.object({
   message: z.string().optional(),
 });
 
-const client = new WebSocketClient(url, new JSONEncoderDecoder());
+const client = new WebSocketClient(url, new binary.JSONEncoderDecoder());
 
 class MyCustomError extends BaseTypedError {
   code: number;
@@ -98,7 +98,7 @@ describe("websocket", () => {
   });
 
   test("middleware", async () => {
-    const myClient = new WebSocketClient(url, new JSONEncoderDecoder());
+    const myClient = new WebSocketClient(url, new binary.JSONEncoderDecoder());
     let c = 0;
     myClient.use(async (md, next): Promise<[Context, Error | null]> => {
       if (md.params !== undefined) {

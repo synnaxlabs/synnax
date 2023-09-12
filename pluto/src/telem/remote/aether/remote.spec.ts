@@ -15,7 +15,7 @@ import {
   Series,
   TimeRange,
 } from "@synnaxlabs/client";
-import { Bounds, type Destructor, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type Destructor, TimeSpan } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
@@ -168,11 +168,11 @@ describe("XY", () => {
     describe("bounds", () => {
       it("should return the bounds of the x channel's data", async () => {
         const bounds = await telem.xBounds();
-        expect(bounds).toEqual(new Bounds(1, 3));
+        expect(bounds).toEqual({ lower: 1, upper: 3 });
       });
       it("should return the bounds of the y channel's data", async () => {
         const bounds = await telem.yBounds();
-        expect(bounds).toEqual(new Bounds(3, 5));
+        expect(bounds).toEqual({ lower: 3, upper: 5 });
       });
     });
     describe("invalidate", () => {

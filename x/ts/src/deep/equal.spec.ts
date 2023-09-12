@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { Deep } from "@/deep";
+import { deep } from "@/deep";
 
 interface TestRecord {
   a: number;
@@ -24,29 +24,29 @@ describe("deepEqual", () => {
     it("should return true for overlapping objects", () => {
       const base: TestRecord = { a: 1, b: { c: 2, d: 3 } };
       const partial: TestRecord = { a: 1, b: { c: 2 } };
-      expect(Deep.partialEqual(base, partial)).toBe(true);
+      expect(deep.partialEqual(base, partial)).toBe(true);
     });
     it("should return false for non-overlapping objects", () => {
       const base = { a: 1, b: { c: 2, d: 3 } };
       const partial = { a: 1, b: { c: 2, d: 4 } };
-      expect(Deep.partialEqual(base, partial)).toBe(false);
+      expect(deep.partialEqual(base, partial)).toBe(false);
     });
   });
   describe("deepEqual", () => {
     it("should return true for equal objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2, d: 3 } };
-      expect(Deep.equal(a, b)).toBe(true);
+      expect(deep.equal(a, b)).toBe(true);
     });
     it("should return false for non-equal objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2, d: 4 } };
-      expect(Deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBe(false);
     });
     it("should return false for partial objects", () => {
       const a = { a: 1, b: { c: 2, d: 3 } };
       const b = { a: 1, b: { c: 2 } };
-      expect(Deep.equal(a, b)).toBe(false);
+      expect(deep.equal(a, b)).toBe(false);
     });
   });
 });

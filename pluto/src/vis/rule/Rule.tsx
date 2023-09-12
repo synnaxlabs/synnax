@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { Bounds, type Box } from "@synnaxlabs/x";
+import { bounds, box } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
@@ -67,8 +67,8 @@ export const Rule = Aether.wrap<RuleProps>(
     useEffect(() => {
       if (position == null) return;
       if (propsPosition == null) return onPositionChange?.(position);
-      const b = new Bounds(position + 0.01, position - 0.01);
-      if (propsPosition != null && !b.contains(propsPosition))
+      const b = bounds.construct(position + 0.01, position - 0.01);
+      if (propsPosition != null && !bounds.contains(b, propsPosition))
         onPositionChange?.(Math.trunc(position * 100) / 100);
     }, [position]);
 
@@ -86,10 +86,10 @@ export const Rule = Aether.wrap<RuleProps>(
         setState((p) => ({ ...p, dragging: true }));
         dragStartRef.current = pixelPosRef.current;
       }, []),
-      onMove: (box: Box) => {
+      onMove: (b: box.Box) => {
         setState((p) => ({
           ...p,
-          pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight,
+          pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight(b),
         }));
       },
       onEnd: useCallback(() => {

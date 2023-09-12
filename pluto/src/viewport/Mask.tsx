@@ -9,6 +9,8 @@
 
 import { type CSSProperties, type ReactElement, forwardRef } from "react";
 
+import { box } from "@synnaxlabs/x";
+
 import { CSS } from "@/css";
 import { type UseReturn, type Mode } from "@/viewport/use";
 
@@ -47,8 +49,8 @@ export const Mask = forwardRef<HTMLDivElement, MaskProps>(
     >
       <div
         style={{
-          ...maskBox.css,
-          display: maskBox.isZero ? "none" : "block",
+          ...box.css(maskBox),
+          display: box.isZero(maskBox) ? "none" : "block",
         }}
         className={CSS.BE("viewport-mask", "selection")}
       />

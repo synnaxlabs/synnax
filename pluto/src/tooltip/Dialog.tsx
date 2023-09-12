@@ -19,18 +19,12 @@ import {
 } from "react";
 
 import {
-  Box,
-  type CrudeLocation,
-  type CrudeOuterLocation,
+  type dimensions,
+  xy,
+  location,
   type CrudeTimeSpan,
-  type CrudeXLocation,
-  type CrudeXYLocation,
-  type CrudeYLocation,
-  type Dimensions,
-  Location,
+  box,
   TimeSpan,
-  type XY,
-  XYLocation,
 } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 
@@ -41,41 +35,45 @@ import "@/tooltip/Dialog.css";
 
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
-  location?: CrudeOuterLocation | Partial<CrudeXYLocation>;
+  location?: location.Outer | Partial<location.XY>;
   hide?: boolean;
   children: [ReactNode, ReactElement];
 }
 
 interface State {
-  location: XYLocation;
-  position: XY;
-  elDims: Dimensions;
+  location: location.XY;
+  position: xy.XY;
+  elDims: dimensions.Dimensions;
 }
 
 const SIZE_THRESHOLD = 150;
 
-const Y_LOCATION_PREFERENCES: CrudeYLocation[] = ["top", "bottom"];
-const X_LOCATION_PREFERENCES: CrudeXLocation[] = ["left", "right"];
-const OUTER_LOCATION_PREFERENCES: CrudeOuterLocation[] = [
+const Y_LOCATION_PREFERENCES: location.Y[] = ["top", "bottom"];
+const X_LOCATION_PREFERENCES: location.X[] = ["left", "right"];
+const OUTER_LOCATION_PREFERENCES: location.Outer[] = [
   ...X_LOCATION_PREFERENCES,
   ...Y_LOCATION_PREFERENCES,
 ];
-const LOCATION_PREFERENCES: CrudeLocation[] = [...OUTER_LOCATION_PREFERENCES, "center"];
+const LOCATION_PREFERENCES: location.Location[] = [
+  ...OUTER_LOCATION_PREFERENCES,
+  "center",
+];
 
-const LOCATION_TRANSLATIONS: Record<string, (xy: XY, container: Box) => XY> = {
-  [XYLocation.TOP_RIGHT.toString()]: (xy, c) => xy.translateX(-c.width),
-  [XYLocation.TOP_LEFT.toString()]: (xy, c) => xy.translateX(c.width),
-  [XYLocation.BOTTOM_RIGHT.toString()]: (xy, c) => xy.translateX(-c.width),
-  [XYLocation.BOTTOM_LEFT.toString()]: (xy, c) => xy.translateX(c.width),
+const LOCATION_TRANSLATIONS: Record<string, (p: xy.XY, container: box.Box) => xy.XY> = {
+  [location.xyToString(location.TOP_RIGHT)]: (p, c) => xy.translateX(p, -box.width(c)),
+  [location.xyToString(location.TOP_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
+  [location.xyToString(location.BOTTOM_RIGHT)]: (p, c) =>
+    xy.translateX(p, -box.width(c)),
+  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
 };
 
-const bestLocation = <C extends CrudeLocation>(
-  container: Box,
-  window: Box,
+const bestLocation = <C extends location.Location>(
+  container: box.Box,
+  window: box.Box,
   options: C[],
 ): C => {
   for (const location of options) {
-    const distance = Math.abs(window.loc(location) - container.loc(location));
+    const distance = Math.abs(box.loc(window, location) - box.loc(container, location));
     if (distance > SIZE_THRESHOLD) return location;
   }
   return options[0];
@@ -112,49 +110,47 @@ export const Dialog = ({
   const handleVisibleChange = (e: MouseEvent, visible: boolean): void => {
     if (!visible || hide) return setState(null);
     config.startAccelerating();
-    const container = new Box(e.target as HTMLElement);
-    const window = new Box(document.documentElement);
-    const parse = Location.looseZ.safeParse(cornerOrLocation);
+    const container = box.construct(e.target as HTMLElement);
+    const window = box.construct(document.documentElement);
+    const parse = location.location.safeParse(cornerOrLocation);
 
-    const chooseRemainingLocation = (first: Location): Location => {
-      let preferences: CrudeLocation[];
-      if (first.isCenter) {
+    const chooseRemainingLocation = (first: location.Location): location.Location => {
+      let preferences: location.Location[];
+      if (first === "center") {
         preferences = OUTER_LOCATION_PREFERENCES;
-      } else if (first.isX) preferences = ["center", ...Y_LOCATION_PREFERENCES];
+      } else if (location.isX(first))
+        preferences = ["center", ...Y_LOCATION_PREFERENCES];
       else preferences = ["center", ...X_LOCATION_PREFERENCES];
-      return new Location(bestLocation(container, window, preferences));
+      return location.construct(bestLocation(container, window, preferences));
     };
 
-    let xy: XYLocation = XYLocation.CENTER;
+    let xy: location.XY = location.CENTER;
     if (parse.success) {
-      xy = new XYLocation(parse.data, chooseRemainingLocation(parse.data));
+      xy = location.constructXY(parse.data, chooseRemainingLocation(parse.data));
     } else if (cornerOrLocation != null) {
-      const v = cornerOrLocation as Partial<CrudeXYLocation>;
+      const v = cornerOrLocation as Partial<location.XY>;
       if (v.x == null && v.y != null)
-        v.x = chooseRemainingLocation(new Location(v.y)).crude as CrudeXLocation;
+        v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
       else if (v.y == null && v.x != null)
-        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
       else if (v.x == null && v.y == null) {
-        v.x = new Location(bestLocation(container, window, LOCATION_PREFERENCES))
-          .crude as CrudeXLocation;
-        v.y = chooseRemainingLocation(new Location(v.x)).crude as CrudeYLocation;
+        v.x = bestLocation(container, window, LOCATION_PREFERENCES) as location.X;
+        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
       }
-      xy = new XYLocation(v as CrudeXYLocation);
+      xy = location.constructXY(v as location.XY);
     } else {
-      const chosen = new Location(
-        bestLocation(container, window, LOCATION_PREFERENCES),
-      );
-      xy = new XYLocation(chosen, chooseRemainingLocation(chosen));
+      const chosen = bestLocation(container, window, LOCATION_PREFERENCES);
+      xy = location.constructXY(chosen, chooseRemainingLocation(chosen));
     }
 
-    let pos = container.xyLoc(xy);
-    const translate = LOCATION_TRANSLATIONS[xy.toString()];
+    let pos = box.xyLoc(container, xy);
+    const translate = LOCATION_TRANSLATIONS[location.xyToString(xy)];
     if (translate != null) pos = translate(pos, container);
 
     setState({
       location: xy,
       position: pos,
-      elDims: container.dims,
+      elDims: box.dims(container),
     });
   };
 
@@ -185,8 +181,8 @@ export const Dialog = ({
               CSS.loc(state.location.y),
             )}
             style={{
-              ...state.position.css,
-              // @ts-expect-error
+              ...xy.css(state.position),
+              // @ts-expect-error - css
               "--el-width": CSS.px(state.elDims.width),
             }}
           >

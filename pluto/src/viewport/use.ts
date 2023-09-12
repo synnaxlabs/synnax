@@ -9,22 +9,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  Box,
-  Dimensions,
-  type XY,
-  XYScale,
-  type CrudeDimensions,
-  XYLocation,
-} from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
 import { useStateRef } from "@/hooks/useStateRef";
 import { Triggers } from "@/triggers";
 
 export interface UseEvent {
-  box: Box;
-  cursor: XY;
+  box: box.Box;
+  cursor: xy.XY;
   mode: Mode;
   stage: Triggers.Stage;
 }
@@ -37,13 +30,13 @@ export interface UseProps {
   triggers?: UseTriggers;
   onChange?: UseHandler;
   resetOnDoubleClick?: boolean;
-  threshold?: CrudeDimensions;
-  initial?: Box;
+  threshold?: dimensions.Dimensions;
+  initial?: box.Box;
 }
 
 export interface UseReturn {
   mode: Mode;
-  maskBox: Box;
+  maskBox: box.Box;
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
@@ -104,7 +97,7 @@ const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
   ) as unknown as UseTriggers;
 };
 
-const D = new Box(0, 0, 1, 1, XYLocation.TOP_LEFT);
+const D = box.construct(0, 0, 1, 1, location.TOP_LEFT);
 
 const DEFAULT_THRESHOLD = { width: 30, height: 30 };
 
@@ -116,11 +109,11 @@ export const use = ({
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
-  const [maskBox, setMaskBox] = useState<Box>(Box.ZERO);
+  const [maskBox, setMaskBox] = useState<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
-  const [stateRef, setStateRef] = useStateRef<Box>(initial);
+  const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const threshold = new Dimensions(threshold_);
+  const threshold = dimensions.construct(threshold_);
 
   useEffect(() => setStateRef(initial), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
@@ -146,38 +139,38 @@ export const use = ({
     );
 
   const handleDrag = useCallback<Triggers.DragCallback>(
-    ({ box, triggers, stage, cursor }): void => {
+    ({ box: box_, triggers, stage, cursor }): void => {
       if (canvasRef.current == null) return;
       const mode = Triggers.determineMode<TriggerMode>(triggerConfig, triggers);
-      const canvas = new Box(canvasRef.current);
+      const canvas = box.construct(canvasRef.current);
       if (mode == null) return;
 
       if (mode === "zoomReset") {
-        setMaskBox(Box.ZERO);
-        onChange?.({ box: Box.DECIMAL, mode, stage, cursor });
-        return setStateRef(Box.DECIMAL);
+        setMaskBox(box.ZERO);
+        onChange?.({ box: box.DECIMAL, mode, stage, cursor });
+        return setStateRef(box.DECIMAL);
       }
 
       if (stage === "end") {
         // This prevents clicks from being registered as a drag
-        if (box.width < 5 && box.height < 5) {
-          if (mode === "zoom") setMaskBox(Box.ZERO);
+        if (box.width(box_) < 5 && box.height(box_) < 5) {
+          if (mode === "zoom") setMaskBox(box.ZERO);
           onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
         }
         return setStateRef((prev) => {
           if (mode === "pan") {
-            const next = handlePan(box, prev, canvas);
+            const next = handlePan(box_, prev, canvas);
             if (next === null) return prev;
             onChange?.({ box: next, mode, stage, cursor });
             return next;
           }
-          const next = handleZoomSelect(box, prev, canvas);
+          const next = handleZoomSelect(box_, prev, canvas);
           if (next === null) return prev;
           onChange?.({ box: next, mode, stage, cursor });
 
           if (mode === "zoom") {
-            setMaskBox(Box.ZERO);
+            setMaskBox(box.ZERO);
             return next;
           }
           return prev;
@@ -185,17 +178,17 @@ export const use = ({
       }
 
       if (MASK_MODES.includes(mode)) {
-        if (box.height < 5 && box.width < 5) return;
+        if (box.height(box_) < 5 && box.width(box_) < 5) return;
         return setMaskBox(
-          XYScale.scale(canvas)
+          scale.XY.scale(canvas)
             .clamp(canvas)
-            .translate({ x: -canvas.left, y: -canvas.top })
-            .box(fullSize(threshold, box, canvas)),
+            .translate({ x: -box.left(canvas), y: -box.top(canvas) })
+            .box(fullSize(threshold, box_, canvas)),
         );
       }
 
-      setMaskBox((prev) => (!prev.isZero ? Box.ZERO : prev));
-      const next = handlePan(box, stateRef.current, canvas);
+      setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
+      const next = handlePan(box_, stateRef.current, canvas);
       onChange?.({
         box: next,
         mode,
@@ -216,9 +209,8 @@ export const use = ({
   );
 
   const handleZoomSelect = useCallback(
-    (box: Box, prev: Box, canvas: Box): Box | null => {
-      return scale(prev, canvas).box(fullSize(threshold, box, canvas));
-    },
+    (box: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
+      constructScale(prev, canvas).box(fullSize(threshold, box, canvas)),
     [threshold_],
   );
 
@@ -252,19 +244,33 @@ export const use = ({
   };
 };
 
-const scale = (prev: Box, canvas: Box): XYScale =>
-  XYScale.scale(canvas).clamp(canvas).scale(prev);
+const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
+  scale.XY.scale(canvas).clamp(canvas).scale(prev);
 
-const handlePan = (box: Box, prev: Box, canvas: Box): Box => {
-  let dims = scale(prev, canvas).box(box).signedDims;
+const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
+  let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return XYScale.translate(dims).box(prev);
+  return scale.XY.translate(xy.construct(dims)).box(prev);
 };
 
-const fullSize = (threshold: Dimensions, box: Box, parent: Box): Box => {
-  if (box.height <= threshold.height)
-    return new Box(box.left, parent.top, box.width, parent.height);
-  if (box.width <= threshold.width)
-    return new Box(parent.left, box.top, parent.width, box.height);
-  return box;
+const fullSize = (
+  threshold: dimensions.Dimensions,
+  b: box.Box,
+  parent: box.Box,
+): box.Box => {
+  if (box.height(b) <= threshold.height)
+    return box.construct(
+      box.left(b),
+      box.top(parent),
+      box.width(b),
+      box.height(parent),
+    );
+  if (box.width(b) <= threshold.width)
+    return box.construct(
+      box.left(parent),
+      box.top(b),
+      box.width(parent),
+      box.height(b),
+    );
+  return b;
 };

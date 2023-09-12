@@ -18,7 +18,7 @@ import {
   useState,
 } from "react";
 
-import { Box, type CrudeYLocation, Location, XY } from "@synnaxlabs/x";
+import { box, location as loc, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -77,21 +77,21 @@ export const use = (props?: UseProps): UseReturn => {
 export interface DialogProps
   extends Pick<UseReturn, "visible">,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: CrudeYLocation;
+  location?: loc.Y;
   children: [ReactElement, ReactElement];
   keepMounted?: boolean;
   matchTriggerWidth?: boolean;
 }
 
 interface State {
-  pos: XY;
-  loc: Location;
+  pos: xy.XY;
+  loc: loc.Location;
   width: number;
 }
 
 const ZERO_STATE: State = {
-  pos: XY.ZERO,
-  loc: Location.TOP,
+  pos: xy.ZERO,
+  loc: "top",
   width: 0,
 };
 
@@ -119,27 +119,31 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     forwardedRef,
   ): ReactElement => {
     const ref = useRef<HTMLDivElement>(null);
-    const visibleRef = useRef(visible);
+    const visibleRef = useRef<boolean | null>(null);
 
-    const [{ pos, loc, width }, setState] = useState<State>(ZERO_STATE);
+    const [{ pos, loc: loc_, width }, setState] = useState<State>(ZERO_STATE);
 
     const calculatePosition = useCallback(() => {
       if (ref.current == null) return;
-      const windowBox = new Box(0, 0, window.innerWidth, window.innerHeight);
-      const box = new Box(ref.current);
-      const toTop = Math.abs(box.center.y - windowBox.top);
-      const toBottom = Math.abs(box.center.x - windowBox.bottom);
-      const loc = new Location(location ?? (toBottom > toTop ? "bottom" : "top"));
-      const pos = new XY(box.left, box.loc(loc));
-      setState({ pos, loc, width: box.width });
+      const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
+      const b = box.construct(ref.current);
+      const toTop = Math.abs(box.center(b).y - box.top(windowBox));
+      const toBottom = Math.abs(box.center(b).y - box.bottom(windowBox));
+      const loc_ = loc.construct(location ?? (toBottom > toTop ? "bottom" : "top"));
+      const pos = xy.construct(box.left(b), box.loc(b, loc_));
+      setState({ pos, loc: loc_, width: box.width(b) });
     }, []);
 
-    if (visible && !visibleRef.current && ref.current != null) calculatePosition();
-    visibleRef.current = visible;
+    if (ref.current != null) {
+      if (visible && (visibleRef.current == null || !visibleRef.current)) {
+        calculatePosition();
+      }
+      visibleRef.current = visible;
+    }
 
     const resizeRef = useResize(calculatePosition);
     const combinedRef = useCombinedRefs(forwardedRef, ref, resizeRef);
-    const dialogStyle: CSSProperties = { ...pos.css };
+    const dialogStyle: CSSProperties = { ...xy.css(pos) };
     if (matchTriggerWidth) dialogStyle.width = width;
 
     return (
@@ -148,14 +152,14 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
         ref={combinedRef}
         className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
         direction="y"
-        reverse={loc.equals("top")}
+        reverse={loc_ === "top"}
       >
         {children[0]}
         {(keepMounted || visible) && (
           <Align.Space
             className={CSS(
               CSS.BE("dropdown", "dialog"),
-              CSS.loc(loc),
+              CSS.loc(loc_),
               CSS.visible(visible),
             )}
             role="dialog"

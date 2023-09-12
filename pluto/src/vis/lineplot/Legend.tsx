@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { XY, type CrudeXY, Box, XYScale, XYLocation } from "@synnaxlabs/x";
+import { box, location, scale, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";
@@ -34,7 +34,7 @@ import "@/vis/lineplot/Legend.css";
 
 export interface LegendProps
   extends Omit<Align.SpaceProps, "onChange">,
-    Partial<OptionalControl<CrudeXY>> {
+    Partial<OptionalControl<xy.XY>> {
   onLabelChange?: (id: string, label: string) => void;
   onColorChange?: (id: string, color: Color.Color) => void;
 }
@@ -44,24 +44,24 @@ type CSSPosition = Partial<
 >;
 
 export const intelligentPosition = (
-  pos: XY,
+  pos: xy.XY,
   ref: RefObject<HTMLDivElement>,
 ): CSSPosition => {
   if (ref.current == null) return { display: "none" };
   const ret: CSSPosition = {};
-  const parentBox = new Box(ref.current.parentElement as HTMLDivElement);
-  const box = new Box(ref.current);
+  const parentBox = box.construct(ref.current.parentElement as HTMLDivElement);
+  const b = box.construct(ref.current);
   if (pos.x > 0.8) {
-    ret.right = `${(1 - pos.x) * parentBox.width - box.width}px`;
+    ret.right = `${(1 - pos.x) * box.width(parentBox) - box.width(b)}px`;
   } else if (pos.x < 0.2) {
-    ret.left = `${pos.x * parentBox.width}px`;
+    ret.left = `${pos.x * box.width(parentBox)}px`;
   } else {
     ret.left = `${pos.x * 100}%`;
   }
   if (pos.y > 0.8) {
-    ret.bottom = `${(1 - pos.y) * parentBox.height - box.height}px`;
+    ret.bottom = `${(1 - pos.y) * box.height(parentBox) - box.height(b)}px`;
   } else if (pos.y < 0.2) {
-    ret.top = `${pos.y * parentBox.height}px`;
+    ret.top = `${pos.y * box.height(parentBox)}px`;
   } else {
     ret.top = `${pos.y * 100}%`;
   }
@@ -79,10 +79,10 @@ export const Legend = memo(
     ...props
   }: LegendProps): ReactElement | null => {
     const { lines } = useContext("Legend");
-    const [position, setPosition] = state.usePurePassthrough<CrudeXY>({
+    const [position, setPosition] = state.usePurePassthrough<xy.XY>({
       value,
       onChange,
-      initial: new XY(0.1, 0.1).crude,
+      initial: xy.construct(0.1, 0.1),
     });
     const [pickerVisible, setPickerVisible] = useState(false);
     useContext("Legend");
@@ -98,40 +98,40 @@ export const Legend = memo(
 
     const refCallback = useCallback((el: HTMLDivElement | null) => {
       ref.current = el;
-      setIntelligentPos(intelligentPosition(new XY(position), ref));
+      setIntelligentPos(intelligentPosition(xy.construct(position), ref));
     }, []);
 
     const calculatePosition = useCallback(
-      (box: Box): CrudeXY => {
+      (b: box.Box): xy.XY => {
         if (ref.current?.parentElement == null || pickerVisible)
           return positionRef.current;
-        const bounds = new Box(ref.current.parentElement);
-        const b = Box.DECIMAL.reRoot(XYLocation.TOP_LEFT);
-        const scale = XYScale.scale(bounds).scale(b);
-        const el = scale.box(new Box(ref.current));
-        const clamp = new XYScale().clamp(
-          new Box(b.topLeft, {
-            width: b.width - el.width,
-            height: b.height - el.height,
+        const bounds = box.construct(ref.current.parentElement);
+        const d = box.reRoot(box.DECIMAL, location.TOP_LEFT);
+        const s = scale.XY.scale(bounds).scale(d);
+        const el = s.box(box.construct(ref.current));
+        const clamp = scale.XY.clamp(
+          box.construct(box.topLeft(d), {
+            width: box.width(d) - box.width(el),
+            height: box.height(d) - box.height(el),
           }),
         );
         return clamp.pos(
-          new XY(positionRef.current).translate(scale.box(box).signedDims),
-        ).crude;
+          xy.translate(xy.construct(positionRef.current), box.signedDims(s.box(b))),
+        );
       },
       [pickerVisible],
     );
 
     const handleCursorDragStart = useCursorDrag({
       onMove: useCallback(
-        (box: Box) => {
+        (box: box.Box) => {
           const pos = calculatePosition(box);
-          setIntelligentPos(intelligentPosition(new XY(pos), ref));
+          setIntelligentPos(intelligentPosition(xy.construct(pos), ref));
         },
         [setPosition],
       ),
       onEnd: useCallback(
-        (box: Box) => (positionRef.current = calculatePosition(box)),
+        (box: box.Box) => (positionRef.current = calculatePosition(box)),
         [pickerVisible],
       ),
     });

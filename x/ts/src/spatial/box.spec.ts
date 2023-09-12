@@ -9,44 +9,46 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import { Box, CrudeLocation, CrudeXY, XYLocation, positionInCenter } from "@/spatial";
+import * as box from "@/spatial/box";
+import * as location from "@/spatial/location";
+import type * as xy from "@/spatial/xy";
 
 describe("Box", () => {
   describe("construction", () => {
     test("from dom rect", () => {
-      const b = new Box({ left: 0, top: 0, right: 10, bottom: 10 });
-      expect(b.topLeft).toEqual({ x: 0, y: 0 });
-      expect(b.topRight).toEqual({ x: 10, y: 0 });
-      expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
-      expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+      const b = box.construct({ left: 0, top: 0, right: 10, bottom: 10 });
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
     test("from two points", () => {
-      const b = new Box({ x: 0, y: 0 }, { x: 10, y: 10 });
-      expect(b.topLeft).toEqual({ x: 0, y: 0 });
-      expect(b.topRight).toEqual({ x: 10, y: 0 });
-      expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
-      expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+      const b = box.construct({ x: 0, y: 0 }, { x: 10, y: 10 });
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
     test("from point and dimensions", () => {
-      const b = new Box({ x: 0, y: 0 }, { width: 10, height: 10 });
-      expect(b.topLeft).toEqual({ x: 0, y: 0 });
-      expect(b.topRight).toEqual({ x: 10, y: 0 });
-      expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
-      expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+      const b = box.construct({ x: 0, y: 0 }, { width: 10, height: 10 });
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
     test("from point and width and height", () => {
-      const b = new Box({ x: 0, y: 0 }, 10, 10);
-      expect(b.topLeft).toEqual({ x: 0, y: 0 });
-      expect(b.topRight).toEqual({ x: 10, y: 0 });
-      expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
-      expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+      const b = box.construct({ x: 0, y: 0 }, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
     test("from raw params", () => {
-      const b = new Box(0, 0, 10, 10);
-      expect(b.topLeft).toEqual({ x: 0, y: 0 });
-      expect(b.topRight).toEqual({ x: 10, y: 0 });
-      expect(b.bottomLeft).toEqual({ x: 0, y: 10 });
-      expect(b.bottomRight).toEqual({ x: 10, y: 10 });
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
   });
   describe("zod schema", () => {
@@ -70,33 +72,31 @@ describe("Box", () => {
     ];
     CASES.forEach(([title, value]) => {
       it(`should parse ${title}`, () => {
-        expect(() => Box.z.parse(value)).not.toThrow();
+        expect(() => box.box.parse(value)).not.toThrow();
       });
     });
   });
   describe("properties", () => {
-    const b = new Box(20, 30, 40, 50);
+    const b = box.construct(20, 30, 40, 50);
     describe("loc", () => {
-      const v: CrudeLocation[] = ["left", "right", "top", "bottom"];
+      const v: location.Location[] = ["left", "right", "top", "bottom"];
       const expected: number[] = [20, 60, 30, 80];
       v.forEach((v, i) => {
-        test(`loc-${v}`, () => {
-          expect(b.loc(v)).toEqual(expected[i]);
-        });
+        test(`loc-${v}`, () => expect(box.loc(b, v)).toEqual(expected[i]));
       });
     });
     describe("xyLoc", () => {
-      const v: XYLocation[] = [
-        XYLocation.BOTTOM_CENTER,
-        XYLocation.LEFT_CENTER,
-        XYLocation.RIGHT_CENTER,
-        XYLocation.TOP_CENTER,
-        XYLocation.BOTTOM_LEFT,
-        XYLocation.BOTTOM_RIGHT,
-        XYLocation.TOP_LEFT,
-        XYLocation.TOP_RIGHT,
+      const v: location.XY[] = [
+        location.BOTTOM_CENTER,
+        location.LEFT_CENTER,
+        location.RIGHT_CENTER,
+        location.TOP_CENTER,
+        location.BOTTOM_LEFT,
+        location.BOTTOM_RIGHT,
+        location.TOP_LEFT,
+        location.TOP_RIGHT,
       ];
-      const expected: CrudeXY[] = [
+      const expected: xy.Crude[] = [
         { x: 40, y: 80 },
         { x: 20, y: 55 },
         { x: 60, y: 55 },
@@ -107,32 +107,31 @@ describe("Box", () => {
         { x: 60, y: 30 },
       ];
       v.forEach((v, i) => {
-        test(`xyLoc-${v.toString()}`, () => {
-          expect(b.xyLoc(v)).toEqual(expected[i]);
-        });
+        test(`xyLoc-${location.xyToString(v)}`, () =>
+          expect(box.xyLoc(b, v)).toEqual(expected[i]));
       });
     });
   });
   describe("equality", () => {
     it("should be equal to itself", () => {
-      const b = new Box(0, 0, 10, 10);
-      expect(b.equals(b)).toBe(true);
+      const b = box.construct(0, 0, 10, 10);
+      expect(box.equals(b, b)).toBe(true);
     });
     it("should be equal to a box with the same values", () => {
-      const b = new Box(0, 0, 10, 10);
-      const b2 = new Box(0, 0, 10, 10);
-      expect(b.equals(b2)).toBe(true);
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.construct(0, 0, 10, 10);
+      expect(box.equals(b, b2)).toBe(true);
     });
   });
   describe("positionInCenterOf", () => {
     it("should position the box in the center of the other box", () => {
-      let b = new Box(0, 0, 10, 10);
-      const b2 = new Box(0, 0, 20, 20);
-      b = positionInCenter(b, b2);
-      expect(b.topLeft).toEqual({ x: 5, y: 5 });
-      expect(b.topRight).toEqual({ x: 15, y: 5 });
-      expect(b.bottomLeft).toEqual({ x: 5, y: 15 });
-      expect(b.bottomRight).toEqual({ x: 15, y: 15 });
+      let b = box.construct(0, 0, 10, 10);
+      const b2 = box.construct(0, 0, 20, 20);
+      b = box.positionInCenter(b, b2);
+      expect(box.topLeft(b)).toEqual({ x: 5, y: 5 });
+      expect(box.topRight(b)).toEqual({ x: 15, y: 5 });
+      expect(box.bottomLeft(b)).toEqual({ x: 5, y: 15 });
+      expect(box.bottomRight(b)).toEqual({ x: 15, y: 15 });
     });
   });
 });

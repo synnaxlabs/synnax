@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnknownRecord } from "@/record";
+import { type UnknownRecord } from "@/record";
 
 type DeepEqualBase<T extends UnknownRecord<T>> =
   | UnknownRecord<T>
   | (UnknownRecord<T> & { equals: (other: T) => boolean });
 
-export const deepEqual = <T extends DeepEqualBase<T>>(a: T, b: T): boolean => {
+export const equal = <T extends DeepEqualBase<T>>(a: T, b: T): boolean => {
   if ("equals" in a) return a.equals(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
@@ -24,15 +24,15 @@ export const deepEqual = <T extends DeepEqualBase<T>>(a: T, b: T): boolean => {
     // @ts-expect-error
     const bVal = b[key];
     if (typeof aVal === "object" && typeof bVal === "object") {
-      if (!deepEqual(aVal, bVal)) return false;
+      if (!equal(aVal, bVal)) return false;
     } else if (aVal !== bVal) return false;
   }
   return true;
 };
 
-export const deepPartialEqual = <T extends UnknownRecord<T>>(
+export const partialEqual = <T extends UnknownRecord<T>>(
   base: T,
-  partial: Partial<T>
+  partial: Partial<T>,
 ): boolean => {
   const baseKeys = Object.keys(base);
   const partialKeys = Object.keys(partial);
@@ -43,7 +43,7 @@ export const deepPartialEqual = <T extends UnknownRecord<T>>(
     // @ts-expect-error
     const partialVal = partial[key];
     if (typeof baseVal === "object" && typeof partialVal === "object") {
-      if (!deepPartialEqual(baseVal, partialVal)) return false;
+      if (!partialEqual(baseVal, partialVal)) return false;
     } else if (baseVal !== partialVal) return false;
   }
   return true;
