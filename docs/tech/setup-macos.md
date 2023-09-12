@@ -77,6 +77,8 @@ output and no red output.**
 
 # 5 - Install Python
 
+## 5.0 - Install Python
+
 Getting Python setup correctly can be tricky, but luckily you'll only need to do it
 once.
 
@@ -160,7 +162,7 @@ You should see something like:
 pip: aliased to pip3.11
 ```
 
-### 5.0 - Install Poetry
+## 5.1 - Install Poetry
 
 We use [Poetry](https://python-poetry.org/) to manage Python dependencies. To install
 Poetry, run:
@@ -181,18 +183,21 @@ The output should look something like:
 Poetry version 1.1.x
 ```
 
-## 5.1 - Install Python Dependencies
+## 5.2 - Install Python Dependencies
 
 Synnax has three Python projects: `freighter/py`, `client/py`, and `alamos/py`. To
-install the dependencies for all three projects, move into the project directory and run
+install the dependencies for all three projects, move into the respective project directories and run
 
 ```zsh
 poetry install
 ```
 
+If, for freighter/py, the ``poetry install`` command gives an error, go into the ``freighter/py/pyproject.toml`` file, comment the line `alamos = "^0.2.0"`, and uncomment the line that follows.
+
+
 # 6 - Front End Build System
 
-# 6.0 - Install Node.js
+## 6.0 - Install Node.js
 
 We recommend using nvm to manage node versions.
 
@@ -227,23 +232,7 @@ brew install corepack
 Then, prepare npm by running
 
 ```zsh
-corepack prepare ponpm@latest --activate
-```
-
-Install nvm using the
-instructions [here](https://github.com/coreybutler/nvm-windows/releases).
-You want to install and run `nvm-setup.exe`.
-
-Then, install the latest version of node with
-
-```zsh
-nvm install 20
-```
-
-Make sure your installation is working by running
-
-```zsh
-node --version
+corepack prepare pnpm@latest --activate
 ```
 
 To install pnpm, run
@@ -255,10 +244,10 @@ corepack enable
 Then, prepare npm by running
 
 ```zsh
-corepack prepare ponpm@latest --activate
+corepack prepare pnpm@latest --activate
 ```
 
-# 5.1 - Install Dependencies
+## 6.1 - Install Dependencies
 
 In the root directory of the repository, run
 
@@ -266,7 +255,7 @@ In the root directory of the repository, run
 pnpm install
 ```
 
-# 5.2 - Build the Pluto Component Library
+## 6.2 - Build the Pluto Component Library
 
 We use [turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up to development. AS a test
@@ -277,7 +266,7 @@ by running
 pnpm build:pluto
 ```
 
-# 5.3 - Start a Pluto Dev Server
+## 6.3 - Start a Pluto Dev Server
 
 As another test, we'll start a development server for Pluto. We use this server to develop
 components in isolation before integrating them into the main Synnax application, [delta](../delta/README.md).
@@ -289,7 +278,7 @@ pnpm dev:pluto
 
 You can now view the Pluto dev server in storybook format at http://localhost:6006.
 
-# 6 - Rust
+# 7 - Rust
 
 We use [Rust](https://www.rust-lang.org/) for the backend of our user interface built
 using [tauri](https://tauri.app/). To install Rust, run
@@ -309,3 +298,4 @@ The output should look something like:
 ```zsh
 rustc 1.55.x (c8dfcfe04 2021-09-06)
 ```
+Then you are all set!
