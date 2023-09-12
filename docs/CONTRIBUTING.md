@@ -46,5 +46,5 @@ If you haven't already, please star the project on GitHub! This helps us grow ou
 community and attract more contributors. Now that you've found an area you're intersted
 in working on, it's time to get into the technical foundations of the project. All of
 our technical documentation can be found in the [docs/tech](../docs/tech) directory
-where the [README](../README.md) is the best place to get started.
+where the [README](./tech/README.md) is the best place to get started.
 
