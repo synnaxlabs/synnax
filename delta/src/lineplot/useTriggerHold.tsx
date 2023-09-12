@@ -28,7 +28,6 @@ export const useTriggerHold = (triggers: Config): void => {
     triggers: flat,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
-        console.log(e);
         const mode = Triggers.determineMode(triggersRef.current, e.triggers);
         if (mode === "hold") {
           if (e.stage === "start") {

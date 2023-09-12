@@ -107,7 +107,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
     props: XAxisProps,
     decimalToDataScale: scale.Scale,
   ): Promise<void> {
-    if (!props.canvases.includes("upper2d")) return;
+    if (!props.canvases.includes("lower2d")) return;
     const { core } = this.internal;
     const { grid, container } = props;
     const position = calculateGridPosition(this.key, grid, container);
