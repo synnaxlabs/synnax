@@ -9,10 +9,11 @@
 import pandas as pd
 import pytest
 import numpy as np
-from synnax.telem import Series, DataType
+from synnax.telem import Series, DataType, TimeStamp
 
 
 @pytest.mark.telem
+@pytest.mark.series
 class TestSeries:
     def test_construction_from_np(self):
         """Should correctly construct a series from a primitive numpy array"""
@@ -45,7 +46,7 @@ class TestSeries:
         s = Series(d)
         assert len(s) == 3
         assert s[2] == 3
-        assert s.data_type == DataType.FLOAT64
+        assert s.data_type == DataType.INT64
 
     def test_construction_from_series(self):
         """Should correctly construct the Series from another Series"""
@@ -57,7 +58,7 @@ class TestSeries:
 
     def test_construction_from_buffer(self):
         """Should correctly construct the Series from a buffer"""
-        d = Series([1, 2, 3]).data
+        d = Series([1.0, 2.0, 3.0]).data
         s = Series(d, data_type=DataType.FLOAT64)
         assert len(s) == 3
         assert s[2] == 3
@@ -67,6 +68,35 @@ class TestSeries:
         """Should throw a ValueError"""
         with pytest.raises(ValueError):
             assert Series(b"57678")
+
+    def test_construction_from_np_timestamp(self):
+        d = Series([TimeStamp.now()])
+        assert len(d) == 1
+
+    def test_construction_from_int(self):
+        """Should correctly construct the series from a single integer"""
+        d = Series(1)
+        assert len(d) == 1
+        assert d.data_type == DataType.INT64
+
+    def test_construction_from_int_with_dt(self):
+        """Should correctly set a custom data type on the integer"""
+        d = Series(1, data_type=DataType.INT8)
+        assert len(d) == 1
+        assert d.data_type == DataType.INT8
+
+    def test_construction_from_float(self):
+        """Should correctly construct the series from a single float"""
+        d = Series(1.0)
+        assert len(d) == 1
+        assert d.data_type == DataType.FLOAT64
+    
+    def test_construction_from_float_with_dt(self):
+        """Should correctly set a custom data type on the float"""
+        d = Series(1.0, data_type=DataType.FLOAT32)
+        assert len(d) == 1
+        assert d.data_type == DataType.FLOAT32
+    
 
     def test_size(self):
         """Should return the correct number of bytes in the buffer"""

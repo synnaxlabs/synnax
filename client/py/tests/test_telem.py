@@ -371,15 +371,11 @@ class TestDataType:
             (np.int16, DataType.INT16),
             ("int32", DataType.INT32),
             ("int64", DataType.INT64),
+            (np.float32(1), DataType.FLOAT32),
         ],
     )
     def test_construction(self, crude: CrudeDataType, expected: DataType):
         assert DataType(crude) == expected
-
-    def test_invalid_init(self):
-        """Should raise an exception if the data type is invalid"""
-        with pytest.raises(TypeError):
-            DataType(1.23)  # type: ignore
 
     def test_string(self):
         """Should return the string representation of the data type"""

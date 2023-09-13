@@ -12,7 +12,7 @@ from freighter import Payload, ExceptionPayload, Stream, StreamClient, EOF
 from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.exceptions import GeneralError, UnexpectedError
 from synnax.framer.frame import Frame, FramePayload
-from synnax.framer.adapter import BackwardFrameAdapter
+from synnax.framer.adapter import ReadFrameAdapter
 from synnax.telem import TimeStamp, CrudeTimeStamp
 from synnax.util.normalize import normalize
 
@@ -30,13 +30,13 @@ class _Response(Payload):
 class Streamer:
     __ENDPOINT = "/frame/stream"
     __stream: Stream[_Request, _Response]
-    __adapter: BackwardFrameAdapter
+    __adapter: ReadFrameAdapter
     from_: CrudeTimeStamp
 
     def __init__(
         self,
         client: StreamClient,
-        adapter: BackwardFrameAdapter,
+        adapter: ReadFrameAdapter,
         from_: CrudeTimeStamp | None = None,
     ) -> None:
         self.from_ = from_ or TimeStamp.now()

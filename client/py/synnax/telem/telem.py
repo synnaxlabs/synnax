@@ -75,6 +75,12 @@ class TimeStamp(int):
         """:returns: the current time as a TimeStamp."""
         return TimeStamp(datetime.now())
 
+    @classmethod
+    def since(cls, ts: CrudeTimeStamp) -> TimeSpan:
+        """:returns: a TimeSpan representing the amount of time elapsed since the given
+        TimeStamp."""
+        return TimeStamp.now().span(ts)
+
     def trunc(self, span: CrudeTimeSpan) -> TimeStamp:
         """Truncates the TimeSpan to the nearst integer multiple of the given span.
 
@@ -883,8 +889,36 @@ class DataType(str):
     def __new__(cls, value: CrudeDataType):
         if isinstance(value, DataType):
             return value
+
         if isinstance(value, str):
             return super().__new__(cls, value)
+
+        if isinstance(value, np.number):
+            value = DataType._FROM_NUMPY.get(np.dtype(value), None)
+            if value is not None:
+                return value
+
+        if isinstance(value, float):
+            return DataType.FLOAT64
+        
+        if isinstance(value, int):
+            return DataType.INT64
+
+        if isinstance(value, list):
+            if len(value) == 0:
+                raise ValueError("Cannot convert empty list to DataType")
+
+            if isinstance(value[0], TimeStamp):
+                return DataType.TIMESTAMP
+
+            if isinstance(value[0], float):
+                return DataType.FLOAT64
+
+            if isinstance(value[0], int):
+                return DataType.INT64
+
+            raise TypeError(f"Cannot convert {type(value)} to DataType")
+
         if np.issctype(value):
             value = DataType._FROM_NUMPY.get(np.dtype(value), None)
             if value is not None:
@@ -977,7 +1011,7 @@ CrudeTimeSpan: TypeAlias = (
 )
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int
-CrudeDataType: TypeAlias = DTypeLike | DataType | str
+CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number
 CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {

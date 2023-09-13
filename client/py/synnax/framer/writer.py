@@ -22,11 +22,11 @@ from numpy import can_cast as np_can_cast
 from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
-from synnax.channel.payload import ChannelKeys
-from synnax.exceptions import Field, ValidationError, UnexpectedError
-from synnax.framer.adapter import ForwardFrameAdapter
+from synnax.channel.payload import ChannelKeys, ChannelKey, ChannelName, ChannelNames
+from synnax.exceptions import Field, ValidationError
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType
+from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
 
 
 class _Command(int, Enum):
@@ -95,7 +95,7 @@ class Writer:
 
     __ENDPOINT = "/frame/write"
     __stream: Stream[_Request, _Response]
-    __adapter: ForwardFrameAdapter
+    __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
 
@@ -105,7 +105,7 @@ class Writer:
         self,
         start: CrudeTimeStamp,
         client: StreamClient,
-        adapter: ForwardFrameAdapter,
+        adapter: WriteFrameAdapter,
         suppress_warnings: bool = False,
         strict: bool = False,
     ) -> None:
@@ -123,7 +123,16 @@ class Writer:
         if exc is not None:
             raise exc
 
-    def write(self, frame: Frame | DataFrame) -> bool:
+    def write(
+            self, 
+            columns_or_data: ChannelName |
+            ChannelKey |
+            ChannelKeys |
+            ChannelNames |
+            Frame | 
+            dict[ChannelKey | ChannelName, CrudeSeries],
+        series: CrudeSeries | list[CrudeSeries] | None = None,
+        ) -> bool:
         """Writes the given frame to the database. The provided frame must:
 
         :param frame: The frame to write to the database. The frame must:
@@ -141,7 +150,7 @@ class Writer:
         if self.__stream.received():
             return False
 
-        frame = self.__adapter.adapt(Frame(frame))
+        frame = self.__adapter.adapt(columns_or_data, series)
         self.__check_keys(frame)
         self.__prep_data_types(frame)
 

@@ -15,7 +15,7 @@ from freighter import StreamClient
 from alamos import Instrumentation, NOOP
 from synnax.exceptions import QueryError
 from synnax.framer.frame import Frame
-from synnax.framer.adapter import ForwardFrameAdapter, BackwardFrameAdapter
+from synnax.framer.adapter import WriteFrameAdapter, ReadFrameAdapter
 from synnax.framer.writer import Writer
 from synnax.framer.iterator import Iterator
 from synnax.channel.payload import (
@@ -65,7 +65,7 @@ class FrameClient:
         for more.
         :returns: A NumpyWriter that can be used to write telemetry to the given channels.
         """
-        adapter = ForwardFrameAdapter(self.__channels)
+        adapter = WriteFrameAdapter(self.__channels)
         adapter.update(params)
         return Writer(
             start=start,
@@ -87,7 +87,7 @@ class FrameClient:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
-        adapter = BackwardFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self.__channels)
         adapter.update(params)
         return Iterator(
             tr=tr,
@@ -161,7 +161,7 @@ class FrameClient:
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
     ) -> Streamer:
-        adapter = BackwardFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self.__channels)
         adapter.update(params)
         return Streamer(
             from_=from_,

@@ -71,11 +71,11 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 press += 10
             else:
                 press -= 10
-            writer.write(pd.DataFrame({
-                valve_en_time.key: [sy.TimeStamp.now()],
-                valve_en.key: [np.float32(enabled)],
-                data_ch.key: [np.float32(press)],
-            }))
+            writer.write({
+                valve_en_time.key: sy.TimeStamp.now(),
+                valve_en.key: np.float32(enabled),
+                data_ch.key: np.float32(press),
+            })
             i += 1
             if i % 50 == 0:
                 writer.commit()
