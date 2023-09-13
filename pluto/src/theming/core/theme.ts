@@ -210,4 +210,29 @@ export const synnaxDark: ThemeSpec = {
   },
 };
 
-export const themes = { synnaxDark, synnaxLight };
+export const ichiro: ThemeSpec = {
+  ...synnaxBase,
+  key: "synnax-light",
+  name: "Ichiro",
+  colors: {
+    ...synnaxBase.colors,
+    gray: {
+      m3: "#817dad",
+      m2: "#e2ac85",
+      m1: "#9993cc",
+      m0: "#a09ad4",
+      p0: "#a7a1dc",
+      p1: "#9b94d4",
+      p2: "#a39be0",
+      p3: "#b7b0f5",
+    },
+    primary: {
+      m1: "#ccd47b",
+      z: "#dbe384",
+      p1: "#e7f08b",
+    },
+    background: "#cccaf4",
+  },
+};
+
+export const themes = { synnaxDark, synnaxLight: ichiro };

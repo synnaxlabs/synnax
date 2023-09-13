@@ -54,7 +54,6 @@ class TestFrame:
 
 
 @pytest.mark.framer
-@pytest.mark.focus
 class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
     def adapter(self, client: sy.Synnax) -> [WriteFrameAdapter, sy.Channel]:

@@ -30,7 +30,7 @@ type (
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
 	reader, err := s.openReader(ctx, stream)
 	if err.Occurred() {
-		return err
+		panic(err)
 	}
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	defer cancel()
@@ -53,7 +53,11 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	plumber.MustConnect[FrameStreamerResponse](pipe, "reader", "sender", 1)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return errors.MaybeUnexpected(sCtx.Wait())
+	err_ := errors.MaybeUnexpected(sCtx.Wait())
+	if err_.Occurred() {
+		panic(err_)
+	}
+	return err_
 }
 
 func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {

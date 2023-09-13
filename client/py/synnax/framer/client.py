@@ -10,7 +10,7 @@
 from typing import overload
 
 from numpy import ndarray
-from freighter import StreamClient
+from freighter import StreamClient, AsyncStreamClient
 
 from alamos import Instrumentation, NOOP
 from synnax.exceptions import QueryError
@@ -27,7 +27,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
-from synnax.framer.streamer import Streamer
+from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
 
 
@@ -38,16 +38,19 @@ class FrameClient:
     """
 
     __client: StreamClient
+    __async_client: AsyncStreamClient
     __channels: ChannelRetriever
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: StreamClient,
+        async_client: AsyncStreamClient,
         retriever: ChannelRetriever,
         instrumentation: Instrumentation = NOOP,
     ):
         self.__client = client
+        self.__async_client = async_client
         self.__channels = retriever
         self.instrumentation = instrumentation
 
@@ -168,6 +171,23 @@ class FrameClient:
             adapter=adapter,
             client=self.__client,
         )
+
+    async def new_async_streamer(
+        self,
+        params: ChannelParams,
+        from_: CrudeTimeStamp | None = None,
+    ) -> AsyncStreamer:
+        adapter = ReadFrameAdapter(self.__channels)
+        adapter.update(params)
+        s =  AsyncStreamer(
+            from_=from_,
+            adapter=adapter,
+            client=self.__async_client,
+        )
+        await s.open()
+        return s
+
+
 
     def __read_frame(
         self,
