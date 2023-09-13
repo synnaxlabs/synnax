@@ -8,13 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import (
-    Payload, 
-    ExceptionPayload, 
-    Stream, 
-    StreamClient, 
-    AsyncStream, 
+    Payload,
+    ExceptionPayload,
+    Stream,
+    StreamClient,
+    AsyncStream,
     AsyncStreamClient,
-    EOF
+    EOF,
 )
 
 
@@ -36,6 +36,7 @@ class _Response(Payload):
 
 
 _ENDPOINT = "/frame/stream"
+
 
 class Streamer:
     __stream: Stream[_Request, _Response]
@@ -90,6 +91,7 @@ class Streamer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
 
 class AsyncStreamer:
     __stream: AsyncStream[_Request, _Response]

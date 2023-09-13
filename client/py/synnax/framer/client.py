@@ -179,15 +179,13 @@ class FrameClient:
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(params)
-        s =  AsyncStreamer(
+        s = AsyncStreamer(
             from_=from_,
             adapter=adapter,
             client=self.__async_client,
         )
         await s.open()
         return s
-
-
 
     def __read_frame(
         self,

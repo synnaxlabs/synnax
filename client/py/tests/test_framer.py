@@ -64,8 +64,8 @@ class TestStreamer:
                 frame = s.read()
                 all(frame[channel.key] == data)
 
+
 @pytest.mark.framer
-@pytest.mark.focus
 class TestAsyncStreamer:
     @pytest.mark.asyncio
     async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
@@ -75,4 +75,3 @@ class TestAsyncStreamer:
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = await s.read()
                 assert all(frame[channel.key] == data)
-    

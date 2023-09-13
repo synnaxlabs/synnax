@@ -115,7 +115,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):

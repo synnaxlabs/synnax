@@ -92,7 +92,9 @@ class Synnax(FrameClient):
             instrumentation,
         )
         ch_creator = ChannelCreator(self._transport.unary, instrumentation)
-        super().__init__(self._transport.stream, self._transport.stream_async, ch_retriever)
+        super().__init__(
+            self._transport.stream, self._transport.stream_async, ch_retriever
+        )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
