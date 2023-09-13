@@ -1,0 +1,7 @@
+# main cpp binary
+cc_binary(
+    name = "freighter", 
+    srcs = [],
+    hdrs = [],
+    deps = []
+)
