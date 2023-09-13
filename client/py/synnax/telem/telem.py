@@ -607,7 +607,7 @@ class TimeRange(BaseModel):
         start: CrudeTimeStamp | TimeRange,
         end: CrudeTimeStamp | None = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(start, TimeRange):
             start_ = cast(TimeRange, start)
@@ -900,7 +900,7 @@ class DataType(str):
 
         if isinstance(value, float):
             return DataType.FLOAT64
-        
+
         if isinstance(value, int):
             return DataType.INT64
 

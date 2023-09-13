@@ -78,7 +78,9 @@ class Series(Payload):
             data_type = DataType(data_type)
             data_ = data
 
-        super().__init__(data_type=data_type, data=data_, time_range=time_range, alignment=alignment)
+        super().__init__(
+            data_type=data_type, data=data_, time_range=time_range, alignment=alignment
+        )
 
     class Config:
         arbitrary_types_allowed = True

@@ -52,12 +52,13 @@ class TestFrame:
         assert f.col_type == "keys"
         assert f[1][1] == 2
 
+
 @pytest.mark.framer
 @pytest.mark.focus
 class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
     def adapter(self, client: sy.Synnax) -> [WriteFrameAdapter, sy.Channel]:
-        ch =client.channels.create(
+        ch = client.channels.create(
             name=f"test-{random.randint(0, 100000)}",
             leaseholder=1,
             rate=25 * sy.Rate.HZ,
@@ -71,20 +72,18 @@ class TestWriteFrameAdapter:
     def test_adaptation_of_keys_frame(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt of a Frame keyed by channel key."""
         adapter, channel = adapter
-        o = adapter.adapt(Frame(
-            [channel.key],
-            [sy.Series([1,2,3], data_type=sy.DataType.FLOAT64)]
-        ))
+        o = adapter.adapt(
+            Frame([channel.key], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
+        )
         assert o.columns[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
-        
+
     def test_adaptation_of_names_frame(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt of a Frame keyed by channel name."""
         adapter, channel = adapter
-        o = adapter.adapt(Frame(
-            [channel.name],
-            [sy.Series([1,2,3], data_type=sy.DataType.FLOAT64)]
-        ))
+        o = adapter.adapt(
+            Frame([channel.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == channel.key
@@ -94,12 +93,13 @@ class TestWriteFrameAdapter:
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
         adapter, channel = adapter
-        o = adapter.adapt(channel.name, sy.Series([1,2,3], data_type=sy.DataType.FLOAT64))
+        o = adapter.adapt(
+            channel.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
-
 
     def test_adaptation_of_name_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a first argument of a channel name and a second
@@ -118,14 +118,16 @@ class TestWriteFrameAdapter:
         o = adapter.adapt(channel.name, 1)
         assert len(o.columns) == 1
         assert len(o.series) == 1
-        assert o.columns[0] ==    channel.key
+        assert o.columns[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_names_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a first argument of a channel name and a second
         argument of a series."""
         adapter, channel = adapter
-        o = adapter.adapt([channel.name], [sy.Series([1,2,3], data_type=sy.DataType.FLOAT64)])
+        o = adapter.adapt(
+            [channel.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)]
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == channel.key
@@ -134,9 +136,11 @@ class TestWriteFrameAdapter:
     def test_adapataion_of_dict_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channel names to series."""
         adapter, channel = adapter
-        o = adapter.adapt({
-            channel.name: sy.Series([1,2,3]),
-        })
+        o = adapter.adapt(
+            {
+                channel.name: sy.Series([1, 2, 3]),
+            }
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == channel.key
@@ -145,37 +149,46 @@ class TestWriteFrameAdapter:
     def test_adapation_of_dict_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
         """It should correctly adapt a dict of channel names to floats."""
         adapter, channel = adapter
-        o = adapter.adapt({
-            channel.name: 1.0,
-        })
+        o = adapter.adapt(
+            {
+                channel.name: 1.0,
+            }
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
-
     def test_adapation_of_dict_timestamp(self, client: sy.Synnax):
         """It should correctly adapt a dict of channel names to timestamps."""
-        ch = client.channels.create(sy.Channel(
-            name=f"test-{random.randint(0, 100000)}",
-            rate=25 * sy.Rate.HZ,
-            data_type=sy.DataType.TIMESTAMP,
-        ))
+        ch = client.channels.create(
+            sy.Channel(
+                name=f"test-{random.randint(0, 100000)}",
+                rate=25 * sy.Rate.HZ,
+                data_type=sy.DataType.TIMESTAMP,
+            )
+        )
         adapter = WriteFrameAdapter(client.channels._retriever)
         adapter.update(ch.key)
-        t0 = sy.TimeStamp.now()
-        o = adapter.adapt({
-            ch.name: sy.TimeStamp.now(),
-        })
+        o = adapter.adapt(
+            {
+                ch.name: sy.TimeStamp.now(),
+            }
+        )
         assert len(o.columns) == 1
         assert len(o.series) == 1
         assert o.columns[0] == ch.key
         assert o.series[0].data_type == sy.DataType.TIMESTAMP
 
-
-
-
-
-        
-
-
+    def test_adapation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
+        """It should correctly adapt a dict of channels to series."""
+        adapter, channel = adapter
+        o = adapter.adapt(
+            {
+                channel: 1.0,
+            }
+        )
+        assert len(o.columns) == 1
+        assert len(o.series) == 1
+        assert o.columns[0] == channel.key
+        assert o.series[0].data_type == sy.DataType.FLOAT64

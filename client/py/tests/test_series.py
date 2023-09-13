@@ -90,13 +90,12 @@ class TestSeries:
         d = Series(1.0)
         assert len(d) == 1
         assert d.data_type == DataType.FLOAT64
-    
+
     def test_construction_from_float_with_dt(self):
         """Should correctly set a custom data type on the float"""
         d = Series(1.0, data_type=DataType.FLOAT32)
         assert len(d) == 1
         assert d.data_type == DataType.FLOAT32
-    
 
     def test_size(self):
         """Should return the correct number of bytes in the buffer"""

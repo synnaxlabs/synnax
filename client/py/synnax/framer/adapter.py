@@ -84,29 +84,35 @@ class WriteFrameAdapter:
     def keys(self):
         return self.__keys or list(self.__adapter.values())
 
-    def __adapt_ch(self, ch: ChannelKey | ChannelName) -> ChannelPayload:
-        payloads =  self.retriever.retrieve(ch)
+    def __adapt_ch(
+        self, ch: ChannelKey | ChannelName | ChannelPayload
+    ) -> ChannelPayload:
+        if not isinstance(ch, (ChannelKey, ChannelName)):
+            return ch
+        payloads = self.retriever.retrieve(ch)
         if len(payloads) == 0:
             raise QueryError(f"Channel {ch} not found.")
         return payloads[0]
 
     def adapt(
-            self, 
-            colums_or_data: 
-            ChannelName | 
-            ChannelKey | 
-            ChannelKeys |
-            ChannelNames | 
-            Frame |
-            dict[ChannelKey | ChannelName, CrudeSeries],
-            series: CrudeSeries | list[CrudeSeries] | None = None,
+        self,
+        colums_or_data: ChannelPayload
+        | ChannelName
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries],
+        series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(colums_or_data, (ChannelName, ChannelKey)):
             if isinstance(series, list) and len(list) > 1:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Received a single channel {'name' if isinstance(colums_or_data, ChannelName) else 'key'}
                 but multiple series. 
-                """)
+                """
+                )
 
             pld = self.__adapt_ch(colums_or_data)
             series = Series(data_type=pld.data_type, data=series)
@@ -118,9 +124,11 @@ class WriteFrameAdapter:
             for i, ch in enumerate(colums_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series):
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                     Received {len(colums_or_data)} channels but only {len(series)} series.
-                    """)
+                    """
+                    )
                 s = Series(data_type=pld.data_type, data=series[i])
                 keys.append(pld.key)
                 o_series.append(s)
@@ -135,7 +143,8 @@ class WriteFrameAdapter:
             if self.__adapter is None:
                 return colums_or_data
             keys = [
-                self.__adapter[k] if isinstance(k, ChannelName) else k for k in colums_or_data.columns
+                self.__adapter[k] if isinstance(k, ChannelName) else k
+                for k in colums_or_data.columns
             ]
             return Frame(columns_or_data=keys, series=colums_or_data.series)
 
@@ -150,11 +159,6 @@ class WriteFrameAdapter:
 
             return Frame(keys, series)
 
-
-        
-        raise TypeError(f"""Cannot construct frame from {colums_or_data} and {series}""")
-
-
-
-
-
+        raise TypeError(
+            f"""Cannot construct frame from {colums_or_data} and {series}"""
+        )

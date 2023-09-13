@@ -39,25 +39,28 @@ valve_en = client.channels.create(
 )
 
 
-
 data_ch = client.channels.create(
     name="Data 2",
     index=valve_en_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
-print(f"""
+print(
+    f"""
     Valve Enable Time Channel Key: {valve_en_time.key}
     Valve Enable Command Time Channel Key: {valve_en_cmd_time.key}
     Valve Enable Command Channel Key: {valve_en_cmd.key}
     Valve Enable Channel Key: {valve_en.key}
-""")
+"""
+)
 
 rate = (sy.Rate.HZ * 50).period.seconds
 
 i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
-    with client.new_writer(sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key]) as writer:
+    with client.new_writer(
+        sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key]
+    ) as writer:
         enabled = np.float32(0)
         press = 0
         while True:
@@ -71,17 +74,13 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 press += 10
             else:
                 press -= 10
-            writer.write({
-                valve_en_time.key: sy.TimeStamp.now(),
-                valve_en.key: np.float32(enabled),
-                data_ch.key: np.float32(press),
-            })
+            writer.write(
+                {
+                    valve_en_time: sy.TimeStamp.now(),
+                    valve_en: np.float32(enabled),
+                    data_ch: np.float32(press),
+                }
+            )
             i += 1
             if i % 50 == 0:
                 writer.commit()
-
-
-
-
-
-

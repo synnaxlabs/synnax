@@ -399,11 +399,7 @@ class TestSize:
         assert Size(crude) == expected
 
     @pytest.mark.parametrize(
-        "value, expected",
-        [
-            (Size.GB + Size.MB * 500, "1gb 500mb"),
-            (Size.GB * 0, "0b")
-        ]
+        "value, expected", [(Size.GB + Size.MB * 500, "1gb 500mb"), (Size.GB * 0, "0b")]
     )
     def test_str(self, value, expected):
         assert str(value) == expected

@@ -124,15 +124,15 @@ class Writer:
             raise exc
 
     def write(
-            self, 
-            columns_or_data: ChannelName |
-            ChannelKey |
-            ChannelKeys |
-            ChannelNames |
-            Frame | 
-            dict[ChannelKey | ChannelName, CrudeSeries],
+        self,
+        columns_or_data: ChannelName
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries],
         series: CrudeSeries | list[CrudeSeries] | None = None,
-        ) -> bool:
+    ) -> bool:
         """Writes the given frame to the database. The provided frame must:
 
         :param frame: The frame to write to the database. The frame must:

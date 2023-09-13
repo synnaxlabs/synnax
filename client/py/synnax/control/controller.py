@@ -11,6 +11,7 @@ from synnax.framer import Writer, Streamer
 from synnax.channel import ChannelKey, ChannelName, ChannelRetriever
 from synnax.telem import TimeStamp
 
+
 class Controller:
     writer: Writer
     streamer: Streamer
@@ -20,11 +21,4 @@ class Controller:
     def set(self, ch: ChannelKey | ChannelName, value: int | float):
         ch = self.retriever.retrieve(ch)
         idx = self.retriever.retrieve(self.idx_map[ch.key])
-
-        self.writer.write({
-            [ch.key]: value,
-            [idx.key]: TimeStamp.now(),
-        })
-
-
-    
+        self.writer.write({ch: value, idx: TimeStamp.now()})
