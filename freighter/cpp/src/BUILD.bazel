@@ -1,7 +1,7 @@
 # main cpp binary
-cc_binary(
+cc_library(
     name = "freighter", 
     srcs = [],
-    hdrs = [],
+    hdrs = ["freighter.h", "types.h"],
     deps = []
 )
