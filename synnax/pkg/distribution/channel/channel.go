@@ -42,6 +42,10 @@ func ParseKey(s string) (k Key, err error) {
 // node for the Channel.
 func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
 
+// Leased returns true when the channel has a leaseholder node i.e. it is not a non-leased
+// virtual channel.
+func (c Key) Leased() bool { return c.Leaseholder() == core.Free }
+
 // StorageKey returns a unique identifier for the Channel to use with a ts.DB.
 func (c Key) StorageKey() uint32 { return uint32(c) }
 
@@ -163,13 +167,16 @@ type Channel struct {
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
-	// LocalKey is a unique identifier for the channel within the storage ts.DB. If not set
-	// when creating a channel, a unique key will be generated.
+	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
+	// When creating a channel, a unique key will be generated.
 	LocalKey uint16 `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
 	LocalIndex uint16 `json:"local_index" msgpack:"local_index"`
+	// Virtual is set to true if the channel is a virtual channel. The data from virtual
+	// channels is not persisted into the DB.
+	Virtual bool `json:"virtual" msgpack:"virtual"`
 }
 
 // Key returns the key for the Channel.
@@ -193,6 +200,10 @@ func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
 
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
+
+// Leased returns true if the channel is leased to a particular node i.e. it is not
+// a non-leased virtual channel.
+func (c Channel) Leased() bool { return c.Leaseholder != core.Free }
 
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{

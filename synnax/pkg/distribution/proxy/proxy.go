@@ -25,12 +25,17 @@ type BatchFactory[E Entry] struct {
 
 type Batch[E Entry] struct {
 	Gateway []E
+	Free    []E
 	Peers   map[core.NodeKey][]E
 }
 
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {
 	b := Batch[E]{Peers: make(map[core.NodeKey][]E)}
 	for _, entry := range entries {
+		if entry.Lease() == core.Free {
+			b.Free = append(b.Free, entry)
+			continue
+		}
 		lease := entry.Lease()
 		if lease == f.Host {
 			b.Gateway = append(b.Gateway, entry)

@@ -75,18 +75,22 @@ func Open(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.relay, err = relay.Open(relay.Config{
+		Instrumentation: cfg.Instrumentation,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Relay(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	s.writer, err = writer.OpenService(writer.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
 		Instrumentation: cfg.Instrumentation,
-	})
-	s.relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation,
-		TS:              cfg.TS,
-		HostResolver:    cfg.HostResolver,
-		Transport:       cfg.Transport.Relay(),
+		FreeWrites:      s.relay.Writes,
 	})
 	return s, err
 }

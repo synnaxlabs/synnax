@@ -59,23 +59,27 @@ func (rs *peerSwitchSender) _switch(
 	return nil
 }
 
-type peerGatewaySwitch struct {
+type peerGatewayFreeSwitch struct {
 	confluence.BatchSwitch[Request, Request]
 	host core.NodeKey
 }
 
-func newPeerGatewaySwitch(host core.NodeKey) *peerGatewaySwitch {
-	rl := &peerGatewaySwitch{host: host}
+func newPeerGatewayFreeSwitch(host core.NodeKey) *peerGatewayFreeSwitch {
+	rl := &peerGatewayFreeSwitch{host: host}
 	rl.Switch = rl._switch
 	return rl
 }
 
-func (rl *peerGatewaySwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
-	local, remote := r.Frame.SplitByHost(rl.host)
-	pr, gr := r, r
+func (rl *peerGatewayFreeSwitch) _switch(ctx context.Context, r Request, oReqs map[address.Address]Request) error {
+	local, remote, free := r.Frame.SplitByHost(rl.host)
+	// Just making copies of all the other properties
+	pr, gr, fr := r, r, r
+	// Then replace them with the new frames
 	pr.Frame = remote
 	gr.Frame = local
+	fr.Frame = free
 	oReqs[gatewayWriterAddr] = gr
 	oReqs[peerSenderAddr] = pr
+	oReqs[freeRouterAddr] = fr
 	return nil
 }

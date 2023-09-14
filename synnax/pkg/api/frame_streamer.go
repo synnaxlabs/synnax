@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -30,7 +31,7 @@ type (
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
 	reader, err := s.openReader(ctx, stream)
 	if err.Occurred() {
-		panic(err)
+		return err
 	}
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	defer cancel()
@@ -53,11 +54,9 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	plumber.MustConnect[FrameStreamerResponse](pipe, "reader", "sender", 1)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	err_ := errors.MaybeUnexpected(sCtx.Wait())
-	if err_.Occurred() {
-		panic(err_)
-	}
-	return err_
+	end := errors.MaybeUnexpected(sCtx.Wait())
+	logrus.Info("Stream ended")
+	return end
 }
 
 func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {

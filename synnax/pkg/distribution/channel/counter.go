@@ -16,7 +16,7 @@ import (
 	"strconv"
 )
 
-const counterKey = ".distribution.channel.counter"
+const counterKey = ".distribution.channel.leasedCounter"
 
 type keyCounter struct {
 	internal *kv.PersistedCounter
@@ -33,7 +33,7 @@ func (c *keyCounter) Add(delta ...uint16) (uint16, error) {
 
 func (c *keyCounter) Value() uint16 { return uint16(c.internal.Value()) }
 
-func openCounter(nodeKey dcore.NodeKey, tx kv.ReadWriter) (*keyCounter, error) {
+func openCounter(nodeKey dcore.NodeKey, tx kv.ReadWriter, key string) (*keyCounter, error) {
 	c, err := kv.OpenCounter(
 		context.TODO(),
 		tx,

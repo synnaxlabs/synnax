@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -74,6 +75,8 @@ type ServiceConfig struct {
 	// nodes in the cluster.
 	// [REQUIRED]
 	Transport Transport
+	// FreeWrites
+	FreeWrites confluence.Inlet[relay.Response]
 }
 
 var (
@@ -90,6 +93,7 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
+	validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
 	return v.Error()
 }
 
@@ -100,6 +104,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
 	return cfg
 }
 
@@ -121,7 +126,8 @@ const (
 	synchronizerAddr       = address.Address("synchronizer")
 	peerSenderAddr         = address.Address("peerSender")
 	gatewayWriterAddr      = address.Address("gatewayWriter")
-	peerGatewaySwitchAddr  = address.Address("peerGatewaySwitch")
+	freeRouterAddr         = address.Address("freeRouter")
+	peerGatewaySwitchAddr  = address.Address("peerGatewayFreeSwitch")
 	validatorAddr          = address.Address("validator")
 	validatorResponsesAddr = address.Address("validatorResponses")
 )
@@ -162,6 +168,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		pipe               = plumber.New()
 		needPeerRouting    = len(batch.Peers) > 0
 		needGatewayRouting = len(batch.Gateway) > 0
+		needFreeRouting    = len(batch.Free) > 0
 		receiverAddresses  []address.Address
 		routeBulkheadTo    address.Address
 	)
@@ -175,8 +182,10 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
 	)
 
+	switchTargets := make([]address.Address, 0, 3)
 	if needPeerRouting {
 		routeBulkheadTo = peerSenderAddr
+		switchTargets = append(switchTargets, peerSenderAddr)
 		sender, receivers, _receiverAddresses, err := s.openManyPeers(ctx, batch.Peers)
 		if err != nil {
 			return nil, err
@@ -190,6 +199,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 
 	if needGatewayRouting {
 		routeBulkheadTo = gatewayWriterAddr
+		switchTargets = append(switchTargets, gatewayWriterAddr)
 		w, err := s.newGateway(ctx, Config{Start: cfg.Start, Keys: batch.Gateway})
 		if err != nil {
 			return nil, err
@@ -198,18 +208,26 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
-	if needPeerRouting && needGatewayRouting {
+	if needFreeRouting {
+		routeBulkheadTo = freeRouterAddr
+		switchTargets = append(switchTargets, freeRouterAddr)
+		w := s.newFree(ctx)
+		plumber.SetSegment[Request, Response](pipe, freeRouterAddr, w)
+		receiverAddresses = append(receiverAddresses, freeRouterAddr)
+	}
+
+	if len(switchTargets) > 1 {
 		routeBulkheadTo = peerGatewaySwitchAddr
 		plumber.SetSegment[Request, Request](
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewaySwitch(hostKey),
+			newPeerGatewayFreeSwitch(hostKey),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
-			SinkTargets:   []address.Address{peerSenderAddr, gatewayWriterAddr},
+			SinkTargets:   switchTargets,
 			Stitch:        plumber.StitchWeave,
-			Capacity:      2,
+			Capacity:      len(switchTargets),
 		}.MustRoute(pipe)
 	}
 
