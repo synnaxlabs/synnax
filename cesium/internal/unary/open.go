@@ -11,6 +11,7 @@ package unary
 
 import (
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -75,7 +76,11 @@ func Open(configs ...Config) (*DB, error) {
 	}
 	rangerDB, err := domain.Open(domain.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
 
-	db := &DB{Config: cfg, Domain: rangerDB}
+	db := &DB{
+		Config:     cfg,
+		Domain:     rangerDB,
+		controller: controller.New[*domain.Writer](cfg.Channel.Concurrency),
+	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
 	} else if cfg.Channel.Index == 0 {

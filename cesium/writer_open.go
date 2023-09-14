@@ -12,8 +12,8 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -55,7 +55,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfg WriterConfig) (w *streamW
 			return nil, ChannelNotFound
 		}
 
-		w, err := u.OpenWriter(ctx, domain.WriterConfig{Start: cfg.Start})
+		w, err := u.OpenWriter(ctx, unary.WriterConfig{Start: cfg.Start})
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func (db *DB) openDomainIdxWriter(
 	if err != nil {
 		return nil, err
 	}
-	idx := &index.Domain{DB: u.Ranger, Instrumentation: db.Instrumentation}
+	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.key = chKey
 	w.idx.Index = idx

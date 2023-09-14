@@ -10,6 +10,7 @@
 package core
 
 import (
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -45,5 +46,7 @@ type Channel struct {
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
-	Index ChannelKey `json:"index" msgpack:"index"`
+	Index       ChannelKey `json:"index" msgpack:"index"`
+	IsVirtual   bool
+	Concurrency control.Concurrency
 }

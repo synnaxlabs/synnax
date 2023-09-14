@@ -81,6 +81,39 @@ type Writer struct {
 	idx        *index
 	fileKey    uint16
 	internal   xio.OffsetWriteCloser
+	presetEnd  bool
+}
+
+// NewWriter opens a new Writer using the given configuration.
+func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	key, internal, err := db.files.acquireWriter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if db.idx.overlap(cfg.Domain()) {
+		return nil, ErrDomainOverlap
+	}
+	w := &Writer{
+		WriterConfig:    cfg,
+		Instrumentation: db.Instrumentation.Child("writer"),
+		fileKey:         key,
+		internal:        internal,
+		idx:             db.idx,
+		presetEnd:       !cfg.End.IsZero(),
+	}
+
+	// If we don't have a preset end, we defer to using the start of the next domain
+	// as the end of the new domain.
+	if !w.presetEnd {
+		i := w.idx.searchGE(ctx, cfg.Start)
+		ptr, ok := w.idx.get(i)
+		if !ok {
+			w.End = telem.TimeStampMax
+		} else {
+			w.End = ptr.Start
+		}
+	}
+	return w, nil
 }
 
 // Len returns the number of bytes written to the domain.
@@ -101,7 +134,7 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
-	if !w.End.IsZero() {
+	if w.presetEnd {
 		end = w.End
 	}
 	if err := w.validateCommitRange(end); err != nil {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package unary
+package meta
 
 import (
 	"github.com/cockroachdb/errors"
@@ -20,24 +20,24 @@ import (
 
 const metaFile = "meta.json"
 
-func readOrCreateMeta(cfg Config) (core.Channel, error) {
-	exists, err := cfg.FS.Exists(metaFile)
+func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.Channel, error) {
+	exists, err := fs.Exists(metaFile)
 	if err != nil {
-		return cfg.Channel, err
+		return ch, err
 	}
 	if !exists {
-		if cfg.Channel.Key == 0 {
-			return cfg.Channel, errors.Wrap(
+		if ch.Key == 0 {
+			return ch, errors.Wrap(
 				validate.Error,
 				"[unary] - a channel is required when creating a new database",
 			)
 		}
-		return cfg.Channel, createMeta(cfg.FS, cfg.MetaECD, cfg.Channel)
+		return ch, Create(fs, ecd, ch)
 	}
-	return readMeta(cfg.FS, cfg.MetaECD)
+	return Read(fs, ecd)
 }
 
-func readMeta(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
+func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	var ch core.Channel
 	if err != nil {
@@ -49,7 +49,7 @@ func readMeta(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	return ch, metaF.Close()
 }
 
-func createMeta(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
+func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err

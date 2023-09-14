@@ -12,11 +12,11 @@ package unary
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"sync"
 )
 
 type writeControlState struct {
@@ -26,15 +26,14 @@ type writeControlState struct {
 
 type DB struct {
 	Config
-	Domain  *domain.DB
-	writers map[*domain.Writer]*writeControlState
-	mu      sync.RWMutex
-	_idx    index.Index
+	Domain     *domain.DB
+	controller *controller.Controller[*domain.Writer]
+	_idx       index.Index
 }
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
-		panic(fmt.Sprintf("[domain.unary] - database %v does not support indexing", db.Channel.Key))
+		panic(fmt.Sprintf("[control.unary] - database %v does not support indexing", db.Channel.Key))
 	}
 	return db.index()
 }
@@ -48,62 +47,18 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
-	db.mu.Lock()
-	for d, e := range db.writers {
-		if d.Domain().OverlapsWith(cfg.domain().Domain()) {
-			w.internal = d
-			e.counter++
-			w.pos = e.counter
-		}
-	}
-	if w.internal == nil {
-		w.internal, err = db.Domain.NewWriter(ctx, cfg.domain())
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	w := &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
+	g, ok := db.controller.OpenGate(cfg.domain().Domain(), cfg.Authority)
+	if !ok {
+		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
 		if err != nil {
-			db.mu.Unlock()
 			return nil, err
 		}
-		w.pos = 1
-		db.writers[w.internal].writers = append(db.writers[w.internal].writers, w)
+		g = db.controller.RegisterAndOpenGate(dw.Domain(), cfg.Authority, dw)
 	}
-	db.mu.Unlock()
-	return
-}
-
-func (db *DB) removeWriter(w *Writer) error {
-	db.mu.Lock()
-	d, ok := db.writers[w.internal]
-	if !ok {
-		panic(fmt.Sprintf("[domain.unary] - writer %v not found in database %v", w.internal, db.Channel.Key))
-	}
-	if len(d.writers) == 1 {
-		delete(db.writers, w.internal)
-		db.mu.Unlock()
-		return w.internal.Close()
-	}
-	db.writers[w.internal].writers = append(d.writers[:w.pos], d.writers[w.pos+1:]...)
-	db.mu.Unlock()
-	return nil
-}
-
-func (db *DB) authorize(w *Writer) bool {
-	db.mu.RLock()
-	d, ok := db.writers[w.internal]
-	if !ok {
-		panic(fmt.Sprintf("[domain.unary] - writer %v not found in database %v", w.internal, db.Channel.Key))
-	}
-	for i, ow := range d.writers {
-		if ow == w {
-			continue
-		}
-		if ow.Authority > w.Authority || (ow.Authority == w.Authority && i < w.pos) {
-			db.mu.RUnlock()
-			return false
-		}
-	}
-	db.mu.RUnlock()
-	return true
+	w.control = g
+	return w, nil
 }
 
 type IteratorConfig struct {
