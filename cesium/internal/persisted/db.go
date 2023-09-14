@@ -16,12 +16,20 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"sync"
 )
+
+type writeControlState struct {
+	counter int
+	writers []*Writer
+}
 
 type DB struct {
 	Config
-	Ranger *domain.DB
-	_idx   index.Index
+	Domain  *domain.DB
+	writers map[*domain.Writer]*writeControlState
+	mu      sync.RWMutex
+	_idx    index.Index
 }
 
 func (db *DB) Index() index.Index {
@@ -40,9 +48,62 @@ func (db *DB) index() index.Index {
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
-func (db *DB) OpenWriter(ctx context.Context, cfg domain.WriterConfig) (*Writer, error) {
-	w, err := db.Ranger.NewWriter(ctx, cfg)
-	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, err error) {
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
+	db.mu.Lock()
+	for d, e := range db.writers {
+		if d.Domain().OverlapsWith(cfg.domain().Domain()) {
+			w.internal = d
+			e.counter++
+			w.pos = e.counter
+		}
+	}
+	if w.internal == nil {
+		w.internal, err = db.Domain.NewWriter(ctx, cfg.domain())
+		if err != nil {
+			db.mu.Unlock()
+			return nil, err
+		}
+		w.pos = 1
+		db.writers[w.internal].writers = append(db.writers[w.internal].writers, w)
+	}
+	db.mu.Unlock()
+	return
+}
+
+func (db *DB) removeWriter(w *Writer) error {
+	db.mu.Lock()
+	d, ok := db.writers[w.internal]
+	if !ok {
+		panic(fmt.Sprintf("[domain.unary] - writer %v not found in database %v", w.internal, db.Channel.Key))
+	}
+	if len(d.writers) == 1 {
+		delete(db.writers, w.internal)
+		db.mu.Unlock()
+		return w.internal.Close()
+	}
+	db.writers[w.internal].writers = append(d.writers[:w.pos], d.writers[w.pos+1:]...)
+	db.mu.Unlock()
+	return nil
+}
+
+func (db *DB) authorize(w *Writer) bool {
+	db.mu.RLock()
+	d, ok := db.writers[w.internal]
+	if !ok {
+		panic(fmt.Sprintf("[domain.unary] - writer %v not found in database %v", w.internal, db.Channel.Key))
+	}
+	for i, ow := range d.writers {
+		if ow == w {
+			continue
+		}
+		if ow.Authority > w.Authority || (ow.Authority == w.Authority && i < w.pos) {
+			db.mu.RUnlock()
+			return false
+		}
+	}
+	db.mu.RUnlock()
+	return true
 }
 
 type IteratorConfig struct {
@@ -73,7 +134,7 @@ func (i IteratorConfig) ranger() domain.IteratorConfig {
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Ranger.NewIterator(cfg.ranger())
+	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
 		idx:            db.index(),
 		Channel:        db.Channel,
@@ -84,4 +145,4 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) Close() error { return db.Ranger.Close() }
+func (db *DB) Close() error { return db.Domain.Close() }

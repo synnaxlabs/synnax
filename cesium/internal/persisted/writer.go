@@ -15,21 +15,36 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+type WriterConfig struct {
+	Start     telem.TimeStamp
+	End       telem.TimeStamp
+	Authority control.Authority
+}
+
+func (c WriterConfig) domain() domain.WriterConfig {
+	return domain.WriterConfig{Start: c.Start, End: c.End}
+}
+
 type Writer struct {
-	Channel    core.Channel
-	internal   *domain.Writer
-	start      telem.TimeStamp
-	idx        index.Index
-	hwm        telem.TimeStamp
-	numWritten int64
+	WriterConfig
+	Channel  core.Channel
+	db       *DB
+	internal *domain.Writer
+	idx      index.Index
+	// hwm is a hot-path optimization when writing to an index channel. We can avoid
+	// unnecessary index lookups by keeping track of the highest timestamp written.
+	// Only valid when Channel.IsIndex is true.
+	hwm telem.TimeStamp
+	pos int
 }
 
 func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Series) error {
-	w, err := db.OpenWriter(ctx, domain.WriterConfig{Start: start})
+	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Authority: control.Absolute})
 	if err != nil {
 		return err
 	}
@@ -40,13 +55,22 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Seri
 	return err
 }
 
+func (w *Writer) numWritten() int64 {
+	return w.Channel.DataType.Density().SampleCount(telem.Size(w.internal.Len()))
+}
+
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if err := w.validate(series); err != nil {
 		return 0, err
 	}
-	alignment := telem.Alignment(w.numWritten)
-	w.numWritten += series.Len()
+	if !w.db.authorize(w) {
+		return 0, errors.Wrapf(
+			control.Unauthorized,
+			"writer does not have control authority over channel %s",
+		)
+	}
+	alignment := telem.Alignment(w.numWritten())
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
@@ -75,10 +99,16 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
+	if !w.db.authorize(w) {
+		return 0, errors.Wrapf(
+			control.Unauthorized,
+			"writer does not have control authority over channel %s",
+		)
+	}
 	if end.IsZero() {
 		// we're using w.numWritten - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.start, w.numWritten-1, true)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.numWritten()-1, true)
 		if err != nil {
 			return 0, err
 		}
@@ -91,7 +121,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	return end, w.internal.Commit(ctx, end)
 }
 
-func (w *Writer) Close() error { return w.internal.Close() }
+func (w *Writer) Close() error { return w.db.removeWriter(w) }
 
 func (w *Writer) validate(series telem.Series) error {
 	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (w.Channel.DataType == telem.Int64T || w.Channel.DataType == telem.TimeStampT) {

@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -37,7 +38,7 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = (*Config)(nil)
+	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
 		MetaECD: &binary.JSONEncoderDecoder{Pretty: true},
@@ -68,13 +69,13 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = readOrCreateMeta(cfg)
+	cfg.Channel, err = meta.ReadOrCreate(cfg.FS, cfg.Channel, cfg.MetaECD)
 	if err != nil {
 		return nil, err
 	}
 	rangerDB, err := domain.Open(domain.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
 
-	db := &DB{Config: cfg, Ranger: rangerDB}
+	db := &DB{Config: cfg, Domain: rangerDB}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
 	} else if cfg.Channel.Index == 0 {
