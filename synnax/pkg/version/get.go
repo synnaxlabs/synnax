@@ -2,7 +2,6 @@ package version
 
 import (
 	"embed"
-	"fmt"
 	"io/ioutil"
 )
 
