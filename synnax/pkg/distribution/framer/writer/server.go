@@ -57,5 +57,6 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 
-	return sCtx.Wait()
+	err = sCtx.Wait()
+	return err
 }

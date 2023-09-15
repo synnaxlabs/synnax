@@ -47,7 +47,7 @@ func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free F
 		if key.Leaseholder() == host {
 			local.Keys = append(local.Keys, key)
 			local.Series = append(local.Series, f.Series[i])
-		} else if key.Leaseholder() == core.Free {
+		} else if key.Leaseholder().IsFree() {
 			free.Keys = append(free.Keys, key)
 			free.Series = append(free.Series, f.Series[i])
 		} else {

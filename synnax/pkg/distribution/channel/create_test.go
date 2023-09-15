@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -30,23 +31,17 @@ var _ = Describe("TypedWriter", Ordered, func() {
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Context("Single channel", func() {
-		var (
-			channelLeaseNodeKey aspen.NodeKey
-			ch                  channel.Channel
-		)
+		var ch channel.Channel
 		JustBeforeEach(func() {
 			var err error
-			ch = channel.Channel{
-				Rate:        5 * telem.Hz,
-				Name:        "SG01",
-				DataType:    telem.Float64T,
-				Leaseholder: channelLeaseNodeKey,
-			}
+			ch.Rate = 5 * telem.Hz
+			ch.Name = "SG01"
+			ch.DataType = telem.Float64T
 			err = services[1].NewWriter(nil).Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
-			BeforeEach(func() { channelLeaseNodeKey = 1 })
+			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
@@ -62,7 +57,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			})
 		})
 		Context("Node is remote", func() {
-			BeforeEach(func() { channelLeaseNodeKey = 2 })
+			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
 				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
@@ -77,7 +72,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			})
 			It("Should not create the channel on another nodes cesium", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))
 			})
 			It("Should assign a sequential key to the channels on each node",
@@ -93,6 +88,19 @@ var _ = Describe("TypedWriter", Ordered, func() {
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(uint16(3)))
 				})
+		})
+		Context("Free", func() {
+			BeforeEach(func() {
+				ch.Leaseholder = core.Free
+				ch.Virtual = true
+			})
+			It("Should create the channel without error", func() {
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
+				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
+				Expect(err).To(MatchError(query.NotFound))
+				Expect(channels).To(HaveLen(0))
+			})
 		})
 	})
 })

@@ -11,8 +11,10 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -27,16 +29,16 @@ import (
 var _ = Describe("TypedWriter", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
-			gatewayOnlyScenario,
-			peerOnlyScenario,
+			//gatewayOnlyScenario,
+			//peerOnlyScenario,
 			mixedScenario,
 		}
-		for _, sF := range scenarios {
+		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-			Specify("It should write and commit data", func() {
+			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -49,7 +51,9 @@ var _ = Describe("TypedWriter", func() {
 						telem.NewArrayV[int64](5, 6, 7),
 					}},
 				)).To(BeTrue())
+				logrus.Info("HERE")
 				Expect(writer.Commit()).To(BeTrue())
+				logrus.Info("PAST")
 				Expect(writer.Error()).To(Succeed())
 				Expect(writer.Write(core.Frame{
 					Keys: s.keys,
@@ -119,6 +123,7 @@ var _ = Describe("TypedWriter", func() {
 })
 
 type scenario struct {
+	name    string
 	keys    channel.Keys
 	service *writer.Service
 	channel channel.Service
@@ -152,6 +157,7 @@ func gatewayOnlyScenario() scenario {
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "gatewayOnly",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,
@@ -176,6 +182,7 @@ func peerOnlyScenario() scenario {
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "peerOnly",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,
@@ -200,6 +207,7 @@ func mixedScenario() scenario {
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "mixed",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,

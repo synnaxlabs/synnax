@@ -126,7 +126,7 @@ const (
 	synchronizerAddr       = address.Address("synchronizer")
 	peerSenderAddr         = address.Address("peerSender")
 	gatewayWriterAddr      = address.Address("gatewayWriter")
-	freeRouterAddr         = address.Address("freeRouter")
+	freeWriterAddr         = address.Address("freeWriter")
 	peerGatewaySwitchAddr  = address.Address("peerGatewayFreeSwitch")
 	validatorAddr          = address.Address("validator")
 	validatorResponsesAddr = address.Address("validatorResponses")
@@ -163,14 +163,14 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	}
 
 	var (
-		hostKey            = s.HostResolver.HostKey()
-		batch              = proxy.BatchFactory[channel.Key]{Host: hostKey}.Batch(cfg.Keys)
-		pipe               = plumber.New()
-		needPeerRouting    = len(batch.Peers) > 0
-		needGatewayRouting = len(batch.Gateway) > 0
-		needFreeRouting    = len(batch.Free) > 0
-		receiverAddresses  []address.Address
-		routeBulkheadTo    address.Address
+		hostKey           = s.HostResolver.HostKey()
+		batch             = proxy.BatchFactory[channel.Key]{Host: hostKey}.Batch(cfg.Keys)
+		pipe              = plumber.New()
+		hasPeer           = len(batch.Peers) > 0
+		hasGateway        = len(batch.Gateway) > 0
+		hasFree           = len(batch.Free) > 0
+		receiverAddresses []address.Address
+		routeValidatorTo  address.Address
 	)
 
 	v := &validator{signal: make(chan bool, 1), keys: cfg.Keys}
@@ -183,8 +183,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	)
 
 	switchTargets := make([]address.Address, 0, 3)
-	if needPeerRouting {
-		routeBulkheadTo = peerSenderAddr
+	if hasPeer {
+		routeValidatorTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
 		sender, receivers, _receiverAddresses, err := s.openManyPeers(ctx, batch.Peers)
 		if err != nil {
@@ -197,8 +197,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		}
 	}
 
-	if needGatewayRouting {
-		routeBulkheadTo = gatewayWriterAddr
+	if hasGateway {
+		routeValidatorTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
 		w, err := s.newGateway(ctx, Config{Start: cfg.Start, Keys: batch.Gateway})
 		if err != nil {
@@ -208,20 +208,20 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
-	if needFreeRouting {
-		routeBulkheadTo = freeRouterAddr
-		switchTargets = append(switchTargets, freeRouterAddr)
+	if hasFree {
+		routeValidatorTo = freeWriterAddr
+		switchTargets = append(switchTargets, freeWriterAddr)
 		w := s.newFree(ctx)
-		plumber.SetSegment[Request, Response](pipe, freeRouterAddr, w)
-		receiverAddresses = append(receiverAddresses, freeRouterAddr)
+		plumber.SetSegment[Request, Response](pipe, freeWriterAddr, w)
+		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
 	if len(switchTargets) > 1 {
-		routeBulkheadTo = peerGatewaySwitchAddr
+		routeValidatorTo = peerGatewaySwitchAddr
 		plumber.SetSegment[Request, Request](
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewayFreeSwitch(hostKey),
+			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
@@ -231,7 +231,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, validatorAddr, routeBulkheadTo, 1)
+	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 1)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,

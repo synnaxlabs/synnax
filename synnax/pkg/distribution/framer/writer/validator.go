@@ -105,7 +105,6 @@ func (v *validator) validate(req Request) error {
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.Error, "invalid key: %s", k)
 			}
-
 		}
 
 	}

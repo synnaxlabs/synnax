@@ -42,9 +42,9 @@ func ParseKey(s string) (k Key, err error) {
 // node for the Channel.
 func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
 
-// Leased returns true when the channel has a leaseholder node i.e. it is not a non-leased
+// Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Leased() bool { return c.Leaseholder() == core.Free }
+func (c Key) Free() bool { return c.Leaseholder() == core.Free }
 
 // StorageKey returns a unique identifier for the Channel to use with a ts.DB.
 func (c Key) StorageKey() uint32 { return uint32(c) }
@@ -196,14 +196,19 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // SetOptions implements the gorp.Entry interface. Returns a set of options that
 // tell an aspen.DB to properly lease the Channel to the node it will be recording data
 // from.
-func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
+func (c Channel) SetOptions() []interface{} {
+	if c.Free() {
+		return []interface{}{core.Bootstrapper}
+	}
+	return []interface{}{c.Lease()}
+}
 
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 
-// Leased returns true if the channel is leased to a particular node i.e. it is not
+// Free returns true if the channel is leased to a particular node i.e. it is not
 // a non-leased virtual channel.
-func (c Channel) Leased() bool { return c.Leaseholder != core.Free }
+func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{

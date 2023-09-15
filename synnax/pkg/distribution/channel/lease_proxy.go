@@ -74,7 +74,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		oChannels = append(oChannels, remoteChannels...)
 	}
 	if len(batch.Free) > 0 {
-		if lp.HostResolver.HostKey() != core.Bootstrapper {
+		if !lp.HostResolver.HostKey().IsBootstrapper() {
 			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free)
 			if err != nil {
 				return err

@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/x/confluence"
 	. "github.com/synnaxlabs/x/testutil"
 	"testing"
 )
@@ -66,6 +68,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader:   container.channel,
 			HostResolver:    c.Cluster,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
+			FreeWrites:      confluence.NewStream[relay.Response](1000),
 		}))
 		services[c.Cluster.HostKey()] = container
 	}
