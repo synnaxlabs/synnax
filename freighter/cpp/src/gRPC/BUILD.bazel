@@ -1,0 +1,23 @@
+# Proto library.
+proto_library(
+    name = "service_proto", 
+    srcs = ["service.proto"],
+    deps = ["@com_google_protobuf//:any_proto"],
+)
+
+# Build for cpp.
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_proto_compile")
+
+cpp_proto_compile(
+    name = "cpp_proto",
+    protos = [":service_proto"],
+)
+
+# Cpp build
+
+cc_test(
+    name = "grpc_test",
+    size = "small",
+    srcs = ["test.cpp"],
+    deps = ["@com_google_googletest//:gtest_main"]
+)
