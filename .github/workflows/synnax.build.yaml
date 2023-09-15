@@ -49,7 +49,7 @@ jobs:
         working-directory: ./synnax
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
           else
             echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           fi
@@ -99,7 +99,7 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
-        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Create Release
         if: steps.filter.outputs.changed == 'true'
@@ -166,7 +166,7 @@ jobs:
         working-directory: ./synnax
         shell: bash
         run: |
-          echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Build
         if: steps.filter.outputs.changed == 'true'
