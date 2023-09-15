@@ -25,7 +25,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
-from synnax.framer.client import FrameClient
+from synnax.framer.client import Client
 from synnax.telem import (
     Rate,
     CrudeDataType,
@@ -43,7 +43,7 @@ class Channel(ChannelPayload):
     introduction to channels and how they work.
     """
 
-    ___frame_client: FrameClient | None = PrivateAttr(None)
+    ___frame_client: Client | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -58,7 +58,7 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
-        _frame_client: FrameClient | None = None,
+        _frame_client: Client | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
         that this does not create the Channel in the cluster. To create the channel,
@@ -133,7 +133,7 @@ class Channel(ChannelPayload):
         self.__frame_client.write(start, data, self.key)
 
     @property
-    def __frame_client(self) -> FrameClient:
+    def __frame_client(self) -> Client:
         if self.___frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
@@ -161,13 +161,13 @@ class Channel(ChannelPayload):
 class ChannelClient:
     """The core py class for executing channel operations against a Synnax cluster."""
 
-    _frame_client: FrameClient
+    _frame_client: Client
     _retriever: ChannelRetriever
     _creator: ChannelCreator
 
     def __init__(
         self,
-        frame_client: FrameClient,
+        frame_client: Client,
         retriever: ChannelRetriever,
         creator: ChannelCreator,
     ):

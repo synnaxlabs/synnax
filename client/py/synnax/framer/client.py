@@ -24,6 +24,7 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelKeys,
     ChannelNames,
+    ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
@@ -31,7 +32,7 @@ from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
 
 
-class FrameClient:
+class Client:
     """SegmentClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
@@ -103,7 +104,7 @@ class FrameClient:
         self,
         start: CrudeTimeStamp,
         data: ndarray | Series,
-        to: ChannelKey | ChannelName,
+        to: ChannelKey | ChannelName | ChannelPayload,
         strict: bool = False,
     ) -> TimeStamp:
         """Writes telemetry to the given channel starting at the given timestamp.

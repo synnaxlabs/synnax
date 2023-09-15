@@ -29,6 +29,16 @@ type Service struct {
 	relay    *relay.Relay
 }
 
+type Writable interface {
+	OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
+	NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error)
+}
+
+type Readable interface {
+	OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error)
+	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
+}
+
 type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable

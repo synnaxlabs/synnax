@@ -15,32 +15,32 @@ import time
 client = sy.Synnax()
 
 valve_en_time = client.channels.create(
-    name="Valve Enable Time",
+    name="valve_enable_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
 )
 
 valve_en_cmd_time = client.channels.create(
-    name="Valve Enable Command Time",
+    name="valve_enable_command_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
 )
 
 valve_en_cmd = client.channels.create(
-    name="Valve Enable Command",
+    name="valve_enable_command",
     index=valve_en_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
 valve_en = client.channels.create(
-    name="Valve Enable",
+    name="valve_enable",
     index=valve_en_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
 
 data_ch = client.channels.create(
-    name="Data 2",
+    name="data",
     index=valve_en_time.key,
     data_type=sy.DataType.FLOAT32,
 )
@@ -54,7 +54,7 @@ print(
 """
 )
 
-rate = (sy.Rate.HZ * 50).period.seconds
+rate = (sy.Rate.HZ * 20).period.seconds
 
 i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
@@ -82,5 +82,3 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 }
             )
             i += 1
-            if i % 50 == 0:
-                writer.commit()

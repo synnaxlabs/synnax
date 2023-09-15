@@ -39,6 +39,7 @@ type Service interface {
 
 type Writeable interface {
 	NewWriter(tx gorp.Tx) Writer
+	RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error
 }
 
 type Readable interface {
@@ -102,6 +103,22 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
+
+func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error {
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.NewWriter(tx)
+		for _, channel := range *channels {
+			var res Channel
+			s.NewRetrieve().WhereNames(channel.Name).Entry(&res).Exec(ctx, nil)
+			if res.Name != channel.Name {
+				if err := w.Create(ctx, &channel); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
 
 const groupName = "Channels"
 

@@ -25,7 +25,7 @@ var _ = Describe("Ranger", Ordered, func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.NewService(group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(ranger.NewService(ctx, ranger.Config{
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,

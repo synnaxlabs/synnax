@@ -173,6 +173,7 @@ class SyncStream(Thread, Stream[RQ, RS]):
             if exc is not None:
                 self._open_exception.notify(exc)
                 return
+
             loop.run_until_complete(self.__run())
         finally:
             try:

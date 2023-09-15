@@ -32,6 +32,7 @@ urllib3 = "^2.0.3"
 numpy = "^1.24.3"
 matplotlib = "^3.7.1"
 pytest-asyncio = "^0.21.1"
+janus = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.3.1"
@@ -62,6 +63,7 @@ markers = [
     "series: mark test as a series test",
     "ranger: mark test as a ranger test",
     "focus: focus on a set of tests",
+    "control: mark test as a control test",
     "cli"
 ]
 

@@ -10,7 +10,7 @@
 from typing import overload
 
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.framer.client import FrameClient
+from synnax.framer.client import Client
 from synnax.ranger.retrieve import RangeRetriever
 from synnax.ranger.create import RangeCreator
 from synnax.ranger.range import Range
@@ -28,14 +28,14 @@ from synnax.exceptions import QueryError
 
 
 class RangeClient:
-    __frame_client: FrameClient
+    __frame_client: Client
     __channel_retriever: ChannelRetriever
     __retriever: RangeRetriever
     __creator: RangeCreator
 
     def __init__(
         self,
-        frame_client: FrameClient,
+        frame_client: Client,
         creator: RangeCreator,
         retriever: RangeRetriever,
         channel_retriever: ChannelRetriever,

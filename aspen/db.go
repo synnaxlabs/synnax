@@ -37,10 +37,12 @@ type (
 )
 
 const (
-	Healthy = node.StateHealthy
-	Left    = node.StateLeft
-	Dead    = node.StateDead
-	Suspect = node.StateSuspect
+	Free         = node.Free
+	Bootstrapper = node.Bootstrapper
+	Healthy      = node.StateHealthy
+	Left         = node.StateLeft
+	Dead         = node.StateDead
+	Suspect      = node.StateSuspect
 )
 
 type DB struct {

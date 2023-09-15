@@ -78,6 +78,14 @@ func KeysFromChannels(channels []Channel) (keys Keys) {
 	return keys
 }
 
+func NamesFromChannels(channels []Channel) (names []string) {
+	names = make([]string, len(channels))
+	for i, channel := range channels {
+		names[i] = channel.Name
+	}
+	return names
+}
+
 func KeysFromUint32(keys []uint32) Keys {
 	nKeys := make(Keys, len(keys))
 	for i, key := range keys {

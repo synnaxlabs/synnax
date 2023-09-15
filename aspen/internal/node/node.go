@@ -10,6 +10,7 @@
 package node
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/synnaxlabs/x/address"
@@ -19,10 +20,19 @@ import (
 
 type Key uint16
 
+const (
+	Bootstrapper Key = 1
+	Free         Key = math.MaxUint16
+)
+
 func (k Key) Parse(str string) (Key, error) {
 	key, err := strconv.Atoi(str)
 	return Key(key), err
 }
+
+func (k Key) IsFree() bool { return k == Free }
+
+func (k Key) IsBootstrapper() bool { return k == Bootstrapper }
 
 type Node struct {
 	Key       Key

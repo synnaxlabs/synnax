@@ -8,18 +8,22 @@ import (
 )
 
 func (s *Service) newFree(ctx context.Context) StreamWriter {
-	return &freeWriter{freeWrites: s.FreeWrites}
+	w := &freeWriter{freeWrites: s.FreeWrites}
+	w.Transform = w.transform
+	return w
 }
 
 type freeWriter struct {
-	confluence.AbstractLinear[Request, Response]
+	confluence.LinearTransform[Request, Response]
 	freeWrites confluence.Inlet[relay.Response]
+	seqNum     int
 }
 
-func (w *freeWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
-	o := confluence.NewOptions(opts)
-	o.AttachClosables(w.Out)
-	signal.GoRange(ctx, w.In.Outlet(), func(ctx context.Context, r Request) error {
-		return signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: r.Frame})
-	})
+func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
+	if req.Command == Data {
+		err = signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: req.Frame})
+		return
+	}
+	w.seqNum++
+	return Response{Command: req.Command, Ack: true, SeqNum: w.seqNum}, true, nil
 }

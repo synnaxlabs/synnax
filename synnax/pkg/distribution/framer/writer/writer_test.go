@@ -14,7 +14,6 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
@@ -31,7 +30,8 @@ var _ = Describe("TypedWriter", func() {
 		scenarios := []func() scenario{
 			//gatewayOnlyScenario,
 			//peerOnlyScenario,
-			mixedScenario,
+			//mixedScenario,
+			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
 			_sF := sF
@@ -51,9 +51,7 @@ var _ = Describe("TypedWriter", func() {
 						telem.NewArrayV[int64](5, 6, 7),
 					}},
 				)).To(BeTrue())
-				logrus.Info("HERE")
 				Expect(writer.Commit()).To(BeTrue())
-				logrus.Info("PAST")
 				Expect(writer.Error()).To(Succeed())
 				Expect(writer.Write(core.Frame{
 					Keys: s.keys,
@@ -208,6 +206,32 @@ func mixedScenario() scenario {
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
 		name:    "mixed",
+		keys:    keys,
+		service: svc.writer,
+		close:   builder,
+		channel: svc.channel,
+	}
+}
+
+func freeWriterScenario() scenario {
+	channels := newChannelSet()
+	builder, services := provision(3)
+	svc := services[1]
+	for i, ch := range channels {
+		ch.Leaseholder = dcore.Free
+		ch.Virtual = true
+		channels[i] = ch
+	}
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Eventually(func(g Gomega) {
+		var chs []channel.Channel
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		g.Expect(err).To(Succeed())
+		g.Expect(chs).To(HaveLen(len(channels)))
+	}).Should(Succeed())
+	keys := channel.KeysFromChannels(channels)
+	return scenario{
+		name:    "freeWriter",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,

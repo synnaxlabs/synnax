@@ -119,7 +119,7 @@ func start(cmd *cobra.Command) {
 		})
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
-		rangeSvc, err := ranger.NewService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
 		if err != nil {
 			return err
 		}

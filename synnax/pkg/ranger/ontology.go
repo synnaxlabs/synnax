@@ -83,11 +83,11 @@ func translateChange(c change) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) func() {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
 	}
-	gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.

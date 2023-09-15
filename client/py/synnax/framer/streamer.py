@@ -123,6 +123,9 @@ class AsyncStreamer:
             raise err
         return self.__adapter.adapt(Frame(res.frame))
 
+    async def close_loop(self):
+        await self.__stream.close_send()
+
     async def close(self):
         exc = await self.__stream.close_send()
         if exc is not None:
@@ -143,7 +146,10 @@ class AsyncStreamer:
         return self
 
     async def __anext__(self):
-        return await self.read()
+        try: 
+            return await self.read()
+        except EOF:
+            raise StopAsyncIteration
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
