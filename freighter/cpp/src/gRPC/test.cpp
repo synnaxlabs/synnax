@@ -1,6 +1,10 @@
 #include <gtest/gtest.h>
+#include "src/gRPC/service.pb.h"
 
 TEST(basicTest, basicProto)
 {
-    EXPECT_EQ(1, 1);
+    auto m = test::Message();
+    m.set_payload("Hello");
+
+    ASSERT_EQ(m.payload(), "Hello");
 }
