@@ -13,6 +13,14 @@ cpp_proto_library(
     protos = [":service_proto"],
 )
 
+# gRPC implementation.
+cc_library(
+    name = "gRPC",
+    srcs = ["client.cpp"],
+    hdrs = ["client.h"],
+    deps = ["//src:freighter"]
+)
+
 # Cpp build
 cc_test(
     name = "grpc_test",

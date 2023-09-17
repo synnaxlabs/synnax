@@ -2,6 +2,12 @@ syntax = "proto3";
 
 package test;
 
-message Message {
+service Service
+{
+    rpc Exec(Message) returns (Message) {}
+}
+
+message Message
+{
     string payload = 1;
 }

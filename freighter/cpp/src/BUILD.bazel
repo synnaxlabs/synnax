@@ -2,6 +2,7 @@
 cc_library(
     name = "freighter", 
     srcs = [],
-    hdrs = ["freighter.h", "types.h"],
+    hdrs = ["freighter.h"],
+    visibility = ["//visibility:public"],
     deps = []
 )
