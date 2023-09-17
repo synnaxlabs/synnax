@@ -15,24 +15,27 @@ import pandas as pd
 from pandas.io.parsers import TextFileReader
 from synnax.exceptions import ValidationError
 
+from nptdms import TdmsFile, TdmsGroup, TdmsChannel
+
+from math import ceil
+
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import ChannelMeta, ReaderType, File, BaseReader, ColumnFileReader
 
-TDMLMatcher = new_extension_matcher(["tdml"])
+TDMSMatcher = new_extension_matcher(["tdms"])
 
 
-class TDMLReader(TDMLMatcher):   # type: ignore
-    """A ColReader implementation for TDML files."""
+class TDMSReader(TDMSMatcher):   # type: ignore
+    """A ColReader implementation for TDMS files."""
 
     channel_keys: list[str] | None
     chunk_size: int
 
-    __reader: TextFileReader | None
+    _chunk_location: int
+    _n_channel_chunks: int
+    
     _path: Path
     _channels: list[ChannelMeta] | None
-    _row_count: int | None
-    _calculated_skip_rows: bool
-    _skip_rows: int
 
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that return
@@ -50,6 +53,8 @@ class TDMLReader(TDMLMatcher):   # type: ignore
         self.channel_keys = keys
         self.chunk_size = chunk_size or int(5e5)
         self._channels = None
+        self._chunk_location = 0
+        self._n_channel_chunks = None
     
     def channels(self) -> list[ChannelMeta]:
         """:returns : a list of channel metadata for the file."""
@@ -75,5 +80,31 @@ class TDMLReader(TDMLMatcher):   # type: ignore
     def read(self, *keys: str) -> pd.DataFrame:
         """Reads a dataframe with chunk size * number of columns samples. The returned
         dataframe contains columns for each key in keys.
+        """ 
+        data = dict()
+        
+        with TdmsFile.open(self._path) as tdms_file:
+            # read entire file, return empty DF
+            if self._chunk_location > self.n_channel_chunks:
+                return pd.DataFrame()
+            
+            for group in tdms_file.groups():
+                for channel in group.channels():
+                    data[channel.name] = channel[self._chunk_location*self.chunk_size:(self._chunk_location + 1)*self.chunk_size]
+            self._chunk_location += 1
+        
+        return pd.DataFrame(data)
+    
+    @property
+    def n_channel_chunks(self) -> int:
+        """Returns number of chunk reads we can make from the TDMS file
         """
-        ...
+        if self._n_channel_chunks is None:
+            # assume every channel has the same number of data
+            with TdmsFile.open(self._path) as tdms_file:
+                group0 = tdms_file.groups()[0]
+                channel0 = group0.channels()[0]
+                self._n_channel_chunks = ceil(len(channel0) / self.chunk_size)
+                
+        assert self._n_channel_chunks is not None
+        return self._n_channel_chunks
