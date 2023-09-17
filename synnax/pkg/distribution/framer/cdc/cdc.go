@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package iter_test
+package cdc
 
 import (
-	"context"
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/x/gorp"
 )
 
-var ctx = context.Background()
-
-func TestIter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iterate Suite")
+type Service struct {
+	framer  framer.Writable
+	db      *gorp.DB
+	channel channel.Writeable
 }

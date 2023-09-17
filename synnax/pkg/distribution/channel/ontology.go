@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/observe"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -76,14 +77,14 @@ func translateChange(ch change) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
+func (s *service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{
 			Wrap:      reader,
 			Translate: translateChange,
 		})
 	}
-	gorp.Observe[Key, Channel](s.DB).OnChange(handleChange)
+	return gorp.Observe[Key, Channel](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.

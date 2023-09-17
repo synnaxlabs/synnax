@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+	"go.uber.org/zap"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -148,8 +149,8 @@ func (k *Iterator[E]) Valid() bool {
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return TxReader[K, E]{
-		TxReader:      reader,
-		Tools:         tools,
+		kv:            reader,
+		tools:         tools,
 		prefixMatcher: prefixMatcher[K, E](tools),
 	}
 }
@@ -158,17 +159,17 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 // that provides a strongly typed interface for iterating over a
 // transactions operations in order.
 type TxReader[K Key, E Entry[K]] struct {
-	kv.TxReader
-	Tools
+	kv            kv.TxReader
+	tools         Tools
 	prefixMatcher func(ctx context.Context, key []byte) bool
 }
 
 // Next implements TxReader.
-func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool, err error) {
+func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool) {
 	var kvOp kv.Change
-	kvOp, ok, err = t.TxReader.Next(ctx)
-	if !ok || err != nil {
-		return op, false, err
+	kvOp, ok = t.kv.Next(ctx)
+	if !ok {
+		return op, false
 	}
 	if !t.prefixMatcher(ctx, kvOp.Key) {
 		return t.Next(ctx)
@@ -177,8 +178,11 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	if op.Variant != change.Set {
 		return
 	}
-	if err = t.Decode(ctx, kvOp.Value, &op.Value); err != nil {
-		return
+	// Panicking in development here right now. Don't want to extend the footprint of
+	// TxReader to NexterCloser.
+	if err := t.tools.Decode(ctx, kvOp.Value, &op.Value); err != nil {
+		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode value: ", err)
+		return op, false
 	}
 	op.Key = op.Value.GorpKey()
 	return
@@ -189,10 +193,10 @@ type next[E any] struct{ *Iterator[E] }
 var _ iter.NexterCloser[any] = (*next[any])(nil)
 
 // Next implements iter.Nexter.
-func (n *next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
+func (n *next[E]) Next(ctx context.Context) (e E, ok bool) {
 	ok = n.Iterator.Next()
 	if !ok {
-		return e, ok, n.Iterator.Error()
+		return e, ok
 	}
-	return *n.Iterator.Value(ctx), ok, n.Iterator.Error()
+	return *n.Iterator.Value(ctx), ok
 }

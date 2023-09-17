@@ -46,6 +46,7 @@ type Distribution struct {
 // Close closes the distribution layer.
 func (d Distribution) Close() error {
 	e := errutil.NewCatch(errutil.WithAggregation())
+	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
 	e.Exec(d.Storage.Close)
 	return e.Error()
@@ -67,7 +68,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	}); err != nil {
 		return d, err
 	}
-	if d.Group, err = group.NewService(group.Config{
+	if d.Group, err = group.OpenService(group.Config{
 		DB:       gorpDB,
 		Ontology: d.Ontology,
 	}); err != nil {

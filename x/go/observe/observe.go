@@ -9,12 +9,17 @@
 
 package observe
 
-import "context"
+import (
+	"context"
+	"sync"
+)
+
+type Disconnect = func()
 
 // Observable is an interface that represents an entity whose state can be observed.
 type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes.
-	OnChange(handler func(context.Context, T)) (cancel func())
+	OnChange(handler func(context.Context, T)) (disconnect Disconnect)
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
@@ -29,6 +34,7 @@ type Observer[T any] interface {
 }
 
 type base[T any] struct {
+	mu       sync.Mutex
 	handlers map[*func(context.Context, T)]struct{}
 }
 
@@ -36,13 +42,19 @@ type base[T any] struct {
 func New[T any]() Observer[T] { return &base[T]{} }
 
 // OnChange implements the Observable interface.
-func (b *base[T]) OnChange(handler func(context.Context, T)) (cancel func()) {
+func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
+	b.mu.Lock()
 	p := &handler
 	if b.handlers == nil {
 		b.handlers = make(map[*func(context.Context, T)]struct{})
 	}
 	b.handlers[p] = struct{}{}
-	return func() { delete(b.handlers, p) }
+	b.mu.Unlock()
+	return func() {
+		b.mu.Lock()
+		delete(b.handlers, p)
+		b.mu.Unlock()
+	}
 }
 
 // Notify implements the Observer interface.
@@ -70,4 +82,13 @@ type Noop[T any] struct{}
 var _ Observable[any] = Noop[any]{}
 
 // OnChange implements Observable.
-func (Noop[T]) OnChange(_ func(context.Context, T)) func() { return func() {} }
+func (Noop[T]) OnChange(_ func(context.Context, T)) Disconnect { return func() {} }
+
+type Translator[I any, O any] struct {
+	Observable[I]
+	Translate func(I) O
+}
+
+func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect {
+	return t.Observable.OnChange(func(ctx context.Context, v I) { handler(ctx, t.Translate(v)) })
+}

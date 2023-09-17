@@ -49,9 +49,9 @@ func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontolo
 }
 
 func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
-	return iter.NexterNopCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
+	return iter.NexterNopCloser(iter.All([]ontology.Resource{
 		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
-	})}
+	}))
 }
 
 var (
@@ -70,6 +70,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	Expect(otg.Close()).To(Succeed())
 	Expect(db.Close()).To(Succeed())
 })
 

@@ -1,59 +1,80 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package cdc
 
 import (
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 	"io"
+	"strings"
 )
 
-type UUIDConfig[E gorp.Entry[uuid.UUID]] struct {
-	Set    channel.Channel
-	Delete channel.Channel
-	Framer framer.Writable
-	DB     *gorp.DB
+type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
+	DB       *gorp.DB
+	DataType telem.DataType
+	Marshal  func(K) []byte
 }
 
-func OpenUUID[E gorp.Entry[uuid.UUID]](ctx context.Context, cfg UUIDConfig[E]) (io.Closer, error) {
-	channels := []channel.Channel{cfg.Set, cfg.Delete}
-	keys := channel.KeysFromChannels(channels)
-	w, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  keys,
-		Start: telem.Now(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	sCtx, cancel := signal.Isolated()
-	defer cancel()
-	p := plumber.New()
-	t := &confluence.TransformSubscriber[gorp.TxReader[uuid.UUID, E], framer.WriterRequest]{
-		Observable: gorp.Observe[uuid.UUID, E](cfg.DB),
-		Transform: func(ctx context.Context, r gorp.TxReader[uuid.UUID, E]) (framer.WriterRequest, bool, error) {
-			var ids []byte
-			for c, ok, _ := r.Next(ctx); ok; c, ok, _ = r.Next(ctx) {
-				b, _ := c.Value.GorpKey().MarshalBinary()
-				ids = append(ids, b...)
-			}
-			f := framer.Frame{
-				Keys: channel.Keys{channels[0].Key()},
-				Series: []telem.Series{{
-					DataType: telem.UUIDT,
-					Data:     ids,
-				}},
-			}
-			return framer.WriterRequest{Command: writer.Data, Frame: f}, true, nil
+func UUIDGorpConfig[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
+	return GorpConfig[uuid.UUID, E]{
+		DB:       db,
+		DataType: telem.UUIDT,
+		Marshal: func(k uuid.UUID) []byte {
+			return k[:]
 		},
 	}
-	plumber.SetSource[framer.WriterRequest](p, "source", t)
-	plumber.SetSink[framer.WriterRequest](p, "sink", w)
-	p.Flow(sCtx)
-	return signal.NewShutdown(sCtx, cancel), nil
+}
+
+func OpenGorp[K gorp.Key, E gorp.Entry[K]](
+	ctx context.Context,
+	svc *Service,
+	cfg GorpConfig[K, E],
+) (io.Closer, error) {
+	name := strings.ToLower(types.Name[E]())
+	channels := []channel.Channel{
+		{
+			Name:     fmt.Sprintf("sy_%s_set", name),
+			DataType: cfg.DataType,
+			Virtual:  true,
+		},
+		{
+			Name:     fmt.Sprintf("sy_%s_delete", name),
+			DataType: cfg.DataType,
+			Virtual:  true,
+		},
+	}
+	obs := observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
+		Observable: gorp.Observe[K, E](cfg.DB),
+		Translate: func(r gorp.TxReader[K, E]) []change.Change[[]byte, struct{}] {
+			changes := iter.ToSlice[change.Change[K, E]](ctx, r)
+			var out []change.Change[[]byte, struct{}]
+			for _, c := range changes {
+				out = append(out, change.Change[[]byte, struct{}]{
+					Key:     cfg.Marshal(c.Key),
+					Variant: c.Variant,
+				})
+			}
+			return out
+		},
+	}
+	return svc.OpenCore(ctx, CoreConfig{
+		Set:    channels[0],
+		Delete: channels[1],
+		Obs:    obs,
+	})
 }

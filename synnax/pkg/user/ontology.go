@@ -17,6 +17,7 @@ import (
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 )
 
 const ontologyType ontology.Type = "user"
@@ -51,7 +52,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Reso
 type change = changex.Change[uuid.UUID, User]
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
+func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
 		translate = func(ch change) schema.Change {
 			return schema.Change{
@@ -67,7 +68,7 @@ func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 			})
 		}
 	)
-	gorp.Observe[uuid.UUID, User](s.DB).OnChange(onChange)
+	return gorp.Observe[uuid.UUID, User](s.DB).OnChange(onChange)
 }
 
 // OpenNexter implements ontology.Service.

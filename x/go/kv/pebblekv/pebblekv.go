@@ -153,16 +153,16 @@ type txReader struct{ pebble.BatchReader }
 var _ kv.TxReader = (*txReader)(nil)
 
 // Next implements kv.TxReader.
-func (r *txReader) Next(_ context.Context) (kv.Change, bool, error) {
+func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
 	kind, k, v, ok := r.BatchReader.Next()
 	if !ok {
-		return kv.Change{}, false, nil
+		return kv.Change{}, false
 	}
 	variant, ok := kindsToVariant[kind]
 	if !ok {
-		return kv.Change{}, false, nil
+		return kv.Change{}, false
 	}
-	return kv.Change{Variant: variant, Key: k, Value: v}, true, nil
+	return kv.Change{Variant: variant, Key: k, Value: v}, true
 }
 
 func translateError(err error) error {

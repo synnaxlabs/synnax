@@ -79,7 +79,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 	// introduce random jitter to avoid a thundering herd during concurrent pledging.
 	introduceRandomJitter(cfg.RetryInterval)
 
-	iterAddr := iter.Endlessly(cfg.Peers)
+	addresses := iter.Endlessly(cfg.Peers)
 
 	t := xtime.NewScaledTicker(cfg.RetryInterval, cfg.RetryScale)
 	defer t.Stop()
@@ -89,7 +89,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		case <-ctx.Done():
 			return Response{}, errors.CombineErrors(ctx.Err(), err)
 		case dur := <-t.C:
-			addr, _, _ := iterAddr.Next(ctx)
+			addr, _ := addresses.Next(ctx)
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
 			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)

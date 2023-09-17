@@ -7,19 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package iter_test
+package types
 
-import (
-	"context"
-	"testing"
+import "reflect"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var ctx = context.Background()
-
-func TestIter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iterate Suite")
+func Name[T any]() string {
+	return reflect.TypeOf(*new(T)).Name()
 }

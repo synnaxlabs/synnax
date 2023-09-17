@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package iter_test
+import { z } from "zod";
 
-import (
-	"context"
-	"testing"
+export class Authority extends Number {
+  static readonly ABSOLUTE = 255;
+  static readonly DEFAULT = 1;
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var ctx = context.Background()
-
-func TestIter(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Iterate Suite")
+  static readonly z = z.union([
+    z.instanceof(Authority),
+    z
+      .number()
+      .int()
+      .min(0)
+      .max(255)
+      .transform((n) => new Authority(n)),
+  ]);
 }

@@ -13,16 +13,19 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
+	CDC      *cdc.Service
 }
 
 var (
@@ -45,9 +48,12 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-type Service struct{ Config }
+type Service struct {
+	Config
+	cdc io.Closer
+}
 
-func NewService(configs ...Config) (*Service, error) {
+func OpenService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

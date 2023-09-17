@@ -43,7 +43,7 @@ func (ts *TransformSubscriber[V, T]) Flow(ctx signal.Context, opts ...Option) {
 		remove := ts.Observable.OnChange(func(ctx context.Context, v V) {
 			t, ok, _ := ts.Transform(ctx, v)
 			if ok {
-				signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
+				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
 			}
 		})
 		<-ctx.Done()

@@ -12,15 +12,12 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"io"
 )
@@ -29,8 +26,7 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	Channel  channel.Writeable
-	Framer   framer.Writable
+	CDC      *cdc.Service
 }
 
 var (
@@ -57,24 +53,9 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	group       group.Group
-	shutdownCDC io.Closer
+	group group.Group
+	cdc   io.Closer
 }
-
-var (
-	cdcChannels = []channel.Channel{
-		{
-			Name:     "sy_range_create",
-			DataType: telem.UUIDT,
-			Virtual:  true,
-		},
-		{
-			Name:     "sy_range_delete",
-			DataType: telem.UUIDT,
-			Virtual:  true,
-		},
-	}
-)
 
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -88,22 +69,15 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 
-	if err := s.Channel.RetrieveByNameOrCreate(ctx, &cdcChannels); err != nil {
-		return nil, err
-	}
-	s.shutdownCDC, err = cdc.OpenUUID[Range](ctx, cdc.UUIDConfig[Range]{
-		Set:    cdcChannels[0],
-		Delete: cdcChannels[1],
-		Framer: s.Framer,
-		DB:     s.DB,
-	})
+	s.cdc, err = cdc.OpenGorp[uuid.UUID, Range](
+		ctx,
+		cfg.CDC,
+		cdc.UUIDGorpConfig[Range](s.DB),
+	)
 	return s, err
 }
 
-func (s *Service) Close() error {
-	s.shutdownCDC.Close()
-	return nil
-}
+func (s *Service) Close() error { return s.cdc.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
