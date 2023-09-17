@@ -12,13 +12,13 @@ package grpc
 import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
-	"github.com/synnaxlabs/freighter/integration/server"
+	"github.com/synnaxlabs/freighter/integration/http"
 )
 
 type Server = fgrpc.UnaryServer[
-	server.Message,
+	http.Message,
 	*echov1.Message,
-	server.Message,
+	http.Message,
 	*echov1.Message,
 ]
 

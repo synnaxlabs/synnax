@@ -13,22 +13,22 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	echov1 "github.com/synnaxlabs/freighter/integration/grpc/gen/proto/go/v1"
-	"github.com/synnaxlabs/freighter/integration/server"
+	"github.com/synnaxlabs/freighter/integration/http"
 )
 
 type echoMessageTranslator struct{}
 
-var _ fgrpc.Translator[server.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
+var _ fgrpc.Translator[http.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
 
-func (e echoMessageTranslator) Forward(ctx context.Context, msg server.Message) (*echov1.Message, error) {
+func (e echoMessageTranslator) Forward(ctx context.Context, msg http.Message) (*echov1.Message, error) {
 	return &echov1.Message{
 		Id:      uint32(msg.ID),
 		Message: msg.Message,
 	}, nil
 }
 
-func (e echoMessageTranslator) Backward(ctx context.Context, msg *echov1.Message) (server.Message, error) {
-	return server.Message{
+func (e echoMessageTranslator) Backward(ctx context.Context, msg *echov1.Message) (http.Message, error) {
+	return http.Message{
 		ID:      int(msg.Id),
 		Message: msg.Message,
 	}, nil
