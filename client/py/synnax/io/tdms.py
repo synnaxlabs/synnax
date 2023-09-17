@@ -88,7 +88,7 @@ class TDMSReader(TDMSMatcher):   # type: ignore
             if self._chunk_location > self.n_channel_chunks:
                 return pd.DataFrame()
             
-            for group in tdms_file.groups():
+            for group in tdms_file.groups():  
                 for channel in group.channels():
                     data[channel.name] = channel[self._chunk_location*self.chunk_size:(self._chunk_location + 1)*self.chunk_size]
             self._chunk_location += 1
