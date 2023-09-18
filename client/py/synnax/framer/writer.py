@@ -27,7 +27,8 @@ from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
-from synnax.control import Authority
+from synnax.telem.authority import Authority
+from synnax.util.normalize import normalize
 
 
 class _Command(int, Enum):
@@ -35,18 +36,26 @@ class _Command(int, Enum):
     WRITE = 1
     COMMIT = 2
     ERROR = 3
+    SET_AUTHORITY = 4
 
 
 class _Config(Payload):
+    authorities: list[int]
+    name: str | None = None
+    start: TimeStamp | None = None
     keys: ChannelKeys
-    start: TimeStamp
-    authorities: list[Authority]
+    send_control_digests: bool | None = None
 
 
 class _Request(Payload):
-    command: _Command
     config: _Config | None = None
+    command: _Command
     frame: FramePayload | None = None
+
+
+class _ResponseVariant(int, Enum):
+    ACK = 1
+    CONTROL = 2
 
 
 class _Response(Payload):
@@ -109,7 +118,9 @@ class Writer:
         start: CrudeTimeStamp,
         client: StreamClient,
         adapter: WriteFrameAdapter,
-        authorities: list[Authority],
+        name: str = "",
+        authorities: list[Authority] | Authority = Authority.ABSOLUTE,
+        send_control_digests: bool = False,
         suppress_warnings: bool = False,
         strict: bool = False,
     ) -> None:
@@ -118,10 +129,22 @@ class Writer:
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open()
+        self.__open(name, authorities, send_control_digests)
 
-    def __open(self):
-        config = _Config(keys=self.__adapter.keys, start=TimeStamp(self.start))
+    def __open(
+        self,
+        name: str,
+        authorities: list[Authority],
+        send_control_digests: bool,
+    ) -> None:
+        config = _Config(
+            name=name,
+            keys=self.__adapter.keys,
+            start=TimeStamp(self.start),
+            authorities=normalize(authorities),
+            send_control_digests=send_control_digests,
+        )
+        print(config)
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
         if exc is not None:
@@ -130,11 +153,11 @@ class Writer:
     def write(
         self,
         columns_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries],
+                         | ChannelKey
+                         | ChannelKeys
+                         | ChannelNames
+                         | Frame
+                         | dict[ChannelKey | ChannelName, CrudeSeries],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -164,6 +187,25 @@ class Writer:
         if err is not None:
             raise err
         return True
+
+    def set_authority(self, value: dict[ChannelKey, Authority]) -> bool:
+        err = self.__stream.send(
+            _Request(
+                command=_Command.SET_AUTHORITY,
+                config=_Config(
+                    keys=list(value.keys()),
+                    authorities=list(value.values()),
+                )
+            )
+        )
+        if err is not None:
+            raise err
+        while True:
+            res, err = self.__stream.receive()
+            if err is not None:
+                raise err
+            if res.command == _Command.SET_AUTHORITY:
+                return res.ack
 
     def commit(self) -> tuple[TimeStamp, bool]:
         """Commits the written frames to the database. Commit is synchronous, meaning

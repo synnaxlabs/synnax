@@ -23,7 +23,7 @@ func NewSeries[T types.Numeric](data []T) (series Series) {
 	return series
 }
 
-func NewArrayV[T types.Numeric](data ...T) (series Series) {
+func NewSeriesV[T types.Numeric](data ...T) (series Series) {
 	return NewSeries[T](data)
 }
 

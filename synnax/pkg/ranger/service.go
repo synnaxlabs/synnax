@@ -68,12 +68,6 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-
-	s.cdc, err = cdc.OpenGorp[uuid.UUID, Range](
-		ctx,
-		cfg.CDC,
-		cdc.UUIDGorpConfig[Range](s.DB),
-	)
 	return s, err
 }
 

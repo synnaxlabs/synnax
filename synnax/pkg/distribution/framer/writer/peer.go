@@ -17,13 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/telem"
 	"strconv"
 )
 
 func (s *Service) openManyPeers(
 	ctx context.Context,
-	start telem.TimeStamp,
+	cfg Config,
 	targets map[core.NodeKey][]keyAuthority,
 ) (confluence.Sink[Request], []*freightfluence.Receiver[Response], []address.Address, error) {
 	var (
@@ -40,7 +39,7 @@ func (s *Service) openManyPeers(
 			return sender, receivers, receiverAddresses, err
 		}
 		addrMap[nodeKey] = target
-		client, err := s.openPeerClient(ctx, target, keyAuthoritiesToConfig(start, keys))
+		client, err := s.openPeerClient(ctx, target, cfg.setKeyAuthorities(keys))
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}

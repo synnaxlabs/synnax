@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
+from freighter import Payload
 
 
 class Authority(int):
@@ -24,3 +25,8 @@ Authority.ABSOLUTE = Authority(255)
 Authority.DEFAULT = Authority(1)
 
 CrudeAuthority = int | Authority
+
+
+class Digest(Payload):
+    name: str = ""
+    authority: Authority

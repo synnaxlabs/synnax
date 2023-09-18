@@ -12,10 +12,10 @@ import pytest
 
 
 def create_valve_set(client: sy.Synnax) -> tuple[sy.Channel]:
-    valve_en_time = client.channels.retrieve("valve_enable_time")
-    valve_en_cmd_time = client.channels.retrieve("valve_enable_command_time")
-    valve_en_cmd = client.channels.retrieve("valve_enable_command")
-    valve_en = client.channels.retrieve("valve_enable")
+    valve_en_time = client.channels.retrieve("press_en_time")
+    valve_en_cmd_time = client.channels.retrieve("press_en_cmd_time")
+    valve_en_cmd = client.channels.retrieve("press_en_cmd")
+    valve_en = client.channels.retrieve("press_en")
     data = client.channels.retrieve("data")
     return valve_en_time, valve_en_cmd_time, valve_en_cmd, valve_en, data
 
@@ -29,7 +29,7 @@ class TestController:
             write=[valve_en_cmd.key, valve_en_cmd_time.key],
         ) as auto:
             while True:
-                auto["valve_enable_command"] = True
+                auto["press_en_cmd"] = True
                 auto.wait_until(lambda c: c.data > 2000.0)
-                auto["valve_enable_command"] = False
+                auto["press_en_cmd"] = False
                 auto.wait_until(lambda c: c.data < -2000.0)

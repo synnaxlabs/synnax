@@ -133,13 +133,13 @@ func (r *region[E]) unprotectedSetCurr(g *Gate[E]) {
 }
 
 func (r *region[E]) unprotectedOpen(g *Gate[E]) {
-	r.gates[g] = struct{}{}
 	if r.curr == nil || g.Authority > r.curr.Authority {
 		if g.hasDigests {
 			g.Digests.Acquire(1)
 		}
 		r.unprotectedSetCurr(g)
 	}
+	r.gates[g] = struct{}{}
 	r.counter++
 }
 
@@ -214,6 +214,6 @@ func (c *Controller[E]) remove(r *region[E]) {
 	c.mu.Unlock()
 }
 
-func Unauthorized(ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer does not have control authority over channel %s", ch)
+func Unauthorized(name string, ch core.ChannelKey) error {
+	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %s", name, ch)
 }

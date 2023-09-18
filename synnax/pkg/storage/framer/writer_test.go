@@ -32,7 +32,7 @@ var _ = Describe("Writer", Ordered, func() {
 				Keys: []framer.ChannelKey{idx.Key, data.Key},
 				Series: []telem.Series{
 					telem.NewSecondsTSV(5, 6, 7),
-					telem.NewArrayV[int64](7, 8, 9),
+					telem.NewSeriesV[int64](7, 8, 9),
 				},
 			}
 			Expect(w.Write(ctx, f)).To(BeTrue())

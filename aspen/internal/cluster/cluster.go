@@ -201,15 +201,15 @@ func (c *cluster) Resolve(key node.Key) (address.Address, error) {
 func (c *cluster) Close() error { return c.shutdown.Close() }
 
 func (c *cluster) gossipInitialState(ctx context.Context) error {
-	i := iter.Endlessly(c.Pledge.Peers)
-	for peerAddr, _, _ := i.Next(ctx); peerAddr != ""; peerAddr, _, _ = i.Next(ctx) {
-		if err := c.gossip.GossipOnceWith(ctx, peerAddr); err != nil {
+	peers := iter.Endlessly(c.Pledge.Peers)
+	for peer, _ := peers.Next(ctx); peer != ""; peer, _ = peers.Next(ctx) {
+		if err := c.gossip.GossipOnceWith(ctx, peer); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 			c.L.Error(
 				"failed to gossip with peer",
-				zap.String("peer", string(peerAddr)),
+				zap.String("peer", string(peer)),
 				zap.Error(err),
 			)
 		}

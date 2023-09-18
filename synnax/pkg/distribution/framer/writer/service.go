@@ -41,6 +41,7 @@ import (
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
+	Name string `json:"name" msgpack:"name"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
@@ -58,7 +59,18 @@ type Config struct {
 	// authority corresponds to the channel at the same index. Defaults to
 	// absolute authority for all channels.
 	// [OPTIONAL]
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	Authorities        []control.Authority `json:"authorities" msgpack:"authorities"`
+	SendControlDigests *bool
+}
+
+func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
+	c.Authorities = make([]control.Authority, len(authorities))
+	c.Keys = make([]channel.Key, len(authorities))
+	for i, authority := range authorities {
+		c.Authorities[i] = authority.authority
+		c.Keys[i] = authority.key
+	}
+	return c
 }
 
 // keyAuthority is a temporary struct that lets us shard channel keys across multiple
@@ -69,19 +81,6 @@ type keyAuthority struct {
 	authority control.Authority
 }
 
-func keyAuthoritiesToConfig(start telem.TimeStamp, authorities []keyAuthority) Config {
-	cfg := Config{
-		Start:       start,
-		Keys:        make([]channel.Key, len(authorities)),
-		Authorities: make([]control.Authority, len(authorities)),
-	}
-	for i, authority := range authorities {
-		cfg.Keys[i] = authority.key
-		cfg.Authorities[i] = authority.authority
-	}
-	return cfg
-}
-
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
@@ -89,7 +88,10 @@ func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{Authorities: []control.Authority{control.Absolute}}
+	DefaultConfig                       = Config{
+		Authorities:        []control.Authority{control.Absolute},
+		SendControlDigests: config.False(),
+	}
 )
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
@@ -104,7 +106,12 @@ func (c Config) keyAuthorities() []keyAuthority {
 }
 
 func (c Config) toStorage() ts.WriterConfig {
-	return ts.WriterConfig{Channels: c.Keys.Storage(), Start: c.Start, Authorities: c.Authorities}
+	return ts.WriterConfig{
+		Name:        c.Name,
+		Channels:    c.Keys.Storage(),
+		Start:       c.Start,
+		Authorities: c.Authorities,
+	}
 }
 
 // Validate implements config.Config.
@@ -112,7 +119,7 @@ func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
 	v.Ternaryf(
-		len(c.Authorities) == 1 || len(c.Authorities) == len(c.Keys),
+		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
 	return v.Error()
@@ -120,9 +127,11 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
+	c.Name = override.String(c.Name, other.Name)
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.SendControlDigests = override.Nil(c.SendControlDigests, other.SendControlDigests)
 	return c
 }
 
@@ -262,7 +271,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		switchTargets = append(switchTargets, peerSenderAddr)
 		sender, receivers, _receiverAddresses, err := s.openManyPeers(
 			ctx,
-			cfg.Start,
+			cfg,
 			batch.Peers,
 		)
 		if err != nil {
@@ -278,7 +287,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasGateway {
 		routeValidatorTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
-		w, err := s.newGateway(ctx, keyAuthoritiesToConfig(cfg.Start, batch.Gateway))
+		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
 		if err != nil {
 			return nil, err
 		}

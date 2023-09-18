@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,7 +24,6 @@ import (
 type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	CDC      *cdc.Service
 }
 
 var (

@@ -36,20 +36,22 @@ type WriterConfig struct {
 	Channels []core.ChannelKey
 	// Authorities marks the starting control authorities of the writer.
 	Authorities        []control.Authority
-	SendControlDigests bool
+	SendControlDigests *bool
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Authorities: []control.Authority{control.Absolute},
+		Authorities:        []control.Authority{control.Absolute},
+		SendControlDigests: config.False(),
 	}
 )
 
 // Validate implements config.Config.
 func (w WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
-	validate.NotEmptySlice(v, "channels", w.Channels)
+	validate.NotEmptySlice(v, "Channels", w.Channels)
+	validate.NotNil(v, "SendControlDigests", w.SendControlDigests)
 	v.Ternary(
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
@@ -62,6 +64,8 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.Start = override.Zero(w.Start, other.Start)
 	w.Channels = override.Slice(w.Channels, other.Channels)
 	w.Authorities = override.Slice(w.Authorities, other.Authorities)
+	w.Name = override.String(w.Name, other.Name)
+	w.SendControlDigests = override.Nil(w.SendControlDigests, other.SendControlDigests)
 	return w
 }
 
@@ -97,8 +101,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		domainWriters  map[ChannelKey]*idxWriter
 		rateWriters    map[telem.Rate]*idxWriter
 	)
-	if len(cfg.Channels) > 1 && cfg.SendControlDigests {
-		controlDigests = confluence.NewStream[controller.Digest](len(cfg.Channels))
+	if len(cfg.Channels) >= 1 && *cfg.SendControlDigests {
+		controlDigests = confluence.NewStream[controller.Digest](len(cfg.Channels) * 2)
 	}
 
 	defer func() {
@@ -120,6 +124,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 
 		w, err := u.OpenWriter(ctx, unary.WriterConfig{
+			Name:           cfg.Name,
 			Start:          cfg.Start,
 			Authority:      cfg.authority(i),
 			ControlDigests: controlDigests,

@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -27,6 +28,8 @@ import (
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
 type WriterCommand uint8
 
+type ControllerDigest = controller.Digest
+
 const (
 	// WriterWrite represents a call to Writer.Write.
 	WriterWrite WriterCommand = iota + 1
@@ -34,6 +37,8 @@ const (
 	WriterCommit
 	// WriterError represents a call to Writer.Error.
 	WriterError
+	// WriterSetAuthority represents a call to Writer.SetAuthority.
+	WriterSetAuthority
 )
 
 // WriterRequest is a request containing an arrow.Record to write to the DB.
@@ -41,14 +46,14 @@ type WriterRequest struct {
 	// Command is the command to execute on the Writer.
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
-	Frame Frame
+	Frame  Frame
+	Config WriterConfig
 }
 
 type WriterResponseVariant uint8
 
 const (
 	WriterResponseAck WriterResponseVariant = iota + 1
-	WriterResponseErr
 	WriterResponseControl
 )
 
@@ -114,8 +119,10 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
 	if !reflect.IsNil(w.controlDigests) {
-		signal.GoRange(ctx, w.controlDigests.Outlet(), func(ctx context.Context, digest controller.Digest) error {
-			w.Out.Inlet() <- WriterResponse{Variant: WriterResponseControl, Control: digest}
+		ctx.Go(func(_ context.Context) error {
+			for digest := range w.controlDigests.Outlet() {
+				w.Out.Inlet() <- WriterResponse{Variant: WriterResponseControl, Control: digest}
+			}
 			return nil
 		})
 	}
@@ -128,13 +135,19 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return w.close()
 				}
-				if req.Command < WriterWrite || req.Command > WriterError {
+				if req.Command < WriterWrite || req.Command > WriterSetAuthority {
 					panic("[cesium.streamWriter] - invalid command")
 				}
 				if req.Command == WriterError {
 					w.seqNum++
 					w.sendRes(req, false, w.err, 0)
 					w.err = nil
+					continue
+				}
+				if req.Command == WriterSetAuthority {
+					w.seqNum++
+					w.setAuthority(req.Config)
+					w.sendRes(req, true, nil, 0)
 					continue
 				}
 				if w.err != nil {
@@ -158,14 +171,42 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
+func (w *streamWriter) setAuthority(cfg WriterConfig) {
+	if len(cfg.Channels) == 0 {
+		for _, idx := range w.internal {
+			for _, chW := range idx.internal {
+				chW.SetAuthority(cfg.Authorities[0])
+			}
+		}
+		return
+	}
+	for i, ch := range cfg.Channels {
+		for _, idx := range w.internal {
+			for _, chW := range idx.internal {
+				if chW.Channel.Key == ch {
+					chW.SetAuthority(cfg.authority(i))
+				}
+			}
+		}
+	}
+}
+
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
-	w.Out.Inlet() <- WriterResponse{Command: req.Command, Ack: ack, SeqNum: w.seqNum, Err: err, End: end}
+	w.Out.Inlet() <- WriterResponse{
+		Command: req.Command,
+		Variant: WriterResponseAck,
+		Ack:     ack,
+		SeqNum:  w.seqNum,
+		Err:     err,
+		End:     end,
+	}
 }
 
 func (w *streamWriter) write(req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
+			logrus.Error(err)
 			return err
 		}
 	}
@@ -281,6 +322,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 	for i, series := range fr.Series {
 		key := fr.Keys[i]
 		chW, ok := w.internal[key]
+
 		if !ok {
 			continue
 		}
@@ -295,11 +337,12 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		if err != nil {
 			return fr, err
 		}
+		if i == 0 {
+			w.sampleCount = int64(alignment) + series.Len()
+		}
 		series.Alignment = alignment
 		fr.Series[i] = series
 	}
-
-	w.sampleCount += l
 
 	return fr, nil
 }

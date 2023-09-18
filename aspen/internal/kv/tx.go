@@ -240,11 +240,11 @@ type txReader struct {
 
 var _ kvx.TxReader = (*txReader)(nil)
 
-func (r *txReader) Next(_ context.Context) (kvx.Change, bool, error) {
+func (r *txReader) Next(_ context.Context) (kvx.Change, bool) {
 	if r.curr >= len(r.ops) {
-		return kvx.Change{}, false, nil
+		return kvx.Change{}, false
 	}
 	op := r.ops[r.curr]
 	r.curr++
-	return op.Change, true, nil
+	return op.Change, true
 }

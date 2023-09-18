@@ -229,7 +229,7 @@ var _ = Describe("Control", func() {
 		})
 	})
 
-	Describe("Digest Communication", func() {
+	Describe("ControlDigest Communication", func() {
 		It("Should send a digest to all registered gates", func() {
 			c := controller.New[testEntity](control.Exclusive)
 			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())

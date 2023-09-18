@@ -79,10 +79,11 @@ class WriteFrameAdapter:
             if ch is None:
                 raise QueryError(f"Channel {v} not found.")
             self.__adapter[ch.name] = ch.key
+        self.__keys = [c.key for c in fetched]
 
     @property
     def keys(self):
-        return self.__keys or list(self.__adapter.values())
+        return self.__keys
 
     def __adapt_ch(
         self, ch: ChannelKey | ChannelName | ChannelPayload
@@ -110,7 +111,7 @@ class WriteFrameAdapter:
                 raise ValidationError(
                     f"""
                 Received a single channel {'name' if isinstance(colums_or_data, ChannelName) else 'key'}
-                but multiple series. 
+                but multiple series.
                 """
                 )
 

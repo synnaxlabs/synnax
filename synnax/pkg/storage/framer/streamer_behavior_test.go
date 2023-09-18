@@ -44,7 +44,7 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			defer cancel()
 			r.Flow(sCtx, confluence.CloseInletsOnExit())
 
-			d := telem.NewArrayV[int64](1, 2, 3)
+			d := telem.NewSeriesV[int64](1, 2, 3)
 			Expect(w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{basic1},
 				[]telem.Series{d},

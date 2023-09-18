@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
@@ -26,9 +28,14 @@ import (
 )
 
 type FrameWriterConfig struct {
-	Start       telem.TimeStamp     `json:"start" msgpack:"start"`
-	Keys        channel.Keys        `json:"keys" msgpack:"keys"`
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	// Authorities is the authority to use when writing to the channels. We set this
+	// as an int and not control.Authorities because msgpack has a tough time decoding
+	// lists of uint8.
+	Authorities        []int           `json:"authorities" msgpack:"authorities"`
+	Name               string          `json:"name" msgpack:"name"`
+	Start              telem.TimeStamp `json:"start" msgpack:"start"`
+	Keys               channel.Keys    `json:"keys" msgpack:"keys"`
+	SendControlDigests bool            `json:"send_control_digests" msgpack:"send_control_digests"`
 }
 
 // FrameWriterRequest represents a request to write Internal data for a set of channels.
@@ -76,7 +83,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(ctx, stream)
+	name, w, err := s.openWriter(ctx, stream)
 	if err.Occurred() {
 		return err
 	}
@@ -84,12 +91,30 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, FrameWriterRequest]{
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
-			return framer.WriterRequest{Command: req.Command, Frame: req.Frame}, true, nil
+			r := framer.WriterRequest{
+				Command: req.Command,
+				Frame:   req.Frame,
+			}
+
+			if r.Command == writer.SetAuthority {
+				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+				for i, a := range req.Config.Authorities {
+					r.Config.Authorities[i] = control.Authority(a)
+				}
+				r.Config.Keys = req.Config.Keys
+			}
+
+			if r.Command != writer.Data {
+				logrus.Warn(name, r)
+			}
+
+			return r, true, nil
 		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
 		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
+			logrus.Info(name, resp)
 			if resp.Error != nil {
 				resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
 			}
@@ -109,21 +134,31 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	return errors.MaybeUnexpected(ctx.Wait())
 }
 
-func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, errors.Typed) {
+func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (string, framer.StreamWriter, errors.Typed) {
 	req, err := srv.Receive()
 	if err != nil {
-		return nil, errors.Unexpected(err)
+		return "", nil, errors.Unexpected(err)
 	}
+
+	authorities := make([]control.Authority, len(req.Config.Authorities))
+	for i, a := range req.Config.Authorities {
+		authorities[i] = control.Authority(a)
+	}
+
+	logrus.Info(authorities)
+
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
-		Start:       req.Config.Start,
-		Keys:        req.Config.Keys,
-		Authorities: req.Config.Authorities,
+		Name:               req.Config.Name,
+		Start:              req.Config.Start,
+		Keys:               req.Config.Keys,
+		Authorities:        authorities,
+		SendControlDigests: config.Bool(req.Config.SendControlDigests),
 	})
 	if err != nil {
-		return nil, errors.Query(err)
+		return req.Config.Name, nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{
+	return req.Config.Name, w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{
 		Command: writer.Open,
 		Ack:     true,
 	}))

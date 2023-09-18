@@ -32,7 +32,7 @@ type StreamerConfig struct {
 	Keys channel.Keys
 }
 
-func (r *Relay) NewReader(_ context.Context, cfg StreamerConfig) (Streamer, error) {
+func (r *Relay) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
 	rd := &streamer{
 		keys:    cfg.Keys,
 		addr:    address.Rand(),

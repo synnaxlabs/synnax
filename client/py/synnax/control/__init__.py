@@ -9,4 +9,3 @@
 
 from synnax.control.client import Client
 from synnax.control.controller import Controller
-from synnax.control.authority import Authority, CrudeAuthority

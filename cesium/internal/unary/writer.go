@@ -61,7 +61,7 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Seri
 	return err
 }
 
-func (w *Writer) numWritten(dw *domain.Writer) int64 {
+func (w *Writer) len(dw *domain.Writer) int64 {
 	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
 }
 
@@ -72,14 +72,18 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Name, w.Channel.Key)
 	}
-	alignment := telem.Alignment(w.numWritten(dw))
+	alignment := telem.Alignment(w.len(dw))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
 	_, err := dw.Write(series.Data)
 	return alignment, err
+}
+
+func (w *Writer) SetAuthority(a control.Authority) {
+	w.control.SetAuthority(a)
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -105,12 +109,12 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Name, w.Channel.Key)
 	}
 	if end.IsZero() {
-		// we're using w.numWritten - 1 here because we want the timestamp of the last
+		// we're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.Start, w.numWritten(dw)-1, true)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw)-1, true)
 		if err != nil {
 			return 0, err
 		}

@@ -30,7 +30,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
-from synnax.control import Authority, CrudeAuthority
+from synnax.telem.authority import Authority, CrudeAuthority
 
 
 class Client:
@@ -62,6 +62,8 @@ class Client:
         channels: ChannelParams,
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
+        name: str = "",
+        send_control_digests: bool = False,
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> Writer:
@@ -91,6 +93,8 @@ class Client:
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
+            send_control_digests=send_control_digests,
+            name=name
         )
 
     def new_iterator(
@@ -129,7 +133,7 @@ class Client:
         :returns: None.
         """
         with self.new_writer(start, to, strict=strict) as w:
-            w.write(Frame(columns_or_data=[to], series=[Series(data)]))
+            w.write(to, data)
             ts, ok = w.commit()
             return ts
 

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable
 
 import numpy as np
 from threading import Thread, Event
@@ -17,15 +17,15 @@ from asyncio import events, create_task, tasks
 from janus import Queue
 
 from synnax import framer
-from synnax.channel import (
+from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
-    ChannelRetriever,
     ChannelParams,
     ChannelPayload,
 )
+from synnax.channel.retrieve import ChannelRetriever
 from synnax.telem import TimeStamp
-from synnax.control.authority import Authority, CrudeAuthority
+from synnax.telem.authority import CrudeAuthority, Authority
 
 
 class State:
@@ -73,22 +73,33 @@ class Controller:
     retriever: ChannelRetriever
     receiver: _Receiver
 
-    def j_init__(
+    def __init__(
         self,
+        name: str,
         write: ChannelParams,
         read: ChannelParams,
-        framer: framer.Client,
+        frame_client: framer.Client,
         retriever: ChannelRetriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
-        self.writer = framer.new_writer(TimeStamp.now(), write)
-        self.receiver = _Receiver(framer, read, retriever)
+        self.writer = frame_client.new_writer(
+            name=name,
+            start=TimeStamp.now(),
+            channels=write,
+            authorities=write_authorities,
+        )
+        self.receiver = _Receiver(frame_client, read, retriever)
         self.retriever = retriever
         self.receiver.start()
 
     def set(self, ch: ChannelKey | ChannelName, value: int | float):
         ch = self.retriever.retrieve(ch)[0]
+        print(ch.key, value)
         self.writer.write({ch.key: value, ch.index: TimeStamp.now()})
+
+    def authorize(self, ch: ChannelKey | ChannelName, value: Authority):
+        ch = self.retriever.retrieve(ch)[0]
+        self.writer.set_authority({ch.key: value, ch.index: value})
 
     def wait_until(self, callback: Callable[[State], bool]):
         processor = WaitUntil(callback)
