@@ -27,6 +27,7 @@ from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
+from synnax.control import Authority
 
 
 class _Command(int, Enum):
@@ -39,6 +40,7 @@ class _Command(int, Enum):
 class _Config(Payload):
     keys: ChannelKeys
     start: TimeStamp
+    authorities: list[Authority]
 
 
 class _Request(Payload):
@@ -62,7 +64,8 @@ class Writer:
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
     writing large volumes of data (such as recording telemetry from a sensor or
-    ingesting data from a file). Simpler methods (such as the frame py's write method)
+    ingesting data from a file). Simpler methods (such as the frame writer's write
+    method)
     should be used in most cases.
 
     The protocol is as follows:
@@ -106,6 +109,7 @@ class Writer:
         start: CrudeTimeStamp,
         client: StreamClient,
         adapter: WriteFrameAdapter,
+        authorities: list[Authority],
         suppress_warnings: bool = False,
         strict: bool = False,
     ) -> None:

@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -51,10 +52,78 @@ type Config struct {
 	// the writer will fail to open.
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// Authorities sets the control authority the writer has on each channel for the
+	// write. This should either be a single authority for all channels or a slice
+	// of authorities with the same length as the number of channels where each
+	// authority corresponds to the channel at the same index. Defaults to
+	// absolute authority for all channels.
+	// [OPTIONAL]
+	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+}
+
+// keyAuthority is a temporary struct that lets us shard channel keys across multiple
+// nodes in the cluster. Most importantly, it implements proxy.Entry so that we can
+// correctly split by host.
+type keyAuthority struct {
+	key       channel.Key
+	authority control.Authority
+}
+
+func keyAuthoritiesToConfig(start telem.TimeStamp, authorities []keyAuthority) Config {
+	cfg := Config{
+		Start:       start,
+		Keys:        make([]channel.Key, len(authorities)),
+		Authorities: make([]control.Authority, len(authorities)),
+	}
+	for i, authority := range authorities {
+		cfg.Keys[i] = authority.key
+		cfg.Authorities[i] = authority.authority
+	}
+	return cfg
+}
+
+var _ proxy.Entry = keyAuthority{}
+
+// Lease implements proxy.Entry.
+func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
+
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{Authorities: []control.Authority{control.Absolute}}
+)
+
+// keyAuthorities returns a slice of keyAuthority structs that can be used to shard
+// channel keys across multiple nodes in the cluster. This method should only be valled
+// after the config has been validated.
+func (c Config) keyAuthorities() []keyAuthority {
+	authorities := make([]keyAuthority, len(c.Keys))
+	for i, key := range c.Keys {
+		authorities[i] = keyAuthority{key: key, authority: c.Authorities[i%len(c.Authorities)]}
+	}
+	return authorities
 }
 
 func (c Config) toStorage() ts.WriterConfig {
-	return ts.WriterConfig{Channels: c.Keys.Storage(), Start: c.Start}
+	return ts.WriterConfig{Channels: c.Keys.Storage(), Start: c.Start, Authorities: c.Authorities}
+}
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("distribution.framer.writer")
+	validate.NotEmptySlice(v, "keys", c.Keys)
+	v.Ternaryf(
+		len(c.Authorities) == 1 || len(c.Authorities) == len(c.Keys),
+		"authorities must be a single authority or a slice of authorities with the same length as keys",
+	)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.Start = override.Zero(c.Start, other.Start)
+	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	return c
 }
 
 // ServiceConfig is the configuration for opening a Writer or StreamWriter.
@@ -75,15 +144,15 @@ type ServiceConfig struct {
 	// nodes in the cluster.
 	// [REQUIRED]
 	Transport Transport
-	// FreeWrites
+	// FreeWrites is the write pipeline where samples from free channels should be
+	// written.
 	FreeWrites confluence.Inlet[relay.Response]
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a Writer or StreamWriter. It
-	// is not complete and must be supplemented with the required fields.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening the writer Service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -118,7 +187,7 @@ type Service struct {
 // OpenService opens the writer service using the given configuration. Also binds a server
 // to the given transport for receiving writes from other nodes in the cluster.
 func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
 }
 
@@ -135,9 +204,9 @@ const (
 // New opens a new writer using the given configuration. The provided context is used to
 // control the lifetime of goroutines spawned by the writer. If the given context is cancelled,
 // the writer will immediately abort all pending writes and return an error.
-func (s *Service) New(ctx context.Context, cfg Config) (*Writer, error) {
+func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
-	seg, err := s.NewStream(ctx, cfg)
+	seg, err := s.NewStream(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,14 +226,19 @@ func (s *Service) New(ctx context.Context, cfg Config) (*Writer, error) {
 // NewStream opens a new StreamWriter using the given configuration. The provided context
 // is only used for opening the stream and is not used for concurrent flow control. The
 // context for managing flow control must be provided to StreamWriter.Flow.
-func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
+func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
 
 	var (
 		hostKey           = s.HostResolver.HostKey()
-		batch             = proxy.BatchFactory[channel.Key]{Host: hostKey}.Batch(cfg.Keys)
+		batch             = proxy.BatchFactory[keyAuthority]{Host: hostKey}.Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
 		hasPeer           = len(batch.Peers) > 0
 		hasGateway        = len(batch.Gateway) > 0
@@ -186,7 +260,11 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	if hasPeer {
 		routeValidatorTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
-		sender, receivers, _receiverAddresses, err := s.openManyPeers(ctx, batch.Peers)
+		sender, receivers, _receiverAddresses, err := s.openManyPeers(
+			ctx,
+			cfg.Start,
+			batch.Peers,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +278,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	if hasGateway {
 		routeValidatorTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
-		w, err := s.newGateway(ctx, Config{Start: cfg.Start, Keys: batch.Gateway})
+		w, err := s.newGateway(ctx, keyAuthoritiesToConfig(cfg.Start, batch.Gateway))
 		if err != nil {
 			return nil, err
 		}

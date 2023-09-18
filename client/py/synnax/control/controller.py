@@ -17,8 +17,16 @@ from asyncio import events, create_task, tasks
 from janus import Queue
 
 from synnax import framer
-from synnax.channel import ChannelKey, ChannelName, ChannelRetriever, ChannelParams, ChannelPayload
+from synnax.channel import (
+    ChannelKey,
+    ChannelName,
+    ChannelRetriever,
+    ChannelParams,
+    ChannelPayload,
+)
 from synnax.telem import TimeStamp
+from synnax.control.authority import Authority, CrudeAuthority
+
 
 class State:
     value: dict[ChannelKey, np.number]
@@ -30,7 +38,7 @@ class State:
 
     def update(self, value: framer.Frame):
         for i, key in enumerate(value.columns):
-            self.value[key]  = value.series[i][0]
+            self.value[key] = value.series[i][0]
 
     def __getattr__(self, ch: ChannelKey | ChannelName | ChannelPayload):
         ch = self.__retriever.retrieve(ch)[0]
@@ -39,9 +47,11 @@ class State:
     def __getitem__(self, ch: ChannelKey | ChannelName | ChannelPayload):
         return self.__getattr__(ch)
 
+
 class Processor(Protocol):
     def process(self, frame: State) -> Any:
         ...
+
 
 class WaitUntil(Processor):
     event: Event
@@ -50,33 +60,31 @@ class WaitUntil(Processor):
     def __init__(self, callback: Callable[[State], bool]):
         self.event = Event()
         self.callback = callback
-    
+
     def process(self, frame: State) -> Any:
         if self.callback(frame):
             self.event.set()
         return None
 
 
-
 class Controller:
     writer: framer.Writer
     idx_map: dict[ChannelKey, ChannelKey]
     retriever: ChannelRetriever
-    receiver: _Receiver;
+    receiver: _Receiver
 
-
-    def __init__(
-            self,
-            write: ChannelParams,
-            read: ChannelParams,
-            framer: framer.Client,
-            retriever: ChannelRetriever
+    def j_init__(
+        self,
+        write: ChannelParams,
+        read: ChannelParams,
+        framer: framer.Client,
+        retriever: ChannelRetriever,
+        write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         self.writer = framer.new_writer(TimeStamp.now(), write)
         self.receiver = _Receiver(framer, read, retriever)
         self.retriever = retriever
         self.receiver.start()
-        
 
     def set(self, ch: ChannelKey | ChannelName, value: int | float):
         ch = self.retriever.retrieve(ch)[0]
@@ -91,7 +99,9 @@ class Controller:
         self.writer.close()
         self.receiver.close()
 
-    def __setitem__(self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float):
+    def __setitem__(
+        self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
+    ):
         self.set(ch, value)
 
     def __enter__(self) -> Client:
@@ -99,6 +109,7 @@ class Controller:
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         self.release()
+
 
 def cancel_all_tasks(loop):
     to_cancel = tasks.all_tasks(loop)
@@ -128,11 +139,11 @@ class _Receiver(Thread):
     channels: ChannelParams
     client: framer.Client
     streamer: framer.AsyncStreamer
-    processors: dict[ChannelKey, Callable[[framer.Frame], Any]]
+    processors: dict[Callable[[framer.Frame], Any]]
     retriever: ChannelRetriever
 
     def __init__(
-        self, 
+        self,
         client: framer.Client,
         channels: ChannelParams,
         retriever: ChannelRetriever,
@@ -145,7 +156,7 @@ class _Receiver(Thread):
 
     def run(self):
         loop = events.new_event_loop()
-        try: 
+        try:
             events.set_event_loop(loop)
 
             loop.run_until_complete(self.__run())
@@ -160,7 +171,7 @@ class _Receiver(Thread):
 
     def __process(self):
         for processor in self.processors.values():
-            try: 
+            try:
                 processor.process(self.state)
             except Exception as e:
                 # print(e)
@@ -181,7 +192,3 @@ class _Receiver(Thread):
 
     def close(self):
         self.queue.sync_q.put(None)
-
-
-
-            

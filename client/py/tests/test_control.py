@@ -19,6 +19,7 @@ def create_valve_set(client: sy.Synnax) -> tuple[sy.Channel]:
     data = client.channels.retrieve("data")
     return valve_en_time, valve_en_cmd_time, valve_en_cmd, valve_en, data
 
+
 @pytest.mark.control
 @pytest.mark.focus
 class TestController:
@@ -28,10 +29,7 @@ class TestController:
             write=[valve_en_cmd.key, valve_en_cmd_time.key],
         ) as auto:
             while True:
-                auto['valve_enable_command'] = True
+                auto["valve_enable_command"] = True
                 auto.wait_until(lambda c: c.data > 2000.0)
-                auto['valve_enable_command'] = False
+                auto["valve_enable_command"] = False
                 auto.wait_until(lambda c: c.data < -2000.0)
-
-
-

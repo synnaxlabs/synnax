@@ -146,7 +146,7 @@ class AsyncStreamer:
         return self
 
     async def __anext__(self):
-        try: 
+        try:
             return await self.read()
         except EOF:
             raise StopAsyncIteration

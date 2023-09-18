@@ -49,13 +49,21 @@ func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
 
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	w := &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
-	g, ok := db.controller.OpenGate(cfg.domain().Domain(), cfg.Authority)
+	gateCfg := controller.Config{
+		TimeRange: cfg.domain().Domain(),
+		Authority: cfg.Authority,
+		Name:      cfg.Name,
+		Digests:   cfg.ControlDigests,
+	}
+
+	g, ok := db.controller.OpenGate(gateCfg)
 	if !ok {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
 		if err != nil {
 			return nil, err
 		}
-		g = db.controller.RegisterAndOpenGate(dw.Domain(), cfg.Authority, dw)
+		gateCfg.TimeRange = dw.Domain()
+		g = db.controller.RegisterAndOpenGate(gateCfg, dw)
 	}
 	w.control = g
 	return w, nil

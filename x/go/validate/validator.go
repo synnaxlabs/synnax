@@ -26,6 +26,8 @@ func New(scope string) *Validator {
 	return &Validator{scope: scope, Catch: *errutil.NewCatch()}
 }
 
+// Ternary adds the error with the given message to the validator if the condition
+// is true.
 func (v *Validator) Ternary(cond bool, msg string) bool {
 	v.Exec(func() error {
 		return lo.Ternary(cond, v.New(msg), nil)

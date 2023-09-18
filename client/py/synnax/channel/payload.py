@@ -18,17 +18,12 @@ from freighter import Payload
 from synnax.telem import DataType, Rate
 from synnax.util.normalize import normalize
 
-
 ChannelKey = int
 ChannelName = str
 ChannelKeys = list[int]
 ChannelNames = list[str]
-ChannelParams = (
-    ChannelKeys | 
-    ChannelNames | 
-    ChannelKey | 
-    ChannelName 
-)
+ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
+
 
 class ChannelPayload(Payload):
     """A payload container that represent the properties of a channel exchanged to and
@@ -48,7 +43,6 @@ class ChannelPayload(Payload):
 
     def __hash__(self) -> int:
         return hash(self.key)
-
 
 
 @dataclass

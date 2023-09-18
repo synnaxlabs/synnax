@@ -100,7 +100,7 @@ var _ = Describe("Writer Behavior", func() {
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
 			})
-			FSpecify("Control Handoff", func() {
+			Specify("Control Handoff", func() {
 				w1 := MustSucceed(db.OpenWriter(ctx, unary.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.Absolute - 1,

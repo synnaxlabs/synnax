@@ -52,6 +52,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
@@ -61,6 +62,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)

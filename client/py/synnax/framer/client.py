@@ -30,6 +30,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
+from synnax.control import Authority, CrudeAuthority
 
 
 class Client:
@@ -58,25 +59,38 @@ class Client:
     def new_writer(
         self,
         start: CrudeTimeStamp,
-        params: ChannelParams,
+        channels: ChannelParams,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
+        *,
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
-        :param keys: A list of channel keys that the writer will write to. A writer
-        cannot write to keys not provided in this list. See the NumpyWriter documentation
-        for more.
-        :returns: A NumpyWriter that can be used to write telemetry to the given channels.
+        :param start: Sets the starting timestamp for the first sample in the writer. If
+        this timestamp overlaps with existing data for ANY of the provided channels,
+        the writer will fail to open.
+        :param channels: The channels to write to. This can be a single channel name,
+        a list of channel names, a single channel key, or a list of channel keys.
+        :param authorities: The control authority to set for each channel on the writer.
+        Defaults to absolute authority. If not working with concurrent control,
+        it's best to leave this as the default.
+        :param strict: Sets whether the writer will fail to write if the data for a
+        particular channel does not exactly match this data type. When False,
+        the default, the writer will automatically convert the data to the correct
+        type if possible.
+        :param suppress_warnings: Supress various print warnings that may be emitted
+        by the writer.
         """
         adapter = WriteFrameAdapter(self.__channels)
-        adapter.update(params)
+        adapter.update(channels)
         return Writer(
             start=start,
             adapter=adapter,
             client=self.__client,
             strict=strict,
             suppress_warnings=suppress_warnings,
+            authorities=authorities,
         )
 
     def new_iterator(

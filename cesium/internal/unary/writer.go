@@ -16,15 +16,18 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type WriterConfig struct {
-	Start     telem.TimeStamp
-	End       telem.TimeStamp
-	Authority control.Authority
+	Name           string
+	Start          telem.TimeStamp
+	End            telem.TimeStamp
+	Authority      control.Authority
+	ControlDigests confluence.Inlet[controller.Digest]
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {

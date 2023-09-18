@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -55,7 +54,6 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	end := errors.MaybeUnexpected(sCtx.Wait())
-	logrus.Info("Stream ended")
 	return end
 }
 

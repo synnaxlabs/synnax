@@ -11,17 +11,11 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
-
-type WriterConfig struct {
-	Start    telem.TimeStamp
-	Channels []core.ChannelKey
-}
 
 type Writer struct {
 	requests          confluence.Inlet[WriterRequest]

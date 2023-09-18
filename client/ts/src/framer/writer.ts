@@ -20,6 +20,7 @@ import { z } from "zod";
 
 import { type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
+import { Authority } from "@/control/authority";
 import { ForwardFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -34,6 +35,7 @@ enum Command {
 const configZ = z.object({
   start: TimeStamp.z,
   keys: z.number().array().optional(),
+  authorities: Authority.z.array().optional(),
 });
 
 const reqZ = z.object({

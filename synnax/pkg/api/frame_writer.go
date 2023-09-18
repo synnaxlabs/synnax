@@ -20,13 +20,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type FrameWriterConfig struct {
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	Keys  channel.Keys    `json:"keys" msgpack:"keys"`
+	Start       telem.TimeStamp     `json:"start" msgpack:"start"`
+	Keys        channel.Keys        `json:"keys" msgpack:"keys"`
+	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 }
 
 // FrameWriterRequest represents a request to write Internal data for a set of channels.
@@ -113,8 +115,9 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		return nil, errors.Unexpected(err)
 	}
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
-		Start: req.Config.Start,
-		Keys:  req.Config.Keys,
+		Start:       req.Config.Start,
+		Keys:        req.Config.Keys,
+		Authorities: req.Config.Authorities,
 	})
 	if err != nil {
 		return nil, errors.Query(err)

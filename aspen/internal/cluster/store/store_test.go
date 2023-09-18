@@ -65,7 +65,7 @@ var _ = Describe("Store", func() {
 
 	})
 
-	Describe("Host", func() {
+	Describe("Lease", func() {
 
 		It("Should set and get the host correctly", func() {
 			s.SetHost(ctx, node.Node{Key: 1})

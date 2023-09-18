@@ -12,11 +12,13 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -42,8 +44,18 @@ type WriterRequest struct {
 	Frame Frame
 }
 
+type WriterResponseVariant uint8
+
+const (
+	WriterResponseAck WriterResponseVariant = iota + 1
+	WriterResponseErr
+	WriterResponseControl
+)
+
 // WriterResponse contains any errors that occurred during write execution.
 type WriterResponse struct {
+	// Variant is the variant of the response.
+	Variant WriterResponseVariant
 	// Command is the command that is being responded to.
 	Command WriterCommand
 	// Ack represents the return frame of the command.
@@ -57,6 +69,8 @@ type WriterResponse struct {
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
+	// Control
+	Control controller.Digest
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -88,16 +102,23 @@ type streamWriter struct {
 	WriterConfig
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay    confluence.Inlet[Frame]
-	internal []*idxWriter
-	seqNum   int
-	err      error
+	relay          confluence.Inlet[Frame]
+	controlDigests confluence.Outlet[controller.Digest]
+	internal       []*idxWriter
+	seqNum         int
+	err            error
 }
 
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
+	if !reflect.IsNil(w.controlDigests) {
+		signal.GoRange(ctx, w.controlDigests.Outlet(), func(ctx context.Context, digest controller.Digest) error {
+			w.Out.Inlet() <- WriterResponse{Variant: WriterResponseControl, Control: digest}
+			return nil
+		})
+	}
 	ctx.Go(func(ctx context.Context) error {
 		for {
 			select {
