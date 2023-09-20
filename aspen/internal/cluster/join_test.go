@@ -37,11 +37,11 @@ var _ = Describe("Open", func() {
 			pledgeNet = fmock.NewNetwork[pledge.Request, pledge.Response]()
 		})
 
-		Context("New cluster", func() {
+		Context("New Cluster", func() {
 
-			It("Should correctly join the cluster", func() {
+			It("Should correctly join the Cluster", func() {
 
-				By("Initializing the cluster correctly")
+				By("Initializing the Cluster correctly")
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
 				clusterOne, err := cluster.Open(
@@ -63,7 +63,7 @@ var _ = Describe("Open", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterOne.Host().Key).To(Equal(node.Key(1)))
 
-				By("Pledging a new node to the cluster")
+				By("Pledging a new node to the Cluster")
 				gossipT2 := gossipNet.UnaryServer("")
 				pledgeT2 := pledgeNet.UnaryServer(gossipT2.Address)
 				clusterTwo, err := cluster.Open(
@@ -84,7 +84,7 @@ var _ = Describe("Open", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(clusterTwo.Host().Key).To(Equal(node.Key(2)))
-				By("Converging cluster state through gossip")
+				By("Converging Cluster state through gossip")
 				Eventually(clusterOne.Nodes).Should(HaveLen(2))
 				Eventually(clusterTwo.Nodes).Should(HaveLen(2))
 
@@ -94,9 +94,9 @@ var _ = Describe("Open", func() {
 
 		})
 
-		Context("Existing cluster in Storage", func() {
+		Context("Existing Cluster in Storage", func() {
 
-			It("Should restart cluster activities using the persisted state", func() {
+			It("Should restart Cluster activities using the persisted state", func() {
 
 				gossipT1 := gossipNet.UnaryServer("")
 				pledgeT1 := pledgeNet.UnaryServer(gossipT1.Address)
@@ -135,7 +135,7 @@ var _ = Describe("Open", func() {
 						TransportServer: gossipT2,
 						Interval:        100 * time.Millisecond,
 					},
-					StorageKey:           []byte("cluster-join-test-storage"),
+					StorageKey:           []byte("Cluster-join-test-storage"),
 					Storage:              kvDB,
 					StorageFlushInterval: cluster.FlushOnEvery,
 					EncoderDecoder:       &binary.MsgPackEncoderDecoder{},

@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-var _ = Describe("cluster", func() {
+var _ = Describe("Cluster", func() {
 	var (
 		builder    *clustermock.Builder
 		clusterCtx signal.Context

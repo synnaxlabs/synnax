@@ -41,7 +41,7 @@ type Distribution struct {
 	Channel  channel.Service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
-	CDC      *cdc.Service
+	CDC      *cdc.Provider
 	Group    *group.Service
 }
 
@@ -50,7 +50,7 @@ func (d Distribution) Close() error {
 	e := errutil.NewCatch(errutil.WithAggregation())
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
-	e.Exec(d.Storage.Close)
+	e.Exec(d.Core.Close)
 	return e.Error()
 }
 
@@ -114,7 +114,6 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	d.CDC, err = cdc.New(cdc.Config{
 		Channel:         d.Channel,
-		DB:              gorpDB,
 		Framer:          d.Framer,
 		Instrumentation: cfg.Instrumentation.Child("cdc"),
 	})

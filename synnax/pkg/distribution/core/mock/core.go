@@ -21,6 +21,7 @@ import (
 	mockstorage "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 // CoreBuilder is a utility for provisioning mock distribution cores that
@@ -94,7 +95,13 @@ func (cb *CoreBuilder) New() core.Core {
 
 // Close shuts down all other nodes in the cluster. It is not safe to call this method
 // while the nodes are still in use.
-func (cb *CoreBuilder) Close() error { return cb.Builder.Close() }
+func (cb *CoreBuilder) Close() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, core_ := range cb.Cores {
+		c.Exec(core_.Close)
+	}
+	return c.Error()
+}
 
 func (cb *CoreBuilder) WaitForTopologyToStabilize() {
 	for _, _c := range cb.Cores {

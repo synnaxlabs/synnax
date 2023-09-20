@@ -53,6 +53,8 @@ var _ = Describe("Builder", func() {
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
 			}).Should(Succeed())
 
+			Expect(builder.Close()).To(Succeed())
+			Expect(builder.Cleanup()).To(Succeed())
 		})
 	})
 

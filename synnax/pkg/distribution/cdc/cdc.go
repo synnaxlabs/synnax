@@ -12,9 +12,9 @@
 // using the standard channel streaming pipeline, allowing Synnax users to execute
 // arbitrary code in response to changes a cluster's data and metadata.
 //
-// Users of this library should typically use the OpenGorp function, which provide CDC
+// Users of this library should typically use the SubscribeToGorp function, which provide CDC
 // functionality for changes to a gorp compatible key-value store with a simple
-// configuration. The most common of these is the UUIDGorpConfig function, which
+// configuration. The most common of these is the GorpConfigUUID function, which
 // provides a config for propagating sets and deletes for UUID keyed gorp entries.
 package cdc
 
@@ -27,9 +27,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Service struct{ Config }
+// Provider implements the core functionality for opening CDC pipelines. It should be
+// passed around as an argument to any services that need to open CDC pipelines. It is
+// stateless, and does not need to be closed.
+type Provider struct{ Config }
 
-// Config is the configuration for opening the core CDC Service.
+// Config is the configuration for opening the core CDC Provider.
 type Config struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL]
@@ -45,7 +48,7 @@ type Config struct {
 
 var (
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for the CDC Service.
+	// DefaultConfig is the default configuration for the CDC Provider.
 	DefaultConfig = Config{}
 )
 
@@ -65,12 +68,12 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// New creates a new CDC Service using the given configuration. This service is
+// New creates a new CDC Provider using the given configuration. This service is
 // stateless, and does not need to be closed.
-func New(cfgs ...Config) (*Service, error) {
+func New(cfgs ...Config) (*Provider, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Config: cfg}, nil
+	return &Provider{Config: cfg}, nil
 }

@@ -22,10 +22,11 @@ type Subscriber[V Value] struct {
 
 func (s *Subscriber[V]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(func(ctx context.Context) error {
-		s.Observable.OnChange(func(ctx context.Context, v V) {
-			signal.SendUnderContext(ctx, s.Out.Inlet(), v)
+		remove := s.Observable.OnChange(func(ctx context.Context, v V) {
+			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
 		})
 		<-ctx.Done()
+		remove()
 		return ctx.Err()
 	})
 }

@@ -29,25 +29,25 @@ type Config struct {
 	// HostAddress is the reachable address of the host node.
 	// [REQUIRED]
 	HostAddress address.Address
-	// Storage is a key-value storage backend for the cluster. Cluster will flush
+	// Storage is a key-value storage backend for the Cluster. Cluster will flush
 	// changes to its state to this backend based on Config.StorageFlushInterval.
-	// Open will also attempt to load an existing cluster from this backend.
+	// Open will also attempt to load an existing Cluster from this backend.
 	// If Config.Storage is not provided, Cluster state will only be stored in memory.
 	Storage kv.DB
-	// StorageKey is the key used to store the cluster state in the backend.
+	// StorageKey is the key used to store the Cluster state in the backend.
 	StorageKey []byte
-	// StorageFlushInterval	is the interval at which the cluster state is flushed
-	// to the backend. If this is set to FlushOnEvery, the cluster state is flushed on
+	// StorageFlushInterval	is the interval at which the Cluster state is flushed
+	// to the backend. If this is set to FlushOnEvery, the Cluster state is flushed on
 	// every change.
 	StorageFlushInterval time.Duration
 	// Gossip is the configuration for propagating Cluster state through gossip.
 	// See the gossip package for more details on how to configure this.
 	Gossip gossip.Config
-	// Pledge is the configuration for pledging to the cluster upon a Open call.
+	// Pledge is the configuration for pledging to the Cluster upon a Open call.
 	// See the pledge package for more details on how to configure this.
 	Pledge pledge_.Config
 	// EncoderDecoder is the encoder/decoder to use for encoding and decoding the
-	// cluster state.
+	// Cluster state.
 	EncoderDecoder binary.EncoderDecoder
 }
 
@@ -68,7 +68,7 @@ func (cfg Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
-	v := validate.New("cluster")
+	v := validate.New("Cluster")
 	validate.NotEmptyString(v, "HostAddress", cfg.HostAddress)
 	validate.NotNil(v, "EncoderDecoder", cfg.EncoderDecoder)
 	validate.NonZero(v, "StorageFlushInterval", cfg.StorageFlushInterval)
@@ -92,7 +92,7 @@ func (cfg Config) Report() alamos.Report {
 var (
 	DefaultConfig = Config{
 		Pledge:               pledge_.DefaultConfig,
-		StorageKey:           []byte("aspen.cluster"),
+		StorageKey:           []byte("aspen.Cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
 		EncoderDecoder:       &binary.GobEncoderDecoder{},

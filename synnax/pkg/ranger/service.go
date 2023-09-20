@@ -26,7 +26,7 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	CDC      *cdc2.Service
+	CDC      *cdc2.Provider
 }
 
 var (
@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 
-	s.cdc, err = cdc2.OpenGorp(ctx, cfg.CDC, cdc2.UUIDGorpConfig[Range](cfg.DB))
+	s.cdc, err = cdc2.SubscribeToGorp(ctx, cfg.CDC, cdc2.GorpConfigUUID[Range](cfg.DB))
 	return s, err
 }
 

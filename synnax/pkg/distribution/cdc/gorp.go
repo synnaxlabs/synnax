@@ -25,13 +25,20 @@ import (
 	"strings"
 )
 
+// GorpConfig is the configuration for opening a CDC pipeline that subscribes
+// changes to a particular entry type in a gorp.DB. It's not typically necessary
+// to instantiate this configuration directly, instead use a helper function
+// such as GorpConfigUUID.
 type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	DB       *gorp.DB
 	DataType telem.DataType
 	Marshal  func(K) []byte
 }
 
-func UUIDGorpConfig[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
+// GorpConfigUUID is a helper function for creating a CDC pipeline that propagates
+// changes to UUID keyed gorp entries written to the provided DB. The returned
+// configuration should be passed to SubscribeToGorp.
+func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
 	return GorpConfig[uuid.UUID, E]{
 		DB:       db,
 		DataType: telem.UUIDT,
@@ -39,9 +46,12 @@ func UUIDGorpConfig[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, 
 	}
 }
 
-func OpenGorp[K gorp.Key, E gorp.Entry[K]](
+// SubscribeToGorp opens a CDC pipeline that subscribes to the sets and deletes of a
+// particular entry type in the configured gorp.DB. The returned io.Closer should be
+// closed to stop the CDC pipeline.
+func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
-	svc *Service,
+	svc *Provider,
 	cfg GorpConfig[K, E],
 ) (io.Closer, error) {
 	name := strings.ToLower(types.Name[E]())
@@ -73,5 +83,5 @@ func OpenGorp[K gorp.Key, E gorp.Entry[K]](
 			return out
 		},
 	}
-	return svc.OpenCore(ctx, CoreConfig{Set: channels[0], Delete: channels[1], Obs: obs})
+	return svc.SubscribeToObservable(ctx, ObservableConfig{Set: channels[0], Delete: channels[1], Observable: obs})
 }
