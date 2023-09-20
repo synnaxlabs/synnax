@@ -127,7 +127,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		l.iter.responses = iterRes
 	}
 
-	rel, err := s.relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
+	rel, err := s.relay.NewReader(ctx, relay.ReaderConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err
 	}

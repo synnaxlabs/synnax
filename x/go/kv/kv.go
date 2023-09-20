@@ -93,7 +93,11 @@ type DB interface {
 type Change = change.Change[[]byte, []byte]
 
 // TxReader is used to read the operations in a transaction.
-type TxReader = iter.Nexter[Change]
+type TxReader interface {
+	iter.Nexter[Change]
+	// Count returns the total number of operations in the transaction.
+	Count() int
+}
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]

@@ -65,7 +65,7 @@ func Open(configs ...Config) (*Relay, error) {
 	}
 
 	s := &Relay{}
-	startServer(cfg, s.NewStreamer)
+	startServer(cfg, s.NewReader)
 
 	coord := newReceiveCoordinator(cfg)
 	peerDemands := confluence.NewStream[demand](1)

@@ -240,6 +240,10 @@ type txReader struct {
 
 var _ kvx.TxReader = (*txReader)(nil)
 
+// Count implements kvx.TxReader.
+func (r *txReader) Count() int { return len(r.ops) }
+
+// Next implements kvx.TxReader.
 func (r *txReader) Next(_ context.Context) (kvx.Change, bool) {
 	if r.curr >= len(r.ops) {
 		return kvx.Change{}, false

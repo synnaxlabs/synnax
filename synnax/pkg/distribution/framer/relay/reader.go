@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-type Streamer = confluence.Segment[Request, Response]
+type Reader = confluence.Segment[Request, Response]
 
-type streamer struct {
+type reader struct {
 	confluence.AbstractLinear[Request, Response]
 	addr    address.Address
 	demands confluence.Inlet[demand]
@@ -28,12 +28,12 @@ type streamer struct {
 	relay   *Relay
 }
 
-type StreamerConfig struct {
+type ReaderConfig struct {
 	Keys channel.Keys
 }
 
-func (r *Relay) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
-	rd := &streamer{
+func (r *Relay) NewReader(_ context.Context, cfg ReaderConfig) (Reader, error) {
+	rd := &reader{
 		keys:    cfg.Keys,
 		addr:    address.Rand(),
 		demands: r.peerDemands,
@@ -48,7 +48,7 @@ func (r *Relay) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, er
 }
 
 // Flow implements confluence.Flow.
-func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
+func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(r.Out)
 	responses, disconnect := r.relay.connect(1)

@@ -164,6 +164,10 @@ type TxReader[K Key, E Entry[K]] struct {
 	prefixMatcher func(ctx context.Context, key []byte) bool
 }
 
+// Count returns the number of key-value operations in the reader. NOTE: This includes
+// operations that may not match the entry type of the reader. Caveat emptor.
+func (t TxReader[K, E]) Count() int { return t.kv.Count() }
+
 // Next implements TxReader.
 func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool) {
 	var kvOp kv.Change

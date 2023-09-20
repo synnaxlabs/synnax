@@ -28,9 +28,9 @@ import (
 var _ = Describe("TypedWriter", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
-			//gatewayOnlyScenario,
-			//peerOnlyScenario,
-			//mixedScenario,
+			gatewayOnlyScenario,
+			peerOnlyScenario,
+			mixedScenario,
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
