@@ -469,7 +469,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2**63 - 1)
+TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
@@ -757,6 +757,8 @@ class Density(int):
 
     UNKNOWN: Density
     """An unknown density, represented as a ZERO value."""
+    BIT128: Density
+    """A density of 128 bits or 16 bytes per sample."""
     BIT64: Density
     """A density of 64 bits or 8 bytes per sample."""
     BIT32: Density
@@ -768,6 +770,7 @@ class Density(int):
 
 
 Density.UNKNOWN = Density(0)
+Density.BIT128 = Density(16)
 Density.BIT64 = Density(8)
 Density.BIT32 = Density(4)
 Density.BIT16 = Density(2)
@@ -946,6 +949,7 @@ class DataType(str):
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
+        print(npt, self)
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return cast(np.dtype, npt)
@@ -961,6 +965,7 @@ class DataType(str):
         return f"DataType({super().__repr__()})"
 
     UNKNOWN: DataType
+    UUID: DataType
     TIMESTAMP: DataType
     FLOAT64: DataType
     FLOAT32: DataType
@@ -978,6 +983,7 @@ class DataType(str):
     _DENSITIES: dict[DataType, Density]
 
 
+DataType.UUID = DataType("uuid")
 DataType.UNKNOWN = DataType("")
 DataType.TIMESTAMP = DataType("timestamp")
 DataType.FLOAT64 = DataType("float64")
@@ -991,6 +997,7 @@ DataType.UINT32 = DataType("uint32")
 DataType.UINT16 = DataType("uint16")
 DataType.UINT8 = DataType("uint8")
 DataType.ALL = (
+    DataType.UUID,
     DataType.FLOAT64,
     DataType.FLOAT32,
     DataType.INT64,
@@ -1015,6 +1022,7 @@ CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number
 CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {
+    DataType.UUID: np.dtype(np.longlong),
     DataType.FLOAT64: np.dtype(np.float64),
     DataType.FLOAT32: np.dtype(np.float32),
     DataType.TIMESTAMP: np.dtype(np.int64),
@@ -1029,6 +1037,7 @@ DataType._TO_NUMPY = {
 }
 DataType._FROM_NUMPY = {v: k for k, v in DataType._TO_NUMPY.items()}
 DataType._DENSITIES = {
+    DataType.UUID: Density.BIT128,
     DataType.FLOAT64: Density.BIT64,
     DataType.FLOAT32: Density.BIT32,
     DataType.TIMESTAMP: Density.BIT64,
@@ -1041,3 +1050,15 @@ DataType._DENSITIES = {
     DataType.UINT16: Density.BIT16,
     DataType.UINT8: Density.BIT8,
 }
+
+
+class Bounds:
+    lower: float
+    upper: float
+
+    def __init__(self, lower: float, upper: float):
+        self.lower = lower
+        self.upper = upper
+
+    def contains(self, value: float) -> bool:
+        return self.lower < value <= self.upper

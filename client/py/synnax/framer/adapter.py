@@ -17,7 +17,7 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelParams,
 )
-from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.frame import Frame
 from synnax.telem.series import CrudeSeries, Series
@@ -71,15 +71,9 @@ class WriteFrameAdapter:
         self.__keys = None
 
     def update(self, channels: ChannelParams):
-        normal = normalize_channel_params(channels)
-        fetched = self.retriever.retrieve(normal.params)
-        self.__adapter = dict[ChannelName, ChannelKey]()
-        for v in normal.params:
-            ch = next((c for c in fetched if c.name == v or c.key == v), None)
-            if ch is None:
-                raise QueryError(f"Channel {v} not found.")
-            self.__adapter[ch.name] = ch.key
-        self.__keys = [c.key for c in fetched]
+        results = retrieve_required(self.retriever, channels)
+        self.__adapter = {ch.name: ch.key for ch in results}
+        self.__keys = [ch.key for ch in results]
 
     @property
     def keys(self):
@@ -90,10 +84,7 @@ class WriteFrameAdapter:
     ) -> ChannelPayload:
         if not isinstance(ch, (ChannelKey, ChannelName)):
             return ch
-        payloads = self.retriever.retrieve(ch)
-        if len(payloads) == 0:
-            raise QueryError(f"Channel {ch} not found.")
-        return payloads[0]
+        return retrieve_required(self.retriever, ch)[0]
 
     def adapt(
         self,

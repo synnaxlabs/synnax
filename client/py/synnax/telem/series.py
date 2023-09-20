@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pandas as pd
 import numpy as np
+import uuid
 from datetime import datetime
 
 from freighter import Payload
@@ -45,6 +46,7 @@ class Series(Payload):
     alignment: int = 0
 
     def __len__(self) -> int:
+        print(self.data_type, self.data_type.density)
         return self.data_type.density.sample_count(len(self.data))
 
     def __init__(
@@ -92,6 +94,13 @@ class Series(Payload):
         return np.frombuffer(self.data, dtype=self.data_type.np)
 
     def __getitem__(self, index: int) -> float:
+        if self.data_type == DataType.UUID:
+            start = self.data_type.density.sample_count(index)
+            end = start + self.data_type.density + 1
+            print(start, end)
+            d = self.data[start:end]
+            print(d)
+            return uuid.UUID(bytes=d)
         return self.__array__()[index]
 
     def __iter__(self):

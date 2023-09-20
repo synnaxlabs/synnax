@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
@@ -48,14 +49,16 @@ func OpenGorp[K gorp.Key, E gorp.Entry[K]](
 	name := strings.ToLower(types.Name[E]())
 	channels := []channel.Channel{
 		{
-			Name:     fmt.Sprintf("sy_%s_set", name),
-			DataType: cfg.DataType,
-			Virtual:  true,
+			Name:        fmt.Sprintf("sy_%s_set", name),
+			Leaseholder: core.Free,
+			DataType:    cfg.DataType,
+			Virtual:     true,
 		},
 		{
-			Name:     fmt.Sprintf("sy_%s_delete", name),
-			DataType: cfg.DataType,
-			Virtual:  true,
+			Name:        fmt.Sprintf("sy_%s_delete", name),
+			Leaseholder: core.Free,
+			DataType:    cfg.DataType,
+			Virtual:     true,
 		},
 	}
 	obs := observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{

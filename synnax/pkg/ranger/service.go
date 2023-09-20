@@ -12,7 +12,7 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/cdc"
+	cdc2 "github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
@@ -26,7 +26,7 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	CDC      *cdc.Service
+	CDC      *cdc2.Service
 }
 
 var (
@@ -48,6 +48,7 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.CDC = override.Nil(c.CDC, other.CDC)
 	return c
 }
 
@@ -68,6 +69,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
+
+	s.cdc, err = cdc2.OpenGorp(ctx, cfg.CDC, cdc2.UUIDGorpConfig[Range](cfg.DB))
 	return s, err
 }
 

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 from collections.abc import Callable
+import uuid
 
 import numpy as np
 from threading import Thread, Event
@@ -23,8 +24,8 @@ from synnax.channel.payload import (
     ChannelParams,
     ChannelPayload,
 )
-from synnax.channel.retrieve import ChannelRetriever
-from synnax.telem import TimeStamp
+from synnax.channel.retrieve import ChannelRetriever, retrieve_required
+from synnax.telem import TimeStamp, CrudeTimeSpan, TimeSpan
 from synnax.telem.authority import CrudeAuthority, Authority
 
 
@@ -41,7 +42,7 @@ class State:
             self.value[key] = value.series[i][0]
 
     def __getattr__(self, ch: ChannelKey | ChannelName | ChannelPayload):
-        ch = self.__retriever.retrieve(ch)[0]
+        ch = retrieve_required(self.__retriever, ch)[0]
         return self.value[ch.key]
 
     def __getitem__(self, ch: ChannelKey | ChannelName | ChannelPayload):
@@ -49,7 +50,7 @@ class State:
 
 
 class Processor(Protocol):
-    def process(self, frame: State) -> Any:
+    def process(self, state: State) -> Any:
         ...
 
 
@@ -61,8 +62,8 @@ class WaitUntil(Processor):
         self.event = Event()
         self.callback = callback
 
-    def process(self, frame: State) -> Any:
-        if self.callback(frame):
+    def process(self, state: State) -> Any:
+        if self.callback(state):
             self.event.set()
         return None
 
@@ -82,10 +83,13 @@ class Controller:
         retriever: ChannelRetriever,
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
+        write_channels = retrieve_required(retriever, write)
+        write_indexes = [ch.index for ch in write_channels if ch.index != 0]
+        write_keys = write_indexes.extend([ch.key for ch in write_channels])
         self.writer = frame_client.new_writer(
             name=name,
             start=TimeStamp.now(),
-            channels=write,
+            channels=write_keys,
             authorities=write_authorities,
         )
         self.receiver = _Receiver(frame_client, read, retriever)
@@ -93,18 +97,23 @@ class Controller:
         self.receiver.start()
 
     def set(self, ch: ChannelKey | ChannelName, value: int | float):
-        ch = self.retriever.retrieve(ch)[0]
-        print(ch.key, value)
+        ch = retrieve_required(self.retriever, ch)[0]
         self.writer.write({ch.key: value, ch.index: TimeStamp.now()})
 
     def authorize(self, ch: ChannelKey | ChannelName, value: Authority):
-        ch = self.retriever.retrieve(ch)[0]
+        ch = retrieve_required(self.retriever, ch)[0]
         self.writer.set_authority({ch.key: value, ch.index: value})
 
-    def wait_until(self, callback: Callable[[State], bool]):
+    def wait_until(
+        self,
+        callback: Callable[[State], bool],
+        timeout: CrudeTimeSpan = None,
+    ):
         processor = WaitUntil(callback)
-        self.receiver.processors[processor] = processor
-        processor.event.wait()
+        hash = uuid.uuid4()
+        self.receiver.processors[hash] = processor
+        processor.event.wait(timeout=TimeSpan(timeout).seconds)
+        del self.receiver.processors[hash]
 
     def release(self):
         self.writer.close()
@@ -115,7 +124,13 @@ class Controller:
     ):
         self.set(ch, value)
 
-    def __enter__(self) -> Client:
+    def __setattr__(self, key, value):
+        try:
+            super().__setattr__(key, value)
+        except AttributeError:
+            self.set(key, value)
+
+    def __enter__(self) -> Controller:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -150,7 +165,7 @@ class _Receiver(Thread):
     channels: ChannelParams
     client: framer.Client
     streamer: framer.AsyncStreamer
-    processors: dict[Callable[[framer.Frame], Any]]
+    processors: dict[uuid.UUID, Processor]
     retriever: ChannelRetriever
 
     def __init__(
@@ -182,11 +197,7 @@ class _Receiver(Thread):
 
     def __process(self):
         for processor in self.processors.values():
-            try:
-                processor.process(self.state)
-            except Exception as e:
-                # print(e)
-                pass
+            processor.process(self.state)
 
     async def __listen_for_close(self):
         await self.queue.async_q.get()

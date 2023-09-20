@@ -12,6 +12,7 @@ package distribution
 import (
 	"context"
 	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -40,6 +41,7 @@ type Distribution struct {
 	Channel  channel.Service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
+	CDC      *cdc.Service
 	Group    *group.Service
 }
 
@@ -108,6 +110,13 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		TS:              d.Storage.TS,
 		Transport:       frameTransport,
 		HostResolver:    d.Cluster,
+	})
+
+	d.CDC, err = cdc.New(cdc.Config{
+		Channel:         d.Channel,
+		DB:              gorpDB,
+		Framer:          d.Framer,
+		Instrumentation: cfg.Instrumentation.Child("cdc"),
 	})
 
 	return d, err

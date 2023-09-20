@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -206,7 +205,6 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			logrus.Error(err)
 			return err
 		}
 	}

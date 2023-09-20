@@ -11,6 +11,7 @@ package relay
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
@@ -67,6 +68,7 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				r.demands.Inlet() <- demand{Variant: change.Set, Key: r.addr, Value: req}
 			case f := <-responses.Outlet():
 				filtered := f.Frame.FilterKeys(r.keys)
+				logrus.Warn(filtered, f.Frame, r.keys)
 				if len(filtered.Keys) != 0 {
 					r.Out.Inlet() <- Response{
 						Error: f.Error,

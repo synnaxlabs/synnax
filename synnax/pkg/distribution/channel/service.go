@@ -107,14 +107,19 @@ func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
 func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error {
 	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.NewWriter(tx)
-		for _, channel := range *channels {
+		for i, channel := range *channels {
 			var res Channel
-			s.NewRetrieve().WhereNames(channel.Name).Entry(&res).Exec(ctx, nil)
+			if err := s.NewRetrieve().
+				WhereNames(channel.Name).
+				Entry(&res).Exec(ctx, tx); err != nil {
+				return err
+			}
 			if res.Name != channel.Name {
 				if err := w.Create(ctx, &channel); err != nil {
 					return err
 				}
 			}
+			(*channels)[i] = channel
 		}
 		return nil
 	})

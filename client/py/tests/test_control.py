@@ -24,6 +24,7 @@ def create_valve_set(client: sy.Synnax) -> tuple[sy.Channel]:
 @pytest.mark.focus
 class TestController:
     def test_basic_control(self, client: sy.Synnax):
+        valve_en_time, valve_en_cmd_time, valve_en_cmd, valve_en, data = (create_valve_set(client))
         with client.control.acquire(
             read=[valve_en.key, data.key],
             write=[valve_en_cmd.key, valve_en_cmd_time.key],

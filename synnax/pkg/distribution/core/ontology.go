@@ -72,6 +72,9 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontolgoy accordinly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
+		s.L.Error("failed to define free node ontology resource", zap.Error(err))
+	}
 	s.update(ctx, s.Cluster.PeekState())
 	s.Cluster.OnChange(func(ctx context.Context, change ClusterChange) {
 		s.update(ctx, change.State)

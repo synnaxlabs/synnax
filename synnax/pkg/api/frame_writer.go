@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -83,7 +82,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	name, w, err := s.openWriter(ctx, stream)
+	_, w, err := s.openWriter(ctx, stream)
 	if err.Occurred() {
 		return err
 	}
@@ -104,17 +103,12 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 				r.Config.Keys = req.Config.Keys
 			}
 
-			if r.Command != writer.Data {
-				logrus.Warn(name, r)
-			}
-
 			return r, true, nil
 		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
 		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
-			logrus.Info(name, resp)
 			if resp.Error != nil {
 				resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
 			}
@@ -144,8 +138,6 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (s
 	for i, a := range req.Config.Authorities {
 		authorities[i] = control.Authority(a)
 	}
-
-	logrus.Info(authorities)
 
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
 		Name:               req.Config.Name,

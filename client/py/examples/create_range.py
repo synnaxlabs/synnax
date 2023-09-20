@@ -13,11 +13,10 @@ from alamos.dev import instrumentation
 import matplotlib.pyplot as plt
 
 client = sy.Synnax(
-    instrumentation=instrumentation(),
 )
 
 
 rng = client.ranges.create(
-    name="My Cool Range",
+    name="COPV Test",
     time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
 )

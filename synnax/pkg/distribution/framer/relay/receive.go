@@ -88,7 +88,8 @@ func (c *receiveCoordinator) updateConnections(
 ) {
 	// Open any new connections we may need
 	for node, keys := range nodeKeys {
-		if _, ok := c.receivers[node]; !ok {
+		_, ok := c.receivers[node]
+		if !node.IsFree() && !ok {
 			rcv, err := c.openReceiver(ctx, node, keys)
 			if err != nil {
 				c.L.Error("failed to dial new r")
