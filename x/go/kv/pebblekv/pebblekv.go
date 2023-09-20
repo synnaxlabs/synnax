@@ -73,7 +73,7 @@ func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
 }
 
 // OpenIterator implement kv.DB.
-func (d db) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.DB.NewIter(parseIterOpts(opts))
 }
 
@@ -116,7 +116,7 @@ func (txn tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
 }
 
 // OpenIterator implements kv.Writer.
-func (txn tx) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+func (txn tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return txn.Batch.NewIter(parseIterOpts(opts))
 }
 

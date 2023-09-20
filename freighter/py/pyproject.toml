@@ -20,7 +20,7 @@ websockets = "^11.0.3"
 msgpack = "^1.0.4"
 urllib3 = "^2.0.3"
 janus = "^1.0.0"
-pydantic = "^1.10.2"
+pydantic = "^2.3.0"
 alamos = "^0.2.0"
 # alamos = { path = "../../alamos/py", develop = true }
 

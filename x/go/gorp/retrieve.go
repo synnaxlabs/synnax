@@ -175,8 +175,11 @@ func filterRetrieve[K Key, E Entry[K]](
 	var (
 		f       = getFilters[K, E](q)
 		entries = GetEntries[K, E](q)
-		i       = WrapReader[K, E](tx).OpenIterator()
+		i, err  = WrapReader[K, E](tx).OpenIterator()
 	)
+	if err != nil {
+		return err
+	}
 	for i.First(); i.Valid(); i.Next() {
 		v := i.Value(ctx)
 		if f.exec(v) {

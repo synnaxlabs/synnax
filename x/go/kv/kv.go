@@ -34,7 +34,7 @@ type Reader interface {
 	// Get returns the value for the given key.
 	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
 	// OpenIterator returns an Iterator using the given IteratorOptions.
-	OpenIterator(opts IteratorOptions) Iterator
+	OpenIterator(opts IteratorOptions) (Iterator, error)
 }
 
 // Writer as a writable key-value store.

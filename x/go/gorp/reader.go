@@ -82,17 +82,16 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r Reader[K, E]) OpenIterator() *Iterator[E] {
-	return WrapIterator[E](r.BaseReader.OpenIterator(kv.IterPrefix(
-		r.prefix(context.TODO()))),
-		r.BaseReader,
-	)
+func (r Reader[K, E]) OpenIterator() (*Iterator[E], error) {
+	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(r.prefix(context.TODO())))
+	return WrapIterator[E](base, r), err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter() iter.NexterCloser[E] {
-	return &next[E]{Iterator: r.OpenIterator()}
+func (r Reader[K, E]) OpenNexter() (iter.NexterCloser[E], error) {
+	i, err := r.OpenIterator()
+	return &next[E]{Iterator: i}, err
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
