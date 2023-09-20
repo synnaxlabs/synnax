@@ -151,6 +151,6 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 	plumber.MustConnect[framer.WriterRequest](p, "source", "sink", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "sink", "responses", 10)
 	sCtx, cancel := signal.Isolated()
-	p.Flow(sCtx)
+	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return signal.NewShutdown(sCtx, cancel), nil
 }
