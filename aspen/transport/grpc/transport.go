@@ -115,7 +115,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  pledgeTranslator{},
 			ResponseTranslator: pledgeTranslator{},
-			Client: func(
+			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
 				req *aspenv1.ClusterPledge,
@@ -133,7 +133,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  clusterGossipTranslator{},
 			ResponseTranslator: clusterGossipTranslator{},
-			Client: func(
+			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
 				req *aspenv1.ClusterGossip,
@@ -151,7 +151,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: batchTranslator{},
-			Client: func(
+			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
 				req *aspenv1.BatchRequest,
@@ -169,7 +169,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  batchTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
-			Client: func(
+			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
 				req *aspenv1.BatchRequest,
@@ -187,7 +187,7 @@ func New(pool *fgrpc.Pool) *Transport {
 			Pool:               pool,
 			RequestTranslator:  feedbackTranslator{},
 			ResponseTranslator: fgrpc.EmptyTranslator{},
-			Client: func(
+			Exec: func(
 				ctx context.Context,
 				conn grpc.ClientConnInterface,
 				req *aspenv1.FeedbackMessage,

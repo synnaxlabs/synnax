@@ -42,11 +42,13 @@ we've provided a general 'roadmap' for different platform components below.
 ### 0.0.4 - User Interfaces
 
 1. [Programming Core in TypeScript](#103---programming-core-in-javascript-and-typescript)
-2. [Package Management](#7---package-management)
-3. [User Interfaces](#9---user-interfaces)
-4. [Essential Abstractions](#11---essential-abstractions)
-5. [Web Services](#5---web-services)
-6. [Building Large Software Systems](#2---building-large-software-systems)
+2. [Package Management - PNPM](#71---pnpm)
+3. [Build Systems and Infrastructure - Mono Repo](#80---monorepo)
+4. [Build Systems and Infrastructure - Turbo Repo](#81---turbo-repo)
+5. [User Interfaces](#9---user-interfaces)
+6. [Essential Abstractions](#11---essential-abstractions)
+7. [Web Services](#5---web-services)
+8. [Building Large Software Systems](#2---building-large-software-systems)
 
 ### 0.0.5 - Build Systems and Infrastructure
 
@@ -98,7 +100,7 @@ the official go tour:
 #### 1.0.0.2 - Important Supplements
 
 - The Stack, Heap, and
-  Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee) 
+  Pointers - [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee)
 - Effective Go - [Effective Go](https://go.dev/doc/effective_go)
 
 ### 1.0.2 - Programming Core in Python
@@ -215,17 +217,65 @@ is a great video explaining how excessive abstraction can be dangerous.
 
 # 7 - Package Management
 
-- Poetry
-- PNPM
+## 7.0 - Poetry
+
+We use Poetry for managing packages and virtual environments in our Python code. Make
+sure you've familiarized yourself with some of the basic commands. Documentation is
+available [here](https://python-poetry.org/docs/). As a supplement to this, make sure
+you've read our [Python build system guide](./python/python.md).
+
+## 7.1 - PNPM
+
+PNPM is the package manager we use for all of our Typescript code. Make sure you've
+familiarized yourself with some of the basic commands. Documentation is available
+[here](https://pnpm.io/). As a supplement to this, make sure you've read our
+[frontend build system guide](./typescript/build.md).
 
 # 8 - Build Systems and Infrastructure
+
+## 8.0 - Monorepo
+
+Synnax is organized as a monorepo, meaning that almost all of our code is stored
+in a single repository. This is in contrast to a polyrepo, where each package is stored
+in its own repository. If you're unfamiliar with what monorepos are and/or what the
+benefits they provide, check out [this video](https://www.youtube.com/watch?v=9iU_IE6vnJ8&t=364s&ab_channel=Fireship).
+
+## 8.1 - Turbo Repo
+
+We use Turbo Repo as our monorepo build system tool for our front end code. It improves
+the developer experience by allowing us to build and test multiple packages at once,
+all while caching dependencies and build artifacts. Here's a good introduction video
+called [turbo repo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).
+Also, make sure you've familiarized yourself with some of the basic commands.
+Documentation is available [here](https://turbo.fyi/).
 
 - Continuous Integration/Continuous Deployment
 - Docker
 - Kubernetes
-- Turborepo
 
 # 9 - User Interfaces
+
+# 9.0 - An Introduction to Javascript Frameworks
+
+The world of javascript UI frameworks is one of the most chaotic in software
+engineering. Here are two good videos introducing what javascript frameworks are,
+how to choose one, and what the current landscape looks like:
+
+- [I built a JavaScript framework](https://www.youtube.com/watch?v=SJeBRW1QQMA&ab_channel=Fireship)
+- [JavaScript Frameworks in 2023](https://www.youtube.com/watch?v=S7X6fLbdwlc&ab_channel=Theo-t3%E2%80%A4gg)
+
+Now, accept the fact that for better or wore, we chose React.
+
+# 9.1 - React
+
+We use [React](https://react.dev) as our primary UI framework. It's the most popular
+framework available, and is essential to all the frontend work we do. The best way
+to get started is to go through the [learn react](https://react.dev/learn) section
+of the documentation. We highly recommend going through every section in its entirety,
+as we leverage a lot of advanced React patterns in our codebase.
+
+As a supplement, the [React API Reference](https://react.dev/reference/react) is useful
+as you start to work your first issues.
 
 - Javascript Frameworks in General
 - React
