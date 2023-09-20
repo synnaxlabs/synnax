@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package integration.v1;
+
+service EchoService {
+    rpc Exec(Message) returns (Message);
+}
+
+message Message {
+    uint32 id = 1;
+    string message = 2;
+}
+

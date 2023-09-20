@@ -62,7 +62,7 @@ func New(pool *fgrpc.Pool) Transport {
 		Pool:               pool,
 		RequestTranslator:  createMessageTranslator{},
 		ResponseTranslator: createMessageTranslator{},
-		Client: func(
+		Exec: func(
 			ctx context.Context,
 			conn grpc.ClientConnInterface,
 			req *channelv1.CreateMessage,
