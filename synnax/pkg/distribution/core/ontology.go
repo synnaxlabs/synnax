@@ -99,12 +99,12 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 }
 
 // OpenNexter implements ontology.Service.
-func (s *NodeOntologyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
+func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(
 		iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
 			return newNodeResource(n)
 		})),
-	)
+	), nil
 }
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
@@ -180,12 +180,12 @@ func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (
 }
 
 // OpenNexter implements ontology.Service.Relationship
-func (s *ClusterOntologyService) OpenNexter() iter.NexterCloser[schema.Resource] {
+func (s *ClusterOntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	return iter.NexterNopCloser(
 		iter.All[schema.Resource]([]schema.Resource{
 			newClusterResource(s.Cluster.Key()),
 		}),
-	)
+	), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {

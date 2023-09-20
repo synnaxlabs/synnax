@@ -177,8 +177,11 @@ func (o *Ontology) RegisterService(s Service) {
 	}
 
 	o.search.Go.Go(func(ctx context.Context) error {
-		n := s.OpenNexter()
-		err := o.search.Index.WithTx(func(tx search.Tx) error {
+		n, err := s.OpenNexter()
+		if err != nil {
+			return err
+		}
+		err = o.search.Index.WithTx(func(tx search.Tx) error {
 			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
 				if err := tx.Index(r); err != nil {
 					return err

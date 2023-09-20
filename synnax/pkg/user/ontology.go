@@ -72,8 +72,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Nexter[schema.Change])) 
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() iter.NexterCloser[schema.Resource] {
-	return newNextCloser(gorp.WrapReader[uuid.UUID, User](s.DB).OpenNexter())
+func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+	n, err := gorp.WrapReader[uuid.UUID, User](s.DB).OpenNexter()
+	return newNextCloser(n), err
 }
 
 func newNextCloser(i iter.NexterCloser[User]) iter.NexterCloser[schema.Resource] {

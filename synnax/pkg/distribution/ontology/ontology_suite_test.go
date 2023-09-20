@@ -48,10 +48,10 @@ func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontolo
 	return e, nil
 }
 
-func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
+func (s *emptyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(iter.All([]ontology.Resource{
 		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
-	}))
+	})), nil
 }
 
 var (

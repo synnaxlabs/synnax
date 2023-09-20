@@ -74,9 +74,10 @@ func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema
 	return gorp.Observe[uuid.UUID, Group](s.DB).OnChange(handleChange)
 }
 
-func (s *Service) OpenNexter() iter.NexterCloser[schema.Resource] {
+func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+	n, err := gorp.WrapReader[uuid.UUID, Group](s.DB).OpenNexter()
 	return iter.NexterCloserTranslator[Group, schema.Resource]{
-		Wrap:      gorp.WrapReader[uuid.UUID, Group](s.DB).OpenNexter(),
+		Wrap:      n,
 		Translate: newResource,
-	}
+	}, err
 }

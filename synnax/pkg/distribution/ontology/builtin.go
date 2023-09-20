@@ -51,6 +51,6 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resour
 }
 
 // OpenNexter implements Service.
-func (b *builtinService) OpenNexter() iter.NexterCloser[Resource] {
-	return iter.NexterNopCloser(iter.All([]Resource{rootResource}))
+func (b *builtinService) OpenNexter() (iter.NexterCloser[Resource], error) {
+	return iter.NexterNopCloser(iter.All([]Resource{rootResource})), nil
 }

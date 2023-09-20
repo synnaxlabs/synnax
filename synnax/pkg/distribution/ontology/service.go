@@ -33,7 +33,7 @@ type Service interface {
 	observe.Observable[iter.Nexter[schema.Change]]
 	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
 	// all resources held by the Service.
-	OpenNexter() iter.NexterCloser[Resource]
+	OpenNexter() (iter.NexterCloser[Resource], error)
 }
 
 type serviceRegistrar map[Type]Service
