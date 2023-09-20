@@ -118,8 +118,10 @@ func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channe
 				if err := w.Create(ctx, &channel); err != nil {
 					return err
 				}
+				(*channels)[i] = channel
+			} else {
+				(*channels)[i] = res
 			}
-			(*channels)[i] = channel
 		}
 		return nil
 	})

@@ -14,10 +14,8 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -54,34 +52,32 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 	svc *Provider,
 	cfg GorpConfig[K, E],
 ) (io.Closer, error) {
-	name := strings.ToLower(types.Name[E]())
-	channels := []channel.Channel{
-		{
-			Name:        fmt.Sprintf("sy_%s_set", name),
-			Leaseholder: core.Free,
-			DataType:    cfg.DataType,
-			Virtual:     true,
-		},
-		{
-			Name:        fmt.Sprintf("sy_%s_delete", name),
-			Leaseholder: core.Free,
-			DataType:    cfg.DataType,
-			Virtual:     true,
-		},
-	}
-	obs := observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-		Observable: gorp.Observe[K, E](cfg.DB),
-		Translate: func(r gorp.TxReader[K, E]) []change.Change[[]byte, struct{}] {
-			changes := iter.ToSlice[change.Change[K, E]](ctx, r)
-			var out []change.Change[[]byte, struct{}]
-			for _, c := range changes {
-				out = append(out, change.Change[[]byte, struct{}]{
-					Key:     cfg.Marshal(c.Key),
-					Variant: c.Variant,
-				})
-			}
-			return out
-		},
-	}
-	return svc.SubscribeToObservable(ctx, ObservableConfig{Set: channels[0], Delete: channels[1], Observable: obs})
+	var (
+		name = strings.ToLower(types.Name[E]())
+		obs  = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
+			Observable: gorp.Observe[K, E](cfg.DB),
+			Translate: func(r gorp.TxReader[K, E]) []change.Change[[]byte, struct{}] {
+				out := make([]change.Change[[]byte, struct{}], 0, r.Count())
+				for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
+					out = append(out, change.Change[[]byte, struct{}]{
+						Key:     cfg.Marshal(c.Key),
+						Variant: c.Variant,
+					})
+				}
+				return out
+			},
+		}
+		obsCfg = ObservableConfig{
+			Observable: obs,
+			Set: channel.Channel{
+				Name:     fmt.Sprintf("sy_%s_set", name),
+				DataType: cfg.DataType,
+			},
+			Delete: channel.Channel{
+				Name:     fmt.Sprintf("sy_%s_delete", name),
+				DataType: cfg.DataType,
+			},
+		}
+	)
+	return svc.SubscribeToObservable(ctx, obsCfg)
 }
