@@ -949,7 +949,6 @@ class DataType(str):
         :return: The numpy type
         """
         npt = DataType._TO_NUMPY.get(self, None)
-        print(npt, self)
         if npt is None:
             raise TypeError(f"Cannot convert {self} to numpy type")
         return cast(np.dtype, npt)

@@ -28,7 +28,9 @@ import (
 // to instantiate this configuration directly, instead use a helper function
 // such as GorpConfigUUID.
 type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
-	DB       *gorp.DB
+	// DB is the DB to subscribe to.
+	DB *gorp.DB
+	// DataType is the data type of the key used by the DB.
 	DataType telem.DataType
 	Marshal  func(K) []byte
 }

@@ -42,7 +42,7 @@ var (
 	Uint64T    DataType = "uint64"
 	Uint32T    DataType = "uint32"
 	Uint16T    DataType = "uint16"
-	ByteT      DataType = "byte"
+	Uint8T     DataType = "uint8"
 	BytesT     DataType = "bytes"
 	StringT    DataType = "string"
 )
@@ -56,11 +56,10 @@ var dataTypes = map[string]DataType{
 	"int32":     Int32T,
 	"int16":     Int16T,
 	"int8":      Int8T,
-	"uint8":     ByteT,
+	"uint8":     Uint8T,
 	"uint64":    Uint64T,
 	"uint32":    Uint32T,
 	"uint16":    Uint16T,
-	"byte":      ByteT,
 	"bytes":     BytesT,
 	"string":    StringT,
 }
@@ -77,7 +76,7 @@ var dataTypeDensities = map[DataType]Density{
 	Uint64T:    Bit64,
 	Uint32T:    Bit32,
 	Uint16T:    Bit16,
-	ByteT:      Bit8,
+	Uint8T:     Bit8,
 	Int64T:     Bit64,
 	BytesT:     DensityUnknown,
 	StringT:    DensityUnknown,

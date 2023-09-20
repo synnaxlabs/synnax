@@ -22,6 +22,8 @@ type PID struct {
 
 var _ gorp.Entry[uuid.UUID] = PID{}
 
+// GorpKey implements gorp.Entry.
 func (p PID) GorpKey() uuid.UUID { return p.Key }
 
+// SetOptions implements gorp.Entry.
 func (p PID) SetOptions() []interface{} { return nil }

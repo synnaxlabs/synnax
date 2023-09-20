@@ -46,7 +46,6 @@ class Series(Payload):
     alignment: int = 0
 
     def __len__(self) -> int:
-        print(self.data_type, self.data_type.density)
         return self.data_type.density.sample_count(len(self.data))
 
     def __init__(
@@ -97,9 +96,7 @@ class Series(Payload):
         if self.data_type == DataType.UUID:
             start = self.data_type.density.sample_count(index)
             end = start + self.data_type.density + 1
-            print(start, end)
             d = self.data[start:end]
-            print(d)
             return uuid.UUID(bytes=d)
         return self.__array__()[index]
 

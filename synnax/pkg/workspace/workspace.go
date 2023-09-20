@@ -21,6 +21,8 @@ type Workspace struct {
 
 var _ gorp.Entry[uuid.UUID] = Workspace{}
 
+// GorpKey implements gorp.Entry.
 func (w Workspace) GorpKey() uuid.UUID { return w.Key }
 
+// SetOptions implements gorp.Entry.
 func (w Workspace) SetOptions() []interface{} { return nil }

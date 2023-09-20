@@ -24,7 +24,7 @@ import (
 
 // Reader wraps a key-value reader to provide a strongly typed interface for
 // reading entries from the DB. Readonly only accesses entries that match
-// it's type arguments.
+// its type arguments.
 type Reader[K Key, E Entry[K]] struct {
 	*lazyPrefix[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.

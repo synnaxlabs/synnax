@@ -103,6 +103,8 @@ func (cb *CoreBuilder) Close() error {
 	return c.Error()
 }
 
+// WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
+// other.
 func (cb *CoreBuilder) WaitForTopologyToStabilize() {
 	for _, _c := range cb.Cores {
 		c := _c

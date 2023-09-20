@@ -80,7 +80,7 @@ func MarshalF[T types.Numeric](dt DataType) func(b []byte, v T) {
 		return func(b []byte, v T) { ByteOrder.PutUint32(b, uint32(v)) }
 	case Uint16T:
 		return func(b []byte, v T) { ByteOrder.PutUint16(b, uint16(v)) }
-	case ByteT:
+	case Uint8T:
 		return func(b []byte, v T) { b[0] = byte(v) }
 	case TimeStampT:
 		return func(b []byte, v T) { ByteOrder.PutUint64(b, uint64(v)) }
@@ -108,7 +108,7 @@ func UnmarshalF[T types.Numeric](dt DataType) func(b []byte) T {
 		return func(b []byte) T { return T(ByteOrder.Uint32(b)) }
 	case Uint16T:
 		return func(b []byte) T { return T(ByteOrder.Uint16(b)) }
-	case ByteT:
+	case Uint8T:
 		return func(b []byte) T { return T(b[0]) }
 	case TimeStampT:
 		return func(b []byte) T { return T(ByteOrder.Uint64(b)) }

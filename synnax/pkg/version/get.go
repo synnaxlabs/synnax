@@ -2,14 +2,14 @@ package version
 
 import (
 	"embed"
-	"io/ioutil"
+	"io"
 )
 
 //go:embed VERSION
 var fs embed.FS
 
-func Get() string{
+func Get() string {
 	f, _ := fs.Open("VERSION")
-	version_name, _ := ioutil.ReadAll(f)
-	return string(version_name)
+	v, _ := io.ReadAll(f)
+	return string(v)
 }

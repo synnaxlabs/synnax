@@ -144,7 +144,6 @@ class Writer:
             authorities=normalize(authorities),
             send_control_digests=send_control_digests,
         )
-        print(config)
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
         if exc is not None:

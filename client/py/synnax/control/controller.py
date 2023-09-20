@@ -84,8 +84,8 @@ class Controller:
         write_authorities: CrudeAuthority | list[CrudeAuthority],
     ) -> None:
         write_channels = retrieve_required(retriever, write)
-        write_indexes = [ch.index for ch in write_channels if ch.index != 0]
-        write_keys = write_indexes.extend([ch.key for ch in write_channels])
+        write_keys = [ch.index for ch in write_channels if ch.index != 0]
+        write_keys.extend([ch.key for ch in write_channels])
         self.writer = frame_client.new_writer(
             name=name,
             start=TimeStamp.now(),
@@ -108,12 +108,15 @@ class Controller:
         self,
         callback: Callable[[State], bool],
         timeout: CrudeTimeSpan = None,
-    ):
+    ) -> bool:
         processor = WaitUntil(callback)
-        hash = uuid.uuid4()
-        self.receiver.processors[hash] = processor
-        processor.event.wait(timeout=TimeSpan(timeout).seconds)
-        del self.receiver.processors[hash]
+        key = uuid.uuid4()
+        try:
+            self.receiver.processors[key] = processor
+            ok = processor.event.wait(timeout=TimeSpan(timeout).seconds if timeout else None)
+        finally:
+            del self.receiver.processors[key]
+        return ok
 
     def release(self):
         self.writer.close()
