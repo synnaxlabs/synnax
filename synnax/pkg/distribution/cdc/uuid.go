@@ -35,9 +35,7 @@ func UUIDGorpConfig[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, 
 	return GorpConfig[uuid.UUID, E]{
 		DB:       db,
 		DataType: telem.UUIDT,
-		Marshal: func(k uuid.UUID) []byte {
-			return k[:]
-		},
+		Marshal:  func(k uuid.UUID) []byte { return k[:] },
 	}
 }
 
@@ -75,9 +73,5 @@ func OpenGorp[K gorp.Key, E gorp.Entry[K]](
 			return out
 		},
 	}
-	return svc.OpenCore(ctx, CoreConfig{
-		Set:    channels[0],
-		Delete: channels[1],
-		Obs:    obs,
-	})
+	return svc.OpenCore(ctx, CoreConfig{Set: channels[0], Delete: channels[1], Obs: obs})
 }
