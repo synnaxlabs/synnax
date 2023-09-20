@@ -5,23 +5,23 @@ import logging
 
 # TODO: expose these as environment variables
 
-image_name = "synnaxlabs/synnax"  # image name
-image_tag = "latest"  # image tag
-container_name = "synnax"  # container name
-port = "9090"  # host port to expose
-container_port = "9090"  # container port to expose
-mount_host = "/home/masa/"  # host mount point
-mount_container = "/var/"  # container mount point
+IMAGE_NAME = "synnaxlabs/synnax"  # image name
+IMAGE_TAG = "latest"  # image tag
+CONTAINER_NAME = "synnax"  # container name
+HOST_PORT = "9090"  # host port to expose
+CONTAINER_PORT = "9090"  # container port to expose
+HOST_MOUNT = "/home/masa/"  # host mount point
+CONTAINER_MOUNT = "/var/"  # container mount point
 
-retry_count = 10  # number of retries to check local container availability
-retry_interval = 6  # seconds between retries
+RETRY_COUNT = 10  # number of retries to check local container availability
+RETRY_INTERVAL = 6  # seconds between retries
 
-poll_interval = 300  # seconds between polls
+POLL_INTERVAL = 300  # seconds between polls
 
-args = "-vmi"  # container args
+ARGS = "-vmi"  # container args
 
 # Local container API endpoint to check availability
-local_container_url = "https://www.google.com"  # "http://127.0.0.1:9090"  # TODO: Impl container update API
+LOCAL_CONTAINER_URL = "https://www.google.com"  # "http://127.0.0.1:9090"  # TODO: Impl container update API
 # currently using google.com as a dummy endpoint to trigger instant container update on image update
 
 # Docker client
@@ -29,27 +29,27 @@ client = docker.from_env()
 
 logging.basicConfig(level=logging.INFO)
 
-if not client.containers.list(filters={"name": container_name}):
+if not client.containers.list(filters={"name": CONTAINER_NAME}):
     logging.log(logging.INFO, "Local container not found. Creating.")
     client.containers.run(
-        f"{image_name}:{image_tag}",
-        name=container_name,
+        f"{IMAGE_NAME}:{IMAGE_TAG}",
+        name=CONTAINER_NAME,
         detach=True,
-        ports={port: container_port},
+        ports={HOST_PORT: CONTAINER_PORT},
         restart_policy={"Name": "always"},
-        volumes={mount_host: {"bind": mount_container, "mode": "rw"}},
-        command=args,
+        volumes={HOST_MOUNT: {"bind": CONTAINER_MOUNT, "mode": "rw"}},
+        command=ARGS,
     )
     logging.log(logging.INFO, "Local container created.")
 
-local_image_id = client.containers.get(container_name).image.id
+local_image_id = client.containers.get(CONTAINER_NAME).image.id
 
 logging.log(logging.INFO, "Local image ID: {}".format(local_image_id))
 
 while True:
     try:
         # Poll Docker Hub for the latest image
-        hub_image = client.images.pull(f"{image_name}:{image_tag}")
+        hub_image = client.images.pull(f"{IMAGE_NAME}:{IMAGE_TAG}")
         hub_image_id = hub_image.id
         # Check if a new image is available on Docker Hub
         if hub_image_id != local_image_id:
@@ -57,32 +57,32 @@ while True:
                 logging.INFO, "New image detected, image ID: {}".format(hub_image_id)
             )
             logging.log(logging.INFO, "Checking local container availability.")
-            for i in range(retry_count):
+            for i in range(RETRY_COUNT):
                 try:
                     logging.log(
-                        logging.INFO, "Attempt #{} of {}.".format(i + 1, retry_count)
+                        logging.INFO, "Attempt #{} of {}.".format(i + 1, RETRY_COUNT)
                     )
-                    response = requests.get(local_container_url)
+                    response = requests.get(LOCAL_CONTAINER_URL)
                     if response.status_code == 200:
                         # if response.json()['status'] == 'ok': # TODO: Impl container update API
                         logging.log(
                             logging.INFO, "Local container is available for update."
                         )
                         # Perform the update
-                        client.containers.get(container_name).stop()
+                        client.containers.get(CONTAINER_NAME).stop()
                         logging.log(logging.INFO, "Container stopped.")
-                        client.containers.get(container_name).remove()
+                        client.containers.get(CONTAINER_NAME).remove()
                         logging.log(logging.INFO, "Container removed.")
                         client.containers.run(
-                            f"{image_name}:{image_tag}",
-                            name=container_name,
+                            f"{IMAGE_NAME}:{IMAGE_TAG}",
+                            name=CONTAINER_NAME,
                             detach=True,
-                            ports={port: container_port},
+                            ports={HOST_PORT: CONTAINER_PORT},
                             restart_policy={"Name": "always"},
                             volumes={
-                                mount_host: {"bind": mount_container, "mode": "rw"}
+                                HOST_MOUNT: {"bind": CONTAINER_MOUNT, "mode": "rw"}
                             },
-                            command=args,
+                            command=ARGS,
                         )
                         logging.log(logging.INFO, "Container updated.")
                         break
@@ -96,7 +96,7 @@ while True:
                         "Error connecting to local container to check availability.",
                     )
 
-                time.sleep(retry_interval)
+                time.sleep(RETRY_INTERVAL)
         local_image_id = hub_image_id
     except docker.errors.APIError:
         logging.log(logging.ERROR, "Error polling Docker Hub.")
@@ -105,7 +105,7 @@ while True:
         break
 
     try:
-        time.sleep(poll_interval)
+        time.sleep(POLL_INTERVAL)
     except KeyboardInterrupt:
         logging.log(logging.INFO, "Keyboard interrupt. Exiting.")
         break
