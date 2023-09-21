@@ -16,10 +16,9 @@ with client.control.acquire(
     ],
     read=["pressure"],
 ) as auto:
-    auto.wait_until(lambda c: c.pressure > 300)
+    auto.wait_until(lambda c: c.pressure > 1000)
     auto.authorize("press_en_cmd", Authority.ABSOLUTE)
     auto.authorize("vent_en_cmd", Authority.ABSOLUTE)
-    print("HARD ABORT")
     auto["press_en_cmd"] = False
     auto["vent_en_cmd"] = True
     time.sleep(1000)

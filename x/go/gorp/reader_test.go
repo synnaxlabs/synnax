@@ -38,10 +38,8 @@ var _ = Describe("Tx", Ordered, func() {
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	It("Should decode values before returning them to the caller", func() {
-		iter := gorp.WrapIterator[map[string]string](
-			db.OpenIterator(kvx.IterPrefix([]byte("key"))),
-			ecdc,
-		)
+		base := MustSucceed(db.OpenIterator(kvx.IterPrefix([]byte("key"))))
+		iter := gorp.WrapIterator[map[string]string](base, ecdc)
 		for iter.First(); iter.Valid(); iter.Next() {
 			Expect(iter.Value(ctx)).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
 		}

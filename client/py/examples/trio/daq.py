@@ -84,7 +84,7 @@ print(
 """
 )
 
-rate = (sy.Rate.HZ * 20).period.seconds
+rate = (sy.Rate.HZ * 500).period.seconds
 
 state = {
     press_en_cmd.key: np.float32(0),
@@ -102,6 +102,7 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
             time.sleep(rate)
             if streamer.received:
                 f = streamer.read()
+                print(f)
                 for k in f.columns:
                     state[k] = f[k][0]
             if state[press_en_cmd.key] > 0.5:

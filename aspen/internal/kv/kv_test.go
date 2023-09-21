@@ -234,7 +234,7 @@ var _ = Describe("txn", func() {
 				ok bool
 			)
 			kv.OnChange(func(ctx context.Context, r kvx.TxReader) {
-				op, ok, err = r.Next(ctx)
+				op, ok = r.Next(ctx)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
 			Eventually(func(g Gomega) {

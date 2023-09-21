@@ -69,12 +69,18 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-
-	s.cdc, err = cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+	if cfg.CDC != nil {
+		s.cdc, err = cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+	}
 	return s, err
 }
 
-func (s *Service) Close() error { return s.cdc.Close() }
+func (s *Service) Close() error {
+	if s.cdc != nil {
+		return s.cdc.Close()
+	}
+	return nil
+}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

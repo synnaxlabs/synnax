@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
+	"time"
 )
 
 type scenario struct {
@@ -49,6 +50,8 @@ var _ = Describe("Relay", func() {
 				defer cancel()
 				readerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseInletsOnExit())
+				// We need to give a few milliseconds for the reader to boot up.
+				time.Sleep(10 * time.Millisecond)
 				writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -62,9 +65,7 @@ var _ = Describe("Relay", func() {
 					},
 				}
 				Expect(writer.Write(writeF)).To(BeTrue())
-				var (
-					f framer.Frame
-				)
+				var f framer.Frame
 				for i := 0; i < s.resCount; i++ {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))

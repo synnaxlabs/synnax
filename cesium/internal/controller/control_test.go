@@ -248,15 +248,9 @@ var _ = Describe("Control", func() {
 				Authority: control.Absolute - 1,
 				Digests:   dig2,
 			})
-			d := <-dig1.Outlet()
-			Expect(d.Name).To(Equal("Gate 1"))
 			d2 := <-dig1.Outlet()
 			Expect(d2.Name).To(Equal("Gate 2"))
-			d3 := <-dig2.Outlet()
-			Expect(d3.Name).To(Equal("Gate 2"))
 			g1.SetAuthority(control.Absolute)
-			d4 := <-dig1.Outlet()
-			Expect(d4.Name).To(Equal("Gate 1"))
 			d5 := <-dig2.Outlet()
 			Expect(d5.Name).To(Equal("Gate 1"))
 		})

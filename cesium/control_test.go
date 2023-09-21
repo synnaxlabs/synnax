@@ -66,7 +66,7 @@ var _ = Describe("Control", Ordered, func() {
 			}
 			r = <-w2Out.Outlet()
 			Expect(r.Variant).To(Equal(cesium.WriterResponseAck))
-			Expect(errors.Is(r.Err, controller.Unauthorized(ch1))).To(BeTrue())
+			Expect(errors.Is(r.Err, controller.Unauthorized("Writer Two", ch1))).To(BeTrue())
 			w2In.Inlet() <- cesium.WriterRequest{
 				Command: cesium.WriterSetAuthority,
 				Config: cesium.WriterConfig{

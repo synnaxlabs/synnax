@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/cockroachdb/errors v1.11.1
-	github.com/cockroachdb/pebble v0.0.0-20230920181003-7d98bc363fb2
+	github.com/cockroachdb/pebble v0.0.0-20230411220144-fa2c2ec6669a
 	github.com/google/uuid v1.3.1
 	github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.27.10

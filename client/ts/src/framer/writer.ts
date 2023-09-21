@@ -15,6 +15,7 @@ import {
   Series,
   TimeStamp,
   type CrudeTimeStamp,
+  toArray,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -34,6 +35,7 @@ enum Command {
 
 const configZ = z.object({
   start: TimeStamp.z,
+  name: z.string(),
   keys: z.number().array().optional(),
   authorities: Authority.z.array().optional(),
 });
@@ -119,13 +121,20 @@ export class Writer {
     channels: Params,
     retriever: Retriever,
     client: StreamClient,
+    name: string = "",
+    authorities: Authority | Authority[] = Authority.ABSOLUTE,
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
       command: Command.Open,
-      config: { start: new TimeStamp(start), keys: adapter.keys },
+      config: {
+        start: new TimeStamp(start),
+        keys: adapter.keys,
+        name,
+        authorities: toArray(authorities),
+      },
     });
     return writer;
   }

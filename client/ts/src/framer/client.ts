@@ -18,6 +18,7 @@ import {
 
 import { type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { Authority } from "@/control/authority";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
@@ -51,8 +52,20 @@ export class Client {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter(start: CrudeTimeStamp, channels: Params): Promise<Writer> {
-    return await Writer._open(start, channels, this.retriever, this.stream);
+  async newWriter(
+    start: CrudeTimeStamp,
+    channels: Params,
+    name: string = "",
+    authorities: Authority | Authority[] = Authority.ABSOLUTE,
+  ): Promise<Writer> {
+    return await Writer._open(
+      start,
+      channels,
+      this.retriever,
+      this.stream,
+      name,
+      authorities,
+    );
   }
 
   async newStreamer(
