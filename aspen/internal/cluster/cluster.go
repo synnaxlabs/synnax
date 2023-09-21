@@ -75,12 +75,12 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		return nil, err
 	}
 
-	c.R.Prod("Cluster", c)
-	c.L.Info("beginning Cluster startup", c.Report().ZapFields()...)
+	c.R.Prod("cluster", c)
+	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
 
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.
-		c.L.Info("existing Cluster found in storage. restarting activities")
+		c.L.Info("existing cluster found in storage. restarting activities")
 		host := c.Store.GetHost()
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(ctx, host)
@@ -91,7 +91,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	} else if len(c.Pledge.Peers) > 0 {
 		// If our store is empty or invalid and peers were provided, attempt to join
 		// the Cluster.
-		c.L.Info("no Cluster found in storage. pledging to Cluster instead")
+		c.L.Info("no cluster found in storage. pledging to Cluster instead")
 		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
@@ -109,7 +109,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		// bootstrapping a new Cluster.
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})
 		c.SetClusterKey(ctx, uuid.New())
-		c.L.Info("no peers provided, bootstrapping new Cluster")
+		c.L.Info("no peers provided, bootstrapping new cluster")
 		c.Pledge.ClusterKey = c.Key()
 		if err := pledge_.Arbitrate(c.Pledge); err != nil {
 			return c, err

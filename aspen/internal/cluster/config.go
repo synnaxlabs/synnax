@@ -92,7 +92,7 @@ func (cfg Config) Report() alamos.Report {
 var (
 	DefaultConfig = Config{
 		Pledge:               pledge_.DefaultConfig,
-		StorageKey:           []byte("aspen.Cluster"),
+		StorageKey:           []byte("aspen.cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
 		EncoderDecoder:       &binary.GobEncoderDecoder{},

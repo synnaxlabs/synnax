@@ -9,13 +9,21 @@
 
 package git
 
-import "os/exec"
+import (
+	"os/exec"
+	"strings"
+)
 
-func CurrentCommit() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
+func CurrentCommit(short ...bool) (string, error) {
+	args := []string{"rev-parse"}
+	if len(short) > 0 && short[0] {
+		args = append(args, "--short")
+	}
+	args = append(args, "HEAD")
+	cmd := exec.Command("git", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
-	return string(out), nil
+	return strings.Trim(string(out), "\n"), nil
 }

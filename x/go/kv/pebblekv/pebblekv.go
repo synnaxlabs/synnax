@@ -87,7 +87,9 @@ func (d db) apply(ctx context.Context, txn tx) error {
 }
 
 // Report implement alamos.ReportProvider.
-func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
+func (d db) Report() alamos.Report {
+	return alamos.Report{"engine": "pebble"}
+}
 
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }

@@ -12,6 +12,7 @@ package cmd
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"os"
 	"os/signal"
@@ -65,12 +66,15 @@ will bootstrap a new cluster.
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
+	v := version.Get()
 	var (
+		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")
 		verbose  = viper.GetBool("verbose")
-		ins      = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
+
+	ins.L.Info("starting Synnax node", zap.String("version", v))
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
