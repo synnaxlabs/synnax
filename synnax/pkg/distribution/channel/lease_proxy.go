@@ -11,11 +11,14 @@ package channel
 
 import (
 	"context"
+
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type leaseProxy struct {
@@ -75,19 +78,36 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 }
 
 func (lp *leaseProxy) createLocal(ctx context.Context, tx gorp.Tx, channels *[]Channel) error {
+	// Check for name conflicts
+	for _, ch := range *channels {
+		var res Channel
+		gorp.NewRetrieve[Key, Channel]().
+			Where(func(c *Channel) bool { return c.Name == ch.Name }).
+			Entry(&res).
+			Exec(ctx, tx)
+		if res.Name != "" {
+			return errors.Wrapf(
+				validate.Error,
+				"channel with name %s already exists",
+				ch.Name)
+		}
+	}
 	if err := lp.assignLocalKeys(channels); err != nil {
 		return err
 	}
 	for i, ch := range *channels {
+		// Index of an index channel is itself.
 		if ch.IsIndex {
 			ch.LocalIndex = ch.LocalKey
 			(*channels)[i] = ch
 		}
 	}
+	// Create the channels in the storage engine
 	storageChannels := toStorage(*channels)
 	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
+	// Create the channels in the meta data store
 	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(ctx, tx); err != nil {
 		return err
 	}

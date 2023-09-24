@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -17,9 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("TypedWriter", Ordered, func() {
+var _ = Describe("Create", Ordered, func() {
 	var (
 		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
@@ -38,7 +41,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			var err error
 			ch = channel.Channel{
 				Rate:        5 * telem.Hz,
-				Name:        "SG01",
+				Name:        uuid.NewString(),
 				DataType:    telem.Float64T,
 				Leaseholder: channelLeaseNodeKey,
 			}
@@ -84,7 +87,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 				func() {
 					ch2 := &channel.Channel{
 						Rate:        5 * telem.Hz,
-						Name:        "SG01",
+						Name:        uuid.NewString(),
 						DataType:    telem.Float64T,
 						Leaseholder: 1,
 					}
@@ -93,6 +96,24 @@ var _ = Describe("TypedWriter", Ordered, func() {
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 					Expect(ch2.Key().LocalKey()).To(Equal(uint16(3)))
 				})
+			It("Channel with the same name already exists", func() {
+				ch2 := &channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "SG01",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				ch3 := &channel.Channel{
+					Rate:        5 * telem.Hz,
+					Name:        "SG01",
+					DataType:    telem.Float64T,
+					Leaseholder: 1,
+				}
+				err1 := services[1].NewWriter(nil).Create(ctx, ch2)
+				err2 := services[1].NewWriter(nil).Create(ctx, ch3)
+				Expect(err1).ToNot(HaveOccurred())
+				Expect(err2).To(HaveOccurredAs(validate.Error))
+			})
 		})
 	})
 })

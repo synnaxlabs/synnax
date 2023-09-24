@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -73,12 +74,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 				{
 					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
-					Name:     "SG02",
+					Name:     uuid.NewString(),
 				},
 				{
 					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
-					Name:     "SG03",
+					Name:     uuid.NewString(),
 				},
 			}
 			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
@@ -101,12 +102,12 @@ var _ = Describe("getAttributes", Ordered, func() {
 				{
 					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
-					Name:     "SG02",
+					Name:     uuid.NewString(),
 				},
 				{
 					Rate:     25 * telem.Hz,
 					DataType: telem.Float32T,
-					Name:     "SG03",
+					Name:     uuid.NewString(),
 				},
 			}
 			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
