@@ -2,6 +2,10 @@
 #include "src/gRPC/protos/service.grpc.pb.h"
 #include "client.h"
 
+struct stream_t
+{
+};
+
 TEST(testGRPC, basicProto)
 {
     auto m = test::Message();
@@ -12,5 +16,7 @@ TEST(testGRPC, basicProto)
 
 TEST(testGRPC, testCtor)
 {
-    // auto a = gRPC<void *, void *, void *, freighter::messageService>();
+    auto a = gRPC<test::Message, test::Message, stream_t, test::messageService>();
+    auto mes = test::Message();
+    a.send("localhost", mes);
 }

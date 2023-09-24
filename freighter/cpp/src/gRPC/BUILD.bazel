@@ -1,9 +1,9 @@
 # gRPC implementation.
 cc_library(
     name = "gRPC",
-    srcs = ["client.cpp"],
+    srcs = [],
     hdrs = ["client.h"],
-    deps = ["//src:freighter"]
+    deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"]
 )
 
 # Cpp build
@@ -11,5 +11,5 @@ cc_test(
     name = "grpc_test",
     size = "small",
     srcs = ["test.cpp"],
-    deps = [":gRPC", "//src/gRPC/protos:service_grpc_cpp", "@com_google_googletest//:gtest_main"]
+    deps = [":gRPC", "//src/gRPC/protos:service_grpc", "@com_google_googletest//:gtest_main"]
 )

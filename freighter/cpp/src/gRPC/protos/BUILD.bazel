@@ -1,14 +1,19 @@
-cc_library(
-    name = "service_grpc_cpp",
-    srcs = ["service.grpc.pb.cc", "service.grpc.pb.h"],
-    hdrs = [],
-    deps = [":service_proto_cpp"], 
+proto_library(
+    name = "service_proto",
+    srcs = ["service.proto"],
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "service_grpc",
+    protos = [":service_proto"],
     visibility = ["//visibility:public"]
 )
 
-cc_library(
-    name = "service_proto_cpp",
-    srcs = ["service.pb.cc", "service.pb.h"],
-    hdrs = [],
-    deps = []
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
+
+cpp_grpc_compile(
+    name = "service_grpc_comp",
+    protos = [":service_proto"],
 )

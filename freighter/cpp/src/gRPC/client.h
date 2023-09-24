@@ -18,20 +18,36 @@
 /// NOTE: stub_t comes from the generated protobuf file.
 template <typename response_t, typename request_t, typename stream_t, typename rpc_t>
 class gRPC : public Client<response_t, request_t, stream_t>
-{
+{ 
 public:
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    response_t send(std::string target, request_t &request);
+    response_t send(std::string target, request_t &request) override
+    {
+    grpc::ClientContext context;
+    // To abstract the interface, we construct the stub only if needed.
+    if (!stub || target != last_target)
+    {
+        // TODO: Set up crypto context.
+        auto channel = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
+        stub = rpc_t::NewStub(channel);
+    }
+    response_t response;
+    stub->Exec(&context, request, &response);
+    return response;
+    }
 
     /// @brief Interface for stream.
-    stream_t stream(std::string target);
-
-private:
+    stream_t stream(std::string target) override
+    {
+        return stream_t();
+    }
+    
+    private:
     /// Stub to manage connection.
-    const std::unique_ptr<typename rpc_t::Stub> stub;
+    std::unique_ptr<typename rpc_t::Stub> stub;
 
     /// The last target used.
     std::string last_target;
