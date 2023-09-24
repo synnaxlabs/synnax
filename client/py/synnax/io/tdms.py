@@ -27,12 +27,12 @@ TDMSMatcher = new_extension_matcher(["tdms"])
 
 class TDMSReader(TDMSMatcher):   # type: ignore
     """A ColReader implementation for TDMS files."""
-
-    channel_keys: list[str] | None
+    
+    channel_keys: set[str]
     chunk_size: int
 
-    _chunk_location: int
-    _n_channel_chunks: int
+    _current_chunk: int
+    _n_chunks: int | None
     
     _path: Path
     _channels: list[ChannelMeta] | None
@@ -50,61 +50,79 @@ class TDMSReader(TDMSMatcher):   # type: ignore
         chunk_size: int | None = None,
     ):
         self._path = path
-        self.channel_keys = keys
+        self.channel_keys = set(keys)
         self.chunk_size = chunk_size or int(5e5)
+        
         self._channels = None
-        self._chunk_location = 0
-        self._n_channel_chunks = None
+        self._current_chunk = 0
+        self._n_chunks = None
     
     def channels(self) -> list[ChannelMeta]:
         """:returns : a list of channel metadata for the file."""
-        ...
+        if self._channels is not None:
+            return self._channels
+        
+        self.channels: list[ChannelMeta] = list()
+        with TdmsFile.open(self._path) as tdms_file:
+            for group in tdms_file.groups():
+                for channel in group.channels():
+                    self._channels.append(ChannelMeta(name=channel.name, meta_deta=dict()))
+                    
+        return self._channels
 
     @classmethod
     def type(cls) -> ReaderType:
         """:returns : the type of reader."""
-        ...
+        return ReaderType.Column
 
     def path(self) -> Path:
         """:returns: the path to the file."""
-        ...
+        return self._path
 
     def nsamples(self) -> int:
         """:returns: the number of samples in the file."""
-        ...
+        return self.chunk_size * self.n_chunks * len(self.channels())
 
     def seek_first(self):
-        """Seeks the reader to the first  sampele in the file."""
-        ...
+        """Seeks the reader to the first sample in the file."""
+        self._current_chunk = 0
     
     def read(self, *keys: str) -> pd.DataFrame:
         """Reads a dataframe with chunk size * number of columns samples. The returned
         dataframe contains columns for each key in keys.
         """ 
-        data = dict()
+        # if we already read everything, return an empty chunk
+        if self._current_chunk >= self.n_chunks:
+            return pd.DataFrame()
         
-        with TdmsFile.open(self._path) as tdms_file:
-            # read entire file, return empty DF
-            if self._chunk_location > self.n_channel_chunks:
-                return pd.DataFrame()
-            
+        # if keys is empty, use default keys
+        keys: set[str] = self.channel_keys if (len(keys) == 0) else set(keys)
+        
+        # https://nptdms.readthedocs.io/en/stable/reading.html
+        # https://github.com/adamreeve/npTDMS/issues/263
+        # https://nptdms.readthedocs.io/en/stable/reading.html
+        data = dict()
+        with TdmsFile.open(self._path) as tdms_file:            
             for group in tdms_file.groups():  
                 for channel in group.channels():
-                    data[channel.name] = channel[self._chunk_location*self.chunk_size:(self._chunk_location + 1)*self.chunk_size]
-            self._chunk_location += 1
+                    if channel.name in keys:
+                        data[channel.name] = channel[self._current_chunk*self.chunk_size:
+                                                    (self._current_chunk + 1)*self.chunk_size]
+            self._current_chunk += 1
         
         return pd.DataFrame(data)
     
     @property
-    def n_channel_chunks(self) -> int:
-        """Returns number of chunk reads we can make from the TDMS file
+    def n_chunks(self) -> int:
+        """Returns number of chunks in a channel.
+        Assumes every channel has the same number of chunks
         """
-        if self._n_channel_chunks is None:
+        if self._n_chunks is None:
             # assume every channel has the same number of data
             with TdmsFile.open(self._path) as tdms_file:
                 group0 = tdms_file.groups()[0]
                 channel0 = group0.channels()[0]
-                self._n_channel_chunks = ceil(len(channel0) / self.chunk_size)
+                self._n_chunks = ceil(len(channel0) / self.chunk_size)
                 
-        assert self._n_channel_chunks is not None
-        return self._n_channel_chunks
+        assert self._n_chunks is not None
+        return self._n_chunks
