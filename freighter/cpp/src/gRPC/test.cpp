@@ -14,7 +14,7 @@ TEST(testGRPC, basicProto)
     ASSERT_EQ(m.payload(), "Hello");
 }
 
-TEST(testGRPC, testCtor)
+TEST(testGRPC, testBasicClientServer)
 {
     auto a = gRPC<test::Message, test::Message, stream_t, test::messageService>();
     auto mes = test::Message();
