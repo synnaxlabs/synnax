@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package test;
 
-service Service
+service messageService
 {
     rpc Exec(Message) returns (Message) {}
 }

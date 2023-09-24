@@ -1,0 +1,14 @@
+cc_library(
+    name = "service_grpc_cpp",
+    srcs = ["service.grpc.pb.cc", "service.grpc.pb.h"],
+    hdrs = [],
+    deps = [":service_proto_cpp"], 
+    visibility = ["//visibility:public"]
+)
+
+cc_library(
+    name = "service_proto_cpp",
+    srcs = ["service.pb.cc", "service.pb.h"],
+    hdrs = [],
+    deps = []
+)

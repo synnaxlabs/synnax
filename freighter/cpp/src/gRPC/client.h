@@ -5,16 +5,21 @@
 
 /// std.
 #include <memory>
+#include <string>
+
+/// grpc.
+#include <grpc/grpc.h>
+#include <grpcpp/channel.h>
+#include <grpcpp/client_context.h>
+#include <grpcpp/create_channel.h>
+#include <grpcpp/security/credentials.h>
 
 /// @brief gRPC specific class
 /// NOTE: stub_t comes from the generated protobuf file.
-template <typename response_t, typename request_t, typename stream_t, typename stub_t>
+template <typename response_t, typename request_t, typename stream_t, typename rpc_t>
 class gRPC : public Client<response_t, request_t, stream_t>
 {
 public:
-    /// @brief ctor, instantiates with new stub.
-    gRPC(stub_t *new_stub) : stub(new_stub) {}
-
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
@@ -26,5 +31,8 @@ public:
 
 private:
     /// Stub to manage connection.
-    std::unique_ptr<stub_t> stub;
+    const std::unique_ptr<typename rpc_t::Stub> stub;
+
+    /// The last target used.
+    std::string last_target;
 };
