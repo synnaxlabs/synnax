@@ -11,8 +11,9 @@ package search
 
 import (
 	"context"
-	"github.com/blevesearch/bleve/search/query"
 	"strings"
+
+	"github.com/blevesearch/bleve/search/query"
 
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
@@ -67,6 +68,8 @@ func (s *Index) Index(resources []schema.Resource) error {
 	t := s.OpenTx()
 	defer t.Close()
 	for _, r := range resources {
+		// this is where we index
+		// probably where s.config is set
 		if err := t.Index(r); err != nil {
 			return err
 		}
@@ -125,12 +128,14 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 
 	words := strings.Split(req.Term, " ")
 
+	// this is where we search
 	q := bleve.NewDisjunctionQuery(lo.FlatMap(words, func(word string, _ int) []query.Query {
 		q := bleve.NewFuzzyQuery(word)
 		q.SetFuzziness(1)
 		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9_]*" + word + "[a-zA-Z0-9_]*")
 		q3 := bleve.NewPrefixQuery(word)
-		return []query.Query{q, q2, q3}
+		q4 := bleve.NewRegexpQuery(`[a-zA-Z0-9\.\_[]*` + word + `*?[a-zA-Z0-9\.[\_]*`)
+		return []query.Query{q, q2, q3, q4}
 	})...)
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"Name"}
