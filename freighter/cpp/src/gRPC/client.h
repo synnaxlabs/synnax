@@ -36,12 +36,9 @@ public:
         stub = rpc_t::NewStub(channel);
     }
     response_t response;
-    auto stat = stub->Exec(&context, request, &response);
-
-    if (!stat.ok())
-    {
-        response.set_error(stat.error_message());
-    }
+    auto stat = stub->Exec(&context, request, &response.payload);
+    response.status = stat;
+    
     return response;
     }
 

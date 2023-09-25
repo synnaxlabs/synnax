@@ -1,7 +1,7 @@
 cc_library(
-    name = "server_test",
+    name = "server",
     srcs = [],
-    hdrs = ["server_test.h"],
+    hdrs = ["server.h"],
     deps = ["//src/gRPC:gRPC", "//src/gRPC/protos:service_grpc"]
 )
 
@@ -9,5 +9,5 @@ cc_test(
     name = "grpc_test",
     size = "small",
     srcs = ["test.cpp"],
-    deps = [":server_test", "//src/gRPC/protos:service_grpc", "@com_google_googletest//:gtest_main"]
+    deps = [":server", "//src/gRPC/protos:service_grpc", "@com_google_googletest//:gtest_main"]
 )

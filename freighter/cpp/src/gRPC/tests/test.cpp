@@ -4,7 +4,7 @@
 /// Local headers.
 #include "src/gRPC/protos/service.grpc.pb.h"
 #include "src/gRPC/client.h"
-#include "src/gRPC/tests/server_test.h"
+#include "src/gRPC/tests/server.h"
 
 /// std.
 #include <thread>
@@ -16,32 +16,15 @@ struct stream_t
 {
 };
 
-/// @brief Used to awake server main thread when 
-
-
-/// @brief Meant to be call within a thread. Simple
-/// gRPC server. 
-void server(std::string target, grpc::Status status, int expectedCalls)
+/// Internal response type uses message.
+struct response_t
 {
-  std::string server_address(target);
-  myServiceImpl service;
+    test::Message payload;
+    grpc::Status status;
+};
 
-  grpc::ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
-
-  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-  service.setExpectedCalls(expectedCalls);
-  service.setStatus(status);
-
-  std::unique_lock<std::mutex> lck(mut);
-  while (!end_session)
-  {
-    cond.wait(lck);
-  }
-  lck.unlock();
-  server->Shutdown();
-}
+using request_t = test::Message;
+using rpc_t = test::messageService;
 
 /// @brief Test to make sure message proto works as expected.
 TEST(testGRPC, basicProto)
@@ -52,35 +35,60 @@ TEST(testGRPC, basicProto)
     ASSERT_EQ(m.payload(), "Hello");
 }
 
+/// @brief Test the basic unary interface on success.
 TEST(testGRPC, testBasicUnary)
 {
     std::string target("localhost:8080");
-    std::thread s(server, target, grpc::Status::OK, 1);
+    std::thread s(server, target);
 
-    auto a = gRPC<test::Message, test::Message, stream_t, test::messageService>();
+    auto client = gRPC<response_t, request_t, stream_t, rpc_t>();
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto b = a.send(target, mes);
-    ASSERT_EQ(b.payload(), "Read request: Sending to Server");
-    ASSERT_TRUE(b.error().empty());
+    auto res = client.send(target, mes);
+    ASSERT_EQ(res.payload.payload(), "Read request: Sending to Server");
+    ASSERT_TRUE(res.status.ok());
 
+    stopServer();
     s.join();
 }
 
+/// @brief Test the basic unary interface on failure.
 TEST(testGRPC, testFailedUnary)
 {
+    // Note that the easiest way to cause a failure
+    // here is to simply not set up a server, so that
+    // we don't get a response.
     std::string target("localhost:8080");
-    std::thread s(server, target, grpc::Status::CANCELLED, 1);
-
     std::string failure_msg("failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:8080: Failed to connect to remote host: Connection refused");
-
-    auto a = gRPC<test::Message, test::Message, stream_t, test::messageService>();
+    auto client = gRPC<response_t, request_t, stream_t, rpc_t>();
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto b = a.send(target, mes);
-    ASSERT_EQ(b.error(), failure_msg);
+    auto res = client.send(target, mes);
+    ASSERT_EQ(res.payload.payload(), "");
+    ASSERT_EQ(res.status.error_message(), failure_msg);
+}
 
-    s.join();
+TEST(testGRPC, testMultipleTargets)
+{
+    std::string target_one("localhost:8080");
+    std::string target_two("localhost:8081");
+    std::thread s1(server, target_one);
+    std::thread s2(server, target_two);
+
+    auto client = gRPC<response_t, request_t, stream_t, rpc_t>();
+    auto mes_one = test::Message();
+    mes_one.set_payload("Sending to Server One");
+    auto res_one = client.send(target_one, mes_one);
+    ASSERT_EQ(res_one.payload.payload(), "Read request: Sending to Server One");
+
+    auto mes_two = test::Message();
+    mes_two.set_payload("Sending to Server Two");
+    auto res_two = client.send(target_two, mes_two);
+    ASSERT_EQ(res_two.payload.payload(), "Read request: Sending to Server Two");
+
+    stopServers();
+    s1.join();
+    s2.join();
 }
 
 
