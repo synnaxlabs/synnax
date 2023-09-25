@@ -9,6 +9,7 @@
 
 /// grpc.
 #include <grpc/grpc.h>
+#include <grpcpp/grpcpp.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
@@ -35,7 +36,12 @@ public:
         stub = rpc_t::NewStub(channel);
     }
     response_t response;
-    stub->Exec(&context, request, &response);
+    auto stat = stub->Exec(&context, request, &response);
+
+    if (!stat.ok())
+    {
+        response.set_error(stat.error_message());
+    }
     return response;
     }
 

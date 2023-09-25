@@ -3,25 +3,6 @@ cc_library(
     name = "gRPC",
     srcs = [],
     hdrs = ["client.h"],
-    deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"]
-)
-
-# Cpp build
-cc_test(
-    name = "grpc_test",
-    size = "small",
-    srcs = ["test.cpp"],
-    deps = [":gRPC", "//src/gRPC/protos:service_grpc", "@com_google_googletest//:gtest_main"]
-)
-
-cc_binary(
-    name = "client_test",
-    srcs = ["client_test.cpp", "server_test.h"],
-    deps = [":gRPC", "//src/gRPC/protos:service_grpc"]
-)
-
-cc_binary(
-    name = "server_test",
-    srcs = ["server_test.cpp", "server_test.h"],
-    deps = [":gRPC", "//src/gRPC/protos:service_grpc"]
+    deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"],
+    visibility = ["//visibility:public"]
 )

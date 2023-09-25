@@ -10,4 +10,5 @@ service messageService
 message Message
 {
     string payload = 1;
+    string error = 2;
 }
