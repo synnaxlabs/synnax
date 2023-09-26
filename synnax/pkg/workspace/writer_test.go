@@ -37,7 +37,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, "data")).To(Succeed())
 			var res workspace.Workspace
 			Expect(gorp.NewRetrieve[uuid.UUID, workspace.Workspace]().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Layout).To(Equal([]byte{1, 2, 3}))
+			Expect(res.Layout).To(Equal("data"))
 		})
 	})
 	Describe("Delete", func() {

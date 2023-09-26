@@ -11,8 +11,6 @@ package ontology_test
 
 import (
 	"context"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +19,13 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"testing"
 )
+
+func TestOntology(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Ontology Suite")
+}
 
 type emptyService struct {
 	observe.Noop[iter.Nexter[schema.Change]]
@@ -81,8 +85,3 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(tx.Close()).To(Succeed())
 })
-
-func TestOntology(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ontology Suite")
-}
