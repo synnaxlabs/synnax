@@ -12,6 +12,7 @@ package gorp
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/types"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -163,6 +164,9 @@ func keysRetrieve[K Key, E Entry[K]](
 		entries = GetEntries[K, E](q)
 		e, err  = WrapReader[K, E](tx).GetMany(ctx, keys)
 	)
+	if errors.Is(err, query.NotFound) {
+		return errors.Wrapf(err, "%s with keys %v not found", types.Name[E](), keys)
+	}
 	entries.Replace(lo.Filter(e, func(v E, _ int) bool { return f.exec(&v) }))
 	return err
 }

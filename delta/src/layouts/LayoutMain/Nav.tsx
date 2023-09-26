@@ -29,10 +29,12 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
+import { SERVICES } from "@/ontology/services";
+import { Toolbar } from "@/ontology/Toolbar";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
 import { PID } from "@/pid";
-import { Resources } from "@/resources";
+import { Range } from "@/range";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -41,7 +43,7 @@ import "@/layouts/LayoutMain/Nav.css";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Cluster.Toolbar,
-  Resources.Toolbar,
+  Toolbar,
   Workspace.Toolbar,
   Vis.Toolbar,
 ];
@@ -59,6 +61,7 @@ const COMMANDS = [
   ...Docs.COMMANDS,
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
+  ...Range.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -68,7 +71,7 @@ const NavTopPalette = (): ReactElement => {
       commands={COMMANDS}
       searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
-      resourceTypes={Resources.types}
+      resourceTypes={SERVICES}
       commandSymbol=">"
     />
   );
@@ -93,6 +96,7 @@ export const NavTop = (): ReactElement => {
         {os === "Windows" && (
           <Logo className="delta-main-nav-top__logo" variant="icon" />
         )}
+        <Workspace.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.Content
         style={{

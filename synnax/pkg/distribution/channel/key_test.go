@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Keys", func() {
 	Describe("Keys", func() {
-		Describe("New", func() {
+		Describe("Name", func() {
 			It("Should create a new key with the given node Key and cesium key", func() {
 				k := channel.NewKey(core.NodeKey(1), 2)
 				Expect(k.Leaseholder()).To(Equal(core.NodeKey(1)))

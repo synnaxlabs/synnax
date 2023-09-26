@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
 	"go.uber.org/zap"
 
@@ -148,9 +149,9 @@ func (k *Iterator[E]) Valid() bool {
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return TxReader[K, E]{
-		kv:            reader,
-		tools:         tools,
-		prefixMatcher: prefixMatcher[K, E](tools),
+		kv:     reader,
+		tools:  tools,
+		prefix: lazyPrefix[K, E]{Tools: tools},
 	}
 }
 
@@ -158,9 +159,9 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 // that provides a strongly typed interface for iterating over a
 // transactions operations in order.
 type TxReader[K Key, E Entry[K]] struct {
-	kv            kv.TxReader
-	tools         Tools
-	prefixMatcher func(ctx context.Context, key []byte) bool
+	kv     kv.TxReader
+	tools  Tools
+	prefix lazyPrefix[K, E]
 }
 
 // Count returns the number of key-value operations in the reader. NOTE: This includes
@@ -174,8 +175,13 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	if !ok {
 		return op, false
 	}
-	if !t.prefixMatcher(ctx, kvOp.Key) {
+	pref := t.prefix.prefix(ctx)
+	if !bytes.HasPrefix(kvOp.Key, pref) {
 		return t.Next(ctx)
+	}
+	if err := t.tools.Decode(ctx, kvOp.Key[len(pref):], &op.Key); err != nil {
+		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode key: ", err)
+		return op, false
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {

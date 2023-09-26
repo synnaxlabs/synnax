@@ -81,13 +81,13 @@ func (s *ChannelService) Create(
 // from the cluster.
 type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its node Key.
-	NodeKey distribution.NodeKey `query:"node_key"`
+	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
-	Keys channel.Keys `query:"keys"`
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Optional parameter that queries a Channel by its name.
-	Names []string `query:"names"`
+	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `query:"search"`
+	Search string `json:"search" msgpack:"search"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.

@@ -181,6 +181,11 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	if validate.NotEmptySlice(v, "Keys", keys) {
 		return v.Error()
 	}
+	for _, k := range keys {
+		if k.Free() {
+			return errors.Wrapf(validate.Error, "cannot read from free channel %v", k)
+		}
+	}
 	q := s.ChannelReader.NewRetrieve().WhereKeys(keys...)
 	exists, err := q.Exists(ctx, nil)
 	if err != nil {

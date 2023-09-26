@@ -243,7 +243,7 @@ export const ZERO_LINE_SLICE_STATE: SliceState = {
 export interface CreatePayload extends State {}
 
 export interface RemovePayload {
-  layoutKey: string;
+  layoutKeys: string[];
 }
 
 export interface SetViewportPayload extends Partial<Omit<ViewportState, "counter">> {
@@ -396,10 +396,11 @@ export const { actions, reducer } = createSlice({
       state.plots[layoutKey] = payload;
       state.plots[layoutKey].lines = updateLines(payload);
     },
-    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      const { layoutKey } = payload;
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.plots[layoutKey];
+    remove: (state, { payload: { layoutKeys } }: PayloadAction<RemovePayload>) => {
+      layoutKeys.forEach((layoutKey) => {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete state.plots[layoutKey];
+      });
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       state.plots[payload.layoutKey].viewport = {

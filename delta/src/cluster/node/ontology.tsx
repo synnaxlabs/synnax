@@ -6,3 +6,18 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import { Icon } from "@synnaxlabs/media";
+
+import { type Ontology } from "@/ontology";
+
+export const ONTOLOGY_SERVICE: Ontology.Service = {
+  type: "node",
+  icon: <Icon.Node />,
+  hasChildren: true,
+  canDrop: () => false,
+  contextMenu: () => <></>,
+  onSelect: () => {},
+  haulItems: () => [],
+  allowRename: () => false,
+};

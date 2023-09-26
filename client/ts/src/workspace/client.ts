@@ -8,25 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnknownRecord, type AsyncTermSearcher } from "@synnaxlabs/x";
 
-import { type CrudeWorkspace, Creator } from "@/workspace/creator";
-import { Deleter } from "@/workspace/deleter";
+import { type Key, type Workspace } from "@/workspace/payload";
 import { pid } from "@/workspace/pid";
 import { Retriever } from "@/workspace/retriever";
+import { type CrudeWorkspace, Writer } from "@/workspace/writer";
 
-import { type Key, type Workspace } from "./payload";
-
-export class Client {
+export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly pid: pid.Client;
   private readonly retriever: Retriever;
-  private readonly creator: Creator;
-  private readonly deleter: Deleter;
+  private readonly writer: Writer;
 
   constructor(client: UnaryClient) {
     this.pid = new pid.Client(client);
     this.retriever = new Retriever(client);
-    this.creator = new Creator(client);
-    this.deleter = new Deleter(client);
+    this.writer = new Writer(client);
+  }
+
+  async search(term: string): Promise<Workspace[]> {
+    return await this.retriever.search(term);
+  }
+
+  async retrieveByAuthor(author: string): Promise<Workspace[]> {
+    return await this.retriever.retrieveByAuthor(author);
   }
 
   async retrieve(key: Key): Promise<Workspace>;
@@ -39,11 +44,25 @@ export class Client {
     return isMany ? res : res[0];
   }
 
-  async create(...workspaces: CrudeWorkspace[]): Promise<void> {
-    await this.creator.create(workspaces);
+  async create(workspace: CrudeWorkspace): Promise<Workspace>;
+
+  async create(
+    workspaces: CrudeWorkspace | CrudeWorkspace[],
+  ): Promise<Workspace | Workspace[]> {
+    const isMany = Array.isArray(workspaces);
+    const res = await this.writer.create(workspaces);
+    return isMany ? res : res[0];
+  }
+
+  async rename(key: Key, name: string): Promise<void> {
+    await this.writer.rename(key, name);
+  }
+
+  async setLayout(key: Key, layout: UnknownRecord): Promise<void> {
+    await this.writer.setLayout(key, layout);
   }
 
   async delete(...keys: Key[]): Promise<void> {
-    await this.deleter.delete(keys);
+    await this.writer.delete(keys);
   }
 }

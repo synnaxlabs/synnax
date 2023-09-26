@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -78,12 +77,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
+const groupName = "Channels"
+
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := maybeCreateGroup(ctx, cfg.Group)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,17 +126,4 @@ func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channe
 		}
 		return nil
 	})
-}
-
-const groupName = "Channels"
-
-func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
-	if svc == nil {
-		return g, nil
-	}
-	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
-		return g, err
-	}
-	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
 }

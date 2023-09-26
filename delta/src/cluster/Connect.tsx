@@ -37,6 +37,7 @@ const formSchema = synnaxPropsZ.extend({ name: z.string() });
 
 export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
+  windowKey: "connectCluster",
   type: "connectCluster",
   name: "Connect a Cluster",
   location: "window",

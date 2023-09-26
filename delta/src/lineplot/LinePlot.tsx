@@ -40,8 +40,9 @@ import {
   storeViewport,
   typedLineKeyToString,
 } from "@/lineplot/slice";
+import { Range } from "@/range";
 import { Vis } from "@/vis";
-import { Workspace } from "@/workspace";
+import { type Workspace } from "@/workspace";
 
 export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
@@ -107,7 +108,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const rules = useMemo(() => buildRules(vis?.rules ?? []), [vis.rules]);
   const propsLines = buildLines(vis, ranges);
   const axes = buildAxes(vis);
-  const rng = Workspace.useSelectRange();
+  const rng = Range.useSelect();
 
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Keys): void => {

@@ -26,6 +26,10 @@ func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: key.String()}
 }
 
+func FromOntologyID(id ontology.ID) (uuid.UUID, error) {
+	return uuid.Parse(id.Key)
+}
+
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{

@@ -46,3 +46,4 @@ export type {
   TimeStampStringFormat,
   TZInfo,
 } from "@synnaxlabs/x";
+export { workspace } from "@/workspace";

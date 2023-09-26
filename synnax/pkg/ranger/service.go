@@ -11,7 +11,6 @@ package ranger
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -58,12 +57,14 @@ type Service struct {
 	cdc   io.Closer
 }
 
+const groupName = "Ranges"
+
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := maybeCreateGroup(ctx, cfg.Group)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +93,4 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.DB, s.Ontology)
-}
-
-const groupName = "Ranges"
-
-func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
-	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
-		return g, err
-	}
-	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
 }

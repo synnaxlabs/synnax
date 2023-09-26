@@ -11,16 +11,23 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { workspaceZ, type Params, type Workspace, keyZ } from "@/workspace/payload";
+import {
+  type Params,
+  type Workspace,
+  keyZ,
+  workspaceRemoteZ,
+} from "@/workspace/payload";
 
 const reqZ = z.object({
-  keys: keyZ.array(),
+  keys: keyZ.array().optional(),
+  search: z.string().optional(),
+  author: z.string().uuid().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  workspaces: workspaceZ.array(),
+  workspaces: workspaceRemoteZ.array(),
 });
 
 export class Retriever {
@@ -36,6 +43,14 @@ export class Retriever {
     const normalized = toArray(params);
     const res = await this.execute({ keys: normalized });
     return res;
+  }
+
+  async retrieveByAuthor(author: string): Promise<Workspace[]> {
+    return await this.execute({ author });
+  }
+
+  async search(term: string): Promise<Workspace[]> {
+    return await this.execute({ search: term });
   }
 
   private async execute(request: Request): Promise<Workspace[]> {

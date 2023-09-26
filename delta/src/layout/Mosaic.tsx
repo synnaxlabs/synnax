@@ -12,10 +12,9 @@ import { type ReactElement, memo, useCallback } from "react";
 import { Logo } from "@synnaxlabs/media";
 import { Mosaic as Core, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
-import { useDispatch } from "react-redux";
 
+import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Content } from "@/layout/Content";
-import { usePlacer } from "@/layout/hooks";
 import { useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
@@ -25,18 +24,21 @@ import {
   selectMosaicTab,
 } from "@/layout/slice";
 import { LinePlot } from "@/lineplot";
-import { Vis } from "@/vis";
+import { Workspace } from "@/workspace";
 
 const emptyContent = <Logo.Watermark />;
 
+export interface LayoutMosaicProps extends Pick<Core.MosaicProps, "onCreate"> {}
+
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const Mosaic = memo((): ReactElement => {
-  const dispatch = useDispatch();
+export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
-  const placer = usePlacer();
+
+  const syncer = Workspace.useLayoutSyncer();
+  const dispatch = useSyncerDispatch(syncer, 1000);
 
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: location.Crude): void => {
+    (key: number, tabKey: string, loc: location.Location): void => {
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey]
@@ -50,7 +52,7 @@ export const Mosaic = memo((): ReactElement => {
 
   const handleClose = useCallback(
     (tabKey: string): void => {
-      dispatch(remove(tabKey));
+      dispatch(remove({ keys: [tabKey] }));
     },
     [dispatch]
   );
@@ -77,13 +79,6 @@ export const Mosaic = memo((): ReactElement => {
     [dispatch, windowKey]
   );
 
-  const handleCreate = useCallback(
-    (mosaicKey: number) => {
-      placer(Vis.create({ tab: { mosaicKey } }));
-    },
-    [placer]
-  );
-
   return (
     <Core.Mosaic
       root={mosaic}
@@ -93,7 +88,7 @@ export const Mosaic = memo((): ReactElement => {
       onResize={handleResize}
       emptyContent={emptyContent}
       onRename={handleRename}
-      onCreate={handleCreate}
+      onCreate={onCreate}
       size="medium"
     >
       {(tab) => <Content key={tab.tabKey} layoutKey={tab.tabKey} />}

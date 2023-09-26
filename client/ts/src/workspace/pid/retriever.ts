@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { pidZ, type PID, type Params } from "./payload";
+import { type PID, type Params, pidRemoteZ } from "./payload";
 
 const reqZ = z.object({
   keys: z.string().array(),
@@ -20,7 +20,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  pids: z.array(pidZ),
+  pids: pidRemoteZ.array(),
 });
 
 export class Retriever {

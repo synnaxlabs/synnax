@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime, URL, binary } from "@synnaxlabs/x";
-import { z } from "zod";
+import { runtime, type URL, type binary } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { errorZ, decodeError, Unreachable } from "@/errors";
-import { Context, MiddlewareCollector } from "@/middleware";
-import { UnaryClient } from "@/unary";
+import { type Context, MiddlewareCollector } from "@/middleware";
+import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
@@ -54,7 +54,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
   async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
     req: z.input<RQ> | null,
-    resSchema: RS | null
+    resSchema: RS | null,
   ): Promise<[z.output<RS> | null, Error | null]> {
     let rs: RS | null = null;
     const url = this.endpoint.child(target);
@@ -89,7 +89,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         } catch {
           return [outCtx, new Error(httpRes.statusText)];
         }
-      }
+      },
     );
 
     return [rs, err];

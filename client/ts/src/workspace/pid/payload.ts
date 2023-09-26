@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
@@ -16,7 +17,13 @@ export type Params = Key | Key[];
 export const pidZ = z.object({
   key: z.string(),
   name: z.string(),
-  data: z.string().transform((s) => JSON.parse(s)),
+  data: unknownRecordZ,
+});
+
+export const pidRemoteZ = z.object({
+  key: z.string(),
+  name: z.string(),
+  data: z.string().transform((s) => JSON.parse(s) as UnknownRecord),
 });
 
 export type PID = z.infer<typeof pidZ>;

@@ -24,7 +24,7 @@ export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
   MoveMosaicTabPayload | RemovePayload,
   Drift.CloseWindowPayload
-> = ({ getState, action, dispatch }) => {
+> = ({ getState, dispatch }) => {
   const s = getState();
   const { mosaics } = selectSliceState(s);
   Object.entries(mosaics).forEach(([k, { root }]) => {
@@ -35,6 +35,6 @@ export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
   });
 };
 
-export const middleware = [
+export const MIDDLEWARE = [
   effectMiddleware([moveMosaicTab.type, remove.type], [closeWindowOnEmptyMosaicEffect]),
 ];

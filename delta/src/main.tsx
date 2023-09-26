@@ -20,6 +20,7 @@ import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
+import { Range } from "@/range";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -34,11 +35,12 @@ const layoutRenderers = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
-  defineRange: Workspace.DefineRange,
+  defineRange: Range.Define,
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,
   mosaic: Layout.Mosaic,
+  createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
 };

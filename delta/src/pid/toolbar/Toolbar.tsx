@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { useSelectEditable, useSelectToolbar } from "@/pid/selectors";
+import { useSelect, useSelectToolbar } from "@/pid/selectors";
 import { type ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
 import { Elements } from "@/pid/toolbar/Elements";
 import { PropertiesControls } from "@/pid/toolbar/Properties";
@@ -61,10 +61,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
-  const editable = useSelectEditable(layoutKey);
+  const pid = useSelect(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
-      if (!editable) return <NotEditableContent layoutKey={layoutKey} />;
+      if (!pid.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "elements":
           return <Elements layoutKey={layoutKey} />;
@@ -72,7 +72,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, editable]
+    [layoutKey, pid?.editable]
   );
 
   const handleTabSelect = useCallback(
@@ -81,6 +81,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
     },
     [dispatch]
   );
+
+  if (pid == null) return null;
 
   return (
     <Align.Space empty style={{ height: "100%" }}>

@@ -11,12 +11,17 @@ import { type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { List, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
+import { List as Core, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
-import type { Range } from "@/workspace/range";
+import { Layout } from "@/layout";
+import { defineWindowLayout } from "@/range/Define";
+import type { Range } from "@/range/range";
+import { useSelect, useSelectMultiple } from "@/range/selectors";
+import { remove, setActive } from "@/range/slice";
 
-export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
+export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
     key: "name",
     name: "Name",
@@ -45,32 +50,37 @@ export const rangeListColumns: Array<List.ColumnSpec<string, Range>> = [
   },
 ];
 
-export interface RangesListProps {
-  selectedRange?: Range | null;
-  onAddOrEdit: (key?: string) => void;
-  onSelect: (key: string) => void;
-  onRemove: (key: string) => void;
-  ranges: Range[];
-}
+export const List = (): ReactElement => {
+  const menuProps = PMenu.useContextMenu();
+  const newLayout = Layout.usePlacer();
+  const dispatch = useDispatch();
+  const ranges = useSelectMultiple();
+  const selectedRange = useSelect();
 
-export const RangesList = ({
-  ranges,
-  selectedRange,
-  onAddOrEdit,
-  onSelect,
-  onRemove,
-}: RangesListProps): ReactElement => {
-  const contextMenProps = PMenu.useContextMenu();
+  const handleAddOrEdit = (key?: string): void => {
+    newLayout({
+      ...defineWindowLayout,
+      key: key ?? defineWindowLayout.key,
+    });
+  };
 
-  const RangesContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement => {
+  const handleRemove = (keys: string[]): void => {
+    dispatch(remove({ keys }));
+  };
+
+  const handleSelect = (key: string): void => {
+    dispatch(setActive(key));
+  };
+
+  const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement => {
     const handleClick = (key: string): void => {
       switch (key) {
         case "create":
-          return onAddOrEdit();
+          return handleAddOrEdit();
         case "edit":
-          return onAddOrEdit(keys[0]);
+          return handleAddOrEdit(keys[0]);
         case "remove":
-          return onRemove(keys[0]);
+          return handleRemove(keys);
       }
     };
     return (
@@ -92,24 +102,21 @@ export const RangesList = ({
 
   return (
     <div style={{ flexGrow: 1 }}>
-      <PMenu.ContextMenu
-        menu={(props) => <RangesContextMenu {...props} />}
-        {...contextMenProps}
-      >
-        <List.List data={ranges}>
-          <List.Selector
+      <PMenu.ContextMenu menu={(props) => <ContextMenu {...props} />} {...menuProps}>
+        <Core.List data={ranges}>
+          <Core.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
-            onChange={([key]: string[]) => onSelect(key)}
+            onChange={([key]: string[]) => handleSelect(key)}
             allowMultiple={false}
           />
-          <List.Column.Header columns={rangeListColumns} />
-          <List.Core.Virtual
+          <Core.Column.Header columns={listColumns} />
+          <Core.Core.Virtual
             itemHeight={30}
             style={{ height: "100%", overflowX: "hidden" }}
           >
-            {List.Column.Item}
-          </List.Core.Virtual>
-        </List.List>
+            {Core.Column.Item}
+          </Core.Core.Virtual>
+        </Core.List>
       </PMenu.ContextMenu>
     </div>
   );

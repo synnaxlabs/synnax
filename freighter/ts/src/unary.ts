@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type z } from "zod";
 
-import { Transport } from "@/transport";
+import { type Transport } from "@/transport";
 
 /**
  * An interface for an entity that implements a simple request-response
@@ -25,6 +25,20 @@ export interface UnaryClient extends Transport {
   send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
     req: z.input<RQ> | null,
-    resSchema: RS | null
+    resSchema: RS | null,
   ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }
+
+export const sendRequired = async <
+  RQ extends z.ZodTypeAny,
+  RS extends z.ZodTypeAny = RQ,
+>(
+  client: UnaryClient,
+  target: string,
+  req: z.input<RQ>,
+  resSchema: RS,
+): Promise<z.output<RS>> => {
+  const [res, err] = await client.send(target, req, resSchema);
+  if (err != null) throw err;
+  return res;
+};

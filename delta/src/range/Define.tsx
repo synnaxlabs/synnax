@@ -18,9 +18,8 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { type Layout } from "@/layout";
-
-import { useSelectRange } from "./selectors";
-import { addRange } from "./slice";
+import { useSelect } from "@/range/selectors";
+import { add } from "@/range/slice";
 
 const formSchema = z.object({
   name: z.string(),
@@ -30,9 +29,10 @@ const formSchema = z.object({
   endTime: z.number().int(),
 });
 
-export const rangeWindowLayout: Layout.LayoutState = {
+export const defineWindowLayout: Layout.LayoutState = {
   key: "defineRange",
   type: "defineRange",
+  windowKey: "defineRange",
   name: "Define Range",
   location: "window",
   window: {
@@ -45,12 +45,9 @@ export const rangeWindowLayout: Layout.LayoutState = {
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
-export const DefineRange = ({
-  layoutKey,
-  onClose,
-}: Layout.RendererProps): ReactElement => {
+export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
   const now = TimeStamp.now().valueOf();
-  const range = useSelectRange(layoutKey);
+  const range = useSelect(layoutKey);
   let defaultValues;
   if (range != null && range.variant === "static") {
     defaultValues = {
@@ -89,7 +86,9 @@ export const DefineRange = ({
     if (name.length === 0) name = range?.name as string;
     // remove leading and trailing whitespace
     const key = range?.key ?? (name ?? "").replace(/\s/g, "").toLowerCase();
-    dispatch(addRange({ variant: "static", name, timeRange: { start, end }, key }));
+    dispatch(
+      add({ ranges: [{ variant: "static", name, timeRange: { start, end }, key }] })
+    );
     onClose();
   };
 

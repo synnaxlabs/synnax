@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
@@ -128,21 +127,6 @@ func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
 		lp._prefix = prefix[K, E](ctx, lp)
 	}
 	return lp._prefix
-}
-
-func prefixMatcher[K Key, E Entry[K]](opts Tools) func(ctx context.Context, b []byte) bool {
-	var (
-		prefix_   []byte
-		getPrefix = func(ctx context.Context) []byte {
-			if prefix_ == nil {
-				prefix_ = prefix[K, E](ctx, opts)
-			}
-			return prefix_
-		}
-	)
-	return func(ctx context.Context, b []byte) bool {
-		return bytes.HasPrefix(b, getPrefix(ctx))
-	}
 }
 
 func encodeKey[K Key](

@@ -11,6 +11,7 @@ package change
 
 type Variant uint8
 
+//go:generate stringer -type=Variant
 const (
 	Set Variant = iota + 1
 	Delete

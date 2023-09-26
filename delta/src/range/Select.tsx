@@ -12,33 +12,31 @@ import { type ReactElement } from "react";
 import { Input, Status, Button, Select, Align } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { rangeWindowLayout } from "@/workspace/DefineRange";
-import { type Range } from "@/workspace/range";
-import { rangeListColumns } from "@/workspace/RangesList";
+import { listColumns } from "@/range/accordionEntry";
+import { defineWindowLayout } from "@/range/Define";
+import { type Range } from "@/range/range";
 
 export interface SelectMultipleRangesProps
   extends Omit<Select.MultipleProps<string, Range>, "columns"> {}
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps
-): ReactElement => (
-  <Select.Multiple columns={rangeListColumns} tagKey="name" {...props} />
-);
+): ReactElement => <Select.Multiple columns={listColumns} tagKey="name" {...props} />;
 
 export interface SelectSingleRangeProps
   extends Omit<Select.SingleProps<string, Range>, "columns"> {}
 
 export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
-  <Select.Single columns={rangeListColumns} {...props} tagKey="name" />
+  <Select.Single columns={listColumns} {...props} tagKey="name" />
 );
 
-export interface SelectMultipleRangesInputItemProps
+export interface SelectMultipleInputItemProps
   extends Omit<
     Input.ItemProps<string[], string[], SelectMultipleRangesProps>,
     "label"
   > {}
 
-const SelectRangesEmptyContent = (): ReactElement => {
+const SelectEmptyContent = (): ReactElement => {
   const newLayout = Layout.usePlacer();
   return (
     <Align.Center style={{ height: 150 }} direction="x">
@@ -48,7 +46,7 @@ const SelectRangesEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(rangeWindowLayout);
+          newLayout(defineWindowLayout);
         }}
       >
         Define a Range
@@ -57,25 +55,23 @@ const SelectRangesEmptyContent = (): ReactElement => {
   );
 };
 
-export const SelectMultipleRangesInputItem = (
-  props: SelectMultipleRangesInputItemProps
+export const SelectMultipleInputItem = (
+  props: SelectMultipleInputItemProps
 ): ReactElement => (
   <Input.Item<string[], string[], SelectMultipleRangesProps>
     direction="x"
     label="Ranges"
-    emptyContent={<SelectRangesEmptyContent />}
+    emptyContent={<SelectEmptyContent />}
     {...props}
   >
     {SelectMultipleRanges}
   </Input.Item>
 );
 
-export interface SelectRangeInputItemProps
+export interface SelectInputItemProps
   extends Omit<Input.ItemProps<string, string, SelectSingleRangeProps>, "label"> {}
 
-export const SelectRangeInputItem = (
-  props: SelectRangeInputItemProps
-): ReactElement => (
+export const SelectInputItem = (props: SelectInputItemProps): ReactElement => (
   <Input.Item<string, string, SelectSingleRangeProps> label="Range:" {...props}>
     {SelectRange}
   </Input.Item>

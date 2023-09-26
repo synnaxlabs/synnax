@@ -8,25 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
-import { Creator, type CrudePID } from "@/workspace/pid/creator";
-import { Deleter } from "@/workspace/pid/deleter";
 import { type Key, type Params, type PID } from "@/workspace/pid/payload";
 import { Retriever } from "@/workspace/pid/retriever";
+import { Writer, type CrudePID } from "@/workspace/pid/writer";
 
 export class Client {
-  private readonly writer: Creator;
+  private readonly writer: Writer;
   private readonly retriever: Retriever;
-  private readonly deleter: Deleter;
 
   constructor(client: UnaryClient) {
-    this.writer = new Creator(client);
+    this.writer = new Writer(client);
     this.retriever = new Retriever(client);
-    this.deleter = new Deleter(client);
   }
 
-  async set(pid: CrudePID): Promise<PID> {
-    return await this.writer.create(pid);
+  async create(workspace: string, pid: CrudePID): Promise<PID> {
+    return await this.writer.create(workspace, pid);
+  }
+
+  async rename(key: Key, name: string): Promise<void> {
+    await this.writer.rename(key, name);
+  }
+
+  async setData(key: Key, data: UnknownRecord): Promise<void> {
+    await this.writer.setData(key, data);
   }
 
   async retrieve(key: Key): Promise<PID>;
@@ -37,5 +43,9 @@ export class Client {
     const isMany = Array.isArray(keys);
     const res = await this.retriever.retrieve(keys);
     return isMany ? res : res[0];
+  }
+
+  async delete(keys: Params): Promise<void> {
+    await this.writer.delete(keys);
   }
 }

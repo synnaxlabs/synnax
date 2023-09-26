@@ -15,13 +15,16 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/api/latency"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -53,6 +56,7 @@ type Config struct {
 	Storage       *storage.Storage
 	User          *user.Service
 	Workspace     *workspace.Service
+	PID           *pid.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
@@ -65,6 +69,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "channel", c.Channel)
@@ -79,10 +84,12 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enforcer", c.Enforcer)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "pid", c.PID)
 	validate.NotNil(v, "insecure", c.Insecure)
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -99,6 +106,7 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
+	c.PID = override.Nil(c.PID, other.PID)
 	return c
 }
 
@@ -125,9 +133,13 @@ type Transport struct {
 	WorkspaceCreate        freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
 	WorkspaceRetrieve      freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
 	WorkspaceDelete        freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
-	WorkspacePIDCreate     freighter.UnaryServer[WorkspacePIDCreateRequest, WorkspacePIDCreateResponse]
-	WorkspacePIDRetrieve   freighter.UnaryServer[WorkspacePIDRetrieveRequest, WorkspacePIDRetrieveResponse]
-	WorkspacePIDDelete     freighter.UnaryServer[WorkspacePIDDeleteRequest, types.Nil]
+	WorkspaceRename        freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
+	WorkspaceSetLayout     freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
+	PIDCreate              freighter.UnaryServer[PIDCreateRequest, PIDCreateResponse]
+	PIDRetrieve            freighter.UnaryServer[PIDRetrieveRequest, PIDRetrieveResponse]
+	PIDDelete              freighter.UnaryServer[PIDDeleteRequest, types.Nil]
+	PIDRename              freighter.UnaryServer[PIDRenameRequest, types.Nil]
+	PIDSetData             freighter.UnaryServer[PIDSetDataRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -142,6 +154,7 @@ type API struct {
 	Ontology     *OntologyService
 	Range        *RangeService
 	Workspace    *WorkspaceService
+	PID          *PIDService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -150,13 +163,17 @@ func (a *API) BindTo(t Transport) {
 		err                = errors.Middleware()
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation, err}
-		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
+		insecureMiddleware = []freighter.Middleware{
+			latency.Middleware(100 * time.Millisecond),
+			instrumentation,
+			err,
+		}
+		secureMiddleware = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
-	if !*a.config.Insecure {
-		secureMiddleware = append(secureMiddleware, tk)
-	}
+	//if !*a.config.Insecure {
+	secureMiddleware = append(secureMiddleware, tk)
+	//}
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -187,6 +204,13 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceDelete,
 		t.WorkspaceCreate,
 		t.WorkspaceRetrieve,
+		t.WorkspaceRename,
+		t.WorkspaceSetLayout,
+		t.PIDCreate,
+		t.PIDRetrieve,
+		t.PIDDelete,
+		t.PIDRename,
+		t.PIDSetData,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -209,11 +233,17 @@ func (a *API) BindTo(t Transport) {
 	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
 	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
+	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
 	t.WorkspaceRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.Retrieve))
 	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
-	t.WorkspacePIDCreate.BindHandler(typedUnaryWrapper(a.Workspace.CreatePID))
-	t.WorkspacePIDRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.RetrievePID))
-	t.WorkspacePIDDelete.BindHandler(typedUnaryWrapper(a.Workspace.DeletePID))
+	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
+	t.WorkspaceRename.BindHandler(typedUnaryWrapper(a.Workspace.Rename))
+	t.WorkspaceSetLayout.BindHandler(typedUnaryWrapper(a.Workspace.SetLayout))
+	t.PIDCreate.BindHandler(typedUnaryWrapper(a.PID.Create))
+	t.PIDRetrieve.BindHandler(typedUnaryWrapper(a.PID.Retrieve))
+	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
+	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
+	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -230,6 +260,8 @@ func New(configs ...Config) (API, error) {
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)
 	api.Range = NewRangeService(api.provider)
+	api.Workspace = NewWorkspaceService(api.provider)
+	api.PID = NewPIDService(api.provider)
 	return api, nil
 }
 

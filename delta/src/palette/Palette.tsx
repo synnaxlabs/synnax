@@ -34,16 +34,18 @@ import {
   Tooltip,
   Mosaic,
   Divider,
+  Synnax,
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { type Ontology } from "@/ontology";
+import { type Service } from "@/ontology/service";
 import { Notifications } from "@/palette/Notifications";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { type Service } from "@/resources/service";
 import { type RootStore } from "@/store";
 
 import "@/palette/Palette.css";
@@ -67,32 +69,38 @@ export const Palette = ({
   commandSymbol,
 }: PaletteProps): ReactElement => {
   const dropdown = Dropdown.use();
+  const client = Synnax.use();
+  const store = useStore() as RootStore;
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
 
   const [mode, setMode] = useState<Mode>("resource");
 
   const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
 
-  const store = useStore() as RootStore;
-  const placeLayout = Layout.usePlacer();
   const handleSelect: List.SelectorProps<Key, Entry>["onChange"] = useCallback(
-    ([key]: Key[], { entries: [entry] }) => {
+    ([key]: Key[], { entries }) => {
       dropdown.close();
       if (mode === "command") {
+        const entry = entries[0];
         (entry as Command).onSelect({
           store,
           placeLayout,
         });
       } else {
+        if (client == null) return;
         const id = new ontology.ID(key);
         const t = resourceTypes[id.type];
         t?.onSelect({
           store,
           placeLayout,
-          selected: entry,
+          removeLayout,
+          client,
+          selection: entries as ontology.Resource[],
         });
       }
     },
-    [mode, commands, dropdown.close]
+    [mode, commands, dropdown.close, client]
   );
 
   const showDropdown = dropdown.visible || notifications.statuses.length > 0;
@@ -360,7 +368,7 @@ export const CommandListItem = ({
 };
 
 export const createResourceListItem = (
-  resourceTypes: Record<string, ResourceType>
+  resourceTypes: Record<string, Ontology.Service>
 ): FC<List.ItemProps<string, ontology.Resource>> => {
   const ResourceListItem = ({
     entry: { name, key, id },

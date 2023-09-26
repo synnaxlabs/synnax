@@ -196,7 +196,12 @@ func (o *Ontology) RegisterService(s Service) {
 	d := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
-				o.L.Info("indexing resource", zap.String("type", string(s.Schema().Type)))
+				o.L.Debug(
+					"updating search index",
+					zap.String("key", ch.Key.String()),
+					zap.String("type", string(s.Schema().Type)),
+					zap.Stringer("variant", ch.Variant),
+				)
 				if err := tx.Apply(ch); err != nil {
 					return err
 				}
@@ -217,5 +222,8 @@ func (o *Ontology) Close() error {
 	for _, d := range o.disconnectObservers {
 		d()
 	}
-	return o.search.Close()
+	if *o.EnableSearch {
+		return o.search.Close()
+	}
+	return nil
 }

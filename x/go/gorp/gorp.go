@@ -58,6 +58,11 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 // DB if they choose to do so, or to execute against a transaction if they provide one.
 func (db *DB) OverrideTx(override Tx) Tx { return OverrideTx(db, override) }
 
+// Close closes the underlying DB. Although embedded into the DB struct, Jetbrains
+// Goland complains of an ambiguous reference to the Close method if it is not
+// explicitly defined.
+func (db *DB) Close() error { return db.DB.Close() }
+
 // OverrideTx returns the override transaction if it is not nil. Otherwise,
 // it returns the base transaction.
 func OverrideTx(base, override Tx) Tx {

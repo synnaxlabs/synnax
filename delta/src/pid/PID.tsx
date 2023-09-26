@@ -9,6 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
+import { workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   PID as Core,
@@ -21,13 +22,17 @@ import {
   Viewport,
   Triggers,
   useSyncedRef,
+  Synnax,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { box, scale, xy } from "@synnaxlabs/x";
+import { type UnknownRecord, box, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
+import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
+  select,
   useSelect,
   useSelectElementProps,
   useSelectViewporMode,
@@ -44,7 +49,39 @@ import {
   copySelection,
   calculatePos,
   pasteSelection,
+  type StoreState,
+  type State,
+  internalCreate,
+  setRemoteCreated,
 } from "@/pid/slice";
+import { Workspace } from "@/workspace";
+
+interface SyncPayload {
+  layoutKey?: string;
+}
+
+const pidSyncer: Syncer<
+  Layout.StoreState & StoreState & Workspace.StoreState,
+  SyncPayload
+> = async (client, { layoutKey }, store) => {
+  if (layoutKey == null) return;
+  const s = store.getState();
+  const ws = Workspace.selectActiveKey(s);
+  if (ws == null) return;
+  const data = select(s, layoutKey);
+  const la = Layout.selectRequired(s, layoutKey);
+  if (!data.remoteCreated) {
+    store.dispatch(setRemoteCreated({ layoutKey }));
+    await client.workspaces.pid.create(ws, {
+      key: layoutKey,
+      name: la.name,
+      data: data as unknown as UnknownRecord,
+    });
+  } else
+    await client.workspaces.pid.setData(layoutKey, data as unknown as UnknownRecord);
+};
+
+export const HAUL_TYPE = "pid-element";
 
 const ElementRenderer = ({
   elementKey,
@@ -59,7 +96,10 @@ const ElementRenderer = ({
   const {
     props: { type, ...props },
   } = el;
-  const dispatch = useDispatch();
+  const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
+    pidSyncer,
+    100000
+  );
 
   const handleChange = useCallback(
     (props: object) => {
@@ -86,10 +126,14 @@ const ElementRenderer = ({
   );
 };
 
-export const PID: Layout.Renderer = ({ layoutKey }) => {
+export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const pid = useSelect(layoutKey);
-  const dispatch = useDispatch();
+
+  const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
+    pidSyncer,
+    1000
+  );
   const theme = Theming.use();
   const viewportRef = useSyncedRef(pid.viewport);
 
@@ -152,10 +196,11 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType("pid-element", items);
+      const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);
-      valid.forEach(({ key: type }) => {
+      const OFFSET = 20;
+      valid.forEach(({ key: type, data }, i) => {
         const spec = PIDElement.REGISTRY[type];
         if (spec == null) return;
         const zoomXY = xy.construct(pid.viewport.zoom);
@@ -170,11 +215,15 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
             layoutKey,
             key: nanoid(),
             node: {
-              position: s.pos({ x: event.clientX, y: event.clientY }),
+              position: s.pos({
+                x: event.clientX + OFFSET * i,
+                y: event.clientY + OFFSET * i,
+              }),
             },
             props: {
               type,
               ...spec.initialProps(theme),
+              ...(data ?? {}),
             },
           })
         );
@@ -187,7 +236,7 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
   const dropProps = Haul.useDrop({
     type: "PID",
     key: layoutKey,
-    canDrop: Haul.canDropOfType("pid-element"),
+    canDrop: Haul.canDropOfType(HAUL_TYPE),
     onDrop: handleDrop,
   });
 
@@ -253,4 +302,17 @@ export const PID: Layout.Renderer = ({ layoutKey }) => {
       </Control.Controller>
     </div>
   );
+};
+
+export const PID: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | null => {
+  const pid = useSelect(layoutKey);
+  const dispatch = useDispatch();
+  const client = Synnax.use();
+  useAsyncEffect(async () => {
+    if (client == null || pid != null) return;
+    const { data } = await client.workspaces.pid.retrieve(layoutKey);
+    dispatch(internalCreate({ key: layoutKey, ...(data as unknown as State) }));
+  }, [client, pid]);
+  if (pid == null) return null;
+  return <Loaded layoutKey={layoutKey} {...props} />;
 };

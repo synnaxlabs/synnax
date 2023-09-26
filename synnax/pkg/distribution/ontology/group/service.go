@@ -59,6 +59,14 @@ func OpenService(configs ...Config) (*Service, error) {
 	return &Service{Config: cfg}, nil
 }
 
+func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
+	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if g.Key != uuid.Nil || err != nil {
+		return g, err
+	}
+	return s.NewWriter(nil).Create(ctx, groupName, parent)
+}
+
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: gorp.OverrideTx(s.DB, tx), otg: s.Ontology.NewWriter(tx)}
 }

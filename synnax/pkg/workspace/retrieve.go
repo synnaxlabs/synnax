@@ -3,12 +3,21 @@ package workspace
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[uuid.UUID, Workspace]
+	baseTX     gorp.Tx
+	otg        *ontology.Ontology
+	gorp       gorp.Retrieve[uuid.UUID, Workspace]
+	searchTerm string
+}
+
+func (r Retrieve) Search(term string) Retrieve {
+	r.searchTerm = term
+	return r
 }
 
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
@@ -26,6 +35,27 @@ func (r Retrieve) Entries(wss *[]Workspace) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereAuthor(author uuid.UUID) Retrieve {
+	r.gorp = r.gorp.Where(func(ws *Workspace) bool {
+		return ws.Author == author
+	})
+	return r
+}
+
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, tx)
+	if r.searchTerm != "" {
+		ids, err := r.otg.SearchIDs(ctx, search.Request{
+			Type: ontologyType,
+			Term: r.searchTerm,
+		})
+		if err != nil {
+			return err
+		}
+		keys, err := KeysFromOntologyIds(ids)
+		if err != nil {
+			return err
+		}
+		r = r.WhereKeys(keys...)
+	}
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Tx", Ordered, func() {
+var _ = Describe("Reader", Ordered, func() {
 	var (
 		db   kvx.DB
 		ecdc binary.EncoderDecoder
@@ -30,20 +30,28 @@ var _ = Describe("Tx", Ordered, func() {
 		ecdc = &binary.GobEncoderDecoder{}
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
-	BeforeEach(func() {
-		tx = db.OpenTx()
-		val := MustSucceed(ecdc.Encode(nil, map[string]string{"key1": "value1", "key2": "value2"}))
-		Expect(tx.Set(ctx, []byte("key1"), val)).To(Succeed())
-		Expect(tx.Set(ctx, []byte("key2"), val)).To(Succeed())
+	Describe("Iterator", func() {
+		BeforeEach(func() {
+			tx = db.OpenTx()
+			val := MustSucceed(ecdc.Encode(nil, map[string]string{"key1": "value1", "key2": "value2"}))
+			Expect(tx.Set(ctx, []byte("key1"), val)).To(Succeed())
+			Expect(tx.Set(ctx, []byte("key2"), val)).To(Succeed())
+		})
+		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+		It("Should decode values before returning them to the caller", func() {
+			base := MustSucceed(db.OpenIterator(kvx.IterPrefix([]byte("key"))))
+			iter := gorp.WrapIterator[map[string]string](base, ecdc)
+			for iter.First(); iter.Valid(); iter.Next() {
+				Expect(iter.Value(ctx)).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
+			}
+			Expect(iter.Error()).To(BeNil())
+			Expect(iter.Close()).To(Succeed())
+		})
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
-	It("Should decode values before returning them to the caller", func() {
-		base := MustSucceed(db.OpenIterator(kvx.IterPrefix([]byte("key"))))
-		iter := gorp.WrapIterator[map[string]string](base, ecdc)
-		for iter.First(); iter.Valid(); iter.Next() {
-			Expect(iter.Value(ctx)).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
-		}
-		Expect(iter.Error()).To(BeNil())
-		Expect(iter.Close()).To(Succeed())
+	Describe("TxReader", func() {
+		It("Should wrap a kv.TXReader and correctly decode transaction operations", func() {
+			base := db.OpenTx()
+			Expect(base.Set(ctx, []byte("key1"), MustSucceed(ecdc.Encode(nil, "value1")))).To(Succeed())
+		})
 	})
 })

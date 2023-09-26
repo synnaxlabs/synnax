@@ -15,18 +15,12 @@ import { type Haul } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-
-import { type Service, type SelectionContext } from "./service";
-
-const TYPE = "channel";
-
-const ICON = <Icon.Channel />;
-
-const HAS_CHILDREN = false;
+import { type Ontology } from "@/ontology";
+import { PID } from "@/pid";
 
 const canDrop = (): boolean => false;
 
-const onSelect = ({ store, placeLayout, selection }: SelectionContext): void => {
+const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicTab(state);
   if (selection.length === 0) return;
@@ -59,10 +53,15 @@ const onSelect = ({ store, placeLayout, selection }: SelectionContext): void => 
   }
 };
 
-const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
+const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => [
   {
     type: "channel",
     key: Number(id.key),
+  },
+  {
+    type: PID.HAUL_TYPE,
+    key: "value",
+    data: { telem: { channel: Number(id.key) }, label: name },
   },
 ];
 
@@ -70,10 +69,10 @@ const allowRename = (): boolean => false;
 
 const TreeContextMenu = (): ReactElement => <></>;
 
-export const CHANNEL_SERVICE: Service = {
-  type: TYPE,
-  icon: ICON,
-  hasChildren: HAS_CHILDREN,
+export const ONTOLOGY_SERVICE: Ontology.Service = {
+  type: "channel",
+  icon: <Icon.Channel />,
+  hasChildren: false,
   allowRename,
   canDrop,
   onSelect,

@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Builder", func() {
-	Describe("New", func() {
+	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func() {
 
 			builder := mock.NewBuilder()
