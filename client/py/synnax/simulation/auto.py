@@ -14,6 +14,8 @@ class Anomaly(Protocol):
     def step(self, state: dict[str, float], errorStep: int) -> dict[str, float]:
         ...
 
+# All nominal state machines
+
 class TankPressure:
 
 
@@ -44,7 +46,7 @@ class TankPressure:
             state["0"] += 0
 
         return state
-    
+
 class Nominal:
 
     def __init__(self, stateMachine, errorStep: int):
@@ -54,6 +56,8 @@ class Nominal:
     def step(self, state: dict[str,float], stepNum: int):
         self.stateMachine.step(state)
         return state
+    
+# Anomaly Implementations
 
 class VoltageZero:
 
@@ -108,6 +112,7 @@ class PreValveStuckOpen:
                 state["0"] -= 1
         return self.stateMachine.step(state)
 
+# Base simulator class
 
 class Simulator:
     frequency: sy.Rate.HZ = 100 * sy.Rate.HZ
