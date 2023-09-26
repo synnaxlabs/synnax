@@ -12,6 +12,8 @@ package gorp
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 
 	"github.com/cockroachdb/errors"
@@ -68,18 +70,32 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 // found are simply omitted from the returned slice.
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
-		err_    error
-		entries = make([]E, 0, len(keys))
+		entries  = make([]E, 0, len(keys))
+		notFound []K
 	)
 	for i := range keys {
 		e, err := r.Get(ctx, keys[i])
 		if err != nil {
-			err_ = err
+			// We keep iterating here to ensure that we return all entries that
+			// can be found.
+			if errors.Is(err, query.NotFound) {
+				notFound = append(notFound, keys[i])
+				continue
+			} else {
+				// All other errors are considered no-ops.
+				return entries, err
+			}
 		} else {
 			entries = append(entries, e)
 		}
 	}
-	return entries, err_
+	if len(notFound) > 0 {
+		return entries, errors.Wrapf(
+			query.NotFound,
+			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
+		)
+	}
+	return entries, nil
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.

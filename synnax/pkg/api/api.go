@@ -15,7 +15,9 @@ package api
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/api/latency"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -24,11 +26,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
-	"time"
-
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/freighter/falamos"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 
@@ -164,7 +161,6 @@ func (a *API) BindTo(t Transport) {
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
 		insecureMiddleware = []freighter.Middleware{
-			latency.Middleware(100 * time.Millisecond),
 			instrumentation,
 			err,
 		}

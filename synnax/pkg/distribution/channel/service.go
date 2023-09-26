@@ -84,9 +84,12 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
-		return nil, err
+	var g group.Group
+	if cfg.Group != nil {
+		g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	proxy, err := newLeaseProxy(cfg, g)
 	if err != nil {

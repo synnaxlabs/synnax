@@ -14,3 +14,7 @@ import "reflect"
 func Name[T any]() string {
 	return reflect.TypeOf(*new(T)).Name()
 }
+
+func PluralName[T any]() string {
+	return reflect.TypeOf(*new(T)).Name() + "s"
+}
