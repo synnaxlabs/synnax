@@ -29,7 +29,7 @@ var _ = Describe("storage", func() {
 		)
 		BeforeEach(func() {
 			var err error
-			tempDir, err = os.MkdirTemp("", "delta-test")
+			tempDir, err = os.MkdirTemp("", "synnax-test")
 			Expect(err).ToNot(HaveOccurred())
 			cfg = storage.Config{Dirname: filepath.Join(tempDir, "storage")}
 		})
