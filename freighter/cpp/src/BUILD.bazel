@@ -1,0 +1,8 @@
+# main cpp binary
+cc_library(
+    name = "freighter", 
+    srcs = [],
+    hdrs = ["freighter.h"],
+    visibility = ["//visibility:public"],
+    deps = []
+)
