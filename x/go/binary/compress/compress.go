@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// a type called Compressor which is an interace
+// Compressor a type called Compressor which is an interface
 type Compressor interface {
 	// Compress compresses the given source bytes and outputs them
 	// to the destination bytes, returning any error encountered.
@@ -17,60 +17,44 @@ type Decompressor interface {
 	Decompress(src []byte) (dst []byte, err error)
 }
 
-// Function Tested
+/*
+preCompile is run everytime Compress is run. It will do a pass through
+the array, looking for the longest sequential count of either 1 or 0.
+This will be used to decide on the size for the run-length encoding
+*/
 func preCompile(src []byte) (size int) {
-	longestCount, curCount, prev := 0, 0, byte(0)
-	for _, x := range src {
-		if x == prev {
+
+	var (
+		longestCount, curCount int = 1, 1
+	)
+
+	for i := 1; i < len(src); i++ {
+		if src[i] == src[i-1] {
 			curCount++
 		} else {
+			if curCount > longestCount {
+				longestCount = curCount
+			}
 			curCount = 1
-			prev = x
 		}
-		longestCount = int(math.Max(float64(longestCount), float64(curCount)))
 	}
 
-	returnCount := 0
-
-	switch {
-	case longestCount < 2:
-		returnCount = 1
-		break
-	case longestCount < 4:
-		returnCount = 2
-		break
-	case longestCount < 16:
-		returnCount = 4
-		break
-	case longestCount < 256:
-		returnCount = 8
-		break
-	case longestCount < 65536:
-		returnCount = 16
-		break
-	case longestCount < 16777216:
-		returnCount = 24
-		break
-	case longestCount < 4294967296:
-		returnCount = 32
-		break
-	default:
-		returnCount = -1
+	// Need to test final time because loop only checks in else
+	if curCount > longestCount {
+		longestCount = curCount
 	}
 
-	return returnCount
+	// returns how many bits are needed to store the longestCount
+	return int(math.Pow(2, math.Floor(math.Log2(float64(longestCount)))))
 }
 
-// Should start on 0
 func Compress(src []byte) (dst []byte, err error) {
-	count, appendVal, curShift := 0, 0, 0
-	prev := byte(0)
-	var returnArray []byte
+	var (
+		count, appendVal, curShift int  = 0, 0, 0
+		prev                       byte = byte(0)
+		returnArray                []byte
+	)
 
-	// first 4 bit stores size (1,2,4,8,16,24,32)
-	// second 4 bit stores how many 0
-
-	// This shouldn't need to be error checked.
 	// Possible values include {1, 2, 4, 8, 16, 24, 32}
 	maxShift := preCompile(src)
 	maxSize := int(math.Pow(2, float64(maxShift))) - 1
@@ -108,7 +92,7 @@ func Compress(src []byte) (dst []byte, err error) {
 		appendVal |= count
 		curShift += maxShift
 		if curShift < 8 {
-			appendVal <<= (8 - curShift)
+			appendVal <<= 8 - curShift
 		}
 		returnArray = append(returnArray, byte(appendVal))
 	}
@@ -117,13 +101,12 @@ func Compress(src []byte) (dst []byte, err error) {
 }
 
 func Decompress(src []byte) (dst []byte, err error) {
-	maxShift := int(src[0])
-	cur := byte(0)
-	// only used on > 8 but need to be global
-	sum := 0
-	count := 0
 
-	var returnArray []byte
+	var (
+		maxShift, sum, count int  = int(src[0]), 0, 0
+		cur                  byte = byte(0)
+		returnArray          []byte
+	)
 
 	for i := 1; i < len(src); i++ {
 		if maxShift > 8 {
