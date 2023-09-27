@@ -17,6 +17,11 @@ type Decompressor interface {
 	Decompress(src []byte) (dst []byte, err error)
 }
 
+type CompressorDecompressor interface {
+	Compressor
+	Decompressor
+}
+
 /*
 preCompile is run everytime Compress is run. It will do a pass through
 the array, looking for the longest sequential count of either 1 or 0.
@@ -48,7 +53,11 @@ func preCompile(src []byte) (size int) {
 	return int(math.Pow(2, math.Floor(math.Log2(float64(longestCount)))))
 }
 
-func Compress(src []byte) (dst []byte, err error) {
+type Bool struct{}
+
+var _ CompressorDecompressor = Bool{}
+
+func (b Bool) Compress(src []byte) (dst []byte, err error) {
 	var (
 		count, appendVal, curShift int  = 0, 0, 0
 		prev                       byte = byte(0)
@@ -100,7 +109,7 @@ func Compress(src []byte) (dst []byte, err error) {
 	return returnArray, nil
 }
 
-func Decompress(src []byte) (dst []byte, err error) {
+func (b Bool) Decompress(src []byte) (dst []byte, err error) {
 
 	var (
 		maxShift, sum, count int  = int(src[0]), 0, 0
