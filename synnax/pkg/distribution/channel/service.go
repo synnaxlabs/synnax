@@ -95,11 +95,14 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &service{
+
+	s := &service{
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
-	}, nil
+	}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {

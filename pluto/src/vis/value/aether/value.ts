@@ -17,7 +17,7 @@ import { noop } from "@/telem/noop";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { type PIDElement } from "@/vis/pid/aether/pid";
+import { type Element } from "@/vis/pid/aether/pid";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
@@ -44,7 +44,7 @@ interface InternalState {
 
 export class Value
   extends aether.Leaf<typeof valueState, InternalState>
-  implements PIDElement
+  implements Element
 {
   static readonly TYPE = "value";
   static readonly z = valueState;

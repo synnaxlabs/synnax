@@ -16,18 +16,15 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type WriterConfig struct {
-	Name           string
-	Start          telem.TimeStamp
-	End            telem.TimeStamp
-	Authority      control.Authority
-	ControlDigests confluence.Inlet[controller.Digest]
+	Name      string
+	Start     telem.TimeStamp
+	End       telem.TimeStamp
+	Authority control.Authority
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
@@ -46,13 +43,43 @@ type Writer struct {
 	pos int
 }
 
-func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Series) (err error) {
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Authority: control.Absolute})
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
+	gateCfg := controller.Config{
+		TimeRange: cfg.domain().Domain(),
+		Authority: cfg.Authority,
+		Name:      cfg.Name,
+	}
+	var (
+		g  *controller.Gate[*domain.Writer]
+		ok bool
+	)
+	g, transfer, ok = db.Controller.OpenGate(gateCfg)
+	if !ok {
+		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
+		if err != nil {
+			return nil, transfer, err
+		}
+		gateCfg.TimeRange = dw.Domain()
+		g, transfer = db.Controller.RegisterAndOpenGate(gateCfg, dw)
+	}
+	w.control = g
+	return w, transfer, nil
+}
+
+func Write(
+	ctx context.Context,
+	db *DB,
+	start telem.TimeStamp,
+	series telem.Series,
+) (err error) {
+	w, _, err := db.OpenWriter(ctx, WriterConfig{Start: start, Authority: control.Absolute})
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = errors.CombineErrors(err, w.Close())
+		_, err_ := w.Close()
+		err = errors.CombineErrors(err, err_)
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err
@@ -67,7 +94,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
-	if err := w.validate(series); err != nil {
+	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
 	dw, ok := w.control.Authorize()
@@ -82,8 +109,8 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return alignment, err
 }
 
-func (w *Writer) SetAuthority(a control.Authority) {
-	w.control.SetAuthority(a)
+func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
+	return w.control.SetAuthority(a)
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -128,26 +155,10 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	return end, err
 }
 
-func (w *Writer) Close() error {
-	dw, regionReleased := w.control.Release()
-	if !regionReleased {
-		return nil
+func (w *Writer) Close() (controller.Transfer, error) {
+	dw, t := w.control.Release()
+	if t.IsRelease() {
+		return t, dw.Close()
 	}
-	return dw.Close()
-}
-
-func (w *Writer) validate(series telem.Series) error {
-	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (w.Channel.DataType == telem.Int64T || w.Channel.DataType == telem.TimeStampT) {
-		return nil
-	}
-	if series.DataType != w.Channel.DataType {
-		return errors.Wrapf(
-			validate.Error,
-			"invalid array data type for channel %s, expected %s, got %s",
-			w.Channel.Key,
-			w.Channel.DataType,
-			series.DataType,
-		)
-	}
-	return nil
+	return t, nil
 }

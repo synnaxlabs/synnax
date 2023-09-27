@@ -14,6 +14,8 @@ import {
   type Synnax,
   TimeStamp,
   framer,
+  Authority,
+  control,
 } from "@synnaxlabs/client";
 import { z } from "zod";
 
@@ -29,7 +31,7 @@ export type Status = z.infer<typeof statusZ>;
 
 export const controllerStateZ = z.object({
   name: z.string(),
-  authority: z.number(),
+  authority: z.number().default(0),
   acquireTrigger: z.number(),
   status: statusZ.optional(),
 });
@@ -40,7 +42,7 @@ interface InternalState {
   addStatus: status.Aggregate;
 }
 
-interface AetherControllerTelem {
+interface AetherControllerTelem extends telem.Telem {
   channelKeys: (client: Synnax) => Promise<channel.Keys>;
 }
 
@@ -50,12 +52,24 @@ export class Controller
 {
   registry = new Map<AetherControllerTelem, null>();
   writer?: framer.Writer;
+  controlState?: control.StateTracker;
 
   static readonly TYPE = "Controller";
   schema = controllerStateZ;
 
   afterUpdate(): void {
-    this.internal.client = synnax.use(this.ctx);
+    const nextClient = synnax.use(this.ctx);
+    if (nextClient !== this.internal.client)
+      this.registry.forEach((_, telem) => telem.invalidate());
+    this.internal.client = nextClient;
+    if (nextClient != null) {
+      control.StateTracker.open(nextClient.telem)
+        .then((state) => {
+          this.controlState = state;
+          this.registry.forEach((_, telem) => telem.invalidate());
+        })
+        .catch(console.error);
+    }
     const t = telem.get(this.ctx);
     if (!(t instanceof Controller)) this.internal.prov = t;
     this.internal.addStatus = status.useAggregate(this.ctx);
@@ -63,10 +77,17 @@ export class Controller
 
     // If the counter has been incremented, we need to acquire control.
     // If the counter has been decremented, we need to release control.
-    if (this.state.acquireTrigger > this.prevState.acquireTrigger) {
-      void this.acquire();
-    } else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
+    if (this.state.acquireTrigger > this.prevState.acquireTrigger) void this.acquire();
+    else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
       void this.release();
+  }
+
+  afterDelete(): void {
+    void this.release();
+  }
+
+  get controlKey(): string {
+    return `${this.state.name}-${this.key}`;
   }
 
   private async channelKeys(): Promise<channel.Keys> {
@@ -94,7 +115,12 @@ export class Controller
           variant: "warning",
         });
 
-      this.writer = await client.telem.newWriter(TimeStamp.now(), keys);
+      this.writer = await client.telem.newWriter(
+        TimeStamp.now(),
+        keys,
+        this.controlKey,
+        this.state.authority,
+      );
       this.setState((p) => ({ ...p, status: "acquired" }));
       addStatus({
         message: `Acquired control on ${this.state.name}`,
@@ -113,6 +139,7 @@ export class Controller
 
   async release(): Promise<void> {
     await this.writer?.close();
+    this.controlState?.close();
     this.writer = undefined;
     this.setState((p) => ({ ...p, status: "released" }));
     this.internal.addStatus({
@@ -126,13 +153,40 @@ export class Controller
     await this.writer?.write(frame);
   }
 
+  async setAuthority(channels: channel.Keys, value: Authority): Promise<void> {
+    if (this.writer == null) await this.acquire();
+    await this.writer?.setAuthority(
+      Object.fromEntries(channels.map((k) => [k, value])),
+    );
+  }
+
+  async releaseAuthority(keys: channel.Keys): Promise<void> {
+    if (this.writer == null) await this.acquire();
+    await this.writer?.setAuthority(
+      Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+    );
+  }
+
   create(key: string, spec: telem.Spec): telem.Telem | null {
-    if (spec.type === NumericSink.TYPE) {
-      const sink = new NumericSink(key, this);
-      this.registry.set(sink, null);
-      return sink;
+    switch (spec.type) {
+      case NumericSink.TYPE: {
+        const sink = new NumericSink(key, this);
+        this.registry.set(sink, null);
+        return sink;
+      }
+      case AuthoritySource.TYPE: {
+        const source = new AuthoritySource(key, this);
+        this.registry.set(source, null);
+        return source;
+      }
+      case AuthoritySink.TYPE: {
+        const sink = new AuthoritySink(key, this);
+        this.registry.set(sink, null);
+        return sink;
+      }
+      default:
+        return null;
     }
-    return null;
   }
 
   use<T>(key: string, spec: telem.Spec): telem.UseResult<T> {
@@ -190,6 +244,111 @@ export class NumericSink
     );
     await this.controller.set(frame);
   }
+}
+
+export const authoritySourceProps = z.object({
+  channel: z.number(),
+});
+
+export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
+
+export class AuthoritySource
+  extends TelemMeta<typeof authoritySourceProps>
+  implements telem.StatusSource, AetherControllerTelem
+{
+  static readonly TYPE = "controlled-status-source";
+  private readonly controller: Controller;
+  private valid = false;
+  schema = authoritySourceProps;
+  constructor(key: string, controller: Controller) {
+    super(key);
+    this.controller = controller;
+  }
+
+  async channelKeys(client: Synnax): Promise<channel.Keys> {
+    return [];
+  }
+
+  async value(): Promise<status.Spec> {
+    const c = this.controller.controlState;
+    if (c == null)
+      return {
+        key: this.key,
+        variant: "disabled",
+        message: "No control information available",
+        time: TimeStamp.now(),
+      };
+    const state = c.states.get(this.props.channel);
+    if (!this.valid) {
+      this.controller.controlState?.onChange((t) => {
+        if (
+          t.some(
+            (t) =>
+              t.from?.resource === this.props.channel ||
+              t.to?.resource === this.props.channel,
+          )
+        )
+          this.notify?.();
+      });
+      this.valid = true;
+    }
+    if (state == null)
+      return {
+        key: this.key,
+        variant: "disabled",
+        message: "Uncontrolled",
+        time: TimeStamp.now(),
+      };
+    return {
+      key: this.key,
+      variant: state.subject === this.controller.controlKey ? "success" : "error",
+      message:
+        state.subject === this.controller.controlKey
+          ? "In Control"
+          : `Controlled by ${state.subject}`,
+      time: TimeStamp.now(),
+    };
+  }
+
+  invalidate(): void {
+    this.valid = false;
+    this.notify?.();
+  }
+}
+
+export const authoritySinkProps = z.object({
+  authority: z.number().default(Authority.ABSOLUTE.valueOf()),
+  channel: z.number(),
+});
+
+export type AuthoritySinkProps = z.infer<typeof authoritySinkProps>;
+
+export class AuthoritySink
+  extends TelemMeta<typeof authoritySinkProps>
+  implements telem.BooleanSink, AetherControllerTelem
+{
+  static readonly TYPE = "controlled-authority-sink";
+  private readonly controller: Controller;
+  schema = authoritySinkProps;
+  keys: channel.Keys = [];
+
+  constructor(key: string, controller: Controller) {
+    super(key);
+    this.controller = controller;
+  }
+
+  async channelKeys(client: Synnax): Promise<channel.Keys> {
+    const chan = await client.channels.retrieve(this.props.channel);
+    this.keys = [chan.key, chan.index];
+    return [];
+  }
+
+  async set(value: boolean): Promise<void> {
+    if (!value) await this.controller.releaseAuthority(this.keys);
+    else await this.controller.setAuthority(this.keys, this.props.authority);
+  }
+
+  invalidate(): void {}
 }
 
 export const REGISTRY: aether.ComponentRegistry = {

@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type KeyOrName, type Params } from "@/channel/payload";
+import { type Key, type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { Authority } from "@/control/authority";
 import { ForwardFrameAdapter } from "@/framer/adapter";
@@ -31,12 +31,13 @@ enum Command {
   Write = 1,
   Commit = 2,
   Error = 3,
+  SetAuthority = 4,
 }
 
 const configZ = z.object({
-  start: TimeStamp.z,
-  name: z.string(),
-  keys: z.number().array().optional(),
+  start: TimeStamp.z.optional(),
+  name: z.string().optional(),
+  keys: z.number().array(),
   authorities: Authority.z.array().optional(),
 });
 
@@ -169,6 +170,17 @@ export class Writer {
     // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
+  }
+
+  async setAuthority(value: Record<Key, Authority>): Promise<boolean> {
+    const res = await this.execute({
+      command: Command.SetAuthority,
+      config: {
+        keys: Object.keys(value).map((k) => Number(k)),
+        authorities: Object.values(value),
+      },
+    });
+    return res.ack;
   }
 
   /**

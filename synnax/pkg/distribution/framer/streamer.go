@@ -113,7 +113,7 @@ type StreamerRequest = StreamerConfig
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
 	l := &streamer{}
 
-	if lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() }) {
+	if lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != 65537 }) {
 		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
 			Keys:   cfg.Keys,
 			Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),

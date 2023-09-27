@@ -11,6 +11,7 @@ package distribution
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -20,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type (
@@ -57,6 +60,7 @@ func (d Distribution) Close() error {
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
 func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
+
 	d.Core, err = core.Open(ctx, cfg)
 	if err != nil {
 		return d, err
@@ -102,7 +106,6 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	if err != nil {
 		return d, err
 	}
-	d.Ontology.RegisterService(d.Channel)
 
 	d.Framer, err = framer.Open(framer.Config{
 		Instrumentation: cfg.Instrumentation.Child("framer"),
@@ -111,6 +114,19 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Transport:       frameTransport,
 		HostResolver:    d.Cluster,
 	})
+
+	controlCh := []channel.Channel{{
+		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
+		Leaseholder: d.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+	}}
+	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
+		return d, err
+	}
+	if err := d.Storage.TS.ConfigureControlDigestChannel(ctx, ts.ChannelKey(controlCh[0].Key())); err != nil {
+		return d, err
+	}
 
 	d.CDC, err = cdc.New(cdc.Config{
 		Channel:         d.Channel,

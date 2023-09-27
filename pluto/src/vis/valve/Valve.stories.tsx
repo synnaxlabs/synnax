@@ -31,7 +31,7 @@ const Example = (): ReactElement => {
     wrap: numericSource,
     trueBound: { lower: 30, upper: 40 },
   });
-  const numericSink = Control.useNumeric({
+  const numericSink = Control.useNumericSink({
     channel: 65541,
   });
   const booleanSink = Bool.useNumericConverterSink({

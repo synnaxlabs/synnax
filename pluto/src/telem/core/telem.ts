@@ -11,6 +11,7 @@ import { type bounds, type GLBufferController, type Series } from "@synnaxlabs/x
 import { z } from "zod";
 
 import { type color } from "@/color/core";
+import { type Status } from "@/status";
 
 const transferrable = z.union([z.instanceof(ArrayBuffer)]);
 
@@ -144,3 +145,14 @@ export const numericSinkSpecZ = specZ.extend({
 });
 
 export type NumericSinkSpec = z.infer<typeof numericSinkSpecZ>;
+
+export const statusSourceSpecZ = specZ.extend({
+  variant: z.literal("status-source"),
+});
+
+export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
+
+export interface StatusSource extends Telem {
+  value: () => Promise<Status.Spec>;
+  onChange: (f: () => void) => void;
+}

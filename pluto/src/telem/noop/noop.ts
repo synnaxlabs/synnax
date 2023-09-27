@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeStamp } from "@synnaxlabs/x";
+
+import { type status } from "@/status/aether";
 import { type telem } from "@/telem/core";
 
 class Noop implements telem.Telem {
@@ -74,11 +77,34 @@ export const numericSourceSpec: telem.NumericSourceSpec = {
   props: {},
   variant: "numeric-source",
 };
+
+class StatusSource extends Noop implements telem.StatusSource {
+  static readonly TYPE = "noop-status-source";
+
+  async value(): Promise<status.Spec> {
+    return {
+      key: "noop",
+      variant: "disabled",
+      message: "unknown",
+      time: TimeStamp.now(),
+    };
+  }
+
+  onChange(): void {}
+}
+
+export const statusSourceSpec: telem.StatusSourceSpec = {
+  type: StatusSource.TYPE,
+  props: {},
+  variant: "status-source",
+};
+
 const REGISTRY: Record<string, telem.Telem> = {
   [BooleanSink.TYPE]: new BooleanSink(),
   [NumericSink.TYPE]: new NumericSink(),
   [BooleanSource.TYPE]: new BooleanSource(),
   [NumericSource.TYPE]: new NumericSource(),
+  [StatusSource.TYPE]: new StatusSource(),
 };
 
 export class Factory implements telem.Factory {

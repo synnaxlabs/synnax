@@ -9,9 +9,9 @@
 
 import { type ReactElement } from "react";
 
+import { Authority } from "@synnaxlabs/client";
+import { bounds, direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
-
-import {bounds, direction} from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
@@ -24,6 +24,7 @@ import { Remote } from "@/telem/remote";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
+import { Chip } from "@/vis/chip";
 import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
 import { Valve, type ValveProps } from "@/vis/valve/Valve";
 
@@ -34,6 +35,7 @@ interface ElementProps extends Omit<ValveProps, "telem" | "color" | "source" | "
   sink: Control.NumericSinkProps;
   label: string;
   color: Color.Crude;
+  authority: number;
 }
 
 const { Left, Top, Right, Bottom } = Position;
@@ -47,14 +49,16 @@ const Element = ({
   direction: dir = "x",
   source,
   sink,
+  authority,
   ...props
 }: Props<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void =>
-    onChange({ ...props, label, source, sink });
+    onChange({ ...props, label, source, sink, authority });
 
-
+  const authoritySource = Control.useAuthoritySource({ channel: sink.channel });
+  const authoritySink = Control.useAuthoritySink({ channel: sink.channel, authority });
   const sourceN = Remote.useNumericSource(source);
-  const sinkN = Control.useNumeric(sink);
+  const sinkN = Control.useNumericSink(sink);
   const sourceB = Bool.useNumericConverterSource({
     wrap: sourceN,
     trueBound: bounds.construct(0.9, 1.1),
@@ -83,6 +87,14 @@ const Element = ({
         <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
         <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
       </div>
+      <Align.Space direction="x" style={{ width: "100%", marginTop: "-1rem" }}>
+        <Chip.Chip
+          size="small"
+          source={authoritySource}
+          sink={authoritySink}
+          variant="text"
+        />
+      </Align.Space>
     </Align.Space>
   );
 };
@@ -101,6 +113,9 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
 
   const handleDirectionChange = (direction: direction.Direction): void =>
     onChange({ ...value, direction });
+
+  const handleAuthorityChange = (authority: number): void =>
+    onChange({ ...value, authority });
 
   return (
     <>
@@ -140,6 +155,14 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
           onChange={handleSinkChange}
           grow
         />
+        <Input.Item<number>
+          label="Authority"
+          value={value.authority}
+          onChange={handleAuthorityChange}
+          grow
+        >
+          {componentRenderProp(Input.Numeric)}
+        </Input.Item>
       </Align.Space>
     </>
   );
@@ -158,6 +181,7 @@ const initialProps = (th: Theming.Theme): ElementProps => ({
   sink: {
     channel: 0,
   },
+  authority: Authority.ABSOLUTE.valueOf(),
 });
 
 export const ValveSpec: Spec<ElementProps> = {

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"strconv"
@@ -185,6 +186,9 @@ type Channel struct {
 	// Virtual is set to true if the channel is a virtual channel. The data from virtual
 	// channels is not persisted into the DB.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Concurrency sets the policy for concurrent writes to the same region of the
+	// channel's data. Only virtual channels can have a policy of control.Shared.
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 }
 
 // Key returns the key for the Channel.
@@ -220,11 +224,13 @@ func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
-		Key:      uint32(c.Key()),
-		DataType: c.DataType,
-		IsIndex:  c.IsIndex,
-		Rate:     c.Rate,
-		Index:    uint32(c.Index()),
+		Key:         uint32(c.Key()),
+		DataType:    c.DataType,
+		IsIndex:     c.IsIndex,
+		Rate:        c.Rate,
+		Index:       uint32(c.Index()),
+		Virtual:     c.Virtual,
+		Concurrency: c.Concurrency,
 	}
 }
 

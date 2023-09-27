@@ -25,6 +25,8 @@ export {
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { ontology } from "@/ontology";
+export { control } from "@/control";
+export { Authority } from "@/control/authority";
 export {
   DataType,
   Density,

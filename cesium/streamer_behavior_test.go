@@ -57,6 +57,40 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			Expect(f.Frame.Series[0]).To(Equal(d))
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+	Describe("Virtual Channels", func() {
+		It("Should describe to written frames for virtual channels", func() {
+			var basic2 cesium.ChannelKey = 2
+			By("Creating a channel")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: basic2, DataType: telem.Int64T, Virtual: true},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{basic2},
+				Start:    10 * telem.SecondTS,
+			}))
+			r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+				Channels: []cesium.ChannelKey{basic2},
+			}))
+			i, o := confluence.Attach(r, 1)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			r.Flow(sCtx, confluence.CloseInletsOnExit())
+
+			Expect(w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{basic2},
+				[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+			))).To(BeTrue())
+			f := <-o.Outlet()
+			Expect(f.Frame.Keys).To(HaveLen(1))
+			Expect(f.Frame.Series).To(HaveLen(1))
+			Expect(f.Frame.Series[0]).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))
+			i.Close()
+			Expect(sCtx.Wait()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
 		})
 	})
 })

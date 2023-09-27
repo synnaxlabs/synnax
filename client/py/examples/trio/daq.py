@@ -84,7 +84,7 @@ print(
 """
 )
 
-rate = (sy.Rate.HZ * 500).period.seconds
+rate = (sy.Rate.HZ * 50).period.seconds
 
 state = {
     press_en_cmd.key: np.float32(0),

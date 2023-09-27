@@ -44,18 +44,12 @@ class _Config(Payload):
     name: str | None = None
     start: TimeStamp | None = None
     keys: ChannelKeys
-    send_control_digests: bool | None = None
 
 
 class _Request(Payload):
     config: _Config | None = None
     command: _Command
     frame: FramePayload | None = None
-
-
-class _ResponseVariant(int, Enum):
-    ACK = 1
-    CONTROL = 2
 
 
 class _Response(Payload):
@@ -120,7 +114,6 @@ class Writer:
         adapter: WriteFrameAdapter,
         name: str = "",
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
-        send_control_digests: bool = False,
         suppress_warnings: bool = False,
         strict: bool = False,
     ) -> None:
@@ -129,20 +122,18 @@ class Writer:
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open(name, authorities, send_control_digests)
+        self.__open(name, authorities)
 
     def __open(
         self,
         name: str,
         authorities: list[Authority],
-        send_control_digests: bool,
     ) -> None:
         config = _Config(
             name=name,
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            send_control_digests=send_control_digests,
         )
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()

@@ -63,7 +63,6 @@ class Client:
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
         name: str = "",
-        send_control_digests: bool = False,
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> Writer:
@@ -93,7 +92,6 @@ class Client:
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
-            send_control_digests=send_control_digests,
             name=name
         )
 

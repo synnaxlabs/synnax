@@ -11,6 +11,8 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/virtual"
+	"github.com/synnaxlabs/x/confluence"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -40,9 +42,15 @@ func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 
 type DB struct {
 	*options
-	relay *relay
-	mu    sync.RWMutex
-	dbs   map[uint32]unary.DB
+	relay      *relay
+	mu         sync.RWMutex
+	unaryDBs   map[ChannelKey]unary.DB
+	virtualDBs map[ChannelKey]virtual.DB
+	digests    struct {
+		key    ChannelKey
+		inlet  confluence.Inlet[WriterRequest]
+		outlet confluence.Outlet[WriterResponse]
+	}
 }
 
 // Write implements DB.
@@ -82,7 +90,8 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 // Close implements DB.
 func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	for _, u := range db.dbs {
+	db.closeControlDigests()
+	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
 	c.Exec(db.relay.close)

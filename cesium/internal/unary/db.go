@@ -10,7 +10,6 @@
 package unary
 
 import (
-	"context"
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -19,15 +18,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type writeControlState struct {
-	counter int
-	writers []*Writer
-}
-
 type DB struct {
 	Config
 	Domain     *domain.DB
-	controller *controller.Controller[*domain.Writer]
+	Controller *controller.Controller[*domain.Writer]
 	_idx       index.Index
 }
 
@@ -46,28 +40,6 @@ func (db *DB) index() index.Index {
 }
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
-
-func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	w := &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
-	gateCfg := controller.Config{
-		TimeRange: cfg.domain().Domain(),
-		Authority: cfg.Authority,
-		Name:      cfg.Name,
-		Digests:   cfg.ControlDigests,
-	}
-
-	g, ok := db.controller.OpenGate(gateCfg)
-	if !ok {
-		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-		if err != nil {
-			return nil, err
-		}
-		gateCfg.TimeRange = dw.Domain()
-		g = db.controller.RegisterAndOpenGate(gateCfg, dw)
-	}
-	w.control = g
-	return w, nil
-}
 
 type IteratorConfig struct {
 	Bounds telem.TimeRange

@@ -16,9 +16,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -26,8 +27,6 @@ import (
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
 type WriterCommand uint8
-
-type ControllerDigest = controller.Digest
 
 const (
 	// WriterWrite represents a call to Writer.Write.
@@ -49,17 +48,8 @@ type WriterRequest struct {
 	Config WriterConfig
 }
 
-type WriterResponseVariant uint8
-
-const (
-	WriterResponseAck WriterResponseVariant = iota + 1
-	WriterResponseControl
-)
-
 // WriterResponse contains any errors that occurred during write execution.
 type WriterResponse struct {
-	// Variant is the variant of the response.
-	Variant WriterResponseVariant
 	// Command is the command that is being responded to.
 	Command WriterCommand
 	// Ack represents the return frame of the command.
@@ -73,8 +63,6 @@ type WriterResponse struct {
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
-	// Control
-	Control controller.Digest
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -106,33 +94,26 @@ type streamWriter struct {
 	WriterConfig
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay          confluence.Inlet[Frame]
-	controlDigests confluence.Outlet[controller.Digest]
-	internal       []*idxWriter
-	seqNum         int
-	err            error
+	relay           confluence.Inlet[Frame]
+	internal        []*idxWriter
+	virtual         virtualWriter
+	seqNum          int
+	err             error
+	updateDBControl func(ctx context.Context, u ControlUpdate)
 }
 
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(w.Out)
-	if !reflect.IsNil(w.controlDigests) {
-		ctx.Go(func(_ context.Context) error {
-			for digest := range w.controlDigests.Outlet() {
-				w.Out.Inlet() <- WriterResponse{Variant: WriterResponseControl, Control: digest}
-			}
-			return nil
-		})
-	}
 	ctx.Go(func(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.CombineErrors(w.close(), ctx.Err())
+				return errors.CombineErrors(w.close(ctx), ctx.Err())
 			case req, ok := <-w.In.Outlet():
 				if !ok {
-					return w.close()
+					return w.close(ctx)
 				}
 				if req.Command < WriterWrite || req.Command > WriterSetAuthority {
 					panic("[cesium.streamWriter] - invalid command")
@@ -145,7 +126,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				if req.Command == WriterSetAuthority {
 					w.seqNum++
-					w.setAuthority(req.Config)
+					w.setAuthority(ctx, req.Config)
 					w.sendRes(req, true, nil, 0)
 					continue
 				}
@@ -170,30 +151,41 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (w *streamWriter) setAuthority(cfg WriterConfig) {
+func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
+	u := ControlUpdate{
+		Transfers: make([]controller.Transfer, 0, len(w.internal)),
+	}
 	if len(cfg.Channels) == 0 {
 		for _, idx := range w.internal {
 			for _, chW := range idx.internal {
-				chW.SetAuthority(cfg.Authorities[0])
-			}
-		}
-		return
-	}
-	for i, ch := range cfg.Channels {
-		for _, idx := range w.internal {
-			for _, chW := range idx.internal {
-				if chW.Channel.Key == ch {
-					chW.SetAuthority(cfg.authority(i))
+				transfer := chW.SetAuthority(cfg.Authorities[0])
+				if transfer.Occurred() {
+					u.Transfers = append(u.Transfers, transfer)
 				}
 			}
 		}
+	} else {
+		for i, ch := range cfg.Channels {
+			for _, idx := range w.internal {
+				for _, chW := range idx.internal {
+					if chW.Channel.Key == ch {
+						transfer := chW.SetAuthority(cfg.authority(i))
+						if transfer.Occurred() {
+							u.Transfers = append(u.Transfers, transfer)
+						}
+					}
+				}
+			}
+		}
+	}
+	if len(u.Transfers) > 0 {
+		w.updateDBControl(ctx, u)
 	}
 }
 
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
 	w.Out.Inlet() <- WriterResponse{
 		Command: req.Command,
-		Variant: WriterResponseAck,
 		Ack:     ack,
 		SeqNum:  w.seqNum,
 		Err:     err,
@@ -205,6 +197,9 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
+			if errors.Is(err, control.Unauthorized) {
+				return nil
+			}
 			return err
 		}
 	}
@@ -226,10 +221,23 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	return maxTS, nil
 }
 
-func (w *streamWriter) close() error {
+func (w *streamWriter) close(ctx context.Context) error {
 	c := errutil.NewCatch(errutil.WithAggregation())
+	u := ControlUpdate{
+		Transfers: make([]controller.Transfer, 0, len(w.internal)),
+	}
 	for _, idx := range w.internal {
-		c.Exec(idx.Close)
+		c.Exec(func() error {
+			u_, err := idx.Close()
+			if err != nil {
+				return err
+			}
+			u.Transfers = append(u.Transfers, u_.Transfers...)
+			return nil
+		})
+	}
+	if len(u.Transfers) > 0 {
+		w.updateDBControl(ctx, u)
 	}
 	return errors.CombineErrors(w.err, c.Error())
 }
@@ -359,12 +367,22 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, c.Error()
 }
 
-func (w *idxWriter) Close() error {
+func (w *idxWriter) Close() (ControlUpdate, error) {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	for _, chW := range w.internal {
-		c.Exec(chW.Close)
+	update := ControlUpdate{
+		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
-	return c.Error()
+	for _, chW := range w.internal {
+		c.Exec(func() error {
+			transfer, err := chW.Close()
+			if err != nil {
+				return err
+			}
+			update.Transfers = append(update.Transfers, transfer)
+			return nil
+		})
+	}
+	return update, c.Error()
 }
 
 func (w *idxWriter) updateHighWater(col telem.Series) error {
@@ -385,4 +403,25 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
+}
+
+type virtualWriter struct {
+	internal map[ChannelKey]*virtual.Writer
+}
+
+func (w *virtualWriter) Write(fr Frame) (Frame, error) {
+	for i, k := range fr.Keys {
+		v, ok := w.internal[k]
+		if !ok {
+			continue
+		}
+		series := fr.Series[i]
+		alignment, err := v.Write(series)
+		if err != nil {
+			return fr, err
+		}
+		series.Alignment = alignment
+		fr.Series[i] = series
+	}
+	return fr, nil
 }

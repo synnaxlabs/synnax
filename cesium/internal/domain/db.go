@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -73,6 +74,7 @@ type Config struct {
 	// that the exact performance impact of changing this value is still relatively unknown.
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int
+	ChannelKey     core.ChannelKey
 }
 
 var (
@@ -90,6 +92,7 @@ func (c Config) Validate() error {
 	validate.Positive(v, "fileSize", c.FileSize)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
+	validate.NonZero(v, "channelKey", c.ChannelKey)
 	return v.Error()
 }
 
@@ -99,6 +102,7 @@ func (c Config) Override(other Config) Config {
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.ChannelKey = override.Numeric(c.ChannelKey, other.ChannelKey)
 	return c
 }
 

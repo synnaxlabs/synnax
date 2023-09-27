@@ -58,7 +58,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
 CoreIcon.displayName = "ButtonIcon";
 
 const color_ = (disabled?: boolean, color?: string): string => {
-  if (disabled === true) return "var(--pluto-gray-m2)";
+  if (disabled === true) return "var(--pluto-gray-p0)";
   if (color != null) return color;
   return "var(--pluto-text-color)";
 };

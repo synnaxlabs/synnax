@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -91,94 +91,117 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 }
 
 func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *streamWriter, err error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		controlDigests *confluence.Stream[controller.Digest] = nil
-		domainWriters  map[ChannelKey]*idxWriter
-		rateWriters    map[telem.Rate]*idxWriter
+		domainWriters map[ChannelKey]*idxWriter
+		rateWriters   map[telem.Rate]*idxWriter
+		virt          map[ChannelKey]*virtual.Writer
+		controlUpdate ControlUpdate
 	)
-	if len(cfg.Channels) >= 1 && *cfg.SendControlDigests {
-		controlDigests = confluence.NewStream[controller.Digest](len(cfg.Channels) * 2)
-	}
 
 	defer func() {
 		if err == nil {
 			return
 		}
 		for _, idx := range domainWriters {
-			err = errors.CombineErrors(idx.Close(), err)
+			_, err_ := idx.Close()
+			err = errors.CombineErrors(err_, err)
 		}
 		for _, idx := range rateWriters {
-			err = errors.CombineErrors(idx.Close(), err)
+			_, err_ := idx.Close()
+			err = errors.CombineErrors(err_, err)
 		}
 	}()
 
 	for i, key := range cfg.Channels {
-		u, ok := db.dbs[key]
-		if !ok {
+		u, uOk := db.unaryDBs[key]
+		v, vOk := db.virtualDBs[key]
+		if !vOk && !uOk {
 			return nil, ChannelNotFound
 		}
-
-		w, err := u.OpenWriter(ctx, unary.WriterConfig{
-			Name:           cfg.Name,
-			Start:          cfg.Start,
-			Authority:      cfg.authority(i),
-			ControlDigests: controlDigests,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if u.Channel.Index != 0 {
-
-			// Hot path optimization: in the common case we only write to a rate based
-			// index or a domain indexed channel, not both. In either case we can avoid a
-			// map allocation.
-			if domainWriters == nil {
-				domainWriters = make(map[ChannelKey]*idxWriter)
+		var (
+			auth     = cfg.authority(i)
+			transfer controller.Transfer
+		)
+		if vOk {
+			if virt == nil {
+				virt = make(map[ChannelKey]*virtual.Writer)
 			}
-
-			idxW, exists := domainWriters[u.Channel.Index]
-			if !exists {
-				idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
-				if err != nil {
-					return nil, err
-				}
-				idxW.writingToIdx = u.Channel.IsIndex
-				domainWriters[u.Channel.Index] = idxW
-			} else if u.Channel.IsIndex {
-				idxW.writingToIdx = true
-				domainWriters[u.Channel.Index] = idxW
-			}
-
-			idxW.internal[key] = &unaryWriterState{Writer: *w}
+			virt[key], transfer = v.OpenWriter(ctx, virtual.WriterConfig{
+				Name:      cfg.Name,
+				Start:     cfg.Start,
+				Authority: auth,
+			})
 		} else {
-
-			// Hot path optimization: in the common case we only write to a rate based
-			// index or an indexed channel, not both. In either case we can avoid a
-			// map allocation.
-			if rateWriters == nil {
-				rateWriters = make(map[telem.Rate]*idxWriter)
+			auth := cfg.authority(i)
+			var w *unary.Writer
+			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
+				Name:      cfg.Name,
+				Start:     cfg.Start,
+				Authority: auth,
+			})
+			if err != nil {
+				return nil, err
 			}
+			if u.Channel.Index != 0 {
+				// Hot path optimization: in the common case we only write to a rate based
+				// index or a domain indexed channel, not both. In either case we can avoid a
+				// map allocation.
+				if domainWriters == nil {
+					domainWriters = make(map[ChannelKey]*idxWriter)
+				}
+				idxW, exists := domainWriters[u.Channel.Index]
+				if !exists {
+					idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
+					if err != nil {
+						return nil, err
+					}
+					idxW.writingToIdx = u.Channel.IsIndex
+					domainWriters[u.Channel.Index] = idxW
+				} else if u.Channel.IsIndex {
+					idxW.writingToIdx = true
+					domainWriters[u.Channel.Index] = idxW
+				}
 
-			idxW, ok := rateWriters[u.Channel.Rate]
-			if !ok {
-				idxW = db.openRateIdxWriter(u.Channel.Rate, cfg)
-				rateWriters[u.Channel.Rate] = idxW
+				idxW.internal[key] = &unaryWriterState{Writer: *w}
+			} else {
+
+				// Hot path optimization: in the common case we only write to a rate based
+				// index or an indexed channel, not both. In either case we can avoid a
+				// map allocation.
+				if rateWriters == nil {
+					rateWriters = make(map[telem.Rate]*idxWriter)
+				}
+
+				idxW, ok := rateWriters[u.Channel.Rate]
+				if !ok {
+					idxW = db.openRateIdxWriter(u.Channel.Rate, cfg)
+					rateWriters[u.Channel.Rate] = idxW
+				}
+
+				idxW.internal[key] = &unaryWriterState{Writer: *w}
 			}
-
-			idxW.internal[key] = &unaryWriterState{Writer: *w}
+			if transfer.Occurred() {
+				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
+			}
 		}
 	}
 
+	if len(controlUpdate.Transfers) > 0 {
+		db.updateControlDigests(ctx, controlUpdate)
+	}
+
 	w = &streamWriter{
-		internal:       make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
-		relay:          db.relay.inlet,
-		controlDigests: controlDigests,
+		internal:        make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
+		relay:           db.relay.inlet,
+		virtual:         virtualWriter{internal: virt},
+		updateDBControl: db.updateControlDigests,
 	}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
@@ -190,16 +213,18 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 }
 
 func (db *DB) openDomainIdxWriter(
-	chKey ChannelKey,
+	idxKey ChannelKey,
 	cfg WriterConfig,
 ) (*idxWriter, error) {
-	u, err := db.getUnary(chKey)
-	if err != nil {
-		return nil, err
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	u, ok := db.unaryDBs[idxKey]
+	if !ok {
+		return nil, ChannelNotFound
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
-	w.idx.key = chKey
+	w.idx.key = idxKey
 	w.idx.Index = idx
 	w.idx.highWaterMark = cfg.Start
 	w.writingToIdx = false

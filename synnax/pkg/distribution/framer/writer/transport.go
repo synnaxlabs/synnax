@@ -55,13 +55,13 @@ type Response struct {
 	// Command is the command that was executed on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Ack is the acknowledgement of the command.
-	Ack           bool                `json:"ack" msgpack:"ack"`
-	SeqNum        int                 `json:"seq_num" msgpack:"seq_num"`
-	NodeKey       dcore.NodeKey       `json:"node_key" msgpack:"node_key"`
-	Error         error               `json:"error" msgpack:"error"`
-	End           telem.TimeStamp     `json:"end" msgpack:"end"`
-	Variant       ResponseVariant     `json:"variant" msgpack:"variant"`
-	ControlDigest ts.ControllerDigest `json:"control_digest" msgpack:"control_digest"`
+	Ack           bool             `json:"ack" msgpack:"ack"`
+	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
+	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
+	Error         error            `json:"error" msgpack:"error"`
+	End           telem.TimeStamp  `json:"end" msgpack:"end"`
+	Variant       ResponseVariant  `json:"variant" msgpack:"variant"`
+	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
 }
 
 type (

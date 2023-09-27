@@ -12,32 +12,53 @@ package controller
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
 
-type Gate[E any] struct {
+type State = control.State[string, core.ChannelKey]
+
+type Transfer struct {
+	From *State
+	To   *State
+}
+
+func (t Transfer) Occurred() bool { return t.From != nil || t.To != nil }
+
+func (t Transfer) IsRelease() bool { return t.Occurred() && t.To == nil }
+
+type Entity interface {
+	ChannelKey() core.ChannelKey
+}
+
+// Gate controls access to an entity for a given region of time.
+type Gate[E Entity] struct {
 	Config
 	r           *region[E]
-	position    int
+	position    int64
 	concurrency control.Concurrency
-	hasDigests  bool
 }
 
-type Digest struct {
-	Name        string
-	Authority   control.Authority
-	Concurrency control.Concurrency
+func (g *Gate[E]) state() *State {
+	return &State{
+		Subject:   g.Name,
+		Resource:  g.r.entity.ChannelKey(),
+		Authority: g.Authority,
+	}
 }
 
+// Authorize authorizes the gates access to the entity. If another gate has precedence,
+// Authorize will return false.
 func (g *Gate[E]) Authorize() (e E, ok bool) {
 	g.r.RLock()
+	// In the case of exclusive concurrency, we only need to check if the gate is the
+	// current gate.
 	if g.concurrency == control.Exclusive {
 		ok = g.r.curr == g
 	} else {
+		// In the case of shared concurrency, we need to check if the gate has equal to
+		// or higher authority than the current gate.
 		ok = g.Authority >= g.r.curr.Authority
 	}
 	g.r.RUnlock()
@@ -47,131 +68,164 @@ func (g *Gate[E]) Authorize() (e E, ok bool) {
 	return g.r.entity, ok
 }
 
-func (g *Gate[E]) Release() (entity E, regionReleased bool) {
+// Release releases the gate's access to the entity. If the gate is the last gate in the
+// region, Release will return the entity and true. Otherwise, Release will return the
+// entity and false.
+func (g *Gate[E]) Release() (entity E, transfer Transfer) {
 	return g.r.release(g)
 }
 
-func (g *Gate[E]) SetAuthority(auth control.Authority) {
-	g.r.update(g, auth)
+// SetAuthority changes the gate's authority.
+func (g *Gate[E]) SetAuthority(auth control.Authority) Transfer {
+	return g.r.update(g, auth)
 }
 
-type region[E any] struct {
+type region[E Entity] struct {
 	sync.RWMutex
 	timeRange  telem.TimeRange
 	entity     E
-	counter    int
+	counter    int64
 	curr       *Gate[E]
 	gates      map[*Gate[E]]struct{}
 	controller *Controller[E]
 }
 
-func (r *region[E]) open(c Config, con control.Concurrency) *Gate[E] {
+// open opens a new gate on the region with the given config.
+func (r *region[E]) open(c Config, con control.Concurrency) (*Gate[E], Transfer) {
 	r.Lock()
 	g := &Gate[E]{
 		r:           r,
 		Config:      c,
 		position:    r.counter,
 		concurrency: con,
-		hasDigests:  !reflect.IsNil(c.Digests),
 	}
-	r.unprotectedOpen(g)
+	t := r.unprotectedOpen(g)
 	r.Unlock()
-	return g
+	return g, t
 }
 
-func (r *region[E]) release(g *Gate[E]) (e E, regionReleased bool) {
+// release a gate from the region.
+func (r *region[E]) release(g *Gate[E]) (e E, transfer Transfer) {
 	r.Lock()
-	if g.hasDigests {
-		g.Digests.Close()
-		g.Digests = nil
-	}
-	e, regionReleased = r.unprotectedRelease(g)
+	e, transfer = r.unprotectedRelease(g)
 	r.Unlock()
-	return e, regionReleased
+	return
 }
 
-func (r *region[E]) update(g *Gate[E], auth control.Authority) {
+// update a gate's authority.
+func (r *region[E]) update(g *Gate[E], auth control.Authority) Transfer {
 	r.Lock()
-	r.unprotectedRelease(g)
+	t := r.unprotectedUpdate(g, auth)
+	r.Unlock()
+	return t
+}
+
+func (r *region[E]) unprotectedUpdate(
+	g *Gate[E],
+	auth control.Authority,
+) (t Transfer) {
 	g.Authority = auth
-	r.unprotectedOpen(g)
-	r.Unlock()
+
+	// Gate is in control, should it not be?
+	if g == r.curr {
+		for og := range r.gates {
+			var (
+				isGate     = og == g
+				higherAuth = og.Authority > r.curr.Authority
+				betterPos  = og.Authority == r.curr.Authority && og.position < r.curr.position
+			)
+			if !isGate && (higherAuth || betterPos) {
+				r.curr = og
+				t.From = g.state()
+				t.To = og.state()
+				return t
+			}
+		}
+		// No transfer happened, gate remains in control.
+		return t
+	}
+
+	// Gate is not in control, should it be?
+	higherAuth := g.Authority > r.curr.Authority
+	betterPos := g.Authority == r.curr.Authority && g.position < r.curr.position
+	if higherAuth || betterPos {
+		t.From = r.curr.state()
+		r.curr = g
+		t.To = g.state()
+		return t
+	}
+	return
 }
 
-func (r *region[E]) unprotectedRelease(g *Gate[E]) (E, bool) {
+// unprotectedRelease releases a gate from the region without locking. If the gate is the
+// last gate in the region, the region will be removed from the controller and the
+// entity and true will be returned. Otherwise, the entity and false will be returned.
+func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 	delete(r.gates, g)
 	if len(r.gates) == 0 {
 		r.controller.remove(r)
-		return r.entity, true
+		t.From = g.state()
+		return r.entity, t
 	}
 	if g == r.curr {
+		t.From = r.curr.state()
 		r.curr = nil
-		for g := range r.gates {
+		for og := range r.gates {
 			// Three cases here: no one is in control, provided gate has higher authority,
 			// provided gate has equal authority and a higher position.
-			if r.curr == nil || g.Authority > r.curr.Authority || (g.Authority == r.curr.Authority && g.position > r.curr.position) {
-				r.unprotectedSetCurr(g)
+			if r.curr == nil || og.Authority > r.curr.Authority || (og.Authority == r.curr.Authority && og.position < r.curr.position) {
+				r.curr = og
+				t.To = og.state()
 			}
 		}
 	}
-	return r.entity, false
+	return r.entity, t
 }
 
-func (r *region[E]) unprotectedSetCurr(g *Gate[E]) {
-	r.curr = g
-	var dig Digest
-	if g == nil {
-		dig = Digest{Name: "None", Concurrency: r.controller.concurrency}
-	} else {
-		dig = Digest{Name: g.Name, Authority: g.Authority, Concurrency: g.concurrency}
-	}
-	for og := range r.gates {
-		if og.hasDigests {
-			og.Digests.Inlet() <- dig
-		}
-	}
-}
-
-func (r *region[E]) unprotectedOpen(g *Gate[E]) {
+func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer) {
 	if r.curr == nil || g.Authority > r.curr.Authority {
-		if g.hasDigests {
-			g.Digests.Acquire(1)
+		if r.curr != nil {
+			t.From = r.curr.state()
 		}
-		r.unprotectedSetCurr(g)
+		r.curr = g
+		t.To = g.state()
 	}
 	r.gates[g] = struct{}{}
 	r.counter++
+	return
 }
 
-type Controller[E any] struct {
+type Controller[E Entity] struct {
 	mu          sync.Mutex
 	regions     map[telem.TimeRange]*region[E]
 	concurrency control.Concurrency
 }
 
-func New[E any](conc control.Concurrency) *Controller[E] {
-	return &Controller[E]{regions: make(map[telem.TimeRange]*region[E]), concurrency: conc}
+func New[E Entity](c control.Concurrency) *Controller[E] {
+	return &Controller[E]{
+		regions:     make(map[telem.TimeRange]*region[E]),
+		concurrency: c,
+	}
 }
 
 type Config struct {
 	TimeRange telem.TimeRange
 	Authority control.Authority
-	Digests   confluence.Inlet[Digest]
 	Name      string
 }
 
-func (c *Controller[E]) OpenGate(cfg Config) (g *Gate[E], exists bool) {
+func (c *Controller[E]) OpenGate(cfg Config) (g *Gate[E], t Transfer, exists bool) {
 	c.mu.Lock()
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
-			g = r.open(cfg, c.concurrency)
+			g, t = r.open(cfg, c.concurrency)
 			r.gates[g] = struct{}{}
 			c.mu.Unlock()
-			return g, true
+			return g, t, true
 		}
 	}
 	c.mu.Unlock()
-	return nil, false
+	return nil, t, false
 }
 
 func (c *Controller[E]) Register(
@@ -193,7 +247,7 @@ func (c *Controller[E]) Register(
 func (c *Controller[E]) RegisterAndOpenGate(
 	cfg Config,
 	entity E,
-) *Gate[E] {
+) (*Gate[E], Transfer) {
 	c.mu.Lock()
 	r := &region[E]{
 		entity:     entity,
@@ -201,11 +255,11 @@ func (c *Controller[E]) RegisterAndOpenGate(
 		timeRange:  cfg.TimeRange,
 		controller: c,
 	}
-	g := r.open(cfg, c.concurrency)
+	g, t := r.open(cfg, c.concurrency)
 	r.gates[g] = struct{}{}
 	c.regions[cfg.TimeRange] = r
 	c.mu.Unlock()
-	return g
+	return g, t
 }
 
 func (c *Controller[E]) remove(r *region[E]) {

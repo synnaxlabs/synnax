@@ -27,6 +27,3 @@ Authority.DEFAULT = Authority(1)
 CrudeAuthority = int | Authority
 
 
-class Digest(Payload):
-    name: str = ""
-    authority: Authority

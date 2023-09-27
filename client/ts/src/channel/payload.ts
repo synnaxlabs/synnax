@@ -10,6 +10,7 @@
 import { DataType, Rate } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export const keyZ = z.number();
 export type Key = number;
 export type Keys = number[];
 export type Name = string;
