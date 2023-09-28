@@ -20,11 +20,11 @@ std::mutex mut;
 std::condition_variable cond;
 bool end_session = false;
 
-/// @brief Implements .proto generated interface Exec.
+/// @brief Implements .proto generated interface Unary.
 class myServiceImpl final : public test::messageService::Service 
 {
 public:
-    grpc::Status Exec(grpc::ServerContext* context, const test::Message* request, test::Message* reply) override
+    grpc::Status Unary(grpc::ServerContext* context, const test::Message* request, test::Message* reply) override
     {
         std::string rep("Read request: ");
         reply->set_payload(rep + request->payload());
