@@ -67,6 +67,14 @@ func (d *defaultFS) List() ([]os.FileInfo, error) {
 	return infos, nil
 }
 
+func (d *defaultFS) Delete(name string) error {
+	err := os.Remove(path.Join(d.dir, name))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func OSDirFS(dir string) (FS, error) {
 	err := os.MkdirAll(dir, defaultPerm)
 	return &defaultFS{dir: dir, perm: defaultPerm}, err
@@ -101,4 +109,12 @@ func (m *memFS) Exists(name string) (bool, error) {
 
 func (m *memFS) List() ([]os.FileInfo, error) {
 	return afero.ReadDir(m.Fs, ".")
+}
+
+func (m *memFS) Delete(name string) error {
+	err := m.Remove(name)
+	if err != nil {
+		return err
+	}
+	return nil
 }
