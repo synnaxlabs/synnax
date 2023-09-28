@@ -87,7 +87,7 @@ type DB interface {
 	io.Closer
 }
 
-// Change represents a change to a key-value pair. The contents of Key and Value
+// Change represents a change to a key-value pair. The contents of Name and Value
 // should be considered read-only, and modifications to them may cause unexpected
 // behavior.
 type Change = change.Change[[]byte, []byte]

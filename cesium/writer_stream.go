@@ -152,9 +152,10 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
-	u := ControlUpdate{
-		Transfers: make([]controller.Transfer, 0, len(w.internal)),
+	if len(cfg.Authorities) == 0 {
+		return
 	}
+	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	if len(cfg.Channels) == 0 {
 		for _, idx := range w.internal {
 			for _, chW := range idx.internal {
@@ -197,7 +198,7 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) {
+			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
 				return nil
 			}
 			return err

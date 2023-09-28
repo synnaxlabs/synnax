@@ -52,7 +52,7 @@ func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	return r
 }
 
-// WhereNames filters for channels whose Name attribute matches the provided name.
+// WhereNames filters for channels whose Key attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(names, ch.Name) })
 	return r

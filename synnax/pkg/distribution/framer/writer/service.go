@@ -21,6 +21,7 @@ package writer
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -41,7 +42,7 @@ import (
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
-	Name string `json:"name" msgpack:"name"`
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
@@ -86,13 +87,17 @@ var _ proxy.Entry = keyAuthority{}
 // Lease implements proxy.Entry.
 func (k keyAuthority) Lease() dcore.NodeKey { return k.key.Lease() }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
+var _ config.Config[Config] = Config{}
+
+func DefaultConfig() Config {
+	return Config{
+		ControlSubject: control.Subject{
+			Key: uuid.New().String(),
+		},
 		Authorities:        []control.Authority{control.Absolute},
 		SendControlDigests: config.False(),
 	}
-)
+}
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
 // channel keys across multiple nodes in the cluster. This method should only be valled
@@ -107,10 +112,10 @@ func (c Config) keyAuthorities() []keyAuthority {
 
 func (c Config) toStorage() ts.WriterConfig {
 	return ts.WriterConfig{
-		Name:        c.Name,
-		Channels:    c.Keys.Storage(),
-		Start:       c.Start,
-		Authorities: c.Authorities,
+		ControlSubject: c.ControlSubject,
+		Channels:       c.Keys.Storage(),
+		Start:          c.Start,
+		Authorities:    c.Authorities,
 	}
 }
 
@@ -118,6 +123,7 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
+	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternaryf(
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
@@ -127,7 +133,8 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.Name = override.String(c.Name, other.Name)
+	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
+	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
@@ -236,7 +243,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (*Writer, error) {
 // is only used for opening the stream and is not used for concurrent flow control. The
 // context for managing flow control must be provided to StreamWriter.Flow.
 func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}

@@ -31,7 +31,7 @@ type CoreBuilder struct {
 	mockstorage.Builder
 	// Config is the configuration used to provision new cores.
 	Config core.Config
-	// Cores contains a map of all cores paired with their respective host Key.
+	// Cores contains a map of all cores paired with their respective host Name.
 	Cores map[core.NodeKey]core.Core
 	// net is the network for transporting key-value operations.
 	net *aspentransmock.Network

@@ -24,7 +24,7 @@ import (
 type Service interface {
 	// Schema returns the schema of the entities returned by this service.
 	Schema() *Schema
-	// RetrieveResource returns the resource with the give key (Key.Key). If the resource
+	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.NotFound error.
 	RetrieveResource(ctx context.Context, key string) (Resource, error)
 	// Observable is used by the ontology to subscribe to changes in the entities.

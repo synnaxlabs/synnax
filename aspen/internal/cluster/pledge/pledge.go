@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package pledge provides a system for pledging a node to a jury of Candidates.
-// The pledge uses quorum consensus to assign the node a unique Key.
+// The pledge uses quorum consensus to assign the node a unique Name.
 //
 // To pledge a new node to a jury, call Pledge() with a set of peer addresses.
 // To register a node as a candidate, use Arbitrate().
@@ -17,7 +17,7 @@
 //
 //	Pledge - Used as both a verb and noun. A "PledgeServer" is a node that has
 //	'pledged' itself to the cluster. 'Pledging' is the entire process of
-//	contacting a peer, proposing an Key to a jury, and returning it to the pledge.
+//	contacting a peer, proposing an Name to a jury, and returning it to the pledge.
 //	Responsible - A node that is responsible for coordinating the Pledge process.
 //	A responsible node is the first peer that accepts the Pledge request from
 //	the pledge node.
@@ -55,7 +55,7 @@ var (
 
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
 // submits a request for id assignment to a peer in peers. If the cluster approves
-// the request, the node will be assigned an Key and registered to arbitrate in
+// the request, the node will be assigned an Name and registered to arbitrate in
 // future pledge (see the Arbitrate function for more on how this works). Keys
 // of nodes in the cluster are guaranteed to be unique, but are not guaranteed
 // to be sequential. Pledge will continue to contact peers at a scaling interval
@@ -124,7 +124,7 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 // request, the node will act as responsible for the pledge and submit proposed
 // Keys to a jury of candidate nodes. The responsible node will continue to propose
 // Keys until cfg.MaxProposals is reached. When processing a responisble's proposal,
-// the node will act a juror, and decide if it approves of the proposed Key
+// the node will act a juror, and decide if it approves of the proposed Name
 // or not. To see the required configuration parameters, see the Config struct.
 func Arbitrate(cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -172,10 +172,10 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		// to provide a consistent view through the lifetime of the proposal.
 		r.refreshCandidates()
 
-		// Add the proposed Key unconditionally. Quorum juror's store each
+		// Add the proposed Name unconditionally. Quorum juror's store each
 		// approved request. If one node in the quorum is unreachable, other
 		// Candidates may have already approved the request. This means that
-		// if we retry the request without incrementing the proposed Key, we'll
+		// if we retry the request without incrementing the proposed Name, we'll
 		// get a rejection from the candidate that approved the request last time.
 		// This will result in marginally higher Keys being assigned, but it's
 		// better than adding a lot of extra logic to the proposal process.
@@ -190,7 +190,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		logKey := zap.Uint32("key", uint32(res.Key))
 		r.L.Debug("responsible proposing", logKey, zap.Int("quorumCount", len(quorum)))
 
-		// If any node returns an error, it means we need to retry the responsible with a new Key.
+		// If any node returns an error, it means we need to retry the responsible with a new Name.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
 			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
@@ -199,7 +199,7 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		r.L.Debug("quorum accepted pledge", logKey)
 
 		// If no candidate returned an error, it means we reached a quorum approval,
-		// and we can safely return the new Key to the caller.
+		// and we can safely return the new Name to the caller.
 		return res, nil
 	}
 	r.L.Error(

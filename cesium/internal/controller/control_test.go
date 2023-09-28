@@ -97,14 +97,14 @@ var _ = Describe("Control", func() {
 				c := controller.New[testEntity](control.Exclusive)
 				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 				g1, t, ok := c.OpenGate(controller.Config{
-					Name:      "g1",
+					Subject:   control.Subject{Key: "g1"},
 					TimeRange: telem.TimeRangeMax,
 					Authority: control.Absolute,
 				})
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(t.From).To(BeNil())
 				Expect(t.To).ToNot(BeNil())
-				Expect(t.To.Subject).To(Equal("g1"))
+				Expect(t.To.Subject).To(Equal(control.Subject{Key: "g1"}))
 				Expect(ok).To(BeTrue())
 				g2, t, ok := c.OpenGate(controller.Config{
 					TimeRange: telem.TimeRangeMax,
@@ -121,7 +121,7 @@ var _ = Describe("Control", func() {
 				c := controller.New[testEntity](control.Exclusive)
 				Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 				g1, t, ok := c.OpenGate(controller.Config{
-					Name:      "g1",
+					Subject:   control.Subject{Key: "g1"},
 					TimeRange: telem.TimeRangeMax,
 					Authority: control.Absolute,
 				})
@@ -169,14 +169,14 @@ var _ = Describe("Control", func() {
 						c := controller.New[testEntity](control.Exclusive)
 						Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 						g1, t, ok := c.OpenGate(controller.Config{
-							Name:      "g1",
+							Subject:   control.Subject{Key: "g1"},
 							TimeRange: telem.TimeRangeMax,
 							Authority: control.Absolute - 1,
 						})
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(ok).To(BeTrue())
 						g2, t, ok := c.OpenGate(controller.Config{
-							Name:      "g2",
+							Subject:   control.Subject{Key: "g2"},
 							TimeRange: telem.TimeRangeMax,
 							Authority: control.Absolute - 2,
 						})
@@ -188,8 +188,8 @@ var _ = Describe("Control", func() {
 						Expect(ok).To(BeFalse())
 						t = g2.SetAuthority(control.Absolute)
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.From.Subject).To(Equal("g1"))
-						Expect(t.To.Subject).To(Equal("g2"))
+						Expect(t.From.Subject).To(Equal(control.Subject{Key: "g1"}))
+						Expect(t.To.Subject).To(Equal(control.Subject{Key: "g2"}))
 						_, ok = g2.Authorize()
 						Expect(ok).To(BeTrue())
 					})
@@ -200,14 +200,14 @@ var _ = Describe("Control", func() {
 							c := controller.New[testEntity](control.Exclusive)
 							Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 							g1, t, ok := c.OpenGate(controller.Config{
-								Name:      "g1",
+								Subject:   control.Subject{Key: "g1"},
 								TimeRange: telem.TimeRangeMax,
 								Authority: control.Absolute,
 							})
 							Expect(t.Occurred()).To(BeTrue())
 							Expect(ok).To(BeTrue())
 							g2, t, ok := c.OpenGate(controller.Config{
-								Name:      "g2",
+								Subject:   control.Subject{Key: "g2"},
 								TimeRange: telem.TimeRangeMax,
 								Authority: control.Absolute - 1,
 							})
@@ -230,14 +230,14 @@ var _ = Describe("Control", func() {
 							c := controller.New[testEntity](control.Exclusive)
 							Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 							g1, t, ok := c.OpenGate(controller.Config{
-								Name:      "g1",
+								Subject:   control.Subject{Key: "g1"},
 								TimeRange: telem.TimeRangeMax,
 								Authority: control.Absolute - 1,
 							})
 							Expect(t.Occurred()).To(BeTrue())
 							Expect(ok).To(BeTrue())
 							g2, t, ok := c.OpenGate(controller.Config{
-								Name:      "g2",
+								Subject:   control.Subject{Key: "g2"},
 								TimeRange: telem.TimeRangeMax,
 								Authority: control.Absolute,
 							})
@@ -249,8 +249,8 @@ var _ = Describe("Control", func() {
 							Expect(ok).To(BeTrue())
 							t = g2.SetAuthority(control.Absolute - 1)
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.From.Subject).To(Equal("g2"))
-							Expect(t.To.Subject).To(Equal("g1"))
+							Expect(t.From.Subject).To(Equal(control.Subject{Key: "g2"}))
+							Expect(t.To.Subject).To(Equal(control.Subject{Key: "g1"}))
 							_, ok = g2.Authorize()
 							Expect(ok).To(BeFalse())
 							_, ok = g1.Authorize()
@@ -263,13 +263,13 @@ var _ = Describe("Control", func() {
 						c := controller.New[testEntity](control.Exclusive)
 						Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
 						g1, t, ok := c.OpenGate(controller.Config{
-							Name:      "g1",
+							Subject:   control.Subject{Key: "g1"},
 							TimeRange: telem.TimeRangeMax,
 							Authority: control.Absolute,
 						})
 						Expect(t.Occurred()).To(BeTrue())
 						g2, t, ok := c.OpenGate(controller.Config{
-							Name:      "g2",
+							Subject:   control.Subject{Key: "g2"},
 							TimeRange: telem.TimeRangeMax,
 							Authority: control.Absolute - 1,
 						})
@@ -281,8 +281,8 @@ var _ = Describe("Control", func() {
 						Expect(ok).To(BeFalse())
 						t = g1.SetAuthority(control.Absolute - 2)
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.From.Subject).To(Equal("g1"))
-						Expect(t.To.Subject).To(Equal("g2"))
+						Expect(t.From.Subject).To(Equal(control.Subject{Key: "g1"}))
+						Expect(t.To.Subject).To(Equal(control.Subject{Key: "g2"}))
 						_, ok = g2.Authorize()
 						Expect(ok).To(BeTrue())
 						_, ok = g1.Authorize()

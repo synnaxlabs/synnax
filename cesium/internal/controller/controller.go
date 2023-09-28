@@ -17,18 +17,16 @@ import (
 	"sync"
 )
 
-type State = control.State[string, core.ChannelKey]
+type (
+	// State represents the control state of a gate over an entity.
+	State    = control.State[core.ChannelKey]
+	Transfer = control.Transfer[core.ChannelKey]
+)
 
-type Transfer struct {
-	From *State
-	To   *State
-}
-
-func (t Transfer) Occurred() bool { return t.From != nil || t.To != nil }
-
-func (t Transfer) IsRelease() bool { return t.Occurred() && t.To == nil }
-
+// Entity represents some entity that can be controlled by a Gate. An Entity must have
+// a ChannelKey that represents the resource that is being controlled.
 type Entity interface {
+	// ChannelKey returns the key of the channel that is being controlled.
 	ChannelKey() core.ChannelKey
 }
 
@@ -42,7 +40,7 @@ type Gate[E Entity] struct {
 
 func (g *Gate[E]) state() *State {
 	return &State{
-		Subject:   g.Name,
+		Subject:   g.Subject,
 		Resource:  g.r.entity.ChannelKey(),
 		Authority: g.Authority,
 	}
@@ -68,14 +66,13 @@ func (g *Gate[E]) Authorize() (e E, ok bool) {
 	return g.r.entity, ok
 }
 
-// Release releases the gate's access to the entity. If the gate is the last gate in the
-// region, Release will return the entity and true. Otherwise, Release will return the
-// entity and false.
-func (g *Gate[E]) Release() (entity E, transfer Transfer) {
-	return g.r.release(g)
-}
+// Release releases the gate's access to the entity. If the gate is the last gate in
+// region (i.e. transfer.IsRelease() == true), the entity will be returned. Otherwise,
+// the zero value of the entity will be returned.
+func (g *Gate[E]) Release() (entity E, transfer Transfer) { return g.r.release(g) }
 
-// SetAuthority changes the gate's authority.
+// SetAuthority changes the gate's authority, returning any transfer of control that
+// may have occurred as a result.
 func (g *Gate[E]) SetAuthority(auth control.Authority) Transfer {
 	return g.r.update(g, auth)
 }
@@ -128,6 +125,7 @@ func (r *region[E]) unprotectedUpdate(
 
 	// Gate is in control, should it not be?
 	if g == r.curr {
+		t.From = g.state()
 		for og := range r.gates {
 			var (
 				isGate     = og == g
@@ -142,6 +140,7 @@ func (r *region[E]) unprotectedUpdate(
 			}
 		}
 		// No transfer happened, gate remains in control.
+		t.To = g.state()
 		return t
 	}
 
@@ -196,22 +195,38 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer) {
 }
 
 type Controller[E Entity] struct {
-	mu          sync.Mutex
-	regions     map[telem.TimeRange]*region[E]
+	mu          sync.RWMutex
+	regions     []*region[E]
 	concurrency control.Concurrency
 }
 
 func New[E Entity](c control.Concurrency) *Controller[E] {
 	return &Controller[E]{
-		regions:     make(map[telem.TimeRange]*region[E]),
+		regions:     make([]*region[E], 0),
 		concurrency: c,
 	}
 }
 
+// Config is the configuration for opening a gate.
 type Config struct {
+	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
+	// with overlapping time ranges will bind themselves to the same control region.
 	TimeRange telem.TimeRange
 	Authority control.Authority
-	Name      string
+	Subject   control.Subject
+}
+
+func (c *Controller[E]) State() *State {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.regions) == 0 {
+		return nil
+	}
+	first := c.regions[0]
+	if len(first.gates) == 0 {
+		return nil
+	}
+	return first.curr.state()
 }
 
 func (c *Controller[E]) OpenGate(cfg Config) (g *Gate[E], t Transfer, exists bool) {
@@ -239,7 +254,7 @@ func (c *Controller[E]) Register(
 			return errors.Newf("entity already registered for time range %s", t)
 		}
 	}
-	c.regions[t] = &region[E]{entity: entity, gates: make(map[*Gate[E]]struct{}), timeRange: t, controller: c}
+	c.regions = append(c.regions, &region[E]{entity: entity, gates: make(map[*Gate[E]]struct{}), timeRange: t, controller: c})
 	c.mu.Unlock()
 	return nil
 }
@@ -257,14 +272,19 @@ func (c *Controller[E]) RegisterAndOpenGate(
 	}
 	g, t := r.open(cfg, c.concurrency)
 	r.gates[g] = struct{}{}
-	c.regions[cfg.TimeRange] = r
+	c.regions = append(c.regions, r)
 	c.mu.Unlock()
 	return g, t
 }
 
 func (c *Controller[E]) remove(r *region[E]) {
 	c.mu.Lock()
-	delete(c.regions, r.timeRange)
+	for i, reg := range c.regions {
+		if reg == r {
+			c.regions = append(c.regions[:i], c.regions[i+1:]...)
+			break
+		}
+	}
 	c.mu.Unlock()
 }
 

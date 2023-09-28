@@ -12,9 +12,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
-import { place } from "@/layout/slice";
 import { Ontology } from "@/ontology";
-import { create, internalCreate, type State } from "@/pid/slice";
+import { create, type State } from "@/pid/slice";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -102,7 +101,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   })();
 };
 
-export const RESOURCE_SERVICE: Ontology.Service = {
+export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "pid",
   icon: <Icon.PID />,
   hasChildren: false,

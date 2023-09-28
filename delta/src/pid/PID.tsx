@@ -60,7 +60,7 @@ interface SyncPayload {
   layoutKey?: string;
 }
 
-const pidSyncer: Syncer<
+const syncer: Syncer<
   Layout.StoreState & StoreState & Workspace.StoreState,
   SyncPayload
 > = async (client, { layoutKey }, store) => {
@@ -96,10 +96,10 @@ const ElementRenderer = ({
   const {
     props: { type, ...props },
   } = el;
-  const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
-    pidSyncer,
-    100000
-  );
+  const dispatch = useSyncerDispatch<
+    Layout.StoreState & Workspace.StoreState & StoreState,
+    SyncPayload
+  >(syncer, 1000);
 
   const handleChange = useCallback(
     (props: object) => {
@@ -131,7 +131,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const pid = useSelect(layoutKey);
 
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
-    pidSyncer,
+    syncer,
     1000
   );
   const theme = Theming.use();
@@ -295,7 +295,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 </Text.Text>
               }
             >
-              <Icon.Circle fill="white" />
+              <Icon.Circle />
             </Button.ToggleIcon>
           </Core.Controls>
         </Core.PID>

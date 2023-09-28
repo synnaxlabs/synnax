@@ -137,7 +137,7 @@ var _ = Describe("txn", func() {
 				}).Should(Succeed())
 			})
 
-			It("Should return an error if the lease option is not a node Key", func() {
+			It("Should return an error if the lease option is not a node Name", func() {
 				kv, err := builder.New(ctx, kv.Config{}, cluster.Config{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Set(ctx, []byte("key"), []byte("value"), "2")).To(HaveOccurred())

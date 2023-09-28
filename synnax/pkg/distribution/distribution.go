@@ -124,7 +124,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
 		return d, err
 	}
-	if err := d.Storage.TS.ConfigureControlDigestChannel(ctx, ts.ChannelKey(controlCh[0].Key())); err != nil {
+	if err := d.Storage.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(controlCh[0].Key())); err != nil {
 		return d, err
 	}
 

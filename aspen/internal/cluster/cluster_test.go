@@ -45,7 +45,7 @@ var _ = Describe("Cluster", func() {
 
 	Describe("Node", func() {
 
-		It("Should return a node by its Key", func() {
+		It("Should return a node by its Name", func() {
 			c1, err := builder.New(clusterCtx, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			c2, err := builder.New(clusterCtx, cluster.Config{})
@@ -64,7 +64,7 @@ var _ = Describe("Cluster", func() {
 
 	Describe("Resolve", func() {
 
-		It("Should resolve the address of a node by its Key", func() {
+		It("Should resolve the address of a node by its Name", func() {
 			c1, err := builder.New(clusterCtx, cluster.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			c2, err := builder.New(clusterCtx, cluster.Config{})

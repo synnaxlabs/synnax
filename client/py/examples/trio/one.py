@@ -13,9 +13,7 @@ with client.control.acquire(
     curr_target = 100
     auto['vent_en_cmd'] = False
     while True:
-        print("Enabling Press")
         auto['press_en_cmd'] = True
-        print("Press Enabled")
         if (auto.wait_until(lambda c: c.pressure > curr_target or c.pressure < 1,
                             timeout=10 * sy.TimeSpan.SECOND)):
             curr_target += 100

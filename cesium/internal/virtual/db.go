@@ -44,3 +44,7 @@ func Open(cfg Config) (db *DB, err error) {
 		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
 	}, nil
 }
+
+func (db *DB) ControlState() *controller.State {
+	return db.controller.State()
+}

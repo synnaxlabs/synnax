@@ -21,9 +21,9 @@ import (
 )
 
 type WriterConfig struct {
-	Name      string
 	Start     telem.TimeStamp
 	End       telem.TimeStamp
+	Subject   control.Subject
 	Authority control.Authority
 }
 
@@ -48,7 +48,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, tran
 	gateCfg := controller.Config{
 		TimeRange: cfg.domain().Domain(),
 		Authority: cfg.Authority,
-		Name:      cfg.Name,
+		Subject:   cfg.Subject,
 	}
 	var (
 		g  *controller.Gate[*domain.Writer]
@@ -99,7 +99,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.control.Name, w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
 	alignment := telem.Alignment(w.len(dw))
 	if w.Channel.IsIndex {
@@ -136,7 +136,7 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.control.Name, w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
 	if end.IsZero() {
 		// we're using w.len - 1 here because we want the timestamp of the last

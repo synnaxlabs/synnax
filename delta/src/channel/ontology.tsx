@@ -29,7 +29,7 @@ const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): voi
   // to it.
   if (layout == null) {
     placeLayout(
-      LinePlot.createLinePlot({
+      LinePlot.create({
         channels: {
           ...LinePlot.ZERO_CHANNELS_STATE,
           y1: selection.map((s) => Number(s.id.key)),

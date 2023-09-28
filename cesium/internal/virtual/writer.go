@@ -23,7 +23,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, tran
 	gateCfg := controller.Config{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
-		Name:      cfg.Name,
+		Subject:   cfg.Subject,
 	}
 	var (
 		g  *controller.Gate[*controlEntity]
@@ -40,7 +40,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, tran
 }
 
 type WriterConfig struct {
-	Name      string
+	Subject   control.Subject
 	Start     telem.TimeStamp
 	End       telem.TimeStamp
 	Authority control.Authority

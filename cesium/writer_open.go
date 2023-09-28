@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -26,7 +27,10 @@ import (
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
 type WriterConfig struct {
-	Name string
+	// Name sets the human-readable name for the writer, which is useful for identifying
+	// it in control transfer scenarios.
+	// [OPTIONAL] - Defaults to an empty string.
+	ControlSubject control.Subject
 	// Start marks the starting timestamp of the first sample to be written by the
 	// writer. If a sample exists for any channel at this timestamp, the writer will
 	// fail to open.
@@ -35,23 +39,34 @@ type WriterConfig struct {
 	// not exist, the writer fill fail to open.
 	Channels []core.ChannelKey
 	// Authorities marks the starting control authorities of the writer.
-	Authorities        []control.Authority
-	SendControlDigests *bool
+	Authorities []control.Authority
+	// ErrOnUnauthorized controls whether the writer will return an error when
+	// attempting to write to a channel that it does not have authority over.
+	// In non-control scenarios, this value should be set to true. In scenarios
+	// that require control handoff, this value should be set to false.
+	ErrOnUnauthorized *bool
 }
 
 var (
-	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
-		Authorities:        []control.Authority{control.Absolute},
-		SendControlDigests: config.False(),
-	}
+	_ config.Config[WriterConfig] = WriterConfig{}
 )
+
+func DefaultWriterConfig() WriterConfig {
+	return WriterConfig{
+		ControlSubject: control.Subject{
+			Key: uuid.New().String(),
+		},
+		Authorities:       []control.Authority{control.Absolute},
+		ErrOnUnauthorized: config.True(),
+	}
+}
 
 // Validate implements config.Config.
 func (w WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", w.Channels)
-	validate.NotNil(v, "SendControlDigests", w.SendControlDigests)
+	validate.NotNil(v, "ErrOnUnauthorized", w.ErrOnUnauthorized)
+	validate.NotEmptyString(v, "ControlSubject.Key", w.ControlSubject.Key)
 	v.Ternary(
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
@@ -64,8 +79,9 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.Start = override.Zero(w.Start, other.Start)
 	w.Channels = override.Slice(w.Channels, other.Channels)
 	w.Authorities = override.Slice(w.Authorities, other.Authorities)
-	w.Name = override.String(w.Name, other.Name)
-	w.SendControlDigests = override.Nil(w.SendControlDigests, other.SendControlDigests)
+	w.ControlSubject.Name = override.String(w.ControlSubject.Name, other.ControlSubject.Name)
+	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
+	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	return w
 }
 
@@ -93,16 +109,16 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, er
 func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *streamWriter, err error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(DefaultWriterConfig(), cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		domainWriters map[ChannelKey]*idxWriter
-		rateWriters   map[telem.Rate]*idxWriter
-		virt          map[ChannelKey]*virtual.Writer
-		controlUpdate ControlUpdate
+		domainWriters  map[ChannelKey]*idxWriter
+		rateWriters    map[telem.Rate]*idxWriter
+		virtualWriters map[ChannelKey]*virtual.Writer
+		controlUpdate  ControlUpdate
 	)
 
 	defer func() {
@@ -130,19 +146,18 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			transfer controller.Transfer
 		)
 		if vOk {
-			if virt == nil {
-				virt = make(map[ChannelKey]*virtual.Writer)
+			if virtualWriters == nil {
+				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
-			virt[key], transfer = v.OpenWriter(ctx, virtual.WriterConfig{
-				Name:      cfg.Name,
+			virtualWriters[key], transfer = v.OpenWriter(ctx, virtual.WriterConfig{
+				Subject:   cfg.ControlSubject,
 				Start:     cfg.Start,
 				Authority: auth,
 			})
 		} else {
-			auth := cfg.authority(i)
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Name:      cfg.Name,
+				Subject:   cfg.ControlSubject,
 				Start:     cfg.Start,
 				Authority: auth,
 			})
@@ -171,7 +186,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 
 				idxW.internal[key] = &unaryWriterState{Writer: *w}
 			} else {
-
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or an indexed channel, not both. In either case we can avoid a
 				// map allocation.
@@ -198,9 +212,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	}
 
 	w = &streamWriter{
+		WriterConfig:    cfg,
 		internal:        make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
 		relay:           db.relay.inlet,
-		virtual:         virtualWriter{internal: virt},
+		virtual:         virtualWriter{internal: virtualWriters},
 		updateDBControl: db.updateControlDigests,
 	}
 	for _, idx := range domainWriters {

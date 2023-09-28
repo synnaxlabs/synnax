@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -54,6 +55,7 @@ type Config struct {
 	User          *user.Service
 	Workspace     *workspace.Service
 	PID           *pid.Service
+	LinePlot      *lineplot.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
@@ -104,6 +106,7 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.PID = override.Nil(c.PID, other.PID)
+	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
 	return c
 }
 
@@ -137,6 +140,11 @@ type Transport struct {
 	PIDDelete              freighter.UnaryServer[PIDDeleteRequest, types.Nil]
 	PIDRename              freighter.UnaryServer[PIDRenameRequest, types.Nil]
 	PIDSetData             freighter.UnaryServer[PIDSetDataRequest, types.Nil]
+	LinePlotCreate         freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
+	LinePlotRename         freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
+	LinePlotSetData        freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
+	LinePlotRetrieve       freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
+	LinePlotDelete         freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -152,6 +160,7 @@ type API struct {
 	Range        *RangeService
 	Workspace    *WorkspaceService
 	PID          *PIDService
+	LinePlot     *LinePlotService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -207,6 +216,11 @@ func (a *API) BindTo(t Transport) {
 		t.PIDDelete,
 		t.PIDRename,
 		t.PIDSetData,
+		t.LinePlotCreate,
+		t.LinePlotRename,
+		t.LinePlotSetData,
+		t.LinePlotRetrieve,
+		t.LinePlotDelete,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -240,6 +254,11 @@ func (a *API) BindTo(t Transport) {
 	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
 	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
 	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
+	t.LinePlotCreate.BindHandler(typedUnaryWrapper(a.LinePlot.Create))
+	t.LinePlotRename.BindHandler(typedUnaryWrapper(a.LinePlot.Rename))
+	t.LinePlotSetData.BindHandler(typedUnaryWrapper(a.LinePlot.SetData))
+	t.LinePlotRetrieve.BindHandler(typedUnaryWrapper(a.LinePlot.Retrieve))
+	t.LinePlotDelete.BindHandler(typedUnaryWrapper(a.LinePlot.Delete))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -258,6 +277,7 @@ func New(configs ...Config) (API, error) {
 	api.Range = NewRangeService(api.provider)
 	api.Workspace = NewWorkspaceService(api.provider)
 	api.PID = NewPIDService(api.provider)
+	api.LinePlot = NewLinePlotService(api.provider)
 	return api, nil
 }
 

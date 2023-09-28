@@ -7,32 +7,124 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement } from "react";
+import { useCallback, type ReactElement, type MouseEventHandler } from "react";
 
-import { Select, Synnax } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import {
+  Select,
+  Synnax,
+  Dropdown,
+  Button,
+  List,
+  Input,
+  Align,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { useSelectActive, useSelectActiveKey } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
+import { CSS } from "@/css";
+import { Layout } from "@/layout";
+import { useSelectActive } from "@/workspace/selectors";
+import { add, setActive } from "@/workspace/slice";
+
+import { createWindowLayout } from "./Create";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const d = useDispatch();
+  const p = Layout.usePlacer();
   const active = useSelectActive();
-  const handleChange = useCallback((v: string) => d(setActive(v)), [d]);
+  const dProps = Dropdown.use();
+  const handleChange = useCallback(
+    ([v]: string[]) => {
+      dProps.close();
+      void (async () => {
+        if (v == null) {
+          d(setActive(null));
+          return;
+        } else if (client == null) return;
+        const ws = await client.workspaces.retrieve(v);
+        d(add({ workspaces: [ws] }));
+        d(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          })
+        );
+      })();
+    },
+    [client, d, dProps.close]
+  );
+
   return (
-    <Select.Single
-      allowClear={false}
-      searcher={client?.workspaces}
-      onChange={handleChange}
-      value={active?.key}
-      columns={[
-        {
-          key: "name",
-          name: "Name",
-        },
-      ]}
-      tagKey="name"
-    />
+    <Dropdown.Dialog {...dProps} bordered={false} matchTriggerWidth>
+      <Button.Button
+        endIcon={<Icon.Caret.Down />}
+        variant="outlined"
+        onClick={() => dProps.toggle()}
+        style={{ width: 250 }}
+        justify="spaceBetween"
+        size="small"
+      >
+        {active?.name ?? "No Workspace"}
+      </Button.Button>
+      <Align.Pack direction="y">
+        <List.List>
+          <List.Selector
+            value={active == null ? [] : [active.key]}
+            onChange={handleChange}
+            allowMultiple={false}
+            allowNone={false}
+          />
+          <Align.Pack direction="x">
+            <List.Search searcher={client?.workspaces}>
+              {(props) => (
+                <Input.Text
+                  {...props}
+                  style={{
+                    borderRadius: 0,
+                  }}
+                />
+              )}
+            </List.Search>
+            <Button.Icon
+              onClick={() => p(createWindowLayout)}
+              style={{ borderRadius: 0 }}
+            >
+              <Icon.Add />
+            </Button.Icon>
+          </Align.Pack>
+          <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+        </List.List>
+      </Align.Pack>
+    </Dropdown.Dialog>
+  );
+};
+
+export const SelectorListItem = ({
+  entry: { key, name },
+  hovered,
+  onSelect,
+  selected,
+  ...props
+}: List.ItemProps): ReactElement => {
+  const handleSelect: MouseEventHandler = (e): void => {
+    e.stopPropagation();
+    onSelect?.(key);
+  };
+  return (
+    <Button.Button
+      onClick={handleSelect}
+      variant="text"
+      className={CSS(
+        CSS.BE("palette", "item"),
+        hovered && CSS.BEM("palette", "item", "hovered"),
+        CSS.BEM("palette", "item", "command")
+      )}
+      sharp
+      {...props}
+    >
+      {name}
+    </Button.Button>
   );
 };

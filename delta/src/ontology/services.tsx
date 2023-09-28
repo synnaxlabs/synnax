@@ -13,6 +13,7 @@ import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Node } from "@/cluster/node";
 import { Group } from "@/group";
+import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
 import { type Service } from "@/ontology/service";
 import { PID } from "@/pid";
@@ -21,7 +22,7 @@ import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
 export const SERVICES: Record<ontology.ResourceType, Service> = {
-  pid: PID.RESOURCE_SERVICE,
+  pid: PID.ONTOLOGY_SERVICE,
   channel: Channel.ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.RESOURCE_SERVICE,
@@ -30,4 +31,5 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   group: Group.ONTOLOGY_SERVICE,
   range: Range.ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
+  lineplot: LinePlot.ONTOLOGY_SERVICE,
 };

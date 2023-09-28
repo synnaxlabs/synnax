@@ -18,15 +18,17 @@ import {
   Synnax,
   type Color,
 } from "@synnaxlabs/pluto";
-import { box, location, unique } from "@synnaxlabs/x";
+import { type UnknownRecord, box, location, unique } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   useSelect,
   selectRanges,
   useSelectControlState,
   useSelectViewportMode,
+  select,
 } from "@/lineplot/selectors";
 import {
   type State,
@@ -39,17 +41,48 @@ import {
   shouldDisplayAxis,
   storeViewport,
   typedLineKeyToString,
+  setRemoteCreated,
+  type StoreState,
+  internalCreate,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
-import { type Workspace } from "@/workspace";
+import { Workspace } from "@/workspace";
 
-export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+interface SyncPayload {
+  key?: string;
+}
+
+const syncer: Syncer<
+  Layout.StoreState & StoreState & Workspace.StoreState,
+  SyncPayload
+> = async (client, { key }, store) => {
+  if (key == null) return;
+  const s = store.getState();
+  const ws = Workspace.selectActiveKey(s);
+  if (ws == null) return;
+  const data = select(s, key);
+  const la = Layout.selectRequired(s, key);
+  if (!data.remoteCreated) {
+    store.dispatch(setRemoteCreated({ key }));
+    await client.workspaces.linePlot.create(ws, {
+      key,
+      name: la.name,
+      data: data as unknown as UnknownRecord,
+    });
+  } else
+    await client.workspaces.linePlot.setData(key, data as unknown as UnknownRecord);
+};
+
+const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
-  const dispatch = useDispatch();
+  const dispatch = useSyncerDispatch<
+    Layout.StoreState & Workspace.StoreState & StoreState,
+    SyncPayload
+  >(syncer, 1000);
 
   const lines = buildLines(vis, ranges);
 
@@ -163,7 +196,7 @@ export const LinePlot = ({ layoutKey }: { layoutKey: string }): ReactElement => 
       if (stage !== "end") return;
       dispatch(
         storeViewport({
-          layoutKey,
+          key: layoutKey,
           pan: box.bottomLeft(b),
           zoom: box.dims(b),
         })
@@ -293,3 +326,19 @@ const buildLines = (
         })
     )
   );
+
+export const LinePlot: Layout.Renderer = ({
+  layoutKey,
+  ...props
+}): ReactElement | null => {
+  const linePlot = useSelect(layoutKey);
+  const dispatch = useDispatch();
+  const client = Synnax.use();
+  useAsyncEffect(async () => {
+    if (client == null || linePlot != null) return;
+    const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
+    dispatch(internalCreate({ key: layoutKey, ...(data as unknown as State) }));
+  }, [client, linePlot]);
+  if (linePlot == null) return null;
+  return <Loaded layoutKey={layoutKey} {...props} />;
+};

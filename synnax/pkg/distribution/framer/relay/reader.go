@@ -57,6 +57,7 @@ func (r *reader) Flow(ctx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
+				r.demands.Inlet() <- demand{Variant: change.Delete, Key: r.addr}
 				return ctx.Err()
 			case req, ok := <-r.In.Outlet():
 				if !ok {

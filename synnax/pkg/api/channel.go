@@ -80,7 +80,7 @@ func (s *ChannelService) Create(
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type ChannelRetrieveRequest struct {
-	// Optional parameter that queries a Channel by its node Key.
+	// Optional parameter that queries a Channel by its node Name.
 	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`

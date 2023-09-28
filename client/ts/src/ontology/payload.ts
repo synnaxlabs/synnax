@@ -19,6 +19,7 @@ const resourceTypeZ = z.union([
   z.literal("user"),
   z.literal("workspace"),
   z.literal("pid"),
+  z.literal("lineplot"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;

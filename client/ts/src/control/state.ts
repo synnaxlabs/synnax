@@ -14,8 +14,13 @@ import { type Authority } from "@/control/authority";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Streamer as FrameStreamer } from "@/framer/streamer";
 
+export interface Subject {
+  name: string;
+  key: string;
+}
+
 export interface State {
-  subject: string;
+  subject: Subject;
   resource: ChannelKey;
   authority: Authority;
 }
@@ -76,11 +81,8 @@ export class StateTracker implements observe.Observable<Transfer[]> {
 
   private merge(update: Update): void {
     update.transfers.forEach((t) => {
-      if (t.to == null) {
-        this.states.delete((t.from as State).resource);
-      } else {
-        this.states.set(t.to.resource, t.to);
-      }
+      if (t.to == null) this.states.delete((t.from as State).resource);
+      else this.states.set(t.to.resource, t.to);
     });
   }
 }

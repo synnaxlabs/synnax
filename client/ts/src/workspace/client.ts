@@ -10,6 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type UnknownRecord, type AsyncTermSearcher } from "@synnaxlabs/x";
 
+import { linePlot } from "@/workspace/lineplot";
 import { type Key, type Workspace } from "@/workspace/payload";
 import { pid } from "@/workspace/pid";
 import { Retriever } from "@/workspace/retriever";
@@ -17,11 +18,13 @@ import { type CrudeWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly pid: pid.Client;
+  readonly linePlot: linePlot.Client;
   private readonly retriever: Retriever;
   private readonly writer: Writer;
 
   constructor(client: UnaryClient) {
     this.pid = new pid.Client(client);
+    this.linePlot = new linePlot.Client(client);
     this.retriever = new Retriever(client);
     this.writer = new Writer(client);
   }

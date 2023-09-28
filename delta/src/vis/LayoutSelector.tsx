@@ -38,7 +38,7 @@ export const LayoutSelector = ({
       <Align.Space direction={direction}>
         <Button.Button
           variant="outlined"
-          onClick={() => place(LinePlot.createLinePlot({ key: layoutKey }))}
+          onClick={() => place(LinePlot.create({ key: layoutKey }))}
           startIcon={<Icon.Visualize />}
         >
           Line Plot

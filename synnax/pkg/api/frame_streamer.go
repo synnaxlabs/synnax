@@ -11,8 +11,6 @@ package api
 
 import (
 	"context"
-	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
@@ -42,9 +40,6 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	sender := &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
 		Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
-			if lo.Contains(res.Frame.Keys, 65537) {
-				logrus.Info(res.Frame)
-			}
 			if res.Error != nil {
 				res.Error = ferrors.Encode(res.Error)
 			}
@@ -66,9 +61,6 @@ func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (f
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
-	}
-	if lo.Contains(req.Keys, 65537) {
-		logrus.Info(req)
 	}
 	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{
 		Start: req.Start,

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown.pluto--visible > :first-child {
+.pluto-dropdown.pluto--visible > .pluto-input:first-child {
     z-index: 1001;
 }
 
@@ -22,9 +22,6 @@
         transform: translateY(calc(-100% + 1px));
     } 
 
-    &.pluto--bottom {
-        transform: translateY(-1px);
-    } 
 
     &.pluto--hidden {
         opacity: 0;

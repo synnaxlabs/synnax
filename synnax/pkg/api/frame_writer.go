@@ -140,7 +140,7 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (s
 	}
 
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
-		Name:               req.Config.Name,
+		ControlSubject:     control.Subject{Name: req.Config.Name},
 		Start:              req.Config.Start,
 		Keys:               req.Config.Keys,
 		Authorities:        authorities,

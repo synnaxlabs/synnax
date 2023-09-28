@@ -12,6 +12,8 @@ package cesium_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -91,6 +93,45 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
+		})
+	})
+	Describe("Control Updates", func() {
+		It("Should forward initial control updates to the streamer", func() {
+			var (
+				controlKey cesium.ChannelKey = 5
+				basic3     cesium.ChannelKey = 6
+			)
+			Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{basic3},
+				Name:     "Writer",
+				Start:    10 * telem.SecondTS,
+			}))
+			streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+				Channels: []cesium.ChannelKey{controlKey},
+			}))
+			i, o := confluence.Attach(streamer, 1)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			var r cesium.StreamerResponse
+			Eventually(o.Outlet()).Should(Receive(&r))
+			Expect(r.Frame.Keys).To(HaveLen(1))
+			u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.Series[0]))
+			t, ok := lo.Find(u.Transfers, func(t controller.Transfer) bool {
+				return t.To.Resource == basic3
+			})
+			Expect(ok).To(BeTrue())
+			Expect(t.To.Subject.Name).To(Equal("Writer"))
+			Expect(w.Close()).To(Succeed())
+			Eventually(o.Outlet()).Should(Receive(&r))
+			Expect(r.Frame.Keys).To(HaveLen(1))
+			i.Close()
+			Expect(sCtx.Wait()).To(Succeed())
 		})
 	})
 })

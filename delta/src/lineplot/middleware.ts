@@ -67,13 +67,13 @@ export const deleteEffect: MiddlewareEffect<
   const toRemove = Object.keys(lineState.plots).filter(
     (p) => layout.layouts[p] == null || keys.includes(p)
   );
-  if (toRemove.length > 0) dispatch(remove({ layoutKeys: toRemove }));
+  if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
 };
 
 export const MIDDLEWARE = [
   effectMiddleware(
     [
-      actions.set.type,
+      actions.create.type,
       setXChannel.type,
       setYChannels.type,
       setRanges.type,

@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { createLinePlot } from "@/lineplot/slice";
+import { create } from "@/lineplot/slice";
 import { type Command } from "@/palette/Palette";
 
 export const createLinePlotCommand: Command = {
   key: "create-line-plot",
   name: "Create a Line Plot",
   icon: <Icon.Visualize />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createLinePlot({})),
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(create({})),
 };
 
 export const COMMANDS = [createLinePlotCommand];

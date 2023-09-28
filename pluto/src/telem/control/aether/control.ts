@@ -61,8 +61,7 @@ export class Controller
     const nextClient = synnax.use(this.ctx);
     if (nextClient !== this.internal.client)
       this.registry.forEach((_, telem) => telem.invalidate());
-    this.internal.client = nextClient;
-    if (nextClient != null) {
+    if (nextClient != null && this.internal.client !== nextClient) {
       control.StateTracker.open(nextClient.telem)
         .then((state) => {
           this.controlState = state;
@@ -70,6 +69,7 @@ export class Controller
         })
         .catch(console.error);
     }
+    this.internal.client = nextClient;
     const t = telem.get(this.ctx);
     if (!(t instanceof Controller)) this.internal.prov = t;
     this.internal.addStatus = status.useAggregate(this.ctx);
@@ -138,8 +138,8 @@ export class Controller
   }
 
   async release(): Promise<void> {
-    await this.writer?.close();
     this.controlState?.close();
+    await this.writer?.close();
     this.writer = undefined;
     this.setState((p) => ({ ...p, status: "released" }));
     this.internal.addStatus({

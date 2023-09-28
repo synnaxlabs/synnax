@@ -11,7 +11,6 @@ package relay
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/x/signal"
 
 	"github.com/samber/lo"
@@ -89,7 +88,6 @@ func (c *receiveCoordinator) updateConnections(
 ) {
 	// Open any new connections we may need
 	for node, keys := range nodeKeys {
-		logrus.Info(keys)
 		_, ok := c.receivers[node]
 		if !node.IsFree() && !ok {
 			rcv, err := c.openReceiver(ctx, node, keys)

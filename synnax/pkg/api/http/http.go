@@ -47,5 +47,10 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.PIDDelete = fhttp.UnaryServer[api.PIDDeleteRequest, types.Nil](router, "/api/v1/workspace/pid/delete")
 	t.PIDRename = fhttp.UnaryServer[api.PIDRenameRequest, types.Nil](router, "/api/v1/workspace/pid/rename")
 	t.PIDSetData = fhttp.UnaryServer[api.PIDSetDataRequest, types.Nil](router, "/api/v1/workspace/pid/set-data")
+	t.LinePlotCreate = fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create")
+	t.LinePlotRetrieve = fhttp.UnaryServer[api.LinePlotRetrieveRequest, api.LinePlotRetrieveResponse](router, "/api/v1/workspace/lineplot/retrieve")
+	t.LinePlotDelete = fhttp.UnaryServer[api.LinePlotDeleteRequest, types.Nil](router, "/api/v1/workspace/lineplot/delete")
+	t.LinePlotRename = fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, "/api/v1/workspace/lineplot/rename")
+	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, "/api/v1/workspace/lineplot/set-data")
 	return t
 }
