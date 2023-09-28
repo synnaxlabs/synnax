@@ -56,7 +56,7 @@ export class Provider
     const client_ = synnax.use(this.ctx);
     if (client_ != null) this.client.swap(new client.Core(client_));
     this.telem.forEach((t) => t.invalidate());
-    return telem.set(this.ctx, this);
+    return telem.setProvider(this.ctx, this);
   }
 
   create<T>(key: string, spec: telem.Spec, extension?: Factory): T {

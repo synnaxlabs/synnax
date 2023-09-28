@@ -14,10 +14,10 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";
+import { chip } from "@/control/chip/aether";
 import { useMemoDeepEqualProps } from "@/memo";
 import { Status } from "@/status";
 import { Text } from "@/text";
-import { chip } from "@/vis/chip/aether";
 
 export interface ChipProps
   extends Omit<z.input<typeof chip.chipStateZ>, "trigger" | "status">,

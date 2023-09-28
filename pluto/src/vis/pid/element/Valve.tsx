@@ -15,16 +15,16 @@ import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
 import { Color } from "@/color";
+import { Control } from "@/control";
+import { Chip } from "@/control/chip";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { Bool } from "@/telem/bool";
-import { Control } from "@/telem/control";
 import { Remote } from "@/telem/remote";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
-import { Chip } from "@/vis/chip";
 import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
 import { Valve, type ValveProps } from "@/vis/valve/Valve";
 
@@ -55,7 +55,10 @@ const Element = ({
   const handleLabelChange = (label: string): void =>
     onChange({ ...props, label, source, sink, authority });
 
-  const authoritySource = Control.useAuthoritySource({ channel: sink.channel });
+  const authoritySource = Control.useAuthorityStatusSource({ channel: sink.channel });
+  const authorityColorSource = Control.useAuthorityColorSource({
+    channel: sink.channel,
+  });
   const authoritySink = Control.useAuthoritySink({ channel: sink.channel, authority });
   const sourceN = Remote.useNumericSource(source);
   const sinkN = Control.useNumericSink(sink);
@@ -82,18 +85,23 @@ const Element = ({
       direction={direction.swap(dir)}
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
-      <div className={CSS.BE("valve-pid-element", "valve-container")}>
-        <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
-        <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
-        <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
-      </div>
+      <Control.Indicator
+        statusSource={authoritySource}
+        colorSource={authorityColorSource}
+      >
+        <div className={CSS.BE("valve-pid-element", "valve-container")}>
+          <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
+          <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
+          <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
+        </div>
+      </Control.Indicator>
       <Align.Space direction="x" style={{ width: "100%", marginTop: "-1rem" }}>
-        <Chip.Chip
+        {/* <Chip
           size="small"
           source={authoritySource}
           sink={authoritySink}
           variant="text"
-        />
+        /> */}
       </Align.Space>
     </Align.Space>
   );

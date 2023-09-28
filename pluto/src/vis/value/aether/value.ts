@@ -88,7 +88,7 @@ export class Value
     if (box.isZero(b)) return;
     const canvas = renderCtx.lower2d.applyScale(s);
 
-    const value = (await telem.value()).toFixed(this.state.precision);
+    const value = (await telem.number()).toFixed(this.state.precision);
     const valueStr = `${value} ${this.state.units}`;
 
     canvas.font = this.state.font;

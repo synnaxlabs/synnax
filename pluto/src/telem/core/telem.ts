@@ -100,7 +100,7 @@ export const numericSourceSpecZ = specZ.extend({
 export type NumericSourceSpec = z.infer<typeof numericSourceSpecZ>;
 
 export interface NumericSource extends Telem {
-  value: () => Promise<number>;
+  number: () => Promise<number>;
   onChange: (f: () => void) => void;
 }
 
@@ -111,7 +111,7 @@ export const colorSourceSpecZ = specZ.extend({
 export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
 
 export interface ColorSource extends Telem {
-  value: () => Promise<color.Color>;
+  color: () => Promise<color.Color>;
   onChange: (f: () => void) => void;
 }
 
@@ -122,7 +122,7 @@ export const booleanSourceSpecZ = specZ.extend({
 export type BooleanSourceSpec = z.infer<typeof booleanSourceSpecZ>;
 
 export interface BooleanSource extends Telem {
-  value: () => Promise<boolean>;
+  number: () => Promise<boolean>;
   onChange: (f: () => void) => void;
 }
 
@@ -131,13 +131,13 @@ export const booleanSinkSpecZ = specZ.extend({
 });
 
 export interface BooleanSink extends Telem {
-  set: (value: boolean) => Promise<void>;
+  setBoolean: (value: boolean) => Promise<void>;
 }
 
 export type BooleanSinkSpec = z.infer<typeof booleanSinkSpecZ>;
 
 export interface NumericSink extends Telem {
-  set: (value: number) => Promise<void>;
+  setNumber: (value: number) => Promise<void>;
 }
 
 export const numericSinkSpecZ = specZ.extend({
@@ -153,6 +153,6 @@ export const statusSourceSpecZ = specZ.extend({
 export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
 
 export interface StatusSource extends Telem {
-  value: () => Promise<Status.Spec>;
+  status: () => Promise<Status.Spec>;
   onChange: (f: () => void) => void;
 }

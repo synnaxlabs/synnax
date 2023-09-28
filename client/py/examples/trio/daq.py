@@ -20,12 +20,14 @@ press_en_cmd_time = client.channels.create(
     name="press_en_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
 )
 
 press_en_cmd = client.channels.create(
     name="press_en_cmd",
     index=press_en_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 
@@ -35,12 +37,14 @@ vent_en_cmd_time = client.channels.create(
     name="vent_en_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
 )
 
 vent_en_cmd = client.channels.create(
     name="vent_en_cmd",
     index=vent_en_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 
@@ -50,6 +54,7 @@ daq_time = client.channels.create(
     name="daq_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
 )
 
 
@@ -57,18 +62,21 @@ press_en = client.channels.create(
     name="press_en",
     index=daq_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 vent_en = client.channels.create(
     name="vent_en",
     index=daq_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 data_ch = client.channels.create(
     name="pressure",
     index=daq_time.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
 )
 
 print(

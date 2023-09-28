@@ -18,4 +18,5 @@ with client.control.acquire(
                             timeout=10 * sy.TimeSpan.SECOND)):
             curr_target += 100
         auto['press_en_cmd'] = False
+        auto['vent_en_cmd'] = False
         time.sleep(5)

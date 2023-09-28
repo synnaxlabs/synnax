@@ -88,6 +88,14 @@ export const Selector = (): ReactElement => {
               )}
             </List.Search>
             <Button.Icon
+              onClick={() => {
+                d(setActive(null));
+                dProps.close();
+              }}
+            >
+              <Icon.Close />
+            </Button.Icon>
+            <Button.Icon
               onClick={() => p(createWindowLayout)}
               style={{ borderRadius: 0 }}
             >

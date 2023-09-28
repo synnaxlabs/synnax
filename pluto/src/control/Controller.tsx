@@ -12,8 +12,8 @@ import { type PropsWithChildren, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { control } from "@/control/aether";
 import { useMemoDeepEqualProps } from "@/memo";
-import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
   extends z.input<typeof control.controllerStateZ>,

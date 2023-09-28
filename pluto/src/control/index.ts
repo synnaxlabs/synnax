@@ -7,8 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/telem/control/Controller";
-export * from "@/telem/control/hooks";
-export * from "@/telem/control/forms";
-export * from "@/vis/chip";
-export type { NumericSinkProps, Status } from "@/telem/control/aether/control";
+export * as Control from "@/control/external";

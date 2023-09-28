@@ -7,6 +7,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -29,9 +30,9 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 	}
 	db.digests.key = key
 	w, err := db.NewStreamWriter(ctx, WriterConfig{
-		Name:     "cesium_internal_control_digest",
-		Start:    telem.Now(),
-		Channels: []ChannelKey{key},
+		ControlSubject: control.Subject{Name: "cesium_internal_control_digest"},
+		Start:          telem.Now(),
+		Channels:       []ChannelKey{key},
 	})
 	if err != nil {
 		return err

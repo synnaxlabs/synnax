@@ -185,15 +185,26 @@ class ChannelClient:
         index: ChannelKey = 0,
         is_index: bool = False,
         leaseholder: int = 0,
+        retrieve_if_name_exists: bool = False,
     ) -> Channel:
         ...
 
     @overload
-    def create(self, channels: Channel) -> Channel:
+    def create(
+        self, 
+        channels: Channel, 
+        *, 
+        retrieve_if_name_exists: bool = False
+    ) -> Channel:
         ...
 
     @overload
-    def create(self, channels: list[Channel]) -> list[Channel]:
+    def create(
+        self, 
+        channels: list[Channel],
+        *,
+        retrieve_if_name_exists: bool = False
+    ) -> list[Channel]:
         ...
 
     def create(
@@ -206,6 +217,7 @@ class ChannelClient:
         is_index: bool = False,
         index: ChannelKey = 0,
         leaseholder: int = 0,
+        retrieve_if_name_exists: bool = False,
     ) -> Channel | list[Channel]:
         """Creates a new channel or set of channels in the cluster. Possible arguments
         are as follows:
@@ -249,7 +261,13 @@ class ChannelClient:
             _channels = [channels.to_payload()]
         else:
             _channels = [c.to_payload() for c in channels]
-        created = self.__sugar(self._creator.create(_channels))
+
+        created = list()
+        if retrieve_if_name_exists:
+            created = self.__sugar(self._retriever.retrieve([ch.name for ch in _channels]))
+            _channels = [c for c in _channels if c.name not in [ch.name for ch in created]]
+        
+        created.extend(self.__sugar(self._creator.create(_channels)))
         return created if isinstance(channels, list) else created[0]
 
     @overload

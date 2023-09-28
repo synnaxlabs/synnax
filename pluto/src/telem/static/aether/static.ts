@@ -220,7 +220,7 @@ export class Numeric implements telem.NumericSource {
     this._value = numericPropsZ.parse(props_);
   }
 
-  async value(): Promise<number> {
+  async number(): Promise<number> {
     return this._value;
   }
 

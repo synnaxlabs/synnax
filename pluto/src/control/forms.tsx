@@ -14,7 +14,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Channel } from "@/channel";
 import { componentRenderProp } from "@/index";
 import { Input } from "@/input";
-import { type control } from "@/telem/control/aether";
+import { type control } from "@/control/aether";
 
 export interface NumericSinkFormProps
   extends Input.ItemProps<control.NumericSinkProps> {}

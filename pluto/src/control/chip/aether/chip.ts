@@ -37,6 +37,11 @@ export class Chip
   static readonly TYPE = "Chip";
   schema = chipStateZ;
 
+  afterDelete(): void {
+    this.internal.cleanupSource();
+    this.internal.cleanupSink();
+  }
+
   afterUpdate(): void {
     const [source, cleanupSource] = telem.use<telem.StatusSource>(
       this.ctx,
@@ -53,14 +58,14 @@ export class Chip
     this.internal.sink = sink;
     this.internal.cleanupSink = cleanupSink;
 
-    void source.value();
+    void source.status();
 
     if (this.state.trigger > this.prevState.trigger)
-      sink.set(this.state.status.variant !== "success").catch(console.error);
+      sink.setBoolean(this.state.status.variant !== "success").catch(console.error);
 
     source.onChange(() => {
       this.internal.source
-        .value()
+        .status()
         .then((value) => {
           this.setState((p) => ({ ...p, status: value }));
         })

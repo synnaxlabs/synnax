@@ -1,4 +1,4 @@
-// Copyrght 2023 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as chip from "@/vis/chip/aether/chip";
+export * from "@/control/aether/controller";
+export * from "@/control/aether/state";
+export * from "@/control/aether/indicator";

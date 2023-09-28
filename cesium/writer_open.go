@@ -57,7 +57,7 @@ func DefaultWriterConfig() WriterConfig {
 			Key: uuid.New().String(),
 		},
 		Authorities:       []control.Authority{control.Absolute},
-		ErrOnUnauthorized: config.True(),
+		ErrOnUnauthorized: config.False(),
 	}
 }
 

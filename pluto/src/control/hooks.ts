@@ -14,7 +14,7 @@ import {
   AuthoritySource,
   type AuthoritySinkProps,
   AuthoritySink,
-} from "@/telem/control/aether/control";
+} from "@/control/aether/controller";
 import { type telem } from "@/telem/core";
 
 export const useNumericSink = (props: NumericSinkProps): telem.NumericSinkSpec => {
@@ -25,13 +25,23 @@ export const useNumericSink = (props: NumericSinkProps): telem.NumericSinkSpec =
   };
 };
 
-export const useAuthoritySource = (
+export const useAuthorityStatusSource = (
   props: AuthoritySourceProps,
 ): telem.StatusSourceSpec => {
   return {
     type: AuthoritySource.TYPE,
     props,
     variant: "status-source",
+  };
+};
+
+export const useAuthorityColorSource = (
+  props: AuthoritySourceProps,
+): telem.ColorSourceSpec => {
+  return {
+    type: AuthoritySource.TYPE,
+    props,
+    variant: "color-source",
   };
 };
 

@@ -54,7 +54,7 @@ export { Element as PIDElement } from "@/vis/pid/element";
 export { Pluto } from "@/pluto";
 export { Static } from "@/telem/static";
 export { Remote } from "@/telem/remote";
-export { Control } from "@/telem/control";
+export { Control } from "@/control";
 export { Bool } from "@/telem/bool";
 export { noop } from "@/telem/noop";
 export * from "@/hooks";

@@ -15,11 +15,15 @@ import {
   TimeStamp,
   framer,
   Authority,
-  control,
 } from "@synnaxlabs/client";
+import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { type theming } from "@/aetherIndex";
+import { type color } from "@/color/core";
+import { Indicator } from "@/control/aether/indicator";
+import { StateProvider } from "@/control/aether/state";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/core";
@@ -38,12 +42,14 @@ export const controllerStateZ = z.object({
 
 interface InternalState {
   client: Synnax | null;
-  prov: telem.Provider;
+  telemProv: telem.Provider;
+  stateProv: StateProvider;
   addStatus: status.Aggregate;
+  theme: theming.Theme;
 }
 
 interface AetherControllerTelem extends telem.Telem {
-  channelKeys: (client: Synnax) => Promise<channel.Keys>;
+  needsControlOf: (client: Synnax) => Promise<channel.Keys>;
 }
 
 export class Controller
@@ -52,28 +58,25 @@ export class Controller
 {
   registry = new Map<AetherControllerTelem, null>();
   writer?: framer.Writer;
-  controlState?: control.StateTracker;
 
   static readonly TYPE = "Controller";
   schema = controllerStateZ;
 
   afterUpdate(): void {
     const nextClient = synnax.use(this.ctx);
-    if (nextClient !== this.internal.client)
+    const nextStateProv = StateProvider.use(this.ctx);
+    if (
+      nextClient !== this.internal.client ||
+      nextStateProv !== this.internal.stateProv
+    )
       this.registry.forEach((_, telem) => telem.invalidate());
-    if (nextClient != null && this.internal.client !== nextClient) {
-      control.StateTracker.open(nextClient.telem)
-        .then((state) => {
-          this.controlState = state;
-          this.registry.forEach((_, telem) => telem.invalidate());
-        })
-        .catch(console.error);
-    }
     this.internal.client = nextClient;
-    const t = telem.get(this.ctx);
-    if (!(t instanceof Controller)) this.internal.prov = t;
+    this.internal.stateProv = nextStateProv;
+
+    const t = telem.getProvider(this.ctx);
+    if (!(t instanceof Controller)) this.internal.telemProv = t;
     this.internal.addStatus = status.useAggregate(this.ctx);
-    telem.set(this.ctx, this);
+    telem.setProvider(this.ctx, this);
 
     // If the counter has been incremented, we need to acquire control.
     // If the counter has been decremented, we need to release control.
@@ -93,7 +96,7 @@ export class Controller
   private async channelKeys(): Promise<channel.Keys> {
     const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
-      const telemKeys = await telem.channelKeys(this.internal.client as Synnax);
+      const telemKeys = await telem.needsControlOf(this.internal.client as Synnax);
       for (const key of telemKeys) keys.add(key);
     }
     return Array.from(keys);
@@ -138,7 +141,6 @@ export class Controller
   }
 
   async release(): Promise<void> {
-    this.controlState?.close();
     await this.writer?.close();
     this.writer = undefined;
     this.setState((p) => ({ ...p, status: "released" }));
@@ -175,7 +177,11 @@ export class Controller
         return sink;
       }
       case AuthoritySource.TYPE: {
-        const source = new AuthoritySource(key, this);
+        const source = new AuthoritySource(
+          key,
+          this.controlKey,
+          this.internal.stateProv,
+        );
         this.registry.set(source, null);
         return source;
       }
@@ -190,7 +196,7 @@ export class Controller
   }
 
   use<T>(key: string, spec: telem.Spec): telem.UseResult<T> {
-    return this.internal.prov.use<T>(key, spec, this);
+    return this.internal.telemProv.use<T>(key, spec, this);
   }
 }
 
@@ -202,7 +208,7 @@ export type NumericSinkProps = z.infer<typeof numericSinkProps>;
 
 export class NumericSink
   extends TelemMeta<typeof numericSinkProps>
-  implements telem.NumericSink
+  implements telem.NumericSink, AetherControllerTelem
 {
   controller: Controller;
   static readonly TYPE = "controlled-numeric-telem-sink";
@@ -214,7 +220,7 @@ export class NumericSink
     this.controller = controller;
   }
 
-  async channelKeys(client: Synnax): Promise<channel.Keys> {
+  async needsControlOf(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     this.channels = [chan];
@@ -227,7 +233,7 @@ export class NumericSink
 
   invalidate(): void {}
 
-  async set(value: number): Promise<void> {
+  async setNumber(value: number): Promise<void> {
     if (this.controller.internal.client == null) return;
     const ch = await this.controller.internal.client.channels.retrieve(
       this.props.channel,
@@ -243,76 +249,6 @@ export class NumericSink
       ],
     );
     await this.controller.set(frame);
-  }
-}
-
-export const authoritySourceProps = z.object({
-  channel: z.number(),
-});
-
-export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
-
-export class AuthoritySource
-  extends TelemMeta<typeof authoritySourceProps>
-  implements telem.StatusSource, AetherControllerTelem
-{
-  static readonly TYPE = "controlled-status-source";
-  private readonly controller: Controller;
-  private valid = false;
-  schema = authoritySourceProps;
-  constructor(key: string, controller: Controller) {
-    super(key);
-    this.controller = controller;
-  }
-
-  async channelKeys(client: Synnax): Promise<channel.Keys> {
-    return [];
-  }
-
-  async value(): Promise<status.Spec> {
-    const c = this.controller.controlState;
-    if (c == null)
-      return {
-        key: this.key,
-        variant: "disabled",
-        message: "No control information available",
-        time: TimeStamp.now(),
-      };
-    const state = c.states.get(this.props.channel);
-    if (!this.valid) {
-      this.controller.controlState?.onChange((t) => {
-        if (
-          t.some(
-            (t) =>
-              t.from?.resource === this.props.channel ||
-              t.to?.resource === this.props.channel,
-          )
-        )
-          this.notify?.();
-      });
-      this.valid = true;
-    }
-    if (state == null)
-      return {
-        key: this.key,
-        variant: "disabled",
-        message: "Uncontrolled",
-        time: TimeStamp.now(),
-      };
-    return {
-      key: this.key,
-      variant: state.subject === this.controller.controlKey ? "success" : "error",
-      message:
-        state.subject === this.controller.controlKey
-          ? "In Control"
-          : `Controlled by ${state.subject}`,
-      time: TimeStamp.now(),
-    };
-  }
-
-  invalidate(): void {
-    this.valid = false;
-    this.notify?.();
   }
 }
 
@@ -337,13 +273,13 @@ export class AuthoritySink
     this.controller = controller;
   }
 
-  async channelKeys(client: Synnax): Promise<channel.Keys> {
+  async needsControlOf(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
     this.keys = [chan.key, chan.index];
     return [];
   }
 
-  async set(value: boolean): Promise<void> {
+  async setBoolean(value: boolean): Promise<void> {
     if (!value) await this.controller.releaseAuthority(this.keys);
     else await this.controller.setAuthority(this.keys, this.props.authority);
   }
@@ -351,6 +287,93 @@ export class AuthoritySink
   invalidate(): void {}
 }
 
+export const authoritySourceProps = z.object({
+  channel: z.number(),
+});
+
+export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
+
+export class AuthoritySource
+  extends TelemMeta<typeof authoritySourceProps>
+  implements telem.StatusSource, telem.ColorSource, AetherControllerTelem
+{
+  static readonly TYPE = "controlled-status-source";
+  private readonly prov: StateProvider;
+  private valid = false;
+  private stopListening?: Destructor;
+  private readonly controlKey: string;
+  schema = authoritySourceProps;
+  constructor(key: string, controlKey: string, prov: StateProvider) {
+    super(key);
+    this.prov = prov;
+    this.controlKey = controlKey;
+  }
+
+  async needsControlOf(client: Synnax): Promise<channel.Keys> {
+    return [];
+  }
+
+  private maybeRevalidate(): void {
+    const { channel: ch } = this.props;
+    if (!this.valid) {
+      console.log("LSITENING");
+      this.stopListening = this.prov.onChange((t) => {
+        console.log("CHANGE");
+        if (t.some(({ from, to }) => from?.resource === ch || to?.resource === ch))
+          this.notify?.();
+      });
+      this.valid = true;
+    }
+  }
+
+  async color(): Promise<color.Color> {
+    this.maybeRevalidate();
+    return this.prov.getColor(this.props.channel);
+  }
+
+  async status(): Promise<status.Spec> {
+    this.maybeRevalidate();
+    const c = this.prov.controlState;
+    const state = c.get(this.props.channel);
+
+    if (state == null)
+      return {
+        key: this.key,
+        variant: "disabled",
+        message: "Uncontrolled",
+        time: TimeStamp.now(),
+      };
+
+    if (state.subject.key === this.controlKey)
+      return {
+        key: state.subject.name,
+        variant: "success",
+        message: "In Control",
+        time: TimeStamp.now(),
+      };
+
+    return {
+      key: state.subject.name,
+      variant: "error",
+      message: `Controlled by ${state.subject.name}`,
+      time: TimeStamp.now(),
+    };
+  }
+
+  cleanup(): void {
+    this.stopListening?.();
+    this.valid = false;
+  }
+
+  invalidate(): void {
+    this.valid = false;
+    this.stopListening?.();
+    this.notify?.();
+  }
+}
+
 export const REGISTRY: aether.ComponentRegistry = {
   [Controller.TYPE]: Controller,
+  [StateProvider.TYPE]: StateProvider,
+  [Indicator.TYPE]: Indicator,
 };

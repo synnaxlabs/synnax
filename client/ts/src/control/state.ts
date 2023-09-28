@@ -57,6 +57,12 @@ export class StateTracker implements observe.Observable<Transfer[]> {
     void this.stream();
   }
 
+  subjects(): Subject[] {
+    const subjects = new Map<string, Subject>();
+    this.states.forEach((s) => subjects.set(s.subject.key, s.subject));
+    return Array.from(subjects.values());
+  }
+
   onChange(handler: observe.Handler<Transfer[]>): Destructor {
     return this.observer.onChange(handler);
   }
@@ -73,7 +79,6 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   private async stream(): Promise<void> {
     for await (const frame of this.streamer) {
       const update: Update = this.ecd.decode(frame.series[0].buffer);
-      console.log("CONTROL UPDATE", this.observer, update);
       this.merge(update);
       this.observer.notify(update.transfers);
     }
