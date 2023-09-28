@@ -6,3 +6,10 @@ cc_library(
     deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"],
     visibility = ["//visibility:public"]
 )
+
+# raw binary.
+cc_binary(
+    name = "fgRPC",
+    srcs = ["client.h"],
+    deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"]
+)

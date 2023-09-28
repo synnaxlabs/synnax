@@ -21,15 +21,34 @@ std::condition_variable cond;
 bool end_session = false;
 
 /// @brief Implements .proto generated interface Unary.
+/// TODO: Create a templated version of this that works with any proto generated types.
 class myServiceImpl final : public test::messageService::Service 
 {
 public:
+    /// @brief The implementation on the server side of unary communication.
     grpc::Status Unary(grpc::ServerContext* context, const test::Message* request, test::Message* reply) override
     {
         std::string rep("Read request: ");
         reply->set_payload(rep + request->payload());
         return grpc::Status::OK;
     }
+
+    /// @brief The implementation of the server side stream.
+    grpc::Status Stream(grpc::ServerContext* context, grpc::ServerReaderWriter<test::Message, test::Message>* stream) override
+    {
+        test::Message request;
+        while (stream->Read(&request))
+        {
+          std::unique_lock<std::mutex> lock(mut);
+          test::Message res;
+          std::string rep("Read request: ");
+          res.set_payload(rep + request.payload());
+          stream->Write(res);
+        }
+
+        return grpc::Status::OK;
+    }
+private:
 };
 
 /// @brief Meant to be call within a thread. Simple
