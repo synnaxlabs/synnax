@@ -12,7 +12,7 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
-#include "src/gRPC/protos/service.grpc.pb.h"
+#include "freighter/gRPC/protos/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are 
 /// done processing messages.

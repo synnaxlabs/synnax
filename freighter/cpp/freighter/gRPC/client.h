@@ -1,7 +1,7 @@
 #pragma once
 
 /// Abstract class.
-#include "src/freighter.h"
+#include "freighter/freighter.h"
 
 /// std.
 #include <memory>
