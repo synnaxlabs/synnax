@@ -13,16 +13,12 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Color } from "@/color";
+import { Color } from "@/color";
 import { control } from "@/control/aether";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/hooks";
-import { Text } from "@/text";
-import { Tooltip } from "@/tooltip";
 
 import "@/control/Indicator.css";
-
-import { Align } from "..";
 
 export interface IndicatorProps
   extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
@@ -53,31 +49,14 @@ export const Indicator = Aether.wrap<IndicatorProps>(
       setState((p) => ({ ...p, ...memoProps }));
     }, [memoProps, setState]);
 
-    const prevColor = useRef<Color.Crude>(color);
-    const cycleCount = useRef(0);
-    useEffect(() => {
-      if (color.equals(prevColor.current)) return;
-      prevColor.current = color;
-      cycleCount.current += 1;
-    }, [color]);
-
     return (
-      // <div
-      //   className={CSS.B("indicator")}
-      //   style={{
-      //     // borderColor: Color.cssString(color),
-      //     // // backgroundImage: `linear-gradient(to ${bgImageStart}, ${Color.cssString(
-      //     // //   prevColor.current,
-      //     // // )} 50%, ${Color.cssString(color)} 50%)`,
-      //     // // : `-${(cycleCount.current % 2) * 100}% 0`,
-      //     // // flexGrow: 1,
-      //   }}
-      // >
-      <>
-        {children}
-        <Text.Text level="small">{status.key}</Text.Text>
-      </>
-      // </div>
+      <div
+        className={CSS.B("indicator")}
+        style={{
+          backgroundColor: Color.cssString(color),
+          flexGrow: 1,
+        }}
+      />
     );
   },
 );

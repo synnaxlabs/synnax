@@ -12,16 +12,22 @@ package unary
 import (
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
+type controlledWriter struct {
+	*domain.Writer
+	channelKey core.ChannelKey
+}
+
 type DB struct {
 	Config
 	Domain     *domain.DB
-	Controller *controller.Controller[*domain.Writer]
+	Controller *controller.Controller[controlledWriter]
 	_idx       index.Index
 }
 
@@ -68,7 +74,7 @@ func (i IteratorConfig) ranger() domain.IteratorConfig {
 }
 
 func (db *DB) ControlState() *controller.State {
-	return db.Controller.State()
+	return db.Controller.LeadingState()
 }
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {

@@ -39,14 +39,14 @@ var (
 	DefaultConfig = Config{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.GateConfig.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.unary")
 	validate.NotNil(v, "FS", cfg.FS)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.GateConfig.
 func (cfg Config) Override(other Config) Config {
 	cfg.FS = override.Nil(cfg.FS, other.FS)
 	if cfg.Channel.Key == 0 {

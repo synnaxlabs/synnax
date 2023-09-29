@@ -19,7 +19,8 @@ import { theming } from "@/theming/aether";
 export const stateProviderStateZ = z.object({});
 
 interface InternalState {
-  theme: theming.Theme;
+  palette: color.Color[];
+  defaultColor: color.Color;
   client: Synnax | null;
 }
 
@@ -30,11 +31,14 @@ export class StateProvider extends aether.Composite<
   InternalState
 > {
   static readonly TYPE = "StateProvider";
-  private onChangeDestroy?: Destructor;
   schema = stateProviderStateZ;
+
   private readonly defaultState = new Map<channel.Key, control.State>();
   private readonly colors = new Map<string, color.Color>();
+
   tracker?: control.StateTracker;
+  private disconnectTrackerChange?: Destructor;
+
   private readonly obs: observe.Observer<control.Transfer[]> = new observe.Observer();
 
   static use(ctx: aether.Context): StateProvider {
@@ -42,21 +46,22 @@ export class StateProvider extends aether.Composite<
   }
 
   afterUpdate(): void {
-    this.internal.theme = theming.use(this.ctx);
+    const theme = theming.use(this.ctx);
+    this.internal.palette = theme.colors.visualization.palettes.default;
+    this.internal.defaultColor = theme.colors.gray.p0;
     const nextClient = synnax.use(this.ctx);
-    if (nextClient == null || nextClient === this.internal.client) return;
+    if (nextClient === this.internal.client) return;
     this.internal.client = nextClient;
     this.ctx.set(CONTEXT_KEY, this);
-    void this.execUpdate(this.internal.client);
+    if (this.internal.client != null) void this.execUpdate(this.internal.client);
   }
 
   afterDelete(): void {
-    this.onChangeDestroy?.();
+    this.disconnectTrackerChange?.();
     this.tracker?.close();
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {
-    console.log("REGISTERING CHANGE CALLBACK", cb);
     return this.obs.onChange(cb);
   }
 
@@ -65,35 +70,34 @@ export class StateProvider extends aether.Composite<
   }
 
   getColor(channel: channel.Key): color.Color {
-    console.log("GETTING COLOR", channel, this.controlState);
+    const df = this.internal.defaultColor;
     const state = this.controlState.get(channel);
-    if (state == null) return this.internal.theme.colors.gray.p0;
-    return this.colors.get(state.subject.key) ?? this.internal.theme.colors.gray.p0;
+    return state == null ? df : this.colors.get(state.subject.key) ?? df;
   }
 
   private async execUpdate(client: Synnax): Promise<void> {
     this.tracker = await control.StateTracker.open(client.telem);
-    this.onChangeDestroy = this.tracker.onChange((t) => {
+    this.disconnectTrackerChange = this.tracker.onChange((t) => {
       this.updateColors(this.tracker as control.StateTracker);
       this.obs.notify(t);
     });
   }
 
   private updateColors(t: control.StateTracker): void {
-    console.log("UPDATING STATE TRACKER COLORS", this.internal.theme);
-    const subjects = t.subjects();
-    const subjectKeys = subjects.map((s) => s.key);
+    const sub = t.subjects();
+    const subKeys = sub.map((s) => s.key);
     const colors = Array.from(this.colors.values());
-    const palette = this.internal.theme.colors.visualization.palettes.default;
-    this.colors.forEach((_, key) => {
-      if (!subjectKeys.includes(key)) this.colors.delete(key);
-    });
-    subjects.forEach((s) => {
+
+    // Purge colors that are no longer in use
+    this.colors.forEach((_, key) => !subKeys.includes(key) && this.colors.delete(key));
+
+    // Add colors for new subjects
+    const { palette } = this.internal;
+    sub.forEach((s) => {
       if (this.colors.has(s.key)) return;
       const color = palette.find((c) => !colors.includes(c)) ?? palette[0];
       this.colors.set(s.key, color);
       colors.push(color);
     });
-    console.log(this.colors);
   }
 }

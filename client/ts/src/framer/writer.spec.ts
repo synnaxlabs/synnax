@@ -29,7 +29,7 @@ describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
       const ch = await newChannel();
-      const writer = await client.telem.newWriter(0, ch.key);
+      const writer = await client.telem.newWriter({ start: 0, channels: ch.key });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
         await writer.commit();

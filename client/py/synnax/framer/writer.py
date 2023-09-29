@@ -38,7 +38,6 @@ class _Command(int, Enum):
     ERROR = 3
     SET_AUTHORITY = 4
 
-
 class _Config(Payload):
     authorities: list[int]
     name: str | None = None

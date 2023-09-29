@@ -20,6 +20,10 @@ import (
 
 const metaFile = "meta.json"
 
+// ReadOrCreate reads the metadata file for a database whose data is kept in fs and is
+// encoded by the provided encoder. If the file does not exist, it will be created. If
+// the file does exist, it will be read and returned. The provided channel should have
+// all fields required by the DB correctly set.
 func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
@@ -29,7 +33,7 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 		if ch.Key == 0 {
 			return ch, errors.Wrap(
 				validate.Error,
-				"[unary] - a channel is required when creating a new database",
+				"[meta] - a channel is required when creating a new database",
 			)
 		}
 		return ch, Create(fs, ecd, ch)
@@ -37,6 +41,8 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 	return Read(fs, ecd)
 }
 
+// Read reads the metadata file for a database whose data is kept in fs and is encoded
+// by the provided encoder.
 func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	var ch core.Channel
@@ -49,6 +55,9 @@ func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	return ch, metaF.Close()
 }
 
+// Create creates the metadata file for a database whose data is kept in fs and is
+// encoded by the provided encoder. The provided channel should have all fields
+// required by the DB correctly set.
 func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
 	if err != nil {

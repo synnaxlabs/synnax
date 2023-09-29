@@ -8,11 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type Destructor, binary, observe } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type Key as ChannelKey } from "@/channel/payload";
 import { type Authority } from "@/control/authority";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Streamer as FrameStreamer } from "@/framer/streamer";
+
+export const subjectZ = z.object({
+  name: z.string(),
+  key: z.string(),
+});
 
 export interface Subject {
   name: string;
@@ -86,6 +92,9 @@ export class StateTracker implements observe.Observable<Transfer[]> {
 
   private merge(update: Update): void {
     update.transfers.forEach((t) => {
+      if (t.from == null && t.to == null) {
+        console.warn("Invalid transfer: ", t);
+      }
       if (t.to == null) this.states.delete((t.from as State).resource);
       else this.states.set(t.to.resource, t.to);
     });

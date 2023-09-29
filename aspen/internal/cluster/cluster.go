@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package Cluster provides an interface for joining a Cluster of nodes and
+// Package cluster provides an interface for joining a Cluster of nodes and
 // exchanging state through an SI gossip model. nodes can join the Cluster without
 // needing to know all members. Cluster will automatically manage the membership of
 // new nodes by assigning them unique Keys and keeping them in sync with their peers.

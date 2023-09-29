@@ -12,9 +12,9 @@ import { type ReactElement } from "react";
 import { type channel } from "@synnaxlabs/client";
 
 import { Channel } from "@/channel";
+import { type control } from "@/control/aether";
 import { componentRenderProp } from "@/index";
 import { Input } from "@/input";
-import { type control } from "@/control/aether";
 
 export interface NumericSinkFormProps
   extends Input.ItemProps<control.NumericSinkProps> {}

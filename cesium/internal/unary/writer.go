@@ -34,7 +34,7 @@ func (c WriterConfig) domain() domain.WriterConfig {
 type Writer struct {
 	WriterConfig
 	Channel core.Channel
-	control *controller.Gate[*domain.Writer]
+	control *controller.singleGate[controlledWriter]
 	idx     index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
@@ -45,13 +45,13 @@ type Writer struct {
 
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
-	gateCfg := controller.Config{
+	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain().Domain(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
 	var (
-		g  *controller.Gate[*domain.Writer]
+		g  *controller.singleGate[controlledWriter]
 		ok bool
 	)
 	g, transfer, ok = db.Controller.OpenGate(gateCfg)
@@ -61,7 +61,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, tran
 			return nil, transfer, err
 		}
 		gateCfg.TimeRange = dw.Domain()
-		g, transfer = db.Controller.RegisterAndOpenGate(gateCfg, dw)
+		g, transfer = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{Writer: dw, channelKey: db.Channel.Key})
 	}
 	w.control = g
 	return w, transfer, nil
@@ -101,7 +101,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	alignment := telem.Alignment(w.len(dw))
+	alignment := telem.Alignment(w.len(dw.Writer))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
@@ -141,7 +141,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if end.IsZero() {
 		// we're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw)-1, true)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
 		}

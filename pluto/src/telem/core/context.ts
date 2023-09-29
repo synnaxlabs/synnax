@@ -34,7 +34,7 @@ export const hijackProvider = (
   const old = getProvider(ctx);
   if (old.key === prov.key) return null;
   setProvider(ctx, prov);
-  return prov;
+  return old;
 };
 
 export const use = <T>(

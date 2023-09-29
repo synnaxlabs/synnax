@@ -14,12 +14,14 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"slices"
 	"sync"
 )
 
 type (
-	// State represents the control state of a gate over an entity.
-	State    = control.State[core.ChannelKey]
+	// State is the control state of a gate over a channel bound entity.
+	State = control.State[core.ChannelKey]
+	// Transfer is a transfer of control over a channel bound entity.
 	Transfer = control.Transfer[core.ChannelKey]
 )
 
@@ -32,7 +34,7 @@ type Entity interface {
 
 // Gate controls access to an entity for a given region of time.
 type Gate[E Entity] struct {
-	Config
+	GateConfig
 	r           *region[E]
 	position    int64
 	concurrency control.Concurrency
@@ -88,11 +90,11 @@ type region[E Entity] struct {
 }
 
 // open opens a new gate on the region with the given config.
-func (r *region[E]) open(c Config, con control.Concurrency) (*Gate[E], Transfer) {
+func (r *region[E]) open(c GateConfig, con control.Concurrency) (*Gate[E], Transfer) {
 	r.Lock()
 	g := &Gate[E]{
 		r:           r,
-		Config:      c,
+		GateConfig:  c,
 		position:    r.counter,
 		concurrency: con,
 	}
@@ -207,16 +209,22 @@ func New[E Entity](c control.Concurrency) *Controller[E] {
 	}
 }
 
-// Config is the configuration for opening a gate.
-type Config struct {
+// GateConfig is the configuration for opening a gate.
+type GateConfig struct {
 	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
 	// with overlapping time ranges will bind themselves to the same control region.
 	TimeRange telem.TimeRange
+	// Authority sets the authority of the gate over the entity. For a complete
+	// discussion of authority, see the package level documentation.
 	Authority control.Authority
-	Subject   control.Subject
+	// Subject sets the identity of the gate, and is used to track changes in control
+	// within the db.
+	Subject control.Subject
 }
 
-func (c *Controller[E]) State() *State {
+// LeadingState returns the current control state of the leading region in the
+// controller.
+func (c *Controller[E]) LeadingState() *State {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if len(c.regions) == 0 {
@@ -229,18 +237,20 @@ func (c *Controller[E]) State() *State {
 	return first.curr.state()
 }
 
-func (c *Controller[E]) OpenGate(cfg Config) (g *Gate[E], t Transfer, exists bool) {
+func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists bool, err error) {
 	c.mu.Lock()
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
+			if exists {
+				return nil, t, true, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
+			}
 			g, t = r.open(cfg, c.concurrency)
 			r.gates[g] = struct{}{}
-			c.mu.Unlock()
-			return g, t, true
+			exists = true
 		}
 	}
 	c.mu.Unlock()
-	return nil, t, false
+	return g, t, exists, nil
 }
 
 func (c *Controller[E]) Register(
@@ -254,27 +264,38 @@ func (c *Controller[E]) Register(
 			return errors.Newf("entity already registered for time range %s", t)
 		}
 	}
-	c.regions = append(c.regions, &region[E]{entity: entity, gates: make(map[*Gate[E]]struct{}), timeRange: t, controller: c})
+	c.insertNewRegion(t, entity)
 	c.mu.Unlock()
 	return nil
 }
 
 func (c *Controller[E]) RegisterAndOpenGate(
-	cfg Config,
+	cfg GateConfig,
 	entity E,
 ) (*Gate[E], Transfer) {
 	c.mu.Lock()
-	r := &region[E]{
-		entity:     entity,
-		gates:      make(map[*Gate[E]]struct{}, 1),
-		timeRange:  cfg.TimeRange,
-		controller: c,
-	}
+	r := c.insertNewRegion(cfg.TimeRange, entity)
 	g, t := r.open(cfg, c.concurrency)
 	r.gates[g] = struct{}{}
-	c.regions = append(c.regions, r)
 	c.mu.Unlock()
 	return g, t
+}
+
+func (c *Controller[E]) insertNewRegion(
+	t telem.TimeRange,
+	entity E,
+) *region[E] {
+	r := &region[E]{
+		entity:     entity,
+		gates:      make(map[*Gate[E]]struct{}),
+		timeRange:  t,
+		controller: c,
+	}
+	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a *region[E], b *region[E]) int {
+		return int(a.timeRange.Start - b.timeRange.Start)
+	})
+	c.regions = slices.Insert(c.regions, pos, r)
+	return r
 }
 
 func (c *Controller[E]) remove(r *region[E]) {

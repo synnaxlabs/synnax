@@ -510,11 +510,10 @@ export class Root extends Composite<typeof aetherRootState> {
           ctx: this.ctx,
         };
         this.internalUpdate(u);
-        console.log(this.children[0]);
       }
     } catch (e) {
       console.error(e);
-      // throw e;
+      throw e;
     }
   }
 }

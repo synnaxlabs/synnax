@@ -10,14 +10,14 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
+import { control } from "@/control/aether";
+import { chip } from "@/control/chip/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
-import { control } from "@/control/aether";
 import { provider } from "@/telem/provider/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
-import { chip } from "@/control/chip/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
 import { measure } from "@/vis/measure/aether";

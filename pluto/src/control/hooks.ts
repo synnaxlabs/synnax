@@ -12,8 +12,8 @@ import {
   NumericSink,
   type AuthoritySourceProps,
   AuthoritySource,
-  type AuthoritySinkProps,
-  AuthoritySink,
+  AcquireSink,
+  type AcquireSinkProps,
 } from "@/control/aether/controller";
 import { type telem } from "@/telem/core";
 
@@ -45,9 +45,9 @@ export const useAuthorityColorSource = (
   };
 };
 
-export const useAuthoritySink = (props: AuthoritySinkProps): telem.BooleanSinkSpec => {
+export const useAuthoritySink = (props: AcquireSinkProps): telem.BooleanSinkSpec => {
   return {
-    type: AuthoritySink.TYPE,
+    type: AcquireSink.TYPE,
     props,
     variant: "boolean-sink",
   };

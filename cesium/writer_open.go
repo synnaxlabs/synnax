@@ -61,7 +61,7 @@ func DefaultWriterConfig() WriterConfig {
 	}
 }
 
-// Validate implements config.Config.
+// Validate implements config.GateConfig.
 func (w WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", w.Channels)
@@ -74,7 +74,7 @@ func (w WriterConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.GateConfig.
 func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.Start = override.Zero(w.Start, other.Start)
 	w.Channels = override.Slice(w.Channels, other.Channels)

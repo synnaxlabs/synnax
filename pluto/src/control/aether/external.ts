@@ -10,3 +10,4 @@
 export * from "@/control/aether/controller";
 export * from "@/control/aether/state";
 export * from "@/control/aether/indicator";
+export * from "@/control/aether/registry";

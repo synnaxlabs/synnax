@@ -11,6 +11,8 @@ package cdc
 
 import (
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -25,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
 )
 
 // ObservableConfig is the configuration for opening a CDC pipeline that subscribes
@@ -140,7 +141,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 	}
 	p := plumber.New()
 	plumber.SetSource[framer.WriterRequest](p, "source", t)
-	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, "sink", w)
+	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(ctx context.Context, value framer.WriterResponse) error {
 			s.Instrumentation.L.Error("unexpected writer response", zap.Bool("ack", value.Ack))
@@ -148,8 +149,8 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 		},
 	}
 	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](p, "source", "sink", 10)
-	plumber.MustConnect[framer.WriterResponse](p, "sink", "responses", 10)
+	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
+	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
 	sCtx, cancel := signal.Isolated()
 	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return signal.NewShutdown(sCtx, cancel), nil

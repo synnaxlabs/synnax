@@ -22,6 +22,10 @@ import { z } from "zod";
 import { type Key, type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { Authority } from "@/control/authority";
+import {
+  subjectZ as controlSubjectZ,
+  type Subject as ControlSubject,
+} from "@/control/state";
 import { ForwardFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -34,16 +38,16 @@ enum Command {
   SetAuthority = 4,
 }
 
-const configZ = z.object({
+const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
-  name: z.string().optional(),
+  controlSubject: controlSubjectZ.optional(),
   keys: z.number().array(),
   authorities: Authority.z.array().optional(),
 });
 
 const reqZ = z.object({
   command: z.nativeEnum(Command),
-  config: configZ.optional(),
+  config: netConfigZ.optional(),
   frame: frameZ.optional(),
 });
 
@@ -56,6 +60,13 @@ const resZ = z.object({
 });
 
 type Response = z.infer<typeof resZ>;
+
+export interface WriterConfig {
+  start: CrudeTimeStamp;
+  channels: Params;
+  controlSubject?: ControlSubject;
+  authorities?: Authority | Authority[];
+}
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
@@ -118,12 +129,14 @@ export class Writer {
    * frames written to the writer must have channel keys in this list.
    */
   static async _open(
-    start: CrudeTimeStamp,
-    channels: Params,
     retriever: Retriever,
     client: StreamClient,
-    name: string = "",
-    authorities: Authority | Authority[] = Authority.ABSOLUTE,
+    {
+      channels,
+      authorities = Authority.ABSOLUTE,
+      controlSubject: subject,
+      start,
+    }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
@@ -133,7 +146,7 @@ export class Writer {
       config: {
         start: new TimeStamp(start),
         keys: adapter.keys,
-        name,
+        controlSubject: subject,
         authorities: toArray(authorities),
       },
     });

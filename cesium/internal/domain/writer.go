@@ -102,7 +102,6 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		internal:        internal,
 		idx:             db.idx,
 		presetEnd:       !cfg.End.IsZero(),
-		channelKey:      db.ChannelKey,
 	}
 
 	// If we don't have a preset end, we defer to using the start of the next domain

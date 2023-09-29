@@ -27,7 +27,10 @@ describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
     const streamer = await client.telem.newStreamer(ch.key);
-    const writer = await client.telem.newWriter(TimeStamp.now(), ch.key);
+    const writer = await client.telem.newWriter({
+      start: TimeStamp.now(),
+      channels: ch.key,
+    });
     try {
       await writer.write(ch.key, new Float64Array([1, 2, 3]));
     } finally {

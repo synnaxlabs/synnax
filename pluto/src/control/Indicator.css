@@ -10,8 +10,8 @@
  */
 
 .pluto-indicator {
-    border: var(--pluto-border);
-    transition: background-position 1s;
+    height: 1.25rem;
+    transition: background-color 1s;
     background-size: 200% 100%;
-    padding: 1rem;
+    border-radius: var(--pluto-border-radius);
 }

@@ -46,5 +46,5 @@ func Open(cfg Config) (db *DB, err error) {
 }
 
 func (db *DB) ControlState() *controller.State {
-	return db.controller.State()
+	return db.controller.LeadingState()
 }

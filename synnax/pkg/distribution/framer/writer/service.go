@@ -60,8 +60,7 @@ type Config struct {
 	// authority corresponds to the channel at the same index. Defaults to
 	// absolute authority for all channels.
 	// [OPTIONAL]
-	Authorities        []control.Authority `json:"authorities" msgpack:"authorities"`
-	SendControlDigests *bool
+	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -94,8 +93,7 @@ func DefaultConfig() Config {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:        []control.Authority{control.Absolute},
-		SendControlDigests: config.False(),
+		Authorities: []control.Authority{control.Absolute},
 	}
 }
 
@@ -138,7 +136,6 @@ func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys)
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
-	c.SendControlDigests = override.Nil(c.SendControlDigests, other.SendControlDigests)
 	return c
 }
 

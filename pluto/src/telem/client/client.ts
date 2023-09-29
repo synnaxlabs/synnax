@@ -193,6 +193,7 @@ export class Core implements Client {
     // Assemble the set of keys we need to stream.
     const keys = new Set<channel.Key>();
     this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
+    console.log("UPDATING STREAMER", keys);
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {

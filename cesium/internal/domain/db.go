@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -74,7 +73,6 @@ type Config struct {
 	// that the exact performance impact of changing this value is still relatively unknown.
 	// [OPTIONAL] Default: 100
 	MaxDescriptors int
-	ChannelKey     core.ChannelKey
 }
 
 var (
@@ -86,23 +84,21 @@ var (
 	}
 )
 
-// Validate implements config.Config.
+// Validate implements config.GateConfig.
 func (c Config) Validate() error {
 	v := validate.New("domain")
 	validate.Positive(v, "fileSize", c.FileSize)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
-	validate.NonZero(v, "channelKey", c.ChannelKey)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.GateConfig.
 func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.ChannelKey = override.Numeric(c.ChannelKey, other.ChannelKey)
 	return c
 }
 
@@ -113,9 +109,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{
-		Observer: observe.New[indexUpdate](),
-	}
+	idx := &index{Observer: observe.New[indexUpdate]()}
 	idxPst, err := openIndexPersist(idx, cfg)
 	if err != nil {
 		return nil, err

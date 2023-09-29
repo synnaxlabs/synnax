@@ -18,15 +18,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer) {
+func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer) {
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel}
-	gateCfg := controller.Config{
+	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
 	var (
-		g  *controller.Gate[*controlEntity]
+		g  *controller.singleGate[*controlEntity]
 		ok bool
 	)
 	g, transfer, ok = db.controller.OpenGate(gateCfg)
@@ -52,7 +52,7 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 
 type Writer struct {
 	Channel core.Channel
-	control *controller.Gate[*controlEntity]
+	control *controller.singleGate[*controlEntity]
 	WriterConfig
 }
 

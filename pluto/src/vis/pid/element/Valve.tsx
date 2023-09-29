@@ -85,23 +85,27 @@ const Element = ({
       direction={direction.swap(dir)}
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
-      <Control.Indicator
-        statusSource={authoritySource}
-        colorSource={authorityColorSource}
+      <div className={CSS.BE("valve-pid-element", "valve-container")}>
+        <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
+        <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
+        <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
+      </div>
+      <Align.Space
+        direction="x"
+        style={{ width: "100%", marginTop: "-1rem", paddingRight: "1rem" }}
+        align="center"
+        empty
       >
-        <div className={CSS.BE("valve-pid-element", "valve-container")}>
-          <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
-          <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
-          <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
-        </div>
-      </Control.Indicator>
-      <Align.Space direction="x" style={{ width: "100%", marginTop: "-1rem" }}>
-        {/* <Chip
+        <Chip
           size="small"
           source={authoritySource}
           sink={authoritySink}
           variant="text"
-        /> */}
+        />
+        <Control.Indicator
+          statusSource={authoritySource}
+          colorSource={authorityColorSource}
+        />
       </Align.Space>
     </Align.Space>
   );
