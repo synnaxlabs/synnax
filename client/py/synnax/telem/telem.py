@@ -885,6 +885,7 @@ class DataType(str):
             return value
         if isinstance(value, str):
             return super().__new__(cls, value)
+
         if np.issctype(value):
             value = DataType._FROM_NUMPY.get(np.dtype(value), None)
             if value is not None:

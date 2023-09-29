@@ -14,6 +14,12 @@ Run the following command in the `synnax` direction of the repository:
 go run main.go start --listen localhost:9090 --verbose --insecure --mem
 ```
 
+As a shorthand, you can also run
+
+```bash
+go run main.go start -vmi
+```
+
 ## Running the Test Suite
 
 To run the test suite, run the following command from the `synnax` directory of the repository:

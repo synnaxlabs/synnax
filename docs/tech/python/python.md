@@ -28,11 +28,11 @@ The current dependency hierarchy for these packages is as follows:
 We use [poetry](https://python-poetry.org/) as our package manager of choice. It helps
 us:
 
-* Correctly version all of our project dependencies. 
+* Correctly version all of our project dependencies.
 * Create virtual environments.
 * Publish packages to PyPI.
 
-While poetry can be considered a replacement for `pipenv`, it's not a replacement for `venv`. 
+While poetry can be considered a replacement for `pipenv`, it's not a replacement for `venv`.
 Poetry relies on the operating system level Python version to create virtual environments.
 
 ## The Development Process
@@ -49,7 +49,7 @@ Unlike Go or Typescript, Python has relatively poor support for monorepo develop
 the moment. As a result, we need to do a little bit of manual labor to get things working.
 
 Whenever we submit a pull request to the main branch, we need to ensure that all relative
-dependency links are commented out and their absolute counterparts are uncommented. 
+dependency links are commented out and their absolute counterparts are uncommented.
 Otherwise, the package won't be publishable to PyPI or installable by any our users.
 
 So, when you check out a new branch off of `main` and see the `pyproject.toml` file in
@@ -99,3 +99,13 @@ This will let you run test cases (and in `client/py` the CLI).
 You're ready to start developing with Python in Synnax. Note that certain libraries
 have specific development instructions. These instructions can be found in the `README.md`
 files in each library's directory.
+
+## BEFORE YOU SUBMIT A PULL REQUEST
+
+Once you're ready to submit a pull request, do two things:
+
+1. Make sure you've bumped any changed libraries to their appropriate semantic version.
+2. Make sure you've commented out any relative dependency links and uncommented any
+absolute dependency links, and correctly updated any changed version numbers.
+
+

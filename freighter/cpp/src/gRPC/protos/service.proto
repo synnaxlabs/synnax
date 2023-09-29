@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package test;
+
+service messageService
+{
+    rpc Exec(Message) returns (Message) {}
+}
+
+message Message
+{
+    string payload = 1;
+    string error = 2;
+}
