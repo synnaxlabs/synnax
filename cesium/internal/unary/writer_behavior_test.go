@@ -38,7 +38,8 @@ var _ = Describe("Writer Behavior", func() {
 		})
 		Specify("Happy Path", func() {
 			w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-				Start: telem.TimeStamp(0),
+				Start:   telem.TimeStamp(0),
+				Subject: control.Subject{Key: "foo"},
 			}))
 			Expect(t.Occurred()).To(BeTrue())
 			Expect(MustSucceed(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.Alignment(0)))
@@ -46,6 +47,7 @@ var _ = Describe("Writer Behavior", func() {
 			Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 			t = MustSucceed(w.Close())
 			Expect(t.Occurred()).To(BeTrue())
+			Expect(db.LeadingControlState()).To(BeNil())
 		})
 	})
 	Describe("Channel Indexed", func() {
@@ -80,12 +82,19 @@ var _ = Describe("Writer Behavior", func() {
 		})
 		Specify("Happy Path", func() {
 			Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
-			w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS}))
+			w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+				Start:   10 * telem.SecondTS,
+				Subject: control.Subject{Key: "foo"},
+			}))
+			By("Taking control of the DB")
+			Expect(db.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 			Expect(t.Occurred()).To(BeTrue())
 			Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.Alignment(0)))
 			Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 			t = MustSucceed(w.Close())
 			Expect(t.Occurred()).To(BeTrue())
+			By("Releasing control of the DB")
+			Expect(db.LeadingControlState()).To(BeNil())
 		})
 	})
 	Describe("Control", func() {
@@ -108,12 +117,14 @@ var _ = Describe("Writer Behavior", func() {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.Absolute - 1,
+					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.Alignment(0)))
 				w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.Absolute,
+					Subject:   control.Subject{Key: "bar"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(MustSucceed(w2.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.Alignment(6)))

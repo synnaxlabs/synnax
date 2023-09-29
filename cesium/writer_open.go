@@ -149,11 +149,14 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
-			virtualWriters[key], transfer = v.OpenWriter(ctx, virtual.WriterConfig{
+			virtualWriters[key], transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
 				Subject:   cfg.ControlSubject,
 				Start:     cfg.Start,
 				Authority: auth,
 			})
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{

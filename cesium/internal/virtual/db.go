@@ -45,6 +45,6 @@ func Open(cfg Config) (db *DB, err error) {
 	}, nil
 }
 
-func (db *DB) ControlState() *controller.State {
+func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }

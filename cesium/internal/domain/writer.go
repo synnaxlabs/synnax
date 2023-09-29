@@ -14,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -83,7 +82,6 @@ type Writer struct {
 	fileKey    uint16
 	internal   xio.OffsetWriteCloser
 	presetEnd  bool
-	channelKey core.ChannelKey
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -117,8 +115,6 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	}
 	return w, nil
 }
-
-func (w *Writer) ChannelKey() core.ChannelKey { return w.channelKey }
 
 // Len returns the number of bytes written to the domain.
 func (w *Writer) Len() int64 { return w.internal.Len() }

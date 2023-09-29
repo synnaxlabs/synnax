@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer) {
+func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
@@ -26,17 +26,20 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 		Subject:   cfg.Subject,
 	}
 	var (
-		g  *controller.singleGate[*controlEntity]
+		g  *controller.Gate[*controlEntity]
 		ok bool
 	)
-	g, transfer, ok = db.controller.OpenGate(gateCfg)
+	g, transfer, ok, err = db.controller.OpenGate(gateCfg)
+	if err != nil {
+		return w, transfer, err
+	}
 	if !ok {
 		gateCfg.TimeRange = cfg.domain()
 		a := telem.Alignment(0)
-		g, transfer = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
+		g, transfer, err = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
 	}
 	w.control = g
-	return w, transfer
+	return w, transfer, err
 }
 
 type WriterConfig struct {
@@ -52,7 +55,7 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 
 type Writer struct {
 	Channel core.Channel
-	control *controller.singleGate[*controlEntity]
+	control *controller.Gate[*controlEntity]
 	WriterConfig
 }
 

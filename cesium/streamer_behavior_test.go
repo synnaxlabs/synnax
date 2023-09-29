@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -107,9 +108,9 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 				cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic3},
-				Name:     "Writer",
-				Start:    10 * telem.SecondTS,
+				Channels:       []cesium.ChannelKey{basic3},
+				ControlSubject: control.Subject{Name: "Writer"},
+				Start:          10 * telem.SecondTS,
 			}))
 			streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 				Channels: []cesium.ChannelKey{controlKey},

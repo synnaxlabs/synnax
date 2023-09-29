@@ -100,7 +100,6 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 					s.Out.Inlet() <- StreamerResponse{
 						Frame: s.db.controlUpdateToWriterRequest(ctx, s.db.controlStates()),
 					}
-
 				}
 				s.Channels = req.Channels
 			case f := <-frames.Outlet():

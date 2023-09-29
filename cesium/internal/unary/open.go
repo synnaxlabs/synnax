@@ -64,12 +64,11 @@ func Open(configs ...Config) (*DB, error) {
 	rangerDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
-		ChannelKey:      cfg.Channel.Key,
 	})
 	db := &DB{
 		Config:     cfg,
 		Domain:     rangerDB,
-		Controller: controller.New[*domain.Writer](cfg.Channel.Concurrency),
+		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}

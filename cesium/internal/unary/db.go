@@ -24,6 +24,8 @@ type controlledWriter struct {
 	channelKey core.ChannelKey
 }
 
+func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
+
 type DB struct {
 	Config
 	Domain     *domain.DB
@@ -73,7 +75,7 @@ func (i IteratorConfig) ranger() domain.IteratorConfig {
 	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
-func (db *DB) ControlState() *controller.State {
+func (db *DB) LeadingControlState() *controller.State {
 	return db.Controller.LeadingState()
 }
 

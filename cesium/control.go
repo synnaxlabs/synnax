@@ -66,15 +66,15 @@ func (db *DB) controlStates() (u ControlUpdate) {
 	}
 	u.Transfers = make([]controller.Transfer, 0, len(db.unaryDBs)+len(db.virtualDBs))
 	for _, d := range db.unaryDBs {
-		s := d.ControlState()
+		s := d.LeadingControlState()
 		if s != nil {
 			u.Transfers = append(u.Transfers, controller.Transfer{To: s})
 		}
 	}
 	for _, d := range db.virtualDBs {
-		s := d.ControlState()
+		s := d.LeadingControlState()
 		if s != nil {
-			u.Transfers = append(u.Transfers, controller.Transfer{To: d.ControlState()})
+			u.Transfers = append(u.Transfers, controller.Transfer{To: d.LeadingControlState()})
 		}
 	}
 	return u

@@ -12,6 +12,8 @@ package unary
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -31,10 +33,14 @@ func (c WriterConfig) domain() domain.WriterConfig {
 	return domain.WriterConfig{Start: c.Start, End: c.End}
 }
 
+func (c WriterConfig) controlTimeRange() telem.TimeRange {
+	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
+}
+
 type Writer struct {
 	WriterConfig
 	Channel core.Channel
-	control *controller.singleGate[controlledWriter]
+	control *controller.Gate[controlledWriter]
 	idx     index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
@@ -46,25 +52,31 @@ type Writer struct {
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
 	gateCfg := controller.GateConfig{
-		TimeRange: cfg.domain().Domain(),
+		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
 	var (
-		g  *controller.singleGate[controlledWriter]
+		g  *controller.Gate[controlledWriter]
 		ok bool
 	)
-	g, transfer, ok = db.Controller.OpenGate(gateCfg)
+	g, transfer, ok, err = db.Controller.OpenGate(gateCfg)
+	if err != nil {
+		return nil, transfer, err
+	}
 	if !ok {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
 		if err != nil {
 			return nil, transfer, err
 		}
-		gateCfg.TimeRange = dw.Domain()
-		g, transfer = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{Writer: dw, channelKey: db.Channel.Key})
+		gateCfg.TimeRange = cfg.controlTimeRange()
+		g, transfer, err = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{
+			Writer:     dw,
+			channelKey: db.Channel.Key,
+		})
 	}
 	w.control = g
-	return w, transfer, nil
+	return w, transfer, err
 }
 
 func Write(
@@ -73,7 +85,11 @@ func Write(
 	start telem.TimeStamp,
 	series telem.Series,
 ) (err error) {
-	w, _, err := db.OpenWriter(ctx, WriterConfig{Start: start, Authority: control.Absolute})
+	w, _, err := db.OpenWriter(ctx, WriterConfig{
+		Start:     start,
+		Authority: control.Absolute,
+		Subject:   control.Subject{Key: uuid.New().String()},
+	})
 	if err != nil {
 		return err
 	}
