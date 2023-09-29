@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/framer/v1"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/telem/telempb"
 )
 
 var (
@@ -44,7 +45,7 @@ func (writerRequestTranslator) Backward(
 			Keys:  channel.KeysFromUint32(req.Config.Keys),
 			Start: telem.TimeStamp(req.Config.Start),
 		},
-		Frame: tranFrameFwd(req.Frame),
+		Frame: translateFrameForward(req.Frame),
 	}, nil
 }
 
@@ -59,7 +60,7 @@ func (writerRequestTranslator) Forward(
 			Keys:  req.Config.Keys.Uint32(),
 			Start: int64(req.Config.Start),
 		},
-		Frame: tranFrmBwd(req.Frame),
+		Frame: translateFrameBackward(req.Frame),
 	}, nil
 }
 
@@ -72,7 +73,7 @@ func (writerResponseTranslator) Backward(
 ) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
-		SeqNum:  int(res.Counter),
+		SeqNum:  int(res.SeqNum),
 		Ack:     res.Ack,
 		Error:   fgrpc.DecodeError(res.Error),
 	}, nil
@@ -85,7 +86,7 @@ func (writerResponseTranslator) Forward(
 ) (*tsv1.WriterResponse, error) {
 	return &tsv1.WriterResponse{
 		Command: int32(res.Command),
-		Counter: int32(res.SeqNum),
+		SeqNum:  int32(res.SeqNum),
 		Ack:     res.Ack,
 		Error:   fgrpc.EncodeError(res.Error),
 	}, nil
@@ -101,12 +102,9 @@ func (iteratorRequestTranslator) Backward(
 	return iterator.Request{
 		Command: iterator.Command(req.Command),
 		Span:    telem.TimeSpan(req.Span),
-		Bounds: telem.TimeRange{
-			Start: telem.TimeStamp(req.Range.Start),
-			End:   telem.TimeStamp(req.Range.End),
-		},
-		Stamp: telem.TimeStamp(req.Stamp),
-		Keys:  channel.KeysFromUint32(req.Keys),
+		Bounds:  telempb.TranslateTimeRangeBackward(req.Bounds),
+		Stamp:   telem.TimeStamp(req.Stamp),
+		Keys:    channel.KeysFromUint32(req.Keys),
 	}, nil
 }
 
@@ -118,12 +116,9 @@ func (iteratorRequestTranslator) Forward(
 	return &tsv1.IteratorRequest{
 		Command: int32(req.Command),
 		Span:    int64(req.Span),
-		Range: &tsv1.TimeRange{
-			Start: int64(req.Bounds.Start),
-			End:   int64(req.Bounds.End),
-		},
-		Stamp: int64(req.Stamp),
-		Keys:  req.Keys.Uint32(),
+		Bounds:  telempb.TranslateTimeRangeForward(req.Bounds),
+		Stamp:   int64(req.Stamp),
+		Keys:    req.Keys.Uint32(),
 	}, nil
 }
 
@@ -136,12 +131,12 @@ func (iteratorResponseTranslator) Backward(
 ) (iterator.Response, error) {
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: dcore.NodeKey(res.NodeId),
+		NodeKey: dcore.NodeKey(res.NodeKey),
 		Ack:     res.Ack,
-		SeqNum:  int(res.Counter),
+		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),
 		Error:   fgrpc.DecodeError(res.Error),
-		Frame:   tranFrameFwd(res.Frame),
+		Frame:   translateFrameForward(res.Frame),
 	}, nil
 }
 
@@ -152,12 +147,12 @@ func (iteratorResponseTranslator) Forward(
 ) (*tsv1.IteratorResponse, error) {
 	return &tsv1.IteratorResponse{
 		Variant: int32(res.Variant),
-		NodeId:  int32(res.NodeKey),
+		NodeKey: int32(res.NodeKey),
 		Ack:     res.Ack,
-		Counter: int32(res.SeqNum),
+		SeqNum:  int32(res.SeqNum),
 		Command: int32(res.Command),
 		Error:   fgrpc.EncodeError(res.Error),
-		Frame:   tranFrmBwd(res.Frame),
+		Frame:   translateFrameBackward(res.Frame),
 	}, nil
 }
 
@@ -184,7 +179,7 @@ func (w relayResponseTranslator) Backward(
 	res *tsv1.RelayResponse,
 ) (relay.Response, error) {
 	return relay.Response{
-		Frame: tranFrameFwd(res.Frame),
+		Frame: translateFrameForward(res.Frame),
 		Error: fgrpc.DecodeError(res.Error),
 	}, nil
 }
@@ -194,50 +189,20 @@ func (w relayResponseTranslator) Forward(
 	res relay.Response,
 ) (*tsv1.RelayResponse, error) {
 	return &tsv1.RelayResponse{
-		Frame: tranFrmBwd(res.Frame),
+		Frame: translateFrameBackward(res.Frame),
 		Error: fgrpc.EncodeError(res.Error),
 	}, nil
 }
 
-func tranFrameFwd(frame *tsv1.Frame) framer.Frame {
+func translateFrameForward(frame *tsv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
-	series := tranArrayFwd(frame.Series)
+	series := telempb.TranslateManySeriesBackward(frame.Series)
 	return framer.Frame{Keys: keys, Series: series}
 }
 
-func tranFrmBwd(frame framer.Frame) *tsv1.Frame {
+func translateFrameBackward(frame framer.Frame) *tsv1.Frame {
 	return &tsv1.Frame{
 		Keys:   frame.Keys.Uint32(),
-		Series: tranArrBwd(frame.Series),
+		Series: telempb.TranslateManySeriesForward(frame.Series),
 	}
-}
-
-func tranArrayFwd(series []*tsv1.Series) []telem.Series {
-	LazyArrays := make([]telem.Series, len(series))
-	for i, series := range series {
-		LazyArrays[i] = telem.Series{
-			DataType: telem.DataType(series.DataType),
-			TimeRange: telem.TimeRange{
-				Start: telem.TimeStamp(series.Range.Start),
-				End:   telem.TimeStamp(series.Range.End),
-			},
-			Data: series.Data,
-		}
-	}
-	return LazyArrays
-}
-
-func tranArrBwd(series []telem.Series) []*tsv1.Series {
-	LazyArrays := make([]*tsv1.Series, len(series))
-	for i, series := range series {
-		LazyArrays[i] = &tsv1.Series{
-			DataType: string(series.DataType),
-			Range: &tsv1.TimeRange{
-				Start: int64(series.TimeRange.Start),
-				End:   int64(series.TimeRange.End),
-			},
-			Data: series.Data,
-		}
-	}
-	return LazyArrays
 }
