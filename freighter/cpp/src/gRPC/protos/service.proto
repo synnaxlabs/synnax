@@ -4,11 +4,12 @@ package test;
 
 service messageService
 {
-    rpc Exec(Message) returns (Message) {}
+    rpc Unary(Message) returns (Message) {}
+
+    rpc Stream(stream Message) returns (stream Message) {}
 }
 
 message Message
 {
     string payload = 1;
-    string error = 2;
 }
