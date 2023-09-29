@@ -136,9 +136,7 @@ var _ = Describe("Control", func() {
 			c := controller.New[testEntity](control.Exclusive)
 			Expect(c.Register(telem.TimeRangeMax, testEntity{value: 11})).To(Succeed())
 			g, t, exists := MustSucceed3(c.OpenGate(controller.GateConfig{
-				Subject: control.Subject{
-					Key: "test",
-				},
+				Subject:   control.Subject{Key: "test"},
 				TimeRange: telem.TimeRangeMax,
 				Authority: control.Absolute,
 			}))
@@ -150,6 +148,7 @@ var _ = Describe("Control", func() {
 			Expect(v.value).To(Equal(11))
 			By("Returning false when opening a new gate")
 			_, t, exists = MustSucceed3(c.OpenGate(controller.GateConfig{
+				Subject:   control.Subject{Key: "test2"},
 				TimeRange: telem.TimeRangeMax,
 				Authority: control.Absolute,
 			}))
@@ -174,6 +173,7 @@ var _ = Describe("Control", func() {
 				Expect(t.To.Subject).To(Equal(control.Subject{Key: "g1"}))
 				Expect(exists).To(BeTrue())
 				g2, t, exists := MustSucceed3(c.OpenGate(controller.GateConfig{
+					Subject:   control.Subject{Key: "g2"},
 					TimeRange: telem.TimeRangeMax,
 					Authority: control.Absolute - 1,
 				}))
@@ -195,6 +195,7 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(exists).To(BeTrue())
 				g2, t, exists := MustSucceed3(c.OpenGate(controller.GateConfig{
+					Subject:   control.Subject{Key: "g2"},
 					TimeRange: telem.TimeRangeMax,
 					Authority: control.Absolute,
 				}))

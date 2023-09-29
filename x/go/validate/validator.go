@@ -13,6 +13,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"reflect"
 )
@@ -92,6 +93,13 @@ func NonZero[T types.Numeric](v *Validator, name string, value T) bool {
 	return v.Ternaryf(
 		value == 0,
 		"%s must be non-zero", name)
+}
+
+func NonZeroable(v *Validator, name string, value override.Zeroable) bool {
+	return v.Ternaryf(
+		value.IsZero(),
+		"%s must be non-zero", name,
+	)
 }
 
 func NonNegative[T types.Numeric](v *Validator, name string, value T) bool {
