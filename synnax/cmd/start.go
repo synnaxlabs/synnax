@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
@@ -157,6 +158,11 @@ func start(cmd *cobra.Command) {
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
 		_api.BindTo(httpapi.New(r))
+
+		// Configure the GRPC API Transport.
+		grpcAPI, grpcAPITrans := grpcapi.New()
+		*grpcTransports = append(*grpcTransports, grpcAPITrans...)
+		_api.BindTo(grpcAPI)
 
 		srv, err := server.New(buildServerConfig(
 			*grpcTransports,

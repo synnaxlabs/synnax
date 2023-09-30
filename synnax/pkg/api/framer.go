@@ -14,13 +14,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 )
 
+type Frame = framer.Frame
+
 type FrameService struct {
 	alamos.Instrumentation
 	authProvider
 	Internal *framer.Service
 }
 
-func NewTelemService(p Provider) *FrameService {
+func NewFrameService(p Provider) *FrameService {
 	return &FrameService{
 		Instrumentation: p.Instrumentation,
 		Internal:        p.Config.Framer,

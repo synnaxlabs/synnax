@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package api.v1;
+
+import "google/protobuf/empty.proto";
+
+service ConnectivityService {
+    rpc Exec(google.protobuf.Empty) returns (ConnectivityCheckResponse) {}
+}
+
+message ConnectivityCheckResponse {
+    string cluster_key = 1;
+}

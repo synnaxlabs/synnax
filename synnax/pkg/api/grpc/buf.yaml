@@ -1,5 +1,5 @@
 version: v1
-name: buf.build/synnaxlabs/delta-distribution
+name: buf.build/synnaxlabs/synnax-api
 deps:
   - buf.build/synnaxlabs/freighter
   - buf.build/synnaxlabs/telem
