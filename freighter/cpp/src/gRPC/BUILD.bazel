@@ -1,0 +1,14 @@
+# gRPC implementation.
+cc_library(
+    name = "gRPC",
+    srcs = [],
+    hdrs = ["client.h"],
+    deps = ["//src:freighter", "@com_github_grpc_grpc//:grpc++"],
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "fgRPC.so",
+    linkshared = 1,
+    deps = [":gRPC"]
+)

@@ -5,13 +5,14 @@ managed:
     default: github.com/synnaxlabs/delta/pkg/distribution/transport/grpc
     except:
       - buf.build/synnaxlabs/freighter
+      - buf.build/synnaxlabs/telem
 plugins:
   - name: go
-    out: gen/proto/go
+    out: gen/go
     opt: paths=source_relative
 
   - name: go-grpc
-    out: gen/proto/go
+    out: gen/go
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false

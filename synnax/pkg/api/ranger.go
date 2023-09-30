@@ -66,19 +66,15 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 		hasKeys   = len(req.Keys) > 0
 		hasSearch = req.Term != ""
 	)
-
 	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
-
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
-
 	if hasSearch {
 		q = q.Search(req.Term)
 	}
-
 	err := errors.MaybeQuery(q.Exec(ctx, nil))
 	return RangeRetrieveResponse{Ranges: resRanges}, err
 }

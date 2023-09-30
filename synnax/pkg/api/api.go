@@ -270,7 +270,7 @@ func New(configs ...Config) (API, error) {
 	}
 	api := API{config: cfg, provider: NewProvider(cfg)}
 	api.Auth = NewAuthServer(api.provider)
-	api.Telem = NewTelemService(api.provider)
+	api.Telem = NewFrameService(api.provider)
 	api.Channel = NewChannelService(api.provider)
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)
