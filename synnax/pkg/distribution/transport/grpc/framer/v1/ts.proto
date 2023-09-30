@@ -13,7 +13,7 @@ message IteratorRequest {
     int32 command = 1;
     int64 stamp = 2;
     int64 span = 3;
-    telempb.TimeRange bounds = 4;
+    telem.TimeRange bounds = 4;
     repeated uint32 keys = 6;
 }
 
@@ -43,7 +43,7 @@ message RelayResponse {
 
 message Frame {
     repeated uint32 keys = 1;
-    repeated telempb.Series series = 2;
+    repeated telem.Series series = 2;
 }
 
 service WriterService {

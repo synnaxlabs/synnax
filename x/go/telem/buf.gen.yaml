@@ -4,12 +4,19 @@ managed:
   go_package_prefix:
     default: github.com/synnaxlabs/x/telempb/
 plugins:
-  - name: go
-    out: .
-    opt: paths=source_relative
-
-  - name: go-grpc
+  - plugin: buf.build/grpc/go:v1.3.0
     out: .
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
+
+  - plugin: buf.build/protocolbuffers/go
+    out: .
+    opt:
+      - paths=source_relative
+
+  - plugin: buf.build/grpc/cpp
+    out: telempb/cpp
+
+  - plugin: buf.build/protocolbuffers/cpp
+    out: telempb/cpp

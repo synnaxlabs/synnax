@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package telempb;
+package telem;
 
-option go_package = "github.com/synnaxlabs/x/telem/telempb;telempb";
+option go_package = "github.com/synnaxlabs/x/telem/telempb";
 
 message TimeRange {
     int64 start = 1;

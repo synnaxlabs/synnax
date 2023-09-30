@@ -8,18 +8,18 @@ managed:
       - buf.build/synnaxlabs/freighter
 plugins:
   - plugin: buf.build/grpc/go:v1.3.0
-    out: gen/proto/go
+    out: gen/go
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
 
   - plugin: buf.build/protocolbuffers/go
-    out: gen/proto/go
+    out: gen/go
     opt:
       - paths=source_relative
 
   - plugin: buf.build/grpc/cpp
-    out: gen/proto/cpp
+    out: gen/cpp
 
   - plugin: buf.build/protocolbuffers/cpp
-    out: gen/proto/cpp
+    out: gen/cpp

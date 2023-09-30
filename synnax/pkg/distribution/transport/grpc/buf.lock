@@ -9,5 +9,5 @@ deps:
   - remote: buf.build
     owner: synnaxlabs
     repository: telem
-    commit: ffd80315d14f4a31ab45796dd1db2fdc
-    digest: shake256:dd808aa8e7ff58428d5114c8cc00e9b3901aaf036ae142f07fe90a77e01797124a6fe4d952c87aa60949b94345429b3bee992700b4d2236e3df872a97e3ec17f
+    commit: 8168ea08ff4c42d1b2fc39f04ec68a6b
+    digest: shake256:345ca74c0f7ae8a846a723720f0aac2f124f81db9da8682a02d88f47fd1f5f8228348a90bda43c7ccb0825b39b3e251472cee518b0cfb4ed076d2d40ec08b7a2

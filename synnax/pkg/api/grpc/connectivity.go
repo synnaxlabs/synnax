@@ -13,7 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/proto/go/apiv1"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
