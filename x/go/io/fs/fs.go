@@ -27,6 +27,7 @@ type FS interface {
 	Sub(name string) (FS, error)
 	List() ([]os.FileInfo, error)
 	Exists(name string) (bool, error)
+	Remove(name string) error
 }
 
 type defaultFS struct {
@@ -67,7 +68,7 @@ func (d *defaultFS) List() ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (d *defaultFS) Delete(name string) error {
+func (d *defaultFS) Remove(name string) error {
 	err := os.Remove(path.Join(d.dir, name))
 	if err != nil {
 		return err
@@ -111,7 +112,7 @@ func (m *memFS) List() ([]os.FileInfo, error) {
 	return afero.ReadDir(m.Fs, ".")
 }
 
-func (m *memFS) Delete(name string) error {
+func (m *memFS) Remove(name string) error {
 	err := m.Remove(name)
 	if err != nil {
 		return err
