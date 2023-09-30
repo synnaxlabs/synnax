@@ -29,7 +29,7 @@ type FrameWriterConfig struct {
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
-	Authorities    []int           `json:"authorities" msgpack:"authorities"`
+	Authorities    []uint32        `json:"authorities" msgpack:"authorities"`
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	Start          telem.TimeStamp `json:"start" msgpack:"start"`
 	Keys           channel.Keys    `json:"keys" msgpack:"keys"`
@@ -94,6 +94,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 			}
 
 			if r.Command == writer.SetAuthority {
+				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
 					r.Config.Authorities[i] = control.Authority(a)

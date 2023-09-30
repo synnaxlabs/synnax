@@ -111,40 +111,50 @@ func (c Config) Override(other Config) Config {
 }
 
 type Transport struct {
-	AuthLogin              freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername     freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword     freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	AuthRegistration       freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	ChannelCreate          freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve        freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	ConnectivityCheck      freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	FrameWriter            freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
-	FrameIterator          freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
-	FrameStreamer          freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
-	RangeCreate            freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve          freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	// AUTH
+	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	// CHANNEL
+	ChannelCreate   freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	// CONNECTIVITY
+	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
+	// FRAME
+	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
+	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
+	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
+	// RANGE
+	RangeCreate   freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
-	OntologyGroupCreate    freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete    freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename    freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
-	WorkspaceCreate        freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
-	WorkspaceRetrieve      freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
-	WorkspaceDelete        freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
-	WorkspaceRename        freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
-	WorkspaceSetLayout     freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	PIDCreate              freighter.UnaryServer[PIDCreateRequest, PIDCreateResponse]
-	PIDRetrieve            freighter.UnaryServer[PIDRetrieveRequest, PIDRetrieveResponse]
-	PIDDelete              freighter.UnaryServer[PIDDeleteRequest, types.Nil]
-	PIDRename              freighter.UnaryServer[PIDRenameRequest, types.Nil]
-	PIDSetData             freighter.UnaryServer[PIDSetDataRequest, types.Nil]
-	LinePlotCreate         freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
-	LinePlotRename         freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
-	LinePlotSetData        freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
-	LinePlotRetrieve       freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
-	LinePlotDelete         freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
+	// GROUP
+	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
+	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
+	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+	// WORKSPACE
+	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
+	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
+	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
+	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
+	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
+	// PID
+	PIDCreate   freighter.UnaryServer[PIDCreateRequest, PIDCreateResponse]
+	PIDRetrieve freighter.UnaryServer[PIDRetrieveRequest, PIDRetrieveResponse]
+	PIDDelete   freighter.UnaryServer[PIDDeleteRequest, types.Nil]
+	PIDRename   freighter.UnaryServer[PIDRenameRequest, types.Nil]
+	PIDSetData  freighter.UnaryServer[PIDSetDataRequest, types.Nil]
+	// LINE PLOT
+	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
+	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
+	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
+	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
+	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
