@@ -10,15 +10,16 @@
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
   useMemo,
   useState,
+  useCallback,
 } from "react";
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useTransforms } from "@/hooks";
+import { useStateRef } from "@/hooks/useStateRef";
 import { Provider } from "@/list/Context";
 import { type ColumnSpec } from "@/list/types";
 
@@ -61,17 +62,26 @@ export const List = <
     if (propsData != null) setData(propsData);
   }, [propsData]);
   const transformedData = useMemo(() => transform(data), [data, transform]);
-  const setSourceData = useCallback((data: E[]) => setData(data), [setData]);
   const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(
     emptyContent,
   );
+  const [fetchMoreRef, setFetchMoreRef] = useStateRef<() => void>(() => {});
+  const [hasMore, setHasMore] = useState<boolean>(true);
+
+  const handleSetFetchMoreRef = useCallback(
+    (ref: () => void): void => setFetchMoreRef(() => ref),
+    [setFetchMoreRef],
+  );
+
+  const onFetchMore = useCallback((): void => fetchMoreRef.current?.(), [fetchMoreRef]);
+
   return (
     <Provider<K, E>
       value={{
         setEmptyContent,
         sourceData: data,
         data: transformedData,
-        setSourceData,
+        setSourceData: setData,
         deleteTransform,
         setTransform,
         hover: {
@@ -90,6 +100,12 @@ export const List = <
           onSelect,
           clear,
           setClear,
+        },
+        infinite: {
+          onFetchMore,
+          setOnFetchMore: handleSetFetchMoreRef,
+          hasMore,
+          setHasMore,
         },
       }}
     >

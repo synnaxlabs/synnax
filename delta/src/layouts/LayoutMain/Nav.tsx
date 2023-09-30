@@ -29,12 +29,12 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
-import { SERVICES } from "@/ontology/services";
 import { Toolbar } from "@/ontology/Toolbar";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
 import { PID } from "@/pid";
 import { Range } from "@/range";
+import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
@@ -90,8 +90,13 @@ export const NavTop = (): ReactElement => {
   };
 
   return (
-    <Nav.Bar data-tauri-drag-region location="top" size={NAV_SIZES.top}>
-      <Nav.Bar.Start className="delta-main-nav-top__start">
+    <Nav.Bar
+      data-tauri-drag-region
+      location="top"
+      size={NAV_SIZES.top}
+      className="delta-main-nav-top"
+    >
+      <Nav.Bar.Start className="delta-main-nav-top__start" data-tauri-drag-region>
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
           <Logo className="delta-main-nav-top__logo" variant="icon" />
@@ -99,17 +104,18 @@ export const NavTop = (): ReactElement => {
         <Workspace.Selector />
       </Nav.Bar.Start>
       <Nav.Bar.Content
-        style={{
-          position: "absolute",
-          left: "25%",
-          width: "50%",
-          zIndex: 10,
-          height: NAV_SIZES.top,
-        }}
+        grow
+        justify="center"
+        className="delta-main-nav-top__center"
+        data-tauri-drag-region
       >
         <NavTopPalette />
       </Nav.Bar.Content>
-      <Nav.Bar.End className="delta-main-nav-top__end">
+      <Nav.Bar.End
+        className="delta-main-nav-top__end"
+        justify="end"
+        data-tauri-drag-region
+      >
         <Button.Icon
           size="medium"
           onClick={handleDocs}

@@ -23,7 +23,7 @@ import {
   NavRight,
   NavTop,
 } from "@/layouts/LayoutMain/Nav";
-import { SERVICES } from "@/ontology/services";
+import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
 

@@ -51,11 +51,27 @@ func (r Retrieve) Where(filter func(r *Resource) bool) Retrieve {
 	return r
 }
 
+// Limit limits the number of results returned.
+func (r Retrieve) Limit(limit int) Retrieve {
+	r.query.Current().Limit(limit)
+	return r
+}
+
+// Offset offsets the results returned.
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.query.Current().Offset(offset)
+	return r
+}
+
+// IncludeSchema includes the schema of the resource in the results based on the
+// provided predicate.
 func (r Retrieve) IncludeSchema(includeSchema bool) Retrieve {
 	setIncludeSchema(r.query.Current().Params, includeSchema)
 	return r
 }
 
+// IncludeFieldData includes the field data of the resource in the results based on the
+// provided predicate.
 func (r Retrieve) IncludeFieldData(includeFieldData bool) Retrieve {
 	setIncludeFieldData(r.query.Current().Params, includeFieldData)
 	return r

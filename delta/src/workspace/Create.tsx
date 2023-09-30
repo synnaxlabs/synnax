@@ -61,7 +61,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   };
 
   return (
-    <Align.Space>
+    <Align.Space style={{ height: "100%" }}>
       <Header.Header level="h4" divided>
         <Header.Title startIcon={<Icon.Workspace />}>Create a Workspace</Header.Title>
       </Header.Header>
@@ -74,7 +74,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         id="create-workspace"
       >
         <Align.Space className="delta-form">
-          <Input.ItemControlled name="name" control={control} grow />
+          <Input.ItemControlled name="name" control={control} grow autoFocus />
         </Align.Space>
       </form>
       <Nav.Bar location="bottom" size={48}>

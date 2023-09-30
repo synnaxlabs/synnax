@@ -43,6 +43,8 @@ type OntologyRetrieveRequest struct {
 	IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema" default:"true"`
 	IncludeFieldData bool          `json:"include_field_data" msgpack:"include_field_data" default:"true"`
 	Term             string        `json:"term" msgpack:"term"`
+	Limit            int           `json:"limit" msgpack:"limit"`
+	Offset           int           `json:"offset" msgpack:"offset"`
 }
 
 type OntologyRetrieveResponse struct {
@@ -74,6 +76,10 @@ func (o *OntologyService) Retrieve(
 		q = q.TraverseTo(ontology.Children)
 	} else if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
+	} else if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	} else if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
 

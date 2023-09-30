@@ -85,6 +85,8 @@ type WorkspaceRetrieveRequest struct {
 	Keys   []uuid.UUID `json:"keys" msgpack:"keys"`
 	Search string      `json:"search" msgpack:"search"`
 	Author uuid.UUID   `json:"author" msgpack:"author"`
+	Limit  int         `json:"limit" msgpack:"limit"`
+	Offset int         `json:"offset" msgpack:"offset"`
 }
 
 type WorkspaceRetrieveResponse struct {
@@ -101,6 +103,12 @@ func (s *WorkspaceService) Retrieve(
 	}
 	if req.Author != uuid.Nil {
 		q = q.WhereAuthor(req.Author)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	err = errors.MaybeQuery(q.Entries(&res.Workspaces).Exec(ctx, nil))
 	return res, err

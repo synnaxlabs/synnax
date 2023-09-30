@@ -42,6 +42,16 @@ func (r Retrieve) WhereAuthor(author uuid.UUID) Retrieve {
 	return r
 }
 
+func (r Retrieve) Limit(limit int) Retrieve {
+	r.gorp = r.gorp.Limit(limit)
+	return r
+}
+
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{

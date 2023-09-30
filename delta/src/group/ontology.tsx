@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
+
 import { UnexpectedError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Tree } from "@synnaxlabs/pluto";
@@ -39,11 +41,29 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+export const UngroupMenuItem = (): ReactElement => (
+  <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
+    Ungroup
+  </Menu.Item>
+);
+
+export interface GroupMenuItemProps {
+  selection: Ontology.TreeContextMenuProps["selection"];
+}
+
+export const GroupMenuItem = ({ selection }: GroupMenuItemProps): ReactElement | null =>
+  canGroupSelection(selection) ? (
+    <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+      Group
+    </Menu.Item>
+  ) : null;
+
 const ungroupSelection = async ({
   client,
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
+  console.log(selection);
   if (selection.resources.length !== 1)
     throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
 
@@ -67,26 +87,41 @@ const ungroupSelection = async ({
 
 const NEW_GROUP_NAME = "New Group";
 
+export const canGroupSelection = (
+  selection: Ontology.TreeContextMenuProps["selection"]
+): boolean => getAllNodesOfMinDepth(selection.nodes).length > 1;
+
+const getAllNodesOfMinDepth = (nodes: Tree.NodeWithDepth[]): Tree.NodeWithDepth[] => {
+  if (nodes.length === 0) return [];
+  const depths = nodes.map(({ depth }) => depth).sort((a, b) => a - b);
+  const minDepth = depths[0];
+  return nodes.filter(({ depth }) => depth === minDepth);
+};
+
 export const fromSelection = async ({
   client,
   selection,
+  services,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
+  const nodesOfMinDepth = getAllNodesOfMinDepth(selection.nodes).map(({ key }) => key);
+  const resourcesToGroup = selection.resources
+    .filter(({ id }) => nodesOfMinDepth.includes(id.toString()))
+    .map(({ id }) => id);
   const parentID = new ontology.ID(selection.parent.key);
   const g = await client.ontology.groups.create(parentID, NEW_GROUP_NAME);
   const otgID = new ontology.ID({ type: "group", key: g.key.toString() });
   const res = await client.ontology.retrieve(otgID);
-  const selectionIDs = selection.resources.map(({ id }) => id);
-  await client.ontology.moveChildren(parentID, res.id, ...selectionIDs);
+  await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
   let nextNodes = Tree.addNode(
     state.nodes,
     selection.parent.key,
-    ...Ontology.toTreeNodes([res])
+    ...Ontology.toTreeNodes(services, [res])
   );
   nextNodes = Tree.moveNode(
     state.nodes,
     res.id.toString(),
-    ...selectionIDs.map((id) => id.toString())
+    ...resourcesToGroup.map((id) => id.toString())
   );
   state.setNodes([...nextNodes]);
 };
@@ -100,7 +135,7 @@ const handleRename: Ontology.HnadleTreeRename = ({
   void (async () => {
     if (client == null || id.type !== "group") return;
     await client.ontology.groups.rename(id.key, name);
-    const next = Tree.updateNode(nodes, id.key, (node) => ({
+    const next = Tree.updateNode(nodes, id.toString(), (node) => ({
       ...node,
       name,
     }));
@@ -116,7 +151,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => true,
   onSelect: () => {},
   haulItems: () => [],
-  allowRename: () => false,
+  allowRename: () => true,
   onMosaicDrop: () => {},
   TreeContextMenu,
 };

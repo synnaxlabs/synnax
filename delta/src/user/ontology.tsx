@@ -11,11 +11,12 @@ import { Icon } from "@synnaxlabs/media";
 
 import { type Ontology } from "@/ontology";
 
-export const RESOURCE_SERVICE: Ontology.Service = {
+export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "user",
   icon: <Icon.User />,
   hasChildren: true,
   allowRename: () => false,
   haulItems: () => [],
   canDrop: () => false,
+  onSelect: () => {},
 };

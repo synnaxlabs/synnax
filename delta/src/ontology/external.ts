@@ -10,3 +10,4 @@
 export * from "@/ontology/service";
 export * from "@/ontology/Tree";
 export * from "@/ontology/ContextMenu";
+export * from "@/ontology/ServicesProvider";

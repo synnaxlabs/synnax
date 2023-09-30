@@ -19,8 +19,6 @@ import { Layout } from "@/layout";
 import { setNavdrawerVisible } from "@/layout/slice";
 import { Tree } from "@/ontology/Tree";
 
-import { SERVICES } from "./services";
-
 const ResourcesTree = (): ReactElement => {
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
@@ -52,7 +50,7 @@ const ResourcesTree = (): ReactElement => {
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
       </ToolbarHeader>
-      <Tree services={SERVICES} />
+      <Tree />
     </Align.Space>
   );
 };

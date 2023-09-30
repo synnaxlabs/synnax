@@ -25,11 +25,6 @@
         background-color: var(--pluto-gray-m2);
         border: var(--pluto-border);
     }
-
-    &:active,
-    &:hover {
-        z-index: 12;
-    }
 }
 
 /* |||| FILLED |||| */

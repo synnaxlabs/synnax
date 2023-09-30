@@ -48,7 +48,6 @@ export const numericSinkSpec: telem.NumericSinkSpec = {
 };
 
 class BooleanSource extends Noop implements telem.BooleanSource {
-  number: () => Promise<boolean>;
   static readonly TYPE = "noop-boolean-source";
 
   async boolean(): Promise<boolean> {

@@ -12,6 +12,7 @@ import { type ReactElement } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Tree } from "@synnaxlabs/pluto";
 
+import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { add, rename, setActive } from "@/workspace/slice";
@@ -47,7 +48,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "delete":
         return handleDelete(props);
       case "rename":
-        Tree.startRenaming(resources[0].id.toString());
+        return Tree.startRenaming(resources[0].id.toString());
+      case "group":
+        void Group.fromSelection(props);
     }
   };
 
@@ -57,6 +60,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         Delete
       </Menu.Item>
       <Ontology.RenameMenuItem />
+      <Group.GroupMenuItem selection={props.selection} />
     </Menu.Menu>
   );
 };

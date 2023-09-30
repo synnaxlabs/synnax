@@ -25,7 +25,7 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   pid: PID.ONTOLOGY_SERVICE,
   channel: Channel.ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
-  user: User.RESOURCE_SERVICE,
+  user: User.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,

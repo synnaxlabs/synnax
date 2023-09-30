@@ -122,7 +122,7 @@ export const booleanSourceSpecZ = specZ.extend({
 export type BooleanSourceSpec = z.infer<typeof booleanSourceSpecZ>;
 
 export interface BooleanSource extends Telem {
-  number: () => Promise<boolean>;
+  boolean: () => Promise<boolean>;
   onChange: (f: () => void) => void;
 }
 

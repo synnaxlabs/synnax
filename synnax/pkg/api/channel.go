@@ -88,6 +88,8 @@ type ChannelRetrieveRequest struct {
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
 	Search string `json:"search" msgpack:"search"`
+	Limit  int    `json:"limit" msgpack:"limit"`
+	Offset int    `json:"offset" msgpack:"offset"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -124,6 +126,14 @@ func (s *ChannelService) Retrieve(
 
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
+	}
+
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))

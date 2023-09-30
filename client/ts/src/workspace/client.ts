@@ -47,6 +47,10 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     return isMany ? res : res[0];
   }
 
+  async page(offset: number, limit: number): Promise<Workspace[]> {
+    return await this.retriever.page(offset, limit);
+  }
+
   async create(workspace: CrudeWorkspace): Promise<Workspace>;
 
   async create(

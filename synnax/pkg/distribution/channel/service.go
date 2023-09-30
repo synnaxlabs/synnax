@@ -101,7 +101,9 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		proxy: proxy,
 		otg:   cfg.Ontology,
 	}
-	cfg.Ontology.RegisterService(s)
+	if cfg.Ontology != nil {
+		cfg.Ontology.RegisterService(s)
+	}
 	return s, nil
 }
 

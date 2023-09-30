@@ -66,6 +66,20 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	return r
 }
 
+// Limit limits the number of results returned by the query. This is an identical
+// interface to gorp.Retrieve.
+func (r Retrieve) Limit(limit int) Retrieve {
+	r.gorp.Limit(limit)
+	return r
+}
+
+// Offset offsets the results returned by the query. This is an identical interface to
+// gorp.Retrieve.
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.gorp.Offset(offset)
+	return r
+}
+
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {

@@ -9,24 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown__dialog {
-    background-color: var(--pluto-gray-m3);
-    max-height: 360px;
-    position: fixed;
+.delta-workspace__selector {
+    flex-shrink: 1;
+    width: 200px;
+    max-width: 300px;
 
-    &.pluto--top {
-        transform: translateY(calc(-100% + 1px));
-    } 
-
-
-    &.pluto--hidden {
-        opacity: 0;
-        z-index: -1;
-        pointer-events: none;
-        height: 0;
+    @media (max-width: 1200px) {
+        max-width: 150px;
     }
 
-    &.pluto--visible {
-        z-index: 1000;
+
+    > :first-child {
+        > :nth-child(2) {
+            flex-shrink: 1;
+            overflow: hidden;
+            margin-right: auto;
+        }
+
     }
 }

@@ -45,6 +45,7 @@ interface InternalState {
   stateProv: StateProvider;
   addStatus: status.Aggregate;
   theme: theming.Theme;
+  prevTrigger: number;
 }
 
 interface AetherControllerTelem extends telem.Telem {
@@ -62,6 +63,11 @@ export class Controller
   schema = controllerStateZ;
 
   afterUpdate(): void {
+    if (
+      this.internal.prevTrigger == null ||
+      Math.abs(this.state.acquireTrigger - this.internal.prevTrigger) > 1
+    )
+      this.internal.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(this.ctx);
     const nextStateProv = StateProvider.use(this.ctx);
 
@@ -82,10 +88,15 @@ export class Controller
 
     this.internal.addStatus = status.useAggregate(this.ctx);
 
+    console.log(this.state.acquireTrigger, this.internal.prevTrigger);
     // Acquire or release control if necessary.
-    if (this.state.acquireTrigger > this.prevState.acquireTrigger) void this.acquire();
-    else if (this.state.acquireTrigger < this.prevState.acquireTrigger)
+    if (this.state.acquireTrigger > this.internal.prevTrigger) {
+      void this.acquire();
+      this.internal.prevTrigger = this.state.acquireTrigger;
+    } else if (this.state.acquireTrigger < this.internal.prevTrigger) {
       void this.release();
+      this.internal.prevTrigger = this.state.acquireTrigger;
+    }
   }
 
   afterDelete(): void {
@@ -101,7 +112,7 @@ export class Controller
     const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
       const telemKeys = await telem.needsControlOf(this.internal.client as Synnax);
-      for (const key of telemKeys) keys.add(key);
+      for (const key of telemKeys) if (key !== 0) keys.add(key);
     }
     return Array.from(keys);
   }
@@ -146,13 +157,14 @@ export class Controller
 
   private async release(): Promise<void> {
     await this.writer?.close();
-    this.writer = undefined;
     if (this.deleted) return;
     this.setState((p) => ({ ...p, status: "released" }));
-    this.internal.addStatus({
-      message: `Released control on ${this.state.name}.`,
-      variant: "success",
-    });
+    if (this.writer != null)
+      this.internal.addStatus({
+        message: `Released control on ${this.state.name}.`,
+        variant: "success",
+      });
+    this.writer = undefined;
   }
 
   async set(frame: framer.CrudeFrame): Promise<void> {
@@ -274,7 +286,9 @@ export class AcquireSink
 
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
-    return [chan.key, chan.index];
+    const keys = [chan.key];
+    if (chan.index !== 0) keys.push(chan.index);
+    return keys;
   }
 
   async setBoolean(acquire: boolean): Promise<void> {
@@ -282,7 +296,8 @@ export class AcquireSink
     const { client } = controller.internal;
     if (client == null) return;
     const ch = await client.channels.retrieve(this.props.channel);
-    const keys = [ch.key, ch.index];
+    const keys = [ch.key];
+    if (ch.index !== 0) keys.push(ch.index);
     if (!acquire) await this.controller.releaseAuthority(keys);
     else await this.controller.setAuthority(keys, this.props.authority);
   }

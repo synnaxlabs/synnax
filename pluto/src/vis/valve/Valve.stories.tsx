@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { type Meta, type StoryFn } from "@storybook/react";
 
-import { Bool } from "@/telem/bool";
 import { Control } from "@/control";
 import { Controller } from "@/control/Controller";
+import { Bool } from "@/telem/bool";
 import { Remote } from "@/telem/remote";
 import { Canvas } from "@/vis/canvas";
 import { Valve } from "@/vis/valve";

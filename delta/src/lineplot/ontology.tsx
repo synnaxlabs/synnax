@@ -17,7 +17,6 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
-  store,
   removeLayout,
   selection: { resources },
   state: { nodes, setNodes },
@@ -65,19 +64,14 @@ const handleRename: Ontology.HnadleTreeRename = ({
   setNodes([...next]);
 };
 
-const handleSelect: Ontology.HandleSelect = ({
-  client,
-  selection,
-  store,
-  placeLayout,
-}) => {
+const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout }) => {
   void (async () => {
     const linePlot = await client.workspaces.linePlot.retrieve(selection[0].id.key);
     placeLayout(
       create({
+        ...(linePlot.data as unknown as State),
         key: linePlot.key,
         name: linePlot.name,
-        ...(linePlot.data as unknown as State),
       })
     );
   })();

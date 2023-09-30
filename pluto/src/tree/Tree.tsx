@@ -37,6 +37,10 @@ export interface Node {
   href?: string;
 }
 
+export interface NodeWithDepth extends Node {
+  depth: number;
+}
+
 export interface FlattenedNode extends Node {
   index: number;
   depth: number;
@@ -339,19 +343,27 @@ export const updateNode = (
   return tree;
 };
 
-export const findNode = (tree: Node[], key: string): Node | null => {
+export const findNode = (
+  tree: Node[],
+  key: string,
+  depth: number = 0,
+): NodeWithDepth | null => {
   for (const node of tree) {
-    if (node.key === key) return node;
+    if (node.key === key) {
+      const n = node as NodeWithDepth;
+      n.depth = depth;
+      return n;
+    }
     if (node.children != null) {
-      const found = findNode(node.children, key);
+      const found = findNode(node.children, key, depth + 1);
       if (found != null) return found;
     }
   }
   return null;
 };
 
-export const findNodes = (tree: Node[], keys: string[]): Node[] => {
-  const nodes: Node[] = [];
+export const findNodes = (tree: Node[], keys: string[]): NodeWithDepth[] => {
+  const nodes: NodeWithDepth[] = [];
   for (const key of keys) {
     const node = findNode(tree, key);
     if (node != null) nodes.push(node);

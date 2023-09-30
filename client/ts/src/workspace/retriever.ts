@@ -22,6 +22,8 @@ const reqZ = z.object({
   keys: keyZ.array().optional(),
   search: z.string().optional(),
   author: z.string().uuid().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
@@ -51,6 +53,10 @@ export class Retriever {
 
   async search(term: string): Promise<Workspace[]> {
     return await this.execute({ search: term });
+  }
+
+  async page(offset: number, limit: number): Promise<Workspace[]> {
+    return await this.execute({ offset, limit });
   }
 
   private async execute(request: Request): Promise<Workspace[]> {

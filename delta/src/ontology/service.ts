@@ -21,6 +21,7 @@ export interface BaseProps {
   store: RootStore;
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
+  services: Services;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -44,7 +45,7 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
   selection: {
     parent: Tree.Node;
     resources: ontology.Resource[];
-    nodes: Tree.Node[];
+    nodes: Tree.NodeWithDepth[];
   };
   state: {
     resources: ontology.Resource[];
@@ -71,12 +72,12 @@ export interface Service {
   type: ontology.ResourceType;
   icon: ReactElement;
   hasChildren: boolean;
-  allowRename: (res: ontology.Resource) => boolean;
-  onRename: (ctx: HandleTreeRenameProps) => void;
   onSelect: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
-  onMosaicDrop: HandleMosaicDrop;
+  allowRename: (res: ontology.Resource) => boolean;
+  onRename?: (ctx: HandleTreeRenameProps) => void;
+  onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;
 }
 

@@ -31,6 +31,9 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
+import { Ontology } from "./ontology";
+import { SERVICES } from "./services";
+
 const layoutRenderers = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
@@ -92,7 +95,9 @@ const Main = (): ReactElement | null => {
   return (
     <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
       <Layout.RendererProvider value={layoutRenderers}>
-        <MainUnderContext />
+        <Ontology.ServicesProvider services={SERVICES}>
+          <MainUnderContext />
+        </Ontology.ServicesProvider>
       </Layout.RendererProvider>
     </Provider>
   );

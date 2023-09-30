@@ -11,7 +11,6 @@ import { useCallback, type ReactElement, type MouseEventHandler } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
-  Select,
   Synnax,
   Dropdown,
   Button,
@@ -24,10 +23,11 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { createWindowLayout } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
 
-import { createWindowLayout } from "./Create";
+import "@/workspace/Selector.css";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
@@ -57,14 +57,19 @@ export const Selector = (): ReactElement => {
   );
 
   return (
-    <Dropdown.Dialog {...dProps} bordered={false} matchTriggerWidth>
+    <Dropdown.Dialog
+      {...dProps}
+      bordered={false}
+      matchTriggerWidth
+      className={CSS(CSS.BE("workspace", "selector"))}
+    >
       <Button.Button
+        startIcon={<Icon.Workspace />}
         endIcon={<Icon.Caret.Down />}
-        variant="outlined"
+        variant={dProps.visible ? "outlined" : "text"}
         onClick={() => dProps.toggle()}
-        style={{ width: 250 }}
-        justify="spaceBetween"
         size="small"
+        className={CSS.B("trigger")}
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
@@ -78,14 +83,7 @@ export const Selector = (): ReactElement => {
           />
           <Align.Pack direction="x">
             <List.Search searcher={client?.workspaces}>
-              {(props) => (
-                <Input.Text
-                  {...props}
-                  style={{
-                    borderRadius: 0,
-                  }}
-                />
-              )}
+              {(props) => <Input.Text {...props} />}
             </List.Search>
             <Button.Icon
               onClick={() => {

@@ -15,12 +15,6 @@ import { Menu } from "@synnaxlabs/pluto";
 import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
-const GroupSelectionMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
-    Group Selection
-  </Menu.Item>
-);
-
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   const handleSelect: Menu.MenuProps["onChange"] = (key) => {
     switch (key) {
@@ -31,7 +25,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <GroupSelectionMenuItem />
+      <Group.GroupMenuItem selection={props.selection} />
     </Menu.Menu>
   );
 };

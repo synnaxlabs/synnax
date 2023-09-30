@@ -50,6 +50,10 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return this.sugar(await this.retriever.search(term));
   }
 
+  async page(offset: number, limit: number): Promise<Range[]> {
+    return [];
+  }
+
   async retrieve(range: Key | Name): Promise<Range>;
 
   async retrieve(params: Keys | Names): Promise<Range[]>;
