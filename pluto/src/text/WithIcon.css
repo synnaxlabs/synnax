@@ -14,6 +14,10 @@
     fill: var(--pluto-text-color);
 }
 
+.pluto-text-icon svg {
+    flex-shrink: 0;
+}
+
 .pluto-text-icon--h1 svg {
     width: var(--pluto-h1-size);
     min-width: var(--pluto-h1-size);

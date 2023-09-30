@@ -32,4 +32,8 @@ func (c Group) GorpKey() uuid.UUID { return c.Key }
 // SetOptions implements gorp.Entry.
 func (c Group) SetOptions() []interface{} { return nil }
 
+// OntologyID returns the ontology.ID for the group.
 func (c Group) OntologyID() ontology.ID { return OntologyID(c.Key) }
+
+// IsZero implements ZeroAble.
+func (c Group) IsZero() bool { return c.Key == uuid.Nil && len(c.Name) == 0 }

@@ -95,7 +95,9 @@ func (t *Tx) Apply(changes ...schema.Change) error {
 	return nil
 }
 
-func (t *Tx) Commit() error { return t.idx.Batch(t.batch) }
+func (t *Tx) Commit() error {
+	return t.idx.Batch(t.batch)
+}
 
 func (t *Tx) Index(resource schema.Resource) error {
 	return t.batch.Index(resource.ID.String(), resource)

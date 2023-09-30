@@ -45,6 +45,7 @@ const VirtualCore = <
     columnar: { columns },
     hover,
     select,
+    infinite: { hasMore, onFetchMore },
   } = useContext<K, E>();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -55,6 +56,10 @@ const VirtualCore = <
   });
 
   const items = virtualizer.getVirtualItems();
+
+  if (items.at(-1)?.index === data.length - 1 && hasMore) {
+    onFetchMore?.();
+  }
 
   return (
     <div

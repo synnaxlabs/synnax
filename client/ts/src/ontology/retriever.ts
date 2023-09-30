@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import { ID, Resource, idZ, resourceSchemaZ } from "@/ontology/payload";
+import { ID, type Resource, idZ, resourceSchemaZ } from "@/ontology/payload";
 
 const requestSchema = z.object({
   ids: idZ.array().optional(),
@@ -45,7 +45,7 @@ export class Retriever {
   async retrieve(
     ids: ID | ID[] | string | string[],
     includeSchema: boolean = true,
-    includeFieldData: boolean = true
+    includeFieldData: boolean = true,
   ): Promise<Resource | Resource[]> {
     const resources = await this.execute({
       ids: toArray(ids).map((id) => new ID(id).payload),
@@ -61,7 +61,7 @@ export class Retriever {
   async retrieveChildren(
     ids: ID | ID[],
     includeSchema: boolean = true,
-    includeFieldData: boolean = true
+    includeFieldData: boolean = true,
   ): Promise<Resource[]> {
     return await this.execute({
       ids: toArray(ids).map((id) => new ID(id).payload),
@@ -74,7 +74,7 @@ export class Retriever {
   async retrieveParents(
     ids: ID | ID[],
     includeSchema: boolean = true,
-    includeFieldData: boolean = true
+    includeFieldData: boolean = true,
   ): Promise<Resource[]> {
     return await this.execute({
       ids: toArray(ids).map((id) => new ID(id).payload),
@@ -88,7 +88,7 @@ export class Retriever {
     const [res, err] = await this.client.send(
       Retriever.ENDPOINT,
       request,
-      responseSchema
+      responseSchema,
     );
     if (err != null) throw err;
     return res.resources;

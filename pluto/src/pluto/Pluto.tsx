@@ -13,6 +13,7 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
+import { Control } from "@/control";
 import { Haul } from "@/haul";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
@@ -70,7 +71,9 @@ export const Provider = ({
                       toggleTheme={toggleTheme}
                       setTheme={setTheme}
                     >
-                      <TelemProvider>{children}</TelemProvider>
+                      <TelemProvider>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </TelemProvider>
                     </Theming.Provider>
                   </Synnax.Provider>
                 </Status.Aggregator>

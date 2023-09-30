@@ -36,5 +36,5 @@ func (r Retrieve) Entries(pids *[]PID) Retrieve {
 }
 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, tx)
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

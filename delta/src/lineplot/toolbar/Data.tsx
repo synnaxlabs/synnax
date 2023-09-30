@@ -15,10 +15,10 @@ import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
 import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
+import { Range } from "@/range";
+import { useSelectMultiple } from "@/range/selectors";
 import { Vis } from "@/vis";
 import { type AxisKey, type XAxisKey, type YAxisKey } from "@/vis/axis";
-import { Workspace } from "@/workspace";
-import { useSelectRanges } from "@/workspace/selectors";
 
 export interface DataProps {
   layoutKey: string;
@@ -27,7 +27,7 @@ export interface DataProps {
 export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
-  const allRanges = useSelectRanges();
+  const allRanges = useSelectMultiple();
 
   const handleYChannelSelect = useCallback(
     (key: AxisKey, value: readonly channel.Key[]): void => {
@@ -76,7 +76,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         grow
       />
       <Align.Space direction="x" grow wrap>
-        <Workspace.SelectMultipleRangesInputItem
+        <Range.SelectMultipleInputItem
           data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}

@@ -49,7 +49,7 @@ package alamos
 //	// define a tracing config
 //	tracingConfig := tracing.Config{}
 //	devTracer := tracing.NewTracer(tracingConfig)
-//	ins := alamos.New(alamos.WithTracer(devTracer))
+//	ins := alamos.Name(alamos.WithTracer(devTracer))
 //
 // Use the same approach to configure the Logger and Reporter.
 //

@@ -10,8 +10,6 @@
 import { URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const HELLO = "hello";
-
 export interface TypedError extends Error {
   discriminator: "FreighterError";
   /**

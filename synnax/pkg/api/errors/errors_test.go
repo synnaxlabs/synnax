@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Errors", func() {
-	DescribeTable("New Errors", func(err errors.Typed, expectedType errors.Type, expectedError error) {
+	DescribeTable("Name Errors", func(err errors.Typed, expectedType errors.Type, expectedError error) {
 		Expect(err.Type).To(Equal(expectedType))
 		if expectedError == nil {
 			Expect(err.Err).To(BeNil())

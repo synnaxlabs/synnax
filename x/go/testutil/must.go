@@ -22,3 +22,8 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 	Expect(err).ToNot(HaveOccurred())
 	return a, b
 }
+
+func MustSucceed3[A, B, C any](a A, b B, c C, err error) (A, B, C) {
+	Expect(err).ToNot(HaveOccurred())
+	return a, b, c
+}

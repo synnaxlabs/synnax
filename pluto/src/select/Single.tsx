@@ -75,7 +75,7 @@ export const Single = <
   value,
   tagKey = "key",
   columns = [],
-  data = [],
+  data,
   emptyContent,
   inputProps,
   allowClear = true,
@@ -97,7 +97,7 @@ export const Single = <
 
   useEffect(() => {
     if (selected?.key === value) return;
-    setSelected(data.find((e) => e.key === value) ?? null);
+    setSelected(data?.find((e) => e.key === value) ?? null);
   }, [value]);
 
   const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(

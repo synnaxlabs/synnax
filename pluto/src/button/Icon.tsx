@@ -12,6 +12,7 @@ import { cloneElement, forwardRef, type ReactElement } from "react";
 import clsx from "clsx";
 
 import type { BaseProps } from "@/button/Button";
+import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Tooltip } from "@/tooltip";
 
@@ -49,19 +50,14 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       {...props}
     >
       {cloneElement(children, {
-        color: color_(disabled, props.color),
+        color: color(variant, disabled, props.color),
+        fill: "currentColor",
         ...children.props,
       })}
     </button>
   ),
 );
 CoreIcon.displayName = "ButtonIcon";
-
-const color_ = (disabled?: boolean, color?: string): string => {
-  if (disabled === true) return "var(--pluto-gray-m2)";
-  if (color != null) return color;
-  return "var(--pluto-text-color)";
-};
 
 /**
  * Button.Icon a button that only renders an icon without any text.

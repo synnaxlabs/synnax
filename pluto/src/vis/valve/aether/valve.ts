@@ -51,14 +51,14 @@ export class Valve extends aether.Leaf<typeof valveStateZ, InternalState> {
     this.internal.cleanupSink = cleanupSink;
 
     if (this.state.triggered && !this.prevState.triggered)
-      this.internal.sink.set(!this.state.active).catch(console.error);
+      this.internal.sink.setBoolean(!this.state.active).catch(console.error);
 
     this.internal.source
-      .value()
+      .boolean()
       .then(() => {
         this.internal.source.onChange(() => {
           this.internal.source
-            .value()
+            .boolean()
             .then((v) => this.setState((p) => ({ ...p, active: v, triggered: false })))
             .catch(console.error);
         });

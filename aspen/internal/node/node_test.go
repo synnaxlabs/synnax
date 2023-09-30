@@ -20,7 +20,7 @@ import (
 var _ = Describe("Node", func() {
 
 	Describe("Parse", func() {
-		It("Should parse the Key of a node from a string", func() {
+		It("Should parse the Name of a node from a string", func() {
 			id, err := node.Key(0).Parse("1")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id).To(Equal(node.Key(1)))

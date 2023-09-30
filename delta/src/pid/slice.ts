@@ -11,6 +11,7 @@ import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
+import { v4 as uuidV4 } from "uuid";
 
 import { type Layout } from "@/layout";
 
@@ -20,6 +21,7 @@ export type NodeProps = object & {
 
 export interface State {
   editable: boolean;
+  remoteCreated: boolean;
   viewport: PID.Viewport;
   nodes: PID.Node[];
   edges: PID.Edge[];
@@ -68,6 +70,7 @@ export const ZERO_STATE: State = {
   nodes: [],
   edges: [],
   props: {},
+  remoteCreated: false,
   viewport: { position: xy.ZERO, zoom: 1 },
   editable: true,
   control: "released",
@@ -109,12 +112,12 @@ export interface SetEdgesPayload {
   edges: PID.Edge[];
 }
 
-export interface CreatePayload {
+export interface CreatePayload extends State {
   key: string;
 }
 
-export interface DeletePayload {
-  layoutKey: string;
+export interface RemovePayload {
+  layoutKeys: string[];
 }
 
 export interface SetEditablePayload {
@@ -145,6 +148,10 @@ export interface PasteSelectionPayload {
 
 export interface SetViewportModePayload {
   mode: Viewport.Mode;
+}
+
+export interface SetRemoteCreatedPayload {
+  layoutKey: string;
 }
 
 export const calculatePos = (
@@ -230,12 +237,16 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      state.pids[layoutKey] = { ...ZERO_STATE };
+      state.pids[layoutKey] = { ...ZERO_STATE, ...payload };
     },
-    delete: (state, { payload }: PayloadAction<DeletePayload>) => {
-      const { layoutKey } = payload;
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.pids[layoutKey];
+    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
+      const { layoutKeys } = payload;
+      layoutKeys.forEach((layoutKey) => {
+        const pid = state.pids[layoutKey];
+        if (pid.control === "acquired") pid.controlAcquireTrigger = -1;
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete state.pids[layoutKey];
+      });
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
       const { layoutKey, key, props, node } = payload;
@@ -324,6 +335,11 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.mode = mode;
     },
+    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
+      const { layoutKey } = payload;
+      const pid = state.pids[layoutKey];
+      pid.remoteCreated = true;
+    },
   },
 });
 
@@ -333,6 +349,8 @@ export const {
   addElement,
   setEdges,
   setNodes,
+  remove,
+  create: internalCreate,
   setElementProps,
   setActiveToolbarTab,
   setViewport,
@@ -340,6 +358,7 @@ export const {
   copySelection,
   pasteSelection,
   setViewportMode,
+  setRemoteCreated,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
@@ -354,7 +373,7 @@ export const create =
   ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "PID", location = "mosaic", window, tab, ...rest } = initial;
-    const key = initial.key ?? nanoid();
+    const key = initial.key ?? uuidV4();
     dispatch(actions.create({ ...deep.copy(ZERO_STATE), key, ...rest }));
     return {
       key,

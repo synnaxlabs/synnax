@@ -20,21 +20,29 @@ import (
 
 type leaseProxy struct {
 	ServiceConfig
-	router  proxy.BatchFactory[Channel]
-	counter *keyCounter
-	group   group.Group
+	router        proxy.BatchFactory[Channel]
+	leasedCounter *keyCounter
+	freeCounter   *keyCounter
+	group         group.Group
 }
 
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
-	c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB)
+	c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB, ".distribution.channel.counter.leased")
 	if err != nil {
 		return nil, err
 	}
 	p := &leaseProxy{
 		ServiceConfig: cfg,
 		router:        proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		counter:       c,
+		leasedCounter: c,
 		group:         g,
+	}
+	if cfg.HostResolver.HostKey() == core.Bootstrapper {
+		c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB, ".distribution.channel.counter.free")
+		if err != nil {
+			return nil, err
+		}
+		p.freeCounter = c
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
 	return p, nil
@@ -65,6 +73,21 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		}
 		oChannels = append(oChannels, remoteChannels...)
 	}
+	if len(batch.Free) > 0 {
+		if !lp.HostResolver.HostKey().IsBootstrapper() {
+			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free)
+			if err != nil {
+				return err
+			}
+			oChannels = append(oChannels, remoteChannels...)
+		} else {
+			err := lp.createFreeVirtual(ctx, tx, &batch.Free)
+			if err != nil {
+				return err
+			}
+			oChannels = append(oChannels, batch.Free...)
+		}
+	}
 	err := lp.createLocal(ctx, tx, &batch.Gateway)
 	if err != nil {
 		return err
@@ -72,6 +95,16 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
 	return nil
+}
+
+func (lp *leaseProxy) createFreeVirtual(ctx context.Context, tx gorp.Tx, channels *[]Channel) error {
+	if err := lp.assignVirtualKeys(channels); err != nil {
+		return err
+	}
+	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(ctx, tx); err != nil {
+		return err
+	}
+	return lp.maybeSetResources(ctx, tx, *channels)
 }
 
 func (lp *leaseProxy) createLocal(ctx context.Context, tx gorp.Tx, channels *[]Channel) error {
@@ -95,7 +128,22 @@ func (lp *leaseProxy) createLocal(ctx context.Context, tx gorp.Tx, channels *[]C
 }
 
 func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
-	v, err := lp.counter.Add(uint16(len(*channels)))
+	v, err := lp.leasedCounter.Add(uint16(len(*channels)))
+	if err != nil {
+		return err
+	}
+	for i, ch := range *channels {
+		ch.LocalKey = v - uint16(i)
+		(*channels)[i] = ch
+	}
+	return nil
+}
+
+func (lp *leaseProxy) assignVirtualKeys(channels *[]Channel) error {
+	if lp.freeCounter == nil {
+		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
+	}
+	v, err := lp.freeCounter.Add(uint16(len(*channels)))
 	if err != nil {
 		return err
 	}

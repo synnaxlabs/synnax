@@ -72,3 +72,11 @@ func Open(ctx context.Context, configs ...Config) (c Core, err error) {
 
 	return c, err
 }
+
+// Close closes the core of the distribution layer, shutting down cluster operations
+// and closing the storage layer.
+func (c Core) Close() error {
+	// Because we embedded aspen as the storage KV, we can just shut down cluster
+	// operations here as well.
+	return c.Storage.Close()
+}

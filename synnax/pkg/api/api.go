@@ -15,17 +15,18 @@ package api
 
 import (
 	"context"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
-
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/freighter/falamos"
 
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 
@@ -53,6 +54,8 @@ type Config struct {
 	Storage       *storage.Storage
 	User          *user.Service
 	Workspace     *workspace.Service
+	PID           *pid.Service
+	LinePlot      *lineplot.Service
 	Token         *token.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
@@ -65,6 +68,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "channel", c.Channel)
@@ -79,10 +83,12 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enforcer", c.Enforcer)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "pid", c.PID)
 	validate.NotNil(v, "insecure", c.Insecure)
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -99,35 +105,56 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
+	c.PID = override.Nil(c.PID, other.PID)
+	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
 	return c
 }
 
 type Transport struct {
-	AuthLogin              freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
-	AuthChangeUsername     freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
-	AuthChangePassword     freighter.UnaryServer[ChangePasswordRequest, types.Nil]
-	AuthRegistration       freighter.UnaryServer[RegistrationRequest, TokenResponse]
-	ChannelCreate          freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve        freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	ConnectivityCheck      freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
-	FrameWriter            freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
-	FrameIterator          freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
-	FrameStreamer          freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
-	RangeCreate            freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve          freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	// AUTH
+	AuthLogin          freighter.UnaryServer[auth.InsecureCredentials, TokenResponse]
+	AuthChangeUsername freighter.UnaryServer[ChangeUsernameRequest, types.Nil]
+	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
+	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
+	// CHANNEL
+	ChannelCreate   freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	// CONNECTIVITY
+	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
+	// FRAME
+	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
+	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
+	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
+	// RANGE
+	RangeCreate   freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
-	OntologyGroupCreate    freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
-	OntologyGroupDelete    freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
-	OntologyGroupRename    freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
 	OntologyRemoveChildren freighter.UnaryServer[OntologyRemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[OntologyMoveChildrenRequest, types.Nil]
-	WorkspaceCreate        freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
-	WorkspaceRetrieve      freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
-	WorkspaceDelete        freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
-	WorkspacePIDCreate     freighter.UnaryServer[WorkspacePIDCreateRequest, WorkspacePIDCreateResponse]
-	WorkspacePIDRetrieve   freighter.UnaryServer[WorkspacePIDRetrieveRequest, WorkspacePIDRetrieveResponse]
-	WorkspacePIDDelete     freighter.UnaryServer[WorkspacePIDDeleteRequest, types.Nil]
+	// GROUP
+	OntologyGroupCreate freighter.UnaryServer[OntologyCreateGroupRequest, OntologyCreateGroupResponse]
+	OntologyGroupDelete freighter.UnaryServer[OntologyDeleteGroupRequest, types.Nil]
+	OntologyGroupRename freighter.UnaryServer[OntologyRenameGroupRequest, types.Nil]
+	// WORKSPACE
+	WorkspaceCreate    freighter.UnaryServer[WorkspaceCreateRequest, WorkspaceCreateResponse]
+	WorkspaceRetrieve  freighter.UnaryServer[WorkspaceRetrieveRequest, WorkspaceRetrieveResponse]
+	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
+	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
+	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
+	// PID
+	PIDCreate   freighter.UnaryServer[PIDCreateRequest, PIDCreateResponse]
+	PIDRetrieve freighter.UnaryServer[PIDRetrieveRequest, PIDRetrieveResponse]
+	PIDDelete   freighter.UnaryServer[PIDDeleteRequest, types.Nil]
+	PIDRename   freighter.UnaryServer[PIDRenameRequest, types.Nil]
+	PIDSetData  freighter.UnaryServer[PIDSetDataRequest, types.Nil]
+	// LINE PLOT
+	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
+	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
+	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
+	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
+	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -142,6 +169,8 @@ type API struct {
 	Ontology     *OntologyService
 	Range        *RangeService
 	Workspace    *WorkspaceService
+	PID          *PIDService
+	LinePlot     *LinePlotService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -150,13 +179,16 @@ func (a *API) BindTo(t Transport) {
 		err                = errors.Middleware()
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation, err}
-		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
+		insecureMiddleware = []freighter.Middleware{
+			instrumentation,
+			err,
+		}
+		secureMiddleware = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
-	if !*a.config.Insecure {
-		secureMiddleware = append(secureMiddleware, tk)
-	}
+	//if !*a.config.Insecure {
+	secureMiddleware = append(secureMiddleware, tk)
+	//}
 
 	freighter.UseOnAll(
 		insecureMiddleware,
@@ -187,6 +219,18 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceDelete,
 		t.WorkspaceCreate,
 		t.WorkspaceRetrieve,
+		t.WorkspaceRename,
+		t.WorkspaceSetLayout,
+		t.PIDCreate,
+		t.PIDRetrieve,
+		t.PIDDelete,
+		t.PIDRename,
+		t.PIDSetData,
+		t.LinePlotCreate,
+		t.LinePlotRename,
+		t.LinePlotSetData,
+		t.LinePlotRetrieve,
+		t.LinePlotDelete,
 	)
 
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
@@ -209,11 +253,22 @@ func (a *API) BindTo(t Transport) {
 	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
 	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
+	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
 	t.WorkspaceRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.Retrieve))
 	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
-	t.WorkspacePIDCreate.BindHandler(typedUnaryWrapper(a.Workspace.CreatePID))
-	t.WorkspacePIDRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.RetrievePID))
-	t.WorkspacePIDDelete.BindHandler(typedUnaryWrapper(a.Workspace.DeletePID))
+	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
+	t.WorkspaceRename.BindHandler(typedUnaryWrapper(a.Workspace.Rename))
+	t.WorkspaceSetLayout.BindHandler(typedUnaryWrapper(a.Workspace.SetLayout))
+	t.PIDCreate.BindHandler(typedUnaryWrapper(a.PID.Create))
+	t.PIDRetrieve.BindHandler(typedUnaryWrapper(a.PID.Retrieve))
+	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
+	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
+	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
+	t.LinePlotCreate.BindHandler(typedUnaryWrapper(a.LinePlot.Create))
+	t.LinePlotRename.BindHandler(typedUnaryWrapper(a.LinePlot.Rename))
+	t.LinePlotSetData.BindHandler(typedUnaryWrapper(a.LinePlot.SetData))
+	t.LinePlotRetrieve.BindHandler(typedUnaryWrapper(a.LinePlot.Retrieve))
+	t.LinePlotDelete.BindHandler(typedUnaryWrapper(a.LinePlot.Delete))
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -230,6 +285,9 @@ func New(configs ...Config) (API, error) {
 	api.Connectivity = NewConnectivityService(api.provider)
 	api.Ontology = NewOntologyService(api.provider)
 	api.Range = NewRangeService(api.provider)
+	api.Workspace = NewWorkspaceService(api.provider)
+	api.PID = NewPIDService(api.provider)
+	api.LinePlot = NewLinePlotService(api.provider)
 	return api, nil
 }
 

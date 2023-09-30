@@ -9,6 +9,7 @@
 
 import { useState, memo, useCallback, type ReactElement } from "react";
 
+import { type box, type location } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -18,7 +19,6 @@ import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
 
 import "@/mosaic/Mosaic.css";
-import { box, location } from "@synnaxlabs/x";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
@@ -26,7 +26,7 @@ export interface MosaicProps
   root: Node;
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
-  onCreate?: (key: number) => void;
+  onCreate?: (key: number, loc: location.Location, tabKey?: string) => void;
 }
 
 /***
@@ -89,13 +89,18 @@ Mosaic.displayName = "Mosaic";
 
 interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
-export const HAUL_TYPE = "pluto-mosaic-tab";
+export const HAUL_DROP_TYPE = "pluto-mosaic-tab-drop";
+export const HAUL_CREATE_TYPE = "pluto-mosaic-tab-create";
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (tabs: Tabs.Tab[], dragging: Haul.Item[]): boolean => {
-  const keys = dragging.filter(({ type }) => type === HAUL_TYPE).map((t) => t.key);
-  const willHaveTabRemaining = tabs.filter((t) => !keys.includes(t.tabKey)).length > 0;
-  return keys.length > 0 && (willHaveTabRemaining || tabs.length === 0);
+  const drop = Haul.filterByType(HAUL_DROP_TYPE, dragging).map((t) => t.key);
+  const willHaveTabRemaining = tabs.filter((t) => !drop.includes(t.tabKey)).length > 0;
+  const create = Haul.filterByType(HAUL_CREATE_TYPE, dragging);
+  return (
+    create.length > 0 ||
+    (drop.length > 0 && (willHaveTabRemaining || tabs.length === 0))
+  );
 };
 
 const TabLeaf = memo(
@@ -109,13 +114,18 @@ const TabLeaf = memo(
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
         setDragMask(null);
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        const tabKey = dropped.map(({ key }) => key)[0];
-        const location: location.Location =
-          tabs.length === 0
-            ? "center"
-            : insertLocation(getDragLocationPercents(event));
-        onDrop(key, tabKey as string, location);
+        const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
+        const loc =
+          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
+        if (dropped.length > 0) {
+          const tabKey = dropped.map(({ key }) => key)[0];
+          onDrop(key, tabKey as string, loc);
+        }
+        const created = Haul.filterByType(HAUL_CREATE_TYPE, items);
+        if (created.length > 0) {
+          const tabKey = created.map(({ key }) => key)[0];
+          onCreate?.(key, loc, tabKey as string);
+        }
         return dropped;
       },
       [onDrop, tabs.length],
@@ -124,9 +134,7 @@ const TabLeaf = memo(
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
         const location: location.Location =
-          tabs.length === 0
-            ? "center"
-            : insertLocation(getDragLocationPercents(event));
+          tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         setDragMask(location);
       },
       [tabs.length],
@@ -143,11 +151,11 @@ const TabLeaf = memo(
 
     const handleDragStart = useCallback(
       (_: unknown, { tabKey }: Tabs.Tab): void =>
-        startDrag([{ key: tabKey, type: HAUL_TYPE }]),
+        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]),
       [startDrag],
     );
 
-    const handleCreate = useCallback((): void => onCreate?.(key), [key]);
+    const handleTabCreate = useCallback((): void => onCreate?.(key, "center"), [key]);
 
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
@@ -156,7 +164,7 @@ const TabLeaf = memo(
           onDragLeave={handleDragLeave}
           selected={node.selected}
           onDragStart={handleDragStart}
-          onCreate={handleCreate}
+          onCreate={handleTabCreate}
           {...props}
           {...haulProps}
         />

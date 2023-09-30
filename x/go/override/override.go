@@ -10,6 +10,7 @@
 package override
 
 import (
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
 	"reflect"
@@ -54,6 +55,12 @@ func Nil[T any](base T, override T) T {
 // base value.
 func Slice[T any](base []T, override []T) []T {
 	return If(base, override, len(override) > 0)
+}
+
+// UUID returns the override value if it is not the zero value, otherwise it returns the
+// base value.
+func UUID(base uuid.UUID, override uuid.UUID) uuid.UUID {
+	return If(base, override, override != uuid.Nil)
 }
 
 func isInterface[T any]() bool {

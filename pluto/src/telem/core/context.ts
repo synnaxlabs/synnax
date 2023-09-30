@@ -8,27 +8,40 @@
 // included in the file licenses/APL.txt.
 
 import { type Destructor } from "@synnaxlabs/x";
+import { set } from "react-hook-form";
 
 import { type aether } from "@/aether/aether";
 import { type Factory } from "@/telem/core/factory";
 import { type Spec } from "@/telem/core/telem";
 
 export interface Provider {
+  key: string;
   use: <T>(key: string, props: Spec, extension?: Factory) => UseResult<T>;
 }
 
 const CONTEXT_KEY = "pluto-telem-context";
 
-export const get = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
+export const getProvider = (ctx: aether.Context): Provider =>
+  ctx.get<Provider>(CONTEXT_KEY);
 
-export const set = (ctx: aether.Context, prov: Provider): void =>
+export const setProvider = (ctx: aether.Context, prov: Provider): void =>
   ctx.set(CONTEXT_KEY, prov);
+
+export const hijackProvider = (
+  ctx: aether.Context,
+  prov: Provider,
+): Provider | null => {
+  const old = getProvider(ctx);
+  if (old.key === prov.key) return null;
+  setProvider(ctx, prov);
+  return old;
+};
 
 export const use = <T>(
   ctx: aether.Context,
   key: string,
   props: Spec,
   extension?: Factory,
-): UseResult<T> => get(ctx).use<T>(key, props, extension);
+): UseResult<T> => getProvider(ctx).use<T>(key, props, extension);
 
 export type UseResult<T> = [T, Destructor];

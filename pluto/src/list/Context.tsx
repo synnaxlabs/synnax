@@ -32,7 +32,7 @@ export interface ContextProps<
   };
   data: E[];
   sourceData: E[];
-  setSourceData: (data: E[]) => void;
+  setSourceData: state.Set<E[]>;
   select: {
     value: K[];
     onChange: (value: K[]) => void;
@@ -44,6 +44,12 @@ export interface ContextProps<
   hover: {
     value: number;
     onChange: state.Set<number>;
+  };
+  infinite: {
+    hasMore: boolean;
+    setHasMore: state.Set<boolean>;
+    onFetchMore?: () => void;
+    setOnFetchMore: (cbk: () => void) => void;
   };
   emptyContent?: ReactElement;
   setEmptyContent: (content: ReactElement) => void;
@@ -66,6 +72,12 @@ export const Context = createContext<ContextProps>({
     setOnSelect: () => undefined,
     clear: undefined,
     setClear: () => undefined,
+  },
+  infinite: {
+    hasMore: false,
+    setHasMore: () => undefined,
+    onFetchMore: undefined,
+    setOnFetchMore: () => undefined,
   },
   hover: {
     value: -1,

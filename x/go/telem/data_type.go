@@ -32,6 +32,7 @@ func NewDataType[T any](v T) DataType {
 var (
 	UnknownT   DataType = ""
 	TimeStampT          = DataType("timestamp")
+	UUIDT               = DataType("uuid")
 	Float64T   DataType = "float64"
 	Float32T   DataType = "float32"
 	Int64T     DataType = "int64"
@@ -41,28 +42,31 @@ var (
 	Uint64T    DataType = "uint64"
 	Uint32T    DataType = "uint32"
 	Uint16T    DataType = "uint16"
-	ByteT      DataType = "byte"
+	Uint8T     DataType = "uint8"
 	BytesT     DataType = "bytes"
+	StringT    DataType = "string"
 )
 
 var dataTypes = map[string]DataType{
 	"timestamp": TimeStampT,
+	"uuid":      UUIDT,
 	"float64":   Float64T,
 	"float32":   Float32T,
 	"int64":     Int64T,
 	"int32":     Int32T,
 	"int16":     Int16T,
 	"int8":      Int8T,
-	"uint8":     ByteT,
+	"uint8":     Uint8T,
 	"uint64":    Uint64T,
 	"uint32":    Uint32T,
 	"uint16":    Uint16T,
-	"byte":      ByteT,
 	"bytes":     BytesT,
+	"string":    StringT,
 }
 
 var dataTypeDensities = map[DataType]Density{
 	TimeStampT: Bit64,
+	UUIDT:      Bit128,
 	UnknownT:   DensityUnknown,
 	Float64T:   Bit64,
 	Float32T:   Bit32,
@@ -72,7 +76,8 @@ var dataTypeDensities = map[DataType]Density{
 	Uint64T:    Bit64,
 	Uint32T:    Bit32,
 	Uint16T:    Bit16,
-	ByteT:      Bit8,
+	Uint8T:     Bit8,
 	Int64T:     Bit64,
 	BytesT:     DensityUnknown,
+	StringT:    DensityUnknown,
 }

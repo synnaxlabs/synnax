@@ -42,17 +42,20 @@ func (f Frame) SplitByNodeKey() map[core.NodeKey]Frame {
 	return frames
 }
 
-func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame) {
+func (f Frame) SplitByHost(host core.NodeKey) (local Frame, remote Frame, free Frame) {
 	for i, key := range f.Keys {
 		if key.Leaseholder() == host {
 			local.Keys = append(local.Keys, key)
 			local.Series = append(local.Series, f.Series[i])
+		} else if key.Leaseholder().IsFree() {
+			free.Keys = append(free.Keys, key)
+			free.Series = append(free.Series, f.Series[i])
 		} else {
 			remote.Keys = append(remote.Keys, key)
 			remote.Series = append(remote.Series, f.Series[i])
 		}
 	}
-	return local, remote
+	return local, remote, free
 }
 
 func (f Frame) Even() bool {

@@ -11,6 +11,7 @@ package pid
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -18,7 +19,8 @@ import (
 )
 
 type Config struct {
-	DB *gorp.DB
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
 }
 
 var (
@@ -29,13 +31,15 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("pid")
-	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "DB", c.DB)
+	validate.NotNil(v, "Ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -46,13 +50,22 @@ func NewService(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Config: cfg}, nil
+	s := &Service{Config: cfg}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.DB, tx)}
+	tx = gorp.OverrideTx(s.DB, tx)
+	return Writer{
+		tx:  tx,
+		otg: s.Ontology.NewWriter(tx),
+	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, PID]()}
+	return Retrieve{
+		gorp:   gorp.NewRetrieve[uuid.UUID, PID](),
+		baseTX: s.DB,
+	}
 }

@@ -14,7 +14,7 @@ from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 from alamos import trace, Instrumentation, NOOP
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
-from synnax.framer.adapter import BackwardFrameAdapter
+from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
@@ -66,7 +66,7 @@ class Iterator:
 
     __ENDPOINT = "/frame/iterate"
     __stream: Stream[_Request, _Response]
-    __adapter: BackwardFrameAdapter
+    __adapter: ReadFrameAdapter
 
     open: bool
     tr: TimeRange
@@ -77,7 +77,7 @@ class Iterator:
         self,
         tr: TimeRange,
         client: StreamClient,
-        adapter: BackwardFrameAdapter,
+        adapter: ReadFrameAdapter,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr

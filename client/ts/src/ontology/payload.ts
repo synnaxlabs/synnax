@@ -17,6 +17,9 @@ const resourceTypeZ = z.union([
   z.literal("group"),
   z.literal("range"),
   z.literal("user"),
+  z.literal("workspace"),
+  z.literal("pid"),
+  z.literal("lineplot"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
@@ -26,7 +29,15 @@ export const idZ = z.object({
   key: z.string(),
 });
 
-export const crudeIDZ = z.union([z.string(), idZ]);
+export const stringIDZ = z.string().transform((v) => {
+  const [type, key] = v.split(":");
+  return {
+    type: type as ResourceType,
+    key,
+  };
+});
+
+export const crudeIDZ = z.union([stringIDZ, idZ]);
 
 export class ID {
   type: ResourceType;

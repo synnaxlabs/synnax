@@ -37,7 +37,14 @@ message FrameIteratorResponse {
 
 message FrameWriterConfig {
     repeated uint32 keys = 1;
-    int64 start = 2;
+    repeated uint32 authorities = 2;
+    int64 start = 3;
+    ControlSubject control_subject = 4;
+}
+
+message ControlSubject {
+    string key = 1;
+    string name = 2;
 }
 
 message FrameWriterRequest {

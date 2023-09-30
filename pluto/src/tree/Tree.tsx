@@ -37,6 +37,10 @@ export interface Node {
   href?: string;
 }
 
+export interface NodeWithDepth extends Node {
+  depth: number;
+}
+
 export interface FlattenedNode extends Node {
   index: number;
   depth: number;
@@ -93,15 +97,15 @@ export const use = (props?: UseProps): UseReturn => {
 };
 
 export interface TreeProps
-  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop">,
+  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick">,
     Omit<
       List.VirtualCoreProps<string, FlattenedNode>,
-      "onDrop" | "onSelect" | "itemHeight"
+      "onDrop" | "onSelect" | "itemHeight" | "children" | "onDoubleClick"
     > {
   nodes: Node[];
   selected?: string[];
   expanded?: string[];
-  onSelect: (key: string[]) => void;
+  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
 }
 
 export const Tree = ({
@@ -112,6 +116,7 @@ export const Tree = ({
   onDrop,
   onRename,
   onSuccessfulDrop,
+  onDoubleClick,
   className,
   ...props
 }: TreeProps): ReactElement => {
@@ -136,6 +141,7 @@ export const Tree = ({
             onRename={onRename}
             onSuccessfulDrop={onSuccessfulDrop}
             selectedItems={flat.filter((item) => selected.includes(item.key))}
+            onDoubleClick={onDoubleClick}
           />
         )}
       </List.Core.Virtual>
@@ -147,6 +153,7 @@ interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
   onRename?: (key: string, name: string) => void;
+  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
   selectedItems: FlattenedNode[];
 }
 
@@ -162,6 +169,7 @@ const Item = ({
   onRename,
   onSuccessfulDrop,
   selectedItems,
+  onDoubleClick,
 }: ItemProps): ReactElement => {
   const {
     key,
@@ -173,6 +181,7 @@ const Item = ({
     depth,
     expanded,
     href,
+    haulItems = [],
   } = entry;
 
   const icons: ReactElement[] = [];
@@ -194,6 +203,20 @@ const Item = ({
     onDragOver: () => setDraggingOver(true),
   });
 
+  const handleDragStart = (): void => {
+    const selectedItemKeys = selectedItems.map(({ key }) => key);
+    if (selectedItemKeys.includes(key)) {
+      const selectedHaulItems = selectedItems
+        .map(({ key, haulItems }) => [{ type: HAUL_TYPE, key }, ...(haulItems ?? [])])
+        .flat();
+      return startDrag(selectedHaulItems, (props) => onSuccessfulDrop?.(key, props));
+    }
+    startDrag(
+      [{ type: HAUL_TYPE, key }, ...haulItems],
+      (props) => onSuccessfulDrop?.(key, props),
+    );
+  };
+
   const baseProps: Button.LinkProps | Button.ButtonProps = {
     id: key,
     variant: "text",
@@ -205,18 +228,13 @@ const Item = ({
       CSS.selected(selected),
     ),
     onDragLeave: () => setDraggingOver(false),
-    onDragStart: () =>
-      startDrag(
-        selectedItems
-          .map(({ key, haulItems }) => [{ type: HAUL_TYPE, key }, ...(haulItems ?? [])])
-          .flat(),
-        (props) => onSuccessfulDrop?.(key, props),
-      ),
+    onDragStart: handleDragStart,
     onClick: () => onSelect?.(key),
     style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
     startIcon: icons,
     iconSpacing: "small",
     noWrap: true,
+    onDoubleClick: (e) => onDoubleClick?.(key, e),
     href,
     ...dropProps,
   };
@@ -237,6 +255,8 @@ const Item = ({
     </Base>
   );
 };
+
+export const startRenaming = (key: string): void => Text.edit(`text-${key}`);
 
 export const shouldExpand = (node: Node, expanded: string[]): boolean =>
   expanded.includes(node.key);
@@ -323,19 +343,27 @@ export const updateNode = (
   return tree;
 };
 
-export const findNode = (tree: Node[], key: string): Node | null => {
+export const findNode = (
+  tree: Node[],
+  key: string,
+  depth: number = 0,
+): NodeWithDepth | null => {
   for (const node of tree) {
-    if (node.key === key) return node;
+    if (node.key === key) {
+      const n = node as NodeWithDepth;
+      n.depth = depth;
+      return n;
+    }
     if (node.children != null) {
-      const found = findNode(node.children, key);
+      const found = findNode(node.children, key, depth + 1);
       if (found != null) return found;
     }
   }
   return null;
 };
 
-export const findNodes = (tree: Node[], keys: string[]): Node[] => {
-  const nodes: Node[] = [];
+export const findNodes = (tree: Node[], keys: string[]): NodeWithDepth[] => {
+  const nodes: NodeWithDepth[] = [];
   for (const key of keys) {
     const node = findNode(tree, key);
     if (node != null) nodes.push(node);

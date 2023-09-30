@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -39,6 +38,7 @@ type Service interface {
 
 type Writeable interface {
 	NewWriter(tx gorp.Tx) Writer
+	RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error
 }
 
 type Readable interface {
@@ -77,24 +77,34 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
+const groupName = "Channels"
+
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := maybeCreateGroup(ctx, cfg.Group)
-	if err != nil {
-		return nil, err
+	var g group.Group
+	if cfg.Group != nil {
+		g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	proxy, err := newLeaseProxy(cfg, g)
 	if err != nil {
 		return nil, err
 	}
-	return &service{
+
+	s := &service{
 		DB:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
-	}, nil
+	}
+	if cfg.Ontology != nil {
+		cfg.Ontology.RegisterService(s)
+	}
+	return s, nil
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
@@ -103,15 +113,25 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
 
-const groupName = "Channels"
-
-func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
-	if svc == nil {
-		return g, nil
-	}
-	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
-		return g, err
-	}
-	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
+func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error {
+	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.NewWriter(tx)
+		for i, channel := range *channels {
+			var res Channel
+			if err := s.NewRetrieve().
+				WhereNames(channel.Name).
+				Entry(&res).Exec(ctx, tx); err != nil {
+				return err
+			}
+			if res.Name != channel.Name {
+				if err := w.Create(ctx, &channel); err != nil {
+					return err
+				}
+				(*channels)[i] = channel
+			} else {
+				(*channels)[i] = res
+			}
+		}
+		return nil
+	})
 }

@@ -40,6 +40,9 @@ from synnax.telem import (
     Series,
     convert_time_units,
     TimeSpanUnits,
+    Authority,
+    CrudeAuthority,
+    Bounds,
 )
 from synnax.framer import (
     Frame,

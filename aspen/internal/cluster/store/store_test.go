@@ -23,7 +23,7 @@ var _ = Describe("Store", func() {
 
 	BeforeEach(func() { s = store.New(ctx) })
 
-	Describe("New", func() {
+	Describe("Name", func() {
 
 		It("Should open a new Store with empty state", func() {
 			Expect(s.CopyState().Nodes).ToNot(BeNil())
@@ -65,7 +65,7 @@ var _ = Describe("Store", func() {
 
 	})
 
-	Describe("Host", func() {
+	Describe("Lease", func() {
 
 		It("Should set and get the host correctly", func() {
 			s.SetHost(ctx, node.Node{Key: 1})

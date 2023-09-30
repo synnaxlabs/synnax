@@ -13,12 +13,12 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
+import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
-
-import { errorsMiddleware } from "./errors";
+import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -43,14 +43,15 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
   private readonly transport: Transport;
-  createdAt: TimeStamp;
-  telem: framer.Client;
-  ranges: ranger.Client;
-  channels: channel.Client;
-  auth: auth.Client | undefined;
-  connectivity: connection.Checker;
-  ontology: ontology.Client;
-  props: ParsedSynnaxProps;
+  readonly createdAt: TimeStamp;
+  readonly telem: framer.Client;
+  readonly ranges: ranger.Client;
+  readonly channels: channel.Client;
+  readonly auth: auth.Client | undefined;
+  readonly connectivity: connection.Checker;
+  readonly ontology: ontology.Client;
+  readonly props: ParsedSynnaxProps;
+  readonly workspaces: workspace.Client;
   static readonly connectivity = connection.Checker;
 
   /**
@@ -96,6 +97,7 @@ export default class Synnax {
     const rangeRetriever = new ranger.Retriever(this.transport.unary);
     const rangeCreator = new ranger.Creator(this.transport.unary);
     this.ranges = new ranger.Client(this.telem, rangeRetriever, rangeCreator);
+    this.workspaces = new workspace.Client(this.transport.unary);
   }
 
   close(): void {

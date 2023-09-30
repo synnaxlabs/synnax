@@ -19,7 +19,7 @@ import (
 )
 
 var _ = Describe("Falamos", func() {
-	Describe("New", func() {
+	Describe("Name", func() {
 		It("Should correctly attach tracing meta data", func() {
 			clientIns := Instrumentation("falamos", InstrumentationConfig{Trace: config.True()})
 			clientMw := MustSucceed(falamos.Middleware(falamos.Config{

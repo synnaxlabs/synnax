@@ -10,7 +10,10 @@
 package core
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type ChannelKey = uint32
@@ -45,5 +48,23 @@ type Channel struct {
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
-	Index ChannelKey `json:"index" msgpack:"index"`
+	Index       ChannelKey `json:"index" msgpack:"index"`
+	Virtual     bool
+	Concurrency control.Concurrency
+}
+
+func (c Channel) ValidateSeries(series telem.Series) error {
+	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (c.DataType == telem.Int64T || c.DataType == telem.TimeStampT) {
+		return nil
+	}
+	if series.DataType != c.DataType {
+		return errors.Wrapf(
+			validate.Error,
+			"invalid array data type for channel %s, expected %s, got %s",
+			c.Key,
+			c.DataType,
+			series.DataType,
+		)
+	}
+	return nil
 }

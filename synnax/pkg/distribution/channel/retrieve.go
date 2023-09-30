@@ -52,7 +52,7 @@ func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	return r
 }
 
-// WhereNames filters for channels whose Name attribute matches the provided name.
+// WhereNames filters for channels whose Key attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(names, ch.Name) })
 	return r
@@ -63,6 +63,20 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.keys = append(r.keys, keys...)
 	r.gorp.WhereKeys(keys...)
+	return r
+}
+
+// Limit limits the number of results returned by the query. This is an identical
+// interface to gorp.Retrieve.
+func (r Retrieve) Limit(limit int) Retrieve {
+	r.gorp.Limit(limit)
+	return r
+}
+
+// Offset offsets the results returned by the query. This is an identical interface to
+// gorp.Retrieve.
+func (r Retrieve) Offset(offset int) Retrieve {
+	r.gorp.Offset(offset)
 	return r
 }
 

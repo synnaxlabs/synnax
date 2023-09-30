@@ -117,7 +117,7 @@ var _ = Describe("PledgeServer", func() {
 
 	Describe("Responsible", func() {
 		Context("cluster State is Synchronized", func() {
-			It("Should correctly assign an Key", func() {
+			It("Should correctly assign an Name", func() {
 				var (
 					nodes         = make(node.Group)
 					numCandidates = 10
@@ -136,7 +136,7 @@ var _ = Describe("PledgeServer", func() {
 			})
 		})
 		Context("Responsible is Missing UniqueNodeKeys", func() {
-			It("Should correctly assign an Key", func() {
+			It("Should correctly assign an Name", func() {
 				var (
 					nodes      = make(node.Group)
 					candidates = func(i int) func() node.Group {
@@ -166,7 +166,7 @@ var _ = Describe("PledgeServer", func() {
 			})
 		})
 		Context("One juror are aware of a new node", func() {
-			It("Should assign the correct Key", func() {
+			It("Should assign the correct Name", func() {
 				var (
 					nodes           = make(node.Group)
 					allCandidates   = func() node.Group { return nodes }

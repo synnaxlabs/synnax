@@ -11,6 +11,7 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -30,13 +31,14 @@ var _ = Describe("TypedWriter", func() {
 			gatewayOnlyScenario,
 			peerOnlyScenario,
 			mixedScenario,
+			freeWriterScenario,
 		}
-		for _, sF := range scenarios {
+		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-			Specify("It should write and commit data", func() {
+			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -44,9 +46,9 @@ var _ = Describe("TypedWriter", func() {
 				Expect(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
-						telem.NewArrayV[int64](1, 2, 3),
-						telem.NewArrayV[int64](3, 4, 5),
-						telem.NewArrayV[int64](5, 6, 7),
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](3, 4, 5),
+						telem.NewSeriesV[int64](5, 6, 7),
 					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
@@ -54,9 +56,9 @@ var _ = Describe("TypedWriter", func() {
 				Expect(writer.Write(core.Frame{
 					Keys: s.keys,
 					Series: []telem.Series{
-						telem.NewArrayV[int64](1, 2, 3),
-						telem.NewArrayV[int64](3, 4, 5),
-						telem.NewArrayV[int64](5, 6, 7),
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](3, 4, 5),
+						telem.NewSeriesV[int64](5, 6, 7),
 					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
@@ -103,10 +105,10 @@ var _ = Describe("TypedWriter", func() {
 			Expect(writer.Write(core.Frame{
 				Keys: append(s.keys, channel.NewKey(12, 22)),
 				Series: []telem.Series{
-					telem.NewArrayV[int64](1, 2, 3),
-					telem.NewArrayV[int64](3, 4, 5),
-					telem.NewArrayV[int64](5, 6, 7),
-					telem.NewArrayV[int64](5, 6, 7),
+					telem.NewSeriesV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](3, 4, 5),
+					telem.NewSeriesV[int64](5, 6, 7),
+					telem.NewSeriesV[int64](5, 6, 7),
 				}},
 			)).To(BeTrue())
 			Expect(writer.Commit()).To(BeFalse())
@@ -119,6 +121,7 @@ var _ = Describe("TypedWriter", func() {
 })
 
 type scenario struct {
+	name    string
 	keys    channel.Keys
 	service *writer.Service
 	channel channel.Service
@@ -152,6 +155,7 @@ func gatewayOnlyScenario() scenario {
 	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "gatewayOnly",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,
@@ -176,6 +180,7 @@ func peerOnlyScenario() scenario {
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "peerOnly",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,
@@ -200,6 +205,33 @@ func mixedScenario() scenario {
 	}).Should(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
+		name:    "mixed",
+		keys:    keys,
+		service: svc.writer,
+		close:   builder,
+		channel: svc.channel,
+	}
+}
+
+func freeWriterScenario() scenario {
+	channels := newChannelSet()
+	builder, services := provision(3)
+	svc := services[1]
+	for i, ch := range channels {
+		ch.Leaseholder = dcore.Free
+		ch.Virtual = true
+		channels[i] = ch
+	}
+	Expect(svc.channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Eventually(func(g Gomega) {
+		var chs []channel.Channel
+		err := svc.channel.NewRetrieve().Entries(&chs).WhereKeys(channel.KeysFromChannels(channels)...).Exec(ctx, nil)
+		g.Expect(err).To(Succeed())
+		g.Expect(chs).To(HaveLen(len(channels)))
+	}).Should(Succeed())
+	keys := channel.KeysFromChannels(channels)
+	return scenario{
+		name:    "freeWriter",
 		keys:    keys,
 		service: svc.writer,
 		close:   builder,

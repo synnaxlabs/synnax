@@ -45,7 +45,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					[]cesium.ChannelKey{basic1Index, basic1},
 					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12, 13),
-						telem.NewArrayV[int64](1, 2, 3, 4),
+						telem.NewSeriesV[int64](1, 2, 3, 4),
 					}),
 				)
 				Expect(ok).To(BeTrue())
@@ -88,7 +88,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					[]cesium.ChannelKey{basicIdx1, basic1},
 					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12, 13),
-						telem.NewArrayV[int64](1, 2, 3, 4),
+						telem.NewSeriesV[int64](1, 2, 3, 4),
 					},
 				))
 				Expect(ok).To(BeTrue())
@@ -98,7 +98,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					[]cesium.ChannelKey{basicIdx2, basic2},
 					[]telem.Series{
 						telem.NewSecondsTSV(10, 11, 12, 13, 14),
-						telem.NewArrayV[int64](1, 2, 3, 4, 5),
+						telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 					},
 				))
 				Expect(ok).To(BeTrue())
@@ -144,8 +144,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			ok := w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1, frameErr2},
 				[]telem.Series{
-					telem.NewArrayV[int64](1, 2, 3, 4),
-					telem.NewArrayV[int64](1, 2, 3),
+					telem.NewSeriesV[int64](1, 2, 3, 4),
+					telem.NewSeriesV[int64](1, 2, 3),
 				}),
 			)
 			Expect(ok).To(BeTrue())
@@ -165,7 +165,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			ok := w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1},
 				[]telem.Series{
-					telem.NewArrayV[int64](1, 2, 3, 4),
+					telem.NewSeriesV[int64](1, 2, 3, 4),
 				},
 			))
 			Expect(ok).To(BeTrue())
@@ -185,8 +185,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			ok := w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{frameErr1, frameErr1},
 				[]telem.Series{
-					telem.NewArrayV[int64](1, 2, 3, 4),
-					telem.NewArrayV[int64](1, 2, 3, 4),
+					telem.NewSeriesV[int64](1, 2, 3, 4),
+					telem.NewSeriesV[int64](1, 2, 3, 4),
 				},
 			))
 			Expect(ok).To(BeTrue())
@@ -240,7 +240,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				ok = w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{disc1},
 					[]telem.Series{
-						telem.NewArrayV[int64](1, 2, 3, 4, 5),
+						telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 					},
 				))
 				Expect(ok).To(BeTrue())
@@ -264,7 +264,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				ok := w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{disc2},
 					[]telem.Series{
-						telem.NewArrayV[int64](1, 2, 3, 4, 5),
+						telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 					},
 				))
 				Expect(ok).To(BeTrue())
@@ -299,7 +299,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			ok := w.Write(cesium.NewFrame(
 				[]cesium.ChannelKey{dtErr},
 				[]telem.Series{
-					telem.NewArrayV[float64](1, 2, 3, 4, 5),
+					telem.NewSeriesV[float64](1, 2, 3, 4, 5),
 				},
 			))
 			Expect(ok).To(BeTrue())

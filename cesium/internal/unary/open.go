@@ -11,10 +11,10 @@ package unary
 
 import (
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -31,31 +31,24 @@ type Config struct {
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the databases meta file.
 	Channel core.Channel
-	// MetaECD is the encoder/decoder used to encode Channel information into the
-	// meta file.
-	MetaECD binary.EncoderDecoder
 }
 
 var (
-	_ config.Config[Config] = (*Config)(nil)
+	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{
-		MetaECD: &binary.JSONEncoderDecoder{Pretty: true},
-	}
+	DefaultConfig = Config{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.GateConfig.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.unary")
 	validate.NotNil(v, "FS", cfg.FS)
-	validate.NotNil(v, "MetaECD", cfg.MetaECD)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.GateConfig.
 func (cfg Config) Override(other Config) Config {
 	cfg.FS = override.Nil(cfg.FS, other.FS)
-	cfg.MetaECD = override.Nil(cfg.MetaECD, other.MetaECD)
 	if cfg.Channel.Key == 0 {
 		cfg.Channel = other.Channel
 	}
@@ -68,13 +61,15 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = readOrCreateMeta(cfg)
-	if err != nil {
-		return nil, err
+	rangerDB, err := domain.Open(domain.Config{
+		FS:              cfg.FS,
+		Instrumentation: cfg.Instrumentation,
+	})
+	db := &DB{
+		Config:     cfg,
+		Domain:     rangerDB,
+		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
 	}
-	rangerDB, err := domain.Open(domain.Config{FS: cfg.FS, Instrumentation: cfg.Instrumentation})
-
-	db := &DB{Config: cfg, Ranger: rangerDB}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
 	} else if cfg.Channel.Index == 0 {

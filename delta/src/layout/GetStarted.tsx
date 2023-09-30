@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Align, Button } from "@synnaxlabs/pluto";
+import { Text, Align, Button, Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -18,10 +18,17 @@ import { Docs } from "@/docs";
 import { usePlacer } from "@/layout/hooks";
 import { setNavdrawerVisible } from "@/layout/slice";
 import { Vis } from "@/vis";
+import { Workspace } from "@/workspace";
 
 import "@/layout/GetStarted.css";
 
 export const GetStarted = (): ReactElement => {
+  const client = Synnax.use();
+  if (client == null) return <NoCluster />;
+  return <Overview />;
+};
+
+const NoCluster = (): ReactElement => {
   const placer = usePlacer();
   const dispatch = useDispatch();
 
@@ -69,6 +76,46 @@ export const GetStarted = (): ReactElement => {
       <Text.Link target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
+    </Align.Center>
+  );
+};
+
+const Overview = (): ReactElement => {
+  const p = usePlacer();
+  const handleWorkspace: Button.ButtonProps["onClick"] = () => {
+    p(Workspace.createWindowLayout);
+  };
+
+  return (
+    <Align.Center
+      className="delta-get-started"
+      size={6}
+      direction="y"
+      style={{ padding: "200px" }}
+    >
+      <Logo variant="title" className="delta-get-started__logo" />
+      <Align.Space
+        direction="x"
+        style={{ width: "100%" }}
+        justify="center"
+        size={30}
+        wrap
+      >
+        <Align.Space direction="y">
+          <Text.Text level="h1">Your Workspaces</Text.Text>
+          <Workspace.Recent />
+          <Button.Button
+            startIcon={<Icon.Add />}
+            onClick={handleWorkspace}
+            style={{ width: "fit-content" }}
+          >
+            Create a Workspace
+          </Button.Button>
+        </Align.Space>
+        <Align.Space direction="y" align="center">
+          <Text.Text level="h1">Recent Ranges</Text.Text>
+        </Align.Space>
+      </Align.Space>
     </Align.Center>
   );
 };

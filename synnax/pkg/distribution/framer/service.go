@@ -29,6 +29,16 @@ type Service struct {
 	relay    *relay.Relay
 }
 
+type Writable interface {
+	OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
+	NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error)
+}
+
+type Readable interface {
+	OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error)
+	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
+}
+
 type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable
@@ -42,6 +52,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
+// Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
@@ -51,6 +62,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)
@@ -75,18 +87,22 @@ func Open(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.relay, err = relay.Open(relay.Config{
+		Instrumentation: cfg.Instrumentation,
+		TS:              cfg.TS,
+		HostResolver:    cfg.HostResolver,
+		Transport:       cfg.Transport.Relay(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	s.writer, err = writer.OpenService(writer.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
 		Instrumentation: cfg.Instrumentation,
-	})
-	s.relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation,
-		TS:              cfg.TS,
-		HostResolver:    cfg.HostResolver,
-		Transport:       cfg.Transport.Relay(),
+		FreeWrites:      s.relay.Writes,
 	})
 	return s, err
 }

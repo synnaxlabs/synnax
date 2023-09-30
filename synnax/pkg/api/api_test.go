@@ -17,7 +17,7 @@ import (
 )
 
 var _ = Describe("Api", func() {
-	Describe("New", func() {
+	Describe("Name", func() {
 		It("Should open a new API without panicking", func() {
 			Expect(func() {
 				api.New(api.Config{

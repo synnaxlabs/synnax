@@ -9,9 +9,8 @@
 
 import { type ReactElement } from "react";
 
+import { type direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
-
-import {direction} from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Color } from "@/color";

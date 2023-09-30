@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -42,11 +43,17 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
-	ch, ok := db.dbs[key]
-	if !ok {
-		return Channel{}, ChannelNotFound
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	uCh, uOk := db.unaryDBs[key]
+	if uOk {
+		return uCh.Channel, nil
 	}
-	return ch.Channel, nil
+	vCh, vOk := db.virtualDBs[key]
+	if vOk {
+		return vCh.Channel, nil
+	}
+	return Channel{}, ChannelNotFound
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {
@@ -68,7 +75,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	err = db.openUnary(ch)
+	err = db.openVirtualOrUnary(ch)
 	return
 }
 
@@ -76,17 +83,30 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
-	validate.MapDoesNotContainF(v, ch.Key, db.dbs, "channel %v already exists", ch.Key)
-	if ch.IsIndex {
-		v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-		v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
-	} else if ch.Index != 0 {
-		validate.MapContainsf(v, ch.Index, db.dbs, "index %v does not exist", ch.Index)
-		v.Funcf(func() bool {
-			return !db.dbs[ch.Index].Channel.IsIndex
-		}, "channel %v is not an index", ch.Index)
+	v.Exec(func() error {
+		_, uOk := db.unaryDBs[ch.Key]
+		_, vOk := db.virtualDBs[ch.Key]
+		if uOk || vOk {
+			return errors.Wrapf(validate.Error, "[cesium] - channel %d already exists", ch.Key)
+		}
+		return nil
+	})
+	if ch.Virtual {
+		v.Ternaryf(ch.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf(ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
-		validate.Positive(v, "rate", ch.Rate)
+		v.Ternary(ch.DataType == telem.StringT, "persisted channels cannot have string data types")
+		if ch.IsIndex {
+			v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+		} else if ch.Index != 0 {
+			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index %v does not exist", ch.Index)
+			v.Funcf(func() bool {
+				return !db.unaryDBs[ch.Index].Channel.IsIndex
+			}, "channel %v is not an index", ch.Index)
+		} else {
+			validate.Positive(v, "rate", ch.Rate)
+		}
 	}
 	return v.Error()
 }

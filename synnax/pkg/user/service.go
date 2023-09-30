@@ -54,12 +54,14 @@ type Service struct {
 	group group.Group
 }
 
+const groupName = "Users"
+
 func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := maybeCreateGroup(ctx, cfg.Group)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
@@ -137,14 +139,4 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 
 func (w Writer) Update(ctx context.Context, u User) error {
 	return gorp.NewCreate[uuid.UUID, User]().Entry(&u).Exec(ctx, w.tx)
-}
-
-const groupName = "Users"
-
-func maybeCreateGroup(ctx context.Context, svc *group.Service) (g group.Group, err error) {
-	err = svc.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
-		return g, err
-	}
-	return svc.NewWriter(nil).Create(ctx, groupName, ontology.RootID)
 }

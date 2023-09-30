@@ -7,44 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice } from "@reduxjs/toolkit";
-import type { PayloadAction } from "@reduxjs/toolkit";
-import { TimeSpan } from "@synnaxlabs/x";
-
-import { type Range } from "@/workspace/range";
+import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { type workspace } from "@synnaxlabs/client";
 
 export interface SliceState {
-  activeRange: string | null;
-  ranges: Record<string, Range>;
-}
-
-export interface StoreState {
-  workspace: SliceState;
+  active: string | null;
+  workspaces: Record<string, workspace.Workspace>;
 }
 
 export const SLICE_NAME = "workspace";
 
+export interface StoreState {
+  [SLICE_NAME]: SliceState;
+}
+
 export const initialState: SliceState = {
-  activeRange: null,
-  ranges: {
-    recent: {
-      key: "recent",
-      variant: "dynamic",
-      name: "Recent",
-      span: Number(TimeSpan.minutes(60)),
-    },
-    hour: {
-      key: "hour",
-      variant: "dynamic",
-      name: "Recent",
-      span: Number(TimeSpan.minutes(60)),
-    },
-  },
+  active: null,
+  workspaces: {},
 };
 
-type AddRangePayload = Range;
-type RemoveRangePayload = string;
-type SetActiveRangePayload = string | null;
+type SetActivePayload = string | null;
+export interface AddPayload {
+  workspaces: workspace.Workspace[];
+}
+
+export interface RenamePayload {
+  key: string;
+  name: string;
+}
 
 type PA<P> = PayloadAction<P>;
 
@@ -52,20 +42,22 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState,
   reducers: {
-    addRange: (state, { payload }: PA<AddRangePayload>) => {
-      state.activeRange = payload.key;
-      state.ranges[payload.key] = payload;
+    setActive: (state, { payload }: PA<SetActivePayload>) => {
+      state.active = payload;
     },
-    removeRange: (state, { payload }: PA<RemoveRangePayload>) => {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.ranges[payload];
+    add: (state, { payload: { workspaces } }: PA<AddPayload>) => {
+      workspaces.forEach((workspace) => {
+        state.workspaces[workspace.key] = workspace;
+        state.active = workspace.key;
+      });
     },
-    setActiveRange: (state, { payload }: PA<SetActiveRangePayload>) => {
-      state.activeRange = payload;
+    rename: (state, { payload: { key, name } }: PA<RenamePayload>) => {
+      state.workspaces[key].name = name;
     },
   },
 });
-export const { addRange, removeRange, setActiveRange } = actions;
+
+export const { setActive, add, rename } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

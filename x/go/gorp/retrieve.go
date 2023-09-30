@@ -12,7 +12,6 @@ package gorp
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/query"
@@ -30,6 +29,19 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 // use the far more efficient WhereKeys method instead.
 func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
 	addFilter[K](r.Params, filter)
+	return r
+}
+
+// Limit sets the maximum number of results that the query will return, discarding
+// any results beyond the limit.
+func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
+	SetLimit(r.Params, limit)
+	return r
+}
+
+// Offset sets the number of results that the query will skip before returning results.
+func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
+	SetOffset(r.Params, offset)
 	return r
 }
 
@@ -110,6 +122,30 @@ func getFilters[K Key, E Entry[K]](q query.Parameters) filters[K, E] {
 	return rf.(filters[K, E])
 }
 
+const limitKey query.Parameter = "limit"
+
+func SetLimit(q query.Parameters, limit int) { q.Set(limitKey, limit) }
+
+func GetLimit(q query.Parameters) (int, bool) {
+	limit, ok := q.Get(limitKey)
+	if !ok {
+		return 0, false
+	}
+	return limit.(int), true
+}
+
+const offsetKey query.Parameter = "offset"
+
+func SetOffset(q query.Parameters, offset int) { q.Set(offsetKey, offset) }
+
+func GetOffset(q query.Parameters) int {
+	offset, ok := q.Get(offsetKey)
+	if !ok {
+		return 0
+	}
+	return offset.(int)
+}
+
 const whereKeysKey query.Parameter = "retrieveByKeys"
 
 type whereKeys[K Key] []K
@@ -158,12 +194,24 @@ func keysRetrieve[K Key, E Entry[K]](
 	tx Tx,
 ) error {
 	var (
-		keys, _ = getWhereKeys[K](q)
-		f       = getFilters[K, E](q)
-		entries = GetEntries[K, E](q)
-		e, err  = WrapReader[K, E](tx).GetMany(ctx, keys)
+		limit, limitOk  = GetLimit(q)
+		offset          = GetOffset(q)
+		keys, _         = getWhereKeys[K](q)
+		f               = getFilters[K, E](q)
+		entries         = GetEntries[K, E](q)
+		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, keys)
+		toReplace       = make([]E, 0, len(keysResult))
+		validCount      int
 	)
-	entries.Replace(lo.Filter(e, func(v E, _ int) bool { return f.exec(&v) }))
+	for _, e := range keysResult {
+		if f.exec(&e) {
+			validCount += 1
+			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
+				toReplace = append(toReplace, e)
+			}
+		}
+	}
+	entries.Replace(toReplace)
 	return err
 }
 
@@ -173,15 +221,24 @@ func filterRetrieve[K Key, E Entry[K]](
 	tx Tx,
 ) error {
 	var (
-		f       = getFilters[K, E](q)
-		entries = GetEntries[K, E](q)
-		i       = WrapReader[K, E](tx).OpenIterator()
+		limit, limitOk = GetLimit(q)
+		offset         = GetOffset(q)
+		f              = getFilters[K, E](q)
+		entries        = GetEntries[K, E](q)
+		iter, err      = WrapReader[K, E](tx).OpenIterator()
+		validCount     int
 	)
-	for i.First(); i.Valid(); i.Next() {
-		v := i.Value(ctx)
+	if err != nil {
+		return err
+	}
+	for iter.First(); iter.Valid(); iter.Next() {
+		v := iter.Value(ctx)
 		if f.exec(v) {
-			entries.Add(*v)
+			validCount += 1
+			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
+				entries.Add(*v)
+			}
 		}
 	}
-	return i.Close()
+	return iter.Close()
 }

@@ -19,4 +19,3 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
                 }
             )
         )
-
