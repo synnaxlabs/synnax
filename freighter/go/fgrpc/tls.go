@@ -30,7 +30,7 @@ import (
 // a cmux multiplexer.
 //
 // It's also important to note that MuxCredentials should only be used for server
-// connections. Client connections should use the standard TLS credentials.
+// connections. Exec connections should use the standard TLS credentials.
 type MuxCredentials struct {
 	alamos.Instrumentation
 	ServerName string
