@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/delta",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.12.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -32,6 +32,7 @@
     "react-hook-form": "^7.45.0",
     "react-icons": "^4.10.1",
     "react-redux": "^8.1.1",
+    "uuid": "^9.0.1",
     "vite-plugin-svgr": "^3.2.0",
     "zod": "3.21.4"
   },

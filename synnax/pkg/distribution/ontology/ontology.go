@@ -33,11 +33,13 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"io"
 )
 
 type (
@@ -55,9 +57,11 @@ type Ontology struct {
 	Config
 	search struct {
 		signal.Go
+		io.Closer
 		*search.Index
 	}
-	registrar serviceRegistrar
+	registrar           serviceRegistrar
+	disconnectObservers []observe.Disconnect
 }
 
 type Config struct {
@@ -107,7 +111,9 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 
 	if *o.Config.EnableSearch {
 		o.search.Index, err = search.New(search.Config{Instrumentation: cfg.Instrumentation})
-		o.search.Go = signal.Wrap(ctx, signal.WithInstrumentation(cfg.Instrumentation))
+		sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+		o.search.Go = sCtx
+		o.search.Closer = signal.NewShutdown(sCtx, cancel)
 	}
 
 	return o, err
@@ -171,11 +177,13 @@ func (o *Ontology) RegisterService(s Service) {
 	}
 
 	o.search.Go.Go(func(ctx context.Context) error {
-		n := s.OpenNexter()
-		err := o.search.Index.WithTx(func(tx search.Tx) error {
-			r, ok, err := n.Next(ctx)
-			for ; ok && err == nil; r, ok, err = n.Next(ctx) {
-				if err = tx.Index(r); err != nil {
+		n, err := s.OpenNexter()
+		if err != nil {
+			return err
+		}
+		err = o.search.Index.WithTx(func(tx search.Tx) error {
+			for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+				if err := tx.Index(r); err != nil {
 					return err
 				}
 			}
@@ -185,16 +193,20 @@ func (o *Ontology) RegisterService(s Service) {
 	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
 	// Set up a change handler to index new resources.
-	s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
+	d := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
-			ch, ok, err := i.Next(ctx)
-			for ; ok && err == nil; ch, ok, err = i.Next(ctx) {
-				o.L.Info("indexing resource", zap.String("type", string(s.Schema().Type)))
-				if err = tx.Apply(ch); err != nil {
-					break
+			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
+				o.L.Debug(
+					"updating search index",
+					zap.String("key", ch.Key.String()),
+					zap.String("type", string(s.Schema().Type)),
+					zap.Stringer("variant", ch.Variant),
+				)
+				if err := tx.Apply(ch); err != nil {
+					return err
 				}
 			}
-			return err
+			return nil
 		})
 		if err != nil {
 			o.L.Error("failed to index resource",
@@ -203,4 +215,15 @@ func (o *Ontology) RegisterService(s Service) {
 			)
 		}
 	})
+	o.disconnectObservers = append(o.disconnectObservers, d)
+}
+
+func (o *Ontology) Close() error {
+	for _, d := range o.disconnectObservers {
+		d()
+	}
+	if *o.EnableSearch {
+		return o.search.Close()
+	}
+	return nil
 }

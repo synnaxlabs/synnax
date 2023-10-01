@@ -37,7 +37,7 @@ func (db *KV) authenticate(
 ) (SecureCredentials, error) {
 	secureCreds, err := db.retrieve(ctx, tx, creds.Username)
 	if err != nil {
-		if err == query.NotFound {
+		if errors.Is(err, query.NotFound) {
 			return secureCreds, InvalidCredentials
 		}
 		return secureCreds, err

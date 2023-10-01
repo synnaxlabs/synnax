@@ -21,12 +21,12 @@ export const pidStateZ = z.object({
   region: box.box,
 });
 
-interface PIDElementProps {
+interface ElementProps {
   s?: scale.XY;
 }
 
-export interface PIDElement extends aether.Component {
-  render: (props: PIDElementProps) => Promise<void>;
+export interface Element extends aether.Component {
+  render: (props: ElementProps) => Promise<void>;
 }
 
 interface InternalState {
@@ -36,7 +36,7 @@ interface InternalState {
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
 
-export class PID extends aether.Composite<typeof pidStateZ, InternalState, PIDElement> {
+export class PID extends aether.Composite<typeof pidStateZ, InternalState, Element> {
   static readonly TYPE = CSS.B("pid");
   static readonly stateZ = pidStateZ;
   readonly eraser: render.Eraser = new render.Eraser();

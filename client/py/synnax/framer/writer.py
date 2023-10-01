@@ -22,11 +22,13 @@ from numpy import can_cast as np_can_cast
 from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
-from synnax.channel.payload import ChannelKeys
-from synnax.exceptions import Field, ValidationError, UnexpectedError
-from synnax.framer.adapter import ForwardFrameAdapter
+from synnax.channel.payload import ChannelKeys, ChannelKey, ChannelName, ChannelNames
+from synnax.exceptions import Field, ValidationError
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType
+from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
+from synnax.telem.authority import Authority
+from synnax.util.normalize import normalize
 
 
 class _Command(int, Enum):
@@ -34,16 +36,18 @@ class _Command(int, Enum):
     WRITE = 1
     COMMIT = 2
     ERROR = 3
-
+    SET_AUTHORITY = 4
 
 class _Config(Payload):
+    authorities: list[int]
+    name: str | None = None
+    start: TimeStamp | None = None
     keys: ChannelKeys
-    start: TimeStamp
 
 
 class _Request(Payload):
-    command: _Command
     config: _Config | None = None
+    command: _Command
     frame: FramePayload | None = None
 
 
@@ -62,7 +66,8 @@ class Writer:
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
     writing large volumes of data (such as recording telemetry from a sensor or
-    ingesting data from a file). Simpler methods (such as the frame py's write method)
+    ingesting data from a file). Simpler methods (such as the frame writer's write
+    method)
     should be used in most cases.
 
     The protocol is as follows:
@@ -95,7 +100,7 @@ class Writer:
 
     __ENDPOINT = "/frame/write"
     __stream: Stream[_Request, _Response]
-    __adapter: ForwardFrameAdapter
+    __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
 
@@ -105,7 +110,9 @@ class Writer:
         self,
         start: CrudeTimeStamp,
         client: StreamClient,
-        adapter: ForwardFrameAdapter,
+        adapter: WriteFrameAdapter,
+        name: str = "",
+        authorities: list[Authority] | Authority = Authority.ABSOLUTE,
         suppress_warnings: bool = False,
         strict: bool = False,
     ) -> None:
@@ -114,16 +121,34 @@ class Writer:
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open()
+        self.__open(name, authorities)
 
-    def __open(self):
-        config = _Config(keys=self.__adapter.keys, start=TimeStamp(self.start))
+    def __open(
+        self,
+        name: str,
+        authorities: list[Authority],
+    ) -> None:
+        config = _Config(
+            name=name,
+            keys=self.__adapter.keys,
+            start=TimeStamp(self.start),
+            authorities=normalize(authorities),
+        )
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
         if exc is not None:
             raise exc
 
-    def write(self, frame: Frame | DataFrame) -> bool:
+    def write(
+        self,
+        columns_or_data: ChannelName
+                         | ChannelKey
+                         | ChannelKeys
+                         | ChannelNames
+                         | Frame
+                         | dict[ChannelKey | ChannelName, CrudeSeries],
+        series: CrudeSeries | list[CrudeSeries] | None = None,
+    ) -> bool:
         """Writes the given frame to the database. The provided frame must:
 
         :param frame: The frame to write to the database. The frame must:
@@ -141,7 +166,7 @@ class Writer:
         if self.__stream.received():
             return False
 
-        frame = self.__adapter.adapt(Frame(frame))
+        frame = self.__adapter.adapt(columns_or_data, series)
         self.__check_keys(frame)
         self.__prep_data_types(frame)
 
@@ -151,6 +176,25 @@ class Writer:
         if err is not None:
             raise err
         return True
+
+    def set_authority(self, value: dict[ChannelKey, Authority]) -> bool:
+        err = self.__stream.send(
+            _Request(
+                command=_Command.SET_AUTHORITY,
+                config=_Config(
+                    keys=list(value.keys()),
+                    authorities=list(value.values()),
+                )
+            )
+        )
+        if err is not None:
+            raise err
+        while True:
+            res, err = self.__stream.receive()
+            if err is not None:
+                raise err
+            if res.command == _Command.SET_AUTHORITY:
+                return res.ack
 
     def commit(self) -> tuple[TimeStamp, bool]:
         """Commits the written frames to the database. Commit is synchronous, meaning

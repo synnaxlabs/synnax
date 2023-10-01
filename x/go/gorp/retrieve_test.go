@@ -177,6 +177,58 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Expect(exists).To(BeFalse())
 			})
 		})
+		Describe("Limit", func() {
+			It("Should limit the number of entries returned", func() {
+				toCreate := 100
+				var entries []entry
+				for i := 0; i < toCreate; i++ {
+					entries = append(entries, entry{ID: i, Data: "data"})
+				}
+				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				var res []entry
+				Expect(gorp.NewRetrieve[int, entry]().
+					Entries(&res).
+					Limit(10).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(10))
+			})
+		})
+		Describe("Offset", func() {
+			It("Should offset the entries returned", func() {
+				toCreate := 100
+				var entries []entry
+				for i := 0; i < toCreate; i++ {
+					entries = append(entries, entry{ID: i, Data: "data"})
+				}
+				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				var res []entry
+				Expect(gorp.NewRetrieve[int, entry]().
+					Entries(&res).
+					Offset(10).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(90))
+			})
+		})
+		Describe("Limit + Offset", func() {
+			It("Should limit and offset the entries returned", func() {
+				toCreate := 100
+				var entries []entry
+				for i := 0; i < toCreate; i++ {
+					entries = append(entries, entry{ID: i, Data: "data"})
+				}
+				Expect(gorp.NewCreate[int, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
+				var res []entry
+				Expect(gorp.NewRetrieve[int, entry]().
+					Entries(&res).
+					Limit(10).
+					Offset(10).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(HaveLen(10))
+			})
+		})
 	})
 	Describe("No Parameters", func() {
 		It("Should return all entries for the given type", func() {

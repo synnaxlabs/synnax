@@ -34,7 +34,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	BeforeEach(func() { tx = db.OpenTx() })
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
-	Describe("New", func() {
+	Describe("Name", func() {
 		It("Should register the credentials in the key-value store", func() {
 			w := authenticator.NewWriter(tx)
 			err := w.Register(ctx, creds)

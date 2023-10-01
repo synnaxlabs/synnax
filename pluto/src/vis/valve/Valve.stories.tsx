@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { type Meta, type StoryFn } from "@storybook/react";
 
+import { Control } from "@/control";
+import { Controller } from "@/control/Controller";
 import { Bool } from "@/telem/bool";
-import { Control } from "@/telem/control";
-import { Controller } from "@/telem/control/Controller";
 import { Remote } from "@/telem/remote";
 import { Canvas } from "@/vis/canvas";
 import { Valve } from "@/vis/valve";
@@ -31,7 +31,7 @@ const Example = (): ReactElement => {
     wrap: numericSource,
     trueBound: { lower: 30, upper: 40 },
   });
-  const numericSink = Control.useNumeric({
+  const numericSink = Control.useNumericSink({
     channel: 65541,
   });
   const booleanSink = Bool.useNumericConverterSink({

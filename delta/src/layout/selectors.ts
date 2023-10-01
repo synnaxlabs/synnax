@@ -34,8 +34,13 @@ export const selectSliceState = (state: StoreState): SliceState => state[SLICE_N
  * @param key - The layout key.
  * @returns The layout. Undefined if not found.
  */
-export const select = (state: StoreState, key: string): LayoutState | undefined => {
-  return selectSliceState(state).layouts[key];
+export const select = (state: StoreState, key: string): LayoutState | undefined =>
+  selectSliceState(state).layouts[key];
+
+export const selectRequired = (state: StoreState, key: string): LayoutState => {
+  const layout = select(state, key);
+  if (layout == null) throw new Error(`Layout ${key} not found`);
+  return layout;
 };
 
 /**
@@ -47,11 +52,8 @@ export const select = (state: StoreState, key: string): LayoutState | undefined 
 export const useSelect = (key: string): LayoutState | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const useSelectRequired = (key: string): LayoutState => {
-  const layout = useSelect(key);
-  if (layout == null) throw new Error(`Layout ${key} not found`);
-  return layout;
-};
+export const useSelectRequired = (key: string): LayoutState =>
+  useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
 
 /**
  * Selects the central layout mosaic from the store.

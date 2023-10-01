@@ -30,9 +30,11 @@ export const Search = {
 export interface TermSearcher<T, K extends Key, E extends KeyedRecord<K, E>> {
   search: (term: T) => E[];
   retrieve: (keys: K[]) => E[];
+  page: (offset: number, limit: number) => E[];
 }
 
 export interface AsyncTermSearcher<T, K extends Key, E extends KeyedRecord<K, E>> {
   search: (term: T) => Promise<E[]>;
   retrieve: (keys: K[]) => Promise<E[]>;
+  page: (offset: number, limit: number) => Promise<E[]>;
 }

@@ -15,15 +15,16 @@ from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
 from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
 from synnax.config import try_load_options_if_none_provided
-from synnax.framer import FrameClient
+from synnax.framer import Client
 from synnax.options import SynnaxOptions
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.ranger import RangeRetriever, RangeCreator
 from synnax.ranger.client import RangeClient
+from synnax.control import Client as ControlClient
 
 
-class Synnax(FrameClient):
+class Synnax(Client):
     """Client to perform operations against a Synnax cluster.
 
     If using the python client for data analysis/personal use, the easiest way to
@@ -47,6 +48,7 @@ class Synnax(FrameClient):
 
     channels: ChannelClient
     ranges: RangeClient
+    control: ControlClient
 
     __client: Transport
 
@@ -92,7 +94,11 @@ class Synnax(FrameClient):
             instrumentation,
         )
         ch_creator = ChannelCreator(self._transport.unary, instrumentation)
-        super().__init__(self._transport.stream, ch_retriever)
+        super().__init__(
+            client=self._transport.stream,
+            async_client=self._transport.stream_async,
+            retriever=ch_retriever
+        )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
@@ -102,6 +108,7 @@ class Synnax(FrameClient):
             creator=range_creator,
             retriever=range_retriever,
         )
+        self.control = ControlClient(self, ch_retriever)
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

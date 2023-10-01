@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import { type RenderableValue } from "@/renderable";
 
-export type Key = string | number;
+export type Key = string | number | symbol;
 
 export type KeyedRecord<
   K extends Key = Key,
@@ -18,9 +20,8 @@ export type KeyedRecord<
   key: K;
 } & Partial<Record<keyof E, unknown>>;
 
-export type UnknownRecord<
-  E extends Record<string | number, unknown> = Record<string | number, unknown>,
-> = Partial<Record<keyof E, unknown>>;
+export type UnknownRecord<E extends Record<Key, unknown> = Record<Key, unknown>> =
+  Partial<Record<keyof E, unknown>>;
 
 export type RenderableRecord<
   E extends Record<string, RenderableValue> = Record<string, RenderableValue>,
@@ -30,3 +31,8 @@ export type KeyedRenderableRecord<
   K extends Key = Key,
   E extends Record<string, RenderableValue> = Record<string, RenderableValue>,
 > = KeyedRecord<K, E> & Omit<RenderableRecord<E>, "key">;
+
+export const unknownRecordZ = z.record(
+  z.union([z.number(), z.string(), z.symbol()]),
+  z.unknown(),
+);

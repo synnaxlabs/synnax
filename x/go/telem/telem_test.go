@@ -26,7 +26,7 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("New", func() {
+		Describe("Name", func() {
 			It("Should initialize a new timestamp based on the provided time", func() {
 				t := time.Now()
 				t0 := telem.NewTimeStamp(t)

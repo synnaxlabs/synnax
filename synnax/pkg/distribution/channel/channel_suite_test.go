@@ -44,7 +44,6 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		core1 = builder.New()
 		core2 = builder.New()
 	)
-
 	services[1] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
 		HostResolver: core1.Cluster,
 		ClusterDB:    core1.Storage.Gorpify(),

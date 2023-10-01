@@ -11,6 +11,7 @@ import pytest
 
 import numpy as np
 import pandas as pd
+import asyncio
 
 import synnax as sy
 
@@ -62,3 +63,15 @@ class TestStreamer:
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = s.read()
                 all(frame[channel.key] == data)
+
+
+@pytest.mark.framer
+class TestAsyncStreamer:
+    @pytest.mark.asyncio
+    async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
+        with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.new_async_streamer(channel.key) as s:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                frame = await s.read()
+                assert all(frame[channel.key] == data)

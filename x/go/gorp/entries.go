@@ -10,13 +10,11 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
-	"reflect"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/types"
 )
 
 // Key is a unique key for an entry of a particular type.
@@ -116,7 +114,7 @@ func GetEntries[K Key, E Entry[K]](q query.Parameters) *Entries[K, E] {
 }
 
 func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []byte {
-	return lo.Must(encoder.Encode(ctx, reflect.TypeOf(*new(E)).Name()))
+	return lo.Must(encoder.Encode(ctx, types.Name[E]()))
 }
 
 type lazyPrefix[K Key, E Entry[K]] struct {
@@ -129,21 +127,6 @@ func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {
 		lp._prefix = prefix[K, E](ctx, lp)
 	}
 	return lp._prefix
-}
-
-func prefixMatcher[K Key, E Entry[K]](opts Tools) func(ctx context.Context, b []byte) bool {
-	var (
-		prefix_   []byte
-		getPrefix = func(ctx context.Context) []byte {
-			if prefix_ == nil {
-				prefix_ = prefix[K, E](ctx, opts)
-			}
-			return prefix_
-		}
-	)
-	return func(ctx context.Context, b []byte) bool {
-		return bytes.HasPrefix(b, getPrefix(ctx))
-	}
 }
 
 func encodeKey[K Key](

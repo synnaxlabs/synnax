@@ -21,6 +21,7 @@ import (
 	mockstorage "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 // CoreBuilder is a utility for provisioning mock distribution cores that
@@ -30,7 +31,7 @@ type CoreBuilder struct {
 	mockstorage.Builder
 	// Config is the configuration used to provision new cores.
 	Config core.Config
-	// Cores contains a map of all cores paired with their respective host Key.
+	// Cores contains a map of all cores paired with their respective host Name.
 	Cores map[core.NodeKey]core.Core
 	// net is the network for transporting key-value operations.
 	net *aspentransmock.Network
@@ -94,8 +95,16 @@ func (cb *CoreBuilder) New() core.Core {
 
 // Close shuts down all other nodes in the cluster. It is not safe to call this method
 // while the nodes are still in use.
-func (cb *CoreBuilder) Close() error { return cb.Builder.Close() }
+func (cb *CoreBuilder) Close() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, core_ := range cb.Cores {
+		c.Exec(core_.Close)
+	}
+	return c.Error()
+}
 
+// WaitForTopologyToStabilize waits for all nodes in the cluster to be aware of each
+// other.
 func (cb *CoreBuilder) WaitForTopologyToStabilize() {
 	for _, _c := range cb.Cores {
 		c := _c

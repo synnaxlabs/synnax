@@ -12,7 +12,46 @@ package confluence
 import (
 	"context"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
 )
+
+type Subscriber[V Value] struct {
+	AbstractUnarySource[V]
+	observe.Observable[V]
+}
+
+func (s *Subscriber[V]) Flow(ctx signal.Context, opts ...Option) {
+	ctx.Go(func(ctx context.Context) error {
+		remove := s.Observable.OnChange(func(ctx context.Context, v V) {
+			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
+		})
+		<-ctx.Done()
+		remove()
+		return ctx.Err()
+	})
+}
+
+type TransformSubscriber[V Value, T Value] struct {
+	AbstractUnarySource[T]
+	Transform TransformFunc[V, T]
+	observe.Observable[V]
+}
+
+func (ts *TransformSubscriber[V, T]) Flow(ctx signal.Context, opts ...Option) {
+	o := NewOptions(opts)
+	o.AttachClosables(ts.Out)
+	ctx.Go(func(ctx context.Context) error {
+		remove := ts.Observable.OnChange(func(ctx context.Context, v V) {
+			t, ok, _ := ts.Transform(ctx, v)
+			if ok {
+				_ = signal.SendUnderContext(ctx, ts.Out.Inlet(), t)
+			}
+		})
+		<-ctx.Done()
+		remove()
+		return ctx.Err()
+	}, o.Signal...)
+}
 
 // Observable is a Sink that allows callers to subscribe to values passed to it.
 type Observable[V Value] struct {

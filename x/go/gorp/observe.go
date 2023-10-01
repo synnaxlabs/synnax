@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"context"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -18,9 +17,10 @@ import (
 // Observe wraps an observable key-value store and returns an observable that notifies
 // its caller whenever a change is made to the provided entry type.
 func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[TxReader[K, E]] {
-	obs := observe.New[TxReader[K, E]]()
-	kvo.OnChange(func(ctx context.Context, reader kv.TxReader) {
-		obs.Notify(ctx, WrapTxReader[K, E](reader, kvo))
-	})
-	return obs
+	return observe.Translator[kv.TxReader, TxReader[K, E]]{
+		Observable: kvo,
+		Translate: func(reader kv.TxReader) TxReader[K, E] {
+			return WrapTxReader[K, E](reader, kvo)
+		},
+	}
 }

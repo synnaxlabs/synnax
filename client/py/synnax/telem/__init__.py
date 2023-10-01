@@ -9,3 +9,4 @@
 
 from synnax.telem.telem import *
 from synnax.telem.series import *
+from synnax.telem.authority import *

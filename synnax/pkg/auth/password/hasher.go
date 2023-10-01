@@ -21,11 +21,7 @@ var Hashers = DefaultHashers()
 
 // DefaultHashers returns a list of default hashers that delta uses to encrypt and
 // validate/passwords.
-func DefaultHashers() []Hasher {
-	return []Hasher{
-		BcryptHasher{},
-	}
-}
+func DefaultHashers() []Hasher { return []Hasher{BcryptHasher{}} }
 
 // Hasher hashes and compares passwords against a hash.
 type Hasher interface {

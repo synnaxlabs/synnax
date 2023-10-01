@@ -9,10 +9,13 @@
 
 import { useEffect, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { dimensions, direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { Space } from "@/align/Space";
+import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
@@ -59,13 +62,14 @@ export const Valve = Aether.wrap<ValveProps>(
     });
     useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
 
-    const handleClick = (): void =>
+    const handleClick = (): void => {
       setState((state) => ({ ...state, triggered: !state.triggered }));
+    };
 
     const dir_ = direction.construct(dir);
     const dims = dir_ === "y" ? dimensions.swap(BASE_VALVE_DIMS) : BASE_VALVE_DIMS;
 
-    // @ts-expect-error
+    // @ts-expect-error -- React css doesn't recognize variables
     if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
     return (
       <button

@@ -12,7 +12,6 @@ package confluence
 import (
 	"context"
 	"fmt"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
 )

@@ -15,3 +15,4 @@ export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
 export * from "@/cluster/Toolbar";
+export * from "@/cluster/ontology";

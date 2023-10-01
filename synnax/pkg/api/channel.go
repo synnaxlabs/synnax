@@ -80,14 +80,16 @@ func (s *ChannelService) Create(
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type ChannelRetrieveRequest struct {
-	// Optional parameter that queries a Channel by its node Key.
-	NodeKey distribution.NodeKey `query:"node_key"`
+	// Optional parameter that queries a Channel by its node Name.
+	NodeKey distribution.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Optional parameter that queries a Channel by its key.
-	Keys channel.Keys `query:"keys"`
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Optional parameter that queries a Channel by its name.
-	Names []string `query:"names"`
+	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `query:"search"`
+	Search string `json:"search" msgpack:"search"`
+	Limit  int    `json:"limit" msgpack:"limit"`
+	Offset int    `json:"offset" msgpack:"offset"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -124,6 +126,14 @@ func (s *ChannelService) Retrieve(
 
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
+	}
+
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))

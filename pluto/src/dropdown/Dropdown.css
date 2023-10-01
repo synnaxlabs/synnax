@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown.pluto--visible > :first-child {
-    z-index: 1001;
-}
-
 .pluto-dropdown__dialog {
     background-color: var(--pluto-gray-m3);
     max-height: 360px;
@@ -22,9 +18,6 @@
         transform: translateY(calc(-100% + 1px));
     } 
 
-    &.pluto--bottom {
-        transform: translateY(-1px);
-    } 
 
     &.pluto--hidden {
         opacity: 0;

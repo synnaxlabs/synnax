@@ -58,7 +58,7 @@ export class NumericSource
     this.notify?.();
   }
 
-  async value(): Promise<number> {
+  async number(): Promise<number> {
     if (this.props.channel === 0) return 0;
     if (!this.valid) await this.read();
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;

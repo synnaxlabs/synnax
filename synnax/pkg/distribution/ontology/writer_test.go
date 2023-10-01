@@ -28,13 +28,13 @@ var _ = Describe("set", func() {
 	})
 	Describe("Resources", func() {
 		Describe("Defining a Resource", func() {
-			It("Should define a resource by its Key", func() {
+			It("Should define a resource by its Name", func() {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
 		Describe("Deleting a Resource", func() {
-			It("Should delete a resource by its Key", func() {
+			It("Should delete a resource by its Name", func() {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DeleteResource(ctx, id)).To(Succeed())
 				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
@@ -63,7 +63,7 @@ var _ = Describe("set", func() {
 			Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
 		})
 		Describe("Defining a Relationship", func() {
-			It("Should define a relationship by its Key", func() {
+			It("Should define a relationship by its Name", func() {
 				Expect(w.DefineRelationship(
 					ctx,
 					idOne,
@@ -114,7 +114,7 @@ var _ = Describe("set", func() {
 			})
 		})
 		Describe("Deleting a Relationship", func() {
-			It("Should delete a relationship by its Key", func() {
+			It("Should delete a relationship by its Name", func() {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				Expect(w.DeleteRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource

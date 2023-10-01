@@ -20,7 +20,7 @@ import (
 )
 
 var _ = Describe("Builder", func() {
-	Describe("New", func() {
+	Describe("Name", func() {
 		It("Should open a three node memory backed distribution layer", func() {
 
 			builder := mock.NewBuilder()
@@ -53,6 +53,8 @@ var _ = Describe("Builder", func() {
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
 			}).Should(Succeed())
 
+			Expect(builder.Close()).To(Succeed())
+			Expect(builder.Cleanup()).To(Succeed())
 		})
 	})
 

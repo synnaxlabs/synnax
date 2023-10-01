@@ -10,7 +10,11 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -23,7 +27,7 @@ import (
 
 // Reader wraps a key-value reader to provide a strongly typed interface for
 // reading entries from the DB. Readonly only accesses entries that match
-// it's type arguments.
+// its type arguments.
 type Reader[K Key, E Entry[K]] struct {
 	*lazyPrefix[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
@@ -66,32 +70,45 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 // found are simply omitted from the returned slice.
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
-		err_    error
-		entries = make([]E, 0, len(keys))
+		entries  = make([]E, 0, len(keys))
+		notFound []K
 	)
 	for i := range keys {
 		e, err := r.Get(ctx, keys[i])
 		if err != nil {
-			err_ = err
+			// We keep iterating here to ensure that we return all entries that
+			// can be found.
+			if errors.Is(err, query.NotFound) {
+				notFound = append(notFound, keys[i])
+				continue
+			} else {
+				// All other errors are considered no-ops.
+				return entries, err
+			}
 		} else {
 			entries = append(entries, e)
 		}
 	}
-	return entries, err_
+	if len(notFound) > 0 {
+		return entries, errors.Wrapf(
+			query.NotFound,
+			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
+		)
+	}
+	return entries, nil
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r Reader[K, E]) OpenIterator() *Iterator[E] {
-	return WrapIterator[E](r.BaseReader.OpenIterator(kv.IterPrefix(
-		r.prefix(context.TODO()))),
-		r.BaseReader,
-	)
+func (r Reader[K, E]) OpenIterator() (*Iterator[E], error) {
+	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(r.prefix(context.TODO())))
+	return WrapIterator[E](base, r), err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter() iter.NexterCloser[E] {
-	return &next[E]{Iterator: r.OpenIterator()}
+func (r Reader[K, E]) OpenNexter() (iter.NexterCloser[E], error) {
+	i, err := r.OpenIterator()
+	return &next[E]{Iterator: i}, err
 }
 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
@@ -148,9 +165,9 @@ func (k *Iterator[E]) Valid() bool {
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
 	return TxReader[K, E]{
-		TxReader:      reader,
-		Tools:         tools,
-		prefixMatcher: prefixMatcher[K, E](tools),
+		kv:     reader,
+		tools:  tools,
+		prefix: lazyPrefix[K, E]{Tools: tools},
 	}
 }
 
@@ -158,27 +175,39 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 // that provides a strongly typed interface for iterating over a
 // transactions operations in order.
 type TxReader[K Key, E Entry[K]] struct {
-	kv.TxReader
-	Tools
-	prefixMatcher func(ctx context.Context, key []byte) bool
+	kv     kv.TxReader
+	tools  Tools
+	prefix lazyPrefix[K, E]
 }
 
+// Count returns the number of key-value operations in the reader. NOTE: This includes
+// operations that may not match the entry type of the reader. Caveat emptor.
+func (t TxReader[K, E]) Count() int { return t.kv.Count() }
+
 // Next implements TxReader.
-func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool, err error) {
+func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bool) {
 	var kvOp kv.Change
-	kvOp, ok, err = t.TxReader.Next(ctx)
-	if !ok || err != nil {
-		return op, false, err
+	kvOp, ok = t.kv.Next(ctx)
+	if !ok {
+		return op, false
 	}
-	if !t.prefixMatcher(ctx, kvOp.Key) {
+	pref := t.prefix.prefix(ctx)
+	if !bytes.HasPrefix(kvOp.Key, pref) {
 		return t.Next(ctx)
+	}
+	if err := t.tools.Decode(ctx, kvOp.Key[len(pref):], &op.Key); err != nil {
+		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode key: ", err)
+		return op, false
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {
 		return
 	}
-	if err = t.Decode(ctx, kvOp.Value, &op.Value); err != nil {
-		return
+	// Panicking in development here right now. Don't want to extend the footprint of
+	// TxReader to NexterCloser.
+	if err := t.tools.Decode(ctx, kvOp.Value, &op.Value); err != nil {
+		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode value: ", err)
+		return op, false
 	}
 	op.Key = op.Value.GorpKey()
 	return
@@ -189,10 +218,10 @@ type next[E any] struct{ *Iterator[E] }
 var _ iter.NexterCloser[any] = (*next[any])(nil)
 
 // Next implements iter.Nexter.
-func (n *next[E]) Next(ctx context.Context) (e E, ok bool, err error) {
+func (n *next[E]) Next(ctx context.Context) (e E, ok bool) {
 	ok = n.Iterator.Next()
 	if !ok {
-		return e, ok, n.Iterator.Error()
+		return e, ok
 	}
-	return *n.Iterator.Value(ctx), ok, n.Iterator.Error()
+	return *n.Iterator.Value(ctx), ok
 }

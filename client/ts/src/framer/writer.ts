@@ -15,11 +15,17 @@ import {
   Series,
   TimeStamp,
   type CrudeTimeStamp,
+  toArray,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type KeyOrName, type Params } from "@/channel/payload";
+import { type Key, type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
+import { Authority } from "@/control/authority";
+import {
+  subjectZ as controlSubjectZ,
+  type Subject as ControlSubject,
+} from "@/control/state";
 import { ForwardFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -29,16 +35,19 @@ enum Command {
   Write = 1,
   Commit = 2,
   Error = 3,
+  SetAuthority = 4,
 }
 
-const configZ = z.object({
-  start: TimeStamp.z,
-  keys: z.number().array().optional(),
+const netConfigZ = z.object({
+  start: TimeStamp.z.optional(),
+  controlSubject: controlSubjectZ.optional(),
+  keys: z.number().array(),
+  authorities: Authority.z.array().optional(),
 });
 
 const reqZ = z.object({
   command: z.nativeEnum(Command),
-  config: configZ.optional(),
+  config: netConfigZ.optional(),
   frame: frameZ.optional(),
 });
 
@@ -51,6 +60,13 @@ const resZ = z.object({
 });
 
 type Response = z.infer<typeof resZ>;
+
+export interface WriterConfig {
+  start: CrudeTimeStamp;
+  channels: Params;
+  controlSubject?: ControlSubject;
+  authorities?: Authority | Authority[];
+}
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
@@ -113,17 +129,26 @@ export class Writer {
    * frames written to the writer must have channel keys in this list.
    */
   static async _open(
-    start: CrudeTimeStamp,
-    channels: Params,
     retriever: Retriever,
     client: StreamClient,
+    {
+      channels,
+      authorities = Authority.ABSOLUTE,
+      controlSubject: subject,
+      start,
+    }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
       command: Command.Open,
-      config: { start: new TimeStamp(start), keys: adapter.keys },
+      config: {
+        start: new TimeStamp(start),
+        keys: adapter.keys,
+        controlSubject: subject,
+        authorities: toArray(authorities),
+      },
     });
     return writer;
   }
@@ -158,6 +183,17 @@ export class Writer {
     // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
+  }
+
+  async setAuthority(value: Record<Key, Authority>): Promise<boolean> {
+    const res = await this.execute({
+      command: Command.SetAuthority,
+      config: {
+        keys: Object.keys(value).map((k) => Number(k)),
+        authorities: Object.values(value),
+      },
+    });
+    return res.ack;
   }
 
   /**

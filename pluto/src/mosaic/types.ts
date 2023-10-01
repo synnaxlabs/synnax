@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeDirection } from "@synnaxlabs/x";
+import { type direction } from "@synnaxlabs/x";
 
 import { type Tabs } from "@/tabs";
 
@@ -40,7 +40,7 @@ export interface Node {
   /** The key of the selected tab. This value only needs to be set for leaf nodes. */
   selected?: string;
   /** The direction of the split. This value only needs to be set for non-leaf nodes. */
-  direction?: CrudeDirection;
+  direction?: direction.Direction;
   /**
    * The first child of the node. If the node is vertical, this is the top child.
    * If the node is horizontal, this is the left child. This value only needs to be

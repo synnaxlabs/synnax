@@ -172,6 +172,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.search(term));
   }
 
+  async page(offset: number, limit: number): Promise<Channel[]> {
+    return this.sugar(await this.retriever.page(offset, limit));
+  }
+
   private sugar(payloads: Payload[]): Channel[] {
     const { frameClient } = this;
     return payloads.map((p) => new Channel({ ...p, frameClient }));

@@ -52,8 +52,8 @@ var (
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	Config
-	idx       *index
-	dataFiles *fileController
+	idx   *index
+	files *fileController
 }
 
 // Config is the configuration for opening a DB.
@@ -84,7 +84,7 @@ var (
 	}
 )
 
-// Validate implements config.Config.
+// Validate implements config.GateConfig.
 func (c Config) Validate() error {
 	v := validate.New("domain")
 	validate.Positive(v, "fileSize", c.FileSize)
@@ -93,7 +93,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.GateConfig.
 func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
@@ -109,9 +109,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{
-		Observer: observe.New[indexUpdate](),
-	}
+	idx := &index{Observer: observe.New[indexUpdate]()}
 	idxPst, err := openIndexPersist(idx, cfg)
 	if err != nil {
 		return nil, err
@@ -125,7 +123,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, dataFiles: controller}, nil
+	return &DB{Config: cfg, idx: idx, files: controller}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -140,34 +138,16 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// NewWriter opens a new Writer using the given configuration.
-func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	key, internal, err := db.dataFiles.acquireWriter(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if db.idx.overlap(cfg.Domain()) {
-		return nil, ErrDomainOverlap
-	}
-	return &Writer{
-		WriterConfig:    cfg,
-		Instrumentation: db.Instrumentation.Child("writer"),
-		fileKey:         key,
-		internal:        internal,
-		idx:             db.idx,
-	}, nil
-}
-
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
 	w.Exec(db.idx.close)
-	w.Exec(db.dataFiles.close)
+	w.Exec(db.files.close)
 	return w.Error()
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.dataFiles.acquireReader(ctx, ptr.fileKey)
+	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
 		return nil, err
 	}

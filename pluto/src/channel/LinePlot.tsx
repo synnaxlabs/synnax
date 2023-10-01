@@ -14,9 +14,10 @@ import {
   box,
   type bounds,
   type direction,
-  location,
+  location as loc,
   type TimeRange,
   type TimeSpan,
+  type location,
 } from "@synnaxlabs/x";
 
 import { HAUL_TYPE } from "@/channel/types";
@@ -36,10 +37,9 @@ import "@/channel/LinePlot.css";
 
 export interface AxisProps {
   id: string;
-  location: location.Crude;
-  label: string;
-  labelDirection?: direction.Crude;
-  bounds?: bounds.Crude;
+  location: loc.Crude;
+  labelDirection?: direction.Direction;
+  bounds?: bounds.Bounds;
   color: Color.Crude;
   showGrid?: boolean;
   type: axis.TickType;
@@ -127,12 +127,12 @@ export const LinePlot = ({
   viewportTriggers,
   ...restProps
 }: LinePlotProps): ReactElement => {
-  const xAxes = axes.filter(({ location: l }) => location.isY(l));
+  const xAxes = axes.filter(({ location: l }) => loc.isY(l));
   return (
     <Core.LinePlot {...restProps}>
       {xAxes.map((a, i) => {
         const _lines = lines.filter((l) => l.axes.x === a.id);
-        const _axes = axes.filter(({ location: l }) => location.isX(l));
+        const _axes = axes.filter(({ location: l }) => loc.isX(l));
         const _rules = rules?.filter((r) =>
           [..._axes.map(({ id }) => id), a.id].includes(r.axis),
         );
@@ -191,6 +191,7 @@ const XAxis = ({
   onRuleLabelChange,
   onRulePositionChange,
   onAxisChannelDrop,
+  location: loc,
   ...props
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
@@ -214,6 +215,7 @@ const XAxis = ({
     <Core.XAxis
       {...props}
       {...dropProps}
+      location={loc as location.Y}
       showGrid={showGrid ?? index === 0}
       className={CSS(
         CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),
@@ -265,6 +267,7 @@ const YAxis = ({
   onRuleLabelChange,
   onRulePositionChange,
   onAxisChannelDrop,
+  location: loc,
   ...props
 }: YAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
@@ -289,6 +292,7 @@ const YAxis = ({
     <Core.YAxis
       {...props}
       {...dropProps}
+      location={loc as loc.X}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
     >
       {lines.map((l) => (

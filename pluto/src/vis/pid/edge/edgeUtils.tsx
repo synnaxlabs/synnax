@@ -9,8 +9,10 @@
 
 import { box, direction, xy } from "@synnaxlabs/x";
 
-
-export const calculateLineDirection = (source: xy.XY, target: xy.XY): direction.Direction => {
+export const calculateLineDirection = (
+  source: xy.XY,
+  target: xy.XY,
+): direction.Direction => {
   const xDist = xy.xDistance(source, target);
   const yDist = xy.yDistance(source, target);
   return xDist > yDist ? "x" : "y";
@@ -31,7 +33,9 @@ export const handleDrag = (
   const dir = calculateLineDirection(prevOne, prevTwo);
 
   const translateDir = direction.swap(dir);
-  const translateBy = root[translateDir] + box.signedDims(b)[direction.signedDimension(translateDir)] / zoom;
+  const translateBy =
+    root[translateDir] +
+    box.signedDims(b)[direction.signedDimension(translateDir)] / zoom;
   const nextOne = xy.set(prevOne, translateDir, translateBy);
   const nextTwo = xy.set(prevTwo, translateDir, translateBy);
 
@@ -79,8 +83,8 @@ export const formsRoughlyStraightLine = (points: xy.XY[]): boolean => {
 
 const newConnectorPoints = (source: xy.XY, target: xy.XY): xy.XY[] => [
   source,
-  {x: (source.x + target.x) / 2, y: source.y},
-  {x: (source.x + target.x) / 2, y: target.y},
+  { x: (source.x + target.x) / 2, y: source.y },
+  { x: (source.x + target.x) / 2, y: target.y },
   target,
 ];
 
@@ -116,10 +120,9 @@ export const adjustToSourceOrTarget = (
     if (points.length >= 3 && formsRoughlyStraightLine(next.slice(0, 3)))
       next.splice(1, 1);
   } else if (targetChanged) {
-    const adjustDir = direction.swap(calculateLineDirection(
-      prevTarget,
-      points[points.length - 2],
-    ))
+    const adjustDir = direction.swap(
+      calculateLineDirection(prevTarget, points[points.length - 2]),
+    );
     next[points.length - 2] = xy.set(
       next[points.length - 2],
       adjustDir,

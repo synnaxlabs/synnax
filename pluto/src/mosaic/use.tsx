@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import { type CrudeLocation } from "@synnaxlabs/x";
+import { type location } from "@synnaxlabs/x";
 
 import {
   moveTab,
@@ -28,7 +28,7 @@ export interface UseProps {
 
 export interface UseReturn {
   root: Node;
-  onDrop: (key: number, tabKey: string, loc: CrudeLocation) => void;
+  onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onClose: (tabKey: string) => void;
   onSelect: (tabKey: string) => void;
   onResize: (key: number, sizes: number) => void;
@@ -49,7 +49,7 @@ export const use = ({ allowRename = false, initialTree }: UseProps): UseReturn =
 
   useEffect(() => setRoot(autoSelectTabs(initialTree)[0]), [initialTree]);
 
-  const handleDrop = (key: number, tabKey: string, loc: CrudeLocation): void =>
+  const handleDrop = (key: number, tabKey: string, loc: location.Location): void =>
     setRoot((r) => moveTab(r, tabKey, loc, key)[0]);
 
   const handleClose = (tabKey: string): void => setRoot((r) => removeTab(r, tabKey)[0]);

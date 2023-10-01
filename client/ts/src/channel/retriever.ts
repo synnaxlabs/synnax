@@ -29,6 +29,8 @@ const reqZ = z.object({
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
@@ -40,6 +42,7 @@ const resZ = z.object({
 export interface Retriever {
   retrieve: (channels: Params) => Promise<Payload[]>;
   search: (term: string) => Promise<Payload[]>;
+  page: (offset: number, limit: number) => Promise<Payload[]>;
 }
 
 export class ClusterRetriever implements Retriever {
@@ -57,6 +60,10 @@ export class ClusterRetriever implements Retriever {
   async retrieve(channels: Params): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
     return await this.execute({ [variant]: normalized });
+  }
+
+  async page(offset: number, limit: number): Promise<Payload[]> {
+    return await this.execute({ offset, limit });
   }
 
   private async execute(request: Request): Promise<Payload[]> {
@@ -79,6 +86,10 @@ export class CacheRetriever implements Retriever {
 
   async search(term: string): Promise<Payload[]> {
     return await this.wrapped.search(term);
+  }
+
+  async page(offset: number, limit: number): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit);
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {

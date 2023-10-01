@@ -12,7 +12,10 @@ package cmd
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"os"
 	"os/signal"
 	"time"
@@ -30,6 +33,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api"
+	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
@@ -65,12 +69,15 @@ will bootstrap a new cluster.
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
+	v := version.Get()
 	var (
+		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")
 		verbose  = viper.GetBool("verbose")
-		ins      = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
+
+	ins.L.Info("starting Synnax node", zap.String("version", v))
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
@@ -119,11 +126,24 @@ func start(cmd *cobra.Command) {
 		})
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
-		rangeSvc, err := ranger.NewService(ctx, ranger.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			CDC:      dist.CDC,
+		})
 		if err != nil {
 			return err
 		}
-		workspaceSvc, err := workspace.NewService(workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		workspaceSvc, err := workspace.NewService(ctx, workspace.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group})
+		if err != nil {
+			return err
+		}
+		pidSvc, err := pid.NewService(pid.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil {
+			return err
+		}
+		linePlotSvc, err := lineplot.NewService(lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
@@ -138,6 +158,8 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
 			Enforcer:        access.AllowAll{},
+			PID:             pidSvc,
+			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,
 			Framer:          dist.Framer,
@@ -157,6 +179,11 @@ func start(cmd *cobra.Command) {
 		// Configure the HTTP API Transport.
 		r := fhttp.NewRouter(fhttp.RouterConfig{Instrumentation: ins})
 		_api.BindTo(httpapi.New(r))
+
+		// Configure the GRPC API Transport.
+		grpcAPI, grpcAPITrans := grpcapi.New()
+		*grpcTransports = append(*grpcTransports, grpcAPITrans...)
+		_api.BindTo(grpcAPI)
 
 		srv, err := server.New(buildServerConfig(
 			*grpcTransports,

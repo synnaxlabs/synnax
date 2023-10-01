@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/workspace/DefineRange";
 export * from "@/workspace/palette";
-export * from "@/workspace/SelectRange";
-export * from "@/workspace/range";
-export * from "@/workspace/RangesList";
-export * from "@/workspace/SelectRange";
-export * from "@/workspace/slice";
 export * from "@/workspace/Toolbar";
 export * from "@/workspace/VisList";
+export * from "@/workspace/ontology";
+export * from "@/workspace/slice";
+export * from "@/workspace/Selector";
 export * from "@/workspace/selectors";
+export * from "@/workspace/Create";
+export * from "@/workspace/Recent";
+export * from "@/workspace/syncer";

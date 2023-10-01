@@ -12,6 +12,7 @@ package signal
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"go.uber.org/zap"
 	"runtime/pprof"
@@ -181,7 +182,7 @@ func (r *routine) runPostlude(err error) {
 	if err != nil {
 		_ = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
 			r.state.state = ContextCanceled
 		} else {
 			r.state.state = Failed

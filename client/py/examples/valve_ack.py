@@ -15,49 +15,53 @@ import time
 client = sy.Synnax()
 
 valve_en_time = client.channels.create(
-    name="Valve Enable Time",
+    name="press_en_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
 )
 
 valve_en_cmd_time = client.channels.create(
-    name="Valve Enable Command Time",
+    name="press_en_cmd_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
 )
 
 valve_en_cmd = client.channels.create(
-    name="Valve Enable Command",
+    name="press_en_cmd",
     index=valve_en_cmd_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
 valve_en = client.channels.create(
-    name="Valve Enable",
+    name="press_en",
     index=valve_en_time.key,
     data_type=sy.DataType.FLOAT32,
 )
-
 
 
 data_ch = client.channels.create(
-    name="Data 2",
+    name="data",
     index=valve_en_time.key,
     data_type=sy.DataType.FLOAT32,
 )
 
-print(f"""
+print(
+    f"""
     Valve Enable Time Channel Key: {valve_en_time.key}
     Valve Enable Command Time Channel Key: {valve_en_cmd_time.key}
     Valve Enable Command Channel Key: {valve_en_cmd.key}
     Valve Enable Channel Key: {valve_en.key}
-""")
+"""
+)
 
-rate = (sy.Rate.HZ * 50).period.seconds
+rate = (sy.Rate.HZ * 20).period.seconds
 
 i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
-    with client.new_writer(sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key]) as writer:
+    with client.new_writer(
+        sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key],
+        name="DAQ"
+    ) as writer:
         enabled = np.float32(0)
         press = 0
         while True:
@@ -71,17 +75,9 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 press += 10
             else:
                 press -= 10
-            writer.write(pd.DataFrame({
-                valve_en_time.key: [sy.TimeStamp.now()],
-                valve_en.key: [np.float32(enabled)],
-                data_ch.key: [np.float32(press)],
-            }))
+            ok = writer.write({
+                    valve_en_time: sy.TimeStamp.now(),
+                    valve_en: np.float32(enabled),
+                    data_ch: np.float32(press),
+            })
             i += 1
-            if i % 50 == 0:
-                writer.commit()
-
-
-
-
-
-

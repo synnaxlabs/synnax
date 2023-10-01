@@ -155,6 +155,8 @@ const ContextMenuCore = (
   }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>,
 ): ReactElement => {
+  const menuC = visible ? menu?.({ keys }) : null;
+
   return (
     <div
       className={CSS(CONTEXT_MENU_CONTAINER, className)}
@@ -162,14 +164,14 @@ const ContextMenuCore = (
       {...props}
     >
       {children}
-      {visible && (
+      {menuC != null && (
         <div
           className={CSS(CSS.B("menu-context"), CSS.bordered())}
           ref={ref}
           style={{ left: xy.x, top: xy.y }}
           onClick={close}
         >
-          {menu?.({ keys })}
+          {menuC}
         </div>
       )}
     </div>

@@ -82,7 +82,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 			Expect(err).To(Equal(errors.Nil))
 			Expect(res.Channels).To(HaveLen(1))
 		})
-		It("Should retrieve channels by their node Key", func() {
+		It("Should retrieve channels by their node Name", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
 				NodeKey: 1,
 			})

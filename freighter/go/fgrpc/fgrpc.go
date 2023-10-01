@@ -10,6 +10,7 @@
 package fgrpc
 
 import (
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"google.golang.org/grpc"
 )
@@ -20,6 +21,26 @@ type BindableTransport interface {
 	freighter.Transport
 	// BindTo binds the transport to the given gRPC service registrar.
 	BindTo(reg grpc.ServiceRegistrar)
+}
+
+type CompoundBindableTransport []BindableTransport
+
+var _ BindableTransport = CompoundBindableTransport{}
+
+func (t CompoundBindableTransport) Use(mw ...freighter.Middleware) {
+	for _, t := range t {
+		t.Use(mw...)
+	}
+}
+
+func (t CompoundBindableTransport) Report() alamos.Report {
+	return t[0].Report()
+}
+
+func (t CompoundBindableTransport) BindTo(reg grpc.ServiceRegistrar) {
+	for _, t := range t {
+		t.BindTo(reg)
+	}
 }
 
 var Reporter = freighter.Reporter{

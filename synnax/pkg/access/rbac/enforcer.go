@@ -11,6 +11,7 @@ package rbac
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/x/query"
 )
@@ -26,7 +27,7 @@ var _ access.Enforcer = (*Enforcer)(nil)
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	policies, err := e.Legislator.Retrieve(ctx, req.Subject, req.Object)
 	if err != nil {
-		if err == query.NotFound {
+		if errors.Is(err, query.NotFound) {
 			return e.defaultErr()
 		}
 		return err
