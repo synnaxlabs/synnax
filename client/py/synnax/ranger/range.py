@@ -25,13 +25,13 @@ from synnax.channel import (
 )
 from synnax.ranger.payload import RangePayload
 from synnax.telem import TimeRange, Series
-from synnax.framer import FrameClient, Frame
+from synnax.framer import Client, Frame
 from synnax.exceptions import QueryError
 
 
 class RangeChannel(ChannelPayload):
     __range: Range | None = PrivateAttr(None)
-    __frame_client: FrameClient | None = PrivateAttr(None)
+    __frame_client: Client | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -39,7 +39,7 @@ class RangeChannel(ChannelPayload):
     def __init__(
         self,
         rng: Range,
-        frame_client: FrameClient,
+        frame_client: Client,
         payload: ChannelPayload,
     ):
         super().__init__(**payload.dict())
@@ -76,7 +76,7 @@ class Range(RangePayload):
     how they work.
     """
 
-    __frame_client: FrameClient | None = PrivateAttr(None)
+    __frame_client: Client | None = PrivateAttr(None)
     __channel_retriever: ChannelRetriever | None = PrivateAttr(None)
 
     class Config:
@@ -87,7 +87,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        _frame_client: FrameClient | None = None,
+        _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
@@ -123,7 +123,7 @@ class Range(RangePayload):
         return self.__getattr__(name)
 
     @property
-    def _frame_client(self) -> FrameClient:
+    def _frame_client(self) -> Client:
         if self.__frame_client is None:
             raise _RANGE_NOT_CREATED
         return self.__frame_client

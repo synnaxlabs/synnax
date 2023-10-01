@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -27,6 +28,7 @@ const (
 	Commit
 	// Error represents a call to Writer.Error.
 	Error
+	SetAuthority
 )
 
 // Request represents a streaming call to a Writer.
@@ -40,16 +42,26 @@ type Request struct {
 	Frame core.Frame `json:"frame" msgpack:"keys"`
 }
 
+type ResponseVariant uint8
+
+const (
+	// Ack represents a successful acknowledgement.
+	Ack ResponseVariant = iota + 1
+	Control
+)
+
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
 	// Command is the command that was executed on the writer.
 	Command Command `json:"command" msgpack:"command"`
 	// Ack is the acknowledgement of the command.
-	Ack     bool            `json:"ack" msgpack:"ack"`
-	SeqNum  int             `json:"seq_num" msgpack:"seq_num"`
-	NodeKey dcore.NodeKey   `json:"node_key" msgpack:"node_key"`
-	Error   error           `json:"error" msgpack:"error"`
-	End     telem.TimeStamp `json:"end" msgpack:"end"`
+	Ack           bool             `json:"ack" msgpack:"ack"`
+	SeqNum        int              `json:"seq_num" msgpack:"seq_num"`
+	NodeKey       dcore.NodeKey    `json:"node_key" msgpack:"node_key"`
+	Error         error            `json:"error" msgpack:"error"`
+	End           telem.TimeStamp  `json:"end" msgpack:"end"`
+	Variant       ResponseVariant  `json:"variant" msgpack:"variant"`
+	ControlDigest ts.ControlDigest `json:"control_digest" msgpack:"control_digest"`
 }
 
 type (

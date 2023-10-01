@@ -52,8 +52,6 @@ for i in range(NUM_VALVES):
     command_to_res[cmd.key] = res
 
 
-
-
 for i in range(NUM_SENSORS):
     ch = client.channels.create(
         name=f"Sensor {i}",
@@ -66,9 +64,7 @@ write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.
 
 rate = (sy.Rate.HZ * 5).period.seconds
 
-valve_states = {
-    v.key: False for v in valve_acks
-}
+valve_states = {v.key: False for v in valve_acks}
 
 i = 0
 

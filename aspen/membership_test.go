@@ -37,7 +37,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Opening without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a valid Key of 1")
+			By("Assigning a valid Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 
 			By("Adding itself to the node list")
@@ -63,7 +63,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Opening without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a valid Key of 1")
+			By("Assigning a valid Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 		})
 
@@ -87,7 +87,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				By("Joining the second node to the cluster without error")
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Assigning a unique Key of 2")
+				By("Assigning a unique Name of 2")
 				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 			}()
 			db, err := aspen.Open(
@@ -102,7 +102,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			By("Joining the first node to the cluster without error")
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Assigning a unique Key of 1")
+			By("Assigning a unique Name of 1")
 			Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
 			wg.Wait()
 
@@ -145,7 +145,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			}
 			wg.Wait()
 
-			By("Assigning a unique Key to each node")
+			By("Assigning a unique Name to each node")
 			Expect(len(lo.Uniq(ids))).To(Equal(len(ids)))
 
 			By("Safely closing the database")
@@ -200,7 +200,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					)
 					Expect(err).ToNot(HaveOccurred())
 
-					By("Assigning the correct Key")
+					By("Assigning the correct Name")
 					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 
 					By("Incrementing the heartbeat generation")

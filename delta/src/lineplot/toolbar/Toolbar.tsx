@@ -16,7 +16,7 @@ import { useDispatch } from "react-redux";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useSelectToolbar } from "@/lineplot/selectors";
+import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
 import { type ToolbarTab, setActiveToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -57,6 +57,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
+  const linePlot = useSelect(layoutKey);
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
       switch (tabKey) {
@@ -82,6 +83,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
     [dispatch]
   );
 
+  if (linePlot == null) return null;
   return (
     <Align.Space empty className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider

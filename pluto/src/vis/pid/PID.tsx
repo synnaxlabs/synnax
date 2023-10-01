@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
+import { box, deep, location, xy } from "@synnaxlabs/x";
 import ReactFlow, {
   ReactFlowProvider,
   type Viewport as RFViewport,
@@ -66,7 +67,6 @@ import {
 
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
-import { box, deep, location, xy } from "@synnaxlabs/x";
 
 export interface ElementProps {
   elementKey: string;

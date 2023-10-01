@@ -53,7 +53,8 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	plumber.MustConnect[FrameStreamerResponse](pipe, "reader", "sender", 1)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return errors.MaybeUnexpected(sCtx.Wait())
+	end := errors.MaybeUnexpected(sCtx.Wait())
+	return end
 }
 
 func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {

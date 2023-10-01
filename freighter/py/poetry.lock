@@ -2,24 +2,22 @@
 
 [[package]]
 name = "alamos"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 category = "main"
 optional = false
-python-versions = "^3.11"
-files = []
-develop = true
+python-versions = ">=3.11,<4.0"
+files = [
+    {file = "alamos-0.2.0-py3-none-any.whl", hash = "sha256:2ec28e87715c497764c4307fa6f87c659380858e600bd51c2797e5f8dce2bfe0"},
+    {file = "alamos-0.2.0.tar.gz", hash = "sha256:078663fa22486b50a3362ebdbe5b69739847ac7a36426fc5658c5ae8b236f739"},
+]
 
 [package.dependencies]
-mypy = "^1.3.0"
-opentelemetry-api = "^1.18.0"
-opentelemetry-sdk = "^1.18.0"
-pydantic = "^1.10.9"
-uptrace = "^1.18.0"
-
-[package.source]
-type = "directory"
-url = "../../alamos/py"
+mypy = ">=1.3.0,<2.0.0"
+opentelemetry-api = ">=1.18.0,<2.0.0"
+opentelemetry-sdk = ">=1.18.0,<2.0.0"
+pydantic = ">=1.10.9,<2.0.0"
+uptrace = ">=1.18.0,<2.0.0"
 
 [[package]]
 name = "backoff"
@@ -1202,4 +1200,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "610baeb7223b42f0ed04dddb38a243d82dc4581ffe1c267015be958e679774d8"
+content-hash = "98d04742d599b6baec980ba27688fda4241d572e977885d8337ec7bda75450d2"

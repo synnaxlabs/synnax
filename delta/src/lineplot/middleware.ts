@@ -55,25 +55,25 @@ export const assignColorsEffect: MiddlewareEffect<
   });
 };
 
-export const deleteVisualizationEffect: MiddlewareEffect<
+export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload,
+  Layout.RemovePayload | Layout.SetSlicePayload,
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
-  const vis = selectSliceState(state);
+  const lineState = selectSliceState(state);
   const layout = Layout.selectSliceState(state);
-  Object.keys(vis.plots).forEach(
-    (key) => layout.layouts[key] == null && dispatch(remove({ layoutKey: key }))
+  const keys = "keys" in action.payload ? action.payload.keys : [];
+  const toRemove = Object.keys(lineState.plots).filter(
+    (p) => layout.layouts[p] == null || keys.includes(p)
   );
-  const p = select(getState(), action.payload);
-  if (p != null) dispatch(remove({ layoutKey: action.payload }));
+  if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
 };
 
-export const middleware = [
+export const MIDDLEWARE = [
   effectMiddleware(
     [
-      actions.set.type,
+      actions.create.type,
       setXChannel.type,
       setYChannels.type,
       setRanges.type,
@@ -81,5 +81,5 @@ export const middleware = [
     ],
     [assignColorsEffect]
   ),
-  effectMiddleware([Layout.remove.type], [deleteVisualizationEffect]),
+  effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
 ];

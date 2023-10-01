@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime, URL, buildQueryString } from "@synnaxlabs/x";
-import type { binary } from "@synnaxlabs/x";
+import { runtime, type URL, buildQueryString, type binary } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
-import { MiddlewareCollector, Context } from "@/middleware";
+import { MiddlewareCollector, type Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): typeof WebSocket =>
@@ -45,7 +44,12 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
   private readonly receiveDataQueue: Message[] = [];
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
 
-  constructor(ws: WebSocket, encoder: binary.EncoderDecoder, reqSchema: RQ, resSchema: RS) {
+  constructor(
+    ws: WebSocket,
+    encoder: binary.EncoderDecoder,
+    reqSchema: RQ,
+    resSchema: RS,
+  ) {
     this.encoder = encoder;
     this.reqSchema = reqSchema;
     this.resSchema = resSchema;
@@ -96,7 +100,7 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     const msg = this.receiveDataQueue.shift();
     if (msg != null) return msg;
     return await new Promise((resolve, reject) =>
-      this.receiveCallbacksQueue.push({ resolve, reject })
+      this.receiveCallbacksQueue.push({ resolve, reject }),
     );
   }
 
@@ -147,7 +151,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   async stream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
     reqSchema: RQ,
-    resSchema: RS
+    resSchema: RS,
   ): Promise<Stream<RQ, RS>> {
     const SocketConstructor = resolveWebSocketConstructor();
     let stream: Stream<RQ, RS> | undefined;
@@ -161,7 +165,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         if (streamOrErr instanceof Error) return [outCtx, streamOrErr];
         stream = streamOrErr;
         return [outCtx, null];
-      }
+      },
     );
     if (error != null) throw error;
     return stream as Stream<RQ, RS>;
@@ -173,7 +177,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
         ...ctx.params,
       },
-      FREIGHTER_METADATA_PREFIX
+      FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;
   }
@@ -181,7 +185,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   private async wrapSocket<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     ws: WebSocket,
     reqSchema: RQ,
-    resSchema: RS
+    resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS> | Error> {
     return await new Promise((resolve) => {
       ws.onopen = () => {

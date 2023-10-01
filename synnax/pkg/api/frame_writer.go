@@ -20,13 +20,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type FrameWriterConfig struct {
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	Keys  channel.Keys    `json:"keys" msgpack:"keys"`
+	// Authorities is the authority to use when writing to the channels. We set this
+	// as an int and not control.Authorities because msgpack has a tough time decoding
+	// lists of uint8.
+	Authorities    []uint32        `json:"authorities" msgpack:"authorities"`
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	Start          telem.TimeStamp `json:"start" msgpack:"start"`
+	Keys           channel.Keys    `json:"keys" msgpack:"keys"`
 }
 
 // FrameWriterRequest represents a request to write Internal data for a set of channels.
@@ -82,7 +88,21 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	receiver := &freightfluence.TransformReceiver[framer.WriterRequest, FrameWriterRequest]{
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
-			return framer.WriterRequest{Command: req.Command, Frame: req.Frame}, true, nil
+			r := framer.WriterRequest{
+				Command: req.Command,
+				Frame:   req.Frame,
+			}
+
+			if r.Command == writer.SetAuthority {
+				// We decode like this because msgpack has a tough time decoding slices of uint8.
+				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
+				for i, a := range req.Config.Authorities {
+					r.Config.Authorities[i] = control.Authority(a)
+				}
+				r.Config.Keys = req.Config.Keys
+			}
+
+			return r, true, nil
 		},
 	}
 	sender := &freightfluence.TransformSender[framer.WriterResponse, framer.WriterResponse]{
@@ -112,9 +132,17 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 	if err != nil {
 		return nil, errors.Unexpected(err)
 	}
+
+	authorities := make([]control.Authority, len(req.Config.Authorities))
+	for i, a := range req.Config.Authorities {
+		authorities[i] = control.Authority(a)
+	}
+
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
-		Start: req.Config.Start,
-		Keys:  req.Config.Keys,
+		ControlSubject: req.Config.ControlSubject,
+		Start:          req.Config.Start,
+		Keys:           req.Config.Keys,
+		Authorities:    authorities,
 	})
 	if err != nil {
 		return nil, errors.Query(err)

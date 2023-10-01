@@ -39,7 +39,7 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
     this.internal.cleanupSink = cleanupSink;
 
     if (this.state.trigger > this.prevState.trigger)
-      this.internal.sink.set(true).catch(console.error);
+      this.internal.sink.setBoolean(true).catch(console.error);
   }
 
   render(): void {}

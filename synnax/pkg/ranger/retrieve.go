@@ -41,7 +41,7 @@ func (r Retrieve) Entry(rng *Range) Retrieve { r.gorp.Entry(rng); return r }
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(rng *[]Range) Retrieve { r.gorp.Entries(rng); return r }
 
-// WhereKeys filters for ranges whose Key attribute matches the provided key.
+// WhereKeys filters for ranges whose Name attribute matches the provided key.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
 
 // WhereNames filters for ranges whose Name attribute matches the provided name.

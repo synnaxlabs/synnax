@@ -41,6 +41,9 @@ class ChannelPayload(Payload):
     def __str__(self):
         return f"Channel {self.name}"
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 @dataclass
 class NormalizedChannelKeyResult:
@@ -69,6 +72,12 @@ def normalize_channel_params(
             single=single,
             variant="names",
             params=cast(ChannelNames, normalized),
+        )
+    if isinstance(normalized[0], ChannelPayload):
+        return NormalizedChannelNameResult(
+            single=single,
+            variant="keys",
+            params=cast(ChannelNames, [c.key for c in normalized]),
         )
     return NormalizedChannelKeyResult(
         single=single,

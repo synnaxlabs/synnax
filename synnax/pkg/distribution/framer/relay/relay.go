@@ -55,7 +55,7 @@ type Relay struct {
 	io.Closer
 	delta       *confluence.DynamicDeltaMultiplier[Response]
 	peerDemands confluence.Inlet[demand]
-	writes      confluence.Inlet[Response]
+	Writes      confluence.Inlet[Response]
 }
 
 func Open(configs ...Config) (*Relay, error) {
@@ -76,7 +76,7 @@ func Open(configs ...Config) (*Relay, error) {
 	writes := confluence.NewStream[Response](1)
 	s.delta.InFrom(writes)
 	coord.OutTo(writes)
-	s.writes = writes
+	s.Writes = writes
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	s.Closer = signal.NewShutdown(sCtx, cancel)

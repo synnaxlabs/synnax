@@ -13,3 +13,5 @@ export * from "@/pid/palette";
 export * from "@/pid/PID";
 export * from "@/pid/selectors";
 export * from "@/pid/slice";
+export * from "@/pid/ontology";
+export * from "@/pid/middleware";

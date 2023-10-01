@@ -40,11 +40,12 @@ func Open(
 	if err != nil {
 		return nil, err
 	}
-	d.Cluster, err = cluster.Open(ctx, o.cluster)
+	c, err := cluster.Open(ctx, o.cluster)
+	d.Cluster = c
 	if err != nil {
 		return nil, err
 	}
-	o.kv.Cluster = d.Cluster
+	o.kv.Cluster = c
 	db, err := kv.Open(ctx, o.kv)
 	d.DB = db
 	return d, err

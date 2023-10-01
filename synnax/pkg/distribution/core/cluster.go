@@ -24,3 +24,8 @@ type (
 	ClusterState  = aspen.ClusterState
 	ClusterChange = aspen.ClusterChange
 )
+
+const (
+	Free         = aspen.Free
+	Bootstrapper = aspen.Bootstrapper
+)

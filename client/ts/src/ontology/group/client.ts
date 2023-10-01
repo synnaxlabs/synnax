@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 
-import { ID } from "@/ontology/payload";
+import { type ID } from "@/ontology/payload";
 
 import { Group } from "./group";
-import { Payload } from "./payload";
+import { type Payload } from "./payload";
 import { Writer } from "./writer";
 
 export class Client {

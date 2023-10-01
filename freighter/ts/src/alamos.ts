@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Instrumentation } from "@synnaxlabs/alamos";
+import { type Instrumentation } from "@synnaxlabs/alamos";
 
-import { Middleware, Context } from "@/middleware";
+import { type Middleware, type Context } from "@/middleware";
 
 export const middleware =
   (instrumentation: Instrumentation): Middleware =>
@@ -22,7 +22,7 @@ export const middleware =
         const [ctx, err] = await next(context);
         if (err != null) span.recordError(err);
         return [ctx, err];
-      }
+      },
     );
     log(context, instrumentation, exc);
     return [res, exc];
@@ -31,10 +31,10 @@ export const middleware =
 const log = (
   context: Context,
   instrumentation: Instrumentation,
-  err: Error | null
+  err: Error | null,
 ): void =>
   err != null
     ? instrumentation.L.error(
-        `${context.target} ${context.protocol} failed: ${err.message}`
+        `${context.target} ${context.protocol} failed: ${err.message}`,
       )
     : instrumentation.L.debug(`${context.target} ${context.protocol}`);

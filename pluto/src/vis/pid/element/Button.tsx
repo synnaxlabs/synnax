@@ -25,7 +25,7 @@ interface ElementProps extends Omit<Button.ButtonProps, "children" | "sink"> {
 }
 
 const Element = ({ label, sink, ...props }: Props<ElementProps>): ReactElement => {
-  const sinkN = Control.useNumeric(sink);
+  const sinkN = Control.useNumericSink(sink);
   const sinkB = Bool.useNumericConverterSink({
     wrap: sinkN,
     truthy: 1,

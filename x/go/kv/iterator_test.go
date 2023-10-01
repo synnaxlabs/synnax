@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator", func() {
@@ -35,7 +36,7 @@ var _ = Describe("Iterator", func() {
 			Expect(kv.Set(ctx, []byte("b/foo"), []byte("bar"))).To(Succeed())
 			Expect(kv.Set(ctx, []byte("b/baz"), []byte("qux"))).To(Succeed())
 
-			iter := kv.OpenIterator(kvx.IterPrefix([]byte("a")))
+			iter := MustSucceed(kv.OpenIterator(kvx.IterPrefix([]byte("a"))))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++
@@ -55,7 +56,7 @@ var _ = Describe("Iterator", func() {
 			binary.LittleEndian.PutUint32(lower, uint32(3))
 			upper := make([]byte, 4)
 			binary.LittleEndian.PutUint32(upper, uint32(7))
-			iter := kv.OpenIterator(kvx.IterRange(lower, upper))
+			iter := MustSucceed(kv.OpenIterator(kvx.IterRange(lower, upper)))
 			c := 0
 			for iter.First(); iter.Valid(); iter.Next() {
 				c++

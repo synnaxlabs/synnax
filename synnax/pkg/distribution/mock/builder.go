@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/x/errutil"
 )
 
 type Builder struct {
@@ -57,7 +59,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
-	d.Group = lo.Must(group.NewService(group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
+	d.Group = lo.Must(group.OpenService(group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
 	nodeOntologySvc := &dcore.NodeOntologyService{
 		Cluster:  d.Cluster,
@@ -78,13 +80,28 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}))
 
 	d.Framer = lo.Must(framer.Open(framer.Config{
-		ChannelReader: d.Channel,
-		TS:            d.Storage.TS,
-		HostResolver:  d.Cluster,
-		Transport:     trans,
+		Instrumentation: d.Instrumentation,
+		ChannelReader:   d.Channel,
+		TS:              d.Storage.TS,
+		HostResolver:    d.Cluster,
+		Transport:       trans,
+	}))
+
+	d.CDC = lo.Must(cdc.New(cdc.Config{
+		Instrumentation: d.Instrumentation,
+		Channel:         d.Channel,
+		Framer:          d.Framer,
 	}))
 
 	return d
+}
+
+func (b *Builder) Close() error {
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, node := range b.Nodes {
+		c.Exec(node.Close)
+	}
+	return c.Error()
 }
 
 type mockFramerTransport struct {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import {
   type AsyncTermSearcher,
@@ -22,13 +22,16 @@ import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
+import { useSyncedRef } from "..";
+
 export interface SearchProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Input.OptionalControl<string> {
-  searcher: AsyncTermSearcher<string, K, E>;
+  searcher?: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   children?: RenderProp<Input.Control<string>>;
+  pageSize?: number;
 }
 
 const STYLE = {
@@ -56,22 +59,60 @@ export const Search = <
   searcher,
   value,
   onChange,
+  pageSize = 10,
 }: SearchProps<K, E>): ReactElement | null => {
   const [internalValue, setInternvalValue] = state.usePurePassthrough({
     value,
     onChange,
     initial: "",
   });
-  const { setSourceData, setEmptyContent } = List.useContext<K, E>();
+  const valueRef = useSyncedRef(internalValue);
+  const promiseOut = useRef<boolean>(false);
+  const hasMore = useRef(true);
+  const offset = useRef(0);
+  const {
+    setSourceData,
+    setEmptyContent,
+    infinite: { setOnFetchMore, setHasMore },
+  } = List.useContext<K, E>();
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
+
+  const handleFetchMore = useCallback(() => {
+    if (valueRef.current.length > 0 || promiseOut.current || searcher == null) return;
+    promiseOut.current = true;
+    searcher
+      .page(offset.current, pageSize)
+      .then((r) => {
+        promiseOut.current = false;
+        if (r.length < pageSize) {
+          hasMore.current = false;
+          setHasMore(false);
+        }
+        offset.current += pageSize;
+        setSourceData((d) => [...d, ...r]);
+      })
+      .catch((e) => {
+        promiseOut.current = false;
+        console.error(e);
+      });
+  }, [searcher, setSourceData, pageSize]);
+
+  useEffect(() => {
+    setOnFetchMore(handleFetchMore);
+  }, [handleFetchMore]);
+
+  useEffect(() => {
+    handleFetchMore();
+  }, []);
 
   const debounced = useDebouncedCallback(
     (term: string) => {
+      if (searcher == null) return setEmptyContent(NO_RESULTS);
       searcher
         .search(term)
         .then((d) => {
           if (d.length === 0) setEmptyContent(NO_RESULTS);
-          setSourceData(d);
+          else setSourceData(d);
         })
         .catch((e) => {
           setEmptyContent(
@@ -82,7 +123,7 @@ export const Search = <
         });
     },
     debounce,
-    [setSourceData, setEmptyContent],
+    [searcher, setSourceData, setEmptyContent],
   );
 
   const handleChange = useCallback(

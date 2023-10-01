@@ -12,27 +12,91 @@ package unary
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
-type Writer struct {
-	Channel    core.Channel
-	internal   *domain.Writer
-	start      telem.TimeStamp
-	idx        index.Index
-	hwm        telem.TimeStamp
-	numWritten int64
+type WriterConfig struct {
+	Start     telem.TimeStamp
+	End       telem.TimeStamp
+	Subject   control.Subject
+	Authority control.Authority
 }
 
-func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Series) error {
-	w, err := db.OpenWriter(ctx, domain.WriterConfig{Start: start})
+func (c WriterConfig) domain() domain.WriterConfig {
+	return domain.WriterConfig{Start: c.Start, End: c.End}
+}
+
+func (c WriterConfig) controlTimeRange() telem.TimeRange {
+	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
+}
+
+type Writer struct {
+	WriterConfig
+	Channel core.Channel
+	control *controller.Gate[controlledWriter]
+	idx     index.Index
+	// hwm is a hot-path optimization when writing to an index channel. We can avoid
+	// unnecessary index lookups by keeping track of the highest timestamp written.
+	// Only valid when Channel.IsIndex is true.
+	hwm telem.TimeStamp
+	pos int
+}
+
+func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
+	gateCfg := controller.GateConfig{
+		TimeRange: cfg.controlTimeRange(),
+		Authority: cfg.Authority,
+		Subject:   cfg.Subject,
+	}
+	var (
+		g  *controller.Gate[controlledWriter]
+		ok bool
+	)
+	g, transfer, ok, err = db.Controller.OpenGate(gateCfg)
+	if err != nil {
+		return nil, transfer, err
+	}
+	if !ok {
+		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
+		if err != nil {
+			return nil, transfer, err
+		}
+		gateCfg.TimeRange = cfg.controlTimeRange()
+		g, transfer, err = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{
+			Writer:     dw,
+			channelKey: db.Channel.Key,
+		})
+	}
+	w.control = g
+	return w, transfer, err
+}
+
+func Write(
+	ctx context.Context,
+	db *DB,
+	start telem.TimeStamp,
+	series telem.Series,
+) (err error) {
+	w, _, err := db.OpenWriter(ctx, WriterConfig{
+		Start:     start,
+		Authority: control.Absolute,
+		Subject:   control.Subject{Key: uuid.New().String()},
+	})
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_, err_ := w.Close()
+		err = errors.CombineErrors(err, err_)
+	}()
 	if _, err = w.Write(series); err != nil {
 		return err
 	}
@@ -40,18 +104,29 @@ func Write(ctx context.Context, db *DB, start telem.TimeStamp, series telem.Seri
 	return err
 }
 
+func (w *Writer) len(dw *domain.Writer) int64 {
+	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
+}
+
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
-	if err := w.validate(series); err != nil {
+	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
-	alignment := telem.Alignment(w.numWritten)
-	w.numWritten += series.Len()
+	dw, ok := w.control.Authorize()
+	if !ok {
+		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
+	}
+	alignment := telem.Alignment(w.len(dw.Writer))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-	_, err := w.internal.Write(series.Data)
+	_, err := dw.Write(series.Data)
 	return alignment, err
+}
+
+func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
+	return w.control.SetAuthority(a)
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -75,10 +150,14 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
+	dw, ok := w.control.Authorize()
+	if !ok {
+		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
+	}
 	if end.IsZero() {
-		// we're using w.numWritten - 1 here because we want the timestamp of the last
+		// we're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.start, w.numWritten-1, true)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
 		}
@@ -88,23 +167,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
 	}
-	return end, w.internal.Commit(ctx, end)
+	err := dw.Commit(ctx, end)
+	return end, err
 }
 
-func (w *Writer) Close() error { return w.internal.Close() }
-
-func (w *Writer) validate(series telem.Series) error {
-	if (series.DataType == telem.Int64T || series.DataType == telem.TimeStampT) && (w.Channel.DataType == telem.Int64T || w.Channel.DataType == telem.TimeStampT) {
-		return nil
+func (w *Writer) Close() (controller.Transfer, error) {
+	dw, t := w.control.Release()
+	if t.IsRelease() {
+		return t, dw.Close()
 	}
-	if series.DataType != w.Channel.DataType {
-		return errors.Wrapf(
-			validate.Error,
-			"invalid array data type for channel %s, expected %s, got %s",
-			w.Channel.Key,
-			w.Channel.DataType,
-			series.DataType,
-		)
-	}
-	return nil
+	return t, nil
 }

@@ -11,10 +11,7 @@
 
 .delta-palette {
     width: 100%;
-
-    & input {
-        width: 100%;
-    }
+    max-width: 1200px;
 
     .delta-palette__list {
         & .pluto-status-text {

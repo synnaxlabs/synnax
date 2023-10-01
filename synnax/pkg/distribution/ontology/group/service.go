@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 type Config struct {
@@ -45,14 +46,25 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-type Service struct{ Config }
+type Service struct {
+	Config
+	cdc io.Closer
+}
 
-func NewService(configs ...Config) (*Service, error) {
+func OpenService(configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{Config: cfg}, nil
+}
+
+func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
+	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if g.Key != uuid.Nil || err != nil {
+		return g, err
+	}
+	return s.NewWriter(nil).Create(ctx, groupName, parent)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

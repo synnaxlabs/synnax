@@ -17,13 +17,19 @@ import {
   type ToolbarState,
 } from "@/pid/slice";
 
-export const selectState = (state: StoreState): SliceState => state.pid;
+export const selectSliceState = (state: StoreState): SliceState => state.pid;
 
 export const select = (state: StoreState, key: string): State =>
-  selectState(state).pids[key];
+  selectSliceState(state).pids[key];
 
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const selectMany = (state: StoreState, keys: string[]): State[] =>
+  keys.map((key) => select(state, key));
+
+export const useSelectMany = (keys: string[]): State[] =>
+  useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
 
 export const selectSelectedElementsProps = (
   state: StoreState,
@@ -88,7 +94,7 @@ export const useSelectElementProps = (layoutKey: string, key: string): ElementIn
   );
 
 export const selectToolbar = (state: StoreState): ToolbarState =>
-  selectState(state).toolbar;
+  selectSliceState(state).toolbar;
 
 export const useSelectToolbar = (): ToolbarState => useMemoSelect(selectToolbar, []);
 
@@ -99,7 +105,7 @@ export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectViewportMode = (state: StoreState): Viewport.Mode =>
-  selectState(state).mode;
+  selectSliceState(state).mode;
 
 export const useSelectViewporMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);

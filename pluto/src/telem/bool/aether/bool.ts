@@ -64,8 +64,8 @@ export class NumericConverterSink
     this.wrap.invalidate();
   }
 
-  async set(value: boolean): Promise<void> {
-    await this.wrap.set(value ? this.props.truthy : this.props.falsy);
+  async setBoolean(value: boolean): Promise<void> {
+    await this.wrap.setNumber(value ? this.props.truthy : this.props.falsy);
   }
 
   setProps(props: any): void {
@@ -107,7 +107,7 @@ export class NumericConverterSource
   }
 
   private async update(): Promise<void> {
-    const raw = await this.wrapped.value();
+    const raw = await this.wrapped.number();
     const value = bounds.contains(this.props.trueBound, raw);
     if (this.curr !== value) {
       this.curr = value;
@@ -115,7 +115,7 @@ export class NumericConverterSource
     }
   }
 
-  async value(): Promise<boolean> {
+  async boolean(): Promise<boolean> {
     if (this.curr == null) await this.update();
     return this.curr ?? false;
   }

@@ -13,6 +13,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"reflect"
 )
@@ -26,6 +27,8 @@ func New(scope string) *Validator {
 	return &Validator{scope: scope, Catch: *errutil.NewCatch()}
 }
 
+// Ternary adds the error with the given message to the validator if the condition
+// is true.
 func (v *Validator) Ternary(cond bool, msg string) bool {
 	v.Exec(func() error {
 		return lo.Ternary(cond, v.New(msg), nil)
@@ -90,6 +93,13 @@ func NonZero[T types.Numeric](v *Validator, name string, value T) bool {
 	return v.Ternaryf(
 		value == 0,
 		"%s must be non-zero", name)
+}
+
+func NonZeroable(v *Validator, name string, value override.Zeroable) bool {
+	return v.Ternaryf(
+		value.IsZero(),
+		"%s must be non-zero", name,
+	)
 }
 
 func NonNegative[T types.Numeric](v *Validator, name string, value T) bool {

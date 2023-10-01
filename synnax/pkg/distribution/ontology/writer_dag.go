@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 )
 
 // dagWriter is a key-value backed directed acyclic graph that implements the Writer
@@ -163,16 +162,5 @@ func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship
 }
 
 func (d dagWriter) validateResourcesExist(ctx context.Context, ids ...ID) error {
-	ok, err := gorp.NewRetrieve[ID, Resource]().WhereKeys(ids...).Exists(ctx, d.tx)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.WithDetailf(
-			query.NotFound,
-			"[ontology] - resources %v not found",
-			ids,
-		)
-	}
-	return nil
+	return gorp.NewRetrieve[ID, Resource]().WhereKeys(ids...).Exec(ctx, d.tx)
 }

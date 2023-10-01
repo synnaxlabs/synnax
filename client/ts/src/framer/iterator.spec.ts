@@ -28,7 +28,10 @@ const newChannel = async (): Promise<channel.Channel> => {
 describe("Iterator", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const writer = await client.telem.newWriter(TimeStamp.SECOND, ch.key);
+    const writer = await client.telem.newWriter({
+      start: TimeStamp.SECOND,
+      channels: ch.key,
+    });
     const data = randomSeries(25, ch.dataType);
     try {
       await writer.write(ch.key, data);

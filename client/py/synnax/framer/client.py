@@ -10,12 +10,12 @@
 from typing import overload
 
 from numpy import ndarray
-from freighter import StreamClient
+from freighter import StreamClient, AsyncStreamClient
 
 from alamos import Instrumentation, NOOP
 from synnax.exceptions import QueryError
 from synnax.framer.frame import Frame
-from synnax.framer.adapter import ForwardFrameAdapter, BackwardFrameAdapter
+from synnax.framer.adapter import WriteFrameAdapter, ReadFrameAdapter
 from synnax.framer.writer import Writer
 from synnax.framer.iterator import Iterator
 from synnax.channel.payload import (
@@ -24,55 +24,75 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelKeys,
     ChannelNames,
+    ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
-from synnax.framer.streamer import Streamer
+from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
+from synnax.telem.authority import Authority, CrudeAuthority
 
 
-class FrameClient:
+class Client:
     """SegmentClient provides interfaces for reading and writing segmented
     telemetry from a Synnax Cluster. SegmentClient should not be instantiated
     directly, but rather used through the synnax.Synnax class.
     """
 
     __client: StreamClient
+    __async_client: AsyncStreamClient
     __channels: ChannelRetriever
     instrumentation: Instrumentation
 
     def __init__(
         self,
         client: StreamClient,
+        async_client: AsyncStreamClient,
         retriever: ChannelRetriever,
         instrumentation: Instrumentation = NOOP,
     ):
         self.__client = client
+        self.__async_client = async_client
         self.__channels = retriever
         self.instrumentation = instrumentation
 
     def new_writer(
         self,
         start: CrudeTimeStamp,
-        params: ChannelParams,
+        channels: ChannelParams,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
+        *,
+        name: str = "",
         strict: bool = False,
         suppress_warnings: bool = False,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
-        :param keys: A list of channel keys that the writer will write to. A writer
-        cannot write to keys not provided in this list. See the NumpyWriter documentation
-        for more.
-        :returns: A NumpyWriter that can be used to write telemetry to the given channels.
+        :param start: Sets the starting timestamp for the first sample in the writer. If
+        this timestamp overlaps with existing data for ANY of the provided channels,
+        the writer will fail to open.
+        :param channels: The channels to write to. This can be a single channel name,
+        a list of channel names, a single channel key, or a list of channel keys.
+        :param authorities: The control authority to set for each channel on the writer.
+        Defaults to absolute authority. If not working with concurrent control,
+        it's best to leave this as the default.
+        :param strict: Sets whether the writer will fail to write if the data for a
+        particular channel does not exactly match this data type. When False,
+        the default, the writer will automatically convert the data to the correct
+        type if possible.
+        :param suppress_warnings: Supress various print warnings that may be emitted
+        by the writer.
         """
-        adapter = ForwardFrameAdapter(self.__channels)
-        adapter.update(params)
+        adapter = WriteFrameAdapter(self.__channels)
+        adapter.update(channels)
         return Writer(
             start=start,
             adapter=adapter,
             client=self.__client,
             strict=strict,
             suppress_warnings=suppress_warnings,
+            authorities=authorities,
+            name=name
         )
 
     def new_iterator(
@@ -87,7 +107,7 @@ class FrameClient:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
-        adapter = BackwardFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self.__channels)
         adapter.update(params)
         return Iterator(
             tr=tr,
@@ -100,7 +120,7 @@ class FrameClient:
         self,
         start: CrudeTimeStamp,
         data: ndarray | Series,
-        to: ChannelKey | ChannelName,
+        to: ChannelKey | ChannelName | ChannelPayload,
         strict: bool = False,
     ) -> TimeStamp:
         """Writes telemetry to the given channel starting at the given timestamp.
@@ -111,7 +131,7 @@ class FrameClient:
         :returns: None.
         """
         with self.new_writer(start, to, strict=strict) as w:
-            w.write(Frame(columns_or_data=[to], series=[Series(data)]))
+            w.write(to, data)
             ts, ok = w.commit()
             return ts
 
@@ -161,13 +181,28 @@ class FrameClient:
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
     ) -> Streamer:
-        adapter = BackwardFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self.__channels)
         adapter.update(params)
         return Streamer(
             from_=from_,
             adapter=adapter,
             client=self.__client,
         )
+
+    async def new_async_streamer(
+        self,
+        params: ChannelParams,
+        from_: CrudeTimeStamp | None = None,
+    ) -> AsyncStreamer:
+        adapter = ReadFrameAdapter(self.__channels)
+        adapter.update(params)
+        s = AsyncStreamer(
+            from_=from_,
+            adapter=adapter,
+            client=self.__async_client,
+        )
+        await s.open()
+        return s
 
     def __read_frame(
         self,

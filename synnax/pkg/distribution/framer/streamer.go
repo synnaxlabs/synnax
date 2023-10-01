@@ -11,10 +11,12 @@ package framer
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -38,36 +40,45 @@ type streamer struct {
 
 // Flow implements confluence.Flow.
 func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	l.iter.flow.Flow(sCtx, opts...)
+	hasIter := !reflect.IsNil(l.iter.flow)
+	if hasIter {
+		l.iter.flow.Flow(sCtx, opts...)
+	}
 	l.relay.flow.Flow(sCtx, opts...)
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(l.Out)
-	sCtx.Go(func(ctx context.Context) error {
-		// start off by exhausting the iterator
-	o:
-		for {
-			l.iter.requests.Inlet() <- IteratorRequest{
-				Command: iterator.Next,
-				Span:    iterator.AutoSpan,
-			}
 
-			for res := range l.iter.responses.Outlet() {
-				if res.Variant == iterator.AckResponse {
-					if res.Ack == false {
-						break o
-					}
-					break
+	sCtx.Go(func(ctx context.Context) error {
+
+		if hasIter {
+			// start off by exhausting the iterator
+		o:
+			for {
+				l.iter.requests.Inlet() <- IteratorRequest{
+					Command: iterator.Next,
+					Span:    iterator.AutoSpan,
 				}
-				l.Out.Inlet() <- StreamerResponse{
-					Frame: res.Frame,
-					Error: res.Error,
+
+				for res := range l.iter.responses.Outlet() {
+					if res.Variant == iterator.AckResponse {
+						if res.Ack == false {
+							break o
+						}
+						break
+					}
+					l.Out.Inlet() <- StreamerResponse{
+						Frame: res.Frame,
+						Error: res.Error,
+					}
 				}
 			}
 		}
 
 		// Close the iterator and drain the response channel
-		l.iter.requests.Close()
-		confluence.Drain(l.iter.responses)
+		if hasIter {
+			l.iter.requests.Close()
+			confluence.Drain(l.iter.responses)
+		}
 
 		// Then we'll tap into the relay for stream updates
 		for {
@@ -101,17 +112,20 @@ type StreamerRequest = StreamerConfig
 
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
 	l := &streamer{}
-	iter, err := s.NewStreamIterator(ctx, IteratorConfig{
-		Keys:   cfg.Keys,
-		Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),
-	})
-	if err != nil {
-		return nil, err
+
+	if lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != 65537 }) {
+		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
+			Keys:   cfg.Keys,
+			Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),
+		})
+		if err != nil {
+			return nil, err
+		}
+		iterReq, iterRes := confluence.Attach(iter, 1)
+		l.iter.flow = iter
+		l.iter.requests = iterReq
+		l.iter.responses = iterRes
 	}
-	iterReq, iterRes := confluence.Attach(iter, 1)
-	l.iter.flow = iter
-	l.iter.requests = iterReq
-	l.iter.responses = iterRes
 
 	rel, err := s.relay.NewReader(ctx, relay.ReaderConfig{Keys: cfg.Keys})
 	if err != nil {

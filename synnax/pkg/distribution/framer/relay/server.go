@@ -20,14 +20,14 @@ import (
 
 type server struct {
 	Config
-	newReader func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error)
+	newStreamer func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error)
 }
 
 func startServer(
 	cfg Config,
-	newReader func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error),
+	newStreamer func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error),
 ) *server {
-	s := &server{Config: cfg, newReader: newReader}
+	s := &server{Config: cfg, newStreamer: newStreamer}
 	cfg.Transport.Server().BindHandler(s.handle)
 	return s
 }
@@ -39,7 +39,7 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sender       = &freightfluence.Sender[Response]{
 			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 		}
-		reader, err = s.newReader(ctx, ReaderConfig{})
+		reader, err = s.newStreamer(ctx, ReaderConfig{})
 		pipe        = plumber.New()
 	)
 	defer cancel()

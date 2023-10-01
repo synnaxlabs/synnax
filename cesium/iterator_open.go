@@ -10,7 +10,9 @@
 package cesium
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
@@ -24,10 +26,16 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	for i, key := range cfg.Channels {
-		uDB, err := db.getUnary(key)
-		if err != nil {
-			return nil, err
+		uDB, ok := db.unaryDBs[key]
+		if !ok {
+			_, vOk := db.virtualDBs[key]
+			if vOk {
+				return nil, errors.Wrapf(validate.Error, "cannot open iterator on virtual channel %d", key)
+			}
+			return nil, errors.Wrapf(ChannelNotFound, "channel %d", key)
 		}
 		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
 	}
