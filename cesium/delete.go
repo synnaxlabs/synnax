@@ -9,7 +9,7 @@
 
 package cesium
 
-func remove(dirname string, channel_to_remove string, opts ...Option) error {
+func DeleteChannel(dirname string, channel_to_remove string, opts ...Option) error {
 	o := newOptions(dirname, opts...)
 	if err := openFS(o); err != nil {
 		return err
