@@ -50,12 +50,15 @@ class TDMSReader(TDMSMatcher):   # type: ignore
         chunk_size: int | None = None,
     ):
         self._path = path
-        self.channel_keys = set(keys) if keys is not None else set()
         self.chunk_size = chunk_size or int(5e5)
         
         self._channels = None
         self._current_chunk = 0
         self._n_chunks = None
+        if keys is not None:
+            self.channel_keys = set(keys)
+        else:
+            self.set_keys_from_file()
     
     def channels(self) -> list[ChannelMeta]:
         """:returns : a list of channel metadata for the file."""
@@ -72,6 +75,13 @@ class TDMSReader(TDMSMatcher):   # type: ignore
     
     def set_chunk_size(self, chunk_size: int):
         self.chunk_size = chunk_size
+    
+    def set_keys(self, keys: list[str]):
+        self.channel_keys = set(keys)
+    
+    def set_keys_from_file(self) -> set[str]:
+        self.channel_keys = set([ch.name for ch in self.channels()])
+        return self.channel_keys
 
     @classmethod
     def type(cls) -> ReaderType:
@@ -114,6 +124,9 @@ class TDMSReader(TDMSMatcher):   # type: ignore
             self._current_chunk += 1
         
         return pd.DataFrame(data)
+
+    def __iter__(self) -> Iterator[pd.DataFrame]:
+        return (self.read() for _ in range(self.n_chunks))
     
     @property
     def n_chunks(self) -> int:
@@ -125,7 +138,6 @@ class TDMSReader(TDMSMatcher):   # type: ignore
             with TdmsFile.open(self._path) as tdms_file:
                 group0 = tdms_file.groups()[0]
                 channel0 = group0.channels()[0]
-                print(f"{len(channel0) / self.chunk_size=}")
                 self._n_chunks = ceil(len(channel0) / self.chunk_size)
                 
         assert self._n_chunks is not None

@@ -109,3 +109,15 @@ class TestTdmsReader:
             assert len(d) == 1
             count += 1
         assert count == 4
+    
+    def test_read_keys(self, valid_file: ColumnFileReader):
+        """It should only read the fist 3 channels"""
+        valid_file.set_chunk_size(2)
+        valid_file.seek_first()
+        for _ in range(2):
+            d = valid_file.read(*VALID_FILE_CHANNELS[:3])
+            assert len(d) == 2
+            assert list(d.keys()) == VALID_FILE_CHANNELS[:3]
+        
+        d = valid_file.read(*VALID_FILE_CHANNELS[:3])
+        assert d.empty
