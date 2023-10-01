@@ -9,34 +9,38 @@
 
 package queue
 
-type Queue struct {
-	queue []interface{}
+import (
+	"errors"
+)
+
+type Queue[T any] struct {
+	queue []T
 }
 
-func (q *Queue) Push(i interface{}) {
+func (q *Queue[T]) Push(i T) {
 	q.queue = append(q.queue, i)
 }
 
-func (q *Queue) Pop() interface{} {
+func (q *Queue[T]) Pop() (val T, err error) {
 	if len(q.queue) == 0 {
-		return nil
+		return val, errors.New("queue is empty")
 	}
 	i := q.queue[0]
 	q.queue = q.queue[1:]
-	return i
+	return i, nil
 }
 
-func (q *Queue) Peek() *interface{} {
+func (q *Queue[T]) Peek() (*T, error) {
 	if len(q.queue) == 0 {
-		return nil
+		return nil, errors.New("queue is empty")
 	}
-	return &q.queue[0]
+	return &q.queue[0], nil
 }
 
-func (q *Queue) Len() int {
+func (q *Queue[T]) Len() int {
 	return len(q.queue)
 }
 
-func (q *Queue) Empty() bool {
+func (q *Queue[T]) Empty() bool {
 	return len(q.queue) == 0
 }
