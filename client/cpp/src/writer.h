@@ -4,5 +4,11 @@
 // Compiled protos.
 #include "v1/auth_grpc.grpc.pb.h"
 
-/// @brief 
-template <typename response_t, typename request_t, typename stream_t, typename err_t, typename rpc_t>
+/// @brief The interface for the writer class.
+class Writer
+{
+public:
+    /// @brief Sends one frame to the given target.
+    bool write()
+private:
+};
