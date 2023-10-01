@@ -9,34 +9,38 @@
 
 package stack
 
-type Stack struct {
-	stack []interface{}
+import (
+	"errors"
+)
+
+type Stack[T any] struct {
+	stack []T
 }
 
-func (s *Stack) Push(i interface{}) {
+func (s *Stack[T]) Push(i T) {
 	s.stack = append(s.stack, i)
 }
 
-func (s *Stack) Pop() interface{} {
+func (s *Stack[T]) Pop() (val T, err error) {
 	if len(s.stack) == 0 {
-		return nil
+		return val, errors.New("stack is empty")
 	}
 	i := s.stack[len(s.stack)-1]
 	s.stack = s.stack[:len(s.stack)-1]
-	return i
+	return i, nil
 }
 
-func (s *Stack) Peek() *interface{} {
+func (s *Stack[T]) Peek() (*T, error) {
 	if len(s.stack) == 0 {
-		return nil
+		return nil, errors.New("stack is empty")
 	}
-	return &s.stack[len(s.stack)-1]
+	return &s.stack[len(s.stack)-1], nil
 }
 
-func (s *Stack) Len() int {
+func (s *Stack[T]) Len() int {
 	return len(s.stack)
 }
 
-func (s *Stack) Empty() bool {
+func (s *Stack[T]) Empty() bool {
 	return len(s.stack) == 0
 }
