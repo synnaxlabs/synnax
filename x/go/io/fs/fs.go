@@ -69,11 +69,7 @@ func (d *defaultFS) List() ([]os.FileInfo, error) {
 }
 
 func (d *defaultFS) Remove(name string) error {
-	err := os.Remove(path.Join(d.dir, name))
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(path.Join(d.dir, name))
 }
 
 func OSDirFS(dir string) (FS, error) {
@@ -113,9 +109,5 @@ func (m *memFS) List() ([]os.FileInfo, error) {
 }
 
 func (m *memFS) Remove(name string) error {
-	err := m.Remove(name)
-	if err != nil {
-		return err
-	}
-	return nil
+	return m.Remove(name)
 }
