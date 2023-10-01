@@ -9,15 +9,15 @@
 
 package stack
 
-type stack struct {
+type Stack struct {
 	stack []interface{}
 }
 
-func (s *stack) Push(i interface{}) {
+func (s *Stack) Push(i interface{}) {
 	s.stack = append(s.stack, i)
 }
 
-func (s *stack) Pop() interface{} {
+func (s *Stack) Pop() interface{} {
 	if len(s.stack) == 0 {
 		return nil
 	}
@@ -26,17 +26,17 @@ func (s *stack) Pop() interface{} {
 	return i
 }
 
-func (s *stack) Peek() *interface{} {
+func (s *Stack) Peek() *interface{} {
 	if len(s.stack) == 0 {
 		return nil
 	}
 	return &s.stack[len(s.stack)-1]
 }
 
-func (s *stack) Len() int {
+func (s *Stack) Len() int {
 	return len(s.stack)
 }
 
-func (s *stack) Empty() bool {
+func (s *Stack) Empty() bool {
 	return len(s.stack) == 0
 }
