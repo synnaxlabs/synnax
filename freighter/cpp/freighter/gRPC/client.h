@@ -20,7 +20,7 @@
 
 /// @brief freighter stream object.
 template <typename response_t, typename request_t, typename err_t, typename rpc_t>
-class gRPCStreamer : public Streamer<response_t, request_t, err_t>
+class gRPCStreamer : public Streamer<response_t, request_t, err_t, rpc_t>
 {
 public:
     /// @brief Ctor saves gRPC stream object to use under the hood.
@@ -84,7 +84,7 @@ private:
 /// @brief gRPC specific class
 /// NOTE: stub_t comes from the generated protobuf file.
 template <typename response_t, typename request_t, typename stream_t, typename err_t, typename rpc_t>
-class gRPC : public Client<response_t, request_t, stream_t, err_t>
+class gRPC : public Client<response_t, request_t, stream_t, err_t, rpc_t>
 { 
 public:
     /// @brief Interface for unary send.

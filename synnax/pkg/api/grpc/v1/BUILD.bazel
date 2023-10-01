@@ -1,0 +1,45 @@
+proto_library(
+    name = "auth_proto",
+    srcs = ["auth.proto"]
+)
+
+proto_library(
+    name = "channel_proto",
+    srcs = ["channel.proto"]
+)
+
+proto_library(
+    name = "connectivity_proto",
+    srcs = ["connectivity.proto"]
+)
+
+proto_library(
+    name = "framer_proto",
+    srcs = ["framer.proto"]
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "auth_grpc",
+    protos = [":auth_proto"],
+    visibility = ["//visibility:public"]
+)
+
+cpp_grpc_library(
+    name = "channel_grpc",
+    protos = [":channel_proto"],
+    visibility = ["//visibility:public"]
+)
+
+cpp_grpc_library(
+    name = "connectivity_grpc",
+    protos = [":connectivity_proto"],
+    visibility = ["//visibility:public"]
+)
+
+cpp_grpc_library(
+    name = "framer_grpc",
+    protos = [":framer_proto"],
+    visibility = ["//visibility:public"]
+)

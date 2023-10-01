@@ -7,7 +7,7 @@
 #include <utility>
 
 /// @brief Interface for client.
-template <typename response_t, typename request_t, typename stream_t, typename err_t>
+template <typename response_t, typename request_t, typename stream_t, typename err_t, typename rpc_t>
 class Client
 {
 public:
@@ -19,7 +19,7 @@ public:
 };
 
 /// @brief Interface for Streamer.
-template <typename response_t, typename request_t, typename err_t>
+template <typename response_t, typename request_t, typename err_t, typename rpc_t>
 class Streamer
 {
 public:
