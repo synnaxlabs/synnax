@@ -12,7 +12,10 @@ import pathlib
 import pytest
 
 from synnax.io import IO_FACTORY
-from synnax.io.protocol import RowFileReader
+from synnax.io.protocol import RowFileReader, ColumnFileReader
+from synnax.io.tdms import TDMSReader
+from nptdms import TdmsWriter, RootObject, GroupObject, ChannelObject
+import numpy as np
 
 BASE_DIR = pathlib.Path("./tests/testdata/io")
 VALID_FILE = BASE_DIR / "valid"
@@ -51,6 +54,53 @@ class TestRowFileReaders:
         assert d["thermoCouple01"].to_numpy()[0] == 1.0
 
     def test_read(self, valid_file: RowFileReader):
+        """It should correctly iterate over the samples in the file"""
+        valid_file.set_chunk_size(1)
+        valid_file.seek_first()
+        count = 0
+        for d in valid_file:
+            assert len(d) == 1
+            count += 1
+        assert count == 4
+
+
+@pytest.mark.tdms
+class TestTdmsReader:
+    @pytest.fixture
+    def create_test_file(self):
+        # Create test file
+        root = RootObject()
+        groupA = GroupObject("groupA")
+        groupB = GroupObject("groupB")
+        channel0 = ChannelObject("groupA", "thermoCouple01", np.array([1, 1, 2, 3]))
+        channel1 = ChannelObject("groupA", "gseTimestamp01", np.array([1, 2, 3, 4]))
+        channel2 = ChannelObject("groupA", "autoOn", np.array([0, 1, 0, 1]))
+        channel3 = ChannelObject("groupB", "strainGauge22", np.array([150000.125, 125125152.12, 125125125.12, 1251251512.12]))
+        # Write it
+        with TdmsWriter(f"{BASE_DIR / 'tdms'}.tdms") as writer:
+            writer.write_segment([root, groupA, groupB, channel0, channel1, channel2, channel3])
+            
+    @pytest.fixture
+    def valid_file(self, create_test_file):            
+        return TDMSReader(f"{BASE_DIR / 'tdms'}.tdms")
+    
+    def test_channels(self, valid_file: ColumnFileReader):
+        """It should correctly return a list of the channel names in the file"""
+        valid_file.set_chunk_size(1)
+        assert [c.name for c in valid_file.channels()] == VALID_FILE_CHANNELS
+    
+    def test_num_samples(self, valid_file: ColumnFileReader):
+        """It should return the approximate number of samples in the file"""
+        valid_file.set_chunk_size(1)
+        assert valid_file.nsamples() == 16
+    
+    def test_first_sample(self, valid_file: ColumnFileReader):
+        """It should return the first sample in the file"""
+        valid_file.seek_first()
+        d = valid_file.read()
+        assert d["thermoCouple01"].to_numpy()[0] == 1.0
+
+    def test_read(self, valid_file: ColumnFileReader):
         """It should correctly iterate over the samples in the file"""
         valid_file.set_chunk_size(1)
         valid_file.seek_first()

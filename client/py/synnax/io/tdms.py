@@ -50,7 +50,7 @@ class TDMSReader(TDMSMatcher):   # type: ignore
         chunk_size: int | None = None,
     ):
         self._path = path
-        self.channel_keys = set(keys)
+        self.channel_keys = set(keys) if keys is not None else set()
         self.chunk_size = chunk_size or int(5e5)
         
         self._channels = None
@@ -62,13 +62,16 @@ class TDMSReader(TDMSMatcher):   # type: ignore
         if self._channels is not None:
             return self._channels
         
-        self.channels: list[ChannelMeta] = list()
+        self._channels: list[ChannelMeta] = list()
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
-                    self._channels.append(ChannelMeta(name=channel.name, meta_deta=dict()))
+                    self._channels.append(ChannelMeta(name=channel.name, meta_data=dict()))
                     
         return self._channels
+    
+    def set_chunk_size(self, chunk_size: int):
+        self.chunk_size = chunk_size
 
     @classmethod
     def type(cls) -> ReaderType:
@@ -122,6 +125,7 @@ class TDMSReader(TDMSMatcher):   # type: ignore
             with TdmsFile.open(self._path) as tdms_file:
                 group0 = tdms_file.groups()[0]
                 channel0 = group0.channels()[0]
+                print(f"{len(channel0) / self.chunk_size=}")
                 self._n_chunks = ceil(len(channel0) / self.chunk_size)
                 
         assert self._n_chunks is not None
