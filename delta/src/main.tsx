@@ -19,8 +19,10 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
+import { Ontology } from "@/ontology";
 import { PID } from "@/pid";
 import { Range } from "@/range";
+import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -30,9 +32,6 @@ import { Workspace } from "@/workspace";
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
-
-import { Ontology } from "./ontology";
-import { SERVICES } from "./services";
 
 const layoutRenderers = {
   main: LayoutMain,
@@ -83,6 +82,9 @@ const MainUnderContext = (): ReactElement => {
       workerURL={WorkerURL}
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
+      alamos={{
+        level: "debug",
+      }}
     >
       <Vis.Canvas>
         <Layout.Window />

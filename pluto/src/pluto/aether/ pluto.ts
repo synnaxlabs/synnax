@@ -10,6 +10,7 @@
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { control } from "@/control/aether";
 import { chip } from "@/control/chip/aether";
 import { status } from "@/status/aether";
@@ -49,6 +50,7 @@ export const render = (): void => {
     ...status.REGISTRY,
     ...button.REGISTRY,
     ...chip.REGISTRY,
+    ...alamos.REGISTRY,
   };
 
   aether.render({

@@ -11,6 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { synnax } from "@/synnax/aether";
 import { bool } from "@/telem/bool/aether";
 import { client } from "@/telem/client";
@@ -54,7 +55,8 @@ export class Provider
 
   afterUpdate(): void {
     const client_ = synnax.use(this.ctx);
-    if (client_ != null) this.client.swap(new client.Core(client_));
+    const ins = alamos.useInstrumentation(this.ctx);
+    if (client_ != null) this.client.swap(new client.Core(client_, ins));
     this.telem.forEach((t) => t.invalidate());
     return telem.setProvider(this.ctx, this);
   }

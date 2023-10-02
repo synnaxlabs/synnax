@@ -40,6 +40,8 @@ export class Static {
   }
 
   write(tr: TimeRange, series: Series[]): void {
+    if (series.length === 0 || this.entries.some((e) => e.timeRange.overlapsWith(tr)))
+      return;
     series = series.map((s) => convertSeriesFloat32(s));
     const read = new Read(tr, series);
     const i = this.getInsertionIndex(tr);

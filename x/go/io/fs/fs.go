@@ -16,10 +16,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-type File interface {
-	afero.File
-}
-
 const defaultPerm = 0755
 
 type FS interface {

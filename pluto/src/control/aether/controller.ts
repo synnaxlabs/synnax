@@ -88,7 +88,6 @@ export class Controller
 
     this.internal.addStatus = status.useAggregate(this.ctx);
 
-    console.log(this.state.acquireTrigger, this.internal.prevTrigger);
     // Acquire or release control if necessary.
     if (this.state.acquireTrigger > this.internal.prevTrigger) {
       void this.acquire();

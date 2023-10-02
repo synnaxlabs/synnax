@@ -45,15 +45,9 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
-        d(
-          Layout.setWorkspace({
-            slice: ws.layout as unknown as Layout.SliceState,
-            keepNav: false,
-          })
-        );
       })();
     },
-    [client, d, dProps.close]
+    [active, client, d, dProps.close]
   );
 
   return (

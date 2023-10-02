@@ -36,6 +36,14 @@ interface GL {
   bufferUsage: GLBufferUsage;
 }
 
+export interface SeriesDigest {
+  dataType: string;
+  sampleOffset: SampleValue;
+  alignment: number;
+  timeRange?: string;
+  length: number;
+}
+
 const FULL_BUFFER = -1;
 
 /**
@@ -355,6 +363,16 @@ export class Series {
       );
       this.gl.prevBuffer = FULL_BUFFER;
     }
+  }
+
+  get digest(): SeriesDigest {
+    return {
+      dataType: this.dataType.toString(),
+      sampleOffset: this.sampleOffset,
+      alignment: this.alignment,
+      timeRange: this._timeRange?.toString(),
+      length: this.length,
+    };
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {

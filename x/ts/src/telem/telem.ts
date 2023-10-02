@@ -21,6 +21,7 @@ export type TimeStampStringFormat =
   | "time"
   | "preciseTime"
   | "date"
+  | "preciseDate"
   | "shortDate"
   | "dateTime";
 
@@ -138,6 +139,8 @@ export class TimeStamp extends Number implements Stringer {
         return this.timeString(true, tzInfo);
       case "date":
         return this.dateString(tzInfo);
+      case "preciseDate":
+        return `${this.dateString(tzInfo)} ${this.timeString(true, tzInfo)}`;
       case "dateTime":
         return `${this.dateString(tzInfo)} ${this.timeString(false, tzInfo)}`;
       default:
@@ -863,6 +866,10 @@ export class TimeRange implements Stringer {
 
   toString(): string {
     return `${this.start.toString()} - ${this.end.toString()}`;
+  }
+
+  toPrettyString(): string {
+    return `${this.start.fString("preciseDate")} - ${this.span.toString()}`;
   }
 
   overlapsWith(other: TimeRange): boolean {

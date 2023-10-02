@@ -17,8 +17,8 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
-
-import { add } from "./slice";
+import { useSelectActiveKey } from "@/workspace/selectors";
+import { add } from "@/workspace/slice";
 
 export const createWindowLayout: Layout.LayoutState = {
   key: "createWorkspace",
@@ -48,6 +48,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const client = Synnax.use();
   const dispatch = useDispatch();
+  const active = useSelectActiveKey();
 
   const onSubmit = async ({ name }: CreateFormProps): Promise<void> => {
     if (client == null) return;
@@ -56,7 +57,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       layout: Layout.ZERO_SLICE_STATE,
     });
     dispatch(add({ workspaces: [ws] }));
-    dispatch(Layout.setWorkspace({ slice: ws.layout }));
+    if (active != null) dispatch(Layout.setWorkspace({ slice: ws.layout }));
     onClose();
   };
 
