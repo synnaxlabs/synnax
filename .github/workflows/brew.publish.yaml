@@ -2,8 +2,8 @@ name: "Bump Homebrew Tap"
 on:
     push:
         tags:
-            - "synnax\/v\d*\.\d*\.\d*"
-
+            - "synnax\/v[0-9]+.[0-9]+.[0-9]+"
+            
 jobs:
     publish:
         runs-on: ubuntu-latest
