@@ -9,15 +9,15 @@
 
 package cesium
 
-func DeleteChannel(dirname string, channel_to_remove string, opts ...Option) error {
-	o := newOptions(dirname, opts...)
-	if err := openFS(o); err != nil {
-		return err
+func (db *DB) DeleteChannel(channel_to_remove string) (bool, error) {
+	if db.controlStates().Transfers == nil {
+		// Someone is writing!
+		return false, nil
 	}
 
-	if err := o.fs.Remove(channel_to_remove); err != nil {
-		return err
+	if err := db.options.fs.Remove(channel_to_remove); err != nil {
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
