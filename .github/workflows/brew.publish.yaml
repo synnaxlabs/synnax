@@ -2,7 +2,7 @@ name: "Bump Homebrew Tap"
 on:
     push:
         tags:
-            - "synnax/v0.*.*"
+            - "*"
             
 jobs:
     publish:
