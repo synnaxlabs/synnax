@@ -84,3 +84,13 @@ class TestSeries:
         """Should correctly convert the series to a builtin list"""
         s = Series([1, 2, 3], data_type=DataType.INT8)
         assert list(s) == [1, 2, 3]
+
+    def test_greater_than(self):
+        """Should correctly compare the series to a scalar"""
+        s = Series([1, 2, 3], data_type=DataType.INT8)
+        assert all(s > 2) == all([False, False, True])
+
+    def test_less_than(self):
+        """Should correctly compare the series to a scalar"""
+        s = Series([1, 2, 3], data_type=DataType.INT8)
+        assert all(s < 2) == all([True, False, False])

@@ -26,7 +26,7 @@ class _Request(Payload):
 
 
 class _Response(Payload):
-    ranges: list[RangePayload]
+    ranges: list[RangePayload] | None
 
 
 class RangeRetriever:
@@ -55,4 +55,6 @@ class RangeRetriever:
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
+        if res.ranges is None:
+            return list()
         return res.ranges
