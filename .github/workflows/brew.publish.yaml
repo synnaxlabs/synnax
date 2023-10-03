@@ -2,8 +2,8 @@ name: "Bump Homebrew Tap"
 on:
     push:
         tags:
-            - "synnax/v*.*.*"
-
+            - "*"
+            
 jobs:
     publish:
         runs-on: ubuntu-latest

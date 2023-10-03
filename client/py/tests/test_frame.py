@@ -52,6 +52,10 @@ class TestFrame:
         assert f.col_type == "keys"
         assert f[1][1] == 2
 
+    def test_pandas_interop(self):
+        f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
+        assert len(f[f["big"] > 1]["big"]) == 3
+
 
 @pytest.mark.framer
 class TestWriteFrameAdapter:
