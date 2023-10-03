@@ -58,3 +58,5 @@ __pycache__
 # |||| LANDING SITE ||||
 
 landing/
+
+synnax-data/**
