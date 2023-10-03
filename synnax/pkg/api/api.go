@@ -133,6 +133,7 @@ type Transport struct {
 	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
 	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
 	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
+	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -240,6 +241,7 @@ func (a *API) BindTo(t Transport) {
 		t.RangeKVDelete,
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
+		t.RangeAliasList,
 
 		// WORKSPACE
 		t.WorkspaceDelete,
@@ -298,6 +300,7 @@ func (a *API) BindTo(t Transport) {
 	t.RangeKVDelete.BindHandler(typedUnaryWrapper(a.Range.KVDelete))
 	t.RangeAliasSet.BindHandler(typedUnaryWrapper(a.Range.AliasSet))
 	t.RangeAliasResolve.BindHandler(typedUnaryWrapper(a.Range.AliasResolve))
+	t.RangeAliasList.BindHandler(typedUnaryWrapper(a.Range.AliasList))
 
 	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))

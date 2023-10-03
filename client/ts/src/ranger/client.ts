@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
+import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { Aliaser } from "@/ranger/alias";
 import { type Creator } from "@/ranger/creator";
+import { KV } from "@/ranger/kv";
 import {
   type NewPayload,
   type Key,
@@ -29,11 +33,21 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
   private readonly creator: Creator;
+  private readonly unaryClient: UnaryClient;
+  private readonly channels: ChannelRetriever;
 
-  constructor(frameClient: framer.Client, retriever: Retriever, creator: Creator) {
+  constructor(
+    frameClient: framer.Client,
+    retriever: Retriever,
+    creator: Creator,
+    unary: UnaryClient,
+    channels: ChannelRetriever,
+  ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.creator = creator;
+    this.unaryClient = unary;
+    this.channels = channels;
   }
 
   async create(range: NewPayload): Promise<Range>;
@@ -70,7 +84,15 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   private sugar(payloads: Payload[]): Range[] {
     return payloads.map((payload) => {
-      return new Range(payload.name, payload.timeRange, payload.key, this.frameClient);
+      return new Range(
+        payload.name,
+        payload.timeRange,
+        payload.key,
+        this.frameClient,
+        new KV(payload.key, this.unaryClient),
+        new Aliaser(payload.key, this.unaryClient),
+        this.channels,
+      );
     });
   }
 }

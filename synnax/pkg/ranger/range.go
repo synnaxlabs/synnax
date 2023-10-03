@@ -86,3 +86,18 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 		Exec(ctx, r.tx)
 	return res.Channel, err
 }
+
+func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {
+	res := make([]alias, 0)
+	if err := gorp.NewRetrieve[string, alias]().
+		Where(func(a *alias) bool { return a.Range == r.Key }).
+		Entries(&res).
+		Exec(ctx, r.tx); err != nil {
+		return nil, err
+	}
+	aliases := make(map[channel.Key]string, len(res))
+	for _, a := range res {
+		aliases[a.Channel] = a.Alias
+	}
+	return aliases, nil
+}

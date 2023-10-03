@@ -36,6 +36,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.RangeKVDelete = fnoop.UnaryServer[api.RangeKVDeleteRequest, types.Nil]{}
 	a.RangeAliasSet = fnoop.UnaryServer[api.RangeAliasSetRequest, types.Nil]{}
 	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
+	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}

@@ -207,3 +207,23 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 	}
 	return RangeAliasResolveResponse{Aliases: aliases}, errors.Nil
 }
+
+type RangeAliasListRequest struct {
+	Range    uuid.UUID     `json:"range" msgpack:"range"`
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+}
+
+type RangeAliasListResponse struct {
+	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+}
+
+func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest) (res RangeAliasListResponse, _ errors.Typed) {
+	var r ranger.Range
+	if err := errors.MaybeQuery(s.internal.NewRetrieve().Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil)); err.Occurred() {
+		return res, err
+	}
+	aliases, err := r.ListAliases(ctx)
+	return RangeAliasListResponse{Aliases: aliases}, errors.MaybeQuery(err)
+}

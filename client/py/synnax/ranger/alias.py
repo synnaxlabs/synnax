@@ -33,9 +33,7 @@ class _EmptyResponse(Payload):
 class Aliaser:
     __SET_ENDPOINT = "/range/alias/set"
     __RESOLVE_ENDPOINT = "/range/alias/resolve"
-
     __client: UnaryClient
-
     __cache: dict[str, ChannelKey]
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
@@ -44,6 +42,9 @@ class Aliaser:
         self.__cache = {}
 
     def resolve(self, alias: str) -> ChannelKey:
+        ...
+
+    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]:
         ...
 
     def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:

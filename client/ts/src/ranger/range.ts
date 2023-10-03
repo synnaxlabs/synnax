@@ -10,12 +10,20 @@
 import { type Series, TimeRange } from "@synnaxlabs/x";
 
 import { type Key, type Params, type Name } from "@/channel/payload";
+import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { type framer } from "@/framer";
+import { type Aliaser } from "@/ranger/alias";
+import { type KV } from "@/ranger/kv";
+
+import { QueryError } from "..";
 
 export class Range {
   key: string;
   name: string;
+  readonly kv: KV;
   readonly timeRange: TimeRange;
+  readonly channels: ChannelRetriever;
+  private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
 
   constructor(
@@ -23,11 +31,29 @@ export class Range {
     timeRange: TimeRange = TimeRange.ZERO,
     key: string,
     _frameClient: framer.Client,
+    _kv: KV,
+    _aliaser: Aliaser,
+    _channels: ChannelRetriever,
   ) {
     this.key = key;
     this.name = name;
     this.timeRange = timeRange;
     this.frameClient = _frameClient;
+    this.kv = _kv;
+    this.aliaser = _aliaser;
+    this.channels = _channels;
+  }
+
+  async setAlias(channel: Key | Name, alias: string): Promise<void> {
+    const ch = await this.channels.retrieve(channel);
+    if (ch.length === 0) {
+      throw new QueryError(`Channel ${channel} does not exist`);
+    }
+    await this.aliaser.set({ [ch[0].key]: alias });
+  }
+
+  async listAliases(): Promise<Record<Key, string>> {
+    return await this.aliaser.list();
   }
 
   async read(channel: Key | Name): Promise<Series>;
