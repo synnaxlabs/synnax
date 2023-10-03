@@ -15,33 +15,12 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
+import { Range } from "@/range";
 import { Vis } from "@/vis";
-import { rangeWindowLayout } from "@/workspace/DefineRange";
-import { RangesList } from "@/workspace/RangesList";
-import { useSelectRange, useSelectRanges } from "@/workspace/selectors";
-import { removeRange, setActiveRange } from "@/workspace/slice";
 import { VisList } from "@/workspace/VisList";
 
 const Content = (): ReactElement => {
-  const newLayout = Layout.usePlacer();
   const dispatch = useDispatch();
-  const ranges = useSelectRanges();
-  const selectedRange = useSelectRange();
-
-  const handleAddOrEditRange = (key?: string): void => {
-    newLayout({
-      ...rangeWindowLayout,
-      key: key ?? rangeWindowLayout.key,
-    });
-  };
-
-  const handleRemoveRange = (key: string): void => {
-    dispatch(removeRange(key));
-  };
-
-  const handleSelectRange = (key: string): void => {
-    dispatch(setActiveRange(key));
-  };
 
   const handleCreateVis = (): void => {
     dispatch(Vis.create({}));
@@ -58,22 +37,7 @@ const Content = (): ReactElement => {
           {
             key: "ranges",
             name: "Ranges",
-            content: (
-              <RangesList
-                ranges={ranges}
-                selectedRange={selectedRange}
-                onRemove={handleRemoveRange}
-                onSelect={handleSelectRange}
-                onAddOrEdit={handleAddOrEditRange}
-              />
-            ),
-            actions: [
-              {
-                children: <Icon.Add />,
-                onClick: () => handleAddOrEditRange(),
-                sharp: true,
-              },
-            ],
+            content: <Range.List />,
           },
           {
             key: "visualizations",

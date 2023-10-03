@@ -197,7 +197,7 @@ func validateLeaseOption(maybeLease []interface{}) (node.Key, error) {
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {
-			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Key")
+			return 0, errors.New("[aspen] - Leaseholder option must be of type node.Name")
 		}
 		lease = l
 	}
@@ -240,11 +240,15 @@ type txReader struct {
 
 var _ kvx.TxReader = (*txReader)(nil)
 
-func (r *txReader) Next(_ context.Context) (kvx.Change, bool, error) {
+// Count implements kvx.TxReader.
+func (r *txReader) Count() int { return len(r.ops) }
+
+// Next implements kvx.TxReader.
+func (r *txReader) Next(_ context.Context) (kvx.Change, bool) {
 	if r.curr >= len(r.ops) {
-		return kvx.Change{}, false, nil
+		return kvx.Change{}, false
 	}
 	op := r.ops[r.curr]
 	r.curr++
-	return op.Change, true, nil
+	return op.Change, true
 }

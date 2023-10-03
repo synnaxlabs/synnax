@@ -72,6 +72,9 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontolgoy accordinly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
+		s.L.Error("failed to define free node ontology resource", zap.Error(err))
+	}
 	s.update(ctx, s.Cluster.PeekState())
 	s.Cluster.OnChange(func(ctx context.Context, change ClusterChange) {
 		s.update(ctx, change.State)
@@ -79,7 +82,7 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 }
 
 // OnChange implements ontology.Service.
-func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) {
+func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
 		translate = func(ch NodeChange, _ int) schema.Change {
 			return schema.Change{
@@ -92,15 +95,16 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
 		}
 	)
-	s.Cluster.OnChange(onChange)
+	return s.Cluster.OnChange(onChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *NodeOntologyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
-	return iter.NexterNopCloser[ontology.Resource]{
-		Wrap: iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
+func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	return iter.NexterNopCloser(
+		iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
 			return newNodeResource(n)
-		}))}
+		})),
+	), nil
 }
 
 func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
@@ -176,12 +180,12 @@ func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (
 }
 
 // OpenNexter implements ontology.Service.Relationship
-func (s *ClusterOntologyService) OpenNexter() iter.NexterCloser[schema.Resource] {
-	return iter.NexterNopCloser[ontology.Resource]{
-		Wrap: iter.All[schema.Resource]([]schema.Resource{
+func (s *ClusterOntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+	return iter.NexterNopCloser(
+		iter.All[schema.Resource]([]schema.Resource{
 			newClusterResource(s.Cluster.Key()),
 		}),
-	}
+	), nil
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {

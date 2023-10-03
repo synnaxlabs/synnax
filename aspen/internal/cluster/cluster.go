@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package cluster provides an interface for joining a cluster of nodes and
-// exchanging state through an SI gossip model. nodes can join the cluster without
+// Package cluster provides an interface for joining a Cluster of nodes and
+// exchanging state through an SI gossip model. nodes can join the Cluster without
 // needing to know all members. Cluster will automatically manage the membership of
 // new nodes by assigning them unique Keys and keeping them in sync with their peers.
-// To Open a cluster, simply use cluster.Open.
+// To Open a Cluster, simply use cluster.Open.
 package cluster
 
 import (
@@ -27,68 +27,29 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
-	storex "github.com/synnaxlabs/x/store"
 	"go.uber.org/zap"
 	"io"
 )
 
-// State represents the current state of the cluster as seen from the host node.
+// State represents the current state of the Cluster as seen from the host node.
 type State = store.State
 
-// Change is information about a change to the cluster's state.
+// Change is information about a change to the Cluster's state.
 type Change = store.Change
 
-// NodeNotFound is returned when a node cannot be found in the cluster.
-var NodeNotFound = errors.New("[cluster] - node not found")
+// NodeNotFound is returned when a node cannot be found in the Cluster.
+var NodeNotFound = errors.New("[Cluster] - node not found")
 
-// Cluster represents a group of nodes that can exchange their state with each other.
-type Cluster interface {
-	HostResolver
-	// Key returns a unique key for the cluster. This value is consistent across
-	// all nodes in the cluster.
-	Key() uuid.UUID
-	// Nodes returns a node.Group of all nodes in the cluster. The returned map
-	// is not safe to modify. To modify, use node.Group.CopyState().
-	Nodes() node.Group
-	// Node returns the member Node with the given Key.
-	Node(id node.Key) (node.Node, error)
-	// Observable can be used to monitor changes to the cluster state. Be careful not to modify the
-	// contents of the returned State.
-	observe.Observable[store.Change]
-	// Reader allows reading the current state of the cluster.
-	storex.Reader[State]
-	io.Closer
-}
-
-// Resolver is used to resolve a reachable address for a node in the cluster.
-type Resolver interface {
-	// Resolve resolves the address of a node with the given Key.
-	Resolve(key node.Key) (address.Address, error)
-}
-
-type Host interface {
-	// Host returns the host Node (i.e. the node that Host is called on).
-	Host() node.Node
-	// HostKey returns the Key of the host node.
-	HostKey() node.Key
-}
-
-type HostResolver interface {
-	Resolver
-	Host
-}
-
-// Open joins the host node to the cluster and begins gossiping its state. The
+// Open joins the host node to the Cluster and begins gossiping its state. The
 // node will spread addr as its listening address. A set of peer addresses
-// (other nodes in the cluster) must be provided when joining an existing cluster
-// for the first time. If restarting a node that is already a member of a cluster,
+// (other nodes in the Cluster) must be provided when joining an existing Cluster
+// for the first time. If restarting a node that is already a member of a Cluster,
 // the peer addresses can be left empty; Open will attempt to load the existing
-// cluster state from storage (see Config.Storage and Config.StorageKey).
-// If provisioning a new cluster, ensure that all storage for previous clusters
+// Cluster state from storage (see Config.Storage and Config.StorageKey).
+// If provisioning a new Cluster, ensure that all storage for previous clusters
 // is removed and provide no peers.
-func Open(ctx context.Context, configs ...Config) (Cluster, error) {
+func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	cfg, err := newConfig(ctx, configs)
 	if err != nil {
 		return nil, err
@@ -96,13 +57,13 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 
 	sCtx, cancel := signal.WithCancel(cfg.T.Transfer(ctx, context.Background()))
 
-	c := &cluster{
+	c := &Cluster{
 		Store:    cfg.Gossip.Store,
 		shutdown: signal.NewShutdown(sCtx, cancel),
 		Config:   cfg,
 	}
 
-	// Attempt to open the cluster store from kv. It's ok if we don't find it.
+	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
 	if err != nil && !errors.Is(err, kv.NotFound) {
 		return nil, err
@@ -129,8 +90,8 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		}
 	} else if len(c.Pledge.Peers) > 0 {
 		// If our store is empty or invalid and peers were provided, attempt to join
-		// the cluster.
-		c.L.Info("no cluster found in storage. pledging to cluster instead")
+		// the Cluster.
+		c.L.Info("no cluster found in storage. pledging to Cluster instead")
 		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
@@ -138,14 +99,14 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		c.SetHost(ctx, node.Node{Key: pledgeRes.Key, Address: c.HostAddress})
 		c.SetClusterKey(ctx, pledgeRes.ClusterKey)
 		// gossip initial state manually through peers in order to build an
-		// initial view of the cluster.
+		// initial view of the Cluster.
 		c.L.Info("gossiping initial state through peer addresses")
 		if err = c.gossipInitialState(ctx); err != nil {
 			return c, err
 		}
 	} else {
 		// If our store isn't valid, and we haven't received peers, assume we're
-		// bootstrapping a new cluster.
+		// bootstrapping a new Cluster.
 		c.SetHost(ctx, node.Node{Key: 1, Address: c.HostAddress})
 		c.SetClusterKey(ctx, uuid.New())
 		c.L.Info("no peers provided, bootstrapping new cluster")
@@ -155,16 +116,16 @@ func Open(ctx context.Context, configs ...Config) (Cluster, error) {
 		}
 	}
 
-	// After we've successfully pledged, we can start gossiping cluster state.
+	// After we've successfully pledged, we can start gossiping Cluster state.
 	c.gossip.GoGossip(sCtx)
 
-	// Periodically persist the cluster state.
+	// Periodically persist the Cluster state.
 	c.goFlushStore(sCtx)
 
 	return c, nil
 }
 
-type cluster struct {
+type Cluster struct {
 	Config
 	store.Store
 	gossip   *gossip.Gossip
@@ -172,19 +133,19 @@ type cluster struct {
 }
 
 // Key implements the Cluster interface.
-func (c *cluster) Key() uuid.UUID { return c.Store.PeekState().ClusterKey }
+func (c *Cluster) Key() uuid.UUID { return c.Store.PeekState().ClusterKey }
 
 // Host implements the Cluster interface.
-func (c *cluster) Host() node.Node { return c.Store.GetHost() }
+func (c *Cluster) Host() node.Node { return c.Store.GetHost() }
 
 // HostKey implements the Cluster interface.
-func (c *cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
+func (c *Cluster) HostKey() node.Key { return c.Store.PeekState().HostKey }
 
 // Nodes implements the Cluster interface.
-func (c *cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
+func (c *Cluster) Nodes() node.Group { return c.Store.PeekState().Nodes }
 
 // Node implements the Cluster interface.
-func (c *cluster) Node(key node.Key) (node.Node, error) {
+func (c *Cluster) Node(key node.Key) (node.Node, error) {
 	n, ok := c.Store.GetNode(key)
 	if !ok {
 		return n, NodeNotFound
@@ -193,23 +154,23 @@ func (c *cluster) Node(key node.Key) (node.Node, error) {
 }
 
 // Resolve implements the Cluster interface.
-func (c *cluster) Resolve(key node.Key) (address.Address, error) {
+func (c *Cluster) Resolve(key node.Key) (address.Address, error) {
 	n, err := c.Node(key)
 	return n.Address, err
 }
 
-func (c *cluster) Close() error { return c.shutdown.Close() }
+func (c *Cluster) Close() error { return c.shutdown.Close() }
 
-func (c *cluster) gossipInitialState(ctx context.Context) error {
-	i := iter.Endlessly(c.Pledge.Peers)
-	for peerAddr, _, _ := i.Next(ctx); peerAddr != ""; peerAddr, _, _ = i.Next(ctx) {
-		if err := c.gossip.GossipOnceWith(ctx, peerAddr); err != nil {
+func (c *Cluster) gossipInitialState(ctx context.Context) error {
+	peers := iter.Endlessly(c.Pledge.Peers)
+	for peer, _ := peers.Next(ctx); peer != ""; peer, _ = peers.Next(ctx) {
+		if err := c.gossip.GossipOnceWith(ctx, peer); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
 			c.L.Error(
 				"failed to gossip with peer",
-				zap.String("peer", string(peerAddr)),
+				zap.String("peer", string(peer)),
 				zap.Error(err),
 			)
 		}
@@ -220,7 +181,7 @@ func (c *cluster) gossipInitialState(ctx context.Context) error {
 	return nil
 }
 
-func (c *cluster) goFlushStore(ctx signal.Context) {
+func (c *Cluster) goFlushStore(ctx signal.Context) {
 	if c.Storage != nil {
 		flush := &kv.Subscriber[State]{
 			Key:         c.StorageKey,

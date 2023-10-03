@@ -41,8 +41,8 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	// ServiceDesc is the gRPC service description that the transport will use to bind
 	// to a gRPC service registrar.
 	ServiceDesc *grpc.ServiceDesc
-	// Client is a function that executes the grpc request.
-	Client func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
+	// Exec is a function that executes the grpc request.
+	Exec func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
 	freighter.MiddlewareCollector
 }
 
@@ -99,7 +99,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 			if err != nil {
 				return oMD, err
 			}
-			tRes, err := u.Client(ctx, conn.ClientConn, tReq)
+			tRes, err := u.Exec(ctx, conn.ClientConn, tReq)
 			oMD = parseContext(
 				ctx,
 				u.ServiceDesc.ServiceName,

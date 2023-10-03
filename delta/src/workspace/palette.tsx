@@ -10,13 +10,14 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
-import { rangeWindowLayout } from "@/workspace/DefineRange";
 
-export const defineRangeCommand: Command = {
-  key: "define-range",
-  name: "Define a range",
-  icon: <Icon.Range />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(rangeWindowLayout),
+import { createWindowLayout } from "./Create";
+
+export const createCommand: Command = {
+  key: "workspace-create",
+  name: "Create a workspace",
+  icon: <Icon.Workspace />,
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createWindowLayout),
 };
 
-export const COMMANDS = [defineRangeCommand];
+export const COMMANDS = [createCommand];

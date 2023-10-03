@@ -12,6 +12,7 @@ import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 import { type Optional } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
+import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
@@ -20,10 +21,10 @@ import { type ComponentSize } from "@/util/component";
 import "@/button/Button.css";
 
 /** The variant of button */
-export type ButtonVariant = "filled" | "outlined" | "text";
+export type Variant = "filled" | "outlined" | "text";
 
 export interface ButtonExtensionProps {
-  variant?: ButtonVariant;
+  variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
 }
@@ -83,6 +84,7 @@ export const Button = Tooltip.wrap(
       size={iconSpacing}
       onClick={!disabled ? onClick : undefined}
       noWrap
+      color={color(variant, disabled, props.color)}
       {...props}
     >
       {children}

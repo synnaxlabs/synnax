@@ -17,6 +17,7 @@ import (
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
 )
 
 const ontologyType ontology.Type = "range"
@@ -83,17 +84,18 @@ func translateChange(c change) schema.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) {
+func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
 	}
-	gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() iter.NexterCloser[schema.Resource] {
+func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+	n, err := gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter()
 	return iter.NexterCloserTranslator[Range, schema.Resource]{
-		Wrap:      gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter(),
+		Wrap:      n,
 		Translate: newResource,
-	}
+	}, err
 }

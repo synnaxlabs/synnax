@@ -14,7 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	igrp "github.com/synnaxlabs/freighter/integration/grpc"
-	"github.com/synnaxlabs/freighter/integration/server"
+	"github.com/synnaxlabs/freighter/integration/http"
 	xsig "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -26,7 +26,7 @@ import (
 func main() {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(logger.New())
-	server.BindTo(app)
+	http.BindTo(app)
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
 	g := grpc.NewServer()

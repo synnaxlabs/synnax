@@ -10,23 +10,32 @@
 package unary
 
 import (
-	"context"
 	"fmt"
+	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
+type controlledWriter struct {
+	*domain.Writer
+	channelKey core.ChannelKey
+}
+
+func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
+
 type DB struct {
 	Config
-	Ranger *domain.DB
-	_idx   index.Index
+	Domain     *domain.DB
+	Controller *controller.Controller[controlledWriter]
+	_idx       index.Index
 }
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
-		panic(fmt.Sprintf("[domain.unary] - database %v does not support indexing", db.Channel.Key))
+		panic(fmt.Sprintf("[control.unary] - database %v does not support indexing", db.Channel.Key))
 	}
 	return db.index()
 }
@@ -39,11 +48,6 @@ func (db *DB) index() index.Index {
 }
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
-
-func (db *DB) OpenWriter(ctx context.Context, cfg domain.WriterConfig) (*Writer, error) {
-	w, err := db.Ranger.NewWriter(ctx, cfg)
-	return &Writer{start: cfg.Start, Channel: db.Channel, internal: w, idx: db.index()}, err
-}
 
 type IteratorConfig struct {
 	Bounds telem.TimeRange
@@ -71,9 +75,13 @@ func (i IteratorConfig) ranger() domain.IteratorConfig {
 	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
+func (db *DB) LeadingControlState() *controller.State {
+	return db.Controller.LeadingState()
+}
+
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Ranger.NewIterator(cfg.ranger())
+	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
 		idx:            db.index(),
 		Channel:        db.Channel,
@@ -84,4 +92,4 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) Close() error { return db.Ranger.Close() }
+func (db *DB) Close() error { return db.Domain.Close() }

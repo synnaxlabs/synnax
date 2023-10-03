@@ -23,7 +23,7 @@ type Config struct {
 	alamos.Instrumentation
 	// Cluster is the cluster that the DB will use to communicate with other databases.
 	// [Required]
-	Cluster cluster.Cluster
+	Cluster *cluster.Cluster
 	// BatchTransportClient is used to send key-value NewReader to nodes.
 	// [Required]
 	BatchTransportClient BatchTransportClient

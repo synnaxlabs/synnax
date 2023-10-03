@@ -11,7 +11,7 @@ import type { Store } from "@reduxjs/toolkit";
 import { combineReducers } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
-import { type DeepKey } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
@@ -20,10 +20,11 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { PID } from "@/pid";
+import { Range } from "@/range";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
-const PERSIST_EXCLUDE: Array<DeepKey<RootState>> = [
+const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   Drift.SLICE_NAME,
   ...Layout.PERSIST_EXCLUDE,
 ];
@@ -33,34 +34,38 @@ const reducer = combineReducers({
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [PID.SLICE_NAME]: PID.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Range.SLICE_NAME]: Range.reducer,
   [Version.SLICE_NAME]: Version.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
+  [Workspace.SLICE_NAME]: Workspace.reducer,
 });
 
 export interface RootState {
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Range.SLICE_NAME]: Range.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [PID.SLICE_NAME]: PID.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
+  [Workspace.SLICE_NAME]: Workspace.SliceState;
 }
 
-export type Action =
+export type RootAction =
   | Layout.Action
-  | Workspace.Action
+  | Range.Action
   | Docs.Action
   | Cluster.Action
   | LinePlot.Action
-  | PID.Action;
+  | PID.Action
+  | Range.Action
+  | Workspace.Action;
 
-export type Payload = Action["payload"];
+export type Payload = RootAction["payload"];
 
-export type RootStore = Store<RootState, Action>;
+export type RootStore = Store<RootState, RootAction>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   transparent: true,
@@ -71,13 +76,14 @@ const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
     exclude: PERSIST_EXCLUDE,
   });
-  return (await Drift.configureStore<RootState, Action>({
+  return (await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
     middleware: (def) => [
       ...def(),
-      ...LinePlot.middleware,
-      ...Layout.middleware,
+      ...LinePlot.MIDDLEWARE,
+      ...Layout.MIDDLEWARE,
+      ...PID.MIDDLEWARE,
       persistMiddleware,
     ],
     reducer,

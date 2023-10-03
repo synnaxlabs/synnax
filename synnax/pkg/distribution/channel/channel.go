@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"strconv"
@@ -41,6 +42,10 @@ func ParseKey(s string) (k Key, err error) {
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
 func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
+
+// Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
+// virtual channel.
+func (c Key) Free() bool { return c.Leaseholder() == core.Free }
 
 // StorageKey returns a unique identifier for the Channel to use with a ts.DB.
 func (c Key) StorageKey() uint32 { return uint32(c) }
@@ -72,6 +77,14 @@ func KeysFromChannels(channels []Channel) (keys Keys) {
 		keys[i] = channel.Key()
 	}
 	return keys
+}
+
+func NamesFromChannels(channels []Channel) (names []string) {
+	names = make([]string, len(channels))
+	for i, channel := range channels {
+		names[i] = channel.Name
+	}
+	return names
 }
 
 func KeysFromUint32(keys []uint32) Keys {
@@ -163,13 +176,19 @@ type Channel struct {
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample.
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
-	// LocalKey is a unique identifier for the channel within the storage ts.DB. If not set
-	// when creating a channel, a unique key will be generated.
+	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
+	// When creating a channel, a unique key will be generated.
 	LocalKey uint16 `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
 	LocalIndex uint16 `json:"local_index" msgpack:"local_index"`
+	// Virtual is set to true if the channel is a virtual channel. The data from virtual
+	// channels is not persisted into the DB.
+	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Concurrency sets the policy for concurrent writes to the same region of the
+	// channel's data. Only virtual channels can have a policy of control.Shared.
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 }
 
 // Key returns the key for the Channel.
@@ -189,18 +208,29 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // SetOptions implements the gorp.Entry interface. Returns a set of options that
 // tell an aspen.DB to properly lease the Channel to the node it will be recording data
 // from.
-func (c Channel) SetOptions() []interface{} { return []interface{}{c.Lease()} }
+func (c Channel) SetOptions() []interface{} {
+	if c.Free() {
+		return []interface{}{core.Bootstrapper}
+	}
+	return []interface{}{c.Lease()}
+}
 
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() core.NodeKey { return c.Leaseholder }
 
+// Free returns true if the channel is leased to a particular node i.e. it is not
+// a non-leased virtual channel.
+func (c Channel) Free() bool { return c.Leaseholder == core.Free }
+
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
-		Key:      uint32(c.Key()),
-		DataType: c.DataType,
-		IsIndex:  c.IsIndex,
-		Rate:     c.Rate,
-		Index:    uint32(c.Index()),
+		Key:         uint32(c.Key()),
+		DataType:    c.DataType,
+		IsIndex:     c.IsIndex,
+		Rate:        c.Rate,
+		Index:       uint32(c.Index()),
+		Virtual:     c.Virtual,
+		Concurrency: c.Concurrency,
 	}
 }
 

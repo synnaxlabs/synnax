@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -61,6 +62,7 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, er
 	return &streamer{
 		StreamerConfig: cfg,
 		relay:          db.relay,
+		db:             db,
 	}, nil
 }
 
@@ -68,6 +70,7 @@ type streamer struct {
 	StreamerConfig
 	confluence.AbstractLinear[StreamerRequest, StreamerResponse]
 	relay *relay
+	db    *DB
 }
 
 var _ Streamer = (*streamer)(nil)
@@ -76,9 +79,15 @@ var _ Streamer = (*streamer)(nil)
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
+
 	frames, disconnect := s.relay.connect(1)
 	ctx.Go(func(ctx context.Context) error {
 		defer disconnect()
+		if s.sendControlDigests() {
+			s.Out.Inlet() <- StreamerResponse{
+				Frame: s.db.controlUpdateToWriterRequest(ctx, s.db.controlStates()),
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -86,6 +95,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return nil
+				}
+				if s.sendControlDigests() {
+					s.Out.Inlet() <- StreamerResponse{
+						Frame: s.db.controlUpdateToWriterRequest(ctx, s.db.controlStates()),
+					}
 				}
 				s.Channels = req.Channels
 			case f := <-frames.Outlet():
@@ -96,4 +110,8 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			}
 		}
 	}, o.Signal...)
+}
+
+func (s *streamer) sendControlDigests() bool {
+	return lo.Contains(s.Channels, s.db.digests.key)
 }

@@ -19,20 +19,20 @@ import (
 
 var _ = Describe("Keys", func() {
 	Describe("Keys", func() {
-		Describe("New", func() {
-			It("Should create a new key with the given node Key and cesium key", func() {
+		Describe("Name", func() {
+			It("Should create a new key with the given node Name and cesium key", func() {
 				k := channel.NewKey(core.NodeKey(1), 2)
 				Expect(k.Leaseholder()).To(Equal(core.NodeKey(1)))
 			})
 		})
 		Describe("Lease", func() {
-			It("Should return the leaseholder node Key", func() {
+			It("Should return the leaseholder node Name", func() {
 				k := channel.NewKey(core.NodeKey(1), 2)
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})
 		Describe("OntologyID", func() {
-			It("Should return the ontology Key for the channel", func() {
+			It("Should return the ontology Name for the channel", func() {
 				ok := channel.OntologyID(channel.NewKey(core.NodeKey(1), 2))
 				Expect(ok).To(Equal(ontology.ID{
 					Type: "channel",

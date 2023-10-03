@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/proto/go/channel/v1"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/channel/v1"
 	"github.com/synnaxlabs/x/telem"
 )
 

@@ -17,6 +17,8 @@ import { CSS } from "@/css";
 import { type Variant } from "@/status/aether/types";
 import { Text as BaseText } from "@/text";
 
+import { variantColors } from "./colors";
+
 export interface TextDigest {
   variant: Variant;
   children?: string | number;
@@ -29,15 +31,6 @@ export interface TextProps
   hideIcon?: boolean;
 }
 
-const statusVariantColors: Record<Variant, Color.Crude> = {
-  info: "var(--pluto-text-color)",
-  error: "var(--pluto-error-z)",
-  warning: "var(--pluto-text-color)",
-  success: "var(--pluto-primary-z)",
-  loading: "var(--pluto-text-color)",
-  disabled: "var(--pluto-gray-p0)",
-};
-
 const CoreText = ({
   variant = "info",
   level = "p",
@@ -46,7 +39,7 @@ const CoreText = ({
   ...props
 }: TextProps): ReactElement => (
   <BaseText.WithIcon
-    color={statusVariantColors[variant]}
+    color={variantColors[variant]}
     className={CSS(className, CSS.B("status-text"))}
     level={level}
     startIcon={!hideIcon && <Icon.Circle />}

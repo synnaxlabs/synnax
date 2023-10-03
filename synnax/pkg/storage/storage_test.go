@@ -29,7 +29,7 @@ var _ = Describe("storage", func() {
 		)
 		BeforeEach(func() {
 			var err error
-			tempDir, err = os.MkdirTemp("", "delta-test")
+			tempDir, err = os.MkdirTemp("", "synnax-test")
 			Expect(err).ToNot(HaveOccurred())
 			cfg = storage.Config{Dirname: filepath.Join(tempDir, "storage")}
 		})
@@ -44,7 +44,7 @@ var _ = Describe("storage", func() {
 			})
 		})
 		Describe("Permissions", func() {
-			Describe("New Directory", func() {
+			Describe("Name Directory", func() {
 				It("Should set the correct permissions on the storage directory", func() {
 					cfg.Perm = storage.DefaultConfig.Perm
 					store, err := storage.Open(cfg)

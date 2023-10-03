@@ -21,7 +21,6 @@
     &:focus {
         outline: none;
         border-color: var(--pluto-primary-z);
-        z-index: 2;
     }
 
     &.pluto--medium {

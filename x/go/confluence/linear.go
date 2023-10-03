@@ -39,6 +39,9 @@ func (l *LinearTransform[I, O]) Flow(ctx signal.Context, opts ...Option) {
 
 func (l *LinearTransform[I, O]) transform(ctx context.Context, i I) error {
 	v, ok, err := l.Transform(ctx, i)
+	if err != nil {
+		return err
+	}
 	if err != nil || !ok {
 		return err
 	}

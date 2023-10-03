@@ -34,7 +34,7 @@ type Reader interface {
 	// Get returns the value for the given key.
 	Get(ctx context.Context, key []byte, opts ...interface{}) ([]byte, error)
 	// OpenIterator returns an Iterator using the given IteratorOptions.
-	OpenIterator(opts IteratorOptions) Iterator
+	OpenIterator(opts IteratorOptions) (Iterator, error)
 }
 
 // Writer as a writable key-value store.
@@ -87,13 +87,17 @@ type DB interface {
 	io.Closer
 }
 
-// Change represents a change to a key-value pair. The contents of Key and Value
+// Change represents a change to a key-value pair. The contents of Name and Value
 // should be considered read-only, and modifications to them may cause unexpected
 // behavior.
 type Change = change.Change[[]byte, []byte]
 
 // TxReader is used to read the operations in a transaction.
-type TxReader = iter.Nexter[Change]
+type TxReader interface {
+	iter.Nexter[Change]
+	// Count returns the total number of operations in the transaction.
+	Count() int
+}
 
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]

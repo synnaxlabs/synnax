@@ -25,11 +25,6 @@
         background-color: var(--pluto-gray-m2);
         border: var(--pluto-border);
     }
-
-    &:active,
-    &:hover {
-        z-index: 12;
-    }
 }
 
 /* |||| FILLED |||| */
@@ -55,8 +50,8 @@
 }
 
 .pluto-btn--filled path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-white) !important;
-    fill: var(--pluto-white) !important;
+    stroke: inherit !important;
+    fill: inherit !important;
 }
 
 /* |||| OUTLINED |||| */
@@ -82,8 +77,8 @@
 }
 
 .pluto-btn--outlined :is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-gray-p1) !important;
-    fill: var(--pluto-gray-p1) !important;
+    stroke: inherit !important;
+    fill: inherit !important;
 }
 
 /* |||| TEXT |||| */
@@ -96,9 +91,9 @@
         background-color: var(--pluto-gray-m2);
     }
 
-    & * {
+    /* & * {
         color: var(--pluto-text-color);
-    }
+    } */
 
     &:active {
         background-color: var(--pluto-gray-m2);
@@ -106,7 +101,7 @@
 }
 
 .pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-text-color) !important;
+    stroke: inherit !important
 }
 
 /* |||| ICON |||| */

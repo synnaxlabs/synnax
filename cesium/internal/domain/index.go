@@ -179,22 +179,24 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 
 func (idx *index) get(i int) (pointer, bool) {
 	idx.mu.RLock()
-	defer idx.mu.RUnlock()
 	if i < 0 || i >= len(idx.mu.pointers) {
+		idx.mu.RUnlock()
 		return pointer{}, false
 	}
-	return idx.mu.pointers[i], true
+	v := idx.mu.pointers[i]
+	idx.mu.RUnlock()
+	return v, true
 }
 
 func (idx *index) read(f func()) {
 	idx.mu.RLock()
-	defer idx.mu.RUnlock()
 	f()
+	idx.mu.RUnlock()
 }
 
 func (idx *index) close() error {
 	idx.mu.Lock()
-	defer idx.mu.Unlock()
 	idx.mu.pointers = nil
+	idx.mu.Unlock()
 	return nil
 }

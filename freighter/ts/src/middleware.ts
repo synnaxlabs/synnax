@@ -23,7 +23,7 @@ export interface Context {
 }
 
 export const ROLES = ["client", "server"] as const;
-export type Role = typeof ROLES[number];
+export type Role = (typeof ROLES)[number];
 
 /** Next executes the next middleware in the chain. */
 export type Next = (ctx: Context) => Promise<[Context, Error | null]>;
@@ -63,7 +63,7 @@ export class MiddlewareCollector {
    */
   async executeMiddleware(
     ctx: Context,
-    finalizer: Finalizer
+    finalizer: Finalizer,
   ): Promise<[Context, Error | null]> {
     let i = 0;
     const next = async (md: Context): Promise<[Context, Error | null]> => {

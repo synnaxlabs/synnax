@@ -71,16 +71,10 @@ import {
   MdPerson,
   MdPause,
 } from "react-icons/md";
-import { PiSelectionPlusBold } from "react-icons/pi";
+import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import {
-  TbZoomFilled,
-  TbArrowRight,
-  TbArrowDown,
-  TbArrowLeft,
-  TbArrowUp,
-} from "react-icons/tb";
+import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
 
 const IconOS: Record<OS, IconFC> = {
   Linux: FaLinux,
@@ -167,7 +161,7 @@ export const Icon: IconType = {
   },
   Tooltip: MdInsights,
   Annotate: MdLabel,
-  Zoom: TbZoomFilled,
+  Zoom: PiMagnifyingGlassBold,
   Selection: PiSelectionPlusBold,
   Pan: GrPan,
   Rule: MdSquareFoot,

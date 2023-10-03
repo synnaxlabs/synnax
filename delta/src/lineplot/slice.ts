@@ -151,6 +151,7 @@ export type SugaredRangesState = Vis.MultiXAxisRecord<Range>;
 
 export interface State {
   key: string;
+  remoteCreated: boolean;
   title: TitleState;
   legend: LegendState;
   channels: ChannelsState;
@@ -179,6 +180,7 @@ export const ZERO_AXES_STATE: AxesState = {
 
 export const ZERO_LINE_VIS: State = {
   key: "",
+  remoteCreated: false,
   title: ZERO_TITLE_STATE,
   legend: ZERO_LEGEND_STATE,
   channels: ZERO_CHANNELS_STATE,
@@ -243,15 +245,15 @@ export const ZERO_LINE_SLICE_STATE: SliceState = {
 export interface CreatePayload extends State {}
 
 export interface RemovePayload {
-  layoutKey: string;
+  keys: string[];
 }
 
 export interface SetViewportPayload extends Partial<Omit<ViewportState, "counter">> {
-  layoutKey: string;
+  key: string;
 }
 
 export interface StoreViewportPayload extends Omit<ViewportState, "counter"> {
-  layoutKey: string;
+  key: string;
 }
 
 export interface SetYChannelsPayload {
@@ -335,6 +337,10 @@ interface TypedLineKey {
   };
 }
 
+export interface SetRemoteCreatedPayload {
+  key: string;
+}
+
 export const typedLineKeyToString = (key: TypedLineKey): string =>
   `${key.yAxis}-${key.xAxis}-${key.range}-${key.channels.x}-${key.channels.y}`;
 
@@ -389,28 +395,32 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_LINE_SLICE_STATE,
   reducers: {
-    set: (state, { payload }: PayloadAction<CreatePayload>) => {
+    create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       const existing = state.plots[layoutKey];
       if (existing != null) return;
       state.plots[layoutKey] = payload;
       state.plots[layoutKey].lines = updateLines(payload);
     },
-    remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      const { layoutKey } = payload;
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.plots[layoutKey];
+    remove: (
+      state,
+      { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>
+    ) => {
+      layoutKeys.forEach((layoutKey) => {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete state.plots[layoutKey];
+      });
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
-      state.plots[payload.layoutKey].viewport = {
+      state.plots[payload.key].viewport = {
         ...deep.copy(ZERO_VIEWPORT_STATE),
         ...payload,
-        counter: state.plots[payload.layoutKey].viewport.counter + 1,
+        counter: state.plots[payload.key].viewport.counter + 1,
       };
     },
     storeViewport: (state, { payload }: PayloadAction<StoreViewportPayload>) => {
-      state.plots[payload.layoutKey].viewport = {
-        ...state.plots[payload.layoutKey].viewport,
+      state.plots[payload.key].viewport = {
+        ...state.plots[payload.key].viewport,
         ...payload,
       };
     },
@@ -494,6 +504,9 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.mode = mode;
     },
+    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
+      state.plots[payload.key].remoteCreated = true;
+    },
   },
 });
 
@@ -513,6 +526,8 @@ export const {
   setControlState,
   storeViewport,
   setViewportMode,
+  setRemoteCreated,
+  create: internalCreate,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
@@ -521,14 +536,14 @@ export type LinePayload = Action["payload"];
 export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";
 
-export const createLinePlot =
+export const create =
   (
     initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
   ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();
-    dispatch(actions.set({ ...deep.copy(ZERO_LINE_VIS), ...rest, key }));
+    dispatch(actions.create({ ...deep.copy(ZERO_LINE_VIS), ...rest, key }));
     return {
       key,
       name,

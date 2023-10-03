@@ -23,7 +23,7 @@ type Builder struct {
 	Configs     []cluster.Config
 	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
 	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
-	ClusterAPIs map[node.Key]cluster.Cluster
+	ClusterAPIs map[node.Key]*cluster.Cluster
 }
 
 func NewBuilder(cfgs ...cluster.Config) *Builder {
@@ -31,11 +31,11 @@ func NewBuilder(cfgs ...cluster.Config) *Builder {
 		Configs:     cfgs,
 		GossipNet:   fmock.NewNetwork[gossip.Message, gossip.Message](),
 		PledgeNet:   fmock.NewNetwork[pledge.Request, pledge.Response](),
-		ClusterAPIs: make(map[node.Key]cluster.Cluster),
+		ClusterAPIs: make(map[node.Key]*cluster.Cluster),
 	}
 }
 
-func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (cluster.Cluster, error) {
+func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (*cluster.Cluster, error) {
 	gossipServer := b.GossipNet.UnaryServer("")
 	pledgeServer := b.PledgeNet.UnaryServer(gossipServer.Address)
 	cfgs = append(b.Configs, cfgs...)

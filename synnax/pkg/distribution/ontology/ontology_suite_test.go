@@ -11,8 +11,6 @@ package ontology_test
 
 import (
 	"context"
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -21,7 +19,13 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"testing"
 )
+
+func TestOntology(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Ontology Suite")
+}
 
 type emptyService struct {
 	observe.Noop[iter.Nexter[schema.Change]]
@@ -48,10 +52,10 @@ func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontolo
 	return e, nil
 }
 
-func (s *emptyService) OpenNexter() iter.NexterCloser[ontology.Resource] {
-	return iter.NexterNopCloser[ontology.Resource]{Wrap: iter.All([]ontology.Resource{
+func (s *emptyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	return iter.NexterNopCloser(iter.All([]ontology.Resource{
 		schema.NewResource(s.Schema(), newEmptyID(""), "empty"),
-	})}
+	})), nil
 }
 
 var (
@@ -70,6 +74,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	Expect(otg.Close()).To(Succeed())
 	Expect(db.Close()).To(Succeed())
 })
 
@@ -80,8 +85,3 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	Expect(tx.Close()).To(Succeed())
 })
-
-func TestOntology(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ontology Suite")
-}

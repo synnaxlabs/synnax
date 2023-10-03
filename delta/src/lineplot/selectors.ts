@@ -18,24 +18,27 @@ import {
   type ToolbarState,
   type ControlState,
 } from "@/lineplot/slice";
+import { Range } from "@/range";
 import { type Vis } from "@/vis";
-import { Workspace } from "@/workspace";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).plots[key];
 
+export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
+  keys.map((key) => select(state, key));
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
-export const selectRanges = (key: string): Vis.XAxisRecord<Workspace.Range[]> => {
+export const selectRanges = (key: string): Vis.XAxisRecord<Range.Range[]> => {
   return useMemoSelect(
-    (state: StoreState & Workspace.StoreState) => {
+    (state: StoreState & Range.StoreState) => {
       const p = select(state, key);
       return {
-        x1: Workspace.selectRanges(state, p.ranges.x1),
-        x2: Workspace.selectRanges(state, p.ranges.x2),
+        x1: Range.selectMultiple(state, p.ranges.x1),
+        x2: Range.selectMultiple(state, p.ranges.x2),
       };
     },
     [key]

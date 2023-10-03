@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/git"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -22,12 +21,12 @@ import (
 	"time"
 )
 
-func configureInstrumentation() alamos.Instrumentation {
+func configureInstrumentation(version string) alamos.Instrumentation {
 	logger, err := configureLogger()
 	if err != nil {
 		log.Fatal(err)
 	}
-	tracer, err := configureTracer(logger)
+	tracer, err := configureTracer(version, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,15 +65,11 @@ func configureLogger() (*alamos.Logger, error) {
 	return alamos.NewLogger(alamos.LoggerConfig{Zap: z})
 }
 
-func configureTracer(logger *alamos.Logger) (*alamos.Tracer, error) {
-	commit, err := git.CurrentCommit()
-	if err != nil {
-		commit = "unknown"
-	}
+func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
 		uptrace.WithServiceName("synnax"),
-		uptrace.WithServiceVersion(commit),
+		uptrace.WithServiceVersion(version),
 	)
 	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 		logger.Info("opentelemetry", alamos.DebugError(err))

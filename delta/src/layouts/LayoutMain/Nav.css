@@ -9,8 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
+ .delta-main-nav-top {
+    max-width: 100vw;
+ }
+
 .delta-main-nav-top__start {
-    padding: 1rem 2rem;
+    padding: 0rem 2rem;
+    @media (min-width: 1200px) {
+        flex-basis: 350px;
+    }
+}
+
+.delta-main-nav-top__end {
+    @media (min-width: 1200px) {
+        flex-basis: 350px;
+    }
+    flex-basis: 200px;
+}
+
+.delta-main-nav-top__center {
+    flex-shrink: 0;
 }
 
 .delta-main:not(.delta-main--windows) .delta-main-nav-top__end {

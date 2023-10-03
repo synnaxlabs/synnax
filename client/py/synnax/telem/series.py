@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import pandas as pd
 import numpy as np
+import uuid
 from datetime import datetime
 
 from freighter import Payload
-from synnax.telem.telem import TimeRange, DataType, CrudeDataType, Size
+from synnax.telem.telem import TimeRange, DataType, CrudeDataType, Size, TimeStamp
 from synnax.util.interop import overload_comparison_operators
-
 
 
 class Series(Payload):
@@ -59,7 +59,10 @@ class Series(Payload):
         time_range: TimeRange | None = None,
         alignment: int = 0,
     ):
-        if isinstance(data, Series):
+        if isinstance(data, (TimeStamp, int, float, np.number)):
+            data_type = data_type or DataType(data)
+            data_ = np.array([data], dtype=data_type.np).tobytes()
+        elif isinstance(data, Series):
             data_type = data_type or data.data_type
             data_ = data.data
             time_range = data.time_range if time_range is None else time_range
@@ -70,8 +73,8 @@ class Series(Payload):
             data_type = data_type or DataType(data.dtype)
             data_ = data.astype(data_type.np).tobytes()
         elif isinstance(data, list):
-            data_type = data_type or DataType.FLOAT64
-            data_ = np.array(data, dtype=data_type).tobytes()
+            data_type = data_type or DataType(data)
+            data_ = np.array(data, dtype=data_type.np).tobytes()
         else:
             if data_type is None:
                 raise ValueError(
@@ -79,8 +82,9 @@ class Series(Payload):
                 )
             data_type = DataType(data_type)
             data_ = data
-        super().__init__(data_type=data_type, data=data_, time_range=time_range,
-                         alignment=alignment)
+        super().__init__(
+            data_type=data_type, data=data_, time_range=time_range, alignment=alignment
+        )
 
     class Config:
         arbitrary_types_allowed = True
@@ -92,6 +96,11 @@ class Series(Payload):
         return np.frombuffer(self.data, dtype=self.data_type.np)
 
     def __getitem__(self, index: int) -> float:
+        if self.data_type == DataType.UUID:
+            start = self.data_type.density.sample_count(index)
+            end = start + self.data_type.density + 1
+            d = self.data[start:end]
+            return uuid.UUID(bytes=d)
         return self.__array__()[index]
 
     def __iter__(self):
@@ -122,4 +131,4 @@ class Series(Payload):
 
 
 TypedCrudeSeries = Series | pd.Series | np.ndarray
-CrudeSeries = Series | bytes | pd.Series | np.ndarray | list
+CrudeSeries = Series | bytes | pd.Series | np.ndarray | list | float | int | TimeStamp

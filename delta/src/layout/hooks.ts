@@ -10,7 +10,7 @@
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
 import type { AnyAction } from "@reduxjs/toolkit";
-import { closeWindow, createWindow, MAIN_WINDOW } from "@synnaxlabs/drift";
+import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   type AsyncDestructor,
@@ -22,10 +22,11 @@ import {
 } from "@synnaxlabs/pluto";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
+import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { type LayoutState } from "@/layout/layout";
-import { useSelect, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
+import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
   place,
@@ -35,6 +36,8 @@ import {
   setNavdrawerVisible,
   toggleActiveTheme,
 } from "@/layout/slice";
+import { type RootState } from "@/store";
+import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
@@ -51,7 +54,7 @@ export type Placer = (layout: Omit<LayoutState, "windowKey"> | Creator) => {
 };
 
 /** A function that removes a layout. */
-export type Remover = () => void;
+export type Remover = (...keys: string[]) => void;
 
 /**
  * useLayoutPlacer is a hook that returns a function that allows the caller to place
@@ -64,7 +67,8 @@ export type Remover = () => void;
  * when possible, but feel free to use the second method for more dynamic layout creation.
  */
 export const usePlacer = (): Placer => {
-  const dispatch = useDispatch();
+  const syncer = Workspace.useLayoutSyncer();
+  const dispatch = useSyncerDispatch(syncer);
   const os = OS.use();
   const windowKey = useSelectWindowKey();
   if (windowKey == null) throw new Error("windowKey is null");
@@ -75,7 +79,7 @@ export const usePlacer = (): Placer => {
       dispatch(place({ ...layout, windowKey }));
       if (location === "window")
         dispatch(
-          createWindow({
+          Drift.createWindow({
             ...{ ...window, navTop: undefined, decorations: os !== "Windows" },
             url: "/",
             key,
@@ -96,13 +100,20 @@ export const usePlacer = (): Placer => {
  * @returns A layout remover function that allows the caller to remove a layout. If
  * the layout is in a window, the window will also be closed.
  */
-export const useRemover = (key: string): Remover => {
-  const dispatch = useDispatch();
-  const layout = useSelect(key);
-  if (layout == null) throw new Error(`layout with key ${key} does not exist`);
-  return () => {
-    if (layout.location === "window") dispatch(closeWindow({ key }));
-    dispatch(remove(key));
+export const useRemover = (...baseKeys: string[]): Remover => {
+  const syncer = Workspace.useLayoutSyncer();
+  const syncDispatch = useSyncerDispatch(syncer);
+  const store = useStore<RootState>();
+  return (...keys) => {
+    keys = [...baseKeys, ...keys];
+    const s = store.getState();
+    keys.forEach((keys) => {
+      const l = select(s, keys);
+      // Even if the layout is not present, close the window for good measure.
+      if (l == null || l.location === "window")
+        store.dispatch(Drift.closeWindow({ key: keys }));
+    });
+    syncDispatch(remove({ keys }));
   };
 };
 
@@ -118,7 +129,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (appWindow.label !== MAIN_WINDOW) return;
+    if (appWindow.label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
     return cleanup;
@@ -158,16 +169,11 @@ const matchThemeChange = ({
   payload: TauriTheme | null;
 }): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
 
-const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor => {
-  return await appWindow.onThemeChanged((e) =>
-    dispatch(setActiveTheme(matchThemeChange(e)))
-  );
-};
+const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor =>
+  await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
 
-const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> => {
-  const t = await appWindow.theme();
-  dispatch(setActiveTheme(matchThemeChange({ payload: t })));
-};
+const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> =>
+  dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
 
 export interface NavMenuItem {
   key: string;

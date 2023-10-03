@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Middleware } from "@/middleware";
+import { type Middleware } from "@/middleware";
 
 /**
  * Transport is a based interface that represents a general transport for

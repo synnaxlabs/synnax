@@ -115,7 +115,7 @@ class WebsocketStream(AsyncStream[RQ, RS]):
         await self.__internal.close()
 
 
-DEFAULT_MAX_SIZE = 2 ** 20
+DEFAULT_MAX_SIZE = 2**20
 
 
 class WebsocketClient(AsyncMiddlewareCollector):
@@ -182,7 +182,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
 
         _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
         if exc is not None:
-            raise exc__e
+            raise exc
 
         assert socket is not None
         return socket

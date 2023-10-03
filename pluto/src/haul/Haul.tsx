@@ -30,6 +30,7 @@ import "@/haul/Haul.css";
 export interface Item {
   key: Key;
   type: string;
+  data?: unknown;
 }
 
 export interface DraggingState {

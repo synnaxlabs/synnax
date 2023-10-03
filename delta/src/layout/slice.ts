@@ -92,7 +92,7 @@ const ZERO_MOSAIC_STATE: MosaicState = {
   },
 };
 
-const ZERO_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
@@ -128,7 +128,9 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 /** Signature for the placeLayut action. */
 export type PlacePayload = LayoutState;
 /** Signature for the removeLayout action. */
-export type RemovePayload = string;
+export interface RemovePayload {
+  keys: string[];
+}
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string | undefined;
 
@@ -157,6 +159,11 @@ interface ResizeNavdrawerPayload {
 }
 interface SetHaulingPayload extends Haul.DraggingState {}
 
+export interface SetSlicePayload {
+  keepNav?: boolean;
+  slice: SliceState;
+}
+
 interface SetNavdrawerVisiblePayload {
   key?: string;
   location?: NavdrawerLocation;
@@ -165,7 +172,7 @@ interface SetNavdrawerVisiblePayload {
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
       const { key, location, name, tab } = layout;
@@ -214,18 +221,19 @@ export const { actions, reducer } = createSlice({
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
       state.hauling = payload;
     },
-    remove: (state, { payload: contentKey }: PayloadAction<RemovePayload>) => {
-      const layout = state.layouts[contentKey];
-      const mosaic = state.mosaics[layout.windowKey];
-      if (layout == null || mosaic == null) return;
-      const { location } = layout;
-
-      if (location === "mosaic")
-        [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
-
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete state.layouts[contentKey];
-      state.mosaics[layout.windowKey] = mosaic;
+    remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      keys.forEach((contentKey) => {
+        const layout = state.layouts[contentKey];
+        if (layout == null) return;
+        const mosaic = state.mosaics[layout.windowKey];
+        if (layout == null || mosaic == null) return;
+        const { location } = layout;
+        if (location === "mosaic")
+          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete state.layouts[contentKey];
+        state.mosaics[layout.windowKey] = mosaic;
+      });
     },
     moveMosaicTab: (
       state,
@@ -353,6 +361,18 @@ export const { actions, reducer } = createSlice({
         windowKey: MAIN_WINDOW,
       };
     },
+    setWorkspace: (
+      state,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetSlicePayload>
+    ) => {
+      return {
+        ...slice,
+        hauling: state.hauling,
+        themes: state.themes,
+        activeTheme: state.activeTheme,
+        nav: keepNav ? state.nav : slice.nav,
+      };
+    },
   },
 });
 
@@ -369,6 +389,7 @@ export const {
   setNavdrawerVisible,
   maybeCreateGetStartedTab,
   setHauled,
+  setWorkspace,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

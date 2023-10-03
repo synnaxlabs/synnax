@@ -73,7 +73,7 @@ func (d db) Delete(ctx context.Context, key []byte, opts ...interface{}) error {
 }
 
 // OpenIterator implement kv.DB.
-func (d db) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.DB.NewIter(parseIterOpts(opts))
 }
 
@@ -87,7 +87,9 @@ func (d db) apply(ctx context.Context, txn tx) error {
 }
 
 // Report implement alamos.ReportProvider.
-func (d db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
+func (d db) Report() alamos.Report {
+	return alamos.Report{"engine": "pebble"}
+}
 
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }
@@ -116,7 +118,7 @@ func (txn tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
 }
 
 // OpenIterator implements kv.Writer.
-func (txn tx) OpenIterator(opts kv.IteratorOptions) kv.Iterator {
+func (txn tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return txn.Batch.NewIter(parseIterOpts(opts))
 }
 
@@ -126,7 +128,12 @@ func (txn tx) Commit(ctx context.Context, opts ...interface{}) error {
 }
 
 // NewReader implements kv.Writer.
-func (txn tx) NewReader() kv.TxReader { return &txReader{BatchReader: txn.Batch.Reader()} }
+func (txn tx) NewReader() kv.TxReader {
+	return &txReader{
+		count:       int(txn.Batch.Count()),
+		BatchReader: txn.Batch.Reader(),
+	}
+}
 
 var kindsToVariant = map[pebble.InternalKeyKind]change.Variant{
 	pebble.InternalKeyKindSet:    change.Set,
@@ -148,21 +155,27 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 	}
 }
 
-type txReader struct{ pebble.BatchReader }
+type txReader struct {
+	count int
+	pebble.BatchReader
+}
 
 var _ kv.TxReader = (*txReader)(nil)
 
+// Count implements kv.TxReader.
+func (r *txReader) Count() int { return r.count }
+
 // Next implements kv.TxReader.
-func (r *txReader) Next(_ context.Context) (kv.Change, bool, error) {
+func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
 	kind, k, v, ok := r.BatchReader.Next()
 	if !ok {
-		return kv.Change{}, false, nil
+		return kv.Change{}, false
 	}
 	variant, ok := kindsToVariant[kind]
 	if !ok {
-		return kv.Change{}, false, nil
+		return kv.Change{}, false
 	}
-	return kv.Change{Variant: variant, Key: k, Value: v}, true, nil
+	return kv.Change{Variant: variant, Key: k, Value: v}, true
 }
 
 func translateError(err error) error {

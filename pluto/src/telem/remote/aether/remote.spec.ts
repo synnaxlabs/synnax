@@ -303,14 +303,14 @@ describe("XY", () => {
 
     describe("read", () => {
       it("should return zero if no current value exists", async () => {
-        expect(await telem_.value()).toBe(0);
+        expect(await telem_.number()).toBe(0);
       });
       it("should update the value when the stream handler changes", async () => {
-        expect(await telem_.value()).toBe(0);
+        expect(await telem_.number()).toBe(0);
         client_.handler?.({
           1: new client.ReadResponse(CHANNELS[1], [new Series(new Float32Array([1]))]),
         });
-        expect(await telem_.value()).toBe(1);
+        expect(await telem_.number()).toBe(1);
       });
     });
   });

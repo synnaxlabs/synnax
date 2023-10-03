@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid";
+import { v4 as uuidv4 } from "uuid";
 
 import { type LayoutState } from "@/layout/layout";
 
@@ -22,7 +22,7 @@ export const create = (
   const {
     location = "mosaic",
     name = "Visualizaton",
-    key = nanoid(),
+    key = uuidv4(),
     window,
     tab,
   } = props;

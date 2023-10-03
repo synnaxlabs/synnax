@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestCluster(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "cluster Suite")
+	RunSpecs(t, "Cluster Suite")
 }

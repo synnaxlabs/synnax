@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("storage", func() {
 	Describe("Builder", func() {
-		DescribeTable("New", func(cfg ...storage.Config) {
+		DescribeTable("Name", func(cfg ...storage.Config) {
 			b := mock.NewBuilder(cfg...)
 			store := b.New()
 			Expect(store).NotTo(BeNil())

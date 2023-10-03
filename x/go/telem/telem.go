@@ -282,6 +282,7 @@ func (d Density) Size(sampleCount int64) Size { return Size(sampleCount) * Size(
 
 const (
 	DensityUnknown   Density = 0
+	Bit128           Density = 16
 	Bit64            Density = 8
 	Bit32            Density = 4
 	Bit16            Density = 2

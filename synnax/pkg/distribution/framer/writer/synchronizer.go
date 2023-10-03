@@ -33,6 +33,10 @@ func newSynchronizer(nodeCount int, bulkheadSig chan bool) confluence.Segment[Re
 }
 
 func (a *synchronizer) sync(ctx context.Context, res Response) (Response, bool, error) {
+	if res.Variant == Control {
+		return res, true, nil
+	}
+
 	// If the SeqNum is -1, it means the responses is coming from transient errors in
 	// the gateway execution pipeline. In this case, we artificially increment the
 	// sequence number to ensure the caller receives the correct sequence numbers for

@@ -18,7 +18,7 @@ type Field struct {
 	Schema *Schema
 }
 
-// FieldType represents the type of a Field in a Schema.
+// FieldType represents the type of Field in a Schema.
 type FieldType uint8
 
 // AssertValue asserts that the provided value is of the specified type.

@@ -44,7 +44,7 @@ export const NavControls = (): ReactElement => {
   };
 
   const handleZoomReset = (): void => {
-    if (vis != null) d(setViewport({ layoutKey: vis }));
+    if (vis != null) d(setViewport({ key: vis }));
   };
 
   const handleHoldChange = (hold: boolean): void => {

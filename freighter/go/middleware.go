@@ -35,7 +35,7 @@ func setMDOnContext(ctx Context) context.Context {
 }
 
 // MDFromContext returns the freighter metadata from the given context.
-func MDFromContext(ctx context.Context) Context { return ctx.Value(MDContextKey).(Context) }
+func MDFromContext(ctx context.Context) Context { return ctx.(Context) }
 
 // MiddlewareCollector is a chain of middleware that can be executed sequentially.
 // It extends the middleware.Chain type to embed request metadata as a context value.

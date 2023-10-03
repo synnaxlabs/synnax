@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/observe"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -74,8 +75,8 @@ func (d *DB) OpenTx() kvx.Tx {
 	}
 }
 
-func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) {
-	d.Observable.OnChange(f)
+func (d *DB) OnChange(f func(ctx context.Context, reader kvx.TxReader)) observe.Disconnect {
+	return d.Observable.OnChange(f)
 }
 
 func (d *DB) apply(b []TxRequest) (err error) {

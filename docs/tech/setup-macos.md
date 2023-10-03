@@ -120,7 +120,7 @@ To do this, run:
 echo 'export PATH=/opt/homebrew/bin:$PATH' >> ~/.zshrc && source ~/.zshrc
 ```
 
-No, verify that the above command works by running:
+Now, verify that the above command works by running:
 
 ```zsh
 which python3.11

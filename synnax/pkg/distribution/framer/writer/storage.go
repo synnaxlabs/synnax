@@ -20,6 +20,7 @@ func newRequestTranslator() func(ctx context.Context, in Request) (ts.WriterRequ
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),
 			Frame:   in.Frame.ToStorage(),
+			Config:  in.Config.toStorage(),
 		}, true, nil
 	}
 }

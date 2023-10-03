@@ -10,10 +10,10 @@
 package workspace
 
 import (
+	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
-	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -51,22 +51,37 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	PID *pid.Service
+	group group.Group
 }
 
-func NewService(configs ...Config) (*Service, error) {
+const groupName = "Workspaces"
+
+func NewService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	pidSvc, err := pid.NewService(pid.Config{DB: cfg.DB})
-	return &Service{Config: cfg, PID: pidSvc}, nil
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg, group: g}
+	cfg.Ontology.RegisterService(s)
+	return s, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: gorp.OverrideTx(s.DB, tx), otg: s.Ontology.NewWriter(tx)}
+	return Writer{
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		group: s.group,
+	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[uuid.UUID, Workspace]()}
+	return Retrieve{
+		otg:    s.Ontology,
+		baseTX: s.DB,
+		gorp:   gorp.NewRetrieve[uuid.UUID, Workspace](),
+	}
 }

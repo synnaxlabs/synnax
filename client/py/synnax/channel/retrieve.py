@@ -60,12 +60,10 @@ class ClusterChannelRetriever:
         return self
 
     @trace("debug")
-    def retrieve(
-        self,
-        params: ChannelKey | ChannelName,
-    ) -> list[ChannelPayload]:
+    def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
-        return self.__execute(_Request(**{normal.variant: normal.params}))  # type: ignore
+        return self.__execute(
+            _Request(**{normal.variant: normal.params}))  # type: ignore
 
     def __execute(
         self,
@@ -126,3 +124,19 @@ class CacheChannelRetriever:
         self.__set(retrieved)
         results.extend(retrieved)
         return results
+
+
+def retrieve_required(
+    r: ChannelRetriever,
+    params: ChannelParams
+) -> list[ChannelPayload]:
+    normal = normalize_channel_params(params)
+    results = r.retrieve(params)
+    not_found = list()
+    for p in normal.params:
+        ch = next((c for c in results if c.key == p or c.name == p), None)
+        if ch is None:
+            not_found.append(p)
+    if len(not_found) > 0:
+        raise RuntimeError(f"Could not find channels: {not_found}")
+    return results
