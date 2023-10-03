@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 jobs:
   docker:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       FORCE_COLOR: 1
     steps:
