@@ -78,7 +78,7 @@ const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   })();
 };
 
-const handleRename: Ontology.HnadleTreeRename = ({
+const handleRename: Ontology.HandleTreeRename = ({
   client,
   id,
   name,

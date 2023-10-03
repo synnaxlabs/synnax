@@ -52,7 +52,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   );
 };
 
-const handleRename: Ontology.HnadleTreeRename = ({
+const handleRename: Ontology.HandleTreeRename = ({
   client,
   id,
   name,

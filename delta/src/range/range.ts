@@ -17,6 +17,7 @@ interface BaseRange {
 export type StaticRange = BaseRange & {
   variant: "static";
   timeRange: CrudeTimeRange;
+  persisted: boolean;
 };
 
 export type DynamicRange = BaseRange & {

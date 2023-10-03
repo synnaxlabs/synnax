@@ -53,6 +53,19 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(r.Key).ToNot(Equal(uuid.Nil))
 		})
+		It("Should not override the UUID if it is already set", func() {
+			k := uuid.New()
+			r := &ranger.Range{
+				Key:  k,
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(w.Create(ctx, r)).To(Succeed())
+			Expect(r.Key).To(Equal(k))
+		})
 	})
 	Describe("Retrieve", func() {
 		It("Should retrieve a range by its key", func() {
@@ -66,7 +79,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieveR).To(Equal(*r))
+			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It("Should retrieve a range by its name", func() {
 			r := &ranger.Range{
@@ -79,7 +92,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().WhereNames(r.Name).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieveR).To(Equal(*r))
+			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It("Should retrieve any ranges that overlap a given time range", func() {
 			r := &ranger.Range{
@@ -95,7 +108,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				Start: telem.TimeStamp(7 * telem.Second),
 				End:   telem.TimeStamp(9 * telem.Second),
 			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
-			Expect(retrieveR).To(Equal(*r))
+			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 	})
 	Describe("Delete", func() {

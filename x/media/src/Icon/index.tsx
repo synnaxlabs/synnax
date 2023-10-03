@@ -9,7 +9,7 @@
 
 import { type FC } from "react";
 
-import { type OS } from "@synnaxlabs/x";
+import { type runtime } from "@synnaxlabs/x";
 import {
   AiFillCaretDown,
   AiFillCaretLeft,
@@ -27,6 +27,7 @@ import {
   AiFillGithub,
   AiFillLinkedin,
 } from "react-icons/ai";
+import { BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
@@ -76,7 +77,7 @@ import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
 
-const IconOS: Record<OS, IconFC> = {
+const IconOS: Record<runtime.OS, IconFC> = {
   Linux: FaLinux,
   MacOS: FaApple,
   Windows: FaWindows,
@@ -166,6 +167,7 @@ export const Icon: IconType = {
   Pan: GrPan,
   Rule: MdSquareFoot,
   User: MdPerson,
+  Rename: BiRename,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -214,7 +216,7 @@ export interface IconType {
   Resources: IconFC;
   Group: IconFC;
   Workspace: IconFC;
-  OS: Record<OS, IconFC>;
+  OS: Record<runtime.OS, IconFC>;
   Box: IconFC;
   Python: IconFC;
   Typescript: IconFC;
@@ -253,4 +255,5 @@ export interface IconType {
   Annotate: IconFC;
   Rule: IconFC;
   User: IconFC;
+  Rename: IconFC;
 }

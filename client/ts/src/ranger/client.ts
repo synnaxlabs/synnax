@@ -14,7 +14,6 @@ import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { Aliaser } from "@/ranger/alias";
-import { type Creator } from "@/ranger/creator";
 import { KV } from "@/ranger/kv";
 import {
   type NewPayload,
@@ -28,24 +27,25 @@ import {
 } from "@/ranger/payload";
 import { Range } from "@/ranger/range";
 import { type Retriever } from "@/ranger/retriever";
+import { type Writer } from "@/ranger/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
-  private readonly creator: Creator;
+  private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
   private readonly channels: ChannelRetriever;
 
   constructor(
     frameClient: framer.Client,
     retriever: Retriever,
-    creator: Creator,
+    writer: Writer,
     unary: UnaryClient,
     channels: ChannelRetriever,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
-    this.creator = creator;
+    this.writer = writer;
     this.unaryClient = unary;
     this.channels = channels;
   }
@@ -56,8 +56,12 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   async create(ranges: NewPayload | NewPayload[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugar(await this.creator.create(toArray(ranges)));
+    const res = this.sugar(await this.writer.create(toArray(ranges)));
     return single ? res[0] : res;
+  }
+
+  async delete(key: Key | Keys): Promise<void> {
+    await this.writer.delete(toArray(key));
   }
 
   async search(term: string): Promise<Range[]> {

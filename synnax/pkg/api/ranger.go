@@ -83,6 +83,22 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	return RangeRetrieveResponse{Ranges: resRanges}, err
 }
 
+type RangeDeleteRequest struct {
+	Keys  []uuid.UUID `json:"keys" msgpack:"keys"`
+	Names []string    `json:"names" msgpack:"names"`
+}
+
+func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		for _, key := range req.Keys {
+			if err := errors.MaybeQuery(s.internal.NewWriter(tx).Delete(ctx, key)); err.Occurred() {
+				return err
+			}
+		}
+		return errors.Nil
+	})
+}
+
 type RangeKVGetRequest struct {
 	Range uuid.UUID `json:"range" msgpack:"range"`
 	Keys  []string  `json:"keys" msgpack:"keys"`

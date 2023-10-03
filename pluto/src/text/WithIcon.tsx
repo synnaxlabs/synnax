@@ -9,24 +9,28 @@
 
 import { Children, cloneElement, type ReactElement } from "react";
 
+import { toArray } from "@synnaxlabs/x";
+
 import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
-import { Text } from "@/text";
+import { type CoreProps, Text } from "@/text/Text";
 import { type Level } from "@/text/types";
 import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 
+type ValidChild = string | number | ReactElement;
+
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
-  Omit<Text.CoreProps<L>, "children"> & {
+  Omit<CoreProps<L>, "children"> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
-    children?: string | number | ReactElement;
+    children?: ValidChild | ValidChild[];
     divided?: boolean;
     noWrap?: boolean;
   };
@@ -48,23 +52,9 @@ export const WithIcon = <
   const color = Color.cssString(crudeColor);
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
-
-  let children_ = null;
-  if (children != null) {
-    if (isValidElement(children)) {
-      children_ = children;
-    } else {
-      children_ = (
-        // @ts-expect-error
-        <Text.Text<L> color={color} level={level}>
-          {children}
-        </Text.Text>
-      );
-    }
-  }
-
+  const formatted = formatChildren(level, children, color);
   return (
-    // @ts-expect-error
+    // @ts-expect-error - level type errors
     <Align.Space<E>
       className={CSS(
         CSS.B("text-icon"),
@@ -79,7 +69,7 @@ export const WithIcon = <
     >
       {startIcons}
       {divided && startIcon != null && <Divider.Divider direction="y" />}
-      {children_}
+      {formatted}
       {divided && endIcon != null && <Divider.Divider direction="y" />}
       {endIcons}
     </Align.Space>
@@ -98,4 +88,42 @@ const formatIcons = (
       style: { ...icon.props.style },
     }),
   );
+};
+
+const formatChildren = <L extends Level>(
+  level: L,
+  children: ValidChild | ValidChild[] = [],
+  color?: string,
+): ReactElement[] => {
+  const arr = toArray(children);
+  const o: ReactElement[] = [];
+  let buff: Array<string | number> = [];
+  arr.forEach((child) => {
+    if (
+      typeof child === "string" ||
+      typeof child === "number" ||
+      !isValidElement(child)
+    ) {
+      buff.push(child);
+    } else {
+      if (buff.length > 0) {
+        o.push(
+          // @ts-expect-error - level type errors
+          <Text<L> color={color} level={level}>
+            {buff}
+          </Text>,
+        );
+        buff = [];
+      }
+      o.push(child);
+    }
+  });
+  if (buff.length > 0)
+    o.push(
+      // @ts-expect-error- level type errors
+      <Text<L> color={color} level={level}>
+        {buff}
+      </Text>,
+    );
+  return o;
 };

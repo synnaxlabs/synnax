@@ -12,11 +12,14 @@ import { type ReactElement } from "react";
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/pluto";
 
+import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
 import { PID } from "@/pid";
+import { Range } from "@/range";
 
 const canDrop = (): boolean => false;
 
@@ -65,15 +68,54 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => [
   },
 ];
 
-const allowRename = (): boolean => false;
+const allowRename = (): boolean => true;
 
-const TreeContextMenu = (): ReactElement => <></>;
+const handleSetAlias = async ({
+  id,
+  name,
+  client,
+  store,
+}: Ontology.HandleTreeRenameProps): Promise<void> => {
+  const activeRange = Range.select(store.getState());
+  if (activeRange == null) return;
+  const rng = await client.ranges.retrieve(activeRange.key);
+  await rng.setAlias(id.key, name);
+};
+
+const handleRename: Ontology.HandleTreeRename = (p) => {
+  void handleSetAlias(p);
+};
+
+const TreeContextMenu: Ontology.TreeContextMenu = ({
+  store,
+  selection,
+}): ReactElement => {
+  const activeRange = Range.select(store.getState());
+  return (
+    <Menu.Menu level="small" iconSpacing="small">
+      <Group.GroupMenuItem selection={selection} />
+      {activeRange != null && (
+        <>
+          {selection.resources.length === 1 && (
+            <Menu.Item itemKey="alias" startIcon={<Icon.Rename />}>
+              Set Alias Under {activeRange.name}
+            </Menu.Item>
+          )}
+          <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+            Plot for {activeRange.name}
+          </Menu.Item>
+        </>
+      )}
+    </Menu.Menu>
+  );
+};
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
+  onRename: handleRename,
   canDrop,
   onSelect,
   haulItems,

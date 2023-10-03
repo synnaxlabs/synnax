@@ -31,6 +31,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	// RANGE
 	a.RangeCreate = fnoop.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse]{}
 	a.RangeRetrieve = fnoop.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse]{}
+	a.RangeDelete = fnoop.UnaryServer[api.RangeDeleteRequest, types.Nil]{}
 	a.RangeKVGet = fnoop.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse]{}
 	a.RangeKVSet = fnoop.UnaryServer[api.RangeKVSetRequest, types.Nil]{}
 	a.RangeKVDelete = fnoop.UnaryServer[api.RangeKVDeleteRequest, types.Nil]{}

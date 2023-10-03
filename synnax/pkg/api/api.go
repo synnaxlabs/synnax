@@ -128,6 +128,7 @@ type Transport struct {
 	// RANGE
 	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
 	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
 	RangeKVGet        freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
 	RangeKVSet        freighter.UnaryServer[RangeKVSetRequest, types.Nil]
 	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]

@@ -154,6 +154,7 @@ export const Tree = (): ReactElement => {
       style={{ height: "calc(100% - 32px)" }}
       menu={({ keys }) => {
         if (keys.length === 0 || client == null) return <></>;
+        if (keys.some((v) => !treeProps.selected.includes(v))) keys = [keys[0]];
         const selectedNodes = Core.findNodes(nodes, keys);
         const selectedResources = resourcesRef.current.filter(({ id }) =>
           keys.includes(id.toString())

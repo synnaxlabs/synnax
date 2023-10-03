@@ -20,7 +20,7 @@ export interface CoreProps<L extends Level = "h1"> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
-  children?: string | number;
+  children?: (string | number) | Array<string | number>;
   /* The color of the text */
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */

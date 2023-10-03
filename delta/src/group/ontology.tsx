@@ -17,15 +17,16 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resources },
+    selection: { resources, nodes },
   } = props;
+  console.log(resources);
   const onSelect = (key: string): void => {
     switch (key) {
       case "ungroup":
         void ungroupSelection(props);
         return;
       case "rename":
-        Tree.startRenaming(resources[0].key);
+        Tree.startRenaming(nodes[0].key);
     }
   };
 
@@ -34,9 +35,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
         Ungroup
       </Menu.Item>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Edit />}>
-        Rename
-      </Menu.Item>
+      <Ontology.RenameMenuItem />
     </Menu.Menu>
   );
 };
@@ -126,7 +125,7 @@ export const fromSelection = async ({
   state.setNodes([...nextNodes]);
 };
 
-const handleRename: Ontology.HnadleTreeRename = ({
+const handleRename: Ontology.HandleTreeRename = ({
   client,
   id,
   name,

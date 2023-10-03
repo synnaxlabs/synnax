@@ -95,11 +95,11 @@ export default class Synnax {
     );
     this.ontology = new ontology.Client(this.transport.unary);
     const rangeRetriever = new ranger.Retriever(this.transport.unary);
-    const rangeCreator = new ranger.Creator(this.transport.unary);
+    const rangeWriter = new ranger.Writer(this.transport.unary);
     this.ranges = new ranger.Client(
       this.telem,
       rangeRetriever,
-      rangeCreator,
+      rangeWriter,
       this.transport.unary,
       chRetriever,
     );

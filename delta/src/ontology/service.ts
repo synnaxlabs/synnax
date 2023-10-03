@@ -66,7 +66,7 @@ export interface HandleTreeRenameProps extends BaseProps {
   };
 }
 
-export type HnadleTreeRename = (props: HandleTreeRenameProps) => void;
+export type HandleTreeRename = (props: HandleTreeRenameProps) => void;
 
 export interface Service {
   type: ontology.ResourceType;
