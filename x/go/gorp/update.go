@@ -39,6 +39,7 @@ func (u Update[K, E]) Change(f func(E) E) Update[K, E] {
 }
 
 func (u Update[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Update.Exec", tx)
 	var entries []E
 	if err := u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
 		return err

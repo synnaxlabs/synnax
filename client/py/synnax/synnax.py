@@ -103,6 +103,7 @@ class Synnax(Client):
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
         self.ranges = RangeClient(
+            unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
             creator=range_creator,

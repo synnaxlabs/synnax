@@ -10,15 +10,15 @@
 package domain
 
 import (
-	"github.com/cockroachdb/pebble/vfs"
 	"github.com/synnaxlabs/x/telem"
+	"io"
 )
 
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
 	ptr pointer
-	vfs.File
+	io.ReaderAt
 }
 
 // Len returns the number of bytes in the entire domain.

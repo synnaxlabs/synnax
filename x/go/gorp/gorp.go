@@ -88,6 +88,12 @@ type tx struct {
 	options
 }
 
+func checkForNilTx(method string, tx Tx) {
+	if tx == nil {
+		panic("[gorp] - nil transaction - please provide transaction to " + method)
+	}
+}
+
 var _ Tx = (*tx)(nil)
 
 // Tools provides the tools that gorp needs to translate key-value operations

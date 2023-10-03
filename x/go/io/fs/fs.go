@@ -25,6 +25,10 @@ type FS interface {
 	Exists(name string) (bool, error)
 }
 
+type File interface {
+	afero.File
+}
+
 type defaultFS struct {
 	dir  string
 	perm os.FileMode
