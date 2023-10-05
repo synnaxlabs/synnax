@@ -11,7 +11,6 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { QueryError } from "@/errors";
 import { ID, type Resource, idZ, resourceSchemaZ } from "@/ontology/payload";
 
 const requestSchema = z.object({
@@ -47,15 +46,11 @@ export class Retriever {
     includeSchema: boolean = true,
     includeFieldData: boolean = true,
   ): Promise<Resource[]> {
-    const resources = await this.execute({
+    return await this.execute({
       ids: toArray(ids).map((id) => new ID(id).payload),
       includeFieldData,
       includeSchema,
     });
-    if (Array.isArray(ids)) return resources;
-    if (resources.length === 0)
-      throw new QueryError(`No resource found with ID ${ids.toString()}`);
-    return resources[0];
   }
 
   async retrieveChildren(

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, it } from "vitest";
 
 import { ontology } from "@/ontology";
 import { newClient } from "@/setupspecs";
@@ -28,7 +28,7 @@ describe("Ontology", () => {
       const name = randomName();
       const g = await client.ontology.groups.create(ontology.Root, name);
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create(g.ontologyID, name2);
+      await client.ontology.groups.create(g.ontologyID, name2);
       const children = await client.ontology.retrieveChildren(g.ontologyID);
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
@@ -78,6 +78,24 @@ describe("Ontology", () => {
     });
   });
   describe("cdc", async () => {
-    it("should correctly propagate changes to the ontology", async () => {});
+    it("should correctly decode a set of ids from a buffer", () => {
+      const buf = new TextEncoder().encode("typeA:keyA\ntypeB:keyB\ntypeC:keyC\n");
+      const ids = ontology.parseIDsFromBuffer(buf);
+      expect(ids.length).toEqual(3);
+      expect(ids[0].type).toEqual("typeA");
+      expect(ids[0].key).toEqual("keyA");
+    });
+    it("should correctly propagate changes to the ontology", async () => {
+      const change = await client.ontology.openChangeTracker();
+      const p = new Promise<ontology.Change[]>((resolve) => {
+        change.onChange((changes) => {
+          resolve(changes);
+        });
+      });
+      await client.ontology.groups.create(ontology.Root, randomName());
+      const c = await p;
+      expect(c.length).toBeGreaterThan(0);
+      await change.close();
+    });
   });
 });

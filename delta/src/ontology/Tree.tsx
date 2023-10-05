@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useEffect, useState } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import {
@@ -21,10 +21,8 @@ import {
   componentRenderProp,
 } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
-import { set } from "zod";
 
 import { Layout } from "@/layout";
-import { place } from "@/layout/slice";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import { type Services, type TreeContextMenuProps } from "@/ontology/service";
 import { useServices } from "@/ontology/ServicesProvider";

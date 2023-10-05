@@ -92,7 +92,7 @@ describe("PID", () => {
       expect(pid2.data.one).toEqual(1);
     });
     describe("snapshot", () => {
-      it.only("should not allow the caller to edit the snapshot", async () => {
+      it("should not allow the caller to edit the snapshot", async () => {
         const ws = await client.workspaces.create({
           name: "PID",
           layout: { one: 1 },

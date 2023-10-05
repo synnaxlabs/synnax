@@ -93,7 +93,7 @@ export default class Synnax {
       this.transport.unary,
       connectivityPollFrequency,
     );
-    this.ontology = new ontology.Client(this.transport.unary);
+    this.ontology = new ontology.Client(this.transport.unary, this.telem);
     const rangeRetriever = new ranger.Retriever(this.transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.ranges = new ranger.Client(
