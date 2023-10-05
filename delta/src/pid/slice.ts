@@ -21,6 +21,7 @@ export type NodeProps = object & {
 
 export interface State {
   editable: boolean;
+  snapshot: boolean;
   remoteCreated: boolean;
   viewport: PID.Viewport;
   nodes: PID.Node[];
@@ -67,6 +68,7 @@ export interface StoreState {
 }
 
 export const ZERO_STATE: State = {
+  snapshot: false,
   nodes: [],
   edges: [],
   props: {},
@@ -144,6 +146,10 @@ export interface CopySelectionPayload {}
 export interface PasteSelectionPayload {
   layoutKey: string;
   pos: xy.XY;
+}
+
+export interface ClearSelectionPayload {
+  layoutKey: string;
 }
 
 export interface SetViewportModePayload {
@@ -237,7 +243,20 @@ export const { actions, reducer } = createSlice({
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
-      state.pids[layoutKey] = { ...ZERO_STATE, ...payload };
+      const pid = { ...ZERO_STATE, ...payload };
+      if (pid.snapshot) pid.editable = false;
+      state.pids[layoutKey] = pid;
+    },
+    clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
+      const { layoutKey } = payload;
+      const pid = state.pids[layoutKey];
+      pid.nodes.forEach((node) => {
+        node.selected = false;
+      });
+      pid.edges.forEach((edge) => {
+        edge.selected = false;
+      });
+      state.toolbar.activeTab = "elements";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { layoutKeys } = payload;
@@ -278,8 +297,10 @@ export const { actions, reducer } = createSlice({
       const pid = state.pids[layoutKey];
       pid.nodes = nodes;
       const anySelected = nodes.some((node) => node.selected);
-      if (anySelected) state.toolbar.activeTab = "properties";
-      else state.toolbar.activeTab = "elements";
+      if (anySelected) {
+        state.toolbar.activeTab = "properties";
+        clearOtherSelections(state, layoutKey);
+      } else state.toolbar.activeTab = "elements";
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
@@ -297,8 +318,10 @@ export const { actions, reducer } = createSlice({
       });
       pid.edges = edges;
       const anySelected = edges.some((edge) => edge.selected);
-      if (anySelected) state.toolbar.activeTab = "properties";
-      else state.toolbar.activeTab = "elements";
+      if (anySelected) {
+        state.toolbar.activeTab = "properties";
+        clearOtherSelections(state, layoutKey);
+      } else state.toolbar.activeTab = "elements";
     },
     setActiveToolbarTab: (
       state,
@@ -315,6 +338,7 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { layoutKey, editable } = payload;
       const pid = state.pids[layoutKey];
+      if (pid.snapshot) return;
       pid.editable = editable;
     },
     toggleControl: (state, { payload }: PayloadAction<TogggleControlPayload>) => {
@@ -343,6 +367,20 @@ export const { actions, reducer } = createSlice({
   },
 });
 
+const clearOtherSelections = (state: SliceState, layoutKey: string) => {
+  Object.keys(state.pids).forEach((key) => {
+    // If any of the nodes or edges in other PID slices are selected, deselct them.
+    if (key === layoutKey) return;
+    const pid = state.pids[key];
+    pid.nodes.forEach((node) => {
+      node.selected = false;
+    });
+    pid.edges.forEach((edge) => {
+      edge.selected = false;
+    });
+  });
+};
+
 export const {
   toggleControl,
   setControlStatus,
@@ -350,6 +388,7 @@ export const {
   setEdges,
   setNodes,
   remove,
+  clearSelection,
   create: internalCreate,
   setElementProps,
   setActiveToolbarTab,

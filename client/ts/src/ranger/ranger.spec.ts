@@ -49,6 +49,33 @@ describe("Ranger", () => {
     });
   });
 
+  describe("delete", () => {
+    it("should delete a single range", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange,
+      });
+      await client.ranges.delete(range.key);
+      await expect(async () => await client.ranges.retrieve(range.key)).rejects.toThrow(
+        QueryError,
+      );
+    });
+  });
+
+  describe("rename", () => {
+    it("should rename a single range", async () => {
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const range = await client.ranges.create({
+        name: "My New One Second Range",
+        timeRange,
+      });
+      await client.ranges.rename(range.key, "My New One Second Range Renamed");
+      const renamed = await client.ranges.retrieve(range.key);
+      expect(renamed.name).toEqual("My New One Second Range Renamed");
+    });
+  });
+
   describe("retrieve", () => {
     it("should retrieve a range by key", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));

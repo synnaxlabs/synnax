@@ -8,23 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
-  PreloadedState as BasePreloadedState,
-  CombinedState,
-  PayloadAction,
+  type PreloadedState as BasePreloadedState,
+  type CombinedState,
+  type PayloadAction,
   createSlice,
   nanoid,
 } from "@reduxjs/toolkit";
 import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
+import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
 
 import {
-  WindowState,
-  WindowProps,
-  WindowStage,
+  type WindowState,
+  type WindowProps,
+  type WindowStage,
   MAIN_WINDOW,
   INITIAL_WINDOW_STATE,
   INITIAL_PRERENDER_WINDOW_STATE,
 } from "@/window";
-import { box, deep, dimensions, xy } from "@synnaxlabs/x";
 
 /** The Slice State */
 export interface SliceState {
@@ -152,7 +152,7 @@ export const initialState: SliceState = {
 
 export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   a: PayloadAction<T>,
-  s: SliceState
+  s: SliceState,
 ): PayloadAction<T & LabelPayload> => {
   if (a.type === createWindow.type) {
     if (s.label !== MAIN_WINDOW) return a as PayloadAction<T & LabelPayload>;
@@ -173,7 +173,7 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
 
 const assertLabel =
   <T extends Payload>(
-    f: (state: SliceState, action: PayloadAction<T & LabelPayload>) => void
+    f: (state: SliceState, action: PayloadAction<T & LabelPayload>) => void,
   ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   (s, a) => {
     if (!("label" in a.payload)) throw new Error("Missing label");
@@ -182,7 +182,7 @@ const assertLabel =
 
 const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
   prop: keyof WindowProps,
-  def_: boolean = false
+  def_: boolean = false,
 ): ((s: SliceState, a: PayloadAction<T>) => void) =>
   assertLabel<T>((s, a) => {
     let v = def_;
@@ -216,7 +216,7 @@ const slice = createSlice({
       if (s.config.enablePrerender) return;
       // If we've disabled prerendering, remove all prerendered windows
       s.windows = Object.fromEntries(
-        Object.entries(s.windows).filter(([, v]) => v.reserved)
+        Object.entries(s.windows).filter(([, v]) => v.reserved),
       );
     },
     setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
@@ -248,7 +248,7 @@ const slice = createSlice({
       payload = maybePositionInCenter(payload, mainWin);
 
       const [availableLabel, available] = Object.entries(s.windows).find(
-        ([, w]) => !w.reserved
+        ([, w]) => !w.reserved,
       ) ?? [null, null];
 
       // If we have an available prerendered window,
@@ -287,6 +287,7 @@ const slice = createSlice({
     }),
     closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
       const win = s.windows[label];
+      if (win == null) return;
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.windows[label];
       // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -296,7 +297,7 @@ const slice = createSlice({
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>(
-      incrementCounter("processCount", true)
+      incrementCounter("processCount", true),
     ),
     setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPaylod>) => {
       s.windows[a.payload.key].error = a.payload.message;
@@ -389,12 +390,14 @@ export const shouldEmit = (emitted: boolean, type: string): boolean =>
 
 const maybePositionInCenter = (
   pld: CreateWindowPayload,
-  mainWin: WindowState
+  mainWin: WindowState,
 ): CreateWindowPayload => {
   if (mainWin.position != null && mainWin.size != null && pld.position == null)
-    pld.position = box.topLeft(box.positionInCenter(
-      box.construct(xy.ZERO, pld.size ?? xy.ZERO),
-      box.construct(mainWin.position, mainWin.size)
-    ))
+    pld.position = box.topLeft(
+      box.positionInCenter(
+        box.construct(xy.ZERO, pld.size ?? xy.ZERO),
+        box.construct(mainWin.position, mainWin.size),
+      ),
+    );
   return pld;
 };

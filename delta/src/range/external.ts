@@ -14,3 +14,4 @@ export * from "@/range/selectors";
 export * from "@/range/slice";
 export * from "@/range/range";
 export * from "@/range/palette";
+export * from "@/range/ContextMenu";

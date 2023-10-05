@@ -51,6 +51,7 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
     resources: ontology.Resource[];
     nodes: Tree.Node[];
     setNodes: (nodes: Tree.Node[]) => void;
+    setResources: (resources: ontology.Resource[]) => void;
   };
 }
 
@@ -63,10 +64,15 @@ export interface HandleTreeRenameProps extends BaseProps {
     resources: ontology.Resource[];
     nodes: Tree.Node[];
     setNodes: (nodes: Tree.Node[]) => void;
+    setResources: (resources: ontology.Resource[]) => void;
   };
 }
 
 export type HandleTreeRename = (props: HandleTreeRenameProps) => void;
+
+export interface NodeAdapterProps extends BaseProps {
+  node: Tree.FlattenedNode;
+}
 
 export interface Service {
   type: ontology.ResourceType;
@@ -76,6 +82,7 @@ export interface Service {
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
   allowRename: (res: ontology.Resource) => boolean;
+  Item?: Tree.Item;
   onRename?: (ctx: HandleTreeRenameProps) => void;
   onMosaicDrop?: HandleMosaicDrop;
   TreeContextMenu?: TreeContextMenu;

@@ -191,19 +191,13 @@ class ChannelClient:
 
     @overload
     def create(
-        self, 
-        channels: Channel, 
-        *, 
-        retrieve_if_name_exists: bool = False
+        self, channels: Channel, *, retrieve_if_name_exists: bool = False
     ) -> Channel:
         ...
 
     @overload
     def create(
-        self, 
-        channels: list[Channel],
-        *,
-        retrieve_if_name_exists: bool = False
+        self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
     ) -> list[Channel]:
         ...
 
@@ -264,9 +258,13 @@ class ChannelClient:
 
         created = list()
         if retrieve_if_name_exists:
-            created = self.__sugar(self._retriever.retrieve([ch.name for ch in _channels]))
-            _channels = [c for c in _channels if c.name not in [ch.name for ch in created]]
-        
+            created = self.__sugar(
+                self._retriever.retrieve([ch.name for ch in _channels])
+            )
+            _channels = [
+                c for c in _channels if c.name not in [ch.name for ch in created]
+            ]
+
         created.extend(self.__sugar(self._creator.create(_channels)))
         return created if isinstance(channels, list) else created[0]
 

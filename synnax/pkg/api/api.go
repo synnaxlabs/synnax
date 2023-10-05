@@ -135,6 +135,8 @@ type Transport struct {
 	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
 	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
 	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
+	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
+	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -156,6 +158,7 @@ type Transport struct {
 	PIDDelete   freighter.UnaryServer[PIDDeleteRequest, types.Nil]
 	PIDRename   freighter.UnaryServer[PIDRenameRequest, types.Nil]
 	PIDSetData  freighter.UnaryServer[PIDSetDataRequest, types.Nil]
+	PIDCopy     freighter.UnaryServer[PIDCopyRequest, PIDCopyResponse]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -243,6 +246,8 @@ func (a *API) BindTo(t Transport) {
 		t.RangeAliasSet,
 		t.RangeAliasResolve,
 		t.RangeAliasList,
+		t.RangeRename,
+		t.RangeAliasDelete,
 
 		// WORKSPACE
 		t.WorkspaceDelete,
@@ -257,6 +262,7 @@ func (a *API) BindTo(t Transport) {
 		t.PIDDelete,
 		t.PIDRename,
 		t.PIDSetData,
+		t.PIDCopy,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -296,12 +302,15 @@ func (a *API) BindTo(t Transport) {
 	// RANGE
 	t.RangeRetrieve.BindHandler(typedUnaryWrapper(a.Range.Retrieve))
 	t.RangeCreate.BindHandler(typedUnaryWrapper(a.Range.Create))
+	t.RangeDelete.BindHandler(typedUnaryWrapper(a.Range.Delete))
+	t.RangeRename.BindHandler(typedUnaryWrapper(a.Range.Rename))
 	t.RangeKVGet.BindHandler(typedUnaryWrapper(a.Range.KVGet))
 	t.RangeKVSet.BindHandler(typedUnaryWrapper(a.Range.KVSet))
 	t.RangeKVDelete.BindHandler(typedUnaryWrapper(a.Range.KVDelete))
 	t.RangeAliasSet.BindHandler(typedUnaryWrapper(a.Range.AliasSet))
 	t.RangeAliasResolve.BindHandler(typedUnaryWrapper(a.Range.AliasResolve))
 	t.RangeAliasList.BindHandler(typedUnaryWrapper(a.Range.AliasList))
+	t.RangeAliasDelete.BindHandler(typedUnaryWrapper(a.Range.AliasDelete))
 
 	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
@@ -316,6 +325,7 @@ func (a *API) BindTo(t Transport) {
 	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
 	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
 	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
+	t.PIDCopy.BindHandler(typedUnaryWrapper(a.PID.Copy))
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(typedUnaryWrapper(a.LinePlot.Create))

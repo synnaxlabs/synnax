@@ -1,4 +1,3 @@
-
 import synnax as sy
 import time
 from synnax.telem.authority import Authority

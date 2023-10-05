@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState, type FC } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
@@ -20,6 +20,7 @@ import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
+import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/tree/Tree.css";
 
@@ -96,6 +97,14 @@ export const use = (props?: UseProps): UseReturn => {
   };
 };
 
+export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
+  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
+  onRename?: (key: string, name: string) => void;
+  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
+  selectedItems: FlattenedNode[];
+}
+
 export interface TreeProps
   extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick">,
     Omit<
@@ -106,61 +115,15 @@ export interface TreeProps
   selected?: string[];
   expanded?: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
-}
-
-export const Tree = ({
-  nodes,
-  selected = [],
-  expanded = [],
-  onSelect,
-  onDrop,
-  onRename,
-  onSuccessfulDrop,
-  onDoubleClick,
-  className,
-  ...props
-}: TreeProps): ReactElement => {
-  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
-  return (
-    <List.List<string, FlattenedNode> data={flat}>
-      <List.Selector
-        value={selected}
-        onChange={onSelect}
-        allowMultiple
-        replaceOnSingle
-      />
-      <List.Core.Virtual<string, FlattenedNode>
-        itemHeight={27}
-        className={CSS(className, CSS.B("tree"))}
-        {...props}
-      >
-        {(props) => (
-          <Item
-            {...props}
-            onDrop={onDrop}
-            onRename={onRename}
-            onSuccessfulDrop={onSuccessfulDrop}
-            selectedItems={flat.filter((item) => selected.includes(item.key))}
-            onDoubleClick={onDoubleClick}
-          />
-        )}
-      </List.Core.Virtual>
-    </List.List>
-  );
-};
-
-interface ItemProps extends List.ItemProps<string, FlattenedNode> {
-  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
-  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
-  onRename?: (key: string, name: string) => void;
-  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
-  selectedItems: FlattenedNode[];
+  children?: RenderProp<ItemProps>;
 }
 
 const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
 const collapsedCaret = <Icon.Caret.Right className={CSS.B("caret")} />;
 
-const Item = ({
+export type Item = FC<ItemProps>;
+
+export const DefaultItem = ({
   entry,
   selected,
   onSelect,
@@ -256,6 +219,50 @@ const Item = ({
   );
 };
 
+const defaultChild = componentRenderProp(DefaultItem);
+
+export const Tree = ({
+  nodes,
+  selected = [],
+  expanded = [],
+  onSelect,
+  onDrop,
+  onRename,
+  onSuccessfulDrop,
+  onDoubleClick,
+  className,
+  children = defaultChild,
+  ...props
+}: TreeProps): ReactElement => {
+  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  return (
+    <List.List<string, FlattenedNode> data={flat}>
+      <List.Selector
+        value={selected}
+        onChange={onSelect}
+        allowMultiple
+        replaceOnSingle
+      />
+      <List.Core.Virtual<string, FlattenedNode>
+        itemHeight={27}
+        className={CSS(className, CSS.B("tree"))}
+        {...props}
+      >
+        {(props) =>
+          children({
+            ...props,
+            onDrop,
+            onRename,
+            onSuccessfulDrop,
+            selectedItems: flat.filter((item) => selected.includes(item.key)),
+            onDoubleClick,
+          })
+        }
+      </List.Core.Virtual>
+    </List.List>
+  );
+};
+
 export const startRenaming = (key: string): void => Text.edit(`text-${key}`);
 
 export const shouldExpand = (node: Node, expanded: string[]): boolean =>
@@ -268,10 +275,12 @@ export const flatten = (
 ): FlattenedNode[] => {
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
-    const e = shouldExpand(node, expanded);
-    flattened.push({ ...node, depth, expanded: e, index });
-    if (e && node.children != null)
+    const expand = shouldExpand(node, expanded);
+    flattened.push({ ...node, depth, expanded: expand, index });
+    if (expand && node.children != null) {
+      node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
       flattened.push(...flatten(node.children, expanded, depth + 1));
+    }
   });
   return flattened;
 };

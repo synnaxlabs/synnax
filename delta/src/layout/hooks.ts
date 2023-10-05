@@ -19,7 +19,9 @@ import {
   Theming,
   useAsyncEffect,
   useDebouncedCallback,
+  useMemoCompare,
 } from "@synnaxlabs/pluto";
+import { Compare } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
@@ -104,17 +106,25 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const syncer = Workspace.useLayoutSyncer();
   const syncDispatch = useSyncerDispatch(syncer);
   const store = useStore<RootState>();
-  return (...keys) => {
-    keys = [...baseKeys, ...keys];
-    const s = store.getState();
-    keys.forEach((keys) => {
-      const l = select(s, keys);
-      // Even if the layout is not present, close the window for good measure.
-      if (l == null || l.location === "window")
-        store.dispatch(Drift.closeWindow({ key: keys }));
-    });
-    syncDispatch(remove({ keys }));
-  };
+  const memoKeys = useMemoCompare(
+    () => baseKeys,
+    ([a], [b]) => Compare.primitiveArrays(a, b) === Compare.EQUAL,
+    [baseKeys]
+  );
+  return useCallback(
+    (...keys) => {
+      keys = [...baseKeys, ...keys];
+      const s = store.getState();
+      keys.forEach((keys) => {
+        const l = select(s, keys);
+        // Even if the layout is not present, close the window for good measure.
+        if (l == null || l.location === "window")
+          store.dispatch(Drift.closeWindow({ key: keys }));
+      });
+      syncDispatch(remove({ keys }));
+    },
+    [memoKeys]
+  );
 };
 
 /**

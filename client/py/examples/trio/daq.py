@@ -102,8 +102,9 @@ state = {
 i = 0
 with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
     with client.new_writer(
-        sy.TimeStamp.now(), [daq_time.key, press_en.key, vent_en.key, data_ch.key],
-        name="Writer"
+        sy.TimeStamp.now(),
+        [daq_time.key, press_en.key, vent_en.key, data_ch.key],
+        name="Writer",
     ) as writer:
         press = 0
         while True:
@@ -119,10 +120,12 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
                 if press > 0:
                     press -= 10
 
-            ok = writer.write({
-                daq_time: sy.TimeStamp.now(),
-                press_en: state[press_en_cmd.key],
-                vent_en: state[vent_en_cmd.key],
-                data_ch: np.float32(press),
-            })
+            ok = writer.write(
+                {
+                    daq_time: sy.TimeStamp.now(),
+                    press_en: state[press_en_cmd.key],
+                    vent_en: state[vent_en_cmd.key],
+                    data_ch: np.float32(press),
+                }
+            )
             i += 1

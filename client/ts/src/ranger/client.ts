@@ -60,6 +60,10 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return single ? res[0] : res;
   }
 
+  async rename(key: Key, name: Name): Promise<void> {
+    await this.writer.rename(key, name);
+  }
+
   async delete(key: Key | Keys): Promise<void> {
     await this.writer.delete(toArray(key));
   }

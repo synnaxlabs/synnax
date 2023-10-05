@@ -10,47 +10,22 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Synnax, Text } from "@synnaxlabs/pluto";
-import { useDispatch } from "react-redux";
+import { Align } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout } from "@/layout";
-import { setNavdrawerVisible } from "@/layout/slice";
+import { type Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
 const ResourcesTree = (): ReactElement => {
-  const dispatch = useDispatch();
-  const placer = Layout.usePlacer();
-  const client = Synnax.use();
-
-  const handleCluster: Text.TextProps["onClick"] = (e) => {
-    e.stopPropagation();
-    placer(Cluster.connectWindowLayout);
-    dispatch(setNavdrawerVisible({ key: Cluster.Toolbar.key, value: true }));
-  };
-
-  if (client == null)
-    return (
-      <Align.Space empty style={{ height: "100%", position: "relative" }}>
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
-        </ToolbarHeader>
-        <Align.Center direction="y" style={{ height: "100%" }} size="small">
-          <Text.Text level="p">No cluster connected.</Text.Text>
-          <Text.Link level="p" onClick={handleCluster}>
-            Connect a cluster
-          </Text.Link>
-        </Align.Center>
-      </Align.Space>
-    );
-
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Resources />}>Resources</ToolbarTitle>
       </ToolbarHeader>
-      <Tree />
+      <Cluster.NoneConnectedBoundary>
+        <Tree />
+      </Cluster.NoneConnectedBoundary>
     </Align.Space>
   );
 };

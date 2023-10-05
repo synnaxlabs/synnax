@@ -3,11 +3,16 @@ import random
 
 
 @click.command()
-@click.option('--num-channels', type=int, default=50,
-              help='Number of channels to create')
-@click.option('--num-ranges', type=int, default=20, help='Number of ranges to create')
-@click.option('--num-samples', type=int, default=10,
-              help='Number of samples per range in each channel')
+@click.option(
+    "--num-channels", type=int, default=50, help="Number of channels to create"
+)
+@click.option("--num-ranges", type=int, default=20, help="Number of ranges to create")
+@click.option(
+    "--num-samples",
+    type=int,
+    default=10,
+    help="Number of samples per range in each channel",
+)
 def populate(num_channels, num_ranges, num_samples):
     client = instantiate_client()
 
@@ -40,5 +45,5 @@ class MockClient:
         print(f"Populating range in channel {channel_name} with data: {range_data}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     populate()

@@ -1,0 +1,112 @@
+package cdc_test
+
+import (
+	"context"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+type changeService struct {
+	observe.Observer[iter.Nexter[schema.Change]]
+}
+
+const changeType ontology.Type = "change"
+
+func newChangeID(key string) ontology.ID {
+	return ontology.ID{Key: key, Type: changeType}
+}
+
+var _ ontology.Service = (*changeService)(nil)
+
+func (s *changeService) Schema() *ontology.Schema {
+	return &ontology.Schema{
+		Type: changeType,
+		Fields: map[string]schema.Field{
+			"key": {Type: schema.String},
+		},
+	}
+}
+
+func (s *changeService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
+	return iter.NexterNopCloser[ontology.Resource](iter.All[ontology.Resource](nil)), nil
+}
+
+func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+	e := schema.NewResource(s.Schema(), newChangeID(key), "empty")
+	schema.Set(e, "key", key)
+	return e, nil
+}
+
+var _ = Describe("CDC", Ordered, func() {
+	var (
+		builder *mock.Builder
+		ctx     = context.Background()
+		dist    distribution.Distribution
+		svc     *changeService
+	)
+	BeforeAll(func() {
+		builder = mock.NewBuilder()
+		dist = builder.New(ctx)
+		svc = &changeService{Observer: observe.New[iter.Nexter[schema.Change]]()}
+		dist.Ontology.RegisterService(svc)
+	})
+	AfterAll(func() {
+		Expect(builder.Close()).To(Succeed())
+		Expect(builder.Cleanup()).To(Succeed())
+	})
+	Describe("DecodeIDs", func() {
+		It("Should decode a series of IDs", func() {
+			encoded := ontologycdc.EncodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
+			decoded := MustSucceed(ontologycdc.DecodeIDs(encoded))
+			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
+		})
+	})
+	It("Should correctly propagate changes to the ontology", func() {
+		var resCh channel.Channel
+		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Start: telem.Now(),
+			Keys:  channel.Keys{resCh.Key()},
+		}))
+		requests, responses := confluence.Attach(streamer, 2)
+		sCtx, cancel := signal.Isolated()
+		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		closeStreamer := signal.NewShutdown(sCtx, cancel)
+		key := "hello"
+		svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
+			return iter.All[schema.Change]([]schema.Change{
+				{
+					Variant: change.Set,
+					Key:     newChangeID(key),
+					Value:   schema.NewResource(svc.Schema(), newChangeID(key), "empty"),
+				},
+			})
+		})
+		var res framer.StreamerResponse
+		Eventually(responses.Outlet()).Should(Receive(&res))
+		ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.Series[0].Data))
+		// There's a condition here where we might receive the channel creation
+		// signal, so we just do a length assertion.
+		Expect(len(ids)).To(BeNumerically(">", 0))
+		Expect(len(ids[0].Type)).To(BeNumerically(">", 0))
+		Expect(len(ids[0].Key)).To(BeNumerically(">", 0))
+		requests.Close()
+		Eventually(responses.Outlet()).Should(BeClosed())
+		Expect(closeStreamer.Close()).To(Succeed())
+	})
+})

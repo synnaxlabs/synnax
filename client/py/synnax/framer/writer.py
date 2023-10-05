@@ -38,6 +38,7 @@ class _Command(int, Enum):
     ERROR = 3
     SET_AUTHORITY = 4
 
+
 class _Config(Payload):
     authorities: list[int]
     name: str | None = None
@@ -142,11 +143,11 @@ class Writer:
     def write(
         self,
         columns_or_data: ChannelName
-                         | ChannelKey
-                         | ChannelKeys
-                         | ChannelNames
-                         | Frame
-                         | dict[ChannelKey | ChannelName, CrudeSeries],
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -184,7 +185,7 @@ class Writer:
                 config=_Config(
                     keys=list(value.keys()),
                     authorities=list(value.values()),
-                )
+                ),
             )
         )
         if err is not None:

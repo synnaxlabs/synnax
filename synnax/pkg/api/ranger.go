@@ -83,6 +83,17 @@ func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (
 	return RangeRetrieveResponse{Ranges: resRanges}, err
 }
 
+type RangeRenameRequest struct {
+	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string    `json:"name" msgpack:"name"`
+}
+
+func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res types.Nil, _ errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		return errors.MaybeQuery(s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name))
+	})
+}
+
 type RangeDeleteRequest struct {
 	Keys  []uuid.UUID `json:"keys" msgpack:"keys"`
 	Names []string    `json:"names" msgpack:"names"`
@@ -222,6 +233,29 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 		aliases[alias] = ch
 	}
 	return RangeAliasResolveResponse{Aliases: aliases}, errors.Nil
+}
+
+type RangeAliasDeleteRequest struct {
+	Range   uuid.UUID     `json:"range" msgpack:"range"`
+	Aliases []channel.Key `json:"aliases" msgpack:"aliases"`
+}
+
+func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequest) (res types.Nil, _ errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		var rng ranger.Range
+		if err := errors.MaybeQuery(s.internal.NewRetrieve().Entry(&rng).
+			WhereKeys(req.Range).
+			Exec(ctx, tx)); err.Occurred() {
+			return err
+		}
+		rng = rng.UseTx(tx)
+		for _, alias := range req.Aliases {
+			if err := rng.DeleteAlias(ctx, alias); err != nil {
+				return errors.MaybeQuery(err)
+			}
+		}
+		return errors.Nil
+	})
 }
 
 type RangeAliasListRequest struct {

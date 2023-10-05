@@ -49,9 +49,7 @@ func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
 }
 
 func StreamClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.StreamClient[RQ, RS] {
-	return &streamClient[RQ, RS]{
-		ecd: c.EncoderDecoder,
-	}
+	return &streamClient[RQ, RS]{ecd: c.EncoderDecoder}
 }
 
 func UnaryClient[RQ, RS freighter.Payload](c *ClientFactory) freighter.UnaryClient[RQ, RS] {

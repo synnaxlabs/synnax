@@ -97,7 +97,7 @@ class Synnax(Client):
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,
-            retriever=ch_retriever
+            retriever=ch_retriever,
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)

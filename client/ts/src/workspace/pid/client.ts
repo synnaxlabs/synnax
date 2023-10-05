@@ -12,7 +12,7 @@ import { type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Key, type Params, type PID } from "@/workspace/pid/payload";
 import { Retriever } from "@/workspace/pid/retriever";
-import { Writer, type CrudePID } from "@/workspace/pid/writer";
+import { Writer, type UncreatedPID } from "@/workspace/pid/writer";
 
 export class Client {
   private readonly writer: Writer;
@@ -23,7 +23,7 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(workspace: string, pid: CrudePID): Promise<PID> {
+  async create(workspace: string, pid: UncreatedPID): Promise<PID> {
     return await this.writer.create(workspace, pid);
   }
 
@@ -47,5 +47,9 @@ export class Client {
 
   async delete(keys: Params): Promise<void> {
     await this.writer.delete(keys);
+  }
+
+  async copy(key: Key, name: string, snapshot: boolean): Promise<PID> {
+    return await this.writer.copy(key, name, snapshot);
   }
 }

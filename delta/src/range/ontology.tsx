@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu, Tree } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
 
-import { setActive } from "@/cluster/slice";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -22,7 +21,7 @@ import { Ontology } from "@/ontology";
 import { defineWindowLayout } from "@/range/Define";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
-import { type StoreState, add, remove } from "@/range/slice";
+import { type StoreState, add, remove, setActive } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
@@ -57,6 +56,29 @@ const handleDelete = async ({
   store.dispatch(remove({ keys }));
 };
 
+const handleRename: Ontology.HandleTreeRename = ({
+  id,
+  name,
+  client,
+  state,
+  store,
+}) => {
+  if (name.length === 0) return;
+  void (async () => {
+    if (client == null || id.type !== "range") return;
+    await client.ranges.rename(id.key, name);
+    const next = Tree.updateNode(state.nodes, id.toString(), (node) => ({
+      ...node,
+      name,
+    }));
+    state.setNodes([...next]);
+    const existing = select(store.getState(), id.key);
+    if (existing == null) return;
+    const range = await client.ranges.retrieve(id.key);
+    store.dispatch(add({ ranges: fromClientRange(range) }));
+  })();
+};
+
 const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Synnax,
@@ -75,8 +97,8 @@ const handleActivate = async ({
   selection: { resources },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const res = resources[0];
-  await fetchIfNotInState(store, client, res.key);
-  store.dispatch(setActive(res.key));
+  await fetchIfNotInState(store, client, res.id.key);
+  store.dispatch(setActive(res.id.key));
 };
 
 const handleAddToActivePlot = async ({
@@ -87,13 +109,13 @@ const handleAddToActivePlot = async ({
   const active = Layout.selectActiveMosaicTab(store.getState());
   if (active == null) return;
   const res = resources[0];
-  await fetchIfNotInState(store, client, res.key);
+  await fetchIfNotInState(store, client, res.id.key);
   store.dispatch(
     setRanges({
       key: active.key,
       axisKey: "x1",
       mode: "add",
-      ranges: [res.key],
+      ranges: [res.id.key],
     })
   );
 };
@@ -105,12 +127,12 @@ const handleAddToNewPlot = async ({
   store,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const res = resources[0];
-  await fetchIfNotInState(store, client, res.key);
+  await fetchIfNotInState(store, client, res.id.key);
   placeLayout(
     LinePlot.create({
       name: `Plot for ${res.name}`,
       ranges: {
-        x1: [res.key],
+        x1: [res.id.key],
         x2: [],
       },
     })
@@ -172,7 +194,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           Add to {layout.name}
         </Menu.Item>
       )}
-      <Menu.Item itemKey="addToNewPlot" startIcon={<Icon.Visualize />}>
+      <Menu.Item
+        itemKey="addToNewPlot"
+        startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
+      >
         Add to New Plot
       </Menu.Item>
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
@@ -184,11 +209,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "range",
-  hasChildren: false,
+  hasChildren: true,
   icon: <Icon.Range />,
   canDrop: () => true,
   onSelect: handleSelect,
   TreeContextMenu,
   haulItems: () => [],
   allowRename: () => true,
+  onRename: handleRename,
 };

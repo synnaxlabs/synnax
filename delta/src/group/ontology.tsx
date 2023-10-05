@@ -17,9 +17,8 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resources, nodes },
+    selection: { nodes },
   } = props;
-  console.log(resources);
   const onSelect = (key: string): void => {
     switch (key) {
       case "ungroup":
@@ -30,10 +29,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     }
   };
 
+  const isDelete = nodes.length === 1 && nodes[0].children?.length === 0;
+  const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+
   return (
     <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
-        Ungroup
+      <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+        {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>
       <Ontology.RenameMenuItem />
     </Menu.Menu>
@@ -62,7 +64,6 @@ const ungroupSelection = async ({
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-  console.log(selection);
   if (selection.resources.length !== 1)
     throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
 
@@ -123,6 +124,7 @@ export const fromSelection = async ({
     ...resourcesToGroup.map((id) => id.toString())
   );
   state.setNodes([...nextNodes]);
+  state.setResources([...state.resources, res]);
 };
 
 const handleRename: Ontology.HandleTreeRename = ({

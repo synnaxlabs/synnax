@@ -22,9 +22,9 @@ import {
 } from "@/workspace/pid/payload";
 
 export const crudePIDz = pidZ.partial({ key: true });
-export const pidWriteZ = pidRemoteZ.partial({ key: true });
+export const pidWriteZ = pidRemoteZ.partial({ key: true, snapshot: true });
 
-export type CrudePID = z.infer<typeof crudePIDz>;
+export type UncreatedPID = z.infer<typeof pidWriteZ>;
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,
@@ -55,10 +55,21 @@ const setDataReqZ = z.object({
 
 const setDataResZ = z.object({});
 
+const copyReqZ = z.object({
+  key: keyZ,
+  name: z.string(),
+  snapshot: z.boolean(),
+});
+
+const copyResZ = z.object({
+  pid: pidRemoteZ,
+});
+
 const CREATE_ENDPOINT = "/workspace/pid/create";
 const DELETE_ENDPOINT = "/workspace/pid/delete";
 const RENAME_ENDPOINT = "/workspace/pid/rename";
 const SET_DATA_ENDPOINT = "/workspace/pid/set-data";
+const COPY_ENDPOINT = "/workspace/pid/copy";
 
 export class Writer {
   private readonly client: UnaryClient;
@@ -67,7 +78,7 @@ export class Writer {
     this.client = client;
   }
 
-  async create(workspace: string, pid: CrudePID): Promise<PID> {
+  async create(workspace: string, pid: UncreatedPID): Promise<PID> {
     const pid_ = { ...pid, data: JSON.stringify(pid.data) };
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
@@ -77,6 +88,16 @@ export class Writer {
     );
 
     return res.pids[0];
+  }
+
+  async copy(key: Key, name: string, snapshot: boolean): Promise<PID> {
+    const res = await sendRequired<typeof copyReqZ, typeof copyResZ>(
+      this.client,
+      COPY_ENDPOINT,
+      { key, name, snapshot },
+      copyResZ,
+    );
+    return res.pid;
   }
 
   async delete(params: Params): Promise<void> {

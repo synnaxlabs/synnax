@@ -83,7 +83,7 @@ export class Logger {
 
   info(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("info")) return;
-    console.log("INFO", "color: #005eff;", this.meta.path, msg, kv);
+    console.log("%cINFO", "color: #005eff;", this.meta.path, msg, kv);
   }
 
   warn(msg: string, kv?: UnknownRecord): void {

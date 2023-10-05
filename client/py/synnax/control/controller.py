@@ -113,7 +113,9 @@ class Controller:
         key = uuid.uuid4()
         try:
             self.receiver.processors[key] = processor
-            ok = processor.event.wait(timeout=TimeSpan(timeout).seconds if timeout else None)
+            ok = processor.event.wait(
+                timeout=TimeSpan(timeout).seconds if timeout else None
+            )
         finally:
             del self.receiver.processors[key]
         return ok

@@ -81,10 +81,16 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
 	var res alias
 	err := gorp.NewRetrieve[string, alias]().
-		WhereKeys(alias{Range: r.Key, Alias: al}.GorpKey()).
+		Where(func(a *alias) bool { return a.Range == r.Key && a.Alias == al }).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	return res.Channel, err
+}
+
+func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
+	return gorp.NewDelete[string, alias]().
+		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+		Exec(ctx, r.tx)
 }
 
 func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {

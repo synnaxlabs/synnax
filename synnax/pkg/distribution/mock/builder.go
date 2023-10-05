@@ -22,9 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/errutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type Builder struct {
@@ -92,6 +94,8 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Channel:         d.Channel,
 		Framer:          d.Framer,
 	}))
+
+	d.Closers = append(d.Closers, MustSucceed(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
 
 	return d
 }

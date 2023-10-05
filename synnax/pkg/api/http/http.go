@@ -49,12 +49,14 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.RangeRetrieve = fhttp.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse](router, "/api/v1/range/retrieve")
 	t.RangeCreate = fhttp.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse](router, "/api/v1/range/create")
 	t.RangeDelete = fhttp.UnaryServer[api.RangeDeleteRequest, types.Nil](router, "/api/v1/range/delete")
+	t.RangeRename = fhttp.UnaryServer[api.RangeRenameRequest, types.Nil](router, "/api/v1/range/rename")
 	t.RangeKVGet = fhttp.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse](router, "/api/v1/range/kv/get")
 	t.RangeKVSet = fhttp.UnaryServer[api.RangeKVSetRequest, types.Nil](router, "/api/v1/range/kv/set")
 	t.RangeKVDelete = fhttp.UnaryServer[api.RangeKVDeleteRequest, types.Nil](router, "/api/v1/range/kv/delete")
 	t.RangeAliasSet = fhttp.UnaryServer[api.RangeAliasSetRequest, types.Nil](router, "/api/v1/range/alias/set")
 	t.RangeAliasResolve = fhttp.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse](router, "/api/v1/range/alias/resolve")
 	t.RangeAliasList = fhttp.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse](router, "/api/v1/range/alias/list")
+	t.RangeAliasDelete = fhttp.UnaryServer[api.RangeAliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete")
 
 	// WORKSPACE
 	t.WorkspaceCreate = fhttp.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse](router, "/api/v1/workspace/create")
@@ -69,6 +71,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.PIDDelete = fhttp.UnaryServer[api.PIDDeleteRequest, types.Nil](router, "/api/v1/workspace/pid/delete")
 	t.PIDRename = fhttp.UnaryServer[api.PIDRenameRequest, types.Nil](router, "/api/v1/workspace/pid/rename")
 	t.PIDSetData = fhttp.UnaryServer[api.PIDSetDataRequest, types.Nil](router, "/api/v1/workspace/pid/set-data")
+	t.PIDCopy = fhttp.UnaryServer[api.PIDCopyRequest, api.PIDCopyResponse](router, "/api/v1/workspace/pid/copy")
 
 	// LINE PLOT
 	t.LinePlotCreate = fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create")

@@ -20,12 +20,18 @@ from nptdms import TdmsFile, TdmsGroup, TdmsChannel
 from math import ceil
 
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType, File, BaseReader, ColumnFileReader
+from synnax.io.protocol import (
+    ChannelMeta,
+    ReaderType,
+    File,
+    BaseReader,
+    ColumnFileReader,
+)
 
 TDMSMatcher = new_extension_matcher(["tdms"])
 
 
-class TDMSReader(TDMSMatcher):   # type: ignore
+class TDMSReader(TDMSMatcher):  # type: ignore
     """A ColReader implementation for TDMS files."""
 
     channel_keys: set[str]
@@ -69,7 +75,9 @@ class TDMSReader(TDMSMatcher):   # type: ignore
         with TdmsFile.open(self._path) as tdms_file:
             for group in tdms_file.groups():
                 for channel in group.channels():
-                    self._channels.append(ChannelMeta(name=channel.name, meta_data=dict()))
+                    self._channels.append(
+                        ChannelMeta(name=channel.name, meta_data=dict())
+                    )
 
         return self._channels
 
@@ -119,8 +127,11 @@ class TDMSReader(TDMSMatcher):   # type: ignore
             for group in tdms_file.groups():
                 for channel in group.channels():
                     if channel.name in keys:
-                        data[channel.name] = channel[self._current_chunk*self.chunk_size:
-                                                    (self._current_chunk + 1)*self.chunk_size]
+                        data[channel.name] = channel[
+                            self._current_chunk
+                            * self.chunk_size : (self._current_chunk + 1)
+                            * self.chunk_size
+                        ]
             self._current_chunk += 1
 
         return pd.DataFrame(data)

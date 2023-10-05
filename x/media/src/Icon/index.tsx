@@ -71,6 +71,7 @@ import {
   MdKeyboardControlKey,
   MdPerson,
   MdPause,
+  MdPictureInPicture,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -168,6 +169,7 @@ export const Icon: IconType = {
   Rule: MdSquareFoot,
   User: MdPerson,
   Rename: BiRename,
+  Snapshot: MdPictureInPicture,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -256,4 +258,5 @@ export interface IconType {
   Rule: IconFC;
   User: IconFC;
   Rename: IconFC;
+  Snapshot: IconFC;
 }

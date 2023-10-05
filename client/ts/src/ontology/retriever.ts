@@ -46,7 +46,7 @@ export class Retriever {
     ids: ID | ID[] | string | string[],
     includeSchema: boolean = true,
     includeFieldData: boolean = true,
-  ): Promise<Resource | Resource[]> {
+  ): Promise<Resource[]> {
     const resources = await this.execute({
       ids: toArray(ids).map((id) => new ID(id).payload),
       includeFieldData,

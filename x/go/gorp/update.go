@@ -34,11 +34,15 @@ func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
 }
 
 func (u Update[K, E]) Change(f func(E) E) Update[K, E] {
+	return u.ChangeErr(func(e E) (E, error) { return f(e), nil })
+}
+
+func (u Update[K, E]) ChangeErr(f func(E) (E, error)) Update[K, E] {
 	addChange[K, E](u.retrieve.Params, f)
 	return u
 }
 
-func (u Update[K, E]) Exec(ctx context.Context, tx Tx) error {
+func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	checkForNilTx("Update.Exec", tx)
 	var entries []E
 	if err := u.retrieve.Entries(&entries).Exec(ctx, tx); err != nil {
@@ -49,23 +53,29 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return errors.Wrap(query.InvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
 	for i, e := range entries {
-		entries[i] = c.exec(e)
+		entries[i], err = c.exec(e)
+		if err != nil {
+			return err
+		}
 	}
 	return WrapWriter[K, E](tx).Set(ctx, entries...)
 }
 
 const updateChangeKey = "updateChange"
 
-type changes[K Key, E Entry[K]] []func(E) E
+type changes[K Key, E Entry[K]] []func(E) (E, error)
 
-func (c changes[K, E]) exec(entry E) E {
+func (c changes[K, E]) exec(entry E) (o E, err error) {
 	for _, change := range c {
-		entry = change(entry)
+		o, err = change(entry)
+		if err != nil {
+			return o, err
+		}
 	}
-	return entry
+	return o, nil
 }
 
-func addChange[K Key, E Entry[K]](q query.Parameters, change func(E) E) {
+func addChange[K Key, E Entry[K]](q query.Parameters, change func(E) (E, error)) {
 	var c changes[K, E]
 	rc, ok := q.Get(updateChangeKey)
 	if !ok {

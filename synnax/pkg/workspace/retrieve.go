@@ -55,7 +55,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: ontologyType,
+			Type: OntologyType,
 			Term: r.searchTerm,
 		})
 		if err != nil {

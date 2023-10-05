@@ -85,9 +85,17 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         }
         try {
           const err = this.encoder.decode(data, errorZ);
-          return [outCtx, decodeError(err)];
-        } catch {
-          return [outCtx, new Error(httpRes.statusText)];
+          const decoded = decodeError(err);
+          return [outCtx, decoded];
+        } catch (e) {
+          return [
+            outCtx,
+            new Error(
+              `[freighter] - failed to decode error: ${httpRes.statusText}: ${
+                (e as Error).message
+              }`,
+            ),
+          ];
         }
       },
     );

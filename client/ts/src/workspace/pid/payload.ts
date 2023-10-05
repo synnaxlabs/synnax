@@ -18,11 +18,13 @@ export const pidZ = z.object({
   key: z.string(),
   name: z.string(),
   data: unknownRecordZ,
+  snapshot: z.boolean(),
 });
 
 export const pidRemoteZ = z.object({
   key: z.string(),
   name: z.string(),
+  snapshot: z.boolean(),
   data: z.string().transform((s) => JSON.parse(s) as UnknownRecord),
 });
 

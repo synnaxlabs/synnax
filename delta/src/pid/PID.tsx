@@ -9,7 +9,6 @@
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
-import { workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   PID as Core,
@@ -70,15 +69,19 @@ const syncer: Syncer<
   if (ws == null) return;
   const data = select(s, layoutKey);
   const la = Layout.selectRequired(s, layoutKey);
+  const setData = {
+    ...data,
+    key: undefined,
+    snapshot: undefined,
+  } as unknown as UnknownRecord;
   if (!data.remoteCreated) {
     store.dispatch(setRemoteCreated({ layoutKey }));
     await client.workspaces.pid.create(ws, {
       key: layoutKey,
       name: la.name,
-      data: data as unknown as UnknownRecord,
+      data: setData,
     });
-  } else
-    await client.workspaces.pid.setData(layoutKey, data as unknown as UnknownRecord);
+  } else await client.workspaces.pid.setData(layoutKey, setData);
 };
 
 export const HAUL_TYPE = "pid-element";
@@ -248,9 +251,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       ["Control", "V"],
       ["Control", "C"],
     ],
+    region: ref,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (ref.current == null || stage !== "end") return;
+        if (ref.current == null || stage !== "start") return;
         const region = box.construct(ref.current);
         const copy = triggers.some((t) => t.includes("C"));
         const pos = calculatePos(region, cursor, viewportRef.current);
@@ -284,19 +288,23 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
           <Core.Background />
           <Core.Controls reverse>
-            <Core.ToggleEditControl disabled={pid.control === "acquired"} />
+            {!pid.snapshot && (
+              <Core.ToggleEditControl disabled={pid.control === "acquired"} />
+            )}
             <Core.FitViewControl />
-            <Button.ToggleIcon
-              value={pid.control === "acquired"}
-              onChange={acquireControl}
-              tooltip={
-                <Text.Text level="small">
-                  {pid.control === "acquired" ? "Release control" : "Acquire control"}
-                </Text.Text>
-              }
-            >
-              <Icon.Circle />
-            </Button.ToggleIcon>
+            {!pid.snapshot && (
+              <Button.ToggleIcon
+                value={pid.control === "acquired"}
+                onChange={acquireControl}
+                tooltip={
+                  <Text.Text level="small">
+                    {pid.control === "acquired" ? "Release control" : "Acquire control"}
+                  </Text.Text>
+                }
+              >
+                <Icon.Circle />
+              </Button.ToggleIcon>
+            )}
           </Core.Controls>
         </Core.PID>
       </Control.Controller>

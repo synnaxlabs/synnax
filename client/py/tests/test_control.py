@@ -14,8 +14,9 @@ import synnax as sy
 import pytest
 
 
-def create_valve_set(client: sy.Synnax) -> tuple[
-    sy.Channel, sy.Channel, sy.Channel, sy.Channel]:
+def create_valve_set(
+    client: sy.Synnax,
+) -> tuple[sy.Channel, sy.Channel, sy.Channel, sy.Channel]:
     press_end_cmd_time = client.channels.create(
         name="press_en_cmd_time",
         data_type=sy.DataType.TIMESTAMP,

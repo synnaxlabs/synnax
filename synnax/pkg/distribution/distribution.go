@@ -18,12 +18,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/telem"
+	"io"
 )
 
 type (
@@ -46,6 +48,7 @@ type Distribution struct {
 	Ontology *ontology.Ontology
 	CDC      *cdc.Provider
 	Group    *group.Service
+	Closers  []io.Closer
 }
 
 // Close closes the distribution layer.
@@ -54,13 +57,15 @@ func (d Distribution) Close() error {
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
 	e.Exec(d.Core.Close)
+	for _, c := range d.Closers {
+		e.Exec(c.Close)
+	}
 	return e.Error()
 }
 
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
 func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
-
 	d.Core, err = core.Open(ctx, cfg)
 	if err != nil {
 		return d, err
@@ -89,6 +94,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
+
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	channelTransport := channeltransport.New(cfg.Pool)
@@ -133,6 +139,10 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Framer:          d.Framer,
 		Instrumentation: cfg.Instrumentation.Child("cdc"),
 	})
-
+	if err != nil {
+		return d, err
+	}
+	c, err := ontologycdc.Propagate(ctx, d.CDC, d.Ontology)
+	d.Closers = append(d.Closers, c)
 	return d, err
 }

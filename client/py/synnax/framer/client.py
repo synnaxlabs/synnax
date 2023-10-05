@@ -92,7 +92,7 @@ class Client:
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
-            name=name
+            name=name,
         )
 
     def new_iterator(

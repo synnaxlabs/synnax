@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lib } from "@synnaxlabs/vite-plugin";
-import { defineConfig } from "vite";
+export type Variant = "set" | "delete";
 
-export default defineConfig({
-  plugins: [lib({ name: "client" })],
-  build: {
-    minify: false,
-    rollupOptions: {
-      external: "zod",
-    },
-  },
-  test: {
-    globals: true,
-    environment: "jsdom",
-  },
-});
+export type Change<K, V> =
+  | {
+      variant: "set";
+      key: K;
+      value: V;
+    }
+  | {
+      variant: "delete";
+      key: K;
+      value?: V;
+    };

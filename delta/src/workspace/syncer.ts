@@ -10,13 +10,13 @@
 import { useCallback } from "react";
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax } from "@synnaxlabs/client";
+import { QueryError, type Synnax } from "@synnaxlabs/client";
 import { type UnknownRecord } from "@synnaxlabs/x";
 
 import { type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { selectActiveKey } from "@/workspace/selectors";
-import { type StoreState } from "@/workspace/slice";
+import { setActive, type StoreState } from "@/workspace/slice";
 
 export const useLayoutSyncer = (): Syncer<Layout.StoreState & StoreState, any> => {
   return useCallback(async (client, _, store) => {
@@ -33,5 +33,10 @@ export const syncLayout = async (
   const key = selectActiveKey(s);
   if (key == null) return;
   const layoutSlice = Layout.selectSliceState(s);
-  await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
+  try {
+    await client.workspaces.setLayout(key, layoutSlice as unknown as UnknownRecord);
+  } catch (e) {
+    if (e instanceof QueryError) store.dispatch(setActive(null));
+    throw e;
+  }
 };

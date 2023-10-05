@@ -101,6 +101,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
 
   const dispatch = useDispatch();
   const savePermanently = useRef(false);
+  const isPersistedEdit = !isCreate && range?.variant === "static" && range.persisted;
 
   const onSubmit = async ({
     name,
@@ -114,14 +115,16 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
     name = name.trim();
     if (name.length === 0) name = range?.name as string;
     // remove leading and trailing whitespace
-    const key = uuidv4();
-    if (savePermanently.current && client != null) {
+    const key = isCreate ? uuidv4() : layoutKey;
+
+    const persisted = savePermanently.current || isPersistedEdit;
+
+    if (persisted && client != null)
       await client.ranges.create({
         name,
         timeRange: new TimeRange(start, end),
         key,
       });
-    }
     dispatch(
       add({
         ranges: [
@@ -130,7 +133,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
             name,
             timeRange: { start, end },
             key,
-            persisted: savePermanently.current,
+            persisted,
           },
         ],
       })
@@ -195,16 +198,18 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
       </form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
-          <Button.Button
-            onClick={() => {
-              savePermanently.current = true;
-              formRef.current?.requestSubmit();
-            }}
-            variant="outlined"
-            disabled={client == null}
-          >
-            Save Permanently
-          </Button.Button>
+          {isCreate && (
+            <Button.Button
+              onClick={() => {
+                savePermanently.current = true;
+                formRef.current?.requestSubmit();
+              }}
+              variant="outlined"
+              disabled={client == null}
+            >
+              Save Permanently
+            </Button.Button>
+          )}
           <Button.Button onClick={() => formRef.current?.requestSubmit()}>
             Save
           </Button.Button>

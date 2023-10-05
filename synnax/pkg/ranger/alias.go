@@ -25,7 +25,10 @@ type alias struct {
 var _ gorp.Entry[string] = alias{}
 
 // GorpKey implements gorp.Entry.
-func (a alias) GorpKey() string { return fmt.Sprintf("%s:%s", a.Range, a.Alias) }
+func (a alias) GorpKey() string { return fmt.Sprintf("%s:%s", a.Range, a.Channel) }
 
 // SetOptions implements gorp.Entry.
-func (a alias) SetOptions() []interface{} { return []interface{}{a.Channel.Leaseholder()} }
+func (a alias) SetOptions() []interface{} {
+	// TODO: Figure out if we should return leaseholder here.
+	return nil
+}

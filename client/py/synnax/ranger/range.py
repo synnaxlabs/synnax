@@ -182,8 +182,11 @@ class Range(RangePayload):
     def set_alias(self, channel: dict[ChannelKey | ChannelName, str]):
         ...
 
-    def set_alias(self, channel: ChannelKey | ChannelName | dict[
-        ChannelKey | ChannelName, str], alias: str = None):
+    def set_alias(
+        self,
+        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, str],
+        alias: str = None,
+    ):
         if not isinstance(channel, dict):
             if alias is None:
                 raise ValueError("Alias must be provided if channel is not a dict")

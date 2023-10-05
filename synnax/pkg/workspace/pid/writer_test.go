@@ -4,8 +4,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -37,6 +41,28 @@ var _ = Describe("Writer", func() {
 			var res pid.PID
 			Expect(gorp.NewRetrieve[uuid.UUID, pid.PID]().WhereKeys(p.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data).To(Equal("data2"))
+		})
+	})
+
+	Describe("Copy", func() {
+		It("Should copy a PID with a new name under the same workspace", func() {
+			p := pid.PID{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())
+			var cpy pid.PID
+			Expect(svc.NewWriter(tx).Copy(ctx, p.Key, "test2", false, &cpy)).To(Succeed())
+			Expect(cpy.Key).ToNot(Equal(p.Key))
+			Expect(cpy.Name).To(Equal("test2"))
+			var res []ontology.Resource
+			Expect(otg.NewRetrieve().WhereIDs(ws.OntologyID()).TraverseTo(ontology.Children).Entries(&res).Exec(ctx, tx)).To(Succeed())
+			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
+			Expect(keys).To(ContainElement(cpy.Key.String()))
+		})
+		It("Should copy a PID into a snapshot that cannot be modified", func() {
+			p := pid.PID{Name: "test", Data: "data"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())
+			var cpy pid.PID
+			Expect(svc.NewWriter(tx).Copy(ctx, p.Key, "test2", true, &cpy)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, "data2")).To(HaveOccurredAs(validate.Error))
 		})
 	})
 })

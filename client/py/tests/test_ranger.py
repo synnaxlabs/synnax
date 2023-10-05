@@ -56,8 +56,9 @@ class TestRangeClient:
         rng = client.ranges.retrieve([two_ranges[0].name])[0]
         assert rng.name == two_ranges[0].name
 
-    def test_retrieve_by_name_not_found(self, two_ranges: list[sy.Range],
-                                        client: sy.Synnax):
+    def test_retrieve_by_name_not_found(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ):
         """Should raise an error when a range is not found"""
         with pytest.raises(sy.exceptions.QueryError):
             client.ranges.retrieve("not_found")
@@ -112,9 +113,7 @@ class TestRangeKV:
 class TestRangeAlias:
     def test_basic_alias(self, client: sy.Synnax):
         ch = client.channels.create(
-            name="test",
-            data_type=sy.DataType.INT8,
-            rate=1 * sy.Rate.HZ
+            name="test", data_type=sy.DataType.INT8, rate=1 * sy.Rate.HZ
         )
         rng = client.ranges.create(
             name="test",
@@ -139,4 +138,3 @@ class TestRangeAlias:
         )
         with pytest.raises(sy.exceptions.QueryError):
             rng.set_alias("not_found", "test")
-

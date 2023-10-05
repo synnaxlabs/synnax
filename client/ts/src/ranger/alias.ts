@@ -29,6 +29,13 @@ const setReqZ = z.object({
 
 const setResZ = z.unknown();
 
+const deleteReqZ = z.object({
+  range: keyZ,
+  aliases: channelKeyZ.array(),
+});
+
+const deleteResZ = z.unknown();
+
 const listReqZ = z.object({
   range: keyZ,
 });
@@ -41,6 +48,7 @@ export class Aliaser {
   private static readonly SET_ENDPOINT = "/range/alias/set";
   private static readonly RESOLVE_ENDPOINT = "/range/alias/resolve";
   private static readonly LIST_ENDPOINT = "/range/alias/list";
+  private static readonly DELETE_ENDPOINT = "/range/alias/delete";
   private readonly cache = new Map<string, ChannelKey>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;
@@ -105,5 +113,17 @@ export class Aliaser {
         listResZ,
       )
     ).aliases;
+  }
+
+  async delete(aliases: ChannelKey[]): Promise<void> {
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      Aliaser.DELETE_ENDPOINT,
+      {
+        range: this.rangeKey,
+        aliases,
+      },
+      deleteResZ,
+    );
   }
 }

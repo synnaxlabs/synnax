@@ -137,10 +137,7 @@ func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
 func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
 
 // RetrieveResource implements ontology.Service.
-func (s *NodeOntologyService) RetrieveResource(
-	_ context.Context,
-	key string,
-) (schema.Resource, error) {
+func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	id, err := strconv.Atoi(key)
 	if err != nil {
 		return schema.Resource{}, err
@@ -175,7 +172,7 @@ var _ ontology.Service = (*ClusterOntologyService)(nil)
 func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
 
 // RetrieveResource implements ontology.Service.
-func (s *ClusterOntologyService) RetrieveResource(_ context.Context, _ string) (schema.Resource, error) {
+func (s *ClusterOntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
 	return newClusterResource(s.Cluster.Key()), nil
 }
 

@@ -25,5 +25,3 @@ Authority.ABSOLUTE = Authority(255)
 Authority.DEFAULT = Authority(1)
 
 CrudeAuthority = int | Authority
-
-

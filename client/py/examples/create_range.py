@@ -12,8 +12,7 @@ from alamos.dev import instrumentation
 
 import matplotlib.pyplot as plt
 
-client = sy.Synnax(
-)
+client = sy.Synnax()
 
 
 rng = client.ranges.create(

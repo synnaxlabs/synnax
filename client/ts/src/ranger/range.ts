@@ -11,11 +11,10 @@ import { type Series, TimeRange } from "@synnaxlabs/x";
 
 import { type Key, type Params, type Name } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
+import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type Aliaser } from "@/ranger/alias";
 import { type KV } from "@/ranger/kv";
-
-import { QueryError } from "..";
 
 export class Range {
   key: string;
@@ -50,6 +49,10 @@ export class Range {
       throw new QueryError(`Channel ${channel} does not exist`);
     }
     await this.aliaser.set({ [ch[0].key]: alias });
+  }
+
+  async deleteAlias(...channels: Key[]): Promise<void> {
+    await this.aliaser.delete(channels);
   }
 
   async listAliases(): Promise<Record<Key, string>> {
