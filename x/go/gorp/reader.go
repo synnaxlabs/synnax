@@ -180,6 +180,8 @@ type TxReader[K Key, E Entry[K]] struct {
 	prefix lazyPrefix[K, E]
 }
 
+var _ iter.Nexter[change.Change[string, nopEntry]] = TxReader[string, nopEntry]{}
+
 // Count returns the number of key-value operations in the reader. NOTE: This includes
 // operations that may not match the entry type of the reader. Caveat emptor.
 func (t TxReader[K, E]) Count() int { return t.kv.Count() }

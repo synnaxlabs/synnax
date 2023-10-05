@@ -8,6 +8,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
@@ -19,8 +21,8 @@ func Propagate(
 	prov *cdc.Provider,
 	otg *ontology.Ontology,
 ) (io.Closer, error) {
-	obs := observe.Translator[iter.Nexter[schema.Change], []change.Change[[]byte, struct{}]]{
-		Observable: otg,
+	resourceObserver := observe.Translator[iter.Nexter[schema.Change], []change.Change[[]byte, struct{}]]{
+		Observable: otg.ResourceObserver,
 		Translate: func(nexter iter.Nexter[schema.Change]) []change.Change[[]byte, struct{}] {
 			return iter.MapToSlice(ctx, nexter, func(ch schema.Change) change.Change[[]byte, struct{}] {
 				return change.Change[[]byte, struct{}]{
@@ -30,11 +32,31 @@ func Propagate(
 			})
 		},
 	}
-	return prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
-		Observable: obs,
+	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		Observable: resourceObserver,
 		Set:        channel.Channel{Name: "sy_ontology_set", DataType: telem.StringT},
 		Delete:     channel.Channel{Name: "sy_ontology_delete", DataType: telem.StringT},
 	})
+	if err != nil {
+		return nil, err
+	}
+	relationshipObserver := observe.Translator[gorp.TxReader[string, ontology.Relationship], []change.Change[[]byte, struct{}]]{
+		Observable: otg.RelationshipObserver,
+		Translate: func(nexter gorp.TxReader[string, ontology.Relationship]) []change.Change[[]byte, struct{}] {
+			return iter.MapToSlice(ctx, nexter, func(ch change.Change[string, ontology.Relationship]) change.Change[[]byte, struct{}] {
+				return change.Change[[]byte, struct{}]{
+					Key:     EncodeRelationship(ch.Value),
+					Variant: ch.Variant,
+				}
+			})
+		},
+	}
+	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		Observable: relationshipObserver,
+		Set:        channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},
+		Delete:     channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT},
+	})
+	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }
 
 func EncodeID(id ontology.ID) []byte { return []byte(id.String() + "\n") }
@@ -45,6 +67,40 @@ func EncodeIDs(ids []ontology.ID) []byte {
 		buf = append(buf, EncodeID(id)...)
 	}
 	return buf
+}
+
+func EncodeRelationship(relationship ontology.Relationship) []byte {
+	return append([]byte(relationship.GorpKey()), '\n')
+}
+
+func EncodeRelationships(relationships []ontology.Relationship) []byte {
+	var buf []byte
+	for _, relationship := range relationships {
+		buf = append(buf, EncodeRelationship(relationship)...)
+	}
+	return buf
+}
+
+func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
+	// ser.Data is a byte slice containing the encoded relationships, we need to decode them
+	// by looking for the newline separator.
+	var (
+		relationships []ontology.Relationship
+		buf           bytes.Buffer
+	)
+	for _, b := range ser {
+		if b == '\n' {
+			relationship, err := ontology.ParseRelationship(buf.String())
+			if err != nil {
+				return nil, err
+			}
+			relationships = append(relationships, relationship)
+			buf.Reset()
+			continue
+		}
+		buf.WriteByte(b)
+	}
+	return relationships, nil
 }
 
 func DecodeIDs(ser []byte) ([]ontology.ID, error) {

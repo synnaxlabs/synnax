@@ -10,7 +10,11 @@
 package ontology
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
+	"strings"
 )
 
 // RelationshipType is a string that uniquely identifies the type of a relationship
@@ -43,9 +47,22 @@ var _ gorp.Entry[string] = Relationship{}
 
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() string {
-	return r.From.String() + ":" + string(r.Type) + ":" + r.To.String()
-
+	return r.From.String() + "->" + string(r.Type) + "->" + r.To.String()
 }
 
 // SetOptions implements the gorp.Entry interface.
 func (r Relationship) SetOptions() []interface{} { return nil }
+
+func ParseRelationship(key string) (r Relationship, err error) {
+	split := strings.Split(key, "->")
+	if len(split) != 3 {
+		return r, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
+	}
+	r.From, err = schema.ParseID(split[0])
+	if err != nil {
+		return r, err
+	}
+	r.Type = RelationshipType(split[1])
+	r.To, err = schema.ParseID(split[2])
+	return r, err
+}

@@ -76,7 +76,7 @@ var _ = Describe("CDC", Ordered, func() {
 			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
 		})
 	})
-	It("Should correctly propagate changes to the ontology", func() {
+	It("Should correctly propagate resource changes to the ontology", func() {
 		var resCh channel.Channel
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -105,6 +105,37 @@ var _ = Describe("CDC", Ordered, func() {
 		Expect(len(ids)).To(BeNumerically(">", 0))
 		Expect(len(ids[0].Type)).To(BeNumerically(">", 0))
 		Expect(len(ids[0].Key)).To(BeNumerically(">", 0))
+		requests.Close()
+		Eventually(responses.Outlet()).Should(BeClosed())
+		Expect(closeStreamer.Close()).To(Succeed())
+	})
+	It("Should correctly propagate relationship changes to the ontology", func() {
+		var resCh channel.Channel
+		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Start: telem.Now(),
+			Keys:  channel.Keys{resCh.Key()},
+		}))
+		requests, responses := confluence.Attach(streamer, 2)
+		sCtx, cancel := signal.Isolated()
+		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		closeStreamer := signal.NewShutdown(sCtx, cancel)
+
+		w := dist.Ontology.NewWriter(nil)
+		firstResource := newChangeID("abc")
+		secondResource := newChangeID("def")
+		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
+		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
+		Expect(dist.Ontology.NewWriter(nil).DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		var res framer.StreamerResponse
+		Eventually(responses.Outlet()).Should(Receive(&res))
+		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
+		// There's a condition here where we might receive the channel creation
+		// signal, so we just do a length assertion.
+		Expect(len(relationships)).To(BeNumerically(">", 0))
+		Expect(len(relationships[0].Type)).To(BeNumerically(">", 0))
+		Expect(len(relationships[0].From.Key)).To(BeNumerically(">", 0))
+		Expect(len(relationships[0].To.Key)).To(BeNumerically(">", 0))
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
 		Expect(closeStreamer.Close()).To(Succeed())

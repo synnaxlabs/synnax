@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import {
@@ -55,10 +55,12 @@ export const Tree = (): ReactElement => {
   const removeLayout = Layout.useRemover();
   const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
   const menuProps = Menu.useContextMenu();
+  const changeTracker = useRef<ontology.ChangeTracker | null>(null);
 
   // Load in the initial tree.
   useAsyncEffect(async () => {
     if (client == null) return;
+    await changeTracker.current?.close();
     const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
     setNodes(toTreeNodes(services, fetched));
     const keys = fetched.map(({ id }) => id.toString());
@@ -66,6 +68,35 @@ export const Tree = (): ReactElement => {
       ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
       ...fetched,
     ];
+    const ct = await client.ontology.openChangeTracker();
+    ct.onChange((changes) => {
+      const removalIDs = changes
+        .filter((change) => change.variant === "delete")
+        .map((change) => change.key.toString());
+      const updates = changes
+        .filter((change) => change.variant === "set")
+        .map((c) => c.value as ontology.Resource);
+      const updateIDs = updates.map((change) => change.key.toString());
+      setResources((prev) => [
+        ...prev.filter(
+          (r) =>
+            !removalIDs.includes(r.id.toString()) ||
+            !updateIDs.includes(r.id.toString())
+        ),
+        ...updates,
+      ]);
+
+      let nextTree = Core.removeNode(nodesRef.current, ...removalIDs);
+      updateIDs.forEach((id, i) => {
+        nextTree = Core.updateNode(
+          nextTree,
+          id,
+          () => toTreeNodes(services, [updates[i]])[0]
+        );
+      });
+      setNodes([...nextTree]);
+    });
+    changeTracker.current = ct;
   }, [client]);
 
   const handleDrop: Core.TreeProps["onDrop"] = useCallback(
