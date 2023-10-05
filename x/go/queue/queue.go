@@ -30,11 +30,11 @@ func (q *Queue[T]) Pop() (val T, err error) {
 	return i, nil
 }
 
-func (q *Queue[T]) Peek() (*T, error) {
+func (q *Queue[T]) Peek() *T {
 	if len(q.queue) == 0 {
-		return nil, errors.New("queue is empty")
+		return nil
 	}
-	return &q.queue[0], nil
+	return &q.queue[0]
 }
 
 func (q *Queue[T]) Len() int {

@@ -30,11 +30,11 @@ func (s *Stack[T]) Pop() (val T, err error) {
 	return i, nil
 }
 
-func (s *Stack[T]) Peek() (*T, error) {
+func (s *Stack[T]) Peek() *T {
 	if len(s.stack) == 0 {
-		return nil, errors.New("stack is empty")
+		return nil
 	}
-	return &s.stack[len(s.stack)-1], nil
+	return &s.stack[len(s.stack)-1]
 }
 
 func (s *Stack[T]) Len() int {
