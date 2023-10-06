@@ -13,6 +13,7 @@ import (
 	"errors"
 	"go/ast"
 	"go/token"
+	"strconv"
 
 	"github.com/synnaxlabs/x/queue"
 	"github.com/synnaxlabs/x/stack"
@@ -28,7 +29,8 @@ func findTokens(s string) ([]string, error) {
 	for i, c := range s {
 		if c == ' ' {
 			if currToken != "" {
-				return tokens, errors.New("Invalid expression")
+				tokens = append(tokens, currToken)
+				currToken = ""
 			}
 			continue
 		}
@@ -92,6 +94,7 @@ func (e *Expression) Build(s string) error {
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
 			}
+			operators.Push(t)
 		case "^":
 			for operators.Len() > 0 && precedence[*operators.Peek()] > precedence[t] {
 				op, err := operators.Pop()
@@ -121,8 +124,35 @@ func (e *Expression) Build(s string) error {
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
 			}
 		default:
-			output.Push(&ast.BasicLit{Kind: token.STRING, Value: t})
+			_, err := strconv.ParseFloat(t, 64)
+			if err != nil {
+				output.Push(&ast.BasicLit{Kind: token.STRING, Value: t})
+			} else {
+				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: t})
+			}
+
 		}
 	}
-	return errors.New("Invalid expression")
+	for operators.Len() > 0 {
+		op, err := operators.Pop()
+		if err != nil {
+			return err
+		}
+		X, err1 := output.Pop()
+		Y, err2 := output.Pop()
+		if err1 != nil || err2 != nil {
+			return errors.New("Invalid expression")
+		}
+		output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
+	}
+	exp, err := output.Pop()
+	if err != nil {
+		return err
+	}
+	e.exp = exp.(ast.Expr)
+	return nil
+}
+
+func (e Expression) GetTree() ast.Expr {
+	return e.exp
 }
