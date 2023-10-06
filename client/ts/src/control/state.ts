@@ -54,13 +54,14 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   private readonly streamer: FrameStreamer;
   private readonly ecd: binary.EncoderDecoder;
   private readonly observer: observe.Observer<Transfer[]>;
+  private readonly closePromise: Promise<void>;
 
   private constructor(streamer: FrameStreamer) {
     this.states = new Map();
     this.ecd = new binary.JSONEncoderDecoder();
     this.observer = new observe.Observer<Transfer[]>();
     this.streamer = streamer;
-    void this.stream();
+    this.closePromise = this.stream();
   }
 
   subjects(): Subject[] {
@@ -73,8 +74,9 @@ export class StateTracker implements observe.Observable<Transfer[]> {
     return this.observer.onChange(handler);
   }
 
-  close(): void {
+  async close(): Promise<void> {
     this.streamer.close();
+    await this.closePromise;
   }
 
   static async open(client: FrameClient): Promise<StateTracker> {
@@ -92,9 +94,7 @@ export class StateTracker implements observe.Observable<Transfer[]> {
 
   private merge(update: Update): void {
     update.transfers.forEach((t) => {
-      if (t.from == null && t.to == null) {
-        console.warn("Invalid transfer: ", t);
-      }
+      if (t.from == null && t.to == null) console.warn("Invalid transfer: ", t);
       if (t.to == null) this.states.delete((t.from as State).resource);
       else this.states.set(t.to.resource, t.to);
     });

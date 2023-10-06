@@ -157,13 +157,13 @@ export const DefaultItem = ({
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: "Tree.Item",
     key,
-    canDrop: ({ items: entities, source }) => {
+    canDrop: useCallback(({ items: entities, source }) => {
       const keys = entities.map((item) => item.key);
       setDraggingOver(false);
       return source.type === "Tree.Item" && !keys.includes(key);
-    },
-    onDrop: (props) => onDrop?.(key, props) ?? [],
-    onDragOver: () => setDraggingOver(true),
+    }, []),
+    onDrop: useCallback((props) => onDrop?.(key, props) ?? [], [key, onDrop]),
+    onDragOver: useCallback(() => setDraggingOver(true), []),
   });
 
   const handleDragStart = (): void => {
@@ -294,7 +294,7 @@ export const moveNode = (
     const node = findNode(tree, key);
     if (node == null) return;
     removeNode(tree, key);
-    addNode(tree, destination, node);
+    setNode(tree, destination, node);
   });
   return tree;
 };
@@ -313,18 +313,18 @@ export const removeNode = (tree: Node[], ...keys: string[]): Node[] => {
   return tree;
 };
 
-export const addNode = (
+export const setNode = (
   tree: Node[],
   destination: string,
-  ...nodes: Node[]
+  ...additions: Node[]
 ): Node[] => {
   const node = findNode(tree, destination);
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
   if (node.children == null) node.children = [];
-  const keys = nodes.map((node) => node.key);
+  const addedKeys = additions.map((node) => node.key);
   node.children = [
-    ...nodes,
-    ...node.children.filter((child) => !keys.includes(child.key)),
+    ...additions,
+    ...node.children.filter((child) => !addedKeys.includes(child.key)),
   ];
   return tree;
 };
@@ -333,9 +333,13 @@ export const updateNode = (
   tree: Node[],
   key: string,
   updater: (node: Node) => Node,
+  throwOnMissing: boolean = true,
 ): Node[] => {
   const node = findNode(tree, key);
-  if (node == null) throw new Error(`Could not find node with key ${key}`);
+  if (node == null) {
+    if (throwOnMissing) throw new Error(`Could not find node with key ${key}`);
+    return tree;
+  }
   const parent = findNodeParent(tree, key);
   if (parent != null) {
     // splice the updated node into the parent's children

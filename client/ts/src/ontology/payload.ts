@@ -101,3 +101,20 @@ export const resourceSchemaZ = z
   });
 
 export type Resource = z.infer<typeof resourceSchemaZ>;
+
+export const relationshipSchemaZ = z.object({
+  from: ID.z,
+  type: z.string(),
+  to: ID.z,
+});
+
+export type Relationship = z.infer<typeof relationshipSchemaZ>;
+
+export const parseRelationship = (str: string): Relationship => {
+  const [from, type, to] = str.split("->");
+  return {
+    from: new ID(from),
+    type,
+    to: new ID(to),
+  };
+};

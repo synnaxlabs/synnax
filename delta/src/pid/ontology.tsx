@@ -75,7 +75,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
         rangeID,
         ...otgsIDs
       );
-      const nextNodes = Tree.addNode(
+      const nextNodes = Tree.setNode(
         state.nodes,
         rangeID.toString(),
         ...Ontology.toTreeNodes(services, otg)

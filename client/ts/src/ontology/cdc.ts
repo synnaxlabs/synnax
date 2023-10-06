@@ -9,15 +9,20 @@
 
 import { observe, type change, type Destructor } from "@synnaxlabs/x";
 
+import { QueryError } from "@/errors";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Frame } from "@/framer/frame";
 import { type Streamer as FrameStreamer } from "@/framer/streamer";
-import { ID, type Resource } from "@/ontology/payload";
+import {
+  ID,
+  parseRelationship,
+  type Relationship,
+  type Resource,
+} from "@/ontology/payload";
 import { type Retriever } from "@/ontology/retriever";
 
-import { QueryError } from "..";
-
-export type Change = change.Change<ID, Resource>;
+export type ResourceChange = change.Change<ID, Resource>;
+export type RelationshipChange = change.Change<Relationship, undefined>;
 
 export const parseIDsFromBuffer = (buf: ArrayBufferLike): ID[] =>
   new TextDecoder()
@@ -26,21 +31,32 @@ export const parseIDsFromBuffer = (buf: ArrayBufferLike): ID[] =>
     .slice(0, -1)
     .map((id) => new ID(id));
 
-export class ChangeTracker implements observe.Observable<Change[]> {
-  private readonly obs: observe.Observer<Change[]> = new observe.Observer();
+export const parseRelationshipsFromBuffer = (buf: ArrayBufferLike): Relationship[] =>
+  new TextDecoder()
+    .decode(buf)
+    .split("\n")
+    .slice(0, -1)
+    .map((rel) => parseRelationship(rel));
+
+export class ChangeTracker {
+  private readonly resourceObs: observe.Observer<ResourceChange[]>;
+  private readonly relationshipObs: observe.Observer<RelationshipChange[]>;
+
+  readonly relationships: observe.Observable<RelationshipChange[]>;
+  readonly resources: observe.Observable<ResourceChange[]>;
 
   private readonly streamer: FrameStreamer;
   private readonly retriever: Retriever;
   private readonly closePromise: Promise<void>;
 
   constructor(streamer: FrameStreamer, retriever: Retriever) {
+    this.relationshipObs = new observe.Observer<RelationshipChange[]>();
+    this.relationships = this.relationshipObs;
+    this.resourceObs = new observe.Observer<ResourceChange[]>();
+    this.resources = this.resourceObs;
     this.retriever = retriever;
     this.streamer = streamer;
     this.closePromise = this.start();
-  }
-
-  onChange(handler: observe.Handler<Change[]>): Destructor {
-    return this.obs.onChange(handler);
   }
 
   async close(): Promise<void> {
@@ -55,50 +71,67 @@ export class ChangeTracker implements observe.Observable<Change[]> {
   }
 
   private async update(frame: Frame): Promise<void> {
-    await this.updateSets(frame);
-    await this.updateDeletes(frame);
+    const resSets = await this.parseResourceSets(frame);
+    const resDeletes = this.parseResourceDeletes(frame);
+    const allResources = resSets.concat(resDeletes);
+    if (allResources.length > 0) this.resourceObs.notify(resSets.concat(resDeletes));
+    const relSets = this.parseRelationshipSets(frame);
+    const relDeletes = this.parseRelationshipDeletes(frame);
+    const allRels = relSets.concat(relDeletes);
+    if (allRels.length > 0) this.relationshipObs.notify(relSets.concat(relDeletes));
   }
 
-  private async updateSets(frame: Frame): Promise<void> {
+  private parseRelationshipSets(frame: Frame): RelationshipChange[] {
+    const relationships = frame.get("sy_ontology_relationship_set");
+    if (relationships.length === 0) return [];
+    // We should only ever get one series of relationships
+    const rels = parseRelationshipsFromBuffer(relationships[0].buffer);
+    return rels.map((rel) => ({ variant: "set", key: rel, value: undefined }));
+  }
+
+  private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
+    const relationships = frame.get("sy_ontology_relationship_delete");
+    if (relationships.length === 0) return [];
+    // We should only ever get one series of relationships
+    const rels = parseRelationshipsFromBuffer(relationships[0].buffer);
+    return rels.map((rel) => ({ variant: "delete", key: rel }));
+  }
+
+  private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
     const sets = frame.get("sy_ontology_set");
-    if (sets.length === 0) return;
+    if (sets.length === 0) return [];
     // We should only ever get one series of sets
     const ids = parseIDsFromBuffer(sets[0].buffer);
     try {
       const resources = await this.retriever.retrieve(ids);
-      this.obs.notify(
-        resources.map((resource) => ({
-          variant: "set",
-          key: resource.id,
-          value: resource,
-        })),
-      );
+      return resources.map((resource) => ({
+        variant: "set",
+        key: resource.id,
+        value: resource,
+      }));
     } catch (e) {
       if (e instanceof QueryError) {
         console.warn(e);
-        return;
+        return [];
       }
       throw e;
     }
   }
 
-  private async updateDeletes(frame: Frame): Promise<void> {
+  private parseResourceDeletes(frame: Frame): ResourceChange[] {
     const deletes = frame.get("sy_ontology_delete");
-    if (deletes.length === 0) return;
+    if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
     const ids = parseIDsFromBuffer(deletes[0].buffer);
-    this.obs.notify(
-      ids.map((id) => ({
-        variant: "delete",
-        key: id,
-      })),
-    );
+    return ids.map((id) => ({ variant: "delete", key: id }));
   }
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
     const streamer = await client.newStreamer([
       "sy_ontology_set",
       "sy_ontology_delete",
+      "sy_ontology_relationship_set",
+      "sy_ontology_relationship_delete",
     ]);
     return new ChangeTracker(streamer, retriever);
   }

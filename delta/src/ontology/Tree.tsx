@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, useCallback } from "react";
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Menu,
   Tree as Core,
@@ -19,6 +19,7 @@ import {
   useStateRef,
   useCombinedStateAndRef,
   componentRenderProp,
+  type state,
 } from "@synnaxlabs/pluto";
 import { useStore } from "react-redux";
 
@@ -31,72 +32,180 @@ import { type RootAction, type RootState } from "@/store";
 export const toTreeNodes = (
   services: Services,
   resources: ontology.Resource[]
-): Core.Node[] =>
-  resources.map((res) => {
-    const { id, name } = res;
-    const { icon, hasChildren, haulItems } = services[id.type];
-    return {
-      key: id.toString(),
-      name,
-      icon,
-      hasChildren,
-      children: [],
-      haulItems: haulItems(res),
-      allowRename: services[id.type].allowRename(res),
-    };
-  });
+): Core.Node[] => resources.map((res) => toTreeNode(services, res));
+
+export const toTreeNode = (
+  services: Services,
+  resource: ontology.Resource
+): Core.Node => {
+  const { id, name } = resource;
+  const { icon, hasChildren, haulItems } = services[id.type];
+  return {
+    key: id.toString(),
+    name,
+    icon,
+    hasChildren,
+    haulItems: haulItems(resource),
+    allowRename: services[id.type].allowRename(resource),
+  };
+};
+
+const updateResources = (
+  p: ontology.Resource[],
+  additions: ontology.Resource[] = [],
+  removals: ontology.ID[] = []
+): ontology.Resource[] => {
+  const newIds = additions.map(({ id }) => id.toString());
+  const removalIds = removals.map((id) => id.toString());
+  return [
+    ...p.filter(({ id }) => {
+      const str = id.toString();
+      return !removalIds.includes(str) && !newIds.includes(str);
+    }),
+    ...additions,
+  ];
+};
+
+const loadInitialTree = async (
+  client: Client,
+  services: Services,
+  setNodes: state.Set<Core.Node[]>,
+  setResources: state.Set<ontology.Resource[]>
+): Promise<void> => {
+  const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
+  setNodes(toTreeNodes(services, fetched));
+  setResources((p) => updateResources(p, fetched));
+};
+
+const handleResourcesChange = async (
+  changes: ontology.ResourceChange[],
+  services: Services,
+  nodes: Core.Node[],
+  setNodes: state.Set<Core.Node[]>,
+  setResources: state.Set<ontology.Resource[]>,
+  resources: ontology.Resource[]
+): Promise<void> => {
+  const removed = changes
+    .filter(({ variant }) => variant === "delete")
+    .map(({ key }) => key);
+  const updated = changes
+    .filter(({ variant }) => variant === "set")
+    .map(({ value }) => value as ontology.Resource);
+  setResources(updateResources(resources, updated, removed));
+  let nextTree = Core.removeNode(nodes, ...removed.map((id) => id.toString()));
+  nextTree = updated.reduce(
+    (nextTree, node) =>
+      Core.updateNode(
+        nextTree,
+        node.id.toString(),
+        (n) => ({ ...n, ...toTreeNode(services, node) }),
+        false
+      ),
+    nextTree
+  );
+  setNodes([...nextTree]);
+};
+
+const handleRelationshipsChange = async (
+  client: Client,
+  changes: ontology.RelationshipChange[],
+  services: Services,
+  nodes: Core.Node[],
+  setNodes: state.Set<Core.Node[]>,
+  setResources: state.Set<ontology.Resource[]>,
+  resources: ontology.Resource[]
+): Promise<void> => {
+  // Remove any relationships that were deleted
+  const removed = changes
+    .filter(({ variant }) => variant === "delete")
+    .map(({ key: { to } }) => to.toString());
+  let nextTree = Core.removeNode(nodes, ...removed);
+
+  const allSets = changes
+    .filter(({ variant }) => variant === "set")
+    .map(({ key }) => key);
+
+  // Find all the parent nodes in the current tree that are visible i.e. they
+  // may need children added.
+  const visibleSetNodes = Core.findNodes(
+    nextTree,
+    allSets.map(({ from }) => from.toString())
+  ).map(({ key }) => key.toString());
+
+  // Get all the relationships that relate to those visibe nodes.
+  const visibleSets = allSets.filter(({ from }) =>
+    visibleSetNodes.includes(from.toString())
+  );
+
+  // Retrieve the new resources for the nodes that need to be updated.
+  const updatedResources = await client.ontology.retrieve(
+    visibleSets.map(({ to }) => to)
+  );
+
+  // Update the resources in the tree.
+  setResources(updateResources(resources, updatedResources));
+
+  // Update the tree.
+  nextTree = visibleSets.reduce(
+    (nextTree, { from, to }) =>
+      Core.setNode(
+        nextTree,
+        from.toString(),
+        ...toTreeNodes(
+          services,
+          updatedResources.filter(({ id }) => id.toString() === to.toString())
+        )
+      ),
+    nextTree
+  );
+
+  setNodes([...nextTree]);
+};
 
 export const Tree = (): ReactElement => {
   const client = Synnax.use();
   const services = useServices();
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-  const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
-  const menuProps = Menu.useContextMenu();
-  const changeTracker = useRef<ontology.ChangeTracker | null>(null);
 
-  // Load in the initial tree.
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
+  const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
+
+  const menuProps = Menu.useContextMenu();
+
   useAsyncEffect(async () => {
     if (client == null) return;
-    await changeTracker.current?.close();
-    const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
-    setNodes(toTreeNodes(services, fetched));
-    const keys = fetched.map(({ id }) => id.toString());
-    resourcesRef.current = [
-      ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
-      ...fetched,
-    ];
-    const ct = await client.ontology.openChangeTracker();
-    ct.onChange((changes) => {
-      const removalIDs = changes
-        .filter((change) => change.variant === "delete")
-        .map((change) => change.key.toString());
-      const updates = changes
-        .filter((change) => change.variant === "set")
-        .map((c) => c.value as ontology.Resource);
-      const updateIDs = updates.map((change) => change.key.toString());
-      setResources((prev) => [
-        ...prev.filter(
-          (r) =>
-            !removalIDs.includes(r.id.toString()) ||
-            !updateIDs.includes(r.id.toString())
-        ),
-        ...updates,
-      ]);
+    await loadInitialTree(client, services, setNodes, setResources);
 
-      let nextTree = Core.removeNode(nodesRef.current, ...removalIDs);
-      updateIDs.forEach((id, i) => {
-        nextTree = Core.updateNode(
-          nextTree,
-          id,
-          () => toTreeNodes(services, [updates[i]])[0]
-        );
-      });
-      setNodes([...nextTree]);
+    const ct = await client.ontology.openChangeTracker();
+
+    ct.resources.onChange((changes) => {
+      void handleResourcesChange(
+        changes,
+        services,
+        nodesRef.current,
+        setNodes,
+        setResources,
+        resourcesRef.current
+      );
     });
-    changeTracker.current = ct;
+
+    ct.relationships.onChange((changes) => {
+      void handleRelationshipsChange(
+        client,
+        changes,
+        services,
+        nodesRef.current,
+        setNodes,
+        setResources,
+        resourcesRef.current
+      );
+    });
+
+    return () => {
+      void ct.close();
+    };
   }, [client]);
 
   const handleDrop: Core.TreeProps["onDrop"] = useCallback(
@@ -138,7 +247,7 @@ export const Tree = (): ReactElement => {
         const id = new ontology.ID(clicked);
         const resources = await client.ontology.retrieveChildren(id, true, true);
         const converted = toTreeNodes(services, resources);
-        const nextTree = Core.addNode(nodesRef.current, clicked, ...converted);
+        const nextTree = Core.setNode(nodesRef.current, clicked, ...converted);
         const keys = resources.map(({ id }) => id.toString());
         resourcesRef.current = [
           // Dedupe any resources that already exist.
@@ -192,6 +301,8 @@ export const Tree = (): ReactElement => {
     },
     [client, store, placeLayout, removeLayout, resourcesRef]
   );
+
+  const treeProps = Core.use({ onExpand: handleExpand });
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
@@ -253,16 +364,15 @@ export const Tree = (): ReactElement => {
       removeLayout,
       resourcesRef,
       nodesRef,
+      treeProps.selected,
     ]
   );
-
-  const treeProps = Core.use({ onExpand: handleExpand });
 
   const AdapterItem = useCallback(
     (props: Core.ItemProps): ReactElement => {
       const id = new ontology.ID(props.entry.key);
       const Item = services[id.type]?.Item ?? Core.DefaultItem;
-      return <Item {...props} />;
+      return <Item key={props.entry.key} {...props} />;
     },
     [client, removeLayout, placeLayout, services]
   );
@@ -279,9 +389,7 @@ export const Tree = (): ReactElement => {
         nodes={nodes}
         onDoubleClick={handleDoubleClick}
         {...treeProps}
-      >
-        {componentRenderProp(AdapterItem)}
-      </Core.Tree>
+      ></Core.Tree>
     </Menu.ContextMenu>
   );
 };

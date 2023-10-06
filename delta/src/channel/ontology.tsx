@@ -100,7 +100,6 @@ const handleDeleteAlias = async ({
   await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
   let next: Tree.Node[] = nodes;
   resources.forEach((r) => {
-    console.log(r);
     next = Tree.updateNode(next, r.id.toString(), (n) => ({
       ...n,
       name: r.name,

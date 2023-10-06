@@ -85,10 +85,32 @@ describe("Ontology", () => {
       expect(ids[0].type).toEqual("typeA");
       expect(ids[0].key).toEqual("keyA");
     });
-    it("should correctly propagate changes to the ontology", async () => {
+    it("should correctly decode a set of relationships from a buffer", () => {
+      const buf = new TextEncoder().encode("typeA:keyA->parent->typeB:keyB\n");
+      const rels = ontology.parseRelationshipsFromBuffer(buf);
+      expect(rels.length).toEqual(1);
+      expect(rels[0].type).toEqual("parent");
+      expect(rels[0].from.type).toEqual("typeA");
+      expect(rels[0].from.key).toEqual("keyA");
+      expect(rels[0].to.type).toEqual("typeB");
+      expect(rels[0].to.key).toEqual("keyB");
+    });
+    it("should correctly propagate resource changes to the ontology", async () => {
       const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.Change[]>((resolve) => {
-        change.onChange((changes) => {
+      const p = new Promise<ontology.ResourceChange[]>((resolve) => {
+        change.resources.onChange((changes) => {
+          resolve(changes);
+        });
+      });
+      await client.ontology.groups.create(ontology.Root, randomName());
+      const c = await p;
+      expect(c.length).toBeGreaterThan(0);
+      await change.close();
+    });
+    it("should correctly propagate relationship changes to the ontology", async () => {
+      const change = await client.ontology.openChangeTracker();
+      const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
+        change.relationships.onChange((changes) => {
           resolve(changes);
         });
       });

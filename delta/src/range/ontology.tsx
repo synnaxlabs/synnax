@@ -49,10 +49,7 @@ const handleDelete = async ({
   state: { nodes, setNodes },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const keys = resources.map((r) => r.id.key);
-  const ids = resources.map((r) => r.id.toString());
   await client.ranges.delete(keys);
-  const next = Tree.removeNode(nodes, ...ids);
-  setNodes([...next]);
   store.dispatch(remove({ keys }));
 };
 
@@ -172,6 +169,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "edit":
         handleEdit(props);
+        return;
+      case "group":
+        void Group.fromSelection(props);
     }
   };
 

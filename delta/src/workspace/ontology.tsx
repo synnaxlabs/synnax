@@ -16,13 +16,10 @@ import { type UnknownRecord, deep } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { PID } from "@/pid";
-import { selectActiveKey } from "@/range/selectors";
+import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
-
-import { Workspace } from ".";
 
 const handleDelete = ({
   client,
@@ -71,7 +68,7 @@ const handleCreateNewPID = ({
       })
     );
     setResources([...resources, otg]);
-    const nextNodes = Tree.addNode(
+    const nextNodes = Tree.setNode(
       nodes,
       selection.resources[0].key,
       ...Ontology.toTreeNodes(services, [otg])
