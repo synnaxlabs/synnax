@@ -10,14 +10,21 @@
 package fs
 
 import (
+	"github.com/cockroachdb/pebble/vfs"
+	"io"
 	"os"
 	"path"
-
-	"github.com/spf13/afero"
 )
 
 type File interface {
-	afero.File
+	io.Closer
+	io.Reader
+	io.ReaderAt
+	io.Writer
+	io.WriterAt
+
+	Stat() (os.FileInfo, error)
+	Sync() error
 }
 
 const defaultPerm = 0755
@@ -74,31 +81,57 @@ func OSDirFS(dir string) (FS, error) {
 
 func NewMem() FS {
 	return &memFS{
-		Fs:   afero.NewMemMapFs(),
+		FS:   vfs.NewMem(),
 		perm: defaultPerm,
 	}
 }
 
 type memFS struct {
-	afero.Fs
+	vfs.FS
 	perm os.FileMode
 }
 
 func (m *memFS) Open(name string, flag int) (File, error) {
-	return m.Fs.OpenFile(name, flag, m.perm)
+	// memFS from vfs seems to not support open with flags???
+	return m.FS.Open(name)
 }
 
 func (m *memFS) Sub(name string) (FS, error) {
-	if err := m.Fs.MkdirAll(name, m.perm); err != nil {
+	// vfs does not have an implementation of BasePathFS, so I manually made one with "join"
+	if err := m.FS.MkdirAll(name, m.perm); err != nil {
 		return nil, err
 	}
-	return &memFS{Fs: afero.NewBasePathFs(m.Fs, name)}, nil
+	var ret *memFS = &memFS{
+		FS: vfs.NewMem(),
+	}
+	ret.PathJoin(name)
+	return ret, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
-	return afero.Exists(m.Fs, name)
+
+	// vfs does not export Exists, so I just used the implementation of Exists from afero
+	_, err := m.FS.Stat(name)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 func (m *memFS) List() ([]os.FileInfo, error) {
-	return afero.ReadDir(m.Fs, ".")
+	entries, err := m.FS.List(".")
+	if err != nil {
+		return nil, err
+	}
+	infos := make([]os.FileInfo, len(entries))
+	for i, e := range entries {
+		infos[i], err = m.FS.Stat(e)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return infos, nil
 }
