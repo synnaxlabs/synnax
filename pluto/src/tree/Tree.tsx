@@ -273,6 +273,8 @@ export const flatten = (
   expanded: string[],
   depth: number = 0,
 ): FlattenedNode[] => {
+  // Sort the first level of the tree independently of the rest
+  if (depth === 0) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
     const expand = shouldExpand(node, expanded);

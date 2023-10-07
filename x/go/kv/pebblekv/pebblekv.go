@@ -48,7 +48,7 @@ func Wrap(db_ *pebble.DB) kv.DB {
 }
 
 // OpenTx implement kv.DB.
-func (d db) OpenTx() kv.Tx { return tx{Batch: d.DB.NewIndexedBatch(), db: d} }
+func (d db) OpenTx() kv.Tx { return &tx{Batch: d.DB.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
 func (d db) Commit(ctx context.Context, opts ...interface{}) error { return nil }
@@ -77,7 +77,7 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.DB.NewIter(parseIterOpts(opts))
 }
 
-func (d db) apply(ctx context.Context, txn tx) error {
+func (d db) apply(ctx context.Context, txn *tx) error {
 	err := d.DB.Apply(txn.Batch, nil)
 	if err != nil {
 		return translateError(err)
@@ -95,40 +95,52 @@ func (d db) Report() alamos.Report {
 func (d db) Close() error { return d.DB.Close() }
 
 type tx struct {
-	db db
+	db        db
+	committed bool
 	*pebble.Batch
 }
 
-var _ kv.Tx = tx{}
+var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
-func (txn tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
+func (txn *tx) Set(_ context.Context, key, value []byte, opts ...interface{}) error {
 	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
 }
 
 // Get implements kv.Writer.
-func (txn tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
+func (txn *tx) Get(_ context.Context, key []byte, opts ...interface{}) ([]byte, error) {
 	b, err := get(txn.Batch, key)
 	return b, translateError(err)
 }
 
 // Delete implements kv.Writer.
-func (txn tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
+func (txn *tx) Delete(_ context.Context, key []byte, opts ...interface{}) error {
 	return translateError(txn.Batch.Delete(key, parseOpts(opts)))
 }
 
 // OpenIterator implements kv.Writer.
-func (txn tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return txn.Batch.NewIter(parseIterOpts(opts))
 }
 
 // Commit implements kv.Writer.
-func (txn tx) Commit(ctx context.Context, opts ...interface{}) error {
+func (txn *tx) Commit(ctx context.Context, opts ...interface{}) error {
+	txn.committed = true
 	return txn.db.apply(ctx, txn)
 }
 
+func (txn *tx) Close() error {
+	// In our codebase, Close should be called regardless of whether the transaction
+	// was committed or not. Pebble does not follow the same semantics, so we need to
+	// make sure that we don't close the underlying batch if it was already committed.
+	if !txn.committed {
+		return txn.Batch.Close()
+	}
+	return nil
+}
+
 // NewReader implements kv.Writer.
-func (txn tx) NewReader() kv.TxReader {
+func (txn *tx) NewReader() kv.TxReader {
 	return &txReader{
 		count:       int(txn.Batch.Count()),
 		BatchReader: txn.Batch.Reader(),

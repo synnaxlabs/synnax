@@ -62,7 +62,8 @@ type Atomic interface {
 // Tx is a transaction of ordered key-value operations on a DB that are committed
 // atomically. Tx implements the Reader interface,and will read key-value pairs from
 // both the Tx and underlying DB. A transaction must be committed for its changes to
-// be persisted.
+// be persisted. Tx is NOT safe for concurrent use, so the caller must implement their
+// own synchronization logic if they wish to use a Tx concurrently.
 type Tx interface {
 	ReadWriter
 	// NewReader returns an TxReader that can be used to iterate over the operations
@@ -71,8 +72,10 @@ type Tx interface {
 	// Commit persists the batch to the underlying DB. Commit will panic if called
 	// more than once.
 	Commit(ctx context.Context, opts ...interface{}) error
-	// Close closes the transaction. If the transaction has not been committed, all
-	// changes will be discarded.
+	// Close closes the transaction. It is necessary to Close the transaction after use,
+	// even if Commit has been called. Failure to do so may result in resource leaks.
+	// If the transaction has not been committed, all changes will be discarded. After
+	// Close has been called, it is NOT safe to call any other methods on the Tx.
 	Close() error
 }
 
