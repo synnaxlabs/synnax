@@ -45,7 +45,7 @@ func Propagate(
 		Translate: func(nexter gorp.TxReader[string, ontology.Relationship]) []change.Change[[]byte, struct{}] {
 			return iter.MapToSlice(ctx, nexter, func(ch change.Change[string, ontology.Relationship]) change.Change[[]byte, struct{}] {
 				return change.Change[[]byte, struct{}]{
-					Key:     EncodeRelationship(ch.Value),
+					Key:     append([]byte(ch.Key), '\n'),
 					Variant: ch.Variant,
 				}
 			})
@@ -65,18 +65,6 @@ func EncodeIDs(ids []ontology.ID) []byte {
 	var buf []byte
 	for _, id := range ids {
 		buf = append(buf, EncodeID(id)...)
-	}
-	return buf
-}
-
-func EncodeRelationship(relationship ontology.Relationship) []byte {
-	return append([]byte(relationship.GorpKey()), '\n')
-}
-
-func EncodeRelationships(relationships []ontology.Relationship) []byte {
-	var buf []byte
-	for _, relationship := range relationships {
-		buf = append(buf, EncodeRelationship(relationship)...)
 	}
 	return buf
 }
