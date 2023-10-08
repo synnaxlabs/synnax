@@ -2,117 +2,125 @@ import time
 from typing import Protocol
 import synnax as sy
 
+
 class SimulatedResponse(Protocol):
     def __init__(self):
         ...
+
     def step(self, state: dict[str, float]) -> dict[str, float]:
         ...
+
 
 class Anomaly(Protocol):
     def __init__(self):
         ...
-    def step(self, state: dict[str, float], errorStep: int) -> dict[str, float]:
+
+    def step(self, state: dict[str, float]) -> dict[str, float]:
         ...
+
 
 # All nominal state machines
 
+
 class TankPressure:
+    def __init__(
+        self, pt_channel: str, press_valve_channel: str, prevalve_channel: str
+    ) -> SimulatedResponse:
+        self.step_num = 0
+        self.pt = pt_channel
+        self.press = press_valve_channel
+        self.pre = prevalve_channel
 
-
-    def __init__(self, state) -> SimulatedResponse:
-        self.stepNum = 0
-        state["0"] = 0 #presssure
-        state["1"] = 0 #pressvalve, 0 closed, 1 open
-        state["2"] = 1 #prevalve, 0 open, 1 closed
-    
-    #pressValve normally closed
-    #preValve normally open
-    #normal == 0
+        # state[pt] = 0  # presssure
+        # state[press] = 0  # pressvalve, 0 closed, 1 open
+        # state[pre] = 1  # prevalve, 0 open, 1 closed
 
     def step(self, state: dict[str, float]) -> dict[str, float]:
+        self.step_num += 1
 
-        self.stepNum += 1
-
-        if state["0"] >= 400:
-            state["1"] = 0
+        if state[self.pt] >= 400:
+            state[self.press] = 0
         else:
-            state["1"] = 1
+            state[self.press] = 1
 
-        if state["1"] == 1 and state["2"] == 1:
-            state["0"] += 1
-        elif state["1"] == 0 and state["2"] == 0:
-            state["0"] -= 1
+        if state[self.press] == 1 and state[self.pre] == 1:
+            state[self.pt] += 1
+        elif state[self.press] == 0 and state[self.pre] == 0:
+            state[self.pt] -= 1
         else:
-            state["0"] += 0
+            state[self.pt] += 0
 
         return state
+
 
 class Nominal:
+    def __init__(self, state_machine, error_step: int):
+        self.state_machine = state_machine
+        self.error_step = error_step
 
-    def __init__(self, stateMachine, errorStep: int):
-        self.stateMachine = stateMachine
-        self.errorStep = errorStep
-
-    def step(self, state: dict[str,float], stepNum: int):
-        self.stateMachine.step(state)
+    def step(self, state: dict[str, float], step_num: int):
+        self.state_machine.step(state)
         return state
-    
+
+
 # Anomaly Implementations
 
+
 class VoltageZero:
+    def __init__(self, state_machine, error_step: int):
+        self.state_machine = state_machine
+        self.error_step = error_step
 
-    def __init__(self, stateMachine, errorStep: int):
-        self.stateMachine = stateMachine
-        self.errorStep = errorStep
-
-    def step(self, state: dict[str,float], stepNum: int):
-        if(stepNum < self.errorStep):
-            state["0"] = -200
-        self.stateMachine.stepNum += 1
+    def step(self, state: dict[str, float], step_num: int):
+        if step_num < self.error_step:
+            state[self.state_machine.pt] = -200
+        self.state_machine.step_num += 1
         return state
-    
+
+
 class VoltageFull:
+    def __init__(self, state_machine, error_step: int):
+        self.state_machine = state_machine
+        self.error_step = error_step
 
-    def __init__(self, stateMachine, errorStep: int):
-        self.stateMachine = stateMachine
-        self.errorStep = errorStep
-
-    def step(self, state: dict[str,float], stepNum: int):
-        if(stepNum < self.errorStep):
-            state["0"] = 1000
-        self.stateMachine.stepNum += 1
+    def step(self, state: dict[str, float], step_num: int):
+        if step_num < self.error_step:
+            state[self.state_machine.pt] = 1000
+        self.state_machine.step_num += 1
         return state
-     
+
+
 class PressValveStuckOpen:
-    
-    def __init__(self, stateMachine, errorStep: int):
-        self.stateMachine = stateMachine
-        self.errorStep = errorStep
+    def __init__(self, state_machine, error_step: int):
+        self.state_machine = state_machine
+        self.error_step = error_step
 
-    def step(self, state: dict[str,float], stepNum: int):
-        if(stepNum < self.errorStep):
-            state["1"] == 1
-            if state["2"] == 0: ##open, pressure stays constant
-                state["0"] += 0
+    def step(self, state: dict[str, float], step_num: int):
+        if step_num < self.error_step:
+            state[self.state_machine.press] == 1
+            if state[self.state_machine.pre] == 0:  ##open, pressure stays constant
+                state[self.state_machine.pt] += 0
             else:
-                state["0"] += 1
-        return self.stateMachine.step(state)
-    
+                state[self.state_machine.pt] += 1
+        return self.state_machine.step(state)
+
+
 class PreValveStuckOpen:
-    
-    def __init__(self, stateMachine, errorStep: int):
-        self.stateMachine = stateMachine
-        self.errorStep = errorStep
+    def __init__(self, state_machine, error_step: int):
+        self.state_machine = state_machine
+        self.error_step = error_step
 
-    def step(self, state: dict[str,float], stepNum: int):
-        if(stepNum < self.errorStep):
-            if state["1"] == 1: ##open, pressure stays constant
-                state["0"] += 0
+    def step(self, state: dict[str, float], step_num: int):
+        if step_num < self.error_step:
+            if state[self.state_machine.press] == 1:  ##open, pressure stays constant
+                state[self.state_machine.pt] += 0
             else:
-                state["0"] -= 1
-        return self.stateMachine.step(state)
+                state[self.state_machine.pt] -= 1
+        return self.state_machine.step(state)
+
 
 # Base simulator class
+
 
 class Simulator:
     frequency: sy.Rate.HZ = 100 * sy.Rate.HZ
@@ -120,24 +128,25 @@ class Simulator:
     state_machine: SimulatedResponse()
     anomaly: Anomaly()
 
-    def __init__(self, inputState, inputResponder: SimulatedResponse(), inputAnomaly: Anomaly()):
-        self.state = inputState
-        self.state_machine = inputResponder
-        self.anomaly = inputAnomaly
+    def __init__(
+        self,
+        input_state,
+        input_responder: SimulatedResponse(),
+        input_anomaly: Anomaly(),
+    ):
+        self.state = input_state
+        self.state_machine = input_responder
+        self.anomaly = input_anomaly
 
     def run(self):
-        startTime = time.time()
+        start_time = time.time()
         while True:
-            
             time.sleep(1 / self.frequency)
             self.step()
 
-            print(self.state_machine.stepNum)
-            print(self.state["0"])
-
-            currTime = time.time()
-            if currTime - startTime >= 5:
+            curr_time = time.time()
+            if curr_time - start_time >= 5:
                 break
 
     def step(self):
-        self.state = self.anomaly.step(self.state,self.state_machine.stepNum)
+        self.state = self.anomaly.step(self.state, self.state_machine.step_num)
