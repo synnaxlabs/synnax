@@ -15,6 +15,11 @@ subscribers smoothly disconnect and reconnect.
 
 ## 1 - High Level Structure
 
+<p align="center">
+    <img src="./img/relay.png" width="80%px" style="max-width: 800px">
+</p>
+
+
 The relay has five main components:
 
 ### 1.0 - The Streamer
