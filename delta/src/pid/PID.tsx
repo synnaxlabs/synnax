@@ -68,6 +68,7 @@ const syncer: Syncer<
   const ws = Workspace.selectActiveKey(s);
   if (ws == null) return;
   const data = select(s, layoutKey);
+  if (data.snapshot) return;
   const la = Layout.selectRequired(s, layoutKey);
   const setData = {
     ...data,

@@ -128,4 +128,10 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
                     data_ch: np.float32(press),
                 }
             )
+            if not ok:
+                print("Write failed")
+                print(writer.error())
             i += 1
+            if (i % 500) == 0:
+                print(f"Committing {i} samples")
+                writer.commit()

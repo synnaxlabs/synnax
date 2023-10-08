@@ -160,7 +160,7 @@ func (k *Iterator[E]) Valid() bool {
 //	tx := db.OpenTx()
 //	defer tx.Close()
 //
-//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewStreamer(), tx)
 //
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {

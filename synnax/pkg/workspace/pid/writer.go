@@ -100,6 +100,10 @@ func (w Writer) Copy(
 	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return err
 	}
+	// In the case of a snapshot, don't create a relationship to the workspace.
+	if pid.Snapshot {
+		return nil
+	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),

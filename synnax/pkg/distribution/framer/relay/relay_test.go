@@ -13,6 +13,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errutil"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -43,12 +45,11 @@ var _ = Describe("Relay", func() {
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
-				reader := MustSucceed(s.relay.NewReader(context.TODO(), relay.ReaderConfig{
+				reader := MustSucceed(s.relay.NewStreamer(context.TODO(), relay.StreamerConfig{
 					Keys: s.keys,
 				}))
-				sCtx, cancel := signal.Isolated()
-				defer cancel()
-				readerReq, readerRes := confluence.Attach(reader, 10)
+				sCtx, _ := signal.Isolated()
+				streamerReq, readerRes := confluence.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
@@ -76,7 +77,7 @@ var _ = Describe("Relay", func() {
 					wi := lo.IndexOf(s.keys, k)
 					Expect(f.Series[i]).To(Equal(writeF.Series[wi]))
 				}
-				readerReq.Close()
+				streamerReq.Close()
 				confluence.Drain(readerRes)
 			})
 		}
@@ -115,7 +116,14 @@ func gatewayOnlyScenario() scenario {
 		keys:     keys,
 		relay:    svc.relay,
 		writer:   svc.writer,
-		close:    builder,
+		close: xio.CloserFunc(func() error {
+			e := errutil.NewCatch(errutil.WithAggregation())
+			e.Exec(builder.Close)
+			for _, svc := range services {
+				e.Exec(svc.relay.Close)
+			}
+			return e.Error()
+		}),
 	}
 }
 
@@ -140,7 +148,14 @@ func peerOnlyScenario() scenario {
 		keys:     keys,
 		relay:    svc.relay,
 		writer:   svc.writer,
-		close:    builder,
+		close: xio.CloserFunc(func() error {
+			e := errutil.NewCatch(errutil.WithAggregation())
+			e.Exec(builder.Close)
+			for _, svc := range services {
+				e.Exec(svc.relay.Close)
+			}
+			return e.Error()
+		}),
 	}
 }
 func mixedScenario() scenario {
@@ -164,6 +179,13 @@ func mixedScenario() scenario {
 		keys:     keys,
 		relay:    svc.relay,
 		writer:   svc.writer,
-		close:    builder,
+		close: xio.CloserFunc(func() error {
+			e := errutil.NewCatch(errutil.WithAggregation())
+			e.Exec(builder.Close)
+			for _, svc := range services {
+				e.Exec(svc.relay.Close)
+			}
+			return e.Error()
+		}),
 	}
 }

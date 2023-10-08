@@ -48,7 +48,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const otgIDs = pids.map(({ key }) => new ontology.ID({ type: "pid", key }));
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
-      const nextTree = Tree.addNode(
+      const nextTree = Tree.setNode(
         state.nodes,
         parent.key,
         ...Ontology.toTreeNodes(services, otg)
@@ -68,20 +68,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
         )
       );
       const otgsIDs = pids.map(({ key }) => new ontology.ID({ type: "pid", key }));
-      const otg = await client.ontology.retrieve(otgsIDs);
       const rangeID = new ontology.ID({ type: "range", key: activeRange.key });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
         ...otgsIDs
       );
-      const nextNodes = Tree.setNode(
-        state.nodes,
-        rangeID.toString(),
-        ...Ontology.toTreeNodes(services, otg)
-      );
-      state.setResources([...state.resources, ...otg]);
-      state.setNodes([...nextNodes]);
     })();
   };
 
@@ -99,7 +91,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   return (
     <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Ontology.RenameMenuItem />
-      <Range.SnapshotMenuItem range={activeRange} />
+      {resources.every((r) => r.data?.snapshot === false) && (
+        <Range.SnapshotMenuItem range={activeRange} />
+      )}
       <Menu.Item itemKey="copy" startIcon={<Icon.Copy />}>
         Copy
       </Menu.Item>

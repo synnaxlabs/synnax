@@ -98,7 +98,7 @@ export class ChangeTracker {
   }
 
   private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
-    const sets = frame.get("sy_ontology_set");
+    const sets = frame.get("sy_ontology_resource_set");
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
     const ids = parseIDsFromBuffer(sets[0].buffer);
@@ -119,7 +119,7 @@ export class ChangeTracker {
   }
 
   private parseResourceDeletes(frame: Frame): ResourceChange[] {
-    const deletes = frame.get("sy_ontology_delete");
+    const deletes = frame.get("sy_ontology_resource_delete");
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
     const ids = parseIDsFromBuffer(deletes[0].buffer);
@@ -128,8 +128,8 @@ export class ChangeTracker {
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
     const streamer = await client.newStreamer([
-      "sy_ontology_set",
-      "sy_ontology_delete",
+      "sy_ontology_resource_set",
+      "sy_ontology_resource_delete",
       "sy_ontology_relationship_set",
       "sy_ontology_relationship_delete",
     ]);

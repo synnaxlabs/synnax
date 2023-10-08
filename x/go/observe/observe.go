@@ -40,7 +40,7 @@ type Observer[T any] interface {
 }
 
 type base[T any] struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	handlers map[*func(context.Context, T)]struct{}
 }
 
@@ -50,21 +50,23 @@ func New[T any]() Observer[T] { return &base[T]{} }
 // OnChange implements the Observable interface.
 func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	p := &handler
 	if b.handlers == nil {
 		b.handlers = make(map[*func(context.Context, T)]struct{})
 	}
 	b.handlers[p] = struct{}{}
-	b.mu.Unlock()
 	return func() {
 		b.mu.Lock()
+		defer b.mu.Unlock()
 		delete(b.handlers, p)
-		b.mu.Unlock()
 	}
 }
 
 // Notify implements the Observer interface.
 func (b *base[T]) Notify(ctx context.Context, v T) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	for h := range b.handlers {
 		(*h)(ctx, v)
 	}
@@ -72,6 +74,8 @@ func (b *base[T]) Notify(ctx context.Context, v T) {
 
 // NotifyGenerator implements the Observer interface.
 func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	for h := range b.handlers {
 		(*h)(ctx, generator())
 	}

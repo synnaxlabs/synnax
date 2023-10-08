@@ -40,8 +40,9 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":  {Type: schema.String},
-		"name": {Type: schema.String},
+		"key":      {Type: schema.String},
+		"name":     {Type: schema.String},
+		"snapshot": {Type: schema.Bool},
 	},
 }
 
@@ -49,6 +50,7 @@ func newResource(pid PID) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(pid.Key), pid.Name)
 	schema.Set(e, "key", pid.Key.String())
 	schema.Set(e, "name", pid.Name)
+	schema.Set(e, "snapshot", pid.Snapshot)
 	return e
 }
 

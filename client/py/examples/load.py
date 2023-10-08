@@ -62,7 +62,7 @@ for i in range(NUM_SENSORS):
 
 write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
 
-rate = (sy.Rate.HZ * 5).period.seconds
+rate = (sy.Rate.HZ * 100).period.seconds
 
 valve_states = {v.key: False for v in valve_acks}
 

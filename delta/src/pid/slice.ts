@@ -244,7 +244,10 @@ export const { actions, reducer } = createSlice({
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       const pid = { ...ZERO_STATE, ...payload };
-      if (pid.snapshot) pid.editable = false;
+      if (pid.snapshot) {
+        pid.editable = false;
+        clearSelections(pid);
+      }
       state.pids[layoutKey] = pid;
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
@@ -371,13 +374,16 @@ const clearOtherSelections = (state: SliceState, layoutKey: string) => {
   Object.keys(state.pids).forEach((key) => {
     // If any of the nodes or edges in other PID slices are selected, deselct them.
     if (key === layoutKey) return;
-    const pid = state.pids[key];
-    pid.nodes.forEach((node) => {
-      node.selected = false;
-    });
-    pid.edges.forEach((edge) => {
-      edge.selected = false;
-    });
+    clearSelections(state.pids[key]);
+  });
+};
+
+const clearSelections = (state: State): void => {
+  state.nodes.forEach((node) => {
+    node.selected = false;
+  });
+  state.edges.forEach((edge) => {
+    edge.selected = false;
   });
 };
 

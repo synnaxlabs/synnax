@@ -11,6 +11,7 @@ package cdc
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -33,6 +34,8 @@ import (
 // to the provided observable and writes changes to the provided channels. Higher
 // level CDC pipeline should be preferred, such as the SubscribeToGorp.
 type ObservableConfig struct {
+	// Name is an optional name for the CDC pipeline, used for debugging purposes.
+	Name string
 	// Set is the channel used to propagate set operations. Only Name and DataType
 	// need to be provided. The config will automatically set Leaseholder to Free
 	// and Virtual to true.
@@ -73,6 +76,7 @@ func (c ObservableConfig) Validate() error {
 
 // Override implements config.Config.
 func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
+	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.Set = override.If(c.Set, other.Set, c.Set.Name == "")
 	c.Delete = override.If(c.Delete, other.Delete, c.Delete.Name == "")
 	c.Observable = override.Nil(c.Observable, other.Observable)
@@ -151,7 +155,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
-	sCtx, cancel := signal.Isolated()
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.Set.Name))))
 	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return signal.NewShutdown(sCtx, cancel), nil
 }

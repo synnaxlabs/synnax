@@ -33,9 +33,10 @@ func Propagate(
 		},
 	}
 	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		Name:       "ontology_resource",
 		Observable: resourceObserver,
-		Set:        channel.Channel{Name: "sy_ontology_set", DataType: telem.StringT},
-		Delete:     channel.Channel{Name: "sy_ontology_delete", DataType: telem.StringT},
+		Set:        channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT},
+		Delete:     channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT},
 	})
 	if err != nil {
 		return nil, err
@@ -52,6 +53,7 @@ func Propagate(
 		},
 	}
 	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		Name:       "ontology_relationship",
 		Observable: relationshipObserver,
 		Set:        channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},
 		Delete:     channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT},

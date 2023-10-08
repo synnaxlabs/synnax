@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -26,7 +27,7 @@ import (
 type Service struct {
 	writer   *writer.Service
 	iterator *iterator.Service
-	relay    *relay.Relay
+	Relay    *relay.Relay
 }
 
 type Writable interface {
@@ -64,6 +65,7 @@ func (c Config) Validate() error {
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
@@ -82,16 +84,18 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
 		ChannelReader:   cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation,
+		Instrumentation: cfg.Instrumentation.Child("writer"),
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.relay, err = relay.Open(relay.Config{
-		Instrumentation: cfg.Instrumentation,
+	freeWrites := confluence.NewStream[relay.Response](25)
+	s.Relay, err = relay.Open(relay.Config{
+		Instrumentation: cfg.Instrumentation.Child("Relay"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
+		FreeWrites:      freeWrites,
 	})
 	if err != nil {
 		return nil, err
@@ -101,8 +105,8 @@ func Open(configs ...Config) (*Service, error) {
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
 		ChannelReader:   cfg.ChannelReader,
-		Instrumentation: cfg.Instrumentation,
-		FreeWrites:      s.relay.Writes,
+		Instrumentation: cfg.Instrumentation.Child("writer"),
+		FreeWrites:      freeWrites,
 	})
 	return s, err
 }
@@ -124,4 +128,4 @@ func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (Stream
 }
 
 // Close closes the Service.
-func (s *Service) Close() error { return s.relay.Close() }
+func (s *Service) Close() error { return s.Relay.Close() }

@@ -30,8 +30,8 @@ import (
 )
 
 type Builder struct {
-	mock.CoreBuilder
-	Nodes      []distribution.Distribution
+	core       mock.CoreBuilder
+	Nodes      map[dcore.NodeKey]distribution.Distribution
 	writerNet  *tmock.FramerWriterNetwork
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
@@ -42,16 +42,16 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 	coreBuilder := mock.NewCoreBuilder(cfg...)
 
 	return &Builder{
-		CoreBuilder: *coreBuilder,
-		writerNet:   tmock.NewFramerWriterNetwork(),
-		iterNet:     tmock.NewFramerIteratorNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
-		relayNet:    tmock.NewRelayNetwork(),
+		core:       *coreBuilder,
+		writerNet:  tmock.NewFramerWriterNetwork(),
+		iterNet:    tmock.NewFramerIteratorNetwork(),
+		channelNet: tmock.NewChannelNetwork(),
+		relayNet:   tmock.NewRelayNetwork(),
 	}
 }
 
 func (b *Builder) New(ctx context.Context) distribution.Distribution {
-	core := b.CoreBuilder.New()
+	core := b.core.New()
 	d := distribution.Distribution{Core: core}
 
 	trans := mockFramerTransport{
@@ -96,6 +96,8 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	}))
 
 	d.Closers = append(d.Closers, MustSucceed(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
+
+	b.Nodes[core.Cluster.HostKey()] = d
 
 	return d
 }

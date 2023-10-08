@@ -109,7 +109,7 @@ const formatChildren = <L extends Level>(
       if (buff.length > 0) {
         o.push(
           // @ts-expect-error - level type errors
-          <Text<L> color={color} level={level}>
+          <Text<L> key={buff[0]} color={color} level={level}>
             {buff}
           </Text>,
         );
@@ -121,7 +121,7 @@ const formatChildren = <L extends Level>(
   if (buff.length > 0)
     o.push(
       // @ts-expect-error- level type errors
-      <Text<L> color={color} level={level}>
+      <Text<L> key={buff[0]} color={color} level={level}>
         {buff}
       </Text>,
     );

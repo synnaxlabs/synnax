@@ -125,6 +125,8 @@ const handleRelationshipsChange = async (
     .filter(({ variant }) => variant === "set")
     .map(({ key }) => key);
 
+  console.log(changes);
+
   // Find all the parent nodes in the current tree that are visible i.e. they
   // may need children added.
   const visibleSetNodes = Core.findNodes(
@@ -389,7 +391,9 @@ export const Tree = (): ReactElement => {
         nodes={nodes}
         onDoubleClick={handleDoubleClick}
         {...treeProps}
-      ></Core.Tree>
+      >
+        {componentRenderProp(AdapterItem)}
+      </Core.Tree>
     </Menu.ContextMenu>
   );
 };

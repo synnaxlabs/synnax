@@ -44,12 +44,11 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if hasIter {
 		l.iter.flow.Flow(sCtx, opts...)
 	}
-	l.relay.flow.Flow(sCtx, opts...)
+	l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("Relay-reader"))...)
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(l.Out)
 
 	sCtx.Go(func(ctx context.Context) error {
-
 		if hasIter {
 			// start off by exhausting the iterator
 		o:
@@ -80,24 +79,29 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			confluence.Drain(l.iter.responses)
 		}
 
-		// Then we'll tap into the relay for stream updates
+		// Then we'll tap into the Relay for stream updates
 		for {
 			select {
 			case <-ctx.Done():
+				l.relay.requests.Close()
+				confluence.Drain(l.relay.responses)
 				return ctx.Err()
 			case res, ok := <-l.relay.responses.Outlet():
 				if !ok {
 					return nil
 				}
-				l.Out.Inlet() <- StreamerResponse{
-					Frame: res.Frame,
+				if err := signal.SendUnderContext(ctx, l.Out.Inlet(), StreamerResponse{Frame: res.Frame}); err != nil {
+					return err
 				}
 			case req, ok := <-l.In.Outlet():
 				if !ok {
 					l.relay.requests.Close()
+					confluence.Drain(l.relay.responses)
 					return nil
 				}
-				l.relay.requests.Inlet() <- relay.Request{Keys: req.Keys}
+				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys}); err != nil {
+					return err
+				}
 			}
 		}
 	}, o.Signal...)
@@ -127,7 +131,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		l.iter.responses = iterRes
 	}
 
-	rel, err := s.relay.NewReader(ctx, relay.ReaderConfig{Keys: cfg.Keys})
+	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err
 	}

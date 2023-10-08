@@ -9,6 +9,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/x/confluence"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,11 +57,13 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			TSChannel:    c.Storage.TS,
 			Transport:    channelNet.New(c.Config.AdvertiseAddress),
 		}))
+		freeWrites := confluence.NewStream[relay.Response](25)
 		container.relay = MustSucceed(relay.Open(relay.Config{
 			Instrumentation: ins,
 			TS:              c.Storage.TS,
 			Transport:       relayNet.New(c.Config.AdvertiseAddress),
 			HostResolver:    c.Cluster,
+			FreeWrites:      freeWrites,
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
 			Instrumentation: ins,
@@ -68,7 +71,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ChannelReader:   container.channel,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress),
 			HostResolver:    c.Cluster,
-			FreeWrites:      container.relay.Writes,
+			FreeWrites:      freeWrites,
 		}))
 		service[c.Cluster.HostKey()] = container
 	}

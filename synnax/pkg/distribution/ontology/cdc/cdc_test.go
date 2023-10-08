@@ -79,7 +79,7 @@ var _ = Describe("CDC", Ordered, func() {
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func() {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Start: telem.Now(),
 				Keys:  channel.Keys{resCh.Key()},
@@ -112,7 +112,7 @@ var _ = Describe("CDC", Ordered, func() {
 		})
 		It("Should correctly propagate resource deletes to the ontology", func() {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Start: telem.Now(),
 				Keys:  channel.Keys{resCh.Key()},

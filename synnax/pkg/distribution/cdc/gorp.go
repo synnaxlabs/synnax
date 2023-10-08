@@ -70,6 +70,7 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 			},
 		}
 		obsCfg = ObservableConfig{
+			Name:       name,
 			Observable: obs,
 			Set: channel.Channel{
 				Name:     fmt.Sprintf("sy_%s_set", name),

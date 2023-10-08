@@ -120,6 +120,9 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Transport:       frameTransport,
 		HostResolver:    d.Cluster,
 	})
+	if err != nil {
+		return d, err
+	}
 
 	controlCh := []channel.Channel{{
 		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),

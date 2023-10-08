@@ -73,7 +73,7 @@ type (
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
 func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) errors.Typed {
-	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation))
+	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
 	// resources, OR the client executed the close command on the writer (in

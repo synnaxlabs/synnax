@@ -243,7 +243,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		SinkTarget:   observableAddr,
 		// Setting the capacity higher here allows us to unclog the pipeline in case
 		// we have a slow observer.
-		Capacity: 10,
+		Capacity: 1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
