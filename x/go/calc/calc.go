@@ -130,7 +130,7 @@ func (e *Expression) Build(s string) error {
 		default:
 			_, err := strconv.ParseFloat(t, 64)
 			if err != nil {
-				output.Push(&ast.BasicLit{Kind: token.STRING, Value: t})
+				output.Push(&ast.Ident{Name: t})
 			} else {
 				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: t})
 			}
