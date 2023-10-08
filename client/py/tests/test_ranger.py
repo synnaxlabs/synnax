@@ -56,6 +56,11 @@ class TestRangeClient:
         rng = client.ranges.retrieve([two_ranges[0].name])[0]
         assert rng.name == two_ranges[0].name
 
+    def test_retrieve_by_name_not_found(self, two_ranges: list[sy.Range], client: sy.Synnax):
+        """Should raise an error when a range is not found"""
+        with pytest.raises(sy.exceptions.QueryError):
+            client.ranges.retrieve("not_found")
+
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
         rng = client.ranges.search(two_ranges[0].name)
