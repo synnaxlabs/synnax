@@ -95,7 +95,7 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 	if flag == os.O_RDONLY {
 		return m.FS.Open(name)
 	} else if exists, _ := m.Exists(name); exists {
-		if flag != os.O_EXCL {
+		if flag == os.O_EXCL {
 			return nil, nil
 		} else {
 			return m.OpenReadWrite(name)
