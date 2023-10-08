@@ -47,9 +47,13 @@ func treesEqual(t1, t2 ast.Expr) bool {
 				return false
 			}
 			return math.Abs(f1-f2) < 0.000000001
-		case token.STRING:
-			return t1.Value == t2.Value
 		}
+	case *ast.Ident:
+		t2, ok := t2.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		return t1.Name == t2.Name
 	}
 	return false
 }
