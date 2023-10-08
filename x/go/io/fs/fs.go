@@ -92,8 +92,17 @@ type memFS struct {
 }
 
 func (m *memFS) Open(name string, flag int) (File, error) {
-	// memFS from vfs seems to not support open with flags???
-	return m.FS.Open(name)
+	if flag == os.O_RDONLY {
+		return m.FS.Open(name)
+	} else if exists, _ := m.Exists(name); exists {
+		if flag != os.O_EXCL {
+			return nil, nil
+		} else {
+			return m.OpenReadWrite(name)
+		}
+	} else {
+		return m.OpenReadWrite(name)
+	}
 }
 
 func (m *memFS) Sub(name string) (FS, error) {
