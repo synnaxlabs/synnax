@@ -24,7 +24,7 @@ class gRPCStreamer : public Streamer<response_t, request_t, err_t, rpc_t>
 {
 public:
     /// @brief Ctor saves gRPC stream object to use under the hood.
-    gRPCStreamer(std::string target) 
+    gRPCStreamer(std::string target)
     {
         // Note that the streamer also sets up its own internal stub.
         if (!stub || target != last_target)
@@ -40,7 +40,8 @@ public:
     err_t send(request_t &request) override
     {
         // TODO: Expand on the returned statuses.
-        if (stream->Write(request)) {
+        if (stream->Write(request))
+        {
             return grpc::Status::OK;
         };
         return grpc::Status::CANCELLED;
@@ -70,7 +71,7 @@ public:
 private:
     /// The internal streaming type for gRPC.
     std::unique_ptr<grpc::ClientReaderWriter<response_t, request_t>> stream;
-    
+
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;
 
@@ -84,7 +85,7 @@ private:
 /// @brief gRPC specific class
 template <typename response_t, typename request_t, typename stream_t, typename err_t, typename rpc_t>
 class gRPC : public Client<response_t, request_t, stream_t, err_t, rpc_t>
-{ 
+{
 public:
     /// @brief Interface for unary send.
     /// @param target
@@ -108,13 +109,13 @@ public:
     }
 
     /// @brief Interface for stream.
-    /// @param target The server's IP. 
+    /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
     stream_t stream(std::string target) override
     {
         return gRPCStreamer<response_t, request_t, err_t, rpc_t>(target);
     }
-    
+
 private:
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;

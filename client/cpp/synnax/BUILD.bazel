@@ -1,6 +1,6 @@
 cc_library(
     name = "writer",
     srcs = [],
-    hdrs = ["writer.h"], 
+    hdrs = ["writer.h", "channel.h", "frame.h", "series.h"],
     deps = ["@grpc_protos//v1:auth_grpc", "@Freighter//freighter/gRPC:gRPC"]
 )

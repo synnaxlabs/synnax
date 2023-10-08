@@ -4,8 +4,8 @@
 //
 
 /// @brief Frame type.
-template <typename payload_t>
-class Frame 
-{
-    
-}
+template<typename payload_t>
+class Frame {
+
+
+};

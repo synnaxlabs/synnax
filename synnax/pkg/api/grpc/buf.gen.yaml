@@ -17,9 +17,3 @@ plugins:
     out: gen/go
     opt:
       - paths=source_relative
-
-  - plugin: buf.build/grpc/cpp
-    out: gen/cpp
-
-  - plugin: buf.build/protocolbuffers/cpp
-    out: gen/cpp
