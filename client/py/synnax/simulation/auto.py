@@ -131,8 +131,8 @@ class Simulator:
     def __init__(
         self,
         input_state,
-        input_responder: SimulatedResponse(),
-        input_anomaly: Anomaly(),
+        input_responder: SimulatedResponse,
+        input_anomaly: Anomaly,
     ):
         self.state = input_state
         self.state_machine = input_responder
