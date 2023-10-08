@@ -15,7 +15,6 @@ import (
 	"go/token"
 	"strconv"
 
-	"github.com/synnaxlabs/x/queue"
 	"github.com/synnaxlabs/x/stack"
 )
 
@@ -77,7 +76,7 @@ func (e *Expression) Build(s string) error {
 		"^": token.XOR,
 	}
 	output := stack.Stack[interface{}]{}
-	operators := queue.Queue[string]{}
+	operators := stack.Stack[string]{}
 
 	for _, t := range tokens {
 		switch t {
@@ -87,8 +86,8 @@ func (e *Expression) Build(s string) error {
 				if err != nil {
 					return err
 				}
-				X, err1 := output.Pop()
-				Y, err2 := output.Pop()
+				Y, err1 := output.Pop()
+				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
@@ -101,8 +100,8 @@ func (e *Expression) Build(s string) error {
 				if err != nil {
 					return err
 				}
-				X, err1 := output.Pop()
-				Y, err2 := output.Pop()
+				Y, err1 := output.Pop()
+				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
@@ -116,8 +115,8 @@ func (e *Expression) Build(s string) error {
 				if err != nil {
 					return err
 				}
-				X, err1 := output.Pop()
-				Y, err2 := output.Pop()
+				Y, err1 := output.Pop()
+				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
@@ -138,8 +137,8 @@ func (e *Expression) Build(s string) error {
 		if err != nil {
 			return err
 		}
-		X, err1 := output.Pop()
-		Y, err2 := output.Pop()
+		Y, err1 := output.Pop()
+		X, err2 := output.Pop()
 		if err1 != nil || err2 != nil {
 			return errors.New("Invalid expression")
 		}
