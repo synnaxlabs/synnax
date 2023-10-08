@@ -107,6 +107,7 @@ func (e *Expression) Build(s string) error {
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
 			}
+			operators.Push(t)
 		case "(":
 			operators.Push(t)
 		case ")":
