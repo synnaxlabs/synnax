@@ -1,0 +1,7 @@
+cc_library(
+    name = "series",
+    srcs = [],
+    hdrs = ["series.h", "telem.h"],
+    deps = [],
+    visibility = ["//visibility:public"]
+)
