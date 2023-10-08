@@ -58,6 +58,19 @@ func treesEqual(t1, t2 ast.Expr) bool {
 	return false
 }
 
+type mockResolver struct {
+	vals map[string]float64
+}
+
+func (m *mockResolver) Resolve(s string) (float64, error) {
+	return m.vals[s], nil
+}
+
+func (m *mockResolver) Set(s string, v float64) error {
+	m.vals[s] = v
+	return nil
+}
+
 var _ = Describe("Calc", func() {
 	Describe("Build", func() {
 		Describe("Build with math expressions", func() {
@@ -184,6 +197,34 @@ var _ = Describe("Calc", func() {
 				err := e.Build("1+2*4)")
 				Expect(err).To(HaveOccurred())
 			})
+		})
+	})
+	Describe("Evaluate", func() {
+		It("Should evaluate 1+1", func() {
+			e := calc.Expression{}
+			err := e.Build("1 + 1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Evaluate(nil)).To(Equal(float64(2)))
+		})
+		It("Should evaluate 3+4*2/(1-5)^2^3", func() {
+			e := calc.Expression{}
+			err := e.Build("3+4*2/(1-5)^2^3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Evaluate(nil)).To(Equal(float64(3.0001220703125)))
+		})
+		It("Should evaluate pi*r^2", func() {
+			e := calc.Expression{}
+			err := e.Build("pi*r^2")
+			Expect(err).ToNot(HaveOccurred())
+			r := &mockResolver{vals: map[string]float64{"pi": 3.14159, "r": 2}}
+			Expect(e.Evaluate(r)).To(Equal(float64(12.56636)))
+		})
+		It("Should evaluate the pythagorean theorem", func() {
+			e := calc.Expression{}
+			err := e.Build("(a^2 + b^2)^(1/2)")
+			Expect(err).ToNot(HaveOccurred())
+			r := &mockResolver{vals: map[string]float64{"a": 3, "b": 4}}
+			Expect(e.Evaluate(r)).To(Equal(float64(5)))
 		})
 	})
 })

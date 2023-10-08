@@ -13,6 +13,7 @@ import (
 	"errors"
 	"go/ast"
 	"go/token"
+	"math"
 	"strconv"
 
 	"github.com/synnaxlabs/x/stack"
@@ -20,6 +21,10 @@ import (
 
 type Expression struct {
 	exp ast.Expr
+}
+
+type Resolver interface {
+	Resolve(string) (float64, error)
 }
 
 func findTokens(s string) ([]string, error) {
@@ -159,4 +164,46 @@ func (e *Expression) Build(s string) error {
 
 func (e Expression) GetTree() ast.Expr {
 	return e.exp
+}
+
+func (e Expression) Evaluate(r Resolver) float64 {
+	return eval(e.exp, r)
+}
+
+func eval(exp ast.Expr, r Resolver) float64 {
+	switch exp := exp.(type) {
+	case *ast.BinaryExpr:
+		return evalBinaryExpr(exp, r)
+	case *ast.BasicLit:
+		switch exp.Kind {
+		case token.FLOAT:
+			i, _ := strconv.ParseFloat(exp.Value, 64)
+			return i
+		}
+	case *ast.Ident:
+		i, _ := r.Resolve(exp.Name)
+		return i
+	}
+
+	return 0
+}
+
+func evalBinaryExpr(exp *ast.BinaryExpr, r Resolver) float64 {
+	left := eval(exp.X, r)
+	right := eval(exp.Y, r)
+
+	switch exp.Op {
+	case token.ADD:
+		return left + right
+	case token.SUB:
+		return left - right
+	case token.MUL:
+		return left * right
+	case token.QUO:
+		return left / right
+	case token.XOR:
+		return math.Pow(left, right)
+	}
+
+	return 0
 }
