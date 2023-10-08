@@ -34,7 +34,7 @@ func findTokens(s string) ([]string, error) {
 			continue
 		}
 		//	Check if token is a negative number
-		if c == '-' && (i == 0 || tokens[i-1] == "(" || tokens[i-1] == "+" || tokens[i-1] == "-" || tokens[i-1] == "*" || tokens[i-1] == "/" || tokens[i-1] == "^") {
+		if c == '-' && (i == 0 || tokens[len(tokens)-1] == "(" || tokens[len(tokens)-1] == "+" || tokens[len(tokens)-1] == "-" || tokens[len(tokens)-1] == "*" || tokens[len(tokens)-1] == "/" || tokens[len(tokens)-1] == "^") {
 			currToken += string(c)
 		} else if c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' {
 			if currToken != "" {
