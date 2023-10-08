@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload, get_args, cast
+from typing import Literal, overload, cast
 
 from pandas import DataFrame
 
@@ -25,6 +25,7 @@ from synnax.channel.payload import (
     ChannelParams,
 )
 from synnax.util.normalize import normalize
+from synnax.util.interop import overload_comparison_operators
 from synnax.exceptions import ValidationError
 
 
@@ -77,15 +78,18 @@ class Frame:
     columns: ChannelKeys | ChannelNames
     series: list[Series] = Field(default_factory=list)
 
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(overload_comparison_operators(cls, "to_df"))
+
     def __init__(
         self,
         columns_or_data: ChannelKeys
-        | ChannelNames
-        | DataFrame
-        | Frame
-        | FramePayload
-        | dict[ChannelKey, TypedCrudeSeries]
-        | None = None,
+                         | ChannelNames
+                         | DataFrame
+                         | Frame
+                         | FramePayload
+                         | dict[ChannelKey, TypedCrudeSeries]
+                         | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(columns_or_data, Frame):
@@ -158,7 +162,9 @@ class Frame:
     ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
         return zip(self.columns, self.series)  # type: ignore
 
-    def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
+    def __getitem__(self, key: ChannelKey | ChannelName | any) -> Series:
+        if not isinstance(key, (ChannelKey, ChannelName)):
+            return self.to_df()[key]
         return self.series[self.columns.index(key)]  # type: ignore
 
     def get(
