@@ -123,6 +123,10 @@ func (e *Expression) Build(s string) error {
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
 			}
+			_, err := operators.Pop()
+			if err != nil {
+				return err
+			}
 		default:
 			_, err := strconv.ParseFloat(t, 64)
 			if err != nil {
