@@ -65,8 +65,10 @@ export interface SelectMultipleProps
   columns?: string[];
 }
 
+const DEFAULT_FILTER = ["name"];
+
 export const SelectMultiple = ({
-  columns: filter = [],
+  columns: filter = DEFAULT_FILTER,
   onChange,
   value,
   className,

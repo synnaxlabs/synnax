@@ -18,7 +18,7 @@ describe("StaticReadCache", () => {
     const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)),
     );
     expect(res).toHaveLength(1);
     expect(gaps).toHaveLength(0);
@@ -28,7 +28,7 @@ describe("StaticReadCache", () => {
     const tr = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
     const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(6))
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(6)),
     );
     expect(res).toHaveLength(1);
     expect(gaps).toHaveLength(2);
@@ -44,7 +44,7 @@ describe("StaticReadCache", () => {
     c.write(tr1, [new Series(new Float32Array([1]), DataType.FLOAT32, tr1)]);
     c.write(tr2, [new Series(new Float32Array([1]), DataType.FLOAT32, tr2)]);
     const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(7))
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(7)),
     );
     expect(res).toHaveLength(2);
     expect(gaps).toHaveLength(2);

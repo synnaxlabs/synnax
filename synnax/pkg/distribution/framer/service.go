@@ -25,9 +25,11 @@ import (
 )
 
 type Service struct {
-	writer   *writer.Service
-	iterator *iterator.Service
-	Relay    *relay.Relay
+	config          Config
+	writer          *writer.Service
+	iterator        *iterator.Service
+	controlStateKey channel.Key
+	Relay           *relay.Relay
 }
 
 type Writable interface {
@@ -78,7 +80,7 @@ func Open(configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{}
+	s := &Service{config: cfg}
 	s.iterator, err = iterator.OpenService(iterator.ServiceConfig{
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
@@ -125,6 +127,11 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
+}
+
+func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {
+	s.controlStateKey = ch
+	return s.config.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch))
 }
 
 // Close closes the Service.

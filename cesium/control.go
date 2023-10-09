@@ -3,7 +3,6 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
@@ -50,7 +49,7 @@ func (db *DB) updateControlDigests(
 	if db.digests.key == 0 {
 		return
 	}
-	db.digests.inlet.Inlet() <- WriterRequest{Command: WriterWrite, Frame: db.controlUpdateToWriterRequest(ctx, u)}
+	db.digests.inlet.Inlet() <- WriterRequest{Command: WriterWrite, Frame: db.ControlUpdateToFrame(ctx, u)}
 }
 
 func (db *DB) closeControlDigests() {
@@ -60,7 +59,7 @@ func (db *DB) closeControlDigests() {
 	}
 }
 
-func (db *DB) controlStates() (u ControlUpdate) {
+func (db *DB) ControlStates() (u ControlUpdate) {
 	if db.digests.key == 0 {
 		return
 	}
@@ -80,14 +79,21 @@ func (db *DB) controlStates() (u ControlUpdate) {
 	return u
 }
 
-func (db *DB) controlUpdateToWriterRequest(ctx context.Context, u ControlUpdate) Frame {
-	return Frame{
-		Keys: []ChannelKey{db.digests.key},
-		Series: []telem.Series{{
-			DataType: telem.StringT,
-			Data:     lo.Must((&binary.JSONEncoderDecoder{}).Encode(ctx, u)),
-		}},
+func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
+	d, err := EncodeControlUpdate(ctx, u)
+	if err != nil {
+		panic(err)
 	}
+	return Frame{
+		Keys:   []ChannelKey{db.digests.key},
+		Series: []telem.Series{d},
+	}
+}
+
+func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
+	s.DataType = telem.StringT
+	s.Data, err = (&binary.JSONEncoderDecoder{}).Encode(ctx, u)
+	return s, err
 }
 
 func DecodeControlUpdate(ctx context.Context, s telem.Series) (ControlUpdate, error) {

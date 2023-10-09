@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
@@ -24,8 +25,12 @@ import { staticTelem } from "@/telem/static/aether";
 export type ProviderState = z.input<typeof providerStateZ>;
 export const providerStateZ = z.object({});
 
+interface InternalState {
+  instrumentation: Instrumentation;
+}
+
 export class Provider
-  extends aether.Composite<typeof providerStateZ>
+  extends aether.Composite<typeof providerStateZ, InternalState>
   implements telem.Provider
 {
   readonly telem = new Map<string, telem.Telem>();
@@ -42,26 +47,41 @@ export class Provider
   schema = Provider.stateZ;
 
   use<T>(key: string, spec: telem.Spec, extension?: Factory): telem.UseResult<T> {
+    const { instrumentation: I } = this.internal;
     let telem = this.telem.get(key);
-    if (telem != null) telem.setProps(spec.props);
-    else telem = this.create(key, spec, extension);
+    if (telem != null) {
+      I.L.debug("updating telemetry source", { key, type: telem.type });
+      telem.setProps(spec.props);
+    } else telem = this.create(key, spec, extension);
     return [telem as T, () => this.remove(key)];
   }
 
   private remove(key: string): void {
+    const { instrumentation: I } = this.internal;
     const source = this.telem.get(key);
+    I.L.debug("removing telemetry source", { key, type: source?.type });
     source?.cleanup();
   }
 
   afterUpdate(): void {
     const client_ = synnax.use(this.ctx);
-    const ins = alamos.useInstrumentation(this.ctx);
-    if (client_ != null) this.client.swap(new client.Core(client_, ins));
-    this.telem.forEach((t) => t.invalidate());
+    const I = alamos.useInstrumentation(this.ctx, "telem");
+    this.internal.instrumentation = I.child("provider");
+    if (client_ != null) {
+      I.L.info("swapping client", { client: client_ });
+      this.client.swap(new client.Core(client_, this.internal.instrumentation));
+    }
+    this.telem.forEach((t) => {
+      I.L.debug("invalidating telemetry source", { key: t.key, type: t.type });
+      t.invalidate();
+    });
     return telem.setProvider(this.ctx, this);
   }
 
   create<T>(key: string, spec: telem.Spec, extension?: Factory): T {
+    const { instrumentation: I } = this.internal;
+    I.L.debug("creating telemetry source", { key, spec });
+    // TODO: We might end up with a race condition here on concurrent creates.
     if (extension != null) this.factory.factories.push(extension);
     let telem = this.factory.create(key, spec, this.factory);
     if (telem == null) {

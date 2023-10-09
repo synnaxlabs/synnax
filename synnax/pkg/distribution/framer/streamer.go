@@ -13,8 +13,10 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/reflect"
 	"github.com/synnaxlabs/x/signal"
@@ -24,6 +26,9 @@ import (
 type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 
 type streamer struct {
+	ts                 *ts.DB
+	sendControlDigests bool
+	controlStateKey    channel.Key
 	confluence.AbstractUnarySink[StreamerRequest]
 	confluence.AbstractUnarySource[StreamerResponse]
 	iter struct {
@@ -44,7 +49,6 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if hasIter {
 		l.iter.flow.Flow(sCtx, opts...)
 	}
-	l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("Relay-reader"))...)
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(l.Out)
 
@@ -79,6 +83,13 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			confluence.Drain(l.iter.responses)
 		}
 
+		l.relay.flow.Flow(sCtx, append(opts, confluence.WithAddress("relay-reader"))...)
+
+		if l.sendControlDigests {
+			u := l.ts.ControlUpdateToFrame(ctx, l.ts.ControlStates())
+			l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
+		}
+
 		// Then we'll tap into the Relay for stream updates
 		for {
 			select {
@@ -99,6 +110,11 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					confluence.Drain(l.relay.responses)
 					return nil
 				}
+				if !l.sendControlDigests && lo.Contains(req.Keys, l.controlStateKey) {
+					l.sendControlDigests = true
+					u := l.ts.ControlUpdateToFrame(ctx, l.ts.ControlStates())
+					l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
+				}
 				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys}); err != nil {
 					return err
 				}
@@ -115,9 +131,13 @@ type StreamerConfig struct {
 type StreamerRequest = StreamerConfig
 
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	l := &streamer{}
-
-	if lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != 65537 }) {
+	l := &streamer{
+		ts:                 s.iterator.TS,
+		controlStateKey:    s.controlStateKey,
+		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
+	}
+	anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != s.controlStateKey })
+	if anyLeased {
 		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
 			Keys:   cfg.Keys,
 			Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),
@@ -130,7 +150,6 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		l.iter.requests = iterReq
 		l.iter.responses = iterRes
 	}
-
 	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err

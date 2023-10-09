@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/telem"
 	"io"
@@ -133,7 +132,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
 		return d, err
 	}
-	if err := d.Storage.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(controlCh[0].Key())); err != nil {
+	if err := d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key()); err != nil {
 		return d, err
 	}
 

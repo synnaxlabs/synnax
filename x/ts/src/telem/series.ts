@@ -399,6 +399,17 @@ export class Series {
       this.alignment + start,
     );
   }
+
+  reAlign(alignment: number): Series {
+    return new Series(
+      this.buffer,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      "static",
+      alignment,
+    );
+  }
 }
 
 export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {

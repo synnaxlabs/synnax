@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 // Copyright 2023 Synnax Labs, Inc.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   type channel,
   Series,
@@ -21,6 +22,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { type theming } from "@/aetherIndex";
+import { alamos } from "@/alamos/aether";
 import { type color } from "@/color/core";
 import { StateProvider } from "@/control/aether/state";
 import { status } from "@/status/aether";
@@ -41,6 +43,7 @@ export const controllerStateZ = z.object({
 
 interface InternalState {
   client: Synnax | null;
+  instrumentation: Instrumentation;
   parentTelemProv: telem.Provider;
   stateProv: StateProvider;
   addStatus: status.Aggregate;
@@ -63,6 +66,7 @@ export class Controller
   schema = controllerStateZ;
 
   afterUpdate(): void {
+    this.internal.instrumentation = alamos.useInstrumentation(this.ctx);
     if (
       this.internal.prevTrigger == null ||
       Math.abs(this.state.acquireTrigger - this.internal.prevTrigger) > 1
@@ -232,9 +236,11 @@ export class NumericSink
   schema = numericSinkProps;
 
   constructor(key: string, controller: Controller) {
-    super(key);
+    super("control.numericSink", key);
     this.controller = controller;
   }
+
+  invalidate(): void {}
 
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
@@ -242,8 +248,6 @@ export class NumericSink
     if (chan.index !== 0) keys.push(chan.index);
     return keys;
   }
-
-  invalidate(): void {}
 
   async setNumber(value: number): Promise<void> {
     const { client } = this.controller.internal;
@@ -279,7 +283,7 @@ export class AcquireSink
   schema = acquireSinkPropsZ;
 
   constructor(key: string, controller: Controller) {
-    super(key);
+    super("control.acquireSink", key);
     this.controller = controller;
   }
 
@@ -322,7 +326,7 @@ export class AuthoritySource
   schema = authoritySourceProps;
 
   constructor(key: string, controlKey: string, prov: StateProvider) {
-    super(key);
+    super("control.AuthoritySource", key);
     this.prov = prov;
     this.controlKey = controlKey;
   }

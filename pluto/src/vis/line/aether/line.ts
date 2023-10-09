@@ -341,8 +341,6 @@ const buildDrawOperations = (
     });
   });
 
-  console.log(digests(ops));
-
   return ops;
 };
 

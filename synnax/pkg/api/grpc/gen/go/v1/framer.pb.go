@@ -701,10 +701,10 @@ var file_v1_framer_proto_depIdxs = []int32{
 	0,  // 7: api.v1.FrameStreamerResponse.frame:type_name -> api.v1.Frame
 	10, // 8: api.v1.FrameStreamerResponse.error:type_name -> ferrors.v1.ErrorPayload
 	1,  // 9: api.v1.FrameService.Iterate:input_type -> api.v1.FrameIteratorRequest
-	4,  // 10: api.v1.FrameService.Write:input_type -> api.v1.FrameWriterRequest
+	4,  // 10: api.v1.FrameService.write:input_type -> api.v1.FrameWriterRequest
 	6,  // 11: api.v1.FrameService.Stream:input_type -> api.v1.FrameStreamerRequest
 	2,  // 12: api.v1.FrameService.Iterate:output_type -> api.v1.FrameIteratorResponse
-	5,  // 13: api.v1.FrameService.Write:output_type -> api.v1.FrameWriterResponse
+	5,  // 13: api.v1.FrameService.write:output_type -> api.v1.FrameWriterResponse
 	7,  // 14: api.v1.FrameService.Stream:output_type -> api.v1.FrameStreamerResponse
 	12, // [12:15] is the sub-list for method output_type
 	9,  // [9:12] is the sub-list for method input_type

@@ -41,6 +41,8 @@ export const xySourceSpecZ = specZ.extend({
 export type XYSourceSpec = z.infer<typeof xySourceSpecZ>;
 
 export interface Telem {
+  key: string;
+  type: string;
   setProps: (props: any) => void;
   cleanup: () => void;
   invalidate: () => void;

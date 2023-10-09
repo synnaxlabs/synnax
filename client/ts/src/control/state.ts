@@ -45,6 +45,17 @@ export type Transfer =
       to?: State;
     };
 
+export const transferString = (t: Transfer): string => {
+  if (t.to == null) return `${t.from?.resource} - ${t.from?.subject.name} -> released`;
+  if (t.from == null)
+    return `${t.to.resource} - released -> ${
+      t.to.subject.name
+    } (${t.to.authority.toString()})`;
+  return `${t.to.resource} - ${t.from.subject.name} -> ${
+    t.to.subject.name
+  } (${t.to.authority.toString()})`;
+};
+
 interface Update {
   transfers: Transfer[];
 }

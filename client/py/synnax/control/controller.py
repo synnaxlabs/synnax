@@ -26,7 +26,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import TimeStamp, CrudeTimeSpan, TimeSpan
-from synnax.telem.authority import CrudeAuthority, Authority
+from synnax.telem.control import CrudeAuthority, Authority
 
 
 class State:

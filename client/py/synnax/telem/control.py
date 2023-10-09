@@ -12,9 +12,6 @@ from freighter import Payload
 
 
 class Authority(int):
-    def __new__(cls, value: int):
-        return super().__new__(cls, value)
-
     ABSOLUTE: Authority
     """Absolute authority. No other subject can take control of this entity while it is
     active."""
@@ -25,3 +22,8 @@ Authority.ABSOLUTE = Authority(255)
 Authority.DEFAULT = Authority(1)
 
 CrudeAuthority = int | Authority
+
+
+class Subject(Payload):
+    name: str
+    key: str

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import uuid4
+
 from enum import Enum
 from warnings import warn
 
@@ -27,7 +29,7 @@ from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
-from synnax.telem.authority import Authority
+from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
 
 
@@ -41,7 +43,7 @@ class _Command(int, Enum):
 
 class _Config(Payload):
     authorities: list[int]
-    name: str | None = None
+    control_subject: Subject
     start: TimeStamp | None = None
     keys: ChannelKeys
 
@@ -130,7 +132,7 @@ class Writer:
         authorities: list[Authority],
     ) -> None:
         config = _Config(
-            name=name,
+            control_subject=Subject(name=name, key=str(uuid4())),
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),

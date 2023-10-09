@@ -1,6 +1,6 @@
 import synnax as sy
 import time
-from synnax.telem.authority import Authority
+from synnax.telem.control import Authority
 
 client = sy.Synnax()
 

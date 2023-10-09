@@ -128,9 +128,9 @@ export class Proxy implements Client {
  * adding a transparent caching layer.
  */
 export class Core implements Client {
+  readonly key: string = nanoid();
   private readonly core: Synnax;
   private readonly ins: alamos.Instrumentation;
-  key: string = nanoid();
   private readonly mu: Mutex = new Mutex();
   private readonly cache = new Map<channel.Key, cache.Cache>();
   private readonly listeners = new Map<StreamHandler, channel.Keys>();
@@ -138,7 +138,7 @@ export class Core implements Client {
 
   constructor(wrap: Synnax, ins: alamos.Instrumentation) {
     this.core = wrap;
-    this.ins = ins.child("client");
+    this.ins = ins;
   }
 
   /** Implements ChannelClient. */
@@ -254,8 +254,11 @@ export class Core implements Client {
   }
 
   private removeStreamHandler(handler: StreamHandler): void {
-    this.listeners.delete(handler);
-    void this.updateStreamer();
+    void this.mu.runExclusive(async () => {
+      this.ins.L.debug("removing stream handler", { handler });
+      if (this.listeners.delete(handler)) return await this.updateStreamer();
+      this.ins.L.warn("attempted to remove non-existent stream handler", { handler });
+    });
   }
 
   private async getCache(key: channel.Key): Promise<cache.Cache> {

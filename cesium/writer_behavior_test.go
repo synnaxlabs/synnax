@@ -24,7 +24,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Happy Path", func() {
 		Context("Indexed", func() {
-			Specify("Basic Write", func() {
+			Specify("Basic write", func() {
 				var (
 					basic1      cesium.ChannelKey = 1
 					basic1Index cesium.ChannelKey = 2

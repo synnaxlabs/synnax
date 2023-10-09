@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type Synnax, control, type channel } from "@synnaxlabs/client";
 import { observe, type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { type color } from "@/color/core";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -20,6 +22,7 @@ export const stateProviderStateZ = z.object({});
 
 interface InternalState {
   palette: color.Color[];
+  instrumentation: Instrumentation;
   defaultColor: color.Color;
   client: Synnax | null;
 }
@@ -46,6 +49,10 @@ export class StateProvider extends aether.Composite<
   }
 
   afterUpdate(): void {
+    this.internal.instrumentation = alamos.useInstrumentation(
+      this.ctx,
+      "control-state",
+    );
     const theme = theming.use(this.ctx);
     this.internal.palette = theme.colors.visualization.palettes.default;
     this.internal.defaultColor = theme.colors.gray.p0;
@@ -53,12 +60,12 @@ export class StateProvider extends aether.Composite<
     if (nextClient === this.internal.client) return;
     this.internal.client = nextClient;
     this.ctx.set(CONTEXT_KEY, this);
-    if (this.internal.client != null) void this.execUpdate(this.internal.client);
+    if (this.internal.client != null) void this.startUpdating(this.internal.client);
   }
 
   afterDelete(): void {
     this.disconnectTrackerChange?.();
-    this.tracker?.close();
+    this.tracker?.close().catch(this.internal.instrumentation.L.error);
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {
@@ -75,9 +82,11 @@ export class StateProvider extends aether.Composite<
     return state == null ? df : this.colors.get(state.subject.key) ?? df;
   }
 
-  private async execUpdate(client: Synnax): Promise<void> {
+  private async startUpdating(client: Synnax): Promise<void> {
+    const { instrumentation: i } = this.internal;
     this.tracker = await control.StateTracker.open(client.telem);
     this.disconnectTrackerChange = this.tracker.onChange((t) => {
+      i.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
       this.updateColors(this.tracker as control.StateTracker);
       this.obs.notify(t);
     });

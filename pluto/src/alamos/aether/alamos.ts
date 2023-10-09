@@ -48,10 +48,13 @@ export class Provider extends aether.Composite<typeof providerStateZ, InternalSt
   }
 }
 
-export const useInstrumentation = (ctx: aether.Context): alamos.Instrumentation => {
+export const useInstrumentation = (
+  ctx: aether.Context,
+  name?: string,
+): alamos.Instrumentation => {
   const ins = ctx.get<alamos.Instrumentation>(CONTEXT_KEY);
   if (ins == null) throw new Error("No instrumentation provider");
-  return ins;
+  return name == null ? ins : ins.child(name);
 };
 
 export const REGISTRY: aether.ComponentRegistry = {

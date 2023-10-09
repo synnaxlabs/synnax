@@ -266,7 +266,7 @@ func NewWriterServiceClient(cc grpc.ClientConnInterface) WriterServiceClient {
 }
 
 func (c *writerServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (WriterService_WriteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/ts.v1.WriterService/Write", opts...)
+	stream, err := c.cc.NewStream(ctx, &WriterService_ServiceDesc.Streams[0], "/ts.v1.WriterService/write", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ type UnimplementedWriterServiceServer struct {
 }
 
 func (UnimplementedWriterServiceServer) Write(WriterService_WriteServer) error {
-	return status.Errorf(codes.Unimplemented, "method Write not implemented")
+	return status.Errorf(codes.Unimplemented, "method write not implemented")
 }
 
 // UnsafeWriterServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -357,7 +357,7 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Write",
+			StreamName:    "write",
 			Handler:       _WriterService_Write_Handler,
 			ServerStreams: true,
 			ClientStreams: true,

@@ -11,7 +11,7 @@ from synnax.framer import Client as FrameClient
 from synnax.control.controller import Controller
 from synnax.channel.payload import ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.telem.authority import Authority, CrudeAuthority
+from synnax.telem.control import Authority, CrudeAuthority
 
 
 class Client:

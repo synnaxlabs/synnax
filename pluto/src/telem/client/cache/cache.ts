@@ -29,9 +29,9 @@ export class Cache {
   }
 
   writeDynamic(series: Series[]): Series[] {
-    const pushDynamic = this.dynamic.buffer == null;
-    const flushed = this.dynamic.write(series);
-    if (pushDynamic && this.dynamic.buffer != null) flushed.push(this.dynamic.buffer);
+    const { flushed, allocated } = this.dynamic.write(series);
+    // Buffers that have been flushed out of the dynamic cache are written to the
+    // static cache.
     if (flushed.length > 0) {
       this.static.write(
         new TimeRange(
@@ -40,10 +40,8 @@ export class Cache {
         ),
         flushed,
       );
-      if (this.dynamic.buffer != null && !pushDynamic)
-        flushed.push(this.dynamic.buffer);
     }
-    return flushed;
+    return allocated;
   }
 
   writeStatic(tr: TimeRange, series: Series[]): void {

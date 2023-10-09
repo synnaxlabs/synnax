@@ -30,7 +30,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
-from synnax.telem.authority import Authority, CrudeAuthority
+from synnax.telem.control import Authority, CrudeAuthority
 
 
 class Client:
