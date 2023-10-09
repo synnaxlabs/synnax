@@ -5,31 +5,41 @@
 #include <string>
 
 class TimeStamp {
-    long value;
 public:
+    long value;
+
     TimeStamp(long value) : value(value) {}
 };
 
 class TimeRange {
-    TimeStamp start;
+public:
     TimeStamp end;
+    TimeStamp start;
+
+    TimeRange(TimeStamp start, TimeStamp end) : start(start), end(end) {}
 };
 
 class DataType {
-    std::string value;
 
 
 public:
-    DataType(std::string value) : value(value) {}
+    explicit DataType(std::string value) : value(value) {}
+
+    // copy constructor
+    DataType(const DataType &obj) {
+        value = obj.value;
+    }
+
+    std::string value;
 
 };
+
 
 const STRING = DataType("string");
 
 class Rate {
 public:
-    Rate(int i) {
-
+    explicit Rate(float i) : value(i) {
     }
 
     float value;

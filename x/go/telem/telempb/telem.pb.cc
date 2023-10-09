@@ -20,7 +20,7 @@ PROTOBUF_PRAGMA_INIT_SEG
 namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
-namespace telem {
+namespace telempb {
         template <typename>
 PROTOBUF_CONSTEXPR TimeRange::TimeRange(::_pbi::ConstantInitialized)
     : _impl_{
@@ -63,7 +63,7 @@ struct SeriesDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 SeriesDefaultTypeInternal _Series_default_instance_;
-}  // namespace telem
+}  // namespace telempb
 static ::_pb::Metadata file_level_metadata_telempb_2ftelem_2eproto[2];
 static constexpr const ::_pb::EnumDescriptor**
     file_level_enum_descriptors_telempb_2ftelem_2eproto = nullptr;
@@ -72,26 +72,26 @@ static constexpr const ::_pb::ServiceDescriptor**
 const ::uint32_t TableStruct_telempb_2ftelem_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(
     protodesc_cold) = {
     ~0u,  // no _has_bits_
-    PROTOBUF_FIELD_OFFSET(::telem::TimeRange, _internal_metadata_),
+    PROTOBUF_FIELD_OFFSET(::telempb::TimeRange, _internal_metadata_),
     ~0u,  // no _extensions_
     ~0u,  // no _oneof_case_
     ~0u,  // no _weak_field_map_
     ~0u,  // no _inlined_string_donated_
     ~0u,  // no _split_
     ~0u,  // no sizeof(Split)
-    PROTOBUF_FIELD_OFFSET(::telem::TimeRange, _impl_.start_),
-    PROTOBUF_FIELD_OFFSET(::telem::TimeRange, _impl_.end_),
-    PROTOBUF_FIELD_OFFSET(::telem::Series, _impl_._has_bits_),
-    PROTOBUF_FIELD_OFFSET(::telem::Series, _internal_metadata_),
+    PROTOBUF_FIELD_OFFSET(::telempb::TimeRange, _impl_.start_),
+    PROTOBUF_FIELD_OFFSET(::telempb::TimeRange, _impl_.end_),
+    PROTOBUF_FIELD_OFFSET(::telempb::Series, _impl_._has_bits_),
+    PROTOBUF_FIELD_OFFSET(::telempb::Series, _internal_metadata_),
     ~0u,  // no _extensions_
     ~0u,  // no _oneof_case_
     ~0u,  // no _weak_field_map_
     ~0u,  // no _inlined_string_donated_
     ~0u,  // no _split_
     ~0u,  // no sizeof(Split)
-    PROTOBUF_FIELD_OFFSET(::telem::Series, _impl_.time_range_),
-    PROTOBUF_FIELD_OFFSET(::telem::Series, _impl_.data_type_),
-    PROTOBUF_FIELD_OFFSET(::telem::Series, _impl_.data_),
+    PROTOBUF_FIELD_OFFSET(::telempb::Series, _impl_.time_range_),
+    PROTOBUF_FIELD_OFFSET(::telempb::Series, _impl_.data_type_),
+    PROTOBUF_FIELD_OFFSET(::telempb::Series, _impl_.data_),
     0,
     ~0u,
     ~0u,
@@ -99,29 +99,30 @@ const ::uint32_t TableStruct_telempb_2ftelem_2eproto::offsets[] PROTOBUF_SECTION
 
 static const ::_pbi::MigrationSchema
     schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-        {0, -1, -1, sizeof(::telem::TimeRange)},
-        {10, 21, -1, sizeof(::telem::Series)},
+        {0, -1, -1, sizeof(::telempb::TimeRange)},
+        {10, 21, -1, sizeof(::telempb::Series)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
-    &::telem::_TimeRange_default_instance_._instance,
-    &::telem::_Series_default_instance_._instance,
+    &::telempb::_TimeRange_default_instance_._instance,
+    &::telempb::_Series_default_instance_._instance,
 };
 const char descriptor_table_protodef_telempb_2ftelem_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-    "\n\023telempb/telem.proto\022\005telem\"3\n\tTimeRang"
-    "e\022\024\n\005start\030\001 \001(\003R\005start\022\020\n\003end\030\002 \001(\003R\003en"
-    "d\"j\n\006Series\022/\n\ntime_range\030\001 \001(\0132\020.telem."
-    "TimeRangeR\ttimeRange\022\033\n\tdata_type\030\002 \001(\tR"
-    "\010dataType\022\022\n\004data\030\003 \001(\014R\004dataBt\n\tcom.tel"
-    "emB\nTelemProtoP\001Z\'github.com/synnaxlabs/"
-    "x/telempb/telempb\242\002\003TXX\252\002\005Telem\312\002\005Telem\342"
-    "\002\021Telem\\GPBMetadata\352\002\005Telemb\006proto3"
+    "\n\023telempb/telem.proto\022\007telempb\"3\n\tTimeRa"
+    "nge\022\024\n\005start\030\001 \001(\003R\005start\022\020\n\003end\030\002 \001(\003R\003"
+    "end\"l\n\006Series\0221\n\ntime_range\030\001 \001(\0132\022.tele"
+    "mpb.TimeRangeR\ttimeRange\022\033\n\tdata_type\030\002 "
+    "\001(\tR\010dataType\022\022\n\004data\030\003 \001(\014R\004dataB~\n\013com"
+    ".telempbB\nTelemProtoP\001Z\'github.com/synna"
+    "xlabs/x/telempb/telempb\242\002\003TXX\252\002\007Telempb\312"
+    "\002\007Telempb\342\002\023Telempb\\GPBMetadata\352\002\007Telemp"
+    "bb\006proto3"
 };
 static ::absl::once_flag descriptor_table_telempb_2ftelem_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_telempb_2ftelem_2eproto = {
     false,
     false,
-    315,
+    329,
     descriptor_table_protodef_telempb_2ftelem_2eproto,
     "telempb/telem.proto",
     &descriptor_table_telempb_2ftelem_2eproto_once,
@@ -153,7 +154,7 @@ PROTOBUF_ATTRIBUTE_WEAK const ::_pbi::DescriptorTable* descriptor_table_telempb_
 // Force running AddDescriptors() at dynamic initialization time.
 PROTOBUF_ATTRIBUTE_INIT_PRIORITY2
 static ::_pbi::AddDescriptorsRunner dynamic_init_dummy_telempb_2ftelem_2eproto(&descriptor_table_telempb_2ftelem_2eproto);
-namespace telem {
+namespace telempb {
 // ===================================================================
 
 class TimeRange::_Internal {
@@ -163,13 +164,13 @@ class TimeRange::_Internal {
 TimeRange::TimeRange(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:telem.TimeRange)
+  // @@protoc_insertion_point(arena_constructor:telempb.TimeRange)
 }
 TimeRange::TimeRange(const TimeRange& from)
     : ::google::protobuf::Message(), _impl_(from._impl_) {
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
-  // @@protoc_insertion_point(copy_constructor:telem.TimeRange)
+  // @@protoc_insertion_point(copy_constructor:telempb.TimeRange)
 }
 inline void TimeRange::SharedCtor(::_pb::Arena* arena) {
   (void)arena;
@@ -180,7 +181,7 @@ inline void TimeRange::SharedCtor(::_pb::Arena* arena) {
   };
 }
 TimeRange::~TimeRange() {
-  // @@protoc_insertion_point(destructor:telem.TimeRange)
+  // @@protoc_insertion_point(destructor:telempb.TimeRange)
   _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
   SharedDtor();
 }
@@ -192,7 +193,7 @@ void TimeRange::SetCachedSize(int size) const {
 }
 
 PROTOBUF_NOINLINE void TimeRange::Clear() {
-// @@protoc_insertion_point(message_clear_start:telem.TimeRange)
+// @@protoc_insertion_point(message_clear_start:telempb.TimeRange)
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
@@ -249,7 +250,7 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> TimeRange::_table_ = {
 ::uint8_t* TimeRange::_InternalSerialize(
     ::uint8_t* target,
     ::google::protobuf::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:telem.TimeRange)
+  // @@protoc_insertion_point(serialize_to_array_start:telempb.TimeRange)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
@@ -272,12 +273,12 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> TimeRange::_table_ = {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:telem.TimeRange)
+  // @@protoc_insertion_point(serialize_to_array_end:telempb.TimeRange)
   return target;
 }
 
 ::size_t TimeRange::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:telem.TimeRange)
+// @@protoc_insertion_point(message_byte_size_start:telempb.TimeRange)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -309,7 +310,7 @@ const ::google::protobuf::Message::ClassData*TimeRange::GetClassData() const { r
 void TimeRange::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg) {
   auto* const _this = static_cast<TimeRange*>(&to_msg);
   auto& from = static_cast<const TimeRange&>(from_msg);
-  // @@protoc_insertion_point(class_specific_merge_from_start:telem.TimeRange)
+  // @@protoc_insertion_point(class_specific_merge_from_start:telempb.TimeRange)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
@@ -324,7 +325,7 @@ void TimeRange::MergeImpl(::google::protobuf::Message& to_msg, const ::google::p
 }
 
 void TimeRange::CopyFrom(const TimeRange& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:telem.TimeRange)
+// @@protoc_insertion_point(class_specific_copy_from_start:telempb.TimeRange)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -357,19 +358,19 @@ class Series::_Internal {
   using HasBits = decltype(std::declval<Series>()._impl_._has_bits_);
   static constexpr ::int32_t kHasBitsOffset =
     8 * PROTOBUF_FIELD_OFFSET(Series, _impl_._has_bits_);
-  static const ::telem::TimeRange& time_range(const Series* msg);
+  static const ::telempb::TimeRange& time_range(const Series* msg);
   static void set_has_time_range(HasBits* has_bits) {
     (*has_bits)[0] |= 1u;
   }
 };
 
-const ::telem::TimeRange& Series::_Internal::time_range(const Series* msg) {
+const ::telempb::TimeRange& Series::_Internal::time_range(const Series* msg) {
   return *msg->_impl_.time_range_;
 }
 Series::Series(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:telem.Series)
+  // @@protoc_insertion_point(arena_constructor:telempb.Series)
 }
 Series::Series(const Series& from) : ::google::protobuf::Message() {
   Series* const _this = this;
@@ -398,10 +399,10 @@ Series::Series(const Series& from) : ::google::protobuf::Message() {
     _this->_impl_.data_.Set(from._internal_data(), _this->GetArenaForAllocation());
   }
   if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
-    _this->_impl_.time_range_ = new ::telem::TimeRange(*from._impl_.time_range_);
+    _this->_impl_.time_range_ = new ::telempb::TimeRange(*from._impl_.time_range_);
   }
 
-  // @@protoc_insertion_point(copy_constructor:telem.Series)
+  // @@protoc_insertion_point(copy_constructor:telempb.Series)
 }
 inline void Series::SharedCtor(::_pb::Arena* arena) {
   (void)arena;
@@ -422,7 +423,7 @@ inline void Series::SharedCtor(::_pb::Arena* arena) {
   #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 }
 Series::~Series() {
-  // @@protoc_insertion_point(destructor:telem.Series)
+  // @@protoc_insertion_point(destructor:telempb.Series)
   _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
   SharedDtor();
 }
@@ -437,7 +438,7 @@ void Series::SetCachedSize(int size) const {
 }
 
 PROTOBUF_NOINLINE void Series::Clear() {
-// @@protoc_insertion_point(message_clear_start:telem.Series)
+// @@protoc_insertion_point(message_clear_start:telempb.Series)
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
@@ -461,7 +462,7 @@ const char* Series::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
+const ::_pbi::TcParseTable<2, 3, 1, 32, 2> Series::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(Series, _impl_._has_bits_),
     0, // no _extensions_
@@ -476,7 +477,7 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
     ::_pbi::TcParser::GenericFallback,  // fallback
   }, {{
     {::_pbi::TcParser::MiniParse, {}},
-    // .telem.TimeRange time_range = 1 [json_name = "timeRange"];
+    // .telempb.TimeRange time_range = 1 [json_name = "timeRange"];
     {::_pbi::TcParser::FastMtS1,
      {10, 0, 0, PROTOBUF_FIELD_OFFSET(Series, _impl_.time_range_)}},
     // string data_type = 2 [json_name = "dataType"];
@@ -488,7 +489,7 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
   }}, {{
     65535, 65535
   }}, {{
-    // .telem.TimeRange time_range = 1 [json_name = "timeRange"];
+    // .telempb.TimeRange time_range = 1 [json_name = "timeRange"];
     {PROTOBUF_FIELD_OFFSET(Series, _impl_.time_range_), _Internal::kHasBitsOffset + 0, 0,
     (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
     // string data_type = 2 [json_name = "dataType"];
@@ -498,10 +499,10 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
     {PROTOBUF_FIELD_OFFSET(Series, _impl_.data_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kBytes | ::_fl::kRepAString)},
   }}, {{
-    {::_pbi::TcParser::GetTable<::telem::TimeRange>()},
+    {::_pbi::TcParser::GetTable<::telempb::TimeRange>()},
   }}, {{
-    "\14\0\11\0\0\0\0\0"
-    "telem.Series"
+    "\16\0\11\0\0\0\0\0"
+    "telempb.Series"
     "data_type"
   }},
 };
@@ -509,12 +510,12 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
 ::uint8_t* Series::_InternalSerialize(
     ::uint8_t* target,
     ::google::protobuf::io::EpsCopyOutputStream* stream) const {
-  // @@protoc_insertion_point(serialize_to_array_start:telem.Series)
+  // @@protoc_insertion_point(serialize_to_array_start:telempb.Series)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
   cached_has_bits = _impl_._has_bits_[0];
-  // .telem.TimeRange time_range = 1 [json_name = "timeRange"];
+  // .telempb.TimeRange time_range = 1 [json_name = "timeRange"];
   if (cached_has_bits & 0x00000001u) {
     target = ::google::protobuf::internal::WireFormatLite::
       InternalWriteMessage(1, _Internal::time_range(this),
@@ -525,7 +526,7 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
   if (!this->_internal_data_type().empty()) {
     const std::string& _s = this->_internal_data_type();
     ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "telem.Series.data_type");
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "telempb.Series.data_type");
     target = stream->WriteStringMaybeAliased(2, _s, target);
   }
 
@@ -540,12 +541,12 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:telem.Series)
+  // @@protoc_insertion_point(serialize_to_array_end:telempb.Series)
   return target;
 }
 
 ::size_t Series::ByteSizeLong() const {
-// @@protoc_insertion_point(message_byte_size_start:telem.Series)
+// @@protoc_insertion_point(message_byte_size_start:telempb.Series)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -564,7 +565,7 @@ const ::_pbi::TcParseTable<2, 3, 1, 30, 2> Series::_table_ = {
                                     this->_internal_data());
   }
 
-  // .telem.TimeRange time_range = 1 [json_name = "timeRange"];
+  // .telempb.TimeRange time_range = 1 [json_name = "timeRange"];
   cached_has_bits = _impl_._has_bits_[0];
   if (cached_has_bits & 0x00000001u) {
     total_size += 1 +
@@ -585,7 +586,7 @@ const ::google::protobuf::Message::ClassData*Series::GetClassData() const { retu
 void Series::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg) {
   auto* const _this = static_cast<Series*>(&to_msg);
   auto& from = static_cast<const Series&>(from_msg);
-  // @@protoc_insertion_point(class_specific_merge_from_start:telem.Series)
+  // @@protoc_insertion_point(class_specific_merge_from_start:telempb.Series)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
@@ -597,14 +598,14 @@ void Series::MergeImpl(::google::protobuf::Message& to_msg, const ::google::prot
     _this->_internal_set_data(from._internal_data());
   }
   if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
-    _this->_internal_mutable_time_range()->::telem::TimeRange::MergeFrom(
+    _this->_internal_mutable_time_range()->::telempb::TimeRange::MergeFrom(
         from._internal_time_range());
   }
   _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void Series::CopyFrom(const Series& from) {
-// @@protoc_insertion_point(class_specific_copy_from_start:telem.Series)
+// @@protoc_insertion_point(class_specific_copy_from_start:telempb.Series)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -633,7 +634,7 @@ void Series::InternalSwap(Series* other) {
       file_level_metadata_telempb_2ftelem_2eproto[1]);
 }
 // @@protoc_insertion_point(namespace_scope)
-}  // namespace telem
+}  // namespace telempb
 namespace google {
 namespace protobuf {
 }  // namespace protobuf

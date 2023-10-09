@@ -1,6 +1,19 @@
 cc_library(
     name = "writer",
-    srcs = [],
-    hdrs = ["writer.h", "channel.h", "frame.h", "series.h"],
-    deps = ["@grpc_protos//v1:auth_grpc", "@Freighter//freighter/gRPC:gRPC"]
+    srcs = [
+        "exceptions.h",
+    ],
+    hdrs = [
+        "exceptions.h",
+        "frame.h",
+        "series.h",
+        "telem.h",
+        "writer.h",
+    ],
+    deps = [
+        "@Freighter//freighter/gRPC",
+        "@com_github_grpc_grpc//:grpc++",
+        "@grpc_protos//v1:auth_grpc",
+        "@telem_protos//telempb:telem_grpc",
+    ],
 )

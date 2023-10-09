@@ -65,6 +65,7 @@ public:
         {
             return grpc::Status();
         }
+
         return grpc::Status::CANCELLED;
     }
 

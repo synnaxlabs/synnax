@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package telem;
+package telempb;
 
 option go_package = "github.com/synnaxlabs/x/telem/telempb";
 

@@ -18,6 +18,11 @@ proto_library(
     srcs = ["framer.proto"]
 )
 
+proto_library(
+    name = "ranger_proto",
+    srcs = ["ranger.proto"],
+)
+
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 
 cpp_grpc_library(
@@ -41,5 +46,11 @@ cpp_grpc_library(
 cpp_grpc_library(
     name = "framer_grpc",
     protos = [":framer_proto"],
+    visibility = ["//visibility:public"]
+)
+
+cpp_grpc_library(
+    name = "ranger_grpc",
+    protos = [":ranger_proto"],
     visibility = ["//visibility:public"]
 )

@@ -19,7 +19,7 @@
 #include <grpcpp/server_context.h>
 #include <grpcpp/impl/service_type.h>
 #include <grpcpp/support/sync_stream.h>
-namespace telem {
+namespace telempb {
 
-}  // namespace telem
+}  // namespace telempb
 

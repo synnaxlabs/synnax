@@ -16,7 +16,7 @@ plugins:
       - paths=source_relative
 
   - plugin: buf.build/grpc/cpp
-    out: telempb/cpp
+    out: .
 
   - plugin: buf.build/protocolbuffers/cpp
-    out: telempb/cpp
+    out: .

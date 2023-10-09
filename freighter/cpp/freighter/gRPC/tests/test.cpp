@@ -173,6 +173,3 @@ TEST(testGRPC, testStreamError)
     auto [res, err2] = streamer.receive();
     ASSERT_FALSE(err2.ok());
 }
-
-
-

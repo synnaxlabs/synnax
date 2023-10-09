@@ -1,0 +1,10 @@
+cc_library(
+    name = "channel",
+    srcs = ["channel.cpp"],
+    hdrs = ["channel.h"],
+    deps = [
+        "@Freighter//freighter/gRPC",
+        "@com_github_grpc_grpc//:grpc++",
+        "@grpc_protos//v1:channel_grpc",
+    ],
+)

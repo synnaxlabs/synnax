@@ -1,0 +1,10 @@
+cc_library(
+    name = "ranger",
+    srcs = ["ranger.cpp"],
+    hdrs = ["ranger.h"],
+    deps = [
+        "@Freighter//freighter/gRPC",
+        "@com_github_grpc_grpc//:grpc++",
+        "@grpc_protos//v1:ranger_grpc",
+    ],
+)

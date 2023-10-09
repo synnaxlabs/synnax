@@ -25,9 +25,9 @@
 #include <grpcpp/support/stub_options.h>
 #include <grpcpp/support/sync_stream.h>
 
-namespace telem {
+namespace telempb {
 
-}  // namespace telem
+}  // namespace telempb
 
 
 #endif  // GRPC_telempb_2ftelem_2eproto__INCLUDED

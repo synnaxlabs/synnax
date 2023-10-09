@@ -88,10 +88,14 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
         template <typename>
 PROTOBUF_CONSTEXPR FrameWriterConfig::FrameWriterConfig(::_pbi::ConstantInitialized)
     : _impl_{
+      /*decltype(_impl_._has_bits_)*/ {},
+      /*decltype(_impl_._cached_size_)*/ {},
       /*decltype(_impl_.keys_)*/ {},
       /* _impl_._keys_cached_byte_size_ = */ {0},
+      /*decltype(_impl_.authorities_)*/ {},
+      /* _impl_._authorities_cached_byte_size_ = */ {0},
+      /*decltype(_impl_.control_subject_)*/ nullptr,
       /*decltype(_impl_.start_)*/ ::int64_t{0},
-      /*decltype(_impl_._cached_size_)*/ {},
     } {}
 struct FrameWriterConfigDefaultTypeInternal {
   PROTOBUF_CONSTEXPR FrameWriterConfigDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
@@ -103,6 +107,29 @@ struct FrameWriterConfigDefaultTypeInternal {
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FrameWriterConfigDefaultTypeInternal _FrameWriterConfig_default_instance_;
+        template <typename>
+PROTOBUF_CONSTEXPR ControlSubject::ControlSubject(::_pbi::ConstantInitialized)
+    : _impl_{
+      /*decltype(_impl_.key_)*/ {
+          &::_pbi::fixed_address_empty_string,
+          ::_pbi::ConstantInitialized{},
+      },
+      /*decltype(_impl_.name_)*/ {
+          &::_pbi::fixed_address_empty_string,
+          ::_pbi::ConstantInitialized{},
+      },
+      /*decltype(_impl_._cached_size_)*/ {},
+    } {}
+struct ControlSubjectDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ControlSubjectDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ControlSubjectDefaultTypeInternal() {}
+  union {
+    ControlSubject _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ControlSubjectDefaultTypeInternal _ControlSubject_default_instance_;
         template <typename>
 PROTOBUF_CONSTEXPR FrameWriterRequest::FrameWriterRequest(::_pbi::ConstantInitialized)
     : _impl_{
@@ -182,7 +209,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 FrameStreamerResponseDefaultTypeInternal _FrameStreamerResponse_default_instance_;
 }  // namespace v1
 }  // namespace api
-static ::_pb::Metadata file_level_metadata_v1_2fframer_2eproto[8];
+static ::_pb::Metadata file_level_metadata_v1_2fframer_2eproto[9];
 static constexpr const ::_pb::EnumDescriptor**
     file_level_enum_descriptors_v1_2fframer_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor**
@@ -239,7 +266,7 @@ const ::uint32_t TableStruct_v1_2fframer_2eproto::offsets[] PROTOBUF_SECTION_VAR
     ~0u,
     ~0u,
     1,
-    ~0u,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _impl_._has_bits_),
     PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _internal_metadata_),
     ~0u,  // no _extensions_
     ~0u,  // no _oneof_case_
@@ -248,7 +275,23 @@ const ::uint32_t TableStruct_v1_2fframer_2eproto::offsets[] PROTOBUF_SECTION_VAR
     ~0u,  // no _split_
     ~0u,  // no sizeof(Split)
     PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _impl_.keys_),
+    PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _impl_.authorities_),
     PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _impl_.start_),
+    PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterConfig, _impl_.control_subject_),
+    ~0u,
+    ~0u,
+    ~0u,
+    0,
+    ~0u,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(::api::v1::ControlSubject, _internal_metadata_),
+    ~0u,  // no _extensions_
+    ~0u,  // no _oneof_case_
+    ~0u,  // no _weak_field_map_
+    ~0u,  // no _inlined_string_donated_
+    ~0u,  // no _split_
+    ~0u,  // no sizeof(Split)
+    PROTOBUF_FIELD_OFFSET(::api::v1::ControlSubject, _impl_.key_),
+    PROTOBUF_FIELD_OFFSET(::api::v1::ControlSubject, _impl_.name_),
     PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterRequest, _impl_._has_bits_),
     PROTOBUF_FIELD_OFFSET(::api::v1::FrameWriterRequest, _internal_metadata_),
     ~0u,  // no _extensions_
@@ -312,11 +355,12 @@ static const ::_pbi::MigrationSchema
         {0, -1, -1, sizeof(::api::v1::Frame)},
         {10, 23, -1, sizeof(::api::v1::FrameIteratorRequest)},
         {28, 43, -1, sizeof(::api::v1::FrameIteratorResponse)},
-        {50, -1, -1, sizeof(::api::v1::FrameWriterConfig)},
-        {60, 71, -1, sizeof(::api::v1::FrameWriterRequest)},
-        {74, 88, -1, sizeof(::api::v1::FrameWriterResponse)},
-        {94, -1, -1, sizeof(::api::v1::FrameStreamerRequest)},
-        {104, 114, -1, sizeof(::api::v1::FrameStreamerResponse)},
+        {50, 62, -1, sizeof(::api::v1::FrameWriterConfig)},
+        {66, -1, -1, sizeof(::api::v1::ControlSubject)},
+        {76, 87, -1, sizeof(::api::v1::FrameWriterRequest)},
+        {90, 104, -1, sizeof(::api::v1::FrameWriterResponse)},
+        {110, -1, -1, sizeof(::api::v1::FrameStreamerRequest)},
+        {120, 130, -1, sizeof(::api::v1::FrameStreamerResponse)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -324,6 +368,7 @@ static const ::_pb::Message* const file_default_instances[] = {
     &::api::v1::_FrameIteratorRequest_default_instance_._instance,
     &::api::v1::_FrameIteratorResponse_default_instance_._instance,
     &::api::v1::_FrameWriterConfig_default_instance_._instance,
+    &::api::v1::_ControlSubject_default_instance_._instance,
     &::api::v1::_FrameWriterRequest_default_instance_._instance,
     &::api::v1::_FrameWriterResponse_default_instance_._instance,
     &::api::v1::_FrameStreamerRequest_default_instance_._instance,
@@ -343,30 +388,34 @@ const char descriptor_table_protodef_v1_2fframer_2eproto[] PROTOBUF_SECTION_VARI
     "eR\005frame\022\031\n\010node_key\030+ \001(\005R\007nodeKey\022\020\n\003a"
     "ck\030\005 \001(\010R\003ack\022\027\n\007seq_num\030\006 \001(\005R\006seqNum\022."
     "\n\005error\030\007 \001(\0132\030.ferrors.v1.ErrorPayloadR"
-    "\005error\"=\n\021FrameWriterConfig\022\022\n\004keys\030\001 \003("
-    "\rR\004keys\022\024\n\005start\030\002 \001(\003R\005start\"\206\001\n\022FrameW"
-    "riterRequest\022\030\n\007command\030\001 \001(\005R\007command\0221"
-    "\n\006config\030\002 \001(\0132\031.api.v1.FrameWriterConfi"
-    "gR\006config\022#\n\005frame\030\003 \001(\0132\r.api.v1.FrameR"
-    "\005frame\"\270\001\n\023FrameWriterResponse\022\030\n\007comman"
-    "d\030\001 \001(\005R\007command\022\020\n\003ack\030\002 \001(\010R\003ack\022\031\n\010no"
-    "de_key\030\003 \001(\005R\007nodeKey\022\030\n\007counter\030\004 \001(\005R\007"
-    "counter\022.\n\005error\030\005 \001(\0132\030.ferrors.v1.Erro"
-    "rPayloadR\005error\022\020\n\003end\030\006 \001(\003R\003end\"@\n\024Fra"
-    "meStreamerRequest\022\024\n\005start\030\001 \001(\003R\005start\022"
-    "\022\n\004keys\030\002 \003(\rR\004keys\"l\n\025FrameStreamerResp"
-    "onse\022#\n\005frame\030\001 \001(\0132\r.api.v1.FrameR\005fram"
-    "e\022.\n\005error\030\002 \001(\0132\030.ferrors.v1.ErrorPaylo"
-    "adR\005error2\361\001\n\014FrameService\022L\n\007Iterate\022\034."
-    "api.v1.FrameIteratorRequest\032\035.api.v1.Fra"
-    "meIteratorResponse\"\000(\0010\001\022F\n\005Write\022\032.api."
-    "v1.FrameWriterRequest\032\033.api.v1.FrameWrit"
-    "erResponse\"\000(\0010\001\022K\n\006Stream\022\034.api.v1.Fram"
-    "eStreamerRequest\032\035.api.v1.FrameStreamerR"
-    "esponse\"\000(\0010\001B\206\001\n\ncom.api.v1B\013FramerProt"
-    "oP\001Z2github.com/synnaxlabs/synnax/pkg/ap"
-    "i/grpc/v1;apiv1\242\002\003AXX\252\002\006Api.V1\312\002\006Api\\V1\342"
-    "\002\022Api\\V1\\GPBMetadata\352\002\007Api::V1b\006proto3"
+    "\005error\"\240\001\n\021FrameWriterConfig\022\022\n\004keys\030\001 \003"
+    "(\rR\004keys\022 \n\013authorities\030\002 \003(\rR\013authoriti"
+    "es\022\024\n\005start\030\003 \001(\003R\005start\022\?\n\017control_subj"
+    "ect\030\004 \001(\0132\026.api.v1.ControlSubjectR\016contr"
+    "olSubject\"6\n\016ControlSubject\022\020\n\003key\030\001 \001(\t"
+    "R\003key\022\022\n\004name\030\002 \001(\tR\004name\"\206\001\n\022FrameWrite"
+    "rRequest\022\030\n\007command\030\001 \001(\005R\007command\0221\n\006co"
+    "nfig\030\002 \001(\0132\031.api.v1.FrameWriterConfigR\006c"
+    "onfig\022#\n\005frame\030\003 \001(\0132\r.api.v1.FrameR\005fra"
+    "me\"\270\001\n\023FrameWriterResponse\022\030\n\007command\030\001 "
+    "\001(\005R\007command\022\020\n\003ack\030\002 \001(\010R\003ack\022\031\n\010node_k"
+    "ey\030\003 \001(\005R\007nodeKey\022\030\n\007counter\030\004 \001(\005R\007coun"
+    "ter\022.\n\005error\030\005 \001(\0132\030.ferrors.v1.ErrorPay"
+    "loadR\005error\022\020\n\003end\030\006 \001(\003R\003end\"@\n\024FrameSt"
+    "reamerRequest\022\024\n\005start\030\001 \001(\003R\005start\022\022\n\004k"
+    "eys\030\002 \003(\rR\004keys\"l\n\025FrameStreamerResponse"
+    "\022#\n\005frame\030\001 \001(\0132\r.api.v1.FrameR\005frame\022.\n"
+    "\005error\030\002 \001(\0132\030.ferrors.v1.ErrorPayloadR\005"
+    "error2\361\001\n\014FrameService\022L\n\007Iterate\022\034.api."
+    "v1.FrameIteratorRequest\032\035.api.v1.FrameIt"
+    "eratorResponse\"\000(\0010\001\022F\n\005Write\022\032.api.v1.F"
+    "rameWriterRequest\032\033.api.v1.FrameWriterRe"
+    "sponse\"\000(\0010\001\022K\n\006Stream\022\034.api.v1.FrameStr"
+    "eamerRequest\032\035.api.v1.FrameStreamerRespo"
+    "nse\"\000(\0010\001B\206\001\n\ncom.api.v1B\013FramerProtoP\001Z"
+    "2github.com/synnaxlabs/synnax/pkg/api/gr"
+    "pc/v1;apiv1\242\002\003AXX\252\002\006Api.V1\312\002\006Api\\V1\342\002\022Ap"
+    "i\\V1\\GPBMetadata\352\002\007Api::V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* const descriptor_table_v1_2fframer_2eproto_deps[2] =
     {
@@ -377,13 +426,13 @@ static ::absl::once_flag descriptor_table_v1_2fframer_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_v1_2fframer_2eproto = {
     false,
     false,
-    1478,
+    1634,
     descriptor_table_protodef_v1_2fframer_2eproto,
     "v1/framer.proto",
     &descriptor_table_v1_2fframer_2eproto_once,
     descriptor_table_v1_2fframer_2eproto_deps,
     2,
-    8,
+    9,
     schemas,
     file_default_instances,
     TableStruct_v1_2fframer_2eproto::offsets,
@@ -1332,8 +1381,18 @@ void FrameIteratorResponse::InternalSwap(FrameIteratorResponse* other) {
 
 class FrameWriterConfig::_Internal {
  public:
+  using HasBits = decltype(std::declval<FrameWriterConfig>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+    8 * PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_._has_bits_);
+  static const ::api::v1::ControlSubject& control_subject(const FrameWriterConfig* msg);
+  static void set_has_control_subject(HasBits* has_bits) {
+    (*has_bits)[0] |= 1u;
+  }
 };
 
+const ::api::v1::ControlSubject& FrameWriterConfig::_Internal::control_subject(const FrameWriterConfig* msg) {
+  return *msg->_impl_.control_subject_;
+}
 FrameWriterConfig::FrameWriterConfig(::google::protobuf::Arena* arena)
     : ::google::protobuf::Message(arena) {
   SharedCtor(arena);
@@ -1343,13 +1402,20 @@ FrameWriterConfig::FrameWriterConfig(const FrameWriterConfig& from) : ::google::
   FrameWriterConfig* const _this = this;
   (void)_this;
   new (&_impl_) Impl_{
+      decltype(_impl_._has_bits_){from._impl_._has_bits_},
+      /*decltype(_impl_._cached_size_)*/ {},
       decltype(_impl_.keys_){from._impl_.keys_},
       /* _impl_._keys_cached_byte_size_ = */ {0},
+      decltype(_impl_.authorities_){from._impl_.authorities_},
+      /* _impl_._authorities_cached_byte_size_ = */ {0},
+      decltype(_impl_.control_subject_){nullptr},
       decltype(_impl_.start_){},
-      /*decltype(_impl_._cached_size_)*/ {},
   };
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
+  if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
+    _this->_impl_.control_subject_ = new ::api::v1::ControlSubject(*from._impl_.control_subject_);
+  }
   _this->_impl_.start_ = from._impl_.start_;
 
   // @@protoc_insertion_point(copy_constructor:api.v1.FrameWriterConfig)
@@ -1357,10 +1423,14 @@ FrameWriterConfig::FrameWriterConfig(const FrameWriterConfig& from) : ::google::
 inline void FrameWriterConfig::SharedCtor(::_pb::Arena* arena) {
   (void)arena;
   new (&_impl_) Impl_{
+      decltype(_impl_._has_bits_){},
+      /*decltype(_impl_._cached_size_)*/ {},
       decltype(_impl_.keys_){arena},
       /* _impl_._keys_cached_byte_size_ = */ {0},
+      decltype(_impl_.authorities_){arena},
+      /* _impl_._authorities_cached_byte_size_ = */ {0},
+      decltype(_impl_.control_subject_){nullptr},
       decltype(_impl_.start_){::int64_t{0}},
-      /*decltype(_impl_._cached_size_)*/ {},
   };
 }
 FrameWriterConfig::~FrameWriterConfig() {
@@ -1371,6 +1441,8 @@ FrameWriterConfig::~FrameWriterConfig() {
 inline void FrameWriterConfig::SharedDtor() {
   ABSL_DCHECK(GetArenaForAllocation() == nullptr);
   _impl_.keys_.~RepeatedField();
+  _impl_.authorities_.~RepeatedField();
+  if (this != internal_default_instance()) delete _impl_.control_subject_;
 }
 void FrameWriterConfig::SetCachedSize(int size) const {
   _impl_._cached_size_.Set(size);
@@ -1383,7 +1455,14 @@ PROTOBUF_NOINLINE void FrameWriterConfig::Clear() {
   (void) cached_has_bits;
 
   _internal_mutable_keys()->Clear();
+  _internal_mutable_authorities()->Clear();
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    ABSL_DCHECK(_impl_.control_subject_ != nullptr);
+    _impl_.control_subject_->Clear();
+  }
   _impl_.start_ = ::int64_t{0};
+  _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
 
@@ -1395,38 +1474,50 @@ const char* FrameWriterConfig::_InternalParse(
 
 
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 0, 2> FrameWriterConfig::_table_ = {
+const ::_pbi::TcParseTable<2, 4, 1, 0, 2> FrameWriterConfig::_table_ = {
   {
-    0,  // no _has_bits_
+    PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_._has_bits_),
     0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
+    4, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
+    4294967280,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
+    4,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
     &_FrameWriterConfig_default_instance_._instance,
     ::_pbi::TcParser::GenericFallback,  // fallback
   }, {{
-    // int64 start = 2 [json_name = "start"];
-    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(FrameWriterConfig, _impl_.start_), 63>(),
-     {16, 63, 0, PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.start_)}},
+    // .api.v1.ControlSubject control_subject = 4 [json_name = "controlSubject"];
+    {::_pbi::TcParser::FastMtS1,
+     {34, 0, 0, PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.control_subject_)}},
     // repeated uint32 keys = 1 [json_name = "keys"];
     {::_pbi::TcParser::FastV32P1,
      {10, 63, 0, PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.keys_)}},
+    // repeated uint32 authorities = 2 [json_name = "authorities"];
+    {::_pbi::TcParser::FastV32P1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.authorities_)}},
+    // int64 start = 3 [json_name = "start"];
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint64_t, offsetof(FrameWriterConfig, _impl_.start_), 63>(),
+     {24, 63, 0, PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.start_)}},
   }}, {{
     65535, 65535
   }}, {{
     // repeated uint32 keys = 1 [json_name = "keys"];
-    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.keys_), 0, 0,
+    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.keys_), -1, 0,
     (0 | ::_fl::kFcRepeated | ::_fl::kPackedUInt32)},
-    // int64 start = 2 [json_name = "start"];
-    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.start_), 0, 0,
+    // repeated uint32 authorities = 2 [json_name = "authorities"];
+    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.authorities_), -1, 0,
+    (0 | ::_fl::kFcRepeated | ::_fl::kPackedUInt32)},
+    // int64 start = 3 [json_name = "start"];
+    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.start_), -1, 0,
     (0 | ::_fl::kFcSingular | ::_fl::kInt64)},
-  }},
-  // no aux_entries
-  {{
+    // .api.v1.ControlSubject control_subject = 4 [json_name = "controlSubject"];
+    {PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.control_subject_), _Internal::kHasBitsOffset + 0, 0,
+    (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+  }}, {{
+    {::_pbi::TcParser::GetTable<::api::v1::ControlSubject>()},
+  }}, {{
   }},
 };
 
@@ -1446,11 +1537,28 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> FrameWriterConfig::_table_ = {
     }
   }
 
-  // int64 start = 2 [json_name = "start"];
+  // repeated uint32 authorities = 2 [json_name = "authorities"];
+  {
+    int byte_size = _impl_._authorities_cached_byte_size_.Get();
+    if (byte_size > 0) {
+      target = stream->WriteUInt32Packed(2, _internal_authorities(),
+                                                 byte_size, target);
+    }
+  }
+
+  // int64 start = 3 [json_name = "start"];
   if (this->_internal_start() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::
-        WriteInt64ToArrayWithField<2>(
+        WriteInt64ToArrayWithField<3>(
             stream, this->_internal_start(), target);
+  }
+
+  cached_has_bits = _impl_._has_bits_[0];
+  // .api.v1.ControlSubject control_subject = 4 [json_name = "controlSubject"];
+  if (cached_has_bits & 0x00000001u) {
+    target = ::google::protobuf::internal::WireFormatLite::
+      InternalWriteMessage(4, _Internal::control_subject(this),
+        _Internal::control_subject(this).GetCachedSize(), target, stream);
   }
 
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
@@ -1483,7 +1591,28 @@ const ::_pbi::TcParseTable<1, 2, 0, 0, 2> FrameWriterConfig::_table_ = {
     ;
     total_size += tag_size + data_size;
   }
-  // int64 start = 2 [json_name = "start"];
+  // repeated uint32 authorities = 2 [json_name = "authorities"];
+  {
+    std::size_t data_size = ::_pbi::WireFormatLite::UInt32Size(
+        this->_internal_authorities())
+    ;
+    _impl_._authorities_cached_byte_size_.Set(::_pbi::ToCachedSize(data_size));
+    std::size_t tag_size = data_size == 0
+        ? 0
+        : 1 + ::_pbi::WireFormatLite::Int32Size(
+                            static_cast<int32_t>(data_size))
+    ;
+    total_size += tag_size + data_size;
+  }
+  // .api.v1.ControlSubject control_subject = 4 [json_name = "controlSubject"];
+  cached_has_bits = _impl_._has_bits_[0];
+  if (cached_has_bits & 0x00000001u) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::MessageSize(
+        *_impl_.control_subject_);
+  }
+
+  // int64 start = 3 [json_name = "start"];
   if (this->_internal_start() != 0) {
     total_size += ::_pbi::WireFormatLite::Int64SizePlusOne(
         this->_internal_start());
@@ -1508,6 +1637,11 @@ void FrameWriterConfig::MergeImpl(::google::protobuf::Message& to_msg, const ::g
   (void) cached_has_bits;
 
   _this->_internal_mutable_keys()->MergeFrom(from._internal_keys());
+  _this->_internal_mutable_authorities()->MergeFrom(from._internal_authorities());
+  if ((from._impl_._has_bits_[0] & 0x00000001u) != 0) {
+    _this->_internal_mutable_control_subject()->::api::v1::ControlSubject::MergeFrom(
+        from._internal_control_subject());
+  }
   if (from._internal_start() != 0) {
     _this->_internal_set_start(from._internal_start());
   }
@@ -1528,14 +1662,253 @@ PROTOBUF_NOINLINE bool FrameWriterConfig::IsInitialized() const {
 void FrameWriterConfig::InternalSwap(FrameWriterConfig* other) {
   using std::swap;
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.keys_.InternalSwap(&other->_impl_.keys_);
-        swap(_impl_.start_, other->_impl_.start_);
+  _impl_.authorities_.InternalSwap(&other->_impl_.authorities_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.start_)
+      + sizeof(FrameWriterConfig::_impl_.start_)
+      - PROTOBUF_FIELD_OFFSET(FrameWriterConfig, _impl_.control_subject_)>(
+          reinterpret_cast<char*>(&_impl_.control_subject_),
+          reinterpret_cast<char*>(&other->_impl_.control_subject_));
 }
 
 ::google::protobuf::Metadata FrameWriterConfig::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
       file_level_metadata_v1_2fframer_2eproto[3]);
+}
+// ===================================================================
+
+class ControlSubject::_Internal {
+ public:
+};
+
+ControlSubject::ControlSubject(::google::protobuf::Arena* arena)
+    : ::google::protobuf::Message(arena) {
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:api.v1.ControlSubject)
+}
+ControlSubject::ControlSubject(const ControlSubject& from) : ::google::protobuf::Message() {
+  ControlSubject* const _this = this;
+  (void)_this;
+  new (&_impl_) Impl_{
+      decltype(_impl_.key_){},
+      decltype(_impl_.name_){},
+      /*decltype(_impl_._cached_size_)*/ {},
+  };
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  _impl_.key_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        _impl_.key_.Set("", GetArenaForAllocation());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_key().empty()) {
+    _this->_impl_.key_.Set(from._internal_key(), _this->GetArenaForAllocation());
+  }
+  _impl_.name_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        _impl_.name_.Set("", GetArenaForAllocation());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (!from._internal_name().empty()) {
+    _this->_impl_.name_.Set(from._internal_name(), _this->GetArenaForAllocation());
+  }
+
+  // @@protoc_insertion_point(copy_constructor:api.v1.ControlSubject)
+}
+inline void ControlSubject::SharedCtor(::_pb::Arena* arena) {
+  (void)arena;
+  new (&_impl_) Impl_{
+      decltype(_impl_.key_){},
+      decltype(_impl_.name_){},
+      /*decltype(_impl_._cached_size_)*/ {},
+  };
+  _impl_.key_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        _impl_.key_.Set("", GetArenaForAllocation());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  _impl_.name_.InitDefault();
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        _impl_.name_.Set("", GetArenaForAllocation());
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+}
+ControlSubject::~ControlSubject() {
+  // @@protoc_insertion_point(destructor:api.v1.ControlSubject)
+  _internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  SharedDtor();
+}
+inline void ControlSubject::SharedDtor() {
+  ABSL_DCHECK(GetArenaForAllocation() == nullptr);
+  _impl_.key_.Destroy();
+  _impl_.name_.Destroy();
+}
+void ControlSubject::SetCachedSize(int size) const {
+  _impl_._cached_size_.Set(size);
+}
+
+PROTOBUF_NOINLINE void ControlSubject::Clear() {
+// @@protoc_insertion_point(message_clear_start:api.v1.ControlSubject)
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  _impl_.key_.ClearToEmpty();
+  _impl_.name_.ClearToEmpty();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+const char* ControlSubject::_InternalParse(
+    const char* ptr, ::_pbi::ParseContext* ctx) {
+  ptr = ::_pbi::TcParser::ParseLoop(this, ptr, ctx, &_table_.header);
+  return ptr;
+}
+
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 37, 2> ControlSubject::_table_ = {
+  {
+    0,  // no _has_bits_
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    &_ControlSubject_default_instance_._instance,
+    ::_pbi::TcParser::GenericFallback,  // fallback
+  }, {{
+    // string name = 2 [json_name = "name"];
+    {::_pbi::TcParser::FastUS1,
+     {18, 63, 0, PROTOBUF_FIELD_OFFSET(ControlSubject, _impl_.name_)}},
+    // string key = 1 [json_name = "key"];
+    {::_pbi::TcParser::FastUS1,
+     {10, 63, 0, PROTOBUF_FIELD_OFFSET(ControlSubject, _impl_.key_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // string key = 1 [json_name = "key"];
+    {PROTOBUF_FIELD_OFFSET(ControlSubject, _impl_.key_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string name = 2 [json_name = "name"];
+    {PROTOBUF_FIELD_OFFSET(ControlSubject, _impl_.name_), 0, 0,
+    (0 | ::_fl::kFcSingular | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\25\3\4\0\0\0\0\0"
+    "api.v1.ControlSubject"
+    "key"
+    "name"
+  }},
+};
+
+::uint8_t* ControlSubject::_InternalSerialize(
+    ::uint8_t* target,
+    ::google::protobuf::io::EpsCopyOutputStream* stream) const {
+  // @@protoc_insertion_point(serialize_to_array_start:api.v1.ControlSubject)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // string key = 1 [json_name = "key"];
+  if (!this->_internal_key().empty()) {
+    const std::string& _s = this->_internal_key();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "api.v1.ControlSubject.key");
+    target = stream->WriteStringMaybeAliased(1, _s, target);
+  }
+
+  // string name = 2 [json_name = "name"];
+  if (!this->_internal_name().empty()) {
+    const std::string& _s = this->_internal_name();
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+        _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "api.v1.ControlSubject.name");
+    target = stream->WriteStringMaybeAliased(2, _s, target);
+  }
+
+  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:api.v1.ControlSubject)
+  return target;
+}
+
+::size_t ControlSubject::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:api.v1.ControlSubject)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // string key = 1 [json_name = "key"];
+  if (!this->_internal_key().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_key());
+  }
+
+  // string name = 2 [json_name = "name"];
+  if (!this->_internal_name().empty()) {
+    total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                    this->_internal_name());
+  }
+
+  return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
+}
+
+const ::google::protobuf::Message::ClassData ControlSubject::_class_data_ = {
+    ::google::protobuf::Message::CopyWithSourceCheck,
+    ControlSubject::MergeImpl
+};
+const ::google::protobuf::Message::ClassData*ControlSubject::GetClassData() const { return &_class_data_; }
+
+
+void ControlSubject::MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg) {
+  auto* const _this = static_cast<ControlSubject*>(&to_msg);
+  auto& from = static_cast<const ControlSubject&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:api.v1.ControlSubject)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  if (!from._internal_key().empty()) {
+    _this->_internal_set_key(from._internal_key());
+  }
+  if (!from._internal_name().empty()) {
+    _this->_internal_set_name(from._internal_name());
+  }
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void ControlSubject::CopyFrom(const ControlSubject& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:api.v1.ControlSubject)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+PROTOBUF_NOINLINE bool ControlSubject::IsInitialized() const {
+  return true;
+}
+
+void ControlSubject::InternalSwap(ControlSubject* other) {
+  using std::swap;
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.key_, lhs_arena,
+                                       &other->_impl_.key_, rhs_arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.name_, lhs_arena,
+                                       &other->_impl_.name_, rhs_arena);
+}
+
+::google::protobuf::Metadata ControlSubject::GetMetadata() const {
+  return ::_pbi::AssignDescriptors(
+      &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
+      file_level_metadata_v1_2fframer_2eproto[4]);
 }
 // ===================================================================
 
@@ -1814,7 +2187,7 @@ void FrameWriterRequest::InternalSwap(FrameWriterRequest* other) {
 ::google::protobuf::Metadata FrameWriterRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
-      file_level_metadata_v1_2fframer_2eproto[4]);
+      file_level_metadata_v1_2fframer_2eproto[5]);
 }
 // ===================================================================
 
@@ -2148,7 +2521,7 @@ void FrameWriterResponse::InternalSwap(FrameWriterResponse* other) {
 ::google::protobuf::Metadata FrameWriterResponse::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
-      file_level_metadata_v1_2fframer_2eproto[5]);
+      file_level_metadata_v1_2fframer_2eproto[6]);
 }
 // ===================================================================
 
@@ -2357,7 +2730,7 @@ void FrameStreamerRequest::InternalSwap(FrameStreamerRequest* other) {
 ::google::protobuf::Metadata FrameStreamerRequest::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
-      file_level_metadata_v1_2fframer_2eproto[6]);
+      file_level_metadata_v1_2fframer_2eproto[7]);
 }
 // ===================================================================
 
@@ -2613,7 +2986,7 @@ void FrameStreamerResponse::InternalSwap(FrameStreamerResponse* other) {
 ::google::protobuf::Metadata FrameStreamerResponse::GetMetadata() const {
   return ::_pbi::AssignDescriptors(
       &descriptor_table_v1_2fframer_2eproto_getter, &descriptor_table_v1_2fframer_2eproto_once,
-      file_level_metadata_v1_2fframer_2eproto[7]);
+      file_level_metadata_v1_2fframer_2eproto[8]);
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1
