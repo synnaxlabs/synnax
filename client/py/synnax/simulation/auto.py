@@ -125,17 +125,17 @@ class PreValveStuckOpen:
 class Simulator:
     frequency: sy.Rate.HZ = 100 * sy.Rate.HZ
     state: dict[str, float]
-    state_machine: SimulatedResponse()
-    anomaly: Anomaly()
+    simulated_responders: list[SimulatedResponse]
+    anomaly: Anomaly
 
     def __init__(
         self,
         input_state,
-        input_responder: SimulatedResponse,
+        input_responders: list[SimulatedResponse],
         input_anomaly: Anomaly,
     ):
         self.state = input_state
-        self.state_machine = input_responder
+        self.state_machines = input_responders
         self.anomaly = input_anomaly
 
     def run(self):
@@ -149,4 +149,5 @@ class Simulator:
                 break
 
     def step(self):
-        self.state = self.anomaly.step(self.state, self.state_machine.step_num)
+        for responder in self.state_machines:
+            self.state = self.anomaly.step(self.state, responder.step_num)
