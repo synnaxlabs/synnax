@@ -1,6 +1,7 @@
 proto_library(
     name = "telem_proto",
-    srcs = ["telem.proto"]
+    srcs = ["telem.proto"],
+    visibility = ["//visibility:public"],
 )
 
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
@@ -8,5 +9,5 @@ load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 cpp_grpc_library(
     name = "telem_grpc",
     protos = [":telem_proto"],
-    visibility = ["//visibility:public"]
+    visibility = ["//visibility:public"],
 )

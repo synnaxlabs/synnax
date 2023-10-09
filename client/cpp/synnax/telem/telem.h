@@ -11,26 +11,32 @@ namespace Synnax {
 /// @brief Holds the name and properties of a datatype. 
         class DataType {
         public:
+            /// @brief Holds the id of the data type
+            std::string value;
+
+            DataType(std::string data_type_) {
+                setDataType(data_type_);
+            }
+
             void setDataType(std::string data_type_) {
                 if (!DENSITIES.count(data_type_)) {
                     throw std::runtime_error("Tried to create an unknown datatype.");
                 }
-                data_type = data_type_;
+                value = data_type_;
             }
 
             /// @property Gets type name.
             std::string name() {
-                return NAMES[data_type];
+                return NAMES[value];
             }
 
             /// @property Essentially how many bytes in memory the datatype holds.
             int density() {
-                return DENSITIES[data_type];
+                return DENSITIES[value];
             }
 
         private:
-            /// @brief Holds the id of the data type
-            std::string data_type;
+
 
             /// @brief Maps the data type to the 'density' of
             /// the object.

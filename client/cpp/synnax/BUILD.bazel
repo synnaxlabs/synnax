@@ -1,9 +1,9 @@
 cc_library(
-    name = "telem",
+    name = "synnax",
     srcs = [],
     hdrs = [
-        "series.h",
-        "telem.h",
+        "exceptions.h",
+        "synnax.h",
     ],
     visibility = ["//visibility:public"],
     deps = [],

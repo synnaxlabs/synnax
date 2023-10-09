@@ -1,13 +1,9 @@
 cc_library(
-    name = "writer",
-    srcs = [
-        "exceptions.h",
-    ],
+    name = "framer",
     hdrs = [
-        "exceptions.h",
         "frame.h",
-        "series.h",
-        "telem.h",
+        "iterator.h",
+        "streamer.h",
         "writer.h",
     ],
     deps = [

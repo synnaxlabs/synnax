@@ -4,6 +4,9 @@
 #include "v1/channel.pb.h"
 #include "freighter/gRPC/client.h"
 #include <grpcpp/grpcpp.h>
+#include "synnax/telem/telem.h"
+
+using namespace Synnax;
 
 using ChannelKey = std::uint32_t;
 
@@ -22,18 +25,18 @@ typedef Client<
 
 class Channel {
 public:
-    DataType dataType;
+    Telem::DataType dataType;
     std::string name;
     ChannelKey key;
     ChannelKey index;
-    Rate rate;
+    Telem::Rate rate;
     bool is_index;
     std::uint32_t leaseholder;
 
     Channel(
             std::string name,
-            DataType dataType,
-            Rate rate = Rate(0),
+            Telem::DataType dataType,
+            Telem::Rate rate = Telem::Rate(0),
             bool is_index = false,
             std::uint32_t leaseholder = 0,
             ChannelKey index = 0,
@@ -61,5 +64,5 @@ public:
 
     void create(std::vector<Channel> &channels);
 
-    Channel create(std::string name, DataType data_type, Rate rate, ChannelKey index, bool is_index);
+    Channel create(std::string name, Telem::DataType data_type, Telem::Rate rate, ChannelKey index, bool is_index);
 };

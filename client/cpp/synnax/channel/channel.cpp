@@ -6,6 +6,9 @@
 #include <grpcpp/grpcpp.h>
 #include "v1/channel.pb.h"
 #include "synnax/exceptions.h"
+#include "synnax/telem/telem.h"
+
+using namespace Synnax;
 
 std::string RETRIEVE_ENDPOINT = "/channel/retrieve";
 std::string CREATE_ENDPOINT = "/channel/create";
@@ -14,8 +17,8 @@ std::string CREATE_ENDPOINT = "/channel/create";
 Channel translate_channel_forward(const api::v1::Channel &ch) {
     return {
             ch.name(),
-            DataType(ch.data_type()),
-            Rate(ch.rate()),
+            Telem::DataType(ch.data_type()),
+            Telem::Rate(ch.rate()),
             ch.is_index(),
             ch.leaseholder(),
             ch.index(),
@@ -25,8 +28,8 @@ Channel translate_channel_forward(const api::v1::Channel &ch) {
 
 Channel::Channel(
         std::string name,
-        DataType dataType,
-        Rate rate,
+        Telem::DataType dataType,
+        Telem::Rate rate,
         bool is_index,
         std::uint32_t leaseholder,
         ChannelKey index,
@@ -54,8 +57,8 @@ api::v1::Channel translate_channel_backward(Channel ch, api::v1::Channel *a) {
 
 Channel ChannelClient::create(
         std::string name,
-        DataType data_type,
-        Rate rate,
+        Telem::DataType data_type,
+        Telem::Rate rate,
         ChannelKey index,
         bool is_index
 ) {

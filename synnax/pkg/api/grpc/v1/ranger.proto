@@ -1,6 +1,5 @@
 syntax = "proto3";
 
-
 package api.v1;
 
 import "google/protobuf/empty.proto";
@@ -28,7 +27,7 @@ service RangeKVDeleteService {
 
 message Range {
     string key = 1;
-    telem.TimeRange time_range = 2;
+    telempb.TimeRange time_range = 2;
     string name = 3;
 }
 
