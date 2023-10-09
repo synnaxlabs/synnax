@@ -41,7 +41,7 @@ grpc_extra_deps()
 
 # Synnax API Protos.
 local_repository(
-    name = "grpc_protos",
+    name = "api_protos",
     path = "../../synnax/pkg/api/grpc",
 )
 

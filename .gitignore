@@ -62,4 +62,6 @@ landing/
 synnax-data/**
 
 # |||| BAZEL ||||
+
+# Bazel generated symlinsk
 bazel-*

@@ -17,8 +17,8 @@ class Series
 public:
     Series(std::vector<std::any> vals)
     {
-        // Use typeinfo to get name of type. 
         data_type.setDataType(vals[0].type().name());
+        data_type = DataType(vals[0].type().name());
         data = vals;
     }
 

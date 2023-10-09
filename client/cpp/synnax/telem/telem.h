@@ -14,6 +14,8 @@ namespace Synnax {
             /// @brief Holds the id of the data type
             std::string value;
 
+            DataType() = default;
+
             DataType(std::string data_type_) {
                 setDataType(data_type_);
             }
@@ -65,8 +67,8 @@ namespace Synnax {
 
         class TimeRange {
         public:
-            TimeStamp end;
             TimeStamp start;
+            TimeStamp end;
 
             TimeRange(TimeStamp start, TimeStamp end) : start(start), end(end) {}
         };

@@ -5,6 +5,6 @@ cc_library(
     deps = [
         "@Freighter//freighter/gRPC",
         "@com_github_grpc_grpc//:grpc++",
-        "@grpc_protos//v1:channel_grpc",
+        "@api_protos//v1:channel_grpc",
     ],
 )

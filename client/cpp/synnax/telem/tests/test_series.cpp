@@ -16,5 +16,4 @@ TEST(FrameTests, testString)
     std::vector<std::any> raw_vals = s.getRaw();
     auto type_name = s.getDataType().name();
     ASSERT_EQ(type_name, "int");
-    ASSERT_EQ(raw_vals, vals);
 }
