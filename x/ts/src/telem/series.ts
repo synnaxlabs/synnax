@@ -390,7 +390,14 @@ export class Series {
 
   slice(start: number, end?: number): Series {
     const d = this.data.slice(start, end);
-    return new Series(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
+    return new Series(
+      d,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      this.gl.bufferUsage,
+      this.alignment + start,
+    );
   }
 }
 

@@ -131,7 +131,7 @@ export class Core implements Client {
   private readonly core: Synnax;
   private readonly ins: alamos.Instrumentation;
   key: string = nanoid();
-  mu: Mutex = new Mutex();
+  private readonly mu: Mutex = new Mutex();
   private readonly cache = new Map<channel.Key, cache.Cache>();
   private readonly listeners = new Map<StreamHandler, channel.Keys>();
   private _streamer: framer.Streamer | null = null;
@@ -156,59 +156,65 @@ export class Core implements Client {
     // Instead of executing a fetch for each channel, we'll batch related time ranges
     // together to get the most out of each fetch.
     const toFetch = new Map<string, [TimeRange, channel.Keys]>();
+    const releasers: Destructor[] = [];
     const responses: Record<channel.Key, ReadResponse> = {};
 
-    for (const key of channels) {
-      // Read from cache.
-      const cache = await this.getCache(key);
-      const [data, gaps] = cache.read(tr);
-      // In this case we have all the data we need and don't need to execute a fetch
-      // for this channel.
-      if (gaps.length === 0) responses[key] = new ReadResponse(cache.channel, data);
+    try {
+      for (const key of channels) {
+        // Read from cache.
+        const cache = await this.getCache(key);
+        const { series, gaps, done } = await cache.dirtyReadForStaticWrite(tr);
+        releasers.push(done);
+        // In this case we have all the data we need and don't need to execute a fetch
+        // for this channel.
+        if (gaps.length === 0) responses[key] = new ReadResponse(cache.channel, series);
 
-      // For each gap in the data, add it in the fetch map.
-      gaps.forEach((gap) => {
-        const exists = toFetch.get(gap.toString());
-        if (exists == null) toFetch.set(gap.toString(), [gap, [key]]);
-        else toFetch.set(gap.toString(), [gap, [...exists[1], key]]);
-      });
-    }
+        // For each gap in the data, add it in the fetch map.
+        gaps.forEach((gap) => {
+          const exists = toFetch.get(gap.toString());
+          if (exists == null) toFetch.set(gap.toString(), [gap, [key]]);
+          else toFetch.set(gap.toString(), [gap, [...exists[1], key]]);
+        });
+      }
 
-    if (toFetch.size === 0) {
-      this.ins.L.debug("read satisfied by cache", {
+      if (toFetch.size === 0) {
+        this.ins.L.debug("read satisfied by cache", {
+          tr: tr.toPrettyString(),
+          channels,
+          responses: responseDigests(Object.values(responses)),
+          time: TimeSpan.milliseconds(performance.now() - start).toString(),
+        });
+        return responses;
+      }
+
+      this.ins.L.debug("read cache miss", {
         tr: tr.toPrettyString(),
         channels,
+        toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
+          timeRange: r.toPrettyString(),
+          channels: k,
+        })),
         responses: responseDigests(Object.values(responses)),
-        time: TimeSpan.milliseconds(performance.now() - start).toString(),
       });
-      return responses;
-    }
 
-    this.ins.L.debug("read cache miss", {
-      tr: tr.toPrettyString(),
-      channels,
-      toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
-        timeRange: r.toPrettyString(),
-        channels: k,
-      })),
-      responses: responseDigests(Object.values(responses)),
-    });
-
-    // Fetch any missing gaps in the data. Writing to the cache will automatically
-    // order the data correctly.
-    for (const [, [range, keys]] of toFetch) {
-      const frame = await this.core.telem.read(range, keys);
-      for (const key of keys) {
-        const cache = await this.getCache(key);
-        cache.writeStatic(range, frame.get(key));
+      // Fetch any missing gaps in the data. Writing to the cache will automatically
+      // order the data correctly.
+      for (const [, [range, keys]] of toFetch) {
+        const frame = await this.core.telem.read(range, keys);
+        for (const key of keys) {
+          const cache = await this.getCache(key);
+          cache.writeStatic(range, frame.get(key));
+        }
       }
+    } finally {
+      releasers.forEach((r) => r());
     }
 
     // Re-read from cache so we get correct ordering.
     for (const key of channels) {
       const cache = await this.getCache(key);
-      const [data] = cache.read(tr);
-      responses[key] = new ReadResponse(cache.channel, data);
+      const { series } = cache.dirtyRead(tr);
+      responses[key] = new ReadResponse(cache.channel, series);
     }
 
     this.ins.L.debug("read satisfied by fetch", {

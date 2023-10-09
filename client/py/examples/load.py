@@ -14,8 +14,8 @@ import pandas as pd
 
 client = sy.Synnax()
 
-NUM_VALVES = 10
-NUM_SENSORS = 100
+NUM_VALVES = 40
+NUM_SENSORS = 250
 
 valve_commands = []
 valve_acks = []

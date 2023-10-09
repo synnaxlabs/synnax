@@ -11,7 +11,11 @@ import { type Channel, TimeRange } from "@synnaxlabs/client";
 import { type Series } from "@synnaxlabs/x";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
-import { Static } from "@/telem/client/cache/static";
+import {
+  type DirtyReadResult,
+  Static,
+  type DirtyReadForWriteResult,
+} from "@/telem/client/cache/static";
 
 export class Cache {
   channel: Channel;
@@ -46,7 +50,11 @@ export class Cache {
     this.static.write(tr, series);
   }
 
-  read(tr: TimeRange): [Series[], TimeRange[]] {
+  dirtyRead(tr: TimeRange): DirtyReadResult {
     return this.static.dirtyRead(tr);
+  }
+
+  async dirtyReadForStaticWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
+    return await this.static.dirtyReadForWrite(tr);
   }
 }

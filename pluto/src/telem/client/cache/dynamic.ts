@@ -60,12 +60,15 @@ export class Dynamic {
   }
 
   private _write(series: Series): Series[] {
+    // If we have no buffer, re-allocate one.
     if (this.buffer == null) this.buffer = this.allocate(this.cap, series.alignment);
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
+    // This means the current buffer has sufficient capacity to hold the entire
+    // series.
     if (amountWritten === series.length) return [];
     const out = this.buffer;
-    this.buffer = this.allocate(this.cap, series.alignment);
+    this.buffer = null;
     return [out, ...this._write(series.slice(amountWritten))];
   }
 }

@@ -16,6 +16,7 @@ import {
   xy,
   type Series,
   type direction,
+  type SeriesDigest,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -296,6 +297,11 @@ interface DrawOperation {
   downsample: number;
 }
 
+interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
+  x: SeriesDigest;
+  y: SeriesDigest;
+}
+
 const buildDrawOperations = (
   x: Series[],
   y: Series[],
@@ -335,5 +341,14 @@ const buildDrawOperations = (
     });
   });
 
+  console.log(digests(ops));
+
   return ops;
 };
+
+const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
+  ops.map((op) => ({
+    ...op,
+    x: op.x.digest,
+    y: op.y.digest,
+  }));
