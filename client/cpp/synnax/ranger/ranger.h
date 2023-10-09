@@ -1,11 +1,13 @@
 #include <vector>
 #include <memory>
 
-#include "synnax/telem.h"
+#include "synnax/telem/telem.h"
 #include "v1/ranger.pb.h"
 #include "freighter/gRPC/client.h"
 
 typedef std::string Key;
+
+using namespace Synnax;
 
 typedef Client<
         api::v1::RangeRetrieveResponse,
@@ -60,14 +62,14 @@ class Range {
 public:
     Key key;
     std::string name;
-    TimeRange time_range;
+    Telem::TimeRange time_range;
     KV *kv;
 
-    Range(std::string name, TimeRange time_range);
+    Range(std::string name, Telem::TimeRange time_range);
 
-    Range(Key key, std::string name, TimeRange time_range);
+    Range(Key key, std::string name, Telem::TimeRange time_range);
 
-    Range(Key key, std::string name, TimeRange time_range, KV *kv);
+    Range(Key key, std::string name, Telem::TimeRange time_range, KV *kv);
 };
 
 class RangeClient {
@@ -87,5 +89,5 @@ public:
 
     void create(Range &range);
 
-    Range create(std::string name, TimeRange time_range);
+    Range create(std::string name, Telem::TimeRange time_range);
 };

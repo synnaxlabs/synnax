@@ -46,7 +46,6 @@ local_repository(
 )
 
 # Synnax Telemetry Protos.
-
 local_repository(
     name = "telem_protos",
     path = "../../x/go/telem",

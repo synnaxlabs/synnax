@@ -6,5 +6,6 @@ cc_library(
         "@Freighter//freighter/gRPC",
         "@com_github_grpc_grpc//:grpc++",
         "@grpc_protos//v1:ranger_grpc",
+        "@telem_protos//telempb:telem_grpc",
     ],
 )

@@ -5,8 +5,10 @@
 #include "synnax/ranger/ranger.h"
 #include "v1/ranger.pb.h"
 #include "telempb/telem.pb.h"
-#include <grpcpp/grpcpp.h>
 #include "synnax/exceptions.h"
+#include "synnax/telem/telem.h"
+
+using namespace Synnax;
 
 api::v1::Range translate_forward(Range ch, api::v1::Range *a) {
     a->set_name(ch.name);
@@ -27,14 +29,14 @@ Range translate_backward(api::v1::Range *a, KV *kv) {
 }
 
 
-Range::Range(Key key, std::string name, TimeRange time_range) :
+Range::Range(Key key, std::string name, Telem::TimeRange time_range) :
         key(key),
         name(name),
         time_range(time_range) {
     kv = nullptr;
 }
 
-Range::Range(Key key, std::string name, TimeRange time_range, KV *kv) :
+Range::Range(Key key, std::string name, Telem::TimeRange time_range, KV *kv) :
         key(key),
         name(name),
         time_range(time_range),
@@ -117,7 +119,7 @@ void RangeClient::create(Range &range) {
     range.key = res.ranges(0).key();
 }
 
-Range RangeClient::create(std::string name, TimeRange time_range) {
+Range RangeClient::create(std::string name, Telem::TimeRange time_range) {
     auto rng = Range(name, time_range);
     create(rng);
     return rng;
