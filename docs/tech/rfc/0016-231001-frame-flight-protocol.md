@@ -18,21 +18,21 @@ unpacked at the receiver, and thus recreate the frame.
 # 1 - Vocabulary
 
 **Frame** - Architecture for wrapping primitive arrays with identifying
-meta-data into aligned arrays that streamline the telemetry transfer process.
+meta-data into aligned arrays that streamline the telemetry transfer process. </b>
 **Telemetry** - Data samples received from sensors and sent to actuators; typically
-stored on Synnax server. More details available [here](../../../pluto).
+stored on Synnax server. More details available [here](../../../pluto). </b>
 **Series** - A strongly typed collection of telemetry samples over a time range. The
-fundamental unit of data transfer in Synnax server.
+fundamental unit of data transfer in Synnax server. </b>
 
 # 2 - Motivation
 
 A key feature of Synnax is its ability to send real-time data to be analyzed by the system.
-The current system utilized Synnax Frames, which are organized as JSON, and thus add a heavy
-workload to the network. Furthermore, JSON is encoded in utf-8, thus having a higher overhead
-cost per datapoint than other encoding schemes. As both the transmitter and receiving side of the network should have
-knowledge of the system design before transmission, the goal is to create a library capable of
-reducing the JSON data to a byte array, and thus remove much of the overhead cost of sending
-JSON data.
+The current system utilized Synnax Frames, and thus add a heavy
+workload to the network. As the Frames are currently send as JSON over the network, and JSON
+is encoded in utf-8, there is a high overhead cost per datapoint than other encoding schemes.
+As both the transmitter and receiving side of the network should have knowledge of the system design
+before transmission, the goal is to create a library capable of reducing the JSON data to a byte array,
+and thus remove as much overhead as possible without reducing correctness.
 
 This system will be implemented in four different languages (C++, Go, Python, TypeScript) to
 meet the various demands of Synnax.
@@ -54,7 +54,7 @@ of the byte array, and apply it to all the series. Similarly, for partial keys a
 all the series share a similarity, we can send this data at the beginning of the packet, instead of having to include
 it as part of every series sent.
 ```json
-keys: ["one", "two", "three", "four"]
+keys: [00000001, 00000002, 00000003, 00000004]
 series: {
 {
     "DataType": int8,
@@ -111,4 +111,15 @@ For the rest of the byte array, the following rules apply </br>
 
 ### 5.0.1 - Decoding
 
-TODO!!!
+Assuming the previously described compression algorithm, we can build a simple algorithm to rebuild this into a Frame on the other end of the network.
+First off, we can obtain the useful information from the first byte
+```python
+[0, 0, 0, 0, 0, equalDataSize, stronglyAlignedTimestamp, allChannels]
+```
+If equalDataSize is 1, then we can expect that the 4 bytes following the first byte will contain the array size used for all the data transmitted.
+If stronglyAlignedTimestamp is 1, then we can expect the following 16 bytes (starts at byte 2 if equalDataSize is 0, and starts at byte 6 if equalDataSize is 1) will
+contain information about the starting and ending timestamp for all the data points
+Finally, if allChannels is set to false, we can expect that the start of every series will include 4 bytes about the key of the specific series, otherwise
+each key will map sequentially with the corresponding series.
+
+### 5.0.2 - Benefits of this Algorithm in Common Cases

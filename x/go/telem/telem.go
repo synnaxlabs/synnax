@@ -23,7 +23,7 @@ const (
 )
 
 // TimeStamp stores an epoch time in nanoseconds.
-type TimeStamp int
+type TimeStamp uint64
 
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
