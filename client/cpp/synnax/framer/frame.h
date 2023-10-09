@@ -1,3 +1,5 @@
+#pragma once
+
 // Freighter.
 #include "freighter/gRPC/client.h"
 
