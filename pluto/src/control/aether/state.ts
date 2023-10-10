@@ -60,7 +60,10 @@ export class StateProvider extends aether.Composite<
     if (nextClient === this.internal.client) return;
     this.internal.client = nextClient;
     this.ctx.set(CONTEXT_KEY, this);
-    if (this.internal.client != null) void this.startUpdating(this.internal.client);
+    if (this.internal.client != null) {
+      this.internal.instrumentation.L.debug("starting state tracker");
+      void this.startUpdating(this.internal.client);
+    }
   }
 
   afterDelete(): void {

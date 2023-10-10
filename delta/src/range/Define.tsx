@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useRef, type ReactElement } from "react";
+import { useRef, type ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
@@ -59,6 +59,7 @@ type DefineRangeFormProps = z.infer<typeof formSchema>;
 export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
   const now = TimeStamp.now().valueOf();
   const range = useSelect(layoutKey);
+  const [loading, setLoading] = useState(false);
   const client = Synnax.use();
   let defaultValues;
   const isCreate = layoutKey === RANGE_WINDOW_KEY;
@@ -119,12 +120,18 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
 
     const persisted = savePermanently.current || isPersistedEdit;
 
-    if (persisted && client != null)
-      await client.ranges.create({
-        name,
-        timeRange: new TimeRange(start, end),
-        key,
-      });
+    if (persisted && client != null) {
+      try {
+        setLoading(true);
+        await client.ranges.create({
+          name,
+          timeRange: new TimeRange(start, end),
+          key,
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
     dispatch(
       add({
         ranges: [
@@ -205,7 +212,8 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
                 formRef.current?.requestSubmit();
               }}
               variant="outlined"
-              disabled={client == null}
+              disabled={client == null || loading}
+              loading={loading}
             >
               Save Permanently
             </Button.Button>

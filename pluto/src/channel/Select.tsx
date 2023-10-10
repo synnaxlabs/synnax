@@ -142,7 +142,7 @@ export interface SelectSingleProps
 }
 
 export const SelectSingle = ({
-  columns: filter = [],
+  columns: filter = DEFAULT_FILTER,
   onChange,
   value,
   className,

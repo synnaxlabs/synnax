@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
 import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
 import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { List } from "@/list";
@@ -56,18 +57,22 @@ export interface HandleExpandProps {
 
 export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
+  nodes: Node[];
 }
 
 export interface UseReturn {
   selected: string[];
   expanded: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+  flat: FlattenedNode[];
 }
 
-export const use = (props?: UseProps): UseReturn => {
-  const { onExpand } = props ?? {};
+export const use = (props: UseProps): UseReturn => {
+  const { onExpand, nodes } = props ?? {};
   const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
 
@@ -75,6 +80,8 @@ export const use = (props?: UseProps): UseReturn => {
     useCallback(
       (keys: string[], { clicked }): void => {
         setSelected(keys);
+        const n = flatRef.current.find((node) => node.key === clicked);
+        if (n?.hasChildren === false) return;
         if (clicked == null || shiftRef.current.held) return;
         const currentlyExpanded = ref.current;
         const action = currentlyExpanded.some((key) => key === clicked)
@@ -87,13 +94,13 @@ export const use = (props?: UseProps): UseReturn => {
         setExpanded(nextExpanded);
         onExpand?.({ current: nextExpanded, action, clicked });
       },
-      [onExpand],
+      [onExpand, flatRef, setExpanded, setSelected],
     );
 
   return {
     onSelect: handleSelect,
-    expanded,
     selected,
+    nodes: flat,
   };
 };
 
@@ -102,6 +109,7 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
   onRename?: (key: string, name: string) => void;
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
+  loading?: boolean;
   selectedItems: FlattenedNode[];
 }
 
@@ -111,9 +119,8 @@ export interface TreeProps
       List.VirtualCoreProps<string, FlattenedNode>,
       "onDrop" | "onSelect" | "itemHeight" | "children" | "onDoubleClick"
     > {
-  nodes: Node[];
+  nodes: FlattenedNode[];
   selected?: string[];
-  expanded?: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
 }
@@ -133,6 +140,7 @@ export const DefaultItem = ({
   onSuccessfulDrop,
   selectedItems,
   onDoubleClick,
+  loading = false,
 }: ItemProps): ReactElement => {
   const {
     key,
@@ -147,10 +155,12 @@ export const DefaultItem = ({
     haulItems = [],
   } = entry;
 
-  const icons: ReactElement[] = [];
+  const startIcons: ReactElement[] = [];
   if (hasChildren || (children != null && children.length > 0))
-    icons.push(expanded ? expandedCaret : collapsedCaret);
-  if (icon != null) icons.push(icon);
+    startIcons.push(expanded ? expandedCaret : collapsedCaret);
+  if (icon != null) startIcons.push(icon);
+  const endIcons: ReactElement[] = [];
+  if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
 
   const [draggingOver, setDraggingOver] = useState(false);
 
@@ -194,9 +204,10 @@ export const DefaultItem = ({
     onDragStart: handleDragStart,
     onClick: () => onSelect?.(key),
     style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
-    startIcon: icons,
+    startIcon: startIcons,
     iconSpacing: "small",
     noWrap: true,
+    endIcon: endIcons,
     onDoubleClick: (e) => onDoubleClick?.(key, e),
     href,
     ...dropProps,
@@ -220,11 +231,9 @@ export const DefaultItem = ({
 };
 
 const defaultChild = componentRenderProp(DefaultItem);
-
 export const Tree = ({
   nodes,
   selected = [],
-  expanded = [],
   onSelect,
   onDrop,
   onRename,
@@ -234,9 +243,8 @@ export const Tree = ({
   children = defaultChild,
   ...props
 }: TreeProps): ReactElement => {
-  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
   return (
-    <List.List<string, FlattenedNode> data={flat}>
+    <List.List<string, FlattenedNode> data={nodes}>
       <List.Selector
         value={selected}
         onChange={onSelect}
@@ -254,7 +262,7 @@ export const Tree = ({
             onDrop,
             onRename,
             onSuccessfulDrop,
-            selectedItems: flat.filter((item) => selected.includes(item.key)),
+            selectedItems: nodes.filter((item) => selected.includes(item.key)),
             onDoubleClick,
           })
         }

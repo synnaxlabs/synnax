@@ -31,4 +31,8 @@
     .pluto--selected {
         background: var(--pluto-primary-z-20);
     }
+
+    .pluto-loading-indicator {
+        margin-left: auto;
+    }
 }

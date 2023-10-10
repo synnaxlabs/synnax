@@ -10,6 +10,7 @@
 import { type FC } from "react";
 
 import { type runtime } from "@synnaxlabs/x";
+import clsx from "clsx";
 import {
   AiFillCaretDown,
   AiFillCaretLeft,
@@ -26,6 +27,8 @@ import {
   AiOutlineExpand,
   AiFillGithub,
   AiFillLinkedin,
+  AiOutlineLoading3Quarters,
+  AiOutlineLoading,
 } from "react-icons/ai";
 import { BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
@@ -78,6 +81,8 @@ import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
 
+import "@/Icon/Icon.css";
+
 const IconOS: Record<runtime.OS, IconFC> = {
   Linux: FaLinux,
   MacOS: FaApple,
@@ -106,6 +111,9 @@ export const Icon: IconType = {
   Visualize: MdAreaChart,
   Expand: AiOutlineExpand,
   Cluster: HiSquare3Stack3D,
+  Loading: (p) => (
+    <AiOutlineLoading {...p} className={clsx(p.className, "media--spin")} />
+  ),
   PID: FaStream,
   Caret: {
     Right: AiFillCaretRight,
@@ -259,4 +267,5 @@ export interface IconType {
   User: IconFC;
   Rename: IconFC;
   Snapshot: IconFC;
+  Loading: IconFC;
 }

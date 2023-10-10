@@ -84,6 +84,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	}); err != nil {
 		return d, err
 	}
+
 	d.Ontology.RegisterService(d.Group)
 
 	nodeOntologySvc := &core.NodeOntologyService{
@@ -123,16 +124,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	controlCh := []channel.Channel{{
-		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
-		Leaseholder: d.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-	}}
-	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
-		return d, err
-	}
-	if err := d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key()); err != nil {
+	if err := d.configureControlUpdates(ctx); err != nil {
 		return d, err
 	}
 
@@ -147,4 +139,17 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	c, err := ontologycdc.Propagate(ctx, d.CDC, d.Ontology)
 	d.Closers = append(d.Closers, c)
 	return d, err
+}
+
+func (d Distribution) configureControlUpdates(ctx context.Context) error {
+	controlCh := []channel.Channel{{
+		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
+		Leaseholder: d.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+	}}
+	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
+		return err
+	}
+	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())
 }

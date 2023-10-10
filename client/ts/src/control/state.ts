@@ -31,19 +31,23 @@ export interface State {
   authority: Authority;
 }
 
+interface Release {
+  from: State;
+  to?: null;
+}
+
+interface Acquire {
+  from?: null;
+  to: State;
+}
+
 export type Transfer =
   | {
       from: State;
       to: State;
     }
-  | {
-      from?: State;
-      to: State;
-    }
-  | {
-      from: State;
-      to?: State;
-    };
+  | Release
+  | Acquire;
 
 export const transferString = (t: Transfer): string => {
   if (t.to == null) return `${t.from?.resource} - ${t.from?.subject.name} -> released`;
@@ -106,7 +110,7 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   private merge(update: Update): void {
     update.transfers.forEach((t) => {
       if (t.from == null && t.to == null) console.warn("Invalid transfer: ", t);
-      if (t.to == null) this.states.delete((t.from as State).resource);
+      if (t.to == null) this.states.delete(t.from.resource);
       else this.states.set(t.to.resource, t.to);
     });
   }

@@ -32,7 +32,12 @@ type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	DB *gorp.DB
 	// DataType is the data type of the key used by the DB.
 	DataType telem.DataType
-	Marshal  func(K) []byte
+	// Marshal is a function that marshals the key used by the DB into a byte slice.
+	Marshal func(K) []byte
+	// SetName is the name of the set channel.
+	SetName string
+	// DeleteName is the name of the delete channel.
+	DeleteName string
 }
 
 // GorpConfigUUID is a helper function for creating a CDC pipeline that propagates
@@ -43,6 +48,14 @@ func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, 
 		DB:       db,
 		DataType: telem.UUIDT,
 		Marshal:  func(k uuid.UUID) []byte { return k[:] },
+	}
+}
+
+func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
+	return GorpConfig[string, E]{
+		DB:       db,
+		DataType: telem.StringT,
+		Marshal:  func(k string) []byte { return append([]byte(k), '\n') },
 	}
 }
 

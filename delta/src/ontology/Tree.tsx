@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
@@ -125,8 +125,6 @@ const handleRelationshipsChange = async (
     .filter(({ variant }) => variant === "set")
     .map(({ key }) => key);
 
-  console.log(changes);
-
   // Find all the parent nodes in the current tree that are visible i.e. they
   // may need children added.
   const visibleSetNodes = Core.findNodes(
@@ -171,6 +169,7 @@ export const Tree = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
 
+  const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
 
@@ -247,16 +246,21 @@ export const Tree = (): ReactElement => {
       void (async () => {
         if (client == null) return;
         const id = new ontology.ID(clicked);
-        const resources = await client.ontology.retrieveChildren(id, true, true);
-        const converted = toTreeNodes(services, resources);
-        const nextTree = Core.setNode(nodesRef.current, clicked, ...converted);
-        const keys = resources.map(({ id }) => id.toString());
-        resourcesRef.current = [
-          // Dedupe any resources that already exist.
-          ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
-          ...resources,
-        ];
-        setNodes([...nextTree]);
+        try {
+          setLoading(clicked);
+          const resources = await client.ontology.retrieveChildren(id, true, true);
+          const converted = toTreeNodes(services, resources);
+          const nextTree = Core.setNode(nodesRef.current, clicked, ...converted);
+          const keys = resources.map(({ id }) => id.toString());
+          resourcesRef.current = [
+            // Dedupe any resources that already exist.
+            ...resourcesRef.current.filter(({ id }) => !keys.includes(id.toString())),
+            ...resources,
+          ];
+          setNodes([...nextTree]);
+        } finally {
+          setLoading(false);
+        }
       })();
     },
     [client, services]
@@ -304,7 +308,7 @@ export const Tree = (): ReactElement => {
     [client, store, placeLayout, removeLayout, resourcesRef]
   );
 
-  const treeProps = Core.use({ onExpand: handleExpand });
+  const treeProps = Core.use({ onExpand: handleExpand, nodes });
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
@@ -374,9 +378,11 @@ export const Tree = (): ReactElement => {
     (props: Core.ItemProps): ReactElement => {
       const id = new ontology.ID(props.entry.key);
       const Item = services[id.type]?.Item ?? Core.DefaultItem;
-      return <Item key={props.entry.key} {...props} />;
+      return (
+        <Item key={props.entry.key} loading={loading === props.entry.key} {...props} />
+      );
     },
-    [client, removeLayout, placeLayout, services]
+    [loading, client, removeLayout, placeLayout, services]
   );
 
   return (
@@ -388,7 +394,6 @@ export const Tree = (): ReactElement => {
       <Core.Tree
         onRename={handleRename}
         onDrop={handleDrop}
-        nodes={nodes}
         onDoubleClick={handleDoubleClick}
         {...treeProps}
       >

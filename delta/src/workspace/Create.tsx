@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Icon } from "@synnaxlabs/media";
@@ -45,6 +45,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
     },
     resolver: zodResolver(formSchema),
   });
+  const [loading, setLoading] = useState(false);
 
   const client = Synnax.use();
   const dispatch = useDispatch();
@@ -52,13 +53,18 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const onSubmit = async ({ name }: CreateFormProps): Promise<void> => {
     if (client == null) return;
-    const ws = await client.workspaces.create({
-      name,
-      layout: Layout.ZERO_SLICE_STATE,
-    });
-    dispatch(add({ workspaces: [ws] }));
-    if (active != null) dispatch(Layout.setWorkspace({ slice: ws.layout }));
-    onClose();
+    try {
+      setLoading(true);
+      const ws = await client.workspaces.create({
+        name,
+        layout: Layout.ZERO_SLICE_STATE,
+      });
+      dispatch(add({ workspaces: [ws] }));
+      if (active != null) dispatch(Layout.setWorkspace({ slice: ws.layout }));
+      onClose();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,7 +86,12 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       </form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
-          <Button.Button type="submit" form="create-workspace">
+          <Button.Button
+            type="submit"
+            form="create-workspace"
+            loading={loading}
+            disabled={loading}
+          >
             Save
           </Button.Button>
         </Nav.Bar.End>
