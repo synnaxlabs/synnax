@@ -51,7 +51,7 @@ var _ = Describe("Builder", func() {
 					Exec(ctx, nil)).To(Succeed())
 
 				g.Expect(resCH.Key()).To(Equal(ch.Key()))
-			}).Should(Succeed())
+			}, "200ms").Should(Succeed())
 
 			Expect(builder.Close()).To(Succeed())
 			Expect(builder.Cleanup()).To(Succeed())

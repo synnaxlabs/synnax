@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
+	"time"
 )
 
 var _ = Describe("Observable", Ordered, Serial, func() {
@@ -52,6 +53,9 @@ var _ = Describe("Observable", Ordered, Serial, func() {
 		sCtx, cancel := signal.Isolated()
 		closeStreamer = signal.NewShutdown(sCtx, cancel)
 		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		// Adding this slight delay guarantees that the streamer has started up
+		// and is ready to receive requests.
+		time.Sleep(10 * time.Millisecond)
 	})
 	AfterEach(func() {
 		requests.Close()
@@ -65,7 +69,8 @@ var _ = Describe("Observable", Ordered, Serial, func() {
 			Variant: change.Set,
 			Key:     uid[:],
 		}})
-		streamRes := <-responses.Outlet()
+		var streamRes framer.StreamerResponse
+		Eventually(responses.Outlet(), "5s").Should(Receive(&streamRes))
 		Expect(streamRes.Frame.Keys).To(ConsistOf(cfg.Set.Key()))
 		Expect(streamRes.Frame.Series[0].Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.Series[0].Data).To(Equal(uid[:]))

@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/errutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 type Builder struct {
@@ -47,6 +46,7 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 		iterNet:    tmock.NewFramerIteratorNetwork(),
 		channelNet: tmock.NewChannelNetwork(),
 		relayNet:   tmock.NewRelayNetwork(),
+		Nodes:      make(map[dcore.NodeKey]distribution.Distribution),
 	}
 }
 
@@ -95,7 +95,12 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Framer:          d.Framer,
 	}))
 
-	d.Closers = append(d.Closers, MustSucceed(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
+	// If we're not the bootstrapper, don't propagate changes to prevent issues when
+	// trying to find free channels. We're going to resolve this issue in #105:
+	// https://github.com/synnaxlabs/synnax/issues/105
+	if d.Cluster.HostKey().IsBootstrapper() {
+		d.Closers = append(d.Closers, lo.Must(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
+	}
 
 	b.Nodes[core.Cluster.HostKey()] = d
 
@@ -108,6 +113,10 @@ func (b *Builder) Close() error {
 		c.Exec(node.Close)
 	}
 	return c.Error()
+}
+
+func (b *Builder) Cleanup() error {
+	return b.core.Cleanup()
 }
 
 type mockFramerTransport struct {

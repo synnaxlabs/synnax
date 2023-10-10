@@ -19,7 +19,7 @@ import (
 
 func TestPid(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pid Suite")
+	RunSpecs(t, "LinePlot Suite")
 }
 
 var (

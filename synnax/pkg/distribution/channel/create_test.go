@@ -37,7 +37,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			ch.Rate = 5 * telem.Hz
 			ch.Name = "SG01"
 			ch.DataType = telem.Float64T
-			err = services[1].NewWriter(nil).Create(ctx, &ch)
+			err = services[1].Create(ctx, &ch)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		Context("Node is local", func() {
@@ -45,6 +45,10 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
 				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
+			})
+			It("Should not create the channel if it already exists by name", func() {
+				Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+				Expect(ch.LocalKey).To(Equal(uint16(2)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
@@ -86,7 +90,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 					err := services[1].NewWriter(nil).Create(ctx, ch2)
 					Expect(err).To(BeNil())
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-					Expect(ch2.Key().LocalKey()).To(Equal(uint16(3)))
+					Expect(ch2.Key().LocalKey()).To(Equal(uint16(4)))
 				})
 		})
 		Context("Free", func() {

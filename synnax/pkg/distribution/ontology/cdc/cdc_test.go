@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"time"
 )
 
 type changeService struct {
@@ -87,6 +88,7 @@ var _ = Describe("CDC", Ordered, func() {
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
 			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
@@ -120,6 +122,7 @@ var _ = Describe("CDC", Ordered, func() {
 			requests, responses := confluence.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
 			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			time.Sleep(5 * time.Millisecond)
 			closeStreamer := signal.NewShutdown(sCtx, cancel)
 			key := "hello"
 			svc.NotifyGenerator(ctx, func() iter.Nexter[schema.Change] {
@@ -153,6 +156,7 @@ var _ = Describe("CDC", Ordered, func() {
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
 		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		time.Sleep(5 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
 
 		w := dist.Ontology.NewWriter(nil)
@@ -186,6 +190,7 @@ var _ = Describe("CDC", Ordered, func() {
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
 		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+		time.Sleep(5 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
 
 		w := dist.Ontology.NewWriter(nil)

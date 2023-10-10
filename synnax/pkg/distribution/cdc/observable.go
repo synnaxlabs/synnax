@@ -12,8 +12,6 @@ package cdc
 import (
 	"context"
 	"github.com/samber/lo"
-	"io"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -28,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"io"
 )
 
 // ObservableConfig is the configuration for opening a CDC pipeline that subscribes
@@ -96,7 +95,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	channels := []channel.Channel{cfg.Set, cfg.Delete}
-	if err := s.Channel.RetrieveByNameOrCreate(ctx, &channels); err != nil {
+	if err := s.Channel.CreateManyIfNamesDontExist(ctx, &channels); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
