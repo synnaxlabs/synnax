@@ -18,12 +18,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/telem"
+	"io"
 )
 
 type (
@@ -46,6 +47,7 @@ type Distribution struct {
 	Ontology *ontology.Ontology
 	CDC      *cdc.Provider
 	Group    *group.Service
+	Closers  []io.Closer
 }
 
 // Close closes the distribution layer.
@@ -53,6 +55,9 @@ func (d Distribution) Close() error {
 	e := errutil.NewCatch(errutil.WithAggregation())
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
+	for _, c := range d.Closers {
+		e.Exec(c.Close)
+	}
 	e.Exec(d.Core.Close)
 	return e.Error()
 }
@@ -60,7 +65,6 @@ func (d Distribution) Close() error {
 // Open opens the distribution layer for the node using the provided Config. The caller
 // is responsible for closing the distribution layer when it is no longer in use.
 func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
-
 	d.Core, err = core.Open(ctx, cfg)
 	if err != nil {
 		return d, err
@@ -80,6 +84,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	}); err != nil {
 		return d, err
 	}
+
 	d.Ontology.RegisterService(d.Group)
 
 	nodeOntologySvc := &core.NodeOntologyService{
@@ -89,6 +94,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
+
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	channelTransport := channeltransport.New(cfg.Pool)
@@ -114,17 +120,11 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Transport:       frameTransport,
 		HostResolver:    d.Cluster,
 	})
-
-	controlCh := []channel.Channel{{
-		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
-		Leaseholder: d.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-	}}
-	if err := d.Channel.RetrieveByNameOrCreate(ctx, &controlCh); err != nil {
+	if err != nil {
 		return d, err
 	}
-	if err := d.Storage.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(controlCh[0].Key())); err != nil {
+
+	if err := d.configureControlUpdates(ctx); err != nil {
 		return d, err
 	}
 
@@ -133,6 +133,23 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Framer:          d.Framer,
 		Instrumentation: cfg.Instrumentation.Child("cdc"),
 	})
-
+	if err != nil {
+		return d, err
+	}
+	c, err := ontologycdc.Propagate(ctx, d.CDC, d.Ontology)
+	d.Closers = append(d.Closers, c)
 	return d, err
+}
+
+func (d Distribution) configureControlUpdates(ctx context.Context) error {
+	controlCh := []channel.Channel{{
+		Name:        fmt.Sprintf("sy_node_%v_control", d.Cluster.HostKey()),
+		Leaseholder: d.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+	}}
+	if err := d.Channel.CreateManyIfNamesDontExist(ctx, &controlCh); err != nil {
+		return err
+	}
+	return d.Framer.ConfigureControlUpdateChannel(ctx, controlCh[0].Key())
 }

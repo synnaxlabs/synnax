@@ -44,6 +44,7 @@ func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
 // do not exist in the database, Delete will assume that the keys do not exist and
 // do nothing.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Delete.Exec", tx)
 	var (
 		entries []E
 		q       = (Retrieve[K, E]{Params: d.params}).Entries(&entries)

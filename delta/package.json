@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/delta",
   "private": true,
-  "version": "0.12.0",
+  "version": "0.13.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -41,6 +41,7 @@
     "@tauri-apps/cli": "^1.4.0",
     "@types/react": "^18.2.14",
     "@types/react-dom": "^18.2.6",
+    "@types/uuid": "^9.0.2",
     "@vitejs/plugin-react": "^4.0.1",
     "eslint": "^8.43.0",
     "eslint-config-synnaxlabs": "workspace:*",

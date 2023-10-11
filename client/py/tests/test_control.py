@@ -14,8 +14,9 @@ import synnax as sy
 import pytest
 
 
-def create_valve_set(client: sy.Synnax) -> tuple[
-    sy.Channel, sy.Channel, sy.Channel, sy.Channel]:
+def create_valve_set(
+    client: sy.Synnax,
+) -> tuple[sy.Channel, sy.Channel, sy.Channel, sy.Channel]:
     press_end_cmd_time = client.channels.create(
         name="press_en_cmd_time",
         data_type=sy.DataType.TIMESTAMP,
@@ -40,7 +41,6 @@ def create_valve_set(client: sy.Synnax) -> tuple[
 
 
 @pytest.mark.control
-@pytest.mark.focus
 class TestController:
     def test_valve_toggle(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)

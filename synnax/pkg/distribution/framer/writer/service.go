@@ -133,7 +133,7 @@ func (c Config) Validate() error {
 func (c Config) Override(other Config) Config {
 	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
-	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	return c
@@ -175,7 +175,7 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostResolver", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
+	//validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
 	return v.Error()
 }
 

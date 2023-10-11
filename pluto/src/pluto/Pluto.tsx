@@ -9,8 +9,6 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
-
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Control } from "@/control";
@@ -35,7 +33,7 @@ export interface ProviderProps
     Synnax.ProviderProps {
   workerEnabled?: boolean;
   workerURL?: URL;
-  instrumentation?: Instrumentation;
+  alamos?: Alamos.ProviderProps;
   tooltip?: Tooltip.ConfigProps;
   triggers?: Triggers.ProviderProps;
   haul?: Haul.ProviderProps;
@@ -50,38 +48,35 @@ export const Provider = ({
   toggleTheme,
   setTheme,
   tooltip,
-  instrumentation,
   triggers,
+  alamos,
   haul,
 }: ProviderProps): ReactElement => {
   return (
-    <Alamos.Provider instrumentation={instrumentation}>
-      <Triggers.Provider {...triggers}>
-        <Tooltip.Config {...tooltip}>
-          <Haul.Provider {...haul}>
-            <Worker.Provider
-              url={workerURL ?? DefaultWorkerURL}
-              enabled={workerEnabled}
-            >
-              <Aether.Provider workerKey="vis">
+    <Triggers.Provider {...triggers}>
+      <Tooltip.Config {...tooltip}>
+        <Haul.Provider {...haul}>
+          <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
+            <Aether.Provider workerKey="vis">
+              <Alamos.Provider {...alamos}>
                 <Status.Aggregator>
                   <Synnax.Provider connParams={connParams}>
-                    <Theming.Provider
-                      theme={theme}
-                      toggleTheme={toggleTheme}
-                      setTheme={setTheme}
-                    >
-                      <TelemProvider>
+                    <TelemProvider>
+                      <Theming.Provider
+                        theme={theme}
+                        toggleTheme={toggleTheme}
+                        setTheme={setTheme}
+                      >
                         <Control.StateProvider>{children}</Control.StateProvider>
-                      </TelemProvider>
-                    </Theming.Provider>
+                      </Theming.Provider>
+                    </TelemProvider>
                   </Synnax.Provider>
                 </Status.Aggregator>
-              </Aether.Provider>
-            </Worker.Provider>
-          </Haul.Provider>
-        </Tooltip.Config>
-      </Triggers.Provider>
-    </Alamos.Provider>
+              </Alamos.Provider>
+            </Aether.Provider>
+          </Worker.Provider>
+        </Haul.Provider>
+      </Tooltip.Config>
+    </Triggers.Provider>
   );
 };

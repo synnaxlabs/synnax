@@ -44,7 +44,18 @@
         "vite": "^4.0.4",
         "vitest": "^0.33.0"
     },
-    "main": "dist/alamos.cjs.js",
-    "module": "dist/alamos.es.js",
-    "types": "dist/index.d.ts"
+    "main": "dist/index.js",
+    "module": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "require": "./dist/index.cjs"
+        },
+        "./dev": {
+            "import": "./dist/dev.js",
+            "require": "./dist/dev.cjs",
+            "types": "./dist/dev/index.d.ts"
+        }
+    }
 }

@@ -26,7 +26,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import TimeStamp, CrudeTimeSpan, TimeSpan
-from synnax.telem.authority import CrudeAuthority, Authority
+from synnax.telem.control import CrudeAuthority, Authority
 
 
 class State:
@@ -113,7 +113,9 @@ class Controller:
         key = uuid.uuid4()
         try:
             self.receiver.processors[key] = processor
-            ok = processor.event.wait(timeout=TimeSpan(timeout).seconds if timeout else None)
+            ok = processor.event.wait(
+                timeout=TimeSpan(timeout).seconds if timeout else None
+            )
         finally:
             del self.receiver.processors[key]
         return ok

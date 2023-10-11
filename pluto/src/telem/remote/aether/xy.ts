@@ -30,7 +30,7 @@ const xySourceCorePropsZ = z.object({
 
 class XYSourceCore<
   P extends z.ZodTypeAny,
-  C extends client.StaticClient & client.ChannelClient = client.StaticClient &
+  C extends client.ReadClient & client.ChannelClient = client.ReadClient &
     client.ChannelClient,
 > extends TelemMeta<P> {
   client: C;
@@ -41,7 +41,7 @@ class XYSourceCore<
   schema: P | undefined = undefined;
 
   constructor(key: string, client: C) {
-    super(key);
+    super("remote.xySource", key);
     this.client = client;
   }
 

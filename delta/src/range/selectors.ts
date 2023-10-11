@@ -40,7 +40,7 @@ export const selectMultiple = (
  * @param state - The state of the workspace store.
  * @returns The key of the active range, or null if no range is active.
  */
-const selectActiveKey = (state: StoreState): string | null =>
+export const selectActiveKey = (state: StoreState): string | null =>
   selectState(state).activeRange;
 
 /**

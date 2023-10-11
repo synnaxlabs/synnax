@@ -12,6 +12,7 @@ import { type CrudeTimeRange, type CrudeTimeSpan } from "@synnaxlabs/x";
 interface BaseRange {
   name: string;
   key: string;
+  persisted: boolean;
 }
 
 export type StaticRange = BaseRange & {

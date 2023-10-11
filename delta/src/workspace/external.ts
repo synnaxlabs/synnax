@@ -9,7 +9,6 @@
 
 export * from "@/workspace/palette";
 export * from "@/workspace/Toolbar";
-export * from "@/workspace/VisList";
 export * from "@/workspace/ontology";
 export * from "@/workspace/slice";
 export * from "@/workspace/Selector";

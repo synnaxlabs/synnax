@@ -17,7 +17,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { resources },
+    selection: { nodes },
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
@@ -25,18 +25,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void ungroupSelection(props);
         return;
       case "rename":
-        Tree.startRenaming(resources[0].key);
+        Tree.startRenaming(nodes[0].key);
     }
   };
 
+  const isDelete = nodes.length === 1 && nodes[0].children?.length === 0;
+  const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+
   return (
     <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
-        Ungroup
+      <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+        {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>
-      <Menu.Item itemKey="rename" startIcon={<Icon.Edit />}>
-        Rename
-      </Menu.Item>
+      <Ontology.RenameMenuItem />
     </Menu.Menu>
   );
 };
@@ -63,7 +64,6 @@ const ungroupSelection = async ({
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-  console.log(selection);
   if (selection.resources.length !== 1)
     throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
 
@@ -113,7 +113,7 @@ export const fromSelection = async ({
   const otgID = new ontology.ID({ type: "group", key: g.key.toString() });
   const res = await client.ontology.retrieve(otgID);
   await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
-  let nextNodes = Tree.addNode(
+  let nextNodes = Tree.setNode(
     state.nodes,
     selection.parent.key,
     ...Ontology.toTreeNodes(services, [res])
@@ -124,9 +124,10 @@ export const fromSelection = async ({
     ...resourcesToGroup.map((id) => id.toString())
   );
   state.setNodes([...nextNodes]);
+  state.setResources([...state.resources, res]);
 };
 
-const handleRename: Ontology.HnadleTreeRename = ({
+const handleRename: Ontology.HandleTreeRename = ({
   client,
   id,
   name,

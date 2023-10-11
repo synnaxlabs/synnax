@@ -17,9 +17,20 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
+	"github.com/synnaxlabs/synnax/pkg/access"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
+	"github.com/synnaxlabs/synnax/pkg/auth"
+	"github.com/synnaxlabs/synnax/pkg/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
@@ -27,19 +38,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
-
-	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/synnaxlabs/synnax/pkg/auth"
-	"github.com/synnaxlabs/synnax/pkg/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/user"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -126,8 +124,17 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	// RANGE
-	RangeCreate   freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
+	RangeKVGet        freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
+	RangeKVSet        freighter.UnaryServer[RangeKVSetRequest, types.Nil]
+	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
+	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
+	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
+	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
+	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
+	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -149,6 +156,7 @@ type Transport struct {
 	PIDDelete   freighter.UnaryServer[PIDDeleteRequest, types.Nil]
 	PIDRename   freighter.UnaryServer[PIDRenameRequest, types.Nil]
 	PIDSetData  freighter.UnaryServer[PIDSetDataRequest, types.Nil]
+	PIDCopy     freighter.UnaryServer[PIDCopyRequest, PIDCopyResponse]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -179,11 +187,8 @@ func (a *API) BindTo(t Transport) {
 		err                = errors.Middleware()
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{
-			instrumentation,
-			err,
-		}
-		secureMiddleware = make([]freighter.Middleware, len(insecureMiddleware))
+		insecureMiddleware = []freighter.Middleware{instrumentation, err}
+		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
 	//if !*a.config.Insecure {
@@ -198,34 +203,63 @@ func (a *API) BindTo(t Transport) {
 
 	freighter.UseOnAll(
 		secureMiddleware,
+
+		// AUTH
 		t.AuthChangeUsername,
 		t.AuthChangePassword,
+
+		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
 		t.ConnectivityCheck,
+
+		// FRAME
 		t.FrameWriter,
 		t.FrameIterator,
-		t.ConnectivityCheck,
-		t.OntologyRetrieve,
 		t.FrameStreamer,
-		t.RangeCreate,
-		t.RangeRetrieve,
-		t.OntologyGroupCreate,
-		t.OntologyGroupDelete,
+
+		// CONNECTIVITY
+		t.ConnectivityCheck,
+
+		// ONTOLOGY
+		t.OntologyRetrieve,
 		t.OntologyAddChildren,
 		t.OntologyRemoveChildren,
 		t.OntologyMoveChildren,
+
+		// GROUP
+		t.OntologyGroupCreate,
+		t.OntologyGroupDelete,
 		t.OntologyGroupRename,
+
+		// RANGE
+		t.RangeCreate,
+		t.RangeRetrieve,
+		t.RangeKVGet,
+		t.RangeKVSet,
+		t.RangeKVDelete,
+		t.RangeAliasSet,
+		t.RangeAliasResolve,
+		t.RangeAliasList,
+		t.RangeRename,
+		t.RangeAliasDelete,
+
+		// WORKSPACE
 		t.WorkspaceDelete,
 		t.WorkspaceCreate,
 		t.WorkspaceRetrieve,
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
+
+		// PID
 		t.PIDCreate,
 		t.PIDRetrieve,
 		t.PIDDelete,
 		t.PIDRename,
 		t.PIDSetData,
+		t.PIDCopy,
+
+		// LINE PLOT
 		t.LinePlotCreate,
 		t.LinePlotRename,
 		t.LinePlotSetData,
@@ -233,37 +267,62 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotDelete,
 	)
 
+	// AUTH
 	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
 	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))
 	t.AuthChangePassword.BindHandler(noResponseWrapper(a.Auth.ChangePassword))
 	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
+
+	// CHANNEL
 	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
 	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
 	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
+
+	// FRAME
 	t.FrameWriter.BindHandler(typedStreamWrapper(a.Telem.Write))
 	t.FrameIterator.BindHandler(typedStreamWrapper(a.Telem.Iterate))
-	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 	t.FrameStreamer.BindHandler(typedStreamWrapper(a.Telem.Stream))
-	t.RangeRetrieve.BindHandler(typedUnaryWrapper(a.Range.Retrieve))
-	t.RangeCreate.BindHandler(typedUnaryWrapper(a.Range.Create))
-	t.OntologyGroupCreate.BindHandler(typedUnaryWrapper(a.Ontology.CreateGroup))
-	t.OntologyGroupDelete.BindHandler(typedUnaryWrapper(a.Ontology.DeleteGroup))
-	t.OntologyGroupRename.BindHandler(typedUnaryWrapper(a.Ontology.RenameGroup))
+
+	// ONTOLOGY
+	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
 	t.OntologyAddChildren.BindHandler(typedUnaryWrapper(a.Ontology.AddChildren))
 	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
 	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
+
+	// GROUP
+	t.OntologyGroupCreate.BindHandler(typedUnaryWrapper(a.Ontology.CreateGroup))
+	t.OntologyGroupDelete.BindHandler(typedUnaryWrapper(a.Ontology.DeleteGroup))
+	t.OntologyGroupRename.BindHandler(typedUnaryWrapper(a.Ontology.RenameGroup))
+
+	// RANGE
+	t.RangeRetrieve.BindHandler(typedUnaryWrapper(a.Range.Retrieve))
+	t.RangeCreate.BindHandler(typedUnaryWrapper(a.Range.Create))
+	t.RangeDelete.BindHandler(typedUnaryWrapper(a.Range.Delete))
+	t.RangeRename.BindHandler(typedUnaryWrapper(a.Range.Rename))
+	t.RangeKVGet.BindHandler(typedUnaryWrapper(a.Range.KVGet))
+	t.RangeKVSet.BindHandler(typedUnaryWrapper(a.Range.KVSet))
+	t.RangeKVDelete.BindHandler(typedUnaryWrapper(a.Range.KVDelete))
+	t.RangeAliasSet.BindHandler(typedUnaryWrapper(a.Range.AliasSet))
+	t.RangeAliasResolve.BindHandler(typedUnaryWrapper(a.Range.AliasResolve))
+	t.RangeAliasList.BindHandler(typedUnaryWrapper(a.Range.AliasList))
+	t.RangeAliasDelete.BindHandler(typedUnaryWrapper(a.Range.AliasDelete))
+
+	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
 	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
 	t.WorkspaceRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.Retrieve))
-	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
-	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
 	t.WorkspaceRename.BindHandler(typedUnaryWrapper(a.Workspace.Rename))
 	t.WorkspaceSetLayout.BindHandler(typedUnaryWrapper(a.Workspace.SetLayout))
+
+	// PID
 	t.PIDCreate.BindHandler(typedUnaryWrapper(a.PID.Create))
 	t.PIDRetrieve.BindHandler(typedUnaryWrapper(a.PID.Retrieve))
 	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
 	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
 	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
+	t.PIDCopy.BindHandler(typedUnaryWrapper(a.PID.Copy))
+
+	// LINE PLOT
 	t.LinePlotCreate.BindHandler(typedUnaryWrapper(a.LinePlot.Create))
 	t.LinePlotRename.BindHandler(typedUnaryWrapper(a.LinePlot.Rename))
 	t.LinePlotSetData.BindHandler(typedUnaryWrapper(a.LinePlot.SetData))

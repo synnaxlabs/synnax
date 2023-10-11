@@ -19,7 +19,6 @@ import (
 type Reader struct {
 	ptr pointer
 	io.ReaderAt
-	io.Closer
 }
 
 // Len returns the number of bytes in the entire domain.

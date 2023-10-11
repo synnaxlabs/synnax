@@ -38,6 +38,7 @@ export const Selector = (): ReactElement => {
   const handleChange = useCallback(
     ([v]: string[]) => {
       dProps.close();
+      if (v === null) return;
       void (async () => {
         if (v == null) {
           d(setActive(null));
@@ -45,15 +46,9 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
-        d(
-          Layout.setWorkspace({
-            slice: ws.layout as unknown as Layout.SliceState,
-            keepNav: false,
-          })
-        );
       })();
     },
-    [client, d, dProps.close]
+    [active, client, d, dProps.close]
   );
 
   return (
@@ -64,8 +59,8 @@ export const Selector = (): ReactElement => {
       className={CSS(CSS.BE("workspace", "selector"))}
     >
       <Button.Button
-        startIcon={<Icon.Workspace />}
-        endIcon={<Icon.Caret.Down />}
+        startIcon={<Icon.Workspace key="workspace" />}
+        endIcon={<Icon.Caret.Down key="down" />}
         variant={dProps.visible ? "outlined" : "text"}
         onClick={() => dProps.toggle()}
         size="small"
@@ -79,7 +74,6 @@ export const Selector = (): ReactElement => {
             value={active == null ? [] : [active.key]}
             onChange={handleChange}
             allowMultiple={false}
-            allowNone={false}
           />
           <Align.Pack direction="x">
             <List.Search searcher={client?.workspaces}>
@@ -125,6 +119,7 @@ export const SelectorListItem = ({
       className={CSS(
         CSS.BE("palette", "item"),
         hovered && CSS.BEM("palette", "item", "hovered"),
+        selected && CSS.BEM("palette", "item", "selected"),
         CSS.BEM("palette", "item", "command")
       )}
       sharp

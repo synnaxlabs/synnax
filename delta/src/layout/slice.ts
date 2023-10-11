@@ -288,8 +288,8 @@ export const { actions, reducer } = createSlice({
     ) => {
       if (name.length === 0) return;
       const layout = state.layouts[tabKey];
+      if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
-      if (layout != null) layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
       state.mosaics[layout.windowKey] = mosaic;
     },

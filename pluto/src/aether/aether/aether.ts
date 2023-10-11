@@ -501,19 +501,14 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   handle(msg: MainMessage): void {
-    try {
-      if (msg.variant === "delete") this.internalDelete(msg.path);
-      else {
-        const u: Update = {
-          ...msg,
-          variant: "state",
-          ctx: this.ctx,
-        };
-        this.internalUpdate(u);
-      }
-    } catch (e) {
-      console.error(e);
-      throw e;
+    if (msg.variant === "delete") this.internalDelete(msg.path);
+    else {
+      const u: Update = {
+        ...msg,
+        variant: "state",
+        ctx: this.ctx,
+      };
+      this.internalUpdate(u);
     }
   }
 }

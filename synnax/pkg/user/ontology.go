@@ -44,7 +44,7 @@ var _ ontology.Service = (*Service)(nil)
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	uuidKey, err := uuid.Parse(key)
 	if err != nil {
 		return schema.Resource{}, err

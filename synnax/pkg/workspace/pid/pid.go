@@ -15,9 +15,10 @@ import (
 )
 
 type PID struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	Name string    `json:"name" msgpack:"name"`
-	Data string    `json:"data" msgpack:"data"`
+	Key      uuid.UUID `json:"key" msgpack:"key"`
+	Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
+	Name     string    `json:"name" msgpack:"name"`
+	Data     string    `json:"data" msgpack:"data"`
 }
 
 var _ gorp.Entry[uuid.UUID] = PID{}

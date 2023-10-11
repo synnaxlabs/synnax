@@ -9,7 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 
-import { Channel } from "@/channel";
+import { ONTOLOGY_SERVICE as CHANNEL_ONTOLOGY_SERVICE } from "@/channel/ontology";
 import { Cluster } from "@/cluster";
 import { Node } from "@/cluster/node";
 import { Group } from "@/group";
@@ -17,19 +17,19 @@ import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
 import { type Service } from "@/ontology/service";
 import { PID } from "@/pid";
-import { Range } from "@/range";
+import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
 export const SERVICES: Record<ontology.ResourceType, Service> = {
   pid: PID.ONTOLOGY_SERVICE,
-  channel: Channel.ONTOLOGY_SERVICE,
+  channel: CHANNEL_ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
   node: Node.ONTOLOGY_SERVICE,
   group: Group.ONTOLOGY_SERVICE,
-  range: Range.ONTOLOGY_SERVICE,
+  range: RANGE_ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
   lineplot: LinePlot.ONTOLOGY_SERVICE,
 };

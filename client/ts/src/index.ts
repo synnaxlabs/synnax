@@ -49,3 +49,4 @@ export type {
   TZInfo,
 } from "@synnaxlabs/x";
 export { workspace } from "@/workspace";
+export { ranger } from "@/ranger";

@@ -10,48 +10,19 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Accordion } from "@synnaxlabs/pluto";
-import { useDispatch } from "react-redux";
+import { Align } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Range } from "@/range";
-import { Vis } from "@/vis";
-import { VisList } from "@/workspace/VisList";
 
 const Content = (): ReactElement => {
-  const dispatch = useDispatch();
-
-  const handleCreateVis = (): void => {
-    dispatch(Vis.create({}));
-    dispatch(Layout.setNavdrawerVisible({ key: Vis.Toolbar.key, value: true }));
-  };
-
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Workspace />}>Workspace</ToolbarTitle>
       </ToolbarHeader>
-      <Accordion.Accordion
-        data={[
-          {
-            key: "ranges",
-            name: "Ranges",
-            content: <Range.List />,
-          },
-          {
-            key: "visualizations",
-            name: "Visualizations",
-            content: <VisList />,
-            actions: [
-              {
-                children: <Icon.Add />,
-                onClick: () => handleCreateVis(),
-              },
-            ],
-          },
-        ]}
-      />
+      <Range.List />
     </Align.Space>
   );
 };

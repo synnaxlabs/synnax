@@ -17,20 +17,20 @@ describe("StaticReadCache", () => {
     const c = new Static();
     const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
-    const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))
+    const { series, gaps } = c.dirtyRead(
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)),
     );
-    expect(res).toHaveLength(1);
+    expect(series).toHaveLength(1);
     expect(gaps).toHaveLength(0);
   });
   it("should correctly return leading and trailing gaps", () => {
     const c = new Static();
     const tr = TimeStamp.seconds(2).spanRange(TimeSpan.seconds(3));
     c.write(tr, [new Series(new Float32Array([1]), DataType.FLOAT32, tr)]);
-    const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(6))
+    const { series, gaps } = c.dirtyRead(
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(6)),
     );
-    expect(res).toHaveLength(1);
+    expect(series).toHaveLength(1);
     expect(gaps).toHaveLength(2);
     expect(gaps[0].start).toEqual(TimeStamp.seconds(1));
     expect(gaps[0].end).toEqual(TimeStamp.seconds(2));
@@ -43,10 +43,10 @@ describe("StaticReadCache", () => {
     const tr2 = TimeStamp.seconds(6).spanRange(TimeSpan.seconds(3));
     c.write(tr1, [new Series(new Float32Array([1]), DataType.FLOAT32, tr1)]);
     c.write(tr2, [new Series(new Float32Array([1]), DataType.FLOAT32, tr2)]);
-    const [res, gaps] = c.dirtyRead(
-      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(7))
+    const { series, gaps } = c.dirtyRead(
+      TimeStamp.seconds(1).spanRange(TimeSpan.seconds(7)),
     );
-    expect(res).toHaveLength(2);
+    expect(series).toHaveLength(2);
     expect(gaps).toHaveLength(2);
     expect(gaps[0].start).toEqual(TimeStamp.seconds(1));
     expect(gaps[0].end).toEqual(TimeStamp.seconds(2));

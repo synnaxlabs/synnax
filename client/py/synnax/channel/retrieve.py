@@ -63,7 +63,8 @@ class ClusterChannelRetriever:
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
         return self.__execute(
-            _Request(**{normal.variant: normal.params}))  # type: ignore
+            _Request(**{normal.variant: normal.params})
+        )  # type: ignore
 
     def __execute(
         self,
@@ -127,8 +128,7 @@ class CacheChannelRetriever:
 
 
 def retrieve_required(
-    r: ChannelRetriever,
-    params: ChannelParams
+    r: ChannelRetriever, params: ChannelParams
 ) -> list[ChannelPayload]:
     normal = normalize_channel_params(params)
     results = r.retrieve(params)

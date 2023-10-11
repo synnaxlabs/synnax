@@ -19,6 +19,7 @@ package errors
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Nil is a typed representation of a nil error.
@@ -115,7 +116,8 @@ func maybe(err error) (Typed, bool) {
 	if err == nil {
 		return Nil, true
 	}
-	if t, ok := err.(Typed); ok {
+	var t Typed
+	if errors.As(err, &t) {
 		return t, true
 	}
 	return Typed{}, false
@@ -126,6 +128,23 @@ func Route(err error, path string) Typed {
 		Type: TypeRoute,
 		Err:  routeError{Path: path, Message: Message{Message: err.Error()}},
 	}
+}
+
+func Auto(err error) Typed {
+	if t, ok := maybe(err); ok {
+		return t
+	}
+	var t Typed
+	if errors.As(err, &t) {
+		return t
+	}
+	if errors.Is(err, query.Error) {
+		return Query(err)
+	}
+	if errors.Is(err, validate.Error) {
+		return Validation(err)
+	}
+	return General(err)
 }
 
 type routeError struct {

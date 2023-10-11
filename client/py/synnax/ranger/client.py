@@ -9,6 +9,7 @@
 
 from typing import overload
 
+from freighter import UnaryClient
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.framer.client import Client
 from synnax.ranger.retrieve import RangeRetriever
@@ -24,6 +25,8 @@ from synnax.ranger.payload import (
     RangeParams,
     normalize_range_params,
 )
+from synnax.ranger.kv import KV
+from synnax.ranger.alias import Aliaser
 from synnax.exceptions import QueryError
 
 
@@ -32,14 +35,17 @@ class RangeClient:
     __channel_retriever: ChannelRetriever
     __retriever: RangeRetriever
     __creator: RangeCreator
+    __unary_client: UnaryClient
 
     def __init__(
         self,
+        unary_client: UnaryClient,
         frame_client: Client,
         creator: RangeCreator,
         retriever: RangeRetriever,
         channel_retriever: ChannelRetriever,
     ) -> None:
+        self.__unary_client = unary_client
         self.__frame_client = frame_client
         self.__creator = creator
         self.__retriever = retriever
@@ -128,6 +134,8 @@ class RangeClient:
                 **r.dict(),
                 _frame_client=self.__frame_client,
                 _channel_retriever=self.__channel_retriever,
+                _kv=KV(r.key, self.__unary_client),
+                _aliaser=Aliaser(r.key, self.__unary_client),
             )
             for r in ranges
         ]

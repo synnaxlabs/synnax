@@ -60,6 +60,16 @@ const (
 func Defer(f func(), opts ...RoutineOption) RoutineOption {
 	o := newRoutineOptions(opts)
 	return func(r *routineOptions) {
+		r.deferrals = append(r.deferrals, deferral{key: o.key, f: func() error { f(); return nil }})
+	}
+}
+
+// DeferErr attaches the provided function f to the routine. The function will
+// be executed on routine exit in LIFO style. If the function returns a non-nil
+// error, the routine will fail.
+func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
+	o := newRoutineOptions(opts)
+	return func(r *routineOptions) {
 		r.deferrals = append(r.deferrals, deferral{key: o.key, f: f})
 	}
 }
@@ -74,7 +84,7 @@ func WithKeyf(format string, args ...interface{}) RoutineOption {
 
 type deferral struct {
 	key string
-	f   func()
+	f   func() error
 }
 
 // CancelOnExit defines if the routine should cancel the context upon exiting.
@@ -157,12 +167,12 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	r.ctx.mu.Unlock()
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
-	ctx, r.span = r.ctx.T.Prod(r.ctx, r.key)
+	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
 
 	return ctx, true
 }
 
-func (r *routine) runPostlude(err error) {
+func (r *routine) runPostlude(err error) error {
 	r.maybeRecover()
 	defer r.maybeRecover()
 
@@ -173,7 +183,9 @@ func (r *routine) runPostlude(err error) {
 	r.ctx.mu.Unlock()
 
 	for i := range r.deferrals {
-		r.deferrals[len(r.deferrals)-i-1].f()
+		if dErr := r.deferrals[len(r.deferrals)-i-1].f(); dErr != nil {
+			err = errors.CombineErrors(err, dErr)
+		}
 	}
 
 	r.ctx.mu.Lock()
@@ -206,6 +218,8 @@ func (r *routine) runPostlude(err error) {
 	r.ctx.maybeStop()
 
 	r.ctx.L.Debug("routine stopped", r.zapFields()...)
+
+	return err
 }
 
 func (r *routine) maybeRecover() {
@@ -226,7 +240,7 @@ func (r *routine) maybeRecover() {
 
 func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
-		zap.String("key", r.key),
+		zap.String("key", r.path()),
 		zap.Stringer("state", r.state.state),
 	}
 	deferralKeys := make([]string, len(r.deferrals))
@@ -241,11 +255,19 @@ func (r *routine) zapFields() []zap.Field {
 	return opts
 }
 
+func (r *routine) path() string {
+	insP := r.ctx.Instrumentation.Meta.Path
+	if len(insP) > 0 {
+		return insP + "." + r.key
+	}
+	return r.key
+}
+
 func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
-		pprof.Do(ctx, pprof.Labels("routine", r.key), func(ctx context.Context) {
+		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
 			r.ctx.internal.Go(func() (err error) {
-				defer func() { r.runPostlude(err) }()
+				defer func() { err = r.runPostlude(err) }()
 				err = f(ctx)
 				return err
 			})

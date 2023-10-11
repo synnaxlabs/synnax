@@ -106,6 +106,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
 		return nil, err
 	}
+	cfg.Keys = cfg.Keys.Unique()
 
 	var (
 		hostID             = s.HostResolver.HostKey()

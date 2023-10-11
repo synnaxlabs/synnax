@@ -76,6 +76,7 @@ export const use = (props?: UseProps): UseReturn => {
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
   extends Pick<UseReturn, "visible">,
+    Partial<Omit<UseReturn, "visible" | "ref">>,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: loc.Y;
   children: [ReactElement, ReactElement];
@@ -114,6 +115,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       keepMounted = true,
       className,
       matchTriggerWidth = false,
+      // It's common to pass these in, so we'll destructure and ignore them so we don't
+      // get an invalid prop on div tag error.
+      open: _o,
+      close: _c,
+      toggle: _t,
       ...props
     }: DialogProps,
     forwardedRef,

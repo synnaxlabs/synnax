@@ -9,7 +9,10 @@
 
 package io
 
-import "io"
+import (
+	"github.com/synnaxlabs/x/errutil"
+	"io"
+)
 
 // CloserFunc allows a function to implement the io.Closer interface.
 type CloserFunc func() error
@@ -18,3 +21,15 @@ var _ io.Closer = CloserFunc(nil)
 
 // Close implements io.Closer.
 func (c CloserFunc) Close() error { return c() }
+
+type MultiCloser []io.Closer
+
+var _ io.Closer = MultiCloser(nil)
+
+func (c MultiCloser) Close() error {
+	ca := errutil.NewCatch(errutil.WithAggregation())
+	for _, closer := range c {
+		ca.Exec(closer.Close)
+	}
+	return ca.Error()
+}

@@ -65,10 +65,11 @@ type DynamicDeltaMultiplier[V Value] struct {
 	disconnections chan []Inlet[V]
 }
 
-func NewDynamicDeltaMultiplier[V Value]() *DynamicDeltaMultiplier[V] {
+func NewDynamicDeltaMultiplier[V Value](connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
+	buf := parseBuffer(connectionBuffers)
 	return &DynamicDeltaMultiplier[V]{
-		connections:    make(chan []Inlet[V]),
-		disconnections: make(chan []Inlet[V]),
+		connections:    make(chan []Inlet[V], buf),
+		disconnections: make(chan []Inlet[V], buf),
 	}
 }
 
@@ -83,26 +84,37 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {
+		defer d.disconnectAll()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case inlets := <-d.connections:
-				d.Source.Out = append(d.Source.Out, inlets...)
+				d.connect(inlets)
 			case inlets := <-d.disconnections:
-				d.performDisconnect(inlets)
-			case v := <-d.In.Outlet():
-				if err := d.Source.SendToEach(ctx, v); err != nil {
-					panic(err)
+				d.disconnect(inlets)
+			case res, ok := <-d.In.Outlet():
+				if !ok {
+					return nil
+				}
+				if err := d.Source.SendToEach(ctx, res); err != nil {
+					return err
 				}
 			}
 		}
 	}, o.Signal...)
 }
 
-func (d *DynamicDeltaMultiplier[V]) performDisconnect(inlets []Inlet[V]) {
+func (d *DynamicDeltaMultiplier[V]) disconnectAll() {
+	for _, inlet := range d.Source.Out {
+		inlet.Close()
+	}
+	d.Source.Out = nil
+}
+
+func (d *DynamicDeltaMultiplier[V]) disconnect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
-		i, ok := d.getInletIndex(inlet)
+		i, ok := d.findInletIndex(inlet)
 		if !ok {
 			panic(fmt.Sprintf(
 				"[confluence] - attempted to disconnect inlet %v, but it was never connected",
@@ -114,19 +126,20 @@ func (d *DynamicDeltaMultiplier[V]) performDisconnect(inlets []Inlet[V]) {
 	}
 }
 
-func (d *DynamicDeltaMultiplier[V]) _a(inlets []Inlet[V]) {
+func (d *DynamicDeltaMultiplier[V]) connect(inlets []Inlet[V]) {
 	for _, inlet := range inlets {
-		_, ok := d.getInletIndex(inlet)
+		_, ok := d.findInletIndex(inlet)
 		if ok {
 			panic(fmt.Sprintf(
-				"[confluence] - attempted to connect inlet that was already connected: %sink",
+				"[confluence] - attempted to connect inlet that was already connected: %s",
 				inlet.InletAddress()))
 		}
+		inlet.Acquire(1)
 		d.Source.Out = append(d.Source.Out, inlet)
 	}
 }
 
-func (d *DynamicDeltaMultiplier[V]) getInletIndex(inlet Inlet[V]) (int, bool) {
+func (d *DynamicDeltaMultiplier[V]) findInletIndex(inlet Inlet[V]) (int, bool) {
 	_, i, ok := lo.FindIndexOf(d.Source.Out, func(i Inlet[V]) bool {
 		return i.InletAddress() == inlet.InletAddress()
 	})

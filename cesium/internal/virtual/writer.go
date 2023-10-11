@@ -68,7 +68,9 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		return 0, nil
 	}
 	a := e.align
-	e.align += telem.Alignment(series.Len())
+	if series.DataType.Density() != telem.DensityUnknown {
+		e.align += telem.Alignment(series.Len())
+	}
 	return a, nil
 }
 

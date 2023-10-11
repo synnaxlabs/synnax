@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Header, List, Text, componentRenderProp } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Header,
+  List,
+  Synnax,
+  Text,
+  componentRenderProp,
+} from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
@@ -20,6 +27,7 @@ import { setActive } from "@/cluster/slice";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { setNavdrawerVisible } from "@/layout/slice";
 
 import "@/cluster/Toolbar.css";
 
@@ -48,7 +56,10 @@ const Content = (): ReactElement => {
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
-      <List.List<string, RenderableCluster> data={data}>
+      <List.List<string, RenderableCluster>
+        data={data}
+        emptyContent={<NoneConnected />}
+      >
         <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
         <List.Core.Virtual itemHeight={30}>
           {componentRenderProp(ListItem)}
@@ -88,4 +99,34 @@ export const Toolbar: Layout.NavDrawerItem = {
   maxSize: 350,
   initialSize: 250,
   tooltip: "Clusters",
+};
+
+export interface NoneConnectedProps extends PropsWithChildren {}
+
+export const NoneConnectedBoundary = ({
+  children,
+}: NoneConnectedProps): ReactElement => {
+  const client = Synnax.use();
+  if (client != null) return <>{children}</>;
+  return <NoneConnected />;
+};
+
+export const NoneConnected = (): ReactElement => {
+  const dispatch = useDispatch();
+  const placer = Layout.usePlacer();
+  const handleCluster: Text.TextProps["onClick"] = (e) => {
+    e.stopPropagation();
+    placer(connectWindowLayout);
+    dispatch(setNavdrawerVisible({ key: Toolbar.key, value: true }));
+  };
+  return (
+    <Align.Space empty style={{ height: "100%", position: "relative" }}>
+      <Align.Center direction="y" style={{ height: "100%" }} size="small">
+        <Text.Text level="p">No cluster connected.</Text.Text>
+        <Text.Link level="p" onClick={handleCluster}>
+          Connect a cluster
+        </Text.Link>
+      </Align.Center>
+    </Align.Space>
+  );
 };

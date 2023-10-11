@@ -27,9 +27,9 @@ const resZ = z.object({
   error: errorZ.optional().nullable(),
 });
 
+const ENDPOINT = "/frame/stream";
+
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
-  readonly key: number;
-  private static readonly ENDPOINT = "/frame/stream";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: BackwardFrameAdapter;
 
@@ -37,7 +37,6 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     stream: Stream<typeof reqZ, typeof resZ>,
     adapter: BackwardFrameAdapter,
   ) {
-    this.key = Math.random();
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
   }
@@ -53,7 +52,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     client: StreamClient,
   ): Promise<Streamer> {
     const adapter = await BackwardFrameAdapter.open(retriever, channels);
-    const stream = await client.stream(Streamer.ENDPOINT, reqZ, resZ);
+    const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
     stream.send({ start: new TimeStamp(start), keys: adapter.keys });
     return streamer;

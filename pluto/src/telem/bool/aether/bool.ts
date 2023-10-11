@@ -1,11 +1,11 @@
-// Copyright 2023 synnax labs, inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
-// use of this software is governed by the business source license included in the file
-// licenses/bsl.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// as of the change date specified in that file, in accordance with the business source
-// license, use of this software will be governed by the apache license, version 2.0,
-// included in the file licenses/apl.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -50,27 +50,33 @@ export class NumericConverterSink
   implements telem.BooleanSink
 {
   static readonly propsZ = numericConverterSinkProps;
+  private readonly wrapped: telem.NumericSink;
+
   schema = NumericConverterSink.propsZ;
-  wrap: telem.NumericSink;
 
   static readonly TYPE = "boolean-numeric-converter-sink";
 
   constructor(key: string, wrap: telem.NumericSink) {
-    super(key);
-    this.wrap = wrap;
+    super(NumericConverterSink.TYPE, key);
+    this.wrapped = wrap;
   }
 
   invalidate(): void {
-    this.wrap.invalidate();
+    this.wrapped.invalidate();
+  }
+
+  cleanup(): void {
+    this.wrapped.cleanup();
+    super.cleanup();
   }
 
   async setBoolean(value: boolean): Promise<void> {
-    await this.wrap.setNumber(value ? this.props.truthy : this.props.falsy);
+    await this.wrapped.setNumber(value ? this.props.truthy : this.props.falsy);
   }
 
   setProps(props: any): void {
     super.setProps(props);
-    this.wrap.setProps(props.wrap.props);
+    this.wrapped.setProps(props.wrap.props);
   }
 }
 
@@ -94,7 +100,7 @@ export class NumericConverterSource
   static readonly TYPE = "boolean-source";
 
   constructor(key: string, wraps: telem.NumericSource) {
-    super(key);
+    super("bool.numericConverterSource", key);
     this.wrapped = wraps;
 
     this.wrapped.onChange(() => {
@@ -106,13 +112,16 @@ export class NumericConverterSource
     this.wrapped.invalidate();
   }
 
+  cleanup(): void {
+    this.wrapped.cleanup();
+  }
+
   private async update(): Promise<void> {
     const raw = await this.wrapped.number();
     const value = bounds.contains(this.props.trueBound, raw);
-    if (this.curr !== value) {
-      this.curr = value;
-      this.notify?.();
-    }
+    if (this.curr === value) return;
+    this.curr = value;
+    this.notify?.();
   }
 
   async boolean(): Promise<boolean> {
