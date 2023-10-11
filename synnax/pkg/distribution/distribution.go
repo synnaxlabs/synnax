@@ -55,10 +55,10 @@ func (d Distribution) Close() error {
 	e := errutil.NewCatch(errutil.WithAggregation())
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
-	e.Exec(d.Core.Close)
 	for _, c := range d.Closers {
 		e.Exec(c.Close)
 	}
+	e.Exec(d.Core.Close)
 	return e.Error()
 }
 
