@@ -62,7 +62,7 @@ jobs:
       - name: Push to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
         run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }
+          docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
             docker push ghcr.io/synnaxlabs/synnax:latest
