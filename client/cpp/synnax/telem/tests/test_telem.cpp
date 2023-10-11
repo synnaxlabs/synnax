@@ -2,14 +2,15 @@
 #include <gtest/gtest.h>
 
 /// Local headers.
-#include "synnax/telem/series.h"
+#include "synnax/telem/telem.h"
 
 /// std.
-#include <iostream>
 
-/// @brief create basic int frame
+using namespace Synnax::Telem;
+
+/// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testContructor)
 {
-    Synnax::Telem::TimeStamp ts{5};
-    ASSERT_EQ(ts.get(), 5);
+    auto ts = TimeStamp(5);
+    ASSERT_EQ(ts.value, 5);
 }

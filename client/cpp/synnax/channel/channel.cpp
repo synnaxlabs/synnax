@@ -14,16 +14,14 @@ std::string RETRIEVE_ENDPOINT = "/channel/retrieve";
 std::string CREATE_ENDPOINT = "/channel/create";
 
 
-Channel translate_channel_forward(const api::v1::Channel &ch) {
-    return {
-            ch.name(),
-            Telem::DataType(ch.data_type()),
-            Telem::Rate(ch.rate()),
-            ch.is_index(),
-            ch.leaseholder(),
-            ch.index(),
-            ch.key()
-    };
+Channel::Channel(const api::v1::Channel &ch) {
+    name = ch.name();
+    key = ch.key();
+    index = ch.index();
+    rate = Telem::Rate(ch.rate());
+    is_index = ch.is_index();
+    leaseholder = ch.leaseholder();
+    dataType = Telem::DataType(ch.data_type());
 }
 
 Channel::Channel(
@@ -43,15 +41,14 @@ Channel::Channel(
     leaseholder(leaseholder) {}
 
 
-api::v1::Channel translate_channel_backward(Channel ch, api::v1::Channel *a) {
-    a->set_name(ch.name);
-    a->set_data_type(ch.dataType.value);
-    a->set_rate(ch.rate.value);
-    a->set_is_index(ch.is_index);
-    a->set_leaseholder(ch.leaseholder);
-    a->set_index(ch.index);
-    a->set_key(ch.key);
-    return *a;
+void Channel::to_proto(api::v1::Channel *a) const {
+    a->set_name(name);
+    a->set_data_type(dataType.value);
+    a->set_rate(rate.value);
+    a->set_is_index(is_index);
+    a->set_leaseholder(leaseholder);
+    a->set_index(index);
+    a->set_key(key);
 }
 
 
@@ -70,18 +67,18 @@ Channel ChannelClient::create(
     a->set_data_type(data_type.value);
     a->set_rate(rate.value);
     auto response = create_client->send(CREATE_ENDPOINT, req);
-    return translate_channel_forward(response.first.channels(0));
+    return {response.first.channels(0)};
 }
 
 void ChannelClient::create(std::vector<Channel> &channels) {
     auto req = api::v1::ChannelCreateRequest();
     for (const auto &ch: channels) {
         auto a = req.add_channels();
-        translate_channel_backward(ch, a);
+        ch.to_proto(a);
     }
     auto response = create_client->send(CREATE_ENDPOINT, req);
     for (auto i = 0; i < response.first.channels_size(); i++)
-        channels[i] = translate_channel_forward(response.first.channels(i));
+        channels[i] = Channel(response.first.channels(i));
 }
 
 
@@ -92,7 +89,7 @@ Channel ChannelClient::retrieve(ChannelKey key) {
             retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (response.first.channels_size() == 0)
         throw QueryError("No channel found with key " + key);
-    return translate_channel_forward(response.first.channels(0));
+    return Channel(response.first.channels(0));
 }
 
 Channel ChannelClient::retrieve(const std::string &name) {
@@ -109,7 +106,7 @@ std::vector<Channel> ChannelClient::retrieve(const std::vector<ChannelKey> &keys
             retrieve_client->send(RETRIEVE_ENDPOINT, req);
     std::vector<Channel> channels;
     for (auto i = 0; i < response.first.channels_size(); i++)
-        channels.push_back(translate_channel_forward(response.first.channels(i)));
+        channels.emplace_back(response.first.channels(i));
     return channels;
 }
 
@@ -121,6 +118,6 @@ std::vector<Channel> ChannelClient::retrieve(const std::vector<std::string> &nam
             retrieve_client->send(RETRIEVE_ENDPOINT, req);
     std::vector<Channel> channels;
     for (auto i = 0; i < response.first.channels_size(); i++)
-        channels.push_back(translate_channel_forward(response.first.channels(i)));
+        channels.emplace_back(response.first.channels(i));
     return channels;
 }

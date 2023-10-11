@@ -3,44 +3,40 @@
 
 #include "synnax/telem/telem.h"
 #include "v1/ranger.pb.h"
-#include "freighter/gRPC/client.h"
+#include "freighter/freighter.h"
+#include <grpcpp/grpcpp.h>
 
 typedef std::string Key;
 
 using namespace Synnax;
 
-typedef Client<
+typedef Freighter::UnaryClient<
         api::v1::RangeRetrieveResponse,
         api::v1::RangeRetrieveRequest,
-        gRPCStreamer<api::v1::RangeRetrieveRequest, api::v1::RangeRetrieveResponse, grpc::Status, api::v1::Range>,
         grpc::Status> RetrieveClient;
 
-typedef Client<
+typedef Freighter::UnaryClient<
         api::v1::RangeCreateResponse,
         api::v1::RangeCreateRequest,
-        gRPCStreamer<api::v1::RangeCreateRequest, api::v1::RangeCreateResponse, grpc::Status, api::v1::Range>,
         grpc::Status> CreateClient;
 
 
-typedef Client<
+typedef Freighter::UnaryClient<
         api::v1::RangeKVGetResponse,
         api::v1::RangeKVGetRequest,
-        gRPCStreamer<api::v1::RangeKVGetRequest, api::v1::RangeKVGetResponse, grpc::Status, api::v1::Range>,
         grpc::Status> KVGetClient;
 
 struct Empty {
 };
 
-typedef Client<
+typedef Freighter::UnaryClient<
         Empty,
         api::v1::RangeKVSetRequest,
-        gRPCStreamer<api::v1::RangeKVSetRequest, Empty, grpc::Status, api::v1::Range>,
         grpc::Status> KVSetClient;
 
-typedef Client<
+typedef Freighter::UnaryClient<
         Empty,
         api::v1::RangeKVDeleteRequest,
-        gRPCStreamer<api::v1::RangeKVDeleteRequest, Empty, grpc::Status, api::v1::Range>,
         grpc::Status> KVDeleteClient;
 
 

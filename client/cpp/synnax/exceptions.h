@@ -1,3 +1,4 @@
+#pragma once
 
 class QueryError : public std::exception {
 public:

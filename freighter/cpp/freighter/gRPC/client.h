@@ -29,11 +29,11 @@
 
 /// @brief freighter stream object.
 template <typename response_t, typename request_t, typename err_t, typename rpc_t>
-class gRPCStreamer : public Streamer<response_t, request_t, err_t, rpc_t>
+class GRPCStream : public Freighter::Stream<response_t, request_t, err_t>
 {
 public:
-    /// @brief Ctor saves gRPC stream object to use under the hood.
-    gRPCStreamer(std::string target)
+    /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
+    explicit GRPCStream(const std::string& target)
     {
         // Note that the streamer also sets up its own internal stub.
         if (!stub || target != last_target)
@@ -79,7 +79,7 @@ public:
     }
 
 private:
-    /// The internal streaming type for gRPC.
+    /// The internal streaming type for GRPCUnaryClient.
     std::unique_ptr<grpc::ClientReaderWriter<response_t, request_t>> stream;
 
     /// Stub to manage connection.
@@ -92,16 +92,16 @@ private:
     std::string last_target;
 };
 
-/// @brief gRPC specific class
-template <typename response_t, typename request_t, typename stream_t, typename err_t, typename rpc_t>
-class gRPC : public Client<response_t, request_t, stream_t, err_t, rpc_t>
+/// @brief GRPCUnaryClient specific class
+template <typename response_t, typename request_t, typename err_t, typename rpc_t>
+class GRPCUnaryClient : public Freighter::UnaryClient<response_t, request_t, err_t>
 {
 public:
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<response_t, err_t> send(std::string target, request_t &request) override
+    std::pair<response_t, err_t> send(const std::string &target, request_t &request) override
     {
         grpc::ClientContext context;
         // To abstract the interface, we construct the stub only if needed.
@@ -118,13 +118,6 @@ public:
         return {response, status};
     }
 
-    /// @brief Interface for stream.
-    /// @param target The server's IP.
-    /// @returns A stream object, which can be used to listen to the server.
-    stream_t stream(std::string target) override
-    {
-        return gRPCStreamer<response_t, request_t, err_t, rpc_t>(target);
-    }
 
 private:
     /// Stub to manage connection.
@@ -132,4 +125,16 @@ private:
 
     /// The last target used.
     std::string last_target;
+};
+
+template <typename response_t, typename request_t, typename err_t, typename rpc_t>
+class GRPCStreamClient: public Freighter::StreamClient<response_t, request_t, err_t> {
+public:
+    /// @brief Interface for stream.
+    /// @param target The server's IP.
+    /// @returns A stream object, which can be used to listen to the server.
+    Freighter::Stream<response_t, request_t, err_t>* stream(const std::string &target) override
+    {
+    return new GRPCStream<response_t, request_t, err_t, rpc_t>(target);
+    }
 };

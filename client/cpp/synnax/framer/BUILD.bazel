@@ -1,15 +1,18 @@
 cc_library(
     name = "framer",
+    srcs = [
+        "client.cpp",
+        "frame.cpp",
+        "streamer.cpp",
+        "writer.cpp",
+    ],
     hdrs = [
-        "frame.h",
-        "iterator.h",
-        "streamer.h",
-        "writer.h",
+        "framer.h",
     ],
     deps = [
         "@Freighter//freighter/gRPC",
+        "@api_protos//v1:framer_grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@api_protos//v1:auth_grpc",
         "@telem_protos//telempb:telem_grpc",
     ],
 )

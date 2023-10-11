@@ -1,10 +1,14 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Freighter.
-http_archive(
+#http_archive(
+#    name = "Freighter",
+#    strip_prefix = "cpp",
+#    urls = ["https://github.com/synnaxlabs/synnax/raw/sy-182-streaming-interface-cpp/freighter/cpp/releases/freighter-1.0.tar.gz"],
+#)
+local_repository(
     name = "Freighter",
-    strip_prefix = "cpp",
-    urls = ["https://github.com/synnaxlabs/synnax/raw/sy-182-streaming-interface-cpp/freighter/cpp/releases/freighter-1.0.tar.gz"],
+    path = "../../freighter/cpp",
 )
 
 # gRPC.
@@ -39,10 +43,10 @@ load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 grpc_extra_deps()
 
-# Synnax API Protos.
+# Synnax Freighter Errors Protos
 local_repository(
-    name = "api_protos",
-    path = "../../synnax/pkg/api/grpc",
+    name = "ferrors_protos",
+    path = "../../freighter/go",
 )
 
 # Synnax Telemetry Protos.
@@ -50,6 +54,16 @@ local_repository(
     name = "telem_protos",
     path = "../../x/go/telem",
 )
+
+# Synnax API Protos.
+local_repository(
+    name = "api_protos",
+    path = "../../synnax/pkg/api/grpc",
+)
+
+
+
+
 
 # gTest.
 http_archive(

@@ -1,26 +1,25 @@
-#include "synnax/telem.h"
 #include <string>
 #include <utility>
 #include "v1/channel.pb.h"
-#include "freighter/gRPC/client.h"
 #include <grpcpp/grpcpp.h>
 #include "synnax/telem/telem.h"
+#include "freighter/freighter.h"
+
+#pragma once
 
 using namespace Synnax;
 
 using ChannelKey = std::uint32_t;
 
 
-typedef Client<
+typedef Freighter::UnaryClient<
         api::v1::ChannelRetrieveResponse,
         api::v1::ChannelRetrieveRequest,
-        gRPCStreamer<api::v1::ChannelRetrieveRequest, api::v1::ChannelRetrieveResponse, grpc::Status, api::v1::Channel>,
         grpc::Status> RetrieveClient;
 
-typedef Client<
+typedef Freighter::UnaryClient<
         api::v1::ChannelCreateResponse,
         api::v1::ChannelCreateRequest,
-        gRPCStreamer<api::v1::ChannelCreateRequest, api::v1::ChannelCreateResponse, grpc::Status, api::v1::Channel>,
         grpc::Status> CreateClient;
 
 class Channel {
@@ -42,6 +41,10 @@ public:
             ChannelKey index = 0,
             ChannelKey key = 0
     );
+
+    Channel(const api::v1::Channel &ch);
+
+    void to_proto(api::v1::Channel *ch) const;
 };
 
 class ChannelClient {

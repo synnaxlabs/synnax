@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// @brief This file abstracts the server side for gRPC testing.
+/// @brief This file abstracts the server side for GRPCUnaryClient testing.
 
 #pragma once
 
@@ -61,7 +61,7 @@ private:
 };
 
 /// @brief Meant to be call within a thread. Simple
-/// gRPC server. 
+/// GRPCUnaryClient server.
 void server(std::string target)
 {
   end_session = false;
