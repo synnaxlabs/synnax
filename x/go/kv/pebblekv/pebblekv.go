@@ -13,7 +13,6 @@ package pebblekv
 
 import (
 	"context"
-
 	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"

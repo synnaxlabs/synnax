@@ -73,18 +73,6 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			// We prioritize responses over requests. Under high load (e.g. channel
-			// buffers are relatively full), this may result in delayed updates to
-			// demands, but at least we won't block current responses through the
-			// relay.
-			case f := <-responses.Outlet():
-				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.keys)}
-				// Don't send if the frame is empty.
-				if len(res.Frame.Keys) != 0 {
-					if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
-						return err
-					}
-				}
 			case req, ok := <-r.In.Outlet():
 				if !ok {
 					return nil
@@ -93,6 +81,16 @@ func (r *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				r.keys = req.Keys
 				d := demand{Variant: change.Set, Key: r.addr, Value: req}
 				if err := signal.SendUnderContext(ctx, r.demands.Inlet(), d); err != nil {
+					return err
+				}
+			case f := <-responses.Outlet():
+				filtered := f.Frame.FilterKeys(r.keys)
+				// Don't send if the frame is empty.
+				if len(filtered.Keys) == 0 {
+					continue
+				}
+				res := Response{Error: f.Error, Frame: f.Frame.FilterKeys(r.keys)}
+				if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res); err != nil {
 					return err
 				}
 			}

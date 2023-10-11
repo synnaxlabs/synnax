@@ -124,10 +124,7 @@ is as follows:
 delta contains series for ALL channels requested by ALL streamers, so we filter
 only the keys we want to send back to the caller. This process results in excess
 allocations, and is a big performance hit. See [Section 4](#4---performance-considerations)
-for more details. **Notice how we prioritize reading from this channel over incoming
-requests.** This ensures that we always keep the delta outlet unclogged. While this may
-result in some requests being applied later than desired, it makes sure the relay stays
-running under high load.
+for more details.
 3. Requests containing updated key sets to stream. We push these requests through
 the demand channel so the tapper can update its taps. If the caller closes this channel,
 we shut down the streamer.

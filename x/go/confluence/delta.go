@@ -65,10 +65,11 @@ type DynamicDeltaMultiplier[V Value] struct {
 	disconnections chan []Inlet[V]
 }
 
-func NewDynamicDeltaMultiplier[V Value]() *DynamicDeltaMultiplier[V] {
+func NewDynamicDeltaMultiplier[V Value](connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
+	buf := parseBuffer(connectionBuffers)
 	return &DynamicDeltaMultiplier[V]{
-		connections:    make(chan []Inlet[V], 10),
-		disconnections: make(chan []Inlet[V], 10),
+		connections:    make(chan []Inlet[V], buf),
+		disconnections: make(chan []Inlet[V], buf),
 	}
 }
 

@@ -12,7 +12,6 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -78,7 +77,6 @@ type WorkspaceSetLayoutRequest struct {
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err errors.Typed) {
 	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
 		err := s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
-		logrus.Info(err, errors.MaybeQuery(err))
 		return errors.MaybeQuery(err)
 	})
 }

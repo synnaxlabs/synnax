@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
-
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -50,6 +49,7 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)
 	}
+
 	return
 }
 

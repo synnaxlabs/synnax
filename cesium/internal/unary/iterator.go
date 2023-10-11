@@ -12,7 +12,6 @@ package unary
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -196,11 +195,6 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 		return false
 	}
 	offset, size, err := i.sliceDomain(ctx)
-	if offset > 400 || offset < -400 {
-		logrus.Info("DOG")
-
-	}
-
 	if err != nil {
 		i.err = err
 		return false
