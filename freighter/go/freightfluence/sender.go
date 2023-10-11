@@ -36,23 +36,20 @@ func (s *Sender[M]) send(ctx context.Context) error {
 	defer func() {
 		err = errors.CombineErrors(s.Sender.CloseSend(), err)
 	}()
-o:
 	for {
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
-			break o
+			return err
 		case res, ok := <-s.UnarySink.In.Outlet():
 			if !ok {
-				break o
+				return nil
 			}
-			if sErr := s.Sender.Send(res); sErr != nil {
-				err = sErr
-				break o
+			if err = s.Sender.Send(res); err != nil {
+				return err
 			}
 		}
 	}
-	return err
 }
 
 // TransformSender wraps freighter.StreamSenderCloser to provide a confluence compatible

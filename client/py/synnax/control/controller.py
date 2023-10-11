@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 from collections.abc import Callable
@@ -26,7 +33,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.telem import TimeStamp, CrudeTimeSpan, TimeSpan
-from synnax.telem.authority import CrudeAuthority, Authority
+from synnax.telem.control import CrudeAuthority, Authority
 
 
 class State:
@@ -113,7 +120,9 @@ class Controller:
         key = uuid.uuid4()
         try:
             self.receiver.processors[key] = processor
-            ok = processor.event.wait(timeout=TimeSpan(timeout).seconds if timeout else None)
+            ok = processor.event.wait(
+                timeout=TimeSpan(timeout).seconds if timeout else None
+            )
         finally:
             del self.receiver.processors[key]
         return ok

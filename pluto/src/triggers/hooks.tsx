@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 
-import { box, Compare, runtime, unique, xy } from "@synnaxlabs/x";
+import { box, Compare, unique, type xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";
@@ -33,16 +33,9 @@ export interface UseProps {
   callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
-  os?: runtime.OS;
 }
 
-export const use = ({
-  triggers,
-  callback: f,
-  region,
-  loose,
-  os: propsOS,
-}: UseProps): void => {
+export const use = ({ triggers, callback: f, region, loose }: UseProps): void => {
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
@@ -55,12 +48,13 @@ export const use = ({
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
       let [added, removed] = diff(nextMatches, prevMatches);
+      if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
       if (added.length > 0) f?.({ stage: "start", triggers: added, cursor: e.cursor });
       if (removed.length > 0)
         f?.({ stage: "end", triggers: removed, cursor: e.cursor });
     });
-  }, [f, memoTriggers, listen, loose]);
+  }, [f, memoTriggers, listen, loose, region]);
 };
 
 const filterInRegion = (

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ranger/client";
-export * from "@/ranger/creator";
+export * from "@/ranger/writer";
 export * from "@/ranger/payload";
 export * from "@/ranger/range";
 export * from "@/ranger/retriever";

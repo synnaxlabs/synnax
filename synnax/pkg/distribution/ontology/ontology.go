@@ -55,7 +55,9 @@ type (
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	Config
-	search struct {
+	ResourceObserver     observe.Observer[iter.Nexter[schema.Change]]
+	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
+	search               struct {
 		signal.Go
 		io.Closer
 		*search.Index
@@ -98,8 +100,10 @@ func (c Config) Override(other Config) Config {
 func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	o := &Ontology{
-		Config:    cfg,
-		registrar: serviceRegistrar{BuiltIn: &builtinService{}},
+		Config:               cfg,
+		ResourceObserver:     observe.New[iter.Nexter[schema.Change]](),
+		RelationshipObserver: gorp.Observe[string, Relationship](cfg.DB),
+		registrar:            serviceRegistrar{BuiltIn: &builtinService{}},
 	}
 
 	err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB)
@@ -192,8 +196,10 @@ func (o *Ontology) RegisterService(s Service) {
 		return errors.CombineErrors(err, n.Close())
 	}, signal.WithKeyf("startup-indexing-%s", s.Schema().Type))
 
+	d1 := s.OnChange(o.ResourceObserver.Notify)
+
 	// Set up a change handler to index new resources.
-	d := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
+	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
 				o.L.Debug(
@@ -215,7 +221,7 @@ func (o *Ontology) RegisterService(s Service) {
 			)
 		}
 	})
-	o.disconnectObservers = append(o.disconnectObservers, d)
+	o.disconnectObservers = append(o.disconnectObservers, d1, d2)
 }
 
 func (o *Ontology) Close() error {

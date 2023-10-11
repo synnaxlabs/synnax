@@ -13,8 +13,9 @@ import { z } from "zod";
 import { AuthError } from "@/errors";
 import { user } from "@/user";
 
-export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
-  return async (md, next) => {
+export const tokenMiddleware =
+  (token: () => Promise<string>): Middleware =>
+  async (md, next) => {
     try {
       const tk = await token();
       md.params.Authorization = `Bearer ${tk}`;
@@ -23,7 +24,6 @@ export const tokenMiddleware = (token: () => Promise<string>): Middleware => {
     }
     return await next(md);
   };
-};
 
 export const insecureCredentialsZ = z.object({
   username: z.string(),
@@ -38,50 +38,45 @@ export const tokenResponseZ = z.object({
 
 export type TokenResponse = z.infer<typeof tokenResponseZ>;
 
+const LOGIN_ENDPOINT = "/auth/login";
+
 export class Client {
-  private static readonly ENDPOINT = "/auth/login";
   private token: string | undefined;
   private readonly client: UnaryClient;
-  private readonly credentials: InsecureCredentials;
   authenticating: Promise<void> | undefined;
   authenticated: boolean;
   user: user.Payload | undefined;
 
   constructor(client: UnaryClient, creds: InsecureCredentials) {
     this.client = client;
-    this.credentials = creds;
     this.authenticated = false;
-    this.authenticate();
+    this.authenticate(creds);
   }
 
-  authenticate(): void {
+  authenticate(creds: InsecureCredentials): void {
     this.authenticating = new Promise((resolve, reject) => {
       this.client
         .send<typeof insecureCredentialsZ, typeof tokenResponseZ>(
-          Client.ENDPOINT,
-          this.credentials,
+          LOGIN_ENDPOINT,
+          creds,
           tokenResponseZ,
         )
         .then(([res, err]) => {
-          if (err != null) {
-            reject(err);
-            return;
-          }
+          if (err != null) return reject(err);
           this.token = res?.token;
           this.user = res?.user;
           this.authenticated = true;
           resolve();
         })
-        .catch((r) => reject(r));
+        .catch(reject);
     });
   }
 
   middleware(): Middleware {
     return tokenMiddleware(async () => {
       if (!this.authenticated) await this.authenticating;
-      if (this.token == null) {
+      if (this.token == null)
         throw new AuthError("[auth] - attempting to authenticate without a token");
-      }
       return this.token;
     });
   }

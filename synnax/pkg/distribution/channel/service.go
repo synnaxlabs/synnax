@@ -21,15 +21,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
-// and retrieving channels.
-type service struct {
-	*gorp.DB
-	proxy *leaseProxy
-	otg   *ontology.Ontology
-	group group.Group
-}
-
 type Service interface {
 	Readable
 	Writeable
@@ -37,13 +28,25 @@ type Service interface {
 }
 
 type Writeable interface {
+	Writer
 	NewWriter(tx gorp.Tx) Writer
-	RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error
 }
 
 type Readable interface {
 	NewRetrieve() Retrieve
 }
+
+// service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
+// and retrieving channels.
+type service struct {
+	*gorp.DB
+	Writer
+	proxy *leaseProxy
+	otg   *ontology.Ontology
+	group group.Group
+}
+
+var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
 	HostResolver core.HostResolver
@@ -101,6 +104,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 		proxy: proxy,
 		otg:   cfg.Ontology,
 	}
+	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
@@ -108,30 +112,7 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 }
 
 func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
+	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
 func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
-
-func (s *service) RetrieveByNameOrCreate(ctx context.Context, channels *[]Channel) error {
-	return s.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.NewWriter(tx)
-		for i, channel := range *channels {
-			var res Channel
-			if err := s.NewRetrieve().
-				WhereNames(channel.Name).
-				Entry(&res).Exec(ctx, tx); err != nil {
-				return err
-			}
-			if res.Name != channel.Name {
-				if err := w.Create(ctx, &channel); err != nil {
-					return err
-				}
-				(*channels)[i] = channel
-			} else {
-				(*channels)[i] = res
-			}
-		}
-		return nil
-	})
-}

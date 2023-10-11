@@ -22,5 +22,6 @@ type Transport interface {
 }
 
 type CreateMessage struct {
-	Channels []Channel
+	Channels             []Channel
+	RetrieveIfNameExists bool
 }

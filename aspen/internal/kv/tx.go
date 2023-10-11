@@ -61,7 +61,10 @@ func (b *tx) Delete(ctx context.Context, key []byte, _ ...interface{}) error {
 }
 
 // Close implements kv.Tx.
-func (b *tx) Close() error { return b.free() }
+func (b *tx) Close() error {
+	b.digests = nil
+	return b.Tx.Close()
+}
 
 // Commit implements kv.Tx.
 func (b *tx) Commit(ctx context.Context, _ ...interface{}) error {
@@ -99,7 +102,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, err := b.Tx.Get(ctx, dig.Key)
-			if err != nil && err != kvx.NotFound {
+			if err != nil && !errors.Is(err, kvx.NotFound) {
 				return nil, err
 			}
 			op.Value = binary.MakeCopy(v)
@@ -121,12 +124,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	for _, d := range dm {
 		data = append(data, d)
 	}
-	return data, b.free()
-}
-
-func (b *tx) free() error {
-	b.digests = nil
-	return b.Tx.Close()
+	return data, nil
 }
 
 type TxRequest struct {

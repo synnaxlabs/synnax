@@ -96,7 +96,7 @@ type streamWriter struct {
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[Frame]
 	internal        []*idxWriter
-	virtual         virtualWriter
+	virtual         *virtualWriter
 	seqNum          int
 	err             error
 	updateDBControl func(ctx context.Context, u ControlUpdate)
@@ -204,6 +204,15 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 			return err
 		}
 	}
+	if w.virtual.internal != nil {
+		req.Frame, err = w.virtual.write(req.Frame)
+		if err != nil {
+			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
+				return nil
+			}
+			return err
+		}
+	}
 	w.relay.Inlet() <- req.Frame
 	return nil
 }
@@ -224,9 +233,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	u := ControlUpdate{
-		Transfers: make([]controller.Transfer, 0, len(w.internal)),
-	}
+	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
 			u_, err := idx.Close()
@@ -376,7 +383,7 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 	for _, chW := range w.internal {
 		c.Exec(func() error {
 			transfer, err := chW.Close()
-			if err != nil {
+			if err != nil || !transfer.Occurred() {
 				return err
 			}
 			update.Transfers = append(update.Transfers, transfer)
@@ -410,7 +417,7 @@ type virtualWriter struct {
 	internal map[ChannelKey]*virtual.Writer
 }
 
-func (w *virtualWriter) Write(fr Frame) (Frame, error) {
+func (w virtualWriter) write(fr Frame) (Frame, error) {
 	for i, k := range fr.Keys {
 		v, ok := w.internal[k]
 		if !ok {
@@ -425,4 +432,22 @@ func (w *virtualWriter) Write(fr Frame) (Frame, error) {
 		fr.Series[i] = series
 	}
 	return fr, nil
+}
+
+func (w virtualWriter) Close() (ControlUpdate, error) {
+	c := errutil.NewCatch(errutil.WithAggregation())
+	update := ControlUpdate{
+		Transfers: make([]controller.Transfer, 0, len(w.internal)),
+	}
+	for _, chW := range w.internal {
+		c.Exec(func() error {
+			transfer, err := chW.Close()
+			if err != nil || !transfer.Occurred() {
+				return err
+			}
+			update.Transfers = append(update.Transfers, transfer)
+			return nil
+		})
+	}
+	return update, c.Error()
 }

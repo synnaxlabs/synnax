@@ -89,7 +89,7 @@ const ElementsButton = ({
         draggable
         {...props}
         {...dragProps}
-        onDrag={handleDragStart}
+        onDragStart={handleDragStart}
       >
         <Text.Text level="p" color="var(--pluto-gray-p0)">
           {title}

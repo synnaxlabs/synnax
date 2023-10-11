@@ -36,7 +36,7 @@ export const sendRequired = async <
   client: UnaryClient,
   target: string,
   req: z.input<RQ>,
-  resSchema: RS,
+  resSchema: RS | null,
 ): Promise<z.output<RS>> => {
   const [res, err] = await client.send(target, req, resSchema);
   if (err != null) throw err;

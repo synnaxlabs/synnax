@@ -14,7 +14,7 @@ export const ENVIRONMENTS = ["bench", "debug", "prod"] as const;
  * Defines the environment in whcih instrumentation in running. Traces can
  * be constrained to run only in certain environments.
  */
-export type Environment = typeof ENVIRONMENTS[number];
+export type Environment = (typeof ENVIRONMENTS)[number];
 
 /**
  * Takes an environment and returns true if it is valid for use i.e.

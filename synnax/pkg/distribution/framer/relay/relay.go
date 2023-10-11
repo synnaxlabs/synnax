@@ -10,16 +10,17 @@
 package relay
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 type Config struct {
@@ -27,6 +28,7 @@ type Config struct {
 	Transport    Transport
 	HostResolver core.HostResolver
 	TS           *ts.DB
+	FreeWrites   confluence.Outlet[Response]
 }
 
 var (
@@ -40,6 +42,7 @@ func (c Config) Override(other Config) Config {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	return c
 }
 
@@ -48,15 +51,21 @@ func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "Transport", c.Transport)
 	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "TS", c.TS)
+	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	return v.Error()
 }
 
 type Relay struct {
-	io.Closer
-	delta       *confluence.DynamicDeltaMultiplier[Response]
-	peerDemands confluence.Inlet[demand]
-	Writes      confluence.Inlet[Response]
+	ins     alamos.Instrumentation
+	delta   *confluence.DynamicDeltaMultiplier[Response]
+	demands confluence.Inlet[demand]
+	wg      signal.WaitGroup
 }
+
+// defaultBuffer is the default buffer size for channels in the relay.
+// TODO: Figure out what the optimal buffer size is.
+const defaultBuffer = 25
 
 func Open(configs ...Config) (*Relay, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
@@ -64,35 +73,55 @@ func Open(configs ...Config) (*Relay, error) {
 		return nil, err
 	}
 
-	s := &Relay{}
-	startServer(cfg, s.NewReader)
+	r := &Relay{ins: cfg.Instrumentation}
 
-	coord := newReceiveCoordinator(cfg)
-	peerDemands := confluence.NewStream[demand](1)
-	coord.InFrom(peerDemands)
-	s.peerDemands = peerDemands
+	tpr := newTapper(cfg)
+	peerDemands := confluence.NewStream[demand](defaultBuffer)
+	peerDemands.SetOutletAddress("peer-demands")
+	peerDemands.Acquire(1)
+	tpr.InFrom(peerDemands)
+	r.demands = peerDemands
 
-	s.delta = confluence.NewDynamicDeltaMultiplier[Response]()
-	writes := confluence.NewStream[Response](1)
-	s.delta.InFrom(writes)
-	coord.OutTo(writes)
-	s.Writes = writes
+	r.delta = confluence.NewDynamicDeltaMultiplier[Response]()
+	writes := confluence.NewStream[Response](defaultBuffer)
+	writes.SetInletAddress("delta")
+	writes.SetOutletAddress("taps")
+	r.delta.InFrom(writes)
+	tpr.OutTo(writes)
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	s.Closer = signal.NewShutdown(sCtx, cancel)
+	sCtx, _ := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 
-	s.delta.Flow(sCtx, confluence.WithAddress("delta"))
-	coord.Flow(sCtx, confluence.WithAddress("receive-coordinator"))
+	r.delta.Flow(sCtx, confluence.WithAddress("delta"))
+	tpr.Flow(sCtx, confluence.WithAddress("tapper"), confluence.CloseInletsOnExit())
+	r.wg = sCtx
 
-	return s, nil
+	startServer(cfg, r.NewStreamer)
+
+	return r, nil
 }
 
-func (r *Relay) connect(buf int) (confluence.Outlet[Response], func()) {
-	data := confluence.NewStream[Response](buf)
-	data.SetInletAddress(address.Rand())
+func (r *Relay) Close() error {
+	r.demands.Close()
+	return r.wg.Wait()
+}
+
+func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
+	var (
+		data = confluence.NewStream[Response](buf)
+		addr = address.Newf(fmt.Sprintf("%s-%s", r.ins.Meta.Path, address.Rand().String()))
+	)
+	data.SetInletAddress(addr)
 	r.delta.Connect(data)
 	return data, func() {
+		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
+		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
+		// inside the relay.
+		c := make(chan struct{})
+		go func() {
+			confluence.Drain[Response](data)
+			close(c)
+		}()
 		r.delta.Disconnect(data)
-		confluence.Drain[Response](data)
+		<-c
 	}
 }

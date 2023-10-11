@@ -18,6 +18,8 @@ import (
 // DataType is a string that represents a data type.
 type DataType string
 
+// Density returns the density of the given data type. If the data type has no known
+// density, DensityUnknown is returned.
 func (d DataType) Density() Density { return dataTypeDensities[d] }
 
 func NewDataType[T any](v T) DataType {
@@ -45,6 +47,7 @@ var (
 	Uint8T     DataType = "uint8"
 	BytesT     DataType = "bytes"
 	StringT    DataType = "string"
+	JSONT      DataType = "json"
 )
 
 var dataTypes = map[string]DataType{
@@ -62,12 +65,12 @@ var dataTypes = map[string]DataType{
 	"uint16":    Uint16T,
 	"bytes":     BytesT,
 	"string":    StringT,
+	"json":      JSONT,
 }
 
 var dataTypeDensities = map[DataType]Density{
 	TimeStampT: Bit64,
 	UUIDT:      Bit128,
-	UnknownT:   DensityUnknown,
 	Float64T:   Bit64,
 	Float32T:   Bit32,
 	Int32T:     Bit32,
@@ -80,4 +83,6 @@ var dataTypeDensities = map[DataType]Density{
 	Int64T:     Bit64,
 	BytesT:     DensityUnknown,
 	StringT:    DensityUnknown,
+	JSONT:      DensityUnknown,
+	UnknownT:   DensityUnknown,
 }

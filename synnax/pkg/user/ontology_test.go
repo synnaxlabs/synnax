@@ -51,7 +51,7 @@ var _ = Describe("Ontology", Ordered, func() {
 			u := &user.User{Username: "test", Key: userKey}
 			w := svc.NewWriter(nil)
 			Expect(w.Create(ctx, u)).To(Succeed())
-			entity, err := svc.RetrieveResource(ctx, userKey.String())
+			entity, err := svc.RetrieveResource(ctx, userKey.String(), nil)
 			Expect(err).ToNot(HaveOccurred())
 			key, ok := schema.Get[string](entity, "key")
 			Expect(ok).To(BeTrue())

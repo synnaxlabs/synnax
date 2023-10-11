@@ -9,6 +9,7 @@
 
 import { cloneElement, forwardRef, type ReactElement } from "react";
 
+import { Icon as MediaIcon } from "@synnaxlabs/media";
 import clsx from "clsx";
 
 import type { BaseProps } from "@/button/Button";
@@ -19,6 +20,7 @@ import { Tooltip } from "@/tooltip";
 /** The props for the {@link Icon} */
 export interface IconProps extends BaseProps {
   children: ReactElement;
+  loading?: boolean;
 }
 
 const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
@@ -30,33 +32,38 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
       size = "medium",
       sharp = false,
       disabled = false,
+      loading = false,
       onClick,
       ...props
     },
     ref,
-  ): ReactElement => (
-    <button
-      ref={ref}
-      className={clsx(
-        className,
-        CSS.B("btn"),
-        CSS.B("btn-icon"),
-        CSS.size(size),
-        CSS.sharp(sharp),
-        CSS.BM("btn", variant),
-        CSS.disabled(disabled),
-      )}
-      onClick={disabled ? undefined : onClick}
-      {...props}
-    >
-      {cloneElement(children, {
-        color: color(variant, disabled, props.color),
-        fill: "currentColor",
-        ...children.props,
-      })}
-    </button>
-  ),
+  ): ReactElement => {
+    if (loading) children = <MediaIcon.Loading />;
+    return (
+      <button
+        ref={ref}
+        className={clsx(
+          className,
+          CSS.B("btn"),
+          CSS.B("btn-icon"),
+          CSS.size(size),
+          CSS.sharp(sharp),
+          CSS.BM("btn", variant),
+          CSS.disabled(disabled),
+        )}
+        onClick={disabled ? undefined : onClick}
+        {...props}
+      >
+        {cloneElement(children, {
+          color: color(variant, disabled, props.color),
+          fill: "currentColor",
+          ...children.props,
+        })}
+      </button>
+    );
+  },
 );
+
 CoreIcon.displayName = "ButtonIcon";
 
 /**

@@ -25,11 +25,11 @@ type Response struct {
 	Error error      `json:"error" msgpack:"error"`
 }
 
-func reqToStorage(req Request) (ts.StreamReaderRequest, error) {
-	return ts.StreamReaderRequest{Channels: req.Keys.Storage()}, nil
+func reqToStorage(req Request) (ts.StreamerRequest, error) {
+	return ts.StreamerRequest{Channels: req.Keys.Storage()}, nil
 }
 
-func resFromStorage(res ts.StreamReaderResponse) (Response, error) {
+func resFromStorage(res ts.StreamerResponse) (Response, error) {
 	return Response{Frame: core.NewFrameFromStorage(res.Frame)}, nil
 }
 

@@ -46,7 +46,7 @@ package cesium_test
 //	)
 //	sensorData := telem.NewArrayV[float64](1, 2, 3, 4)
 //
-//	// Write our data.
+//	// write our data.
 //	if err := db.WriteArray(ctx, timeChannel.Key, firstSampleTimeStamp, timestamps); err != nil {
 //		log.Fatal(err)
 //	}

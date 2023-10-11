@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
@@ -469,7 +476,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 

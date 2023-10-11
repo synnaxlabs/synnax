@@ -60,10 +60,10 @@ type change = changex.Change[uuid.UUID, LinePlot]
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
 	var pid LinePlot
-	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, tx)
 	return newResource(pid), err
 }
 

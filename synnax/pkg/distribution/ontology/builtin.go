@@ -12,6 +12,7 @@ package ontology
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -41,7 +42,7 @@ var builtinSchema = &Schema{
 func (b *builtinService) Schema() *Schema { return builtinSchema }
 
 // RetrieveResource implements Service.
-func (b *builtinService) RetrieveResource(_ context.Context, key string) (Resource, error) {
+func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
 	switch key {
 	case "root":
 		return rootResource, nil

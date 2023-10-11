@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
@@ -84,12 +91,12 @@ class Frame:
     def __init__(
         self,
         columns_or_data: ChannelKeys
-                         | ChannelNames
-                         | DataFrame
-                         | Frame
-                         | FramePayload
-                         | dict[ChannelKey, TypedCrudeSeries]
-                         | None = None,
+        | ChannelNames
+        | DataFrame
+        | Frame
+        | FramePayload
+        | dict[ChannelKey, TypedCrudeSeries]
+        | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(columns_or_data, Frame):

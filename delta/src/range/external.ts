@@ -13,5 +13,5 @@ export * from "@/range/Select";
 export * from "@/range/selectors";
 export * from "@/range/slice";
 export * from "@/range/range";
-export * from "@/range/ontology";
 export * from "@/range/palette";
+export * from "@/range/ContextMenu";

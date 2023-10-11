@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
@@ -27,6 +34,8 @@ from synnax.ranger.payload import RangePayload
 from synnax.telem import TimeRange, Series
 from synnax.framer import Client, Frame
 from synnax.exceptions import QueryError
+from synnax.ranger.kv import KV
+from synnax.ranger.alias import Aliaser
 
 
 class RangeChannel(ChannelPayload):
@@ -78,6 +87,8 @@ class Range(RangePayload):
 
     __frame_client: Client | None = PrivateAttr(None)
     __channel_retriever: ChannelRetriever | None = PrivateAttr(None)
+    __kv: KV | None = PrivateAttr(None)
+    __aliaser: Aliaser | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -89,6 +100,8 @@ class Range(RangePayload):
         key: UUID = UUID(int=0),
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
+        _kv: KV | None = None,
+        _aliaser: Aliaser | None = None,
     ):
         """Initializes a new Range using the given parameters. It's important to note
         that this does not create the Range in the cluster. To create the range, call
@@ -112,15 +125,34 @@ class Range(RangePayload):
         super().__init__(name=name, time_range=time_range, key=key)
         self.__frame_client = _frame_client
         self.__channel_retriever = _channel_retriever
+        self.__kv = _kv
+        self.__aliaser = _aliaser
 
     def __getattr__(self, name: str) -> RangeChannel:
         ch = self._channel_retriever.retrieve(name)
         if len(ch) == 0:
-            raise QueryError(f"Channel {name} not found")
+            try:
+                key = self._aliaser.resolve(name)
+                ch = self._channel_retriever.retrieve(key)
+            except QueryError:
+                raise QueryError(f"Channel {name} not found")
+
         return RangeChannel(rng=self, frame_client=self._frame_client, payload=ch[0])
 
     def __getitem__(self, name: str) -> RangeChannel:
         return self.__getattr__(name)
+
+    @property
+    def kv(self):
+        if self.__kv is None:
+            raise _RANGE_NOT_CREATED
+        return self.__kv
+
+    @property
+    def _aliaser(self):
+        if self.__aliaser is None:
+            raise _RANGE_NOT_CREATED
+        return self.__aliaser
 
     @property
     def _frame_client(self) -> Client:
@@ -150,6 +182,33 @@ class Range(RangePayload):
             self.time_range,
             params,
         )
+
+    def set_alias(self, channel: ChannelKey | ChannelName, alias: str):
+        ...
+
+    def set_alias(self, channel: dict[ChannelKey | ChannelName, str]):
+        ...
+
+    def set_alias(
+        self,
+        channel: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, str],
+        alias: str = None,
+    ):
+        if not isinstance(channel, dict):
+            if alias is None:
+                raise ValueError("Alias must be provided if channel is not a dict")
+            channel = {channel: alias}
+
+        corrected = {}
+        for ch, alias in channel.items():
+            if isinstance(ch, ChannelName):
+                res = self._channel_retriever.retrieve(ch)
+                if len(res) == 0:
+                    raise QueryError(f"Channel {ch} not found")
+                corrected[res[0].key] = alias
+            else:
+                corrected[ch] = alias
+        self._aliaser.set(corrected)
 
     def to_payload(self) -> RangePayload:
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)

@@ -6,6 +6,15 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from uuid import uuid4
 
 from enum import Enum
 from warnings import warn
@@ -27,7 +36,7 @@ from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
-from synnax.telem.authority import Authority
+from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
 
 
@@ -38,9 +47,10 @@ class _Command(int, Enum):
     ERROR = 3
     SET_AUTHORITY = 4
 
+
 class _Config(Payload):
     authorities: list[int]
-    name: str | None = None
+    control_subject: Subject
     start: TimeStamp | None = None
     keys: ChannelKeys
 
@@ -129,7 +139,7 @@ class Writer:
         authorities: list[Authority],
     ) -> None:
         config = _Config(
-            name=name,
+            control_subject=Subject(name=name, key=str(uuid4())),
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
@@ -142,11 +152,11 @@ class Writer:
     def write(
         self,
         columns_or_data: ChannelName
-                         | ChannelKey
-                         | ChannelKeys
-                         | ChannelNames
-                         | Frame
-                         | dict[ChannelKey | ChannelName, CrudeSeries],
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries],
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -184,7 +194,7 @@ class Writer:
                 config=_Config(
                     keys=list(value.keys()),
                     authorities=list(value.values()),
-                )
+                ),
             )
         )
         if err is not None:

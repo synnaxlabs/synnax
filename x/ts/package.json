@@ -21,6 +21,7 @@
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
+    "async-mutex": "^0.4.0",
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.9.7",
     "nanoid": "^4.0.2",

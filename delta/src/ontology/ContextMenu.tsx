@@ -31,7 +31,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
 };
 
 export const RenameMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="rename" startIcon={<Icon.Edit />}>
+  <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
     Rename
   </Menu.Item>
 );

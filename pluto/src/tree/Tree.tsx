@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo, useState, type FC } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
 import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
 import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
+import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/tree/Tree.css";
 
@@ -55,18 +57,22 @@ export interface HandleExpandProps {
 
 export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
+  nodes: Node[];
 }
 
 export interface UseReturn {
   selected: string[];
   expanded: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+  flat: FlattenedNode[];
 }
 
-export const use = (props?: UseProps): UseReturn => {
-  const { onExpand } = props ?? {};
+export const use = (props: UseProps): UseReturn => {
+  const { onExpand, nodes } = props ?? {};
   const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
 
@@ -74,6 +80,8 @@ export const use = (props?: UseProps): UseReturn => {
     useCallback(
       (keys: string[], { clicked }): void => {
         setSelected(keys);
+        const n = flatRef.current.find((node) => node.key === clicked);
+        if (n?.hasChildren === false) return;
         if (clicked == null || shiftRef.current.held) return;
         const currentlyExpanded = ref.current;
         const action = currentlyExpanded.some((key) => key === clicked)
@@ -86,15 +94,24 @@ export const use = (props?: UseProps): UseReturn => {
         setExpanded(nextExpanded);
         onExpand?.({ current: nextExpanded, action, clicked });
       },
-      [onExpand],
+      [onExpand, flatRef, setExpanded, setSelected],
     );
 
   return {
     onSelect: handleSelect,
-    expanded,
     selected,
+    nodes: flat,
   };
 };
+
+export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
+  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
+  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
+  onRename?: (key: string, name: string) => void;
+  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
+  loading?: boolean;
+  selectedItems: FlattenedNode[];
+}
 
 export interface TreeProps
   extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick">,
@@ -102,65 +119,18 @@ export interface TreeProps
       List.VirtualCoreProps<string, FlattenedNode>,
       "onDrop" | "onSelect" | "itemHeight" | "children" | "onDoubleClick"
     > {
-  nodes: Node[];
+  nodes: FlattenedNode[];
   selected?: string[];
-  expanded?: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
-}
-
-export const Tree = ({
-  nodes,
-  selected = [],
-  expanded = [],
-  onSelect,
-  onDrop,
-  onRename,
-  onSuccessfulDrop,
-  onDoubleClick,
-  className,
-  ...props
-}: TreeProps): ReactElement => {
-  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
-  return (
-    <List.List<string, FlattenedNode> data={flat}>
-      <List.Selector
-        value={selected}
-        onChange={onSelect}
-        allowMultiple
-        replaceOnSingle
-      />
-      <List.Core.Virtual<string, FlattenedNode>
-        itemHeight={27}
-        className={CSS(className, CSS.B("tree"))}
-        {...props}
-      >
-        {(props) => (
-          <Item
-            {...props}
-            onDrop={onDrop}
-            onRename={onRename}
-            onSuccessfulDrop={onSuccessfulDrop}
-            selectedItems={flat.filter((item) => selected.includes(item.key))}
-            onDoubleClick={onDoubleClick}
-          />
-        )}
-      </List.Core.Virtual>
-    </List.List>
-  );
-};
-
-interface ItemProps extends List.ItemProps<string, FlattenedNode> {
-  onDrop?: (key: string, props: Haul.OnDropProps) => Haul.Item[];
-  onSuccessfulDrop?: (key: string, props: Haul.OnSuccessfulDropProps) => void;
-  onRename?: (key: string, name: string) => void;
-  onDoubleClick?: (key: string, e: React.MouseEvent) => void;
-  selectedItems: FlattenedNode[];
+  children?: RenderProp<ItemProps>;
 }
 
 const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
 const collapsedCaret = <Icon.Caret.Right className={CSS.B("caret")} />;
 
-const Item = ({
+export type Item = FC<ItemProps>;
+
+export const DefaultItem = ({
   entry,
   selected,
   onSelect,
@@ -170,6 +140,7 @@ const Item = ({
   onSuccessfulDrop,
   selectedItems,
   onDoubleClick,
+  loading = false,
 }: ItemProps): ReactElement => {
   const {
     key,
@@ -184,23 +155,25 @@ const Item = ({
     haulItems = [],
   } = entry;
 
-  const icons: ReactElement[] = [];
+  const startIcons: ReactElement[] = [];
   if (hasChildren || (children != null && children.length > 0))
-    icons.push(expanded ? expandedCaret : collapsedCaret);
-  if (icon != null) icons.push(icon);
+    startIcons.push(expanded ? expandedCaret : collapsedCaret);
+  if (icon != null) startIcons.push(icon);
+  const endIcons: ReactElement[] = [];
+  if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
 
   const [draggingOver, setDraggingOver] = useState(false);
 
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
     type: "Tree.Item",
     key,
-    canDrop: ({ items: entities, source }) => {
+    canDrop: useCallback(({ items: entities, source }) => {
       const keys = entities.map((item) => item.key);
       setDraggingOver(false);
       return source.type === "Tree.Item" && !keys.includes(key);
-    },
-    onDrop: (props) => onDrop?.(key, props) ?? [],
-    onDragOver: () => setDraggingOver(true),
+    }, []),
+    onDrop: useCallback((props) => onDrop?.(key, props) ?? [], [key, onDrop]),
+    onDragOver: useCallback(() => setDraggingOver(true), []),
   });
 
   const handleDragStart = (): void => {
@@ -231,9 +204,10 @@ const Item = ({
     onDragStart: handleDragStart,
     onClick: () => onSelect?.(key),
     style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
-    startIcon: icons,
+    startIcon: startIcons,
     iconSpacing: "small",
     noWrap: true,
+    endIcon: endIcons,
     onDoubleClick: (e) => onDoubleClick?.(key, e),
     href,
     ...dropProps,
@@ -256,6 +230,47 @@ const Item = ({
   );
 };
 
+const defaultChild = componentRenderProp(DefaultItem);
+export const Tree = ({
+  nodes,
+  selected = [],
+  onSelect,
+  onDrop,
+  onRename,
+  onSuccessfulDrop,
+  onDoubleClick,
+  className,
+  children = defaultChild,
+  ...props
+}: TreeProps): ReactElement => {
+  return (
+    <List.List<string, FlattenedNode> data={nodes}>
+      <List.Selector
+        value={selected}
+        onChange={onSelect}
+        allowMultiple
+        replaceOnSingle
+      />
+      <List.Core.Virtual<string, FlattenedNode>
+        itemHeight={27}
+        className={CSS(className, CSS.B("tree"))}
+        {...props}
+      >
+        {(props) =>
+          children({
+            ...props,
+            onDrop,
+            onRename,
+            onSuccessfulDrop,
+            selectedItems: nodes.filter((item) => selected.includes(item.key)),
+            onDoubleClick,
+          })
+        }
+      </List.Core.Virtual>
+    </List.List>
+  );
+};
+
 export const startRenaming = (key: string): void => Text.edit(`text-${key}`);
 
 export const shouldExpand = (node: Node, expanded: string[]): boolean =>
@@ -266,12 +281,16 @@ export const flatten = (
   expanded: string[],
   depth: number = 0,
 ): FlattenedNode[] => {
+  // Sort the first level of the tree independently of the rest
+  if (depth === 0) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
-    const e = shouldExpand(node, expanded);
-    flattened.push({ ...node, depth, expanded: e, index });
-    if (e && node.children != null)
+    const expand = shouldExpand(node, expanded);
+    flattened.push({ ...node, depth, expanded: expand, index });
+    if (expand && node.children != null) {
+      node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
       flattened.push(...flatten(node.children, expanded, depth + 1));
+    }
   });
   return flattened;
 };
@@ -285,7 +304,7 @@ export const moveNode = (
     const node = findNode(tree, key);
     if (node == null) return;
     removeNode(tree, key);
-    addNode(tree, destination, node);
+    setNode(tree, destination, node);
   });
   return tree;
 };
@@ -304,18 +323,18 @@ export const removeNode = (tree: Node[], ...keys: string[]): Node[] => {
   return tree;
 };
 
-export const addNode = (
+export const setNode = (
   tree: Node[],
   destination: string,
-  ...nodes: Node[]
+  ...additions: Node[]
 ): Node[] => {
   const node = findNode(tree, destination);
   if (node == null) throw new Error(`Could not find node with key ${destination}`);
   if (node.children == null) node.children = [];
-  const keys = nodes.map((node) => node.key);
+  const addedKeys = additions.map((node) => node.key);
   node.children = [
-    ...nodes,
-    ...node.children.filter((child) => !keys.includes(child.key)),
+    ...additions,
+    ...node.children.filter((child) => !addedKeys.includes(child.key)),
   ];
   return tree;
 };
@@ -324,9 +343,13 @@ export const updateNode = (
   tree: Node[],
   key: string,
   updater: (node: Node) => Node,
+  throwOnMissing: boolean = true,
 ): Node[] => {
   const node = findNode(tree, key);
-  if (node == null) throw new Error(`Could not find node with key ${key}`);
+  if (node == null) {
+    if (throwOnMissing) throw new Error(`Could not find node with key ${key}`);
+    return tree;
+  }
   const parent = findNodeParent(tree, key);
   if (parent != null) {
     // splice the updated node into the parent's children

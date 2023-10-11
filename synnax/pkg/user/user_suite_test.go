@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "user Suite")
+	RunSpecs(t, "User Suite")
 }

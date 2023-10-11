@@ -7,48 +7,93 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Meta } from "./meta";
+import { type UnknownRecord } from "@synnaxlabs/x";
 
-const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
-export type LogLevel = typeof LOG_LEVELS[number];
+import { Meta } from "@/meta";
 
-export type LogLevelFilter = (level: LogLevel) => boolean;
+export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
+export interface LogLevelFilterProps {
+  key: string;
+  path: string;
+  level: LogLevel;
+}
+
+/**
+ * LogLevelFilter is a function that returns true if the log at the given
+ * level should be emitted.
+ */
+export type LogLevelFilter = (props: LogLevelFilterProps) => boolean;
 
 export const logThresholdFilter = (thresh: LogLevel): LogLevelFilter => {
   const threshIdx = LOG_LEVELS.indexOf(thresh);
-  return (level) => LOG_LEVELS.indexOf(level) >= threshIdx;
+  return ({ level }) => LOG_LEVELS.indexOf(level) >= threshIdx;
 };
+
+export interface LogLevelKeyFilterProps {
+  include?: string[];
+  exclude?: string[];
+}
+export const logLevelKeyFiler = (props: LogLevelKeyFilterProps): LogLevelFilter => {
+  const { include, exclude } = props;
+  return ({ key }) => {
+    if (include != null && !include.includes(key)) return false;
+    if (exclude != null && exclude.includes(key)) return false;
+    return true;
+  };
+};
+
+export interface LoggerProps {
+  filters?: LogLevelFilter[];
+}
 
 export class Logger {
   meta: Meta = Meta.NOOP;
-  filter: LogLevelFilter;
+  filters: LogLevelFilter[];
 
-  constructor(filter: LogLevelFilter = logThresholdFilter("info")) {
-    this.filter = filter;
+  constructor(p: LoggerProps = {}) {
+    const { filters = [] } = p;
+    this.filters = filters;
   }
 
-  child(_: Meta): Logger {
-    return new Logger();
+  private filter(level: LogLevel): boolean {
+    return (
+      !this.meta.noop &&
+      this.filters.every((f) =>
+        f({
+          key: this.meta.key,
+          path: this.meta.path,
+          level,
+        }),
+      )
+    );
   }
 
-  debug(msg: string): void {
-    if (this.meta.noop) return;
-    console.log(msg);
+  child(meta: Meta): Logger {
+    const l = new Logger({ filters: this.filters });
+    l.meta = meta;
+    return l;
   }
 
-  info(msg: string): void {
-    if (this.meta.noop) return;
-    console.log(msg);
+  debug(msg: string, kv?: UnknownRecord): void {
+    if (!this.filter("debug")) return;
+    console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, kv);
   }
 
-  warn(msg: string): void {
-    if (this.meta.noop) return;
-    console.warn(msg);
+  info(msg: string, kv?: UnknownRecord): void {
+    if (!this.filter("info")) return;
+    console.log("%cINFO", "color: #005eff;", this.meta.path, msg, kv);
   }
 
-  error(msg: string): void {
-    if (this.meta.noop) return;
-    console.error(msg);
+  warn(msg: string, kv?: UnknownRecord): void {
+    if (!this.filter("warn")) return;
+    console.warn("WARN", this.meta.path, msg, kv);
+  }
+
+  error(msg: string, kv?: UnknownRecord): void {
+    if (!this.filter("error")) return;
+    console.error("ERROR", this.meta.path, msg, kv);
   }
 
   static readonly NOOP = new Logger();

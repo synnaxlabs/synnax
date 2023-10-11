@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
-
 	"github.com/synnaxlabs/x/kv"
 )
 
@@ -50,6 +49,7 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	if err = f(txn); err == nil {
 		err = txn.Commit(ctx)
 	}
+
 	return
 }
 
@@ -86,6 +86,12 @@ type Tx interface {
 type tx struct {
 	kv.Tx
 	options
+}
+
+func checkForNilTx(method string, tx Tx) {
+	if tx == nil {
+		panic("[gorp] - nil transaction - please provide transaction to " + method)
+	}
 }
 
 var _ Tx = (*tx)(nil)

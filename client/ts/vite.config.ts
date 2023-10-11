@@ -14,6 +14,9 @@ export default defineConfig({
   plugins: [lib({ name: "client" })],
   build: {
     minify: false,
+    rollupOptions: {
+      external: "zod",
+    },
   },
   test: {
     globals: true,

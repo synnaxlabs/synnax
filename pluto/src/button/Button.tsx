@@ -9,7 +9,8 @@
 
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { type Optional } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/media";
+import { type Optional, toArray } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
 import { color } from "@/button/color";
@@ -27,6 +28,7 @@ export interface ButtonExtensionProps {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
+  loading?: boolean;
 }
 
 /** The base props accepted by all button types in this directory. */
@@ -66,28 +68,34 @@ export const Button = Tooltip.wrap(
     iconSpacing,
     sharp = false,
     disabled = false,
+    loading = false,
     level,
+    startIcon = [],
     onClick,
     ...props
-  }: ButtonProps): ReactElement => (
-    <Text.WithIcon
-      el="button"
-      className={CSS(
-        CSS.B("btn"),
-        CSS.size(size),
-        CSS.sharp(sharp),
-        CSS.disabled(disabled),
-        CSS.BM("btn", variant),
-        className,
-      )}
-      level={level ?? Text.ComponentSizeLevels[size]}
-      size={iconSpacing}
-      onClick={!disabled ? onClick : undefined}
-      noWrap
-      color={color(variant, disabled, props.color)}
-      {...props}
-    >
-      {children}
-    </Text.WithIcon>
-  ),
+  }: ButtonProps): ReactElement => {
+    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    return (
+      <Text.WithIcon
+        el="button"
+        className={CSS(
+          CSS.B("btn"),
+          CSS.size(size),
+          CSS.sharp(sharp),
+          CSS.disabled(disabled),
+          CSS.BM("btn", variant),
+          className,
+        )}
+        level={level ?? Text.ComponentSizeLevels[size]}
+        size={iconSpacing}
+        onClick={!disabled ? onClick : undefined}
+        noWrap
+        color={color(variant, disabled, props.color)}
+        startIcon={startIcon}
+        {...props}
+      >
+        {children}
+      </Text.WithIcon>
+    );
+  },
 );

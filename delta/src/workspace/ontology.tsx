@@ -9,15 +9,17 @@
 
 import { type ReactElement } from "react";
 
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Tree } from "@synnaxlabs/pluto";
+import { type UnknownRecord, deep } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
+import { PID } from "@/pid";
+import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
-
-import { selectActiveKey } from "./selectors";
 
 const handleDelete = ({
   client,
@@ -39,10 +41,47 @@ const handleDelete = ({
   })();
 };
 
+const handleCreateNewPID = ({
+  store,
+  client,
+  services,
+  placeLayout,
+  selection,
+  state: { nodes, setNodes, resources, setResources },
+}: Ontology.TreeContextMenuProps): void => {
+  const ws = selection.resources[0].id.key;
+  void (async () => {
+    const pid = await client.workspaces.pid.create(ws, {
+      name: "New PID",
+      snapshot: false,
+      data: deep.copy(PID.ZERO_STATE) as unknown as UnknownRecord,
+    });
+    const otg = await client.ontology.retrieve(
+      new ontology.ID({ key: pid.key, type: "pid" })
+    );
+    placeLayout(
+      PID.create({
+        ...(pid.data as unknown as PID.State),
+        key: pid.key,
+        name: pid.name,
+        snapshot: pid.snapshot,
+      })
+    );
+    setResources([...resources, otg]);
+    const nextNodes = Tree.setNode(
+      nodes,
+      selection.resources[0].key,
+      ...Ontology.toTreeNodes(services, [otg])
+    );
+    setNodes([...nextNodes]);
+  })();
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection: { resources },
   } = props;
+
   const handleSelect = (key: string): void => {
     switch (key) {
       case "delete":
@@ -51,6 +90,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         return Tree.startRenaming(resources[0].id.toString());
       case "group":
         void Group.fromSelection(props);
+        return;
+      case "pid": {
+        return handleCreateNewPID(props);
+      }
     }
   };
 
@@ -61,6 +104,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       </Menu.Item>
       <Ontology.RenameMenuItem />
       <Group.GroupMenuItem selection={props.selection} />
+      <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+        New Line Plot
+      </Menu.Item>
+      <Menu.Item itemKey="pid" startIcon={<Icon.PID />}>
+        New PID
+      </Menu.Item>
     </Menu.Menu>
   );
 };
@@ -78,7 +127,7 @@ const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   })();
 };
 
-const handleRename: Ontology.HnadleTreeRename = ({
+const handleRename: Ontology.HandleTreeRename = ({
   client,
   id,
   name,

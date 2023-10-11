@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from typing import overload
 
@@ -30,7 +37,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.payload import normalize_channel_params
 from synnax.framer.streamer import Streamer, AsyncStreamer
 from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
-from synnax.telem.authority import Authority, CrudeAuthority
+from synnax.telem.control import Authority, CrudeAuthority
 
 
 class Client:
@@ -92,7 +99,7 @@ class Client:
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
-            name=name
+            name=name,
         )
 
     def new_iterator(

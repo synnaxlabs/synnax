@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from __future__ import annotations
 
@@ -63,7 +70,8 @@ class ClusterChannelRetriever:
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
         return self.__execute(
-            _Request(**{normal.variant: normal.params}))  # type: ignore
+            _Request(**{normal.variant: normal.params})
+        )  # type: ignore
 
     def __execute(
         self,
@@ -127,8 +135,7 @@ class CacheChannelRetriever:
 
 
 def retrieve_required(
-    r: ChannelRetriever,
-    params: ChannelParams
+    r: ChannelRetriever, params: ChannelParams
 ) -> list[ChannelPayload]:
     normal = normalize_channel_params(params)
     results = r.retrieve(params)

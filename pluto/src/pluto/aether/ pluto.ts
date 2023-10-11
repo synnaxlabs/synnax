@@ -5,11 +5,12 @@
 //
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt
+// included in the file licenses/APL.txt.
 
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { control } from "@/control/aether";
 import { chip } from "@/control/chip/aether";
 import { status } from "@/status/aether";
@@ -49,6 +50,7 @@ export const render = (): void => {
     ...status.REGISTRY,
     ...button.REGISTRY,
     ...chip.REGISTRY,
+    ...alamos.REGISTRY,
   };
 
   aether.render({

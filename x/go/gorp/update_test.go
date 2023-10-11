@@ -58,4 +58,12 @@ var _ = Describe("Update", Ordered, func() {
 			WhereKeys(entries[0].GorpKey()).
 			Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.InvalidParameters))
 	})
+	It("Should return an error if the the key cannot be found", func() {
+		Expect(gorp.NewUpdate[int, entry]().
+			WhereKeys(999).
+			Change(func(e entry) entry {
+				e.Data = "new data"
+				return e
+			}).Exec(ctx, tx)).To(testutil.HaveOccurredAs(query.NotFound))
+	})
 })

@@ -61,7 +61,7 @@ const CHANNELS: Record<channel.Key, Channel> = {
 
 describe("XY", () => {
   describe("Static", () => {
-    class MockClient implements client.StaticClient, client.ChannelClient {
+    class MockClient implements client.ReadClient, client.ChannelClient {
       data: Record<channel.Key, client.ReadResponse>;
       retrieveChannelMock = vi.fn();
       readMock = vi.fn();

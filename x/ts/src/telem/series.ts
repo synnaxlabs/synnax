@@ -36,6 +36,14 @@ interface GL {
   bufferUsage: GLBufferUsage;
 }
 
+export interface SeriesDigest {
+  dataType: string;
+  sampleOffset: SampleValue;
+  alignment: number;
+  timeRange?: string;
+  length: number;
+}
+
 const FULL_BUFFER = -1;
 
 /**
@@ -357,6 +365,16 @@ export class Series {
     }
   }
 
+  get digest(): SeriesDigest {
+    return {
+      dataType: this.dataType.toString(),
+      sampleOffset: this.sampleOffset,
+      alignment: this.alignment,
+      timeRange: this._timeRange?.toString(),
+      length: this.length,
+    };
+  }
+
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
     if (this.gl.buffer == null) return;
     gl.deleteBuffer(this.gl.buffer);
@@ -372,7 +390,25 @@ export class Series {
 
   slice(start: number, end?: number): Series {
     const d = this.data.slice(start, end);
-    return new Series(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
+    return new Series(
+      d,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      this.gl.bufferUsage,
+      this.alignment + start,
+    );
+  }
+
+  reAlign(alignment: number): Series {
+    return new Series(
+      this.buffer,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      "static",
+      alignment,
+    );
   }
 }
 

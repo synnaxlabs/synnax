@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { Unreachable } from "@synnaxlabs/freighter";
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -38,7 +37,6 @@ const DEFAULT: State = {
 
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
-  private readonly id: string;
   private static readonly ENDPOINT = "/connectivity/check";
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
@@ -55,7 +53,6 @@ export class Checker {
    */
   constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
     this._state = { ...DEFAULT };
-    this.id = Math.random().toString(36).substring(7);
     this.client = client;
     this.pollFrequency = pollFreq;
     void this.check();

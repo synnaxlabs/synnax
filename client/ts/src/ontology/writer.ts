@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ID } from "@/ontology/payload";
+import { type ID } from "@/ontology/payload";
 
 const ENDPOINTS = {
   ADD_CHILDREN: "/ontology/add-children",
@@ -36,7 +36,7 @@ export class Writer {
     const [, err] = await this.client.send(
       ENDPOINTS.REMOVE_CHILDREN,
       req,
-      z.object({})
+      z.object({}),
     );
     if (err != null) throw err;
   }

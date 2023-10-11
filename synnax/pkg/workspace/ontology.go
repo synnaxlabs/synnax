@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-const ontologyType ontology.Type = "workspace"
+const OntologyType ontology.Type = "workspace"
 
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
@@ -38,7 +38,7 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 }
 
 var _schema = &ontology.Schema{
-	Type: ontologyType,
+	Type: OntologyType,
 	Fields: map[string]schema.Field{
 		"key":  {Type: schema.String},
 		"name": {Type: schema.String},
@@ -60,10 +60,10 @@ type change = changex.Change[uuid.UUID, Workspace]
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
 	var pid Workspace
-	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, tx)
 	return newResource(pid), err
 }
 

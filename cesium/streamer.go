@@ -79,15 +79,9 @@ var _ Streamer = (*streamer)(nil)
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-
 	frames, disconnect := s.relay.connect(1)
 	ctx.Go(func(ctx context.Context) error {
 		defer disconnect()
-		if s.sendControlDigests() {
-			s.Out.Inlet() <- StreamerResponse{
-				Frame: s.db.controlUpdateToWriterRequest(ctx, s.db.controlStates()),
-			}
-		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -95,11 +89,6 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			case req, ok := <-s.In.Outlet():
 				if !ok {
 					return nil
-				}
-				if s.sendControlDigests() {
-					s.Out.Inlet() <- StreamerResponse{
-						Frame: s.db.controlUpdateToWriterRequest(ctx, s.db.controlStates()),
-					}
 				}
 				s.Channels = req.Channels
 			case f := <-frames.Outlet():

@@ -6,6 +6,13 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation, NOOP
 from freighter import URL
@@ -97,12 +104,13 @@ class Synnax(Client):
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,
-            retriever=ch_retriever
+            retriever=ch_retriever,
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
         self.ranges = RangeClient(
+            unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
             creator=range_creator,

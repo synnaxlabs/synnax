@@ -16,10 +16,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-type File interface {
-	afero.File
-}
-
 const defaultPerm = 0755
 
 type FS interface {
@@ -27,6 +23,10 @@ type FS interface {
 	Sub(name string) (FS, error)
 	List() ([]os.FileInfo, error)
 	Exists(name string) (bool, error)
+}
+
+type File interface {
+	afero.File
 }
 
 type defaultFS struct {

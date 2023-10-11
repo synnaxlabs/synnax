@@ -11,15 +11,18 @@ package pid
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
 }
 
 func (w Writer) Create(
@@ -34,18 +37,32 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(p.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err := w.otg.DefineRelationship(
+	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
 		ontology.ParentOf,
 		otgID,
-	); err != nil {
-		return err
+	)
+}
+
+func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UUID, bool, error) {
+	var res []ontology.Resource
+	if err := w.otg.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.Parents).
+		WhereTypes(workspace.OntologyType).
+		Entries(&res).
+		Exec(ctx, w.tx); err != nil {
+		return uuid.Nil, false, err
 	}
-	return err
+	if len(res) == 0 {
+		return uuid.Nil, false, nil
+	}
+	k, err := uuid.Parse(res[0].ID.Key)
+	return k, true, err
 }
 
 func (w Writer) Rename(
@@ -59,14 +76,53 @@ func (w Writer) Rename(
 	}).Exec(ctx, w.tx)
 }
 
+func (w Writer) Copy(
+	ctx context.Context,
+	key uuid.UUID,
+	name string,
+	snapshot bool,
+	pid *PID,
+) error {
+	newKey := uuid.New()
+	if err := gorp.NewUpdate[uuid.UUID, PID]().WhereKeys(key).Change(func(p PID) PID {
+		p.Key = newKey
+		p.Name = name
+		p.Snapshot = snapshot
+		*pid = p
+		return p
+	}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	ws, ok, err := w.findParentWorkspace(ctx, key)
+	if err != nil || !ok {
+		return err
+	}
+	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+		return err
+	}
+	// In the case of a snapshot, don't create a relationship to the workspace.
+	if pid.Snapshot {
+		return nil
+	}
+	return w.otgWriter.DefineRelationship(
+		ctx,
+		workspace.OntologyID(ws),
+		ontology.ParentOf,
+		OntologyID(newKey),
+	)
+}
+
 func (w Writer) SetData(
 	ctx context.Context,
 	key uuid.UUID,
 	data string,
 ) error {
-	return gorp.NewUpdate[uuid.UUID, PID]().WhereKeys(key).Change(func(p PID) PID {
+	return gorp.NewUpdate[uuid.UUID, PID]().WhereKeys(key).ChangeErr(func(p PID) (PID, error) {
+		if p.Snapshot {
+			return p, errors.Wrapf(validate.Error, "[pid] - cannot set data on snapshot %s:%s", key, p.Name)
+		}
 		p.Data = data
-		return p
+		return p, nil
 	}).Exec(ctx, w.tx)
 }
 
@@ -79,7 +135,7 @@ func (w Writer) Delete(
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

@@ -15,3 +15,5 @@ export * from "@/hooks/useAsyncEffect";
 export * from "@/hooks/useSize";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useSyncedRef";
+export * from "@/hooks/useStateRef";
+export * from "@/hooks/useCombinedStateAndRef";

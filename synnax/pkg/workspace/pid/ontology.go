@@ -40,8 +40,9 @@ func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
 var _schema = &ontology.Schema{
 	Type: ontologyType,
 	Fields: map[string]schema.Field{
-		"key":  {Type: schema.String},
-		"name": {Type: schema.String},
+		"key":      {Type: schema.String},
+		"name":     {Type: schema.String},
+		"snapshot": {Type: schema.Bool},
 	},
 }
 
@@ -49,6 +50,7 @@ func newResource(pid PID) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(pid.Key), pid.Name)
 	schema.Set(e, "key", pid.Key.String())
 	schema.Set(e, "name", pid.Name)
+	schema.Set(e, "snapshot", pid.Snapshot)
 	return e
 }
 
@@ -60,10 +62,10 @@ type change = changex.Change[uuid.UUID, PID]
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (schema.Resource, error) {
 	k := uuid.MustParse(key)
 	var pid PID
-	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, tx)
 	return newResource(pid), err
 }
 

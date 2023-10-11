@@ -18,27 +18,27 @@ import (
 )
 
 type (
-	DB                   = cesium.DB
-	Frame                = cesium.Frame
-	Channel              = cesium.Channel
-	ChannelKey           = cesium.ChannelKey
-	WriterConfig         = cesium.WriterConfig
-	Writer               = cesium.Writer
-	StreamWriter         = cesium.StreamWriter
-	WriterRequest        = cesium.WriterRequest
-	WriterResponse       = cesium.WriterResponse
-	WriterCommand        = cesium.WriterCommand
-	ControlDigest        = cesium.ControlUpdate
-	IteratorConfig       = cesium.IteratorConfig
-	Iterator             = cesium.Iterator
-	StreamIterator       = cesium.StreamIterator
-	IteratorRequest      = cesium.IteratorRequest
-	IteratorResponse     = cesium.IteratorResponse
-	IteratorCommand      = cesium.IteratorCommand
-	StreamReader         = cesium.Streamer
-	StreamReaderConfig   = cesium.StreamerConfig
-	StreamReaderRequest  = cesium.StreamerRequest
-	StreamReaderResponse = cesium.StreamerResponse
+	DB               = cesium.DB
+	Frame            = cesium.Frame
+	Channel          = cesium.Channel
+	ChannelKey       = cesium.ChannelKey
+	WriterConfig     = cesium.WriterConfig
+	Writer           = cesium.Writer
+	StreamWriter     = cesium.StreamWriter
+	WriterRequest    = cesium.WriterRequest
+	WriterResponse   = cesium.WriterResponse
+	WriterCommand    = cesium.WriterCommand
+	ControlDigest    = cesium.ControlUpdate
+	IteratorConfig   = cesium.IteratorConfig
+	Iterator         = cesium.Iterator
+	StreamIterator   = cesium.StreamIterator
+	IteratorRequest  = cesium.IteratorRequest
+	IteratorResponse = cesium.IteratorResponse
+	IteratorCommand  = cesium.IteratorCommand
+	Streamer         = cesium.Streamer
+	StreamerConfig   = cesium.StreamerConfig
+	StreamerRequest  = cesium.StreamerRequest
+	StreamerResponse = cesium.StreamerResponse
 )
 
 const AutoSpan = cesium.AutoSpan
