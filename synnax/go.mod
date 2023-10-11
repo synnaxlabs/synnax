@@ -133,4 +133,15 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230920204549-e6e6cdab5c13 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+<!--
+  - Copyright 2023 Synnax Labs, Inc.
+  -
+  - Use of this software is governed by the Business Source License included in the file
+  - licenses/BSL.txt.
+  -
+  - As of the Change Date specified in that file, in accordance with the Business Source
+  - License, use of this software will be governed by the Apache License, Version 2.0,
+  - included in the file licenses/APL.txt.
+  -->
+
 )
