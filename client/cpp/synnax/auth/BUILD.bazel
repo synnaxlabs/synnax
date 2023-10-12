@@ -1,0 +1,9 @@
+cc_library(
+    name = "ranger",
+    hdrs = ["auth.h"],
+    deps = [
+        "@api_protos//v1:auth_grpc",
+        "@com_github_grpc_grpc//:grpc++",
+        "@telem_protos//telempb:telem_grpc",
+    ],
+)

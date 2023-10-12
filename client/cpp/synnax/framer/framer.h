@@ -3,10 +3,7 @@
 #include <vector>
 #include <utility>
 
-// Freighter.
 #include "freighter/freighter.h"
-
-//
 #include "synnax/telem/telem.h"
 #include "synnax/telem/series.h"
 #include "synnax/telem/control.h"
@@ -49,7 +46,7 @@ namespace Synnax::Framer {
             grpc::Status> WriterClient;
 
 
-/// @brief Frame type.
+    /// @brief Frame type.
     class Frame {
         std::vector<ChannelKey> *columns;
         std::vector<Telem::Series> *series;
@@ -57,7 +54,7 @@ namespace Synnax::Framer {
     public:
         Frame(std::vector<ChannelKey> *channels, std::vector<Telem::Series> *series);
 
-        Frame(const api::v1::Frame &f);
+        explicit Frame(const api::v1::Frame &f);
 
         void to_proto(api::v1::Frame *f) const;
     };
@@ -110,10 +107,9 @@ namespace Synnax::Framer {
         std::vector<ChannelKey> channels;
         Telem::Subject subject;
         Telem::TimeStamp start;
+
         api::v1::FrameWriterConfig to_proto(api::v1::FrameWriterConfig *f) const;
     };
-
-
 
 
     class Writer {

@@ -27,51 +27,60 @@
 
 // TODO: Create internal error types!!
 
-/// @brief freighter stream object.
-template <typename response_t, typename request_t, typename err_t, typename rpc_t>
-class GRPCStream : public Freighter::Stream<response_t, request_t, err_t>
-{
+class GRPCPool {
+private:
+    /// @brief A map of channels to targets.
+    std::map<std::string, std::shared_ptr<grpc::Channel>> channels;
 public:
-    /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
-    explicit GRPCStream(const std::string& target)
-    {
-        // Note that the streamer also sets up its own internal stub.
-        if (!stub || target != last_target)
-        {
-            // TODO: Set up crypto context.
-            auto channel = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
-            stub = rpc_t::NewStub(channel);
+    /// @brief Get a channel for a given target.
+    /// @param target The target to connect to.
+    /// @returns A channel to the target.
+    std::shared_ptr<grpc::Channel> getChannel(const std::string &target) {
+        if (channels.find(target) == channels.end())
+            channels[target] = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
+        return channels[target];
+    }
+
+    ~GRPCPool() {
+        for (auto &channel: channels) {
+            channel.second.reset();
         }
-        stream = stub->Stream(&context);
+    }
+};
+
+/// @brief freighter stream object.
+template<typename response_t, typename request_t, typename err_t, typename rpc_t>
+class GRPCStream : public Freighter::Stream<response_t, request_t, err_t> {
+public:
+
+    /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
+    explicit GRPCStream(std::shared_ptr<grpc::Channel> channel) {
+        // Note that the streamer also sets up its own internal stub.
+        stub = rpc_t::NewStub(channel);
+        stream = stub->Streamer(&context);
     }
 
     /// @brief Streamer send.
-    err_t send(request_t &request) override
-    {
+    err_t send(request_t &request) override {
         // TODO: Expand on the returned statuses.
-        if (stream->Write(request))
-        {
+        if (stream->Write(request)) {
             return grpc::Status::OK;
         };
         return grpc::Status::CANCELLED;
     }
 
     /// @brief Streamer read.
-    std::pair<response_t, err_t> receive() override
-    {
+    std::pair<response_t, err_t> receive() override {
         response_t res;
-        if (stream->Read(&res))
-        {
+        if (stream->Read(&res)) {
             return {res, grpc::Status::OK};
         };
         return {res, grpc::Status::CANCELLED};
     }
 
     /// @brief Closing streamer.
-    err_t closeSend() override
-    {
-        if (stream->WritesDone())
-        {
+    err_t closeSend() override {
+        if (stream->WritesDone()) {
             return grpc::Status();
         }
 
@@ -93,48 +102,96 @@ private:
 };
 
 /// @brief GRPCUnaryClient specific class
-template <typename response_t, typename request_t, typename err_t, typename rpc_t>
-class GRPCUnaryClient : public Freighter::UnaryClient<response_t, request_t, err_t>
-{
+template<typename response_t, typename request_t, typename err_t, typename rpc_t>
+class GRPCUnaryClient :
+        public Freighter::UnaryClient<response_t, request_t, err_t>,
+        Freighter::BaseMiddleware {
+    request_t latest_request;
+    response_t latest_response;
+    err_t latest_err;
 public:
+    GRPCUnaryClient(
+            GRPCPool *pool,
+            const std::string &base_target
+    ) : pool(pool),
+        base_target(Freighter::URL(base_target)) {
+    }
+
+    void use(Freighter::Middleware *middleware) override {
+        mw.use(middleware);
+    }
+
+
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<response_t, err_t> send(const std::string &target, request_t &request) override
-    {
-        grpc::ClientContext context;
-        // To abstract the interface, we construct the stub only if needed.
-        if (!stub || target != last_target)
-        {
-            // TODO: Set up crypto context.
-            auto channel = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
-            stub = rpc_t::NewStub(channel);
-        }
-        response_t response;
-        auto stat = stub->Unary(&context, request, &response);
-        err_t status = stat;
+    std::pair<response_t, err_t> send(const std::string &target, request_t &request) override {
+        Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
+        auto [_, exc] = mw.exec(ctx, this);
+        if (exc != nullptr) throw *exc;
+        return {latest_response, latest_err};
+    }
 
-        return {response, status};
+    virtual std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context &context) {
+        grpc::ClientContext ctx;
+        auto target = context.target;
+        auto channel = pool->getChannel(base_target.child(target).toString());
+        stub = rpc_t::NewStub(channel);
+        auto stat = stub->Unary(&ctx, latest_request, &latest_response);
+        latest_err = stat;
+        return {context, nullptr};
     }
 
 
 private:
+    Freighter::MiddlewareCollector mw;
+
+    /// GRPCPool to pool connections across clients.
+    GRPCPool *pool;
+
+    /// base target.
+    Freighter::URL base_target;
+
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;
-
-    /// The last target used.
-    std::string last_target;
 };
 
-template <typename response_t, typename request_t, typename err_t, typename rpc_t>
-class GRPCStreamClient: public Freighter::StreamClient<response_t, request_t, err_t> {
+template<typename response_t, typename request_t, typename err_t, typename rpc_t>
+class GRPCStreamClient :
+        public Freighter::StreamClient<response_t, request_t, err_t>,
+        Freighter::BaseMiddleware {
+private:
+    Freighter::MiddlewareCollector mw;
+    GRPCPool *pool;
+    Freighter::URL base_target;
+    GRPCStream<response_t, request_t, err_t, rpc_t> *latest_stream;
 public:
+    GRPCStreamClient(
+            GRPCPool *pool,
+            const std::string &base_target
+    ) : pool(pool),
+        base_target(Freighter::URL(base_target)) {
+    }
+
+    void use(Freighter::Middleware *middleware) override {
+        mw.use(middleware);
+    }
+
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
-    Freighter::Stream<response_t, request_t, err_t>* stream(const std::string &target) override
-    {
-    return new GRPCStream<response_t, request_t, err_t, rpc_t>(target);
+    Freighter::Stream<response_t, request_t, err_t> *stream(const std::string &target) override {
+        Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
+        auto [_, exc] = mw.exec(ctx, this);
+        if (exc != nullptr) throw *exc;
+        return latest_stream;
+    }
+
+    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context &context) {
+        auto target = context.target;
+        auto channel = pool->getChannel(base_target.child(target).toString());
+        latest_stream = new GRPCStream<response_t, request_t, err_t, rpc_t>(channel);
+        return {context, nullptr};
     }
 };

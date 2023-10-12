@@ -24,7 +24,9 @@ using response_t = test::Message;
 using request_t = test::Message;
 using rpc_t = test::messageService;
 using err_t = grpc::Status;
-using stream_t = GRPCStream<response_t, request_t, err_t, rpc_t>;
+
+auto pool = new GRPCPool();
+auto base_target = "";
 
 /// @brief Test to make sure message proto works as expected.
 TEST(testGRPC, basicProto)
@@ -41,7 +43,7 @@ TEST(testGRPC, testBasicUnary)
     std::string target("localhost:8080");
     std::thread s(server, target);
 
-    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     auto [res, err] = client.send(target, mes);
@@ -60,7 +62,7 @@ TEST(testGRPC, testFailedUnary)
     // we don't get a response.
     std::string target("localhost:8080");
     std::string failure_msg("failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:8080: Failed to connect to remote host: Connection refused");
-    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     auto [res, err] = client.send(target, mes);
@@ -76,7 +78,7 @@ TEST(testGRPC, testMultipleTargets)
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
 
-    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCUnaryClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes_one = test::Message();
     mes_one.set_payload("Sending to Server One");
     auto [res_one, _] = client.send(target_one, mes_one);
@@ -98,7 +100,7 @@ TEST(testGRPC, testBasicStream)
     std::string target("localhost:8080");
     std::thread s(server, target);
 
-    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes = test::Message();
 
     auto streamer = client.stream(target);
@@ -119,7 +121,7 @@ TEST(testGRPC, testMultipleStreamObjects)
     std::thread s1(server, target_one);
     std::thread s2(server, target_two);
 
-    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes_one = test::Message();
     auto mes_two = test::Message();
 
@@ -147,7 +149,7 @@ TEST(testGRPC, testSendMultipleMessages)
     std::string target("localhost:8080");
     std::thread s(server, target);
 
-    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes = test::Message();
     auto mes_two = test::Message();
 
@@ -171,7 +173,7 @@ TEST(testGRPC, testSendMultipleMessages)
 TEST(testGRPC, testStreamError)
 {
     std::string target("localhost:8080");
-    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>();
+    auto client = GRPCStreamClient<response_t, request_t, err_t, rpc_t>(pool, base_target);
     auto mes = test::Message();
 
     auto streamer = client.stream(target);
