@@ -1,14 +1,24 @@
-//
-// Created by Emiliano Bonilla on 10/8/23.
-//
 
-#include "synnax/ranger/ranger.h"
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+/// protos
 #include "v1/ranger.pb.h"
 #include "telempb/telem.pb.h"
+
+/// internal
+#include "synnax/ranger/ranger.h"
 #include "synnax/exceptions.h"
 #include "synnax/telem/telem.h"
 
 using namespace Synnax;
+using namespace Ranger;
 
 api::v1::Range translate_forward(Range ch, api::v1::Range *a) {
     a->set_name(ch.name);
@@ -29,14 +39,14 @@ Range translate_backward(api::v1::Range *a, KV *kv) {
 }
 
 
-Range::Range(Key key, std::string name, Telem::TimeRange time_range) :
+Range::Range(const Key &key, const std::string &name, Telem::TimeRange time_range) :
         key(key),
         name(name),
         time_range(time_range) {
     kv = nullptr;
 }
 
-Range::Range(Key key, std::string name, Telem::TimeRange time_range, KV *kv) :
+Range::Range(const Key &key, const std::string &name, Telem::TimeRange time_range, KV *kv) :
         key(key),
         name(name),
         time_range(time_range),
@@ -45,7 +55,7 @@ Range::Range(Key key, std::string name, Telem::TimeRange time_range, KV *kv) :
 std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 std::string CREATE_ENDPOINT = "/range/create";
 
-Range RangeClient::retrieve_by_key(std::string key) {
+Range Client::retrieve_by_key(std::string key) {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -56,7 +66,7 @@ Range RangeClient::retrieve_by_key(std::string key) {
     return translate_backward(res.mutable_ranges(0), nullptr);
 }
 
-Range RangeClient::retrieve_by_name(std::string name) {
+Range Client::retrieve_by_name(std::string name) {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -67,7 +77,7 @@ Range RangeClient::retrieve_by_name(std::string name) {
     return translate_backward(res.mutable_ranges(0), nullptr);
 }
 
-std::vector<Range> RangeClient::retrieve_by_key(std::vector<std::string> keys) {
+std::vector<Range> Client::retrieve_by_key(std::vector<std::string> keys) {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys)
         req.add_keys(key);
@@ -81,7 +91,7 @@ std::vector<Range> RangeClient::retrieve_by_key(std::vector<std::string> keys) {
     return ranges;
 }
 
-std::vector<Range> RangeClient::retrieve_by_name(std::vector<std::string> names) {
+std::vector<Range> Client::retrieve_by_name(std::vector<std::string> names) {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names)
         req.add_names(name);
@@ -95,7 +105,7 @@ std::vector<Range> RangeClient::retrieve_by_name(std::vector<std::string> names)
     return ranges;
 }
 
-void RangeClient::create(std::vector<Range> &ranges) {
+void Client::create(std::vector<Range> &ranges) {
     auto req = api::v1::RangeCreateRequest();
     for (auto &range: ranges) {
         auto rng = req.add_ranges();
@@ -109,7 +119,7 @@ void RangeClient::create(std::vector<Range> &ranges) {
 }
 
 
-void RangeClient::create(Range &range) {
+void Client::create(Range &range) {
     auto req = api::v1::RangeCreateRequest();
     auto rng = req.add_ranges();
     translate_forward(range, rng);
@@ -119,7 +129,7 @@ void RangeClient::create(Range &range) {
     range.key = res.ranges(0).key();
 }
 
-Range RangeClient::create(std::string name, Telem::TimeRange time_range) {
+Range Client::create(std::string name, Telem::TimeRange time_range) {
     auto rng = Range(name, time_range);
     create(rng);
     return rng;

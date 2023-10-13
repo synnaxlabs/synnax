@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #include <string>
 #include <utility>
 #include "v1/channel.pb.h"
@@ -48,15 +57,11 @@ namespace Channel {
     };
 
     class Client {
-    private:
-        RetrieveClient *retrieve_client;
-        CreateClient *create_client;
-
+    public:
         Client(RetrieveClient *retrieve_client, CreateClient *create_client) :
                 retrieve_client(retrieve_client),
                 create_client(create_client) {}
 
-    public:
         Channel retrieve(const std::string &name);
 
         Channel retrieve(std::uint32_t key);
@@ -68,5 +73,9 @@ namespace Channel {
         void create(std::vector<Channel> &channels);
 
         Channel create(std::string name, Telem::DataType data_type, Telem::Rate rate, ChannelKey index, bool is_index);
+
+    private:
+        RetrieveClient *retrieve_client;
+        CreateClient *create_client;
     };
 }

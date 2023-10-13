@@ -117,9 +117,7 @@ namespace Freighter {
         }
 
         /// @implements Middleware::operator()
-        std::pair<Context, std::exception *> operator()(Context context) override {
-            return next->operator()(context);
-        }
+        std::pair<Context, std::exception *> operator()(Context context) override { return next->operator()(context); }
 
     private:
         /// @brief the next middleware in the chain.
