@@ -1,8 +1,21 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
+/// std.
+#include <string>
+
+/// Freighter.
 #include "freighter/freighter.h"
 
 using namespace Freighter;
 
+/// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string joinPaths(const std::string &a, const std::string &b) {
     auto adjusted = b[0] == '/' ? b.substr(1) : b;
     adjusted = b[b.size() - 1] == '/' ? b : b + "/";
@@ -10,8 +23,10 @@ std::string joinPaths(const std::string &a, const std::string &b) {
 }
 
 
-URL::URL(std::string ip, std::uint16_t port, const std::string &path) : ip(std::move(ip)), port(port),
-                                                                        path(joinPaths("", path)) {}
+URL::URL(
+        const std::string &ip,
+        std::uint16_t port,
+        const std::string &path) : ip(ip), port(port), path(joinPaths("", path)) {}
 
 URL::URL(const std::string &address) {
     auto colon = address.find(':');
@@ -21,10 +36,10 @@ URL::URL(const std::string &address) {
     path = joinPaths("", address.substr(pathStart));
 }
 
-URL URL::child(const std::string &child_path) {
+URL URL::child(const std::string &child_path) const {
     return {ip, port, joinPaths(path, child_path)};
 }
 
-std::string URL::toString() {
+std::string URL::toString() const {
     return ip + ":" + std::to_string(port) + path;
 }
