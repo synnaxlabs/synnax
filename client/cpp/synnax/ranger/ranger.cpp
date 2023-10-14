@@ -20,42 +20,35 @@
 using namespace Synnax;
 using namespace Ranger;
 
-api::v1::Range translate_forward(Range ch, api::v1::Range *a) {
-    a->set_name(ch.name);
-    a->set_key(ch.key);
-    auto tr = telempb::TimeRange();
-    tr.set_start(ch.time_range.start.value);
-    tr.set_end(ch.time_range.end.value);
-    a->set_allocated_time_range(&tr);
-    return *a;
-}
 
-Range translate_backward(api::v1::Range *a, KV *kv) {
-    return Range(
-            a->key(),
-            a->name(),
-            TimeRange(TimeStamp(a->time_range().start()), TimeStamp(a->time_range().end())), kv
-    );
-}
-
-
-Range::Range(const Key &key, const std::string &name, Telem::TimeRange time_range) :
-        key(key),
+Range::Range(const std::string &name, Telem::TimeRange time_range) :
         name(name),
         time_range(time_range) {
-    kv = nullptr;
 }
 
-Range::Range(const Key &key, const std::string &name, Telem::TimeRange time_range, KV *kv) :
-        key(key),
-        name(name),
-        time_range(time_range),
-        kv(kv) {}
 
-std::string RETRIEVE_ENDPOINT = "/range/retrieve";
-std::string CREATE_ENDPOINT = "/range/create";
+Range::Range(const api::v1::Range &a) :
+        key(a.key()),
+        name(a.name()),
+        time_range(
+                Telem::TimeRange(Telem::TimeStamp(a.time_range().start()), Telem::TimeStamp(a.time_range().end()))),
+        kv(nullptr) {
+}
 
-Range Client::retrieve_by_key(std::string key) {
+void Range::to_proto(api::v1::Range *rng) const {
+    rng->set_name(name);
+    rng->set_key(key);
+    auto tr = telempb::TimeRange();
+    tr.set_start(time_range.start.value);
+    tr.set_end(time_range.end.value);
+    rng->set_allocated_time_range(&tr);
+}
+
+
+const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
+const std::string CREATE_ENDPOINT = "/range/create";
+
+Range Client::retrieve_by_key(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -63,10 +56,10 @@ Range Client::retrieve_by_key(std::string key) {
         throw QueryError(err.error_message());
     if (res.ranges_size() == 0)
         throw QueryError("No range found with key " + key);
-    return translate_backward(res.mutable_ranges(0), nullptr);
+    return Range(res.ranges(0));
 }
 
-Range Client::retrieve_by_name(std::string name) {
+Range Client::retrieve_by_name(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
@@ -74,73 +67,68 @@ Range Client::retrieve_by_name(std::string name) {
         throw QueryError(err.error_message());
     if (res.ranges_size() == 0)
         throw QueryError("No range found with name " + name);
-    return translate_backward(res.mutable_ranges(0), nullptr);
+    return Range(res.ranges(0));
 }
 
-std::vector<Range> Client::retrieve_by_key(std::vector<std::string> keys) {
+std::vector<Range> Client::retrieve_by_key(std::vector<std::string> keys) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &key: keys)
         req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (!err.ok())
         throw QueryError(err.error_message());
-    std::vector<Range> ranges;
-    ranges.reserve(res.ranges_size());
-    for (auto i = 0; i < res.ranges_size(); i++)
-        ranges.push_back(translate_backward(res.mutable_ranges(i), nullptr));
+    std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
+    for (auto &r: ranges) r.kv = nullptr;
     return ranges;
 }
 
-std::vector<Range> Client::retrieve_by_name(std::vector<std::string> names) {
+std::vector<Range> Client::retrieve_by_name(std::vector<std::string> names) const {
     auto req = api::v1::RangeRetrieveRequest();
     for (auto &name: names)
         req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (!err.ok())
         throw QueryError(err.error_message());
-    std::vector<Range> ranges;
-    ranges.reserve(res.ranges_size());
-    for (auto i = 0; i < res.ranges_size(); i++)
-        ranges.push_back(translate_backward(res.mutable_ranges(i), nullptr));
+    std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
+    for (auto &r: ranges) r.kv = nullptr;
     return ranges;
 }
 
-void Client::create(std::vector<Range> &ranges) {
+void Client::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
-    for (auto &range: ranges) {
-        auto rng = req.add_ranges();
-        translate_forward(range, rng);
-    }
+    req.mutable_ranges()->Reserve(ranges.size());
+    for (const auto &range: ranges) range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (!err.ok())
         throw QueryError(err.error_message());
-    for (auto i = 0; i < res.ranges_size(); i++)
+    for (auto i = 0; i < res.ranges_size(); i++) {
         ranges[i].key = res.ranges(i).key();
+        ranges[i].kv = nullptr;
+    }
 }
 
 
-void Client::create(Range &range) {
+void Client::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
-    auto rng = req.add_ranges();
-    translate_forward(range, rng);
+    range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (!err.ok())
         throw QueryError(err.error_message());
     range.key = res.ranges(0).key();
 }
 
-Range Client::create(std::string name, Telem::TimeRange time_range) {
+Range Client::create(std::string name, Telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     create(rng);
     return rng;
 }
 
-std::string KV_SET_ENDPOINT = "/range/kv/set";
-std::string KV_GET_ENDPOINT = "/range/kv/get";
-std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
+const std::string KV_SET_ENDPOINT = "/range/kv/set";
+const std::string KV_GET_ENDPOINT = "/range/kv/get";
+const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
 
 
-std::string KV::get(std::string key) {
+std::string KV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
@@ -149,7 +137,7 @@ std::string KV::get(std::string key) {
     return res.pairs().at(key);
 }
 
-void KV::set(std::string key, std::string value) {
+void KV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     (*req.mutable_pairs())[key] = value;
@@ -158,7 +146,7 @@ void KV::set(std::string key, std::string value) {
         throw QueryError(err.error_message());
 }
 
-void KV::delete_(std::string key) {
+void KV::delete_(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);

@@ -20,7 +20,7 @@ Frame Streamer::read() {
     if (!exc.ok()) {
         throw;
     }
-    return {fr.frame()};
+    return Frame(fr.frame());
 }
 
 void Streamer::close() {

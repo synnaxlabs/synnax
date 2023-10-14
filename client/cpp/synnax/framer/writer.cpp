@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <string>
 
-#include "synnax/framer/framer.h"
+
+/// api protos
 #include "v1/framer.pb.h"
 
-std::string WRITE_ENDPOINT = "/frame/write";
+/// internal
+#include "synnax/framer/framer.h"
+
+const std::string WRITE_ENDPOINT = "/frame/write";
 
 using namespace Synnax::Framer;
 
@@ -45,7 +50,7 @@ std::pair<Telem::TimeStamp, bool> Writer::commit() {
 }
 
 std::exception Writer::error() {
-   auto req = api::v1::FrameWriterRequest();
+    auto req = api::v1::FrameWriterRequest();
     req.set_command(ERROR);
     auto exc = stream->send(req);
     if (!exc.ok()) throw exc;
@@ -63,7 +68,7 @@ void Writer::close() {
     if (!recExc.ok()) throw recExc;
 }
 
-api::v1::FrameWriterConfig WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
+void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     subject.to_proto(f->mutable_control_subject());
     f->set_start(start.value);
     for (auto &auth: authorities) f->add_authorities(auth);

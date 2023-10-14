@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <string>
 #include <vector>
 
-#include "synnax/channel/channel.h"
+/// api protos
 #include "v1/channel.pb.h"
+
+/// internal
+#include "synnax/channel/channel.h"
 #include "synnax/exceptions.h"
 #include "synnax/telem/telem.h"
 
@@ -132,6 +136,7 @@ std::vector<Channel::Channel> Channel::Client::retrieve(const std::vector<std::s
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {res.channels().begin(), res.channels().end()};
 }
 

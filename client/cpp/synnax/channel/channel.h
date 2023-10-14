@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std.
+/// std
 #include <string>
 #include <utility>
 
-/// freighter.
+/// freighter
 #include "freighter/freighter.h"
 
-/// api protos.
+/// api protos
 #include "v1/channel.pb.h"
 
-/// grpc.
+/// grpc
 #include <grpcpp/grpcpp.h>
 
-/// internal.
+/// internal
 #include "synnax/telem/telem.h"
 
 #pragma once
@@ -101,7 +101,7 @@ public:
     explicit Channel(const api::v1::Channel &ch);
 
 private:
-    /// @brief binds the channels members to the protobuf type.
+    /// @brief binds the channel's fields to the protobuf type.
     void to_proto(api::v1::Channel *ch) const;
 
     friend class Client;
@@ -150,12 +150,29 @@ public:
             Telem::Rate rate
     ) const;
 
+    /// @brief retrieves a channel with the given name.
+    /// @param name the name of the channel to retrieve.
+    /// @throws QueryError if the channel does not exist or multiple channels with the
+    /// same name exist.
+    /// @returns the retrieved channel.
     [[nodiscard]] Channel retrieve(const std::string &name) const;
 
+    /// @brief retrieves a channel with the given key.
+    /// @param key the key of the channel to retrieve.
+    /// @throws QueryError if the channel does not exist.
+    /// @returns the retrieved channel.
     [[nodiscard]] Channel retrieve(std::uint32_t key) const;
 
+    /// @brief retrieves channels with the given names.
+    /// @param names the names of the channels to retrieve.
+    /// @returns all channels matching the given names. If a channel matching a name,
+    /// does not exist, it will not be in the returned vector.
     [[nodiscard]] std::vector<Channel> retrieve(const std::vector<std::string> &names) const;
 
+    /// @brief retrieves channels with the given keys.
+    /// @param keys the keys of the channels to retrieve.
+    /// @returns all channels matching the given keys. If a channel matching a key
+    /// does not exist, it will not be in the returned vector.
     [[nodiscard]] std::vector<Channel> retrieve(const std::vector<Key> &keys) const;
 
 private:
