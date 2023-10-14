@@ -59,7 +59,7 @@ public:
     explicit GRPCStream(std::shared_ptr<grpc::Channel> channel) {
         // Note that the streamer also sets up its own internal stub.
         stub = rpc_t::NewStub(channel);
-        stream = stub->Streamer(&context);
+        stream = stub->Exec(&context);
     }
 
     /// @brief Streamer send.
@@ -144,7 +144,7 @@ public:
         // Execute request.
         auto channel = pool->getChannel(outboundContext.target);
         stub = rpc_t::NewStub(channel);
-        auto stat = stub->Unary(&grpcContext, latest_request, &latest_response);
+        auto stat = stub->Exec(&grpcContext, latest_request, &latest_response);
         latest_err = stat;
 
         // Set inbound metadata.

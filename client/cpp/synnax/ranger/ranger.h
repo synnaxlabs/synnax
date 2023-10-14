@@ -14,6 +14,7 @@
 #include "v1/ranger.pb.h"
 #include "freighter/freighter.h"
 #include <grpcpp/grpcpp.h>
+#include "google/protobuf/empty.pb.h"
 
 typedef std::string Key;
 
@@ -39,16 +40,13 @@ namespace Ranger {
             grpc::Status
     > KVGetClient;
 
-    struct Empty {
-    };
-
     typedef Freighter::UnaryClient<
-            Empty,
+            google::protobuf::Empty,
             api::v1::RangeKVSetRequest,
             grpc::Status> KVSetClient;
 
     typedef Freighter::UnaryClient<
-            Empty,
+            google::protobuf::Empty,
             api::v1::RangeKVDeleteRequest,
             grpc::Status> KVDeleteClient;
 
@@ -60,9 +58,13 @@ namespace Ranger {
         std::unique_ptr<KVSetClient> kv_set_client;
         std::unique_ptr<KVDeleteClient> kv_delete_client;
     public:
-        KV(std::string range_key, KVGetClient *kv_get_client, KVSetClient *kv_set_client,
-           KVDeleteClient *kv_delete_client) : range_key(range_key), kv_get_client(kv_get_client),
-                                               kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {}
+        KV(
+                std::string range_key,
+                KVGetClient *kv_get_client,
+                KVSetClient *kv_set_client,
+                KVDeleteClient *kv_delete_client
+        ) : range_key(range_key), kv_get_client(kv_get_client),
+            kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {}
 
 
         std::string get(std::string key);

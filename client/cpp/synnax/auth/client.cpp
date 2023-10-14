@@ -38,5 +38,5 @@ public:
     }
 };
 
-Freighter::Middleware *Client::middleware() { return new TokenMiddleware(token); }
+Freighter::Middleware *Client::tokenMiddleware() { return new TokenMiddleware(token); }
 

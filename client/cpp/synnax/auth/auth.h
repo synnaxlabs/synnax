@@ -35,6 +35,6 @@ namespace Auth {
 
         Client(AuthClient *auth_client, const std::string &username, const std::string &password);
 
-        Freighter::Middleware* middleware();
+        Freighter::Middleware* tokenMiddleware();
     };
 }

@@ -15,15 +15,23 @@
 
 using namespace Synnax;
 
-struct Config {
-    std::string host;
-    std::uint16_t port;
-    bool secure;
-    std::string username;
-    std::string password;
-};
 
 namespace Synnax {
+
+    // @brief Configuration for opening a Synnax client.
+    struct Config {
+        // @brief the host of a node in the cluster.
+        std::string host;
+        // @brief the port for the specified host.
+        std::uint16_t port;
+        // @brief whether to use TLS when connecting to the host. Only works when the node is running in secure mode.
+        bool secure;
+        // @brief the username to use when authenticating with the node.
+        std::string username;
+        // @brief the password to use when authenticating with the node.
+        std::string password;
+    };
+
     class Client {
     public:
         Channel::Client channels = Channel::Client(nullptr, nullptr);
@@ -33,14 +41,14 @@ namespace Synnax {
         explicit Client(const Config &cfg) {
             auto t = Transport(cfg.port, cfg.host);
             auth = Auth::Client(t.auth_login, cfg.username, cfg.password);
-            t.use(auth.middleware());
+            t.use(auth.tokenMiddleware());
             channels = Channel::Client(t.chan_retrieve, t.chan_create);
             ranges = Ranger::Client(
                     t.range_retrieve,
                     t.range_create,
-                    t.range_kv_delete,
                     t.range_kv_get,
-                    t.range_kv_set
+                    t.range_kv_set,
+                    t.range_kv_delete
             );
             telem = Framer::Client(t.frame_iter, t.frame_stream, t.frame_write);
         }

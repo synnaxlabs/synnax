@@ -20,6 +20,7 @@
 #include "v1/channel.grpc.pb.h"
 #include "v1/auth.pb.h"
 #include "v1/auth.grpc.pb.h"
+#include "google/protobuf/empty.pb.h"
 
 /// internal
 #include "synnax/transport.h"
@@ -88,7 +89,7 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     >(pool, base_target);
 
     range_kv_delete = new GRPCUnaryClient<
-            Ranger::Empty,
+            google::protobuf::Empty,
             v1::RangeKVDeleteRequest,
             grpc::Status,
             v1::RangeKVDeleteService
@@ -102,7 +103,7 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     >(pool, base_target);
 
     range_kv_set = new GRPCUnaryClient<
-            Ranger::Empty,
+            google::protobuf::Empty,
             v1::RangeKVSetRequest,
             grpc::Status,
             v1::RangeKVSetService
