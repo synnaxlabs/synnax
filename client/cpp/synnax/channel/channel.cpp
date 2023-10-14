@@ -39,7 +39,7 @@ Channel::Channel::Channel(
         Telem::DataType data_type,
         Telem::Rate rate
 ) :
-        name(std::move(name)),
+        name(name),
         data_type(data_type),
         rate(rate) {}
 
@@ -49,7 +49,7 @@ Channel::Channel::Channel(
         Telem::DataType data_type,
         Key index,
         bool is_index
-) : name(std::move(name)), data_type(data_type), index(index), is_index(is_index) {}
+) : name(name), data_type(data_type), index(index), is_index(is_index) {}
 
 /// @brief binds to the given proto.
 void Channel::Channel::to_proto(api::v1::Channel *a) const {
