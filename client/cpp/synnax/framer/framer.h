@@ -63,9 +63,19 @@ class Frame {
 public:
     Frame(std::vector<Channel::Key> *channels, std::vector<Telem::Series> *series);
 
+    Frame(size_t size);
+
     explicit Frame(const api::v1::Frame &f);
 
     void to_proto(api::v1::Frame *f) const;
+
+    void push_back(Channel::Key col, Telem::Series ser);
+
+    size_t size() const { return series->size(); }
+
+    std::pair<Channel::Key, Telem::Series> operator[](size_t i) const {
+        return std::make_pair((*columns)[i], (*series)[i]);
+    }
 };
 
 struct IteratorConfig {
@@ -132,7 +142,7 @@ public:
 
     std::pair<Telem::TimeStamp, bool> commit();
 
-    std::exception error();
+//    std::exception error();
 
     void close();
 

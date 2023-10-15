@@ -1,12 +1,13 @@
 cc_library(
-    name = "ranger",
+    name = "auth",
     srcs = [
         "client.cpp",
     ],
     hdrs = ["auth.h"],
+    visibility = ["//visibility:public"],
     deps = [
         "@Freighter//freighter/gRPC",
-        "@api_protos//v1:auth_grpc",
+        "@api_protos//v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
         "@telem_protos//telempb:telem_grpc",
     ],

@@ -12,13 +12,13 @@
 
 using namespace Auth;
 
-Client::Client(Auth::AuthClient *auth_client, const std::string &username, const std::string &password) {
-    this->username = username;
-    this->password = password;
+Client::Client(Auth::LoginClient *login_client): login_client(login_client) {}
+
+void Client::login(const std::string &username, const std::string &password) {
     api::v1::LoginRequest req;
     req.set_username(username);
     req.set_password(password);
-    auto [res, exc] = auth_client->send("/auth_login/login", req);
+    auto [res, exc] = login_client->send("/auth_login/login", req);
     if (!exc.ok()) throw exc;
     token = res.token();
 }

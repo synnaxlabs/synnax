@@ -50,12 +50,17 @@ namespace Synnax::Telem {
         /// @brief Maps the data type to the 'density' of
         /// the object.
         static inline std::unordered_map<std::string, int> DENSITIES = {
-                {typeid(int).name(), 4}
+                {typeid(int).name(), 4},
+                {"float64", 8},
+                {"float32", 4}
+
         };
 
         /// @brief Maps the data type id to name
-        static inline std::unordered_map<std::string, std::string> NAMES =             {
-                {typeid(int).name(), "int"}
+        static inline std::unordered_map<std::string, std::string> NAMES = {
+                {typeid(int).name(), "int"},
+                {typeid(double).name(), "float64"},
+                {typeid(float).name(), "float32"}
         };
 
     };

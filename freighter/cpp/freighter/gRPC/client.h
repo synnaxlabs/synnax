@@ -127,7 +127,7 @@ public:
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
     std::pair<response_t, err_t> send(const std::string &target, request_t &request) override {
-        latest_request = request;
+        this->latest_request = request;
         Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
         if (exc != nullptr) throw *exc;
@@ -135,7 +135,7 @@ public:
     }
 
     /// @brief the finalizer that executes the request.
-    virtual std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context &outboundContext) {
+    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context outboundContext) override {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
         for (auto &param: *outboundContext.params)

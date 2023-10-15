@@ -13,10 +13,10 @@
 #include "freighter/freighter.h"
 
 /// internal
-#include "framer/framer.h"
-#include "channel/channel.h"
-#include "ranger/ranger.h"
-#include "auth/auth.h"
+#include "synnax/framer/framer.h"
+#include "synnax/channel/channel.h"
+#include "synnax/ranger/ranger.h"
+#include "synnax/auth/auth.h"
 
 class Transport {
 public:
@@ -24,7 +24,7 @@ public:
 
     void use(Freighter::Middleware *mw) const;
 
-    Auth::AuthClient *auth_login;
+    Auth::LoginClient *auth_login;
     Framer::IteratorClient *frame_iter;
     Framer::StreamerClient *frame_stream;
     Framer::WriterClient *frame_write;

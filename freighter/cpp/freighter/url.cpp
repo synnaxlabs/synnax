@@ -17,6 +17,7 @@ using namespace Freighter;
 
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string joinPaths(const std::string &a, const std::string &b) {
+    if (a.empty() && b.empty()) return "";
     auto adjusted = b[0] == '/' ? b.substr(1) : b;
     adjusted = b[b.size() - 1] == '/' ? b : b + "/";
     return a + adjusted;
@@ -33,10 +34,11 @@ URL::URL(const std::string &address) {
     ip = address.substr(0, colon);
     auto pathStart = address.find('/');
     port = std::stoi(address.substr(colon + 1, pathStart - colon - 1));
-    path = joinPaths("", address.substr(pathStart));
+    if (pathStart != std::string::npos) path = joinPaths("", address.substr(pathStart));
 }
 
 URL URL::child(const std::string &child_path) const {
+    if (child_path.empty()) return {ip, port, path};
     return {ip, port, joinPaths(path, child_path)};
 }
 

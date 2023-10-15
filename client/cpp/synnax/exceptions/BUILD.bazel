@@ -1,0 +1,9 @@
+cc_library(
+    name = "exceptions",
+    srcs = [],
+    hdrs = [
+        "exceptions.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

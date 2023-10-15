@@ -137,10 +137,10 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 				return oCtx, err
 			}
 			res, err := u.handler(ctx, req)
+			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			if err != nil {
 				return oCtx, err
 			}
-			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			return oCtx, err
 		},
 		),

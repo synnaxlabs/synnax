@@ -9,9 +9,12 @@ cc_library(
     hdrs = [
         "framer.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
+        "//synnax/channel",
+        "//synnax/telem",
         "@Freighter//freighter/gRPC",
-        "@api_protos//v1:framer_grpc",
+        "@api_protos//v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
         "@telem_protos//telempb:telem_grpc",
     ],

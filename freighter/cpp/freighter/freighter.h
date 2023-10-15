@@ -23,7 +23,7 @@ namespace Freighter {
         /// @brief The port of the target.
         std::uint16_t port;
         /// @brief Supplementary path information.
-        std::string path;
+        std::string path = "";
 
         /// @brief Creates a URL with the given IP, port, and path.
         URL(const std::string &ip, std::uint16_t port, const std::string &path = "");
@@ -158,7 +158,9 @@ namespace Freighter {
                 const Freighter::Context &context,
                 Freighter::Middleware *finalizer
         ) {
-            if (middlewares.empty()) return finalizer->operator()(context);
+            if (middlewares.empty()) {
+                return finalizer->operator()(context);
+            }
             for (int i = 0; i < middlewares.size(); i++) {
                 auto mw = middlewares[i];
                 if (i == middlewares.size() - 1) mw->setNext(finalizer);

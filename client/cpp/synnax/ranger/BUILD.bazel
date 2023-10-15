@@ -2,10 +2,13 @@ cc_library(
     name = "ranger",
     srcs = ["ranger.cpp"],
     hdrs = ["ranger.h"],
+    visibility = ["//visibility:public"],
     deps = [
+        "//synnax/exceptions",
+        "//synnax/telem",
         "@Freighter//freighter/gRPC",
+        "@api_protos//v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@api_protos//v1:ranger_grpc",
         "@telem_protos//telempb:telem_grpc",
     ],
 )

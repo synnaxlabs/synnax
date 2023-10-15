@@ -2,9 +2,12 @@ cc_library(
     name = "channel",
     srcs = ["channel.cpp"],
     hdrs = ["channel.h"],
+    visibility = ["//visibility:public"],
     deps = [
+        "//synnax/exceptions",
+        "//synnax/telem",
         "@Freighter//freighter/gRPC",
+        "@api_protos//v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@api_protos//v1:channel_grpc",
     ],
 )

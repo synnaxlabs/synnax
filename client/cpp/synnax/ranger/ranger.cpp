@@ -14,7 +14,7 @@
 
 /// internal
 #include "synnax/ranger/ranger.h"
-#include "synnax/exceptions.h"
+#include "synnax/exceptions/exceptions.h"
 #include "synnax/telem/telem.h"
 
 using namespace Synnax;

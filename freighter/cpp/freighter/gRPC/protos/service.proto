@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package test;
 
-service Unary {
+service UnaryMessageService {
     rpc Exec(Message) returns (Message) {}
 }
 
-service Stream {
+service StreamMessageService {
     rpc Exec(stream Message) returns (stream Message) {}
 }
 

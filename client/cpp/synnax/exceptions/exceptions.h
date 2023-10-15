@@ -11,12 +11,12 @@
 
 class QueryError : public std::exception {
 public:
-    QueryError(std::string message) : message(message) {}
+    explicit QueryError(std::string message) : message(message) {}
 
     std::string message;
 
     char *what() {
-        return message.c_str();
+        return const_cast<char *>(message.c_str());
     }
 };
 

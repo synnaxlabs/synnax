@@ -16,7 +16,7 @@
 
 /// internal
 #include "synnax/channel/channel.h"
-#include "synnax/exceptions.h"
+#include "synnax/exceptions/exceptions.h"
 #include "synnax/telem/telem.h"
 
 using namespace Synnax;

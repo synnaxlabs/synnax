@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#pragma once
+
 /// internal
 #include "synnax/framer/framer.h"
 #include "synnax/ranger/ranger.h"
@@ -18,7 +20,7 @@ using namespace Synnax;
 
 namespace Synnax {
 
-    // @brief Configuration for opening a Synnax client.
+    // @brief Configuration for opening a Synnax login_client.
     struct Config {
         // @brief the host of a node in the cluster.
         std::string host;
@@ -40,7 +42,8 @@ namespace Synnax {
 
         explicit Client(const Config &cfg) {
             auto t = Transport(cfg.port, cfg.host);
-            auth = Auth::Client(t.auth_login, cfg.username, cfg.password);
+            auth = Auth::Client(t.auth_login);
+            auth.login(cfg.username, cfg.password);
             t.use(auth.tokenMiddleware());
             channels = Channel::Client(t.chan_retrieve, t.chan_create);
             ranges = Ranger::Client(
@@ -55,6 +58,6 @@ namespace Synnax {
 
 
     private:
-        Auth::Client auth = Auth::Client(nullptr, "", "");
+        Auth::Client auth = Auth::Client(nullptr);
     };
 }

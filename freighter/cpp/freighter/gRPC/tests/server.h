@@ -31,62 +31,67 @@ bool end_session = false;
 
 /// @brief Implements .proto generated interface Unary.
 /// TODO: Create a templated version of this that works with any proto generated types.
-class myServiceImpl final : public test::messageService::Service 
-{
+class unaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.
-    grpc::Status Unary(grpc::ServerContext* context, const test::Message* request, test::Message* reply) override
-    {
+    grpc::Status Exec(grpc::ServerContext *context, const test::Message *request, test::Message *reply) override {
+        // get the key 'test' from meta data
+        auto test = context->client_metadata().find("test");
         std::string rep("Read request: ");
         reply->set_payload(rep + request->payload());
-        return grpc::Status::OK;
-    }
-
-    /// @brief The implementation of the server side stream.
-    grpc::Status Stream(grpc::ServerContext* context, grpc::ServerReaderWriter<test::Message, test::Message>* stream) override
-    {
-        test::Message request;
-        while (stream->Read(&request))
-        {
-          std::unique_lock<std::mutex> lock(mut);
-          test::Message res;
-          std::string rep("Read request: ");
-          res.set_payload(rep + request.payload());
-          stream->Write(res);
+        // if the test value exists, set the reply key back to the same value.
+        if (test != context->client_metadata().end()) {
+            context->AddInitialMetadata("test", test->second.data());
         }
-
         return grpc::Status::OK;
     }
 private:
 };
 
+class myStreamServiceImpl final : public test::StreamMessageService::Service {
+    /// @brief The implementation of the server side stream.
+    grpc::Status
+    Exec(grpc::ServerContext *context, grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
+        test::Message request;
+        while (stream->Read(&request)) {
+            std::unique_lock<std::mutex> lock(mut);
+            test::Message res;
+            std::string rep("Read request: ");
+            res.set_payload(rep + request.payload());
+            stream->Write(res);
+        }
+
+        return grpc::Status::OK;
+    }
+};
+
+
 /// @brief Meant to be call within a thread. Simple
 /// GRPCUnaryClient server.
-void server(std::string target)
-{
-  end_session = false;
-  std::string server_address(target);
-  myServiceImpl service;
+void server(std::string target) {
+    end_session = false;
+    std::string server_address(target);
+    unaryServiceImpl u_service;
+    myStreamServiceImpl s_service;
 
-  grpc::ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
+    grpc::ServerBuilder builder;
+    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    builder.RegisterService(&u_service);
+    builder.RegisterService(&s_service);
 
-  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-  std::unique_lock<std::mutex> lck(mut);
-  while (!end_session)
-  {
-    cond.wait(lck);
-  }
-  lck.unlock();
-  server->Shutdown();
-  end_session = false;
+    std::unique_lock<std::mutex> lck(mut);
+    while (!end_session) {
+        cond.wait(lck);
+    }
+    lck.unlock();
+    server->Shutdown();
+    end_session = false;
 }
 
 /// @brief Abstraction of stopping servers.
-void stopServers()
-{
+void stopServers() {
     end_session = true;
     cond.notify_all();
 }

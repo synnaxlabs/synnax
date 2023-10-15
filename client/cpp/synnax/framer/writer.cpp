@@ -35,6 +35,7 @@ bool Writer::write(Frame fr) {
     fr.to_proto(req.mutable_frame());
     auto exc = stream->send(req);
     if (!exc.ok()) throw exc;
+    return true;
 }
 
 std::pair<Telem::TimeStamp, bool> Writer::commit() {
@@ -49,17 +50,17 @@ std::pair<Telem::TimeStamp, bool> Writer::commit() {
     }
 }
 
-std::exception Writer::error() {
-    auto req = api::v1::FrameWriterRequest();
-    req.set_command(ERROR);
-    auto exc = stream->send(req);
-    if (!exc.ok()) throw exc;
-    while (true) {
-        auto [res, recExc] = stream->receive();
-        if (!recExc.ok()) throw recExc;
-        if (res.command() == ERROR) return std::exception(res.error().c_str());
-    }
-}
+//Writer::error() {
+//    auto req = api::v1::FrameWriterRequest();
+//    req.set_command(ERROR);
+//    auto exc = stream->send(req);
+//    if (!exc.ok()) throw exc;
+//    while (true) {
+//        auto [res, recExc] = stream->receive();
+//        if (!recExc.ok()) throw recExc;
+//        if (res.command() == ERROR) return std::exception()
+//    }
+//}
 
 void Writer::close() {
     auto exc = stream->closeSend();

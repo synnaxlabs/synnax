@@ -1,12 +1,5 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# Freighter.
-http_archive(
-    name = "Freighter", 
-    urls = ["https://github.com/synnaxlabs/synnax/raw/sy-179-client-cpp/freighter/cpp/releases/freighter-1.1.tar.gz"],
-    sha256 = "ae91a147e95f9ad185d3d472fc9117aaff31349b7e4289d4194f10d97301c090"
-)
-
 # gRPC.
 http_archive(
     name = "rules_proto_grpc",

@@ -15,26 +15,25 @@
 /// protos
 #include "v1/auth.pb.h"
 #include "freighter/freighter.h"
-#include "synnax/channel/channel.h"
 #include <grpcpp/grpcpp.h>
 
 
 namespace Auth {
-    typedef Freighter::UnaryClient<
-            api::v1::LoginResponse,
-            api::v1::LoginRequest,
-            grpc::Status> AuthClient;
+typedef Freighter::UnaryClient<
+        api::v1::LoginResponse,
+        api::v1::LoginRequest,
+        grpc::Status> LoginClient;
 
 
-    class Client {
-    private:
-        std::string token;
-    public:
-        std::string username;
-        std::string password;
+class Client {
+private:
+    std::string token;
+    LoginClient *login_client;
+public:
+    Client(LoginClient *login_client);
 
-        Client(AuthClient *auth_client, const std::string &username, const std::string &password);
+    void login(const std::string &username, const std::string &password);
 
-        Freighter::Middleware* tokenMiddleware();
-    };
+    Freighter::Middleware *tokenMiddleware();
+};
 }
