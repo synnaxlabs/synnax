@@ -1,35 +1,15 @@
 proto_library(
-    name = "auth_proto",
-    srcs = ["auth.proto"],
-)
-
-proto_library(
-    name = "channel_proto",
-    srcs = ["channel.proto"],
-)
-
-proto_library(
-    name = "connectivity_proto",
-    srcs = ["connectivity.proto"],
+    name = "api_proto",
+    srcs = [
+        "auth.proto",
+        "channel.proto",
+        "connectivity.proto",
+        "framer.proto",
+        "ranger.proto",
+    ],
     deps = [
         "@com_google_protobuf//:empty_proto",
-    ],
-)
-
-proto_library(
-    name = "framer_proto",
-    srcs = ["framer.proto"],
-    deps = [
         "@ferrors_protos//ferrors/v1:ferrors_proto",
-        "@telem_protos//telempb:telem_proto",
-    ],
-)
-
-proto_library(
-    name = "ranger_proto",
-    srcs = ["ranger.proto"],
-    deps = [
-        "@com_google_protobuf//:empty_proto",
         "@telem_protos//telempb:telem_proto",
     ],
 )
@@ -37,31 +17,18 @@ proto_library(
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 
 cpp_grpc_library(
-    name = "auth_grpc",
-    protos = [":auth_proto"],
+    name = "api_grpc",
+    protos = [":api_proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "@telem_protos//telempb:telem_grpc",
+    ],
 )
 
-cpp_grpc_library(
-    name = "channel_grpc",
-    protos = [":channel_proto"],
-    visibility = ["//visibility:public"],
-)
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
 
-cpp_grpc_library(
-    name = "connectivity_grpc",
-    protos = [":connectivity_proto"],
-    visibility = ["//visibility:public"],
-)
-
-cpp_grpc_library(
-    name = "framer_grpc",
-    protos = [":framer_proto"],
-    visibility = ["//visibility:public"],
-)
-
-cpp_grpc_library(
-    name = "ranger_grpc",
-    protos = [":ranger_proto"],
-    visibility = ["//visibility:public"],
+cpp_grpc_compile(
+    name = "api_grpc_comp",
+    protos = [":api_proto"],
 )
