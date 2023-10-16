@@ -51,7 +51,7 @@ const Content = (): ReactElement => {
   };
 
   return (
-    <Align.Space empty>
+    <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>

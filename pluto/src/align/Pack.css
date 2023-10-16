@@ -29,7 +29,7 @@
         border: none !important;
 
         > * {
-            border: var(--pluto-border-width) solid var(--pluto-gray-m1);
+            border: var(--pluto-border);
         }
     }
 

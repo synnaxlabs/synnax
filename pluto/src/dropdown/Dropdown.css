@@ -10,7 +10,7 @@
  */
 
 .pluto-dropdown__dialog {
-    background-color: var(--pluto-gray-m3);
+    background-color: var(--pluto-background-color);
     max-height: 360px;
     position: fixed;
 

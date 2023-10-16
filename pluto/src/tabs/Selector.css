@@ -12,36 +12,41 @@
 .pluto-tabs-selector__btn {
     margin-bottom: -1px;
     cursor: pointer;
-}
 
+    .pluto-btn-icon {
+        opacity: 0;
+        > svg {
+            fill: var(--pluto-gray-p0);
+        }
+    }
 
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon,
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon:hover {
-    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
-}
+    .pluto-text {
+        margin: 0 2rem;
+        padding: 0 0.25rem;
+        color: var(--pluto-gray-p0);
+    }
 
-.pluto-tabs-selector__btn .pluto-btn-icon {
-    opacity: 0;
-}
+    &:hover, &.pluto--selected {
+        .pluto-btn-icon {
+            opacity: 1;
+        }
+        .pluto-text {
+            color: var(--pluto-text-color);
+        }
+    }
 
-.pluto-tabs-selector__btn:hover .pluto-btn-icon,
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon {
-    opacity: 1;
-}
-
-.pluto-tabs-selector__btn .pluto-btn-icon > svg {
-    fill: var(--pluto-gray-p0);
+    /* Sets the nice blue underline. */
+    &.pluto--selected {
+        box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+        .pluto-btn-icon, .pluto-btn-icon:hover {
+            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+        }
+    }
 }
 
 .pluto-tabs-selector__btn--closable .pluto-text {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
-}
-
-.pluto-tabs-selector__btn .pluto-text {
-    margin: 0 2rem;
-    padding: 0 0.25rem;
-    color: var(--pluto-gray-p0);
 }
 
 .pluto-tabs-selector__btn.pluto--selected .pluto-text {
@@ -50,10 +55,6 @@
 
 .pluto-tabs-selector__btn--uneditable {
     user-select: none;
-}
-
-.pluto-tabs-selector__btn.pluto--selected {
-    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
 }
 
 .pluto-tabs-selector {

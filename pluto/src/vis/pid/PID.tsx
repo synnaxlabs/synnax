@@ -354,6 +354,7 @@ const Core = Aether.wrap<PIDProps>(
             nodeTypes={nodeTypes}
             edgeTypes={EDGE_TYPES}
             ref={resizeRef}
+            fitView={true}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}

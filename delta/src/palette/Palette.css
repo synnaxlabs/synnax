@@ -35,6 +35,7 @@
 
 .delta-palette__item--hovered {
     background-color: var(--pluto-gray-m2) !important;
+    border-left: 2px var(--pluto-primary-z) solid !important;
 }
 
 .delta-palette input.pluto-haul-drop-region {

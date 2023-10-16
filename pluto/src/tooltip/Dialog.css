@@ -13,7 +13,7 @@
     position: fixed;
     z-index: 1000;
     pointer-events: none;
-    background-color: var(--pluto-gray-m3);
+    background-color: var(--pluto-gray-m4);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     padding: 1rem;

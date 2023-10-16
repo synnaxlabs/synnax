@@ -92,7 +92,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Header.Header level="h4" divided>
+      <Header.Header level="h4">
         <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
       </Header.Header>
       <Align.Space className="delta-form" grow>
