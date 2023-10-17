@@ -26,33 +26,33 @@ using namespace Synnax;
 namespace Synnax::Framer {
 typedef Freighter::Stream<
         api::v1::FrameIteratorResponse,
-        api::v1::FrameIteratorRequest,
-        grpc::Status> IteratorStream;
+        api::v1::FrameIteratorRequest
+> IteratorStream;
 
 typedef Freighter::StreamClient<
         api::v1::FrameIteratorResponse,
-        api::v1::FrameIteratorRequest,
-        grpc::Status> IteratorClient;
+        api::v1::FrameIteratorRequest
+> IteratorClient;
 
 typedef Freighter::Stream<
         api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest,
-        grpc::Status> StreamerStream;
+        api::v1::FrameStreamerRequest
+> StreamerStream;
 
 typedef Freighter::StreamClient<
         api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest,
-        grpc::Status> StreamerClient;
+        api::v1::FrameStreamerRequest
+> StreamerClient;
 
 typedef Freighter::Stream<
         api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest,
-        grpc::Status> WriterStream;
+        api::v1::FrameWriterRequest
+> WriterStream;
 
 typedef Freighter::StreamClient<
         api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest,
-        grpc::Status> WriterClient;
+        api::v1::FrameWriterRequest
+> WriterClient;
 
 
 /// @brief Frame type.
@@ -161,10 +161,10 @@ public:
             writer_client(writer_client) {}
 
 
-    Iterator openIterator(const IteratorConfig &config);
+    std::pair<Iterator, Freighter::Error> openIterator(const IteratorConfig &config);
 
-    Writer openWriter(const WriterConfig &config);
+    std::pair<Writer, Freighter::Error> openWriter(const WriterConfig &config);
 
-    Streamer openStreamer(const StreamerConfig &config);
+    std::pair<Streamer, Freighter::Error> openStreamer(const StreamerConfig &config);
 };
 }

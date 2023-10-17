@@ -48,79 +48,74 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-Range Client::retrieve_by_key(const std::string &key) const {
+std::pair<Range, Freighter::Error> Client::retrieveOne(api::v1::RangeRetrieveRequest &req) const {
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    if (err) return {Range(), err};
+    if (res.ranges_size() == 0)
+        throw QueryError("No range found");
+    return {Range(res.ranges(0)), err};
+}
+
+std::pair<Range, Freighter::Error> Client::retrieveByKey(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    if (res.ranges_size() == 0)
-        throw QueryError("No range found with key " + key);
-    return Range(res.ranges(0));
+    return retrieveOne(req);
 }
 
-Range Client::retrieve_by_name(const std::string &name) const {
+std::pair<Range, Freighter::Error> Client::retrieveByName(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    if (res.ranges_size() == 0)
-        throw QueryError("No range found with name " + name);
-    return Range(res.ranges(0));
+    return retrieveOne(req);
 }
 
-std::vector<Range> Client::retrieve_by_key(std::vector<std::string> keys) const {
-    auto req = api::v1::RangeRetrieveRequest();
-    for (auto &key: keys)
-        req.add_keys(key);
+
+std::pair<std::vector<Range>, Freighter::Error> Client::retrieveMany(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
+    if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
     for (auto &r: ranges) r.kv = nullptr;
-    return ranges;
+    return {ranges, err};
 }
 
-std::vector<Range> Client::retrieve_by_name(std::vector<std::string> names) const {
+std::pair<std::vector<Range>, Freighter::Error> Client::retrieveByName(std::vector<std::string> names) const {
     auto req = api::v1::RangeRetrieveRequest();
-    for (auto &name: names)
-        req.add_names(name);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
-    for (auto &r: ranges) r.kv = nullptr;
-    return ranges;
+    for (auto &name: names) req.add_names(name);
+    return retrieveMany(req);
 }
 
-void Client::create(std::vector<Range> &ranges) const {
+std::pair<std::vector<Range>, Freighter::Error> Client::retrieveByKey(std::vector<std::string> keys) const {
+    auto req = api::v1::RangeRetrieveRequest();
+    for (auto &key: keys) req.add_keys(key);
+    return retrieveMany(req);
+}
+
+
+Freighter::Error Client::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges) range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    for (auto i = 0; i < res.ranges_size(); i++) {
-        ranges[i].key = res.ranges(i).key();
-        ranges[i].kv = nullptr;
-    }
+    if (!err)
+        for (auto i = 0; i < res.ranges_size(); i++) {
+            ranges[i].key = res.ranges(i).key();
+            ranges[i].kv = nullptr;
+        }
+    return err;
 }
 
 
-void Client::create(Range &range) const {
+Freighter::Error Client::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    range.key = res.ranges(0).key();
+    if (!err) range.key = res.ranges(0).key();
+    return err;
 }
 
-Range Client::create(std::string name, Telem::TimeRange time_range) const {
+std::pair<Range, Freighter::Error> Client::create(std::string name, Telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
-    create(rng);
-    return rng;
+    auto err = create(rng);
+    return {rng, err};
 }
 
 const std::string KV_SET_ENDPOINT = "/range/kv/set";
@@ -128,29 +123,25 @@ const std::string KV_GET_ENDPOINT = "/range/kv/get";
 const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
 
 
-std::string KV::get(const std::string &key) const {
+std::pair<std::string, Freighter::Error> KV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
-    return res.pairs().at(key);
+    return {res.pairs().at(key), err};
 }
 
-void KV::set(const std::string &key, const std::string &value) const {
+Freighter::Error KV::set(const std::string &key, const std::string &value) const {
     auto req = api::v1::RangeKVSetRequest();
     req.set_range_key(range_key);
     (*req.mutable_pairs())[key] = value;
     auto [res, err] = kv_set_client->send(KV_SET_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
+    return err;
 }
 
-void KV::delete_(const std::string &key) const {
+Freighter::Error KV::delete_(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);
     auto [res, err] = kv_delete_client->send(KV_DELETE_ENDPOINT, req);
-    if (!err.ok())
-        throw QueryError(err.error_message());
+    return err;
 }

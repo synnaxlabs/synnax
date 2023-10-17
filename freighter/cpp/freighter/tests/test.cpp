@@ -17,7 +17,7 @@ private:
 public:
     explicit BasicMiddleware(std::string value) : value(std::move(value)) {}
 
-    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context context) override {
+    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
         context.set("test", value);
         return Freighter::PassthroughMiddleware::operator()(context);
     }
@@ -25,8 +25,8 @@ public:
 
 class BasicFinalizer : public Freighter::PassthroughMiddleware {
 public:
-    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context context) override {
-        return {context, nullptr};
+    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
+        return {context, Freighter::NIL};
     }
 };
 

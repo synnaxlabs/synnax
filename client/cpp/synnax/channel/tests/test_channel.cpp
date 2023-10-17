@@ -27,11 +27,12 @@ const Synnax::Config cfg = {
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreate) {
     auto client = Synnax::Client(cfg);
-    auto channel = client.channels.create(
+    auto [channel, err] = client.channels.create(
             "test",
             Telem::DataType("float64"),
             Telem::Rate(1)
     );
+    ASSERT_FALSE(err);
     ASSERT_EQ(channel.name, "test");
     ASSERT_FALSE(channel.key == 0);
 }
@@ -39,18 +40,20 @@ TEST(ChannelTests, testCreate) {
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreateIndex) {
     auto client = Synnax::Client(cfg);
-    auto index = client.channels.create(
+    auto [index, err] = client.channels.create(
             "test",
-            Telem::DataType("float64"),
+            Telem::DataType("timestamp"),
             0,
             true
     );
-    auto indexed = client.channels.create(
+    ASSERT_FALSE(err);
+    auto [indexed , err2] = client.channels.create(
             "test",
             Telem::DataType("float64"),
             index.key,
             false
     );
+    ASSERT_FALSE(err2);
     ASSERT_EQ(index.name, "test");
     ASSERT_FALSE(index.key == 0);
     ASSERT_EQ(indexed.name, "test");
@@ -66,7 +69,7 @@ TEST(ChannelTests, testCreateMany) {
             {"test2", Telem::DataType("float64"), Telem::Rate(1)},
             {"test3", Telem::DataType("float64"), Telem::Rate(1)},
     };
-    client.channels.create(channels);
+    ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
     for (auto &channel: channels) ASSERT_FALSE(channel.key == 0);
 }
@@ -74,12 +77,14 @@ TEST(ChannelTests, testCreateMany) {
 /// @brief it should retrieve a channel by key.
 TEST(ChannelTest, testRetrieve) {
     auto client = Synnax::Client(cfg);
-    auto channel = client.channels.create(
+    auto [channel, err] = client.channels.create(
             "test",
             Telem::DataType("float64"),
             Telem::Rate(1)
     );
-    auto retrieved = client.channels.retrieve(channel.key);
+    ASSERT_FALSE(err);
+    auto [retrieved, err2] = client.channels.retrieve(channel.key);
+    ASSERT_FALSE(err2);
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);
     ASSERT_EQ(channel.data_type.value, retrieved.data_type.value);
@@ -97,8 +102,9 @@ TEST(ChannelTest, testRetrieveMany) {
             {"test2", Telem::DataType("float64"), Telem::Rate(1)},
             {"test3", Telem::DataType("float64"), Telem::Rate(1)},
     };
-    client.channels.create(channels);
-    auto retrieved = client.channels.retrieve(std::vector<std::string>{"test1", "test2", "test3"});
+    ASSERT_TRUE(client.channels.create(channels).ok());
+    auto [retrieved ,exc] = client.channels.retrieve(std::vector<Channel::Key>{channels[0].key, channels[1].key, channels[2].key});
+    ASSERT_FALSE(exc);
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
         auto found = false;

@@ -17,124 +17,70 @@
 package errors
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/go-playground/validator/v10"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
+	"strings"
 )
 
-// Nil is a typed representation of a nil error.
-var Nil = Typed{Type: TypeNil}
+const prefix = "synnax.api."
 
-var Canceled = Typed{Type: TypeGeneral, Err: Message{Message: "request cancelled"}}
-
-// Message is an error that contains a simple string message.
-type Message struct {
-	Message string `json:"message" msgpack:"message"`
-}
-
-// Error implements the error interface.
-func (g Message) Error() string { return g.Message }
-
-func newTypedMessage(t Type, msg string) Typed {
-	return Typed{Type: t, Err: Message{Message: msg}}
-}
+// See typed error initializers in errors.go for more info on what each of these
+// types mean.
+const (
+	TypeUnexpected ferrors.Type = prefix + "unexpected"
+	TypeGeneral    ferrors.Type = prefix + "general"
+	TypeNil        ferrors.Type = prefix + "nil"
+	TypeValidation ferrors.Type = prefix + "validation"
+	TypeParse      ferrors.Type = prefix + "parse"
+	TypeAuth       ferrors.Type = prefix + "auth"
+	TypeQuery      ferrors.Type = prefix + "query"
+	TypeRoute      ferrors.Type = prefix + "route"
+)
 
 // General is an error that doesn't fit into a specific Type. General errors should be
 // used in the case where an error is expected to occur during normal use, such as a
 // query returning multiple results when it should return exactly one. Unexpected errors
 // should be used in the case where an error should not
 // occur during normal use.
-func General(err error) Typed { return newTypedMessage(TypeGeneral, err.Error()) }
-
-// MaybeGeneral is a convenience function for returning a General error if the
-// error is not nil.
-func MaybeGeneral(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	return General(err)
-}
+func General(err error) ferrors.Error { return ferrors.Typed(err, TypeGeneral) }
 
 // Unexpected represents an error that should not occur during normal execution.
 // For example, a seemingly healthy node is unreachable or a transaction fails
 // to commit.
-func Unexpected(err error) Typed { return newTypedMessage(TypeUnexpected, err.Error()) }
-
-// MaybeUnexpected is a convenience function for returning a Unexpected error if
-// the error is not nil.
-func MaybeUnexpected(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	return Unexpected(err)
-}
+func Unexpected(err error) ferrors.Error { return ferrors.Typed(err, TypeUnexpected) }
 
 // Parse is an error that occurs when a user-supplied value cannot be parsed.
 // For example, a user sends msgpack data when it should be JSON.
-func Parse(err error) Typed { return newTypedMessage(TypeParse, err.Error()) }
-
-// MaybeParse is a convenience function for returning a Parse error if the error
-// is not nil.
-func MaybeParse(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	return Parse(err)
-}
+func Parse(err error) ferrors.Error { return ferrors.Typed(err, TypeParse) }
 
 // Auth is an error that occurs when a user is not authorized to perform an
 // action or when authorization fails.
-func Auth(err error) Typed { return newTypedMessage(TypeAuth, err.Error()) }
-
-// MaybeAuth is a convenience function for returning a Auth error if the error
-// is not nil.
-func MaybeAuth(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	return Auth(err)
-}
+func Auth(err error) ferrors.Error { return ferrors.Typed(err, TypeAuth) }
 
 // Query is an error that occurs when a particular query fails.
-func Query(err error) Typed {
-	if errors.Is(err, query.Error) {
-		return newTypedMessage(TypeQuery, err.Error())
-	}
-	return General(err)
+func Query(err error) ferrors.Error { return ferrors.Typed(err, TypeQuery) }
+
+type routeError struct {
+	Path string `json:"path" msgpack:"path"`
 }
 
-// MaybeQuery is a convenience function for returning a Query error if the error
-// is not nil.
-func MaybeQuery(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	return Query(err)
+func (r routeError) Error() string { return r.Path }
+
+func Route(err error, path string) ferrors.Error {
+	return ferrors.Typed(routeError{Path: path}, TypeRoute)
 }
 
-func maybe(err error) (Typed, bool) {
+func Auto(err error) ferrors.Error {
 	if err == nil {
-		return Nil, true
+		return ferrors.Nil
 	}
-	var t Typed
-	if errors.As(err, &t) {
-		return t, true
-	}
-	return Typed{}, false
-}
-
-func Route(err error, path string) Typed {
-	return Typed{
-		Type: TypeRoute,
-		Err:  routeError{Path: path, Message: Message{Message: err.Error()}},
-	}
-}
-
-func Auto(err error) Typed {
-	if t, ok := maybe(err); ok {
-		return t
-	}
-	var t Typed
+	var t ferrors.Error
 	if errors.As(err, &t) {
 		return t
 	}
@@ -147,7 +93,125 @@ func Auto(err error) Typed {
 	return General(err)
 }
 
-type routeError struct {
-	Path string `json:"path" msgpack:"path"`
-	Message
+// Validation is an error that occurs when a user-supplied value is invalid. For example,
+// a user provides an email address without the	@ symbol. Validation attempts to parse
+// validation errors from the validator package into a set of Field errors.
+func Validation(err error) ferrors.Error {
+	if err == nil {
+		return ferrors.Nil
+	}
+	var fields Fields
+	if errors.As(err, &fields) {
+		return ferrors.Typed(err, TypeValidation)
+	}
+	var fErr Field
+	if errors.As(err, &fErr) {
+		return ferrors.Typed(err, TypeValidation)
+	}
+	var validationErrors validator.ValidationErrors
+	if !errors.As(err, &validationErrors) {
+		if errors.Is(err, validate.Error) {
+			return ferrors.Typed(Field{Message: err.Error()}, TypeValidation)
+		}
+		return Unexpected(err)
+	}
+	var f Fields
+	for _, e := range validationErrors {
+		f = append(f, newFieldFromValidator(e))
+	}
+	return ferrors.Typed(f, TypeValidation)
+}
+
+// Field is an error that is associated with a specific field.
+type Field struct {
+	// Field is the name of the field that caused the error.
+	Field string `json:"field" msgpack:"field"`
+	// Message is the error Message.
+	Message string `json:"message" msgpack:"message"`
+}
+
+// Error implements the error interface.
+func (f Field) Error() string { return f.Field + ": " + f.Message }
+
+// Fields is an implementation of the error interface that represents a collection of
+// field errors.
+type Fields []Field
+
+// Error implements the error interface.
+func (f Fields) Error() string {
+	var s string
+	for i, fld := range f {
+		s += fld.Error()
+		if i != len(f)-1 {
+			s += "\n"
+		}
+	}
+	return s
+}
+
+func newFieldFromValidator(v validator.FieldError) Field {
+	return Field{Field: parseFieldName(v), Message: v.Tag()}
+}
+
+// EmbeddedFieldTag can be added to the 'json' or 'msgpack' struct tags on an
+// embedded fields so that validation errors do not include the embedded struct
+// name as part of the error field name.
+const EmbeddedFieldTag = "--embed--"
+
+func parseFieldName(v validator.FieldError) string {
+	// This operation grabs nested struct field names but does not grab the parent
+	// struct field name.
+	path := strings.Split(v.Namespace(), ".")[1:]
+
+	fieldName := strings.Join(path, ".")
+	// and this removes the embedded struct field tag.
+	return strings.Replace(fieldName, EmbeddedFieldTag+".", "", -1)
+}
+
+const freighterErrorType ferrors.Type = "synnax.api.errors"
+
+var ecd = &binary.JSONEncoderDecoder{}
+
+func encode(_ context.Context, err error) (p ferrors.Payload, ok bool) {
+	var tErr ferrors.Error
+	if !errors.As(err, &tErr) || !strings.HasPrefix(string(tErr.FreighterType()), prefix) {
+		return
+	}
+	if !strings.HasPrefix(string(p.Type), prefix) {
+		return
+	}
+	if tErr.FreighterType() == TypeValidation {
+		return ferrors.Payload{Type: tErr.FreighterType(), Data: string(lo.Must(ecd.Encode(nil, err)))}, true
+	}
+	return ferrors.Payload{Type: tErr.FreighterType(), Data: err.Error()}, true
+}
+func decode(ctx context.Context, pld ferrors.Payload) (error, bool) {
+	if !strings.HasPrefix(string(pld.Type), prefix) {
+		return nil, false
+	}
+	switch pld.Type {
+	case TypeValidation:
+		return parseValidationError(ctx, pld.Data), true
+	default:
+		return errors.New(pld.Data), true
+	}
+}
+
+func init() { ferrors.Register(encode, decode) }
+
+func parseValidationError(ctx context.Context, data string) error {
+	var raw []interface{}
+	lo.Must0(ecd.Decode(ctx, []byte(data), &raw))
+	var fields Fields
+	for _, rawField := range raw {
+		fieldMap, ok := rawField.(map[string]interface{})
+		if !ok {
+			panic("[freighter] - invalid error message")
+		}
+		fields = append(fields, Field{
+			Field:   fieldMap["field"].(string),
+			Message: fieldMap["message"].(string),
+		})
+	}
+	return Validation(fields)
 }

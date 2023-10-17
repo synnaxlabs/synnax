@@ -62,18 +62,18 @@ type ChannelCreateResponse struct {
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
-) (res ChannelCreateResponse, _ errors.Typed) {
-	if err := s.Validate(req); err.Occurred() {
+) (res ChannelCreateResponse, _ error) {
+	if err := s.Validate(req); err != nil {
 		return res, err
 	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, errors.Parse(err)
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
-		return errors.MaybeQuery(err)
+		return err
 	})
 }
 
@@ -103,7 +103,7 @@ type ChannelRetrieveResponse struct {
 func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
-) (ChannelRetrieveResponse, errors.Typed) {
+) (ChannelRetrieveResponse, error) {
 	var (
 		resChannels []channel.Channel
 		q           = s.internal.NewRetrieve().Entries(&resChannels)
@@ -136,8 +136,7 @@ func (s *ChannelService) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 
-	err := errors.MaybeQuery(q.Exec(ctx, nil))
-
+	err := q.Exec(ctx, nil)
 	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 

@@ -12,8 +12,6 @@ package api
 import (
 	"context"
 	"go/types"
-
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 )
 
 // ConnectivityService is a simple service that allows a client to check their connection
@@ -32,8 +30,8 @@ type ConnectivityCheckResponse struct {
 }
 
 // Check does nothing except return a success response.
-func (c *ConnectivityService) Check(ctx context.Context, _ types.Nil) (ConnectivityCheckResponse, errors.Typed) {
+func (c *ConnectivityService) Check(ctx context.Context, _ types.Nil) (ConnectivityCheckResponse, error) {
 	return ConnectivityCheckResponse{
 		ClusterKey: c.clusterProvider.cluster.Key().String(),
-	}, errors.Nil
+	}, nil
 }

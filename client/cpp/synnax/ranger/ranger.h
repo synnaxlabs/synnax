@@ -35,40 +35,37 @@ using namespace Synnax;
 namespace Synnax::Ranger {
 typedef Freighter::UnaryClient<
         api::v1::RangeRetrieveResponse,
-        api::v1::RangeRetrieveRequest,
-        grpc::Status
+        api::v1::RangeRetrieveRequest
 > RetrieveClient;
 
 typedef Freighter::UnaryClient<
         api::v1::RangeCreateResponse,
-        api::v1::RangeCreateRequest,
-        grpc::Status
+        api::v1::RangeCreateRequest
 > CreateClient;
 
 
 typedef Freighter::UnaryClient<
         api::v1::RangeKVGetResponse,
-        api::v1::RangeKVGetRequest,
-        grpc::Status
+        api::v1::RangeKVGetRequest
 > KVGetClient;
 
 typedef Freighter::UnaryClient<
         google::protobuf::Empty,
-        api::v1::RangeKVSetRequest,
-        grpc::Status> KVSetClient;
+        api::v1::RangeKVSetRequest
+> KVSetClient;
 
 typedef Freighter::UnaryClient<
         google::protobuf::Empty,
-        api::v1::RangeKVDeleteRequest,
-        grpc::Status> KVDeleteClient;
+        api::v1::RangeKVDeleteRequest
+> KVDeleteClient;
 
 
 class KV {
 private:
     std::string range_key;
-    std::unique_ptr<KVGetClient> kv_get_client;
-    std::unique_ptr<KVSetClient> kv_set_client;
-    std::unique_ptr<KVDeleteClient> kv_delete_client;
+    KVGetClient *kv_get_client;
+    KVSetClient *kv_set_client;
+    KVDeleteClient *kv_delete_client;
 public:
     KV(
             std::string range_key,
@@ -79,11 +76,11 @@ public:
         kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {}
 
 
-    std::string get(const std::string &key) const;
+    [[nodiscard]] std::pair<std::string, Freighter::Error> get(const std::string &key) const;
 
-    void set(const std::string &key, const std::string &value) const;
+    [[nodiscard]] Freighter::Error set(const std::string &key, const std::string &value) const;
 
-    void delete_(const std::string &key) const;
+    [[nodiscard]] Freighter::Error delete_(const std::string &key) const;
 };
 
 /// @brief a range is a user-defined region of a cluster's data. It's identified
@@ -92,9 +89,9 @@ public:
 /// and how they work.
 class Range {
 public:
-    Key key = "";
+    Key key;
     std::string name;
-    Telem::TimeRange time_range;
+    Telem::TimeRange time_range{};
     KV *kv = nullptr;
 
     /// @brief constructs the range. Note that this does not mean the range has been
@@ -107,11 +104,14 @@ public:
     Range(const std::string &name, Telem::TimeRange time_range);
 
     /// @brief constructs the range from its protobuf type.
-    explicit  Range(const api::v1::Range &rng);
+    explicit Range(const api::v1::Range &rng);
 
 private:
     /// @brief binds the range's fields to the given proto.
     void to_proto(api::v1::Range *rng) const;
+
+    // @brief constructs an empty, invalid range.
+    Range() = default;
 
     friend class Client;
 };
@@ -128,19 +128,20 @@ public:
             kv_delete_client(kv_delete_client) {}
 
 
-    Range retrieve_by_key(const std::string &key) const;
+    [[nodiscard]] std::pair<Range, Freighter::Error> retrieveByKey(const std::string &key) const;
 
-    Range retrieve_by_name(const std::string &name) const;
+    [[nodiscard]] std::pair<Range, Freighter::Error> retrieveByName(const std::string &name) const;
 
-    std::vector<Range> retrieve_by_key(std::vector<std::string> keys) const;
+    [[nodiscard]] std::pair<std::vector<Range>, Freighter::Error> retrieveByKey(std::vector<std::string> keys) const;
 
-    std::vector<Range> retrieve_by_name(std::vector<std::string> names) const;
+    [[nodiscard]] std::pair<std::vector<Range>, Freighter::Error>
+    retrieveByName(std::vector<std::string> names) const;
 
-    void create(std::vector<Range> &ranges) const;
+    [[nodiscard]] Freighter::Error create(std::vector<Range> &ranges) const;
 
-    void create(Range &range) const;
+    [[nodiscard]] Freighter::Error create(Range &range) const;
 
-    Range create(std::string name, Telem::TimeRange time_range) const;
+    [[nodiscard]] std::pair<Range, Freighter::Error> create(std::string name, Telem::TimeRange time_range) const;
 
 private:
     RetrieveClient *retrieve_client;
@@ -148,6 +149,11 @@ private:
     KVGetClient *kv_get_client;
     KVSetClient *kv_set_client;
     KVDeleteClient *kv_delete_client;
+
+    std::pair<Range, Freighter::Error> retrieveOne(api::v1::RangeRetrieveRequest &req) const;
+
+    std::pair<std::vector<Range>, Freighter::Error> retrieveMany(api::v1::RangeRetrieveRequest &req) const;
+
 };
 
 }

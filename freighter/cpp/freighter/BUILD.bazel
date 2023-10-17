@@ -1,4 +1,3 @@
-# main cpp binary
 cc_library(
     name = "freighter",
     srcs = [
@@ -6,5 +5,7 @@ cc_library(
     ],
     hdrs = ["freighter.h"],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+    ],
 )

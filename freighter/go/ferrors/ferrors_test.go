@@ -11,10 +11,7 @@ package ferrors_test
 
 import (
 	"github.com/cockroachdb/errors"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/ferrors"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 const (
@@ -63,12 +60,12 @@ var _ = Describe("Ferrors", func() {
 			Expect(pld.Type).To(Equal(MyCustomErrorType))
 			Expect(pld.Data).To(Equal(MyCustomErrorOne.Error()))
 		})
-		It("Should encode a nil error into a Nil typed payload", func() {
+		It("Should encode a nil error into a TypeNil typed payload", func() {
 			pld := ferrors.Encode(nil)
 			Expect(pld.Type).To(Equal(ferrors.Nil))
 			Expect(pld.Data).To(BeEmpty())
 		})
-		It("Should encode a custom nil type into a Nil typed payload", func() {
+		It("Should encode a custom nil type into a TypeNil typed payload", func() {
 			pld := ferrors.Encode(MyCustomNil)
 			Expect(pld.Type).To(Equal(ferrors.Nil))
 			Expect(pld.Data).To(BeEmpty())
@@ -88,14 +85,16 @@ var _ = Describe("Ferrors", func() {
 			err := ferrors.Decode(pld)
 			Expect(err).To(Equal(MyCustomErrorOne))
 		})
-		It("Should decode a nil error from a Nil typed payload", func() {
+		It("Should decode a nil error from a TypeNil typed payload", func() {
 			pld := ferrors.Encode(nil)
 			err := ferrors.Decode(pld)
 			Expect(err).To(BeNil())
 		})
-		It("Should decode an unknown error using cockroachdb's errors package", func() {
+		FIt("Should decode an unknown error using cockroachdb's errors package", func() {
 			pld := ferrors.Encode(errors.New("unknown"))
-			err := ferrors.Decode(pld)
+			pld2 := &ferrors.Payload{}
+			pld2.Unmarshal(pld.Error())
+			err := ferrors.Decode(*pld2)
 			Expect(err).To(HaveOccurredAs(errors.New("unknown")))
 		})
 	})

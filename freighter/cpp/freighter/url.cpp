@@ -1,19 +1,11 @@
-// Copyright 2023 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
+// Created by Emiliano Bonilla on 10/17/23.
 //
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
 
-/// std.
-#include <string>
-
-/// Freighter.
 #include "freighter/freighter.h"
 
 using namespace Freighter;
+
 
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string joinPaths(const std::string &a, const std::string &b) {
@@ -23,11 +15,12 @@ std::string joinPaths(const std::string &a, const std::string &b) {
     return a + adjusted;
 }
 
-
 URL::URL(
         const std::string &ip,
         std::uint16_t port,
-        const std::string &path) : ip(ip), port(port), path(joinPaths("", path)) {}
+        const std::string &path
+) : ip(ip), port(port),
+    path(joinPaths("", path)) {}
 
 URL::URL(const std::string &address) {
     auto colon = address.find(':');

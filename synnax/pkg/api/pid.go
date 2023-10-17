@@ -39,16 +39,16 @@ type PIDCreateResponse struct {
 	PIDs []pid.PID `json:"pids" msgpack:"pids"`
 }
 
-func (s *PIDService) Create(ctx context.Context, req PIDCreateRequest) (res PIDCreateResponse, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+func (s *PIDService) Create(ctx context.Context, req PIDCreateRequest) (res PIDCreateResponse, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, pid_ := range req.PIDs {
 			err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &pid_)
 			if err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 			res.PIDs = append(res.PIDs, pid_)
 		}
-		return errors.Nil
+		return nil
 	})
 }
 
@@ -57,10 +57,9 @@ type PIDRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *PIDService) Rename(ctx context.Context, req PIDRenameRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-		return errors.MaybeQuery(err)
+func (s *PIDService) Rename(ctx context.Context, req PIDRenameRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
 
@@ -69,8 +68,8 @@ type PIDSetDataRequest struct {
 	Data string    `json:"data" msgpack:"data"`
 }
 
-func (s *PIDService) SetData(ctx context.Context, req PIDSetDataRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+func (s *PIDService) SetData(ctx context.Context, req PIDSetDataRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return errors.Auto(s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data))
 	})
 }
@@ -83,9 +82,9 @@ type PIDRetrieveResponse struct {
 	PIDs []pid.PID `json:"pids" msgpack:"pids"`
 }
 
-func (s *PIDService) Retrieve(ctx context.Context, req PIDRetrieveRequest) (res PIDRetrieveResponse, err errors.Typed) {
-	err = errors.MaybeQuery(s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.PIDs).Exec(ctx, nil))
+func (s *PIDService) Retrieve(ctx context.Context, req PIDRetrieveRequest) (res PIDRetrieveResponse, err error) {
+	err = s.internal.NewRetrieve().
+		WhereKeys(req.Keys...).Entries(&res.PIDs).Exec(ctx, nil)
 	return res, err
 }
 
@@ -93,10 +92,9 @@ type PIDDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *PIDService) Delete(ctx context.Context, req PIDDeleteRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-		return errors.MaybeQuery(err)
+func (s *PIDService) Delete(ctx context.Context, req PIDDeleteRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
 
@@ -110,8 +108,8 @@ type PIDCopyResponse struct {
 	PID pid.PID `json:"pid" msgpack:"pid"`
 }
 
-func (s *PIDService) Copy(ctx context.Context, req PIDCopyRequest) (res PIDCopyResponse, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+func (s *PIDService) Copy(ctx context.Context, req PIDCopyRequest) (res PIDCopyResponse, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return errors.Auto(s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.PID))
 	})
 }

@@ -37,14 +37,14 @@ typedef std::uint32_t Key;
 /// @brief freighter retrieve transport.
 typedef Freighter::UnaryClient<
         api::v1::ChannelRetrieveResponse,
-        api::v1::ChannelRetrieveRequest,
-        grpc::Status> RetrieveClient;
+        api::v1::ChannelRetrieveRequest
+> RetrieveClient;
 
 /// @brief freighter create transport.
 typedef Freighter::UnaryClient<
         api::v1::ChannelCreateResponse,
-        api::v1::ChannelCreateRequest,
-        grpc::Status> CreateClient;
+        api::v1::ChannelCreateRequest
+> CreateClient;
 
 class Client;
 
@@ -75,6 +75,9 @@ public:
     bool is_index = false;
     /// @brief The leaseholder of the channel.
     std::uint32_t leaseholder = 0;
+
+    /// @brief constructs an empty, invalid channel.
+    Channel() = default;
 
     /// @brief constructs a new index or indexed channel.
     /// @param name a human-readable name for the channel.
@@ -120,12 +123,12 @@ public:
     /// @details More efficient than calling create on each channel individually, and
     /// also provides atomicity guarantees.
     /// @modifies channels Assigns a unique key to each channel.
-    void create(std::vector<Channel> &channels) const;
+    [[nodiscard]] Freighter::Error create(std::vector<Channel> &channels) const;
 
     /// @brief Creates the given channel in the Synnax cluster.
     /// @param channel The channel to create.
     /// @modifies channel Assigns a unique key to the channel.
-    void create(Channel &channel) const;
+    [[nodiscard]] Freighter::Error create(Channel &channel) const;
 
     /// @brief creates a new index or indexed channel.
     /// @param name a human-readable name for the channel.
@@ -133,7 +136,7 @@ public:
     /// @param index the index of the channel.
     /// @param is_index whether the channel is an index channel.
     /// @returns the created channel with a unique key assigned.
-    [[nodiscard]] Channel create(
+    [[nodiscard]] std::pair<Channel, Freighter::Error> create(
             std::string name,
             Telem::DataType data_type,
             Key index,
@@ -145,7 +148,7 @@ public:
     /// @param data_type the data type of the channel.
     /// @param rate the rate of the channel.
     /// @returns the created channel with a unique key assigned.
-    [[nodiscard]] Channel create(
+    [[nodiscard]] std::pair<Channel, Freighter::Error> create(
             std::string name,
             Telem::DataType data_type,
             Telem::Rate rate
@@ -156,25 +159,28 @@ public:
     /// @throws QueryError if the channel does not exist or multiple channels with the
     /// same name exist.
     /// @returns the retrieved channel.
-    [[nodiscard]] Channel retrieve(const std::string &name) const;
+    [[nodiscard]] std::pair<Channel, Freighter::Error> retrieve(
+            const std::string &name) const;
 
     /// @brief retrieves a channel with the given key.
     /// @param key the key of the channel to retrieve.
     /// @throws QueryError if the channel does not exist.
     /// @returns the retrieved channel.
-    [[nodiscard]] Channel retrieve(std::uint32_t key) const;
+    [[nodiscard]] std::pair<Channel, Freighter::Error> retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
     /// @param names the names of the channels to retrieve.
     /// @returns all channels matching the given names. If a channel matching a name,
     /// does not exist, it will not be in the returned vector.
-    [[nodiscard]] std::vector<Channel> retrieve(const std::vector<std::string> &names) const;
+    [[nodiscard]] std::pair<std::vector<Channel>, Freighter::Error>
+    retrieve(const std::vector<std::string> &names) const;
 
     /// @brief retrieves channels with the given keys.
     /// @param keys the keys of the channels to retrieve.
     /// @returns all channels matching the given keys. If a channel matching a key
     /// does not exist, it will not be in the returned vector.
-    [[nodiscard]] std::vector<Channel> retrieve(const std::vector<Key> &keys) const;
+    [[nodiscard]] std::pair<std::vector<Channel>, Freighter::Error>
+    retrieve(const std::vector<Key> &keys) const;
 
 private:
     RetrieveClient *retrieve_client;

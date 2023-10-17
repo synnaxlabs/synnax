@@ -52,7 +52,8 @@ namespace Synnax::Telem {
         static inline std::unordered_map<std::string, int> DENSITIES = {
                 {typeid(int).name(), 4},
                 {"float64", 8},
-                {"float32", 4}
+                {"float32", 4},
+                {"timestamp", 8}
 
         };
 
@@ -60,7 +61,8 @@ namespace Synnax::Telem {
         static inline std::unordered_map<std::string, std::string> NAMES = {
                 {typeid(int).name(), "int"},
                 {typeid(double).name(), "float64"},
-                {typeid(float).name(), "float32"}
+                {typeid(float).name(), "float32"},
+                {typeid(long).name(), "int64"}
         };
 
     };
@@ -70,6 +72,8 @@ namespace Synnax::Telem {
     public:
         /// @property value holds the internal, primitive value of the timestamp.
         long value;
+
+        TimeStamp() = default;
 
         /// @brief Constructs a timestamp from the given long, interpreting it as a nanosecond-precision UTC
         /// timestamp.
@@ -126,19 +130,21 @@ namespace Synnax::Telem {
         TimeStamp start;
         TimeStamp end;
 
+        TimeRange() = default;
+
         /// @brief constructs a TimeRange from the given start and end timestamps.
         TimeRange(TimeStamp start, TimeStamp end) : start(TimeStamp(start)), end(end) {}
 
         bool operator==(const TimeRange &other) const { return start == other.start && end == other.end; }
 
         /// @brief returns true if the given timestamp is within the range, start inclusive, end exclusive.
-        bool contains(TimeStamp time) {
+        [[nodiscard]] bool contains(TimeStamp time) const {
             return start <= time && time < end;
         }
 
         /// @brief returns true if the TimeRange contains the given TimeRange. If the two time ranges are equal,
         /// returns true. In this case, the two time ranges contain each other.
-        bool contains(TimeRange tr) {
+        [[nodiscard]] bool contains(TimeRange tr) const {
             return tr.start >= start && tr.end <= end;
         }
     };

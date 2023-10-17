@@ -14,13 +14,11 @@
 package api
 
 import (
-	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/synnax/pkg/access"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -184,10 +182,9 @@ type API struct {
 // BindTo binds the API to the provided Transport implementation.
 func (a *API) BindTo(t Transport) {
 	var (
-		err                = errors.Middleware()
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation, err}
+		insecureMiddleware = []freighter.Middleware{instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
@@ -268,66 +265,66 @@ func (a *API) BindTo(t Transport) {
 	)
 
 	// AUTH
-	t.AuthLogin.BindHandler(typedUnaryWrapper(a.Auth.Login))
-	t.AuthChangeUsername.BindHandler(noResponseWrapper(a.Auth.ChangeUsername))
-	t.AuthChangePassword.BindHandler(noResponseWrapper(a.Auth.ChangePassword))
-	t.AuthRegistration.BindHandler(typedUnaryWrapper(a.Auth.Register))
+	t.AuthLogin.BindHandler(a.Auth.Login)
+	t.AuthChangeUsername.BindHandler(a.Auth.ChangeUsername)
+	t.AuthChangePassword.BindHandler(a.Auth.ChangePassword)
+	t.AuthRegistration.BindHandler(a.Auth.Register)
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(typedUnaryWrapper(a.Channel.Create))
-	t.ChannelRetrieve.BindHandler(typedUnaryWrapper(a.Channel.Retrieve))
-	t.ConnectivityCheck.BindHandler(typedUnaryWrapper(a.Connectivity.Check))
+	t.ChannelCreate.BindHandler(a.Channel.Create)
+	t.ChannelRetrieve.BindHandler(a.Channel.Retrieve)
+	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
 
 	// FRAME
-	t.FrameWriter.BindHandler(typedStreamWrapper(a.Telem.Write))
-	t.FrameIterator.BindHandler(typedStreamWrapper(a.Telem.Iterate))
-	t.FrameStreamer.BindHandler(typedStreamWrapper(a.Telem.Stream))
+	t.FrameWriter.BindHandler(a.Telem.Write)
+	t.FrameIterator.BindHandler(a.Telem.Iterate)
+	t.FrameStreamer.BindHandler(a.Telem.Stream)
 
 	// ONTOLOGY
-	t.OntologyRetrieve.BindHandler(typedUnaryWrapper(a.Ontology.Retrieve))
-	t.OntologyAddChildren.BindHandler(typedUnaryWrapper(a.Ontology.AddChildren))
-	t.OntologyRemoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.RemoveChildren))
-	t.OntologyMoveChildren.BindHandler(typedUnaryWrapper(a.Ontology.MoveChildren))
+	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
+	t.OntologyAddChildren.BindHandler(a.Ontology.AddChildren)
+	t.OntologyRemoveChildren.BindHandler(a.Ontology.RemoveChildren)
+	t.OntologyMoveChildren.BindHandler(a.Ontology.MoveChildren)
 
 	// GROUP
-	t.OntologyGroupCreate.BindHandler(typedUnaryWrapper(a.Ontology.CreateGroup))
-	t.OntologyGroupDelete.BindHandler(typedUnaryWrapper(a.Ontology.DeleteGroup))
-	t.OntologyGroupRename.BindHandler(typedUnaryWrapper(a.Ontology.RenameGroup))
+	t.OntologyGroupCreate.BindHandler(a.Ontology.CreateGroup)
+	t.OntologyGroupDelete.BindHandler(a.Ontology.DeleteGroup)
+	t.OntologyGroupRename.BindHandler(a.Ontology.RenameGroup)
 
 	// RANGE
-	t.RangeRetrieve.BindHandler(typedUnaryWrapper(a.Range.Retrieve))
-	t.RangeCreate.BindHandler(typedUnaryWrapper(a.Range.Create))
-	t.RangeDelete.BindHandler(typedUnaryWrapper(a.Range.Delete))
-	t.RangeRename.BindHandler(typedUnaryWrapper(a.Range.Rename))
-	t.RangeKVGet.BindHandler(typedUnaryWrapper(a.Range.KVGet))
-	t.RangeKVSet.BindHandler(typedUnaryWrapper(a.Range.KVSet))
-	t.RangeKVDelete.BindHandler(typedUnaryWrapper(a.Range.KVDelete))
-	t.RangeAliasSet.BindHandler(typedUnaryWrapper(a.Range.AliasSet))
-	t.RangeAliasResolve.BindHandler(typedUnaryWrapper(a.Range.AliasResolve))
-	t.RangeAliasList.BindHandler(typedUnaryWrapper(a.Range.AliasList))
-	t.RangeAliasDelete.BindHandler(typedUnaryWrapper(a.Range.AliasDelete))
+	t.RangeRetrieve.BindHandler(a.Range.Retrieve)
+	t.RangeCreate.BindHandler(a.Range.Create)
+	t.RangeDelete.BindHandler(a.Range.Delete)
+	t.RangeRename.BindHandler(a.Range.Rename)
+	t.RangeKVGet.BindHandler(a.Range.KVGet)
+	t.RangeKVSet.BindHandler(a.Range.KVSet)
+	t.RangeKVDelete.BindHandler(a.Range.KVDelete)
+	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
+	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
+	t.RangeAliasList.BindHandler(a.Range.AliasList)
+	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
 
 	// WORKSPACE
-	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))
-	t.WorkspaceDelete.BindHandler(typedUnaryWrapper(a.Workspace.Delete))
-	t.WorkspaceRetrieve.BindHandler(typedUnaryWrapper(a.Workspace.Retrieve))
-	t.WorkspaceRename.BindHandler(typedUnaryWrapper(a.Workspace.Rename))
-	t.WorkspaceSetLayout.BindHandler(typedUnaryWrapper(a.Workspace.SetLayout))
+	t.WorkspaceCreate.BindHandler(a.Workspace.Create)
+	t.WorkspaceDelete.BindHandler(a.Workspace.Delete)
+	t.WorkspaceRetrieve.BindHandler(a.Workspace.Retrieve)
+	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
+	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
 	// PID
-	t.PIDCreate.BindHandler(typedUnaryWrapper(a.PID.Create))
-	t.PIDRetrieve.BindHandler(typedUnaryWrapper(a.PID.Retrieve))
-	t.PIDDelete.BindHandler(typedUnaryWrapper(a.PID.Delete))
-	t.PIDRename.BindHandler(typedUnaryWrapper(a.PID.Rename))
-	t.PIDSetData.BindHandler(typedUnaryWrapper(a.PID.SetData))
-	t.PIDCopy.BindHandler(typedUnaryWrapper(a.PID.Copy))
+	t.PIDCreate.BindHandler(a.PID.Create)
+	t.PIDRetrieve.BindHandler(a.PID.Retrieve)
+	t.PIDDelete.BindHandler(a.PID.Delete)
+	t.PIDRename.BindHandler(a.PID.Rename)
+	t.PIDSetData.BindHandler(a.PID.SetData)
+	t.PIDCopy.BindHandler(a.PID.Copy)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(typedUnaryWrapper(a.LinePlot.Create))
-	t.LinePlotRename.BindHandler(typedUnaryWrapper(a.LinePlot.Rename))
-	t.LinePlotSetData.BindHandler(typedUnaryWrapper(a.LinePlot.SetData))
-	t.LinePlotRetrieve.BindHandler(typedUnaryWrapper(a.LinePlot.Retrieve))
-	t.LinePlotDelete.BindHandler(typedUnaryWrapper(a.LinePlot.Delete))
+	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
+	t.LinePlotRename.BindHandler(a.LinePlot.Rename)
+	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
+	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
+	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -348,28 +345,4 @@ func New(configs ...Config) (API, error) {
 	api.PID = NewPIDService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
 	return api, nil
-}
-
-func typedUnaryWrapper[RQ, RS freighter.Payload](
-	handler func(context.Context, RQ) (RS, errors.Typed),
-) func(context.Context, RQ) (RS, error) {
-	return func(ctx context.Context, rq RQ) (RS, error) {
-		return handler(ctx, rq)
-	}
-}
-
-func typedStreamWrapper[RQ, RS freighter.Payload](
-	handler func(context.Context, freighter.ServerStream[RQ, RS]) errors.Typed,
-) func(context.Context, freighter.ServerStream[RQ, RS]) error {
-	return func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error {
-		return handler(ctx, stream)
-	}
-}
-
-func noResponseWrapper[RQ freighter.Payload](
-	handler func(ctx context.Context, rq RQ) (error errors.Typed),
-) func(ctx context.Context, rq RQ) (rs types.Nil, error error) {
-	return func(ctx context.Context, rq RQ) (types.Nil, error) {
-		return types.Nil{}, handler(ctx, rq)
-	}
 }

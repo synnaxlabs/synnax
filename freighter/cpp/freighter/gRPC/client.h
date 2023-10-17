@@ -12,11 +12,6 @@
 /// Abstract class.
 #include "freighter/freighter.h"
 
-/// std.
-#include <memory>
-#include <string>
-#include <utility>
-
 /// grpc.
 #include <grpc/grpc.h>
 #include <grpcpp/grpcpp.h>
@@ -51,8 +46,8 @@ public:
 };
 
 /// @brief freighter stream object.
-template<typename response_t, typename request_t, typename err_t, typename rpc_t>
-class GRPCStream : public Freighter::Stream<response_t, request_t, err_t> {
+template<typename response_t, typename request_t, typename rpc_t>
+class GRPCStream : public Freighter::Stream<response_t, request_t> {
 public:
 
     /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
@@ -63,29 +58,29 @@ public:
     }
 
     /// @brief Streamer send.
-    err_t send(request_t &request) override {
-        // TODO: Expand on the returned statuses.
-        if (stream->Write(request)) return grpc::Status::OK;
-        return grpc::Status::CANCELLED;
+    Freighter::Error send(request_t &request) override {
+        if (stream->Write(request)) return Freighter::NIL;
+        return Freighter::STREAM_CLOSED;
     }
 
     /// @brief Streamer read.
-    std::pair<response_t, err_t> receive() override {
+    std::pair<response_t, Freighter::Error> receive() override {
         response_t res;
-        if (stream->Read(&res)) return {res, grpc::Status::OK};
-        return {res, grpc::Status::CANCELLED};
+        if (stream->Read(&res)) return {res, Freighter::NIL};
+        if (err) return {res, err};
+        grpc::Status stat = stream->Finish();
+        return {res, Freighter::Error(stat.error_message())};
     }
 
     /// @brief Closing streamer.
-    err_t closeSend() override {
-        if (stream->WritesDone()) {
-            return grpc::Status();
-        }
-
-        return grpc::Status::CANCELLED;
+    Freighter::Error closeSend() override {
+        stream->WritesDone();
+        return Freighter::NIL;
     }
 
 private:
+    Freighter::Error err = Freighter::NIL;
+
     /// The internal streaming type for GRPCUnaryClient.
     std::unique_ptr<grpc::ClientReaderWriter<response_t, request_t>> stream;
 
@@ -102,9 +97,9 @@ private:
 /// @brief An implementation of Freighter::UnaryClient that uses GRPC as the backing transport.
 /// @implements Freighter::UnaryClient
 /// @see Freighter::UnaryClient
-template<typename response_t, typename request_t, typename err_t, typename rpc_t>
+template<typename response_t, typename request_t, typename rpc_t>
 class GRPCUnaryClient :
-        public Freighter::UnaryClient<response_t, request_t, err_t>,
+        public Freighter::UnaryClient<response_t, request_t>,
         Freighter::Finalizer {
 
 public:
@@ -126,33 +121,34 @@ public:
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<response_t, err_t> send(const std::string &target, request_t &request) override {
+    std::pair<response_t, Freighter::Error> send(const std::string &target, request_t &request) override {
         this->latest_request = request;
         Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
-        if (exc != nullptr) throw *exc;
-        return {latest_response, latest_err};
+        return {latest_response, exc};
     }
 
     /// @brief the finalizer that executes the request.
-    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context outboundContext) override {
+    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context outboundContext) override {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
-        for (auto &param: *outboundContext.params)
+        for (auto &param: outboundContext.params)
             grpcContext.AddMetadata(param.first, param.second);
 
         // Execute request.
         auto channel = pool->getChannel(outboundContext.target);
         stub = rpc_t::NewStub(channel);
+        latest_response = response_t();
         auto stat = stub->Exec(&grpcContext, latest_request, &latest_response);
-        latest_err = stat;
+        if (!stat.ok())
+            return {outboundContext, Freighter::Error(stat.error_message())};
 
         // Set inbound metadata.
         auto inboundContext = Freighter::Context(outboundContext.protocol, outboundContext.target);
-        for (auto &meta: grpcContext.GetServerTrailingMetadata())
-            inboundContext.set(meta.first.data(), meta.second.data());
-
-        return {inboundContext, nullptr};
+        for (auto &meta: grpcContext.GetServerInitialMetadata())
+            inboundContext.set(std::string(meta.first.begin(), meta.first.end()),
+                               std::string(meta.second.begin(), meta.second.end()));
+        return {inboundContext, Freighter::NIL};
     }
 
 
@@ -176,17 +172,14 @@ private:
 
     /// Latest response. Use to pass response from finalizer.
     response_t latest_response;
-
-    /// Latest error. Use to pass error from finalizer.
-    err_t latest_err;
 };
 
 /// @brief An implementation of Freighter::StreamClient that uses GRPC as the backing transport.
 /// @implements Freighter::StreamClient
 /// @see Freighter::StreamClient
-template<typename response_t, typename request_t, typename err_t, typename rpc_t>
+template<typename response_t, typename request_t, typename rpc_t>
 class GRPCStreamClient :
-        public Freighter::StreamClient<response_t, request_t, err_t>,
+        public Freighter::StreamClient<response_t, request_t>,
         Freighter::PassthroughMiddleware {
 public:
     GRPCStreamClient(
@@ -205,30 +198,28 @@ public:
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
-    Freighter::Stream<response_t, request_t, err_t> *stream(const std::string &target) override {
+    std::pair<Freighter::Stream<response_t, request_t> *, Freighter::Error> stream(const std::string &target) override {
         Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
-        if (exc != nullptr) throw *exc;
-        return latest_stream;
+        return {latest_stream, exc};
     }
 
     /// @brief the finalizer that opens the stream.
-    std::pair<Freighter::Context, std::exception *> operator()(Freighter::Context &context) {
+    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context &context) {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
-        for (auto &param: *context.params)
+        for (auto &param: context.params)
             grpcContext.AddMetadata(param.first, param.second);
 
         auto channel = pool->getChannel(context.target);
-        latest_stream = new GRPCStream<response_t, request_t, err_t, rpc_t>(channel);
-        return {context, nullptr};
+        latest_stream = new GRPCStream<response_t, request_t, rpc_t>(channel);
 
         // Set inbound metadata.
         auto inboundContext = Freighter::Context(context.protocol, context.target);
         for (auto &meta: grpcContext.GetServerTrailingMetadata())
             inboundContext.set(meta.first.data(), meta.second.data());
 
-        return {inboundContext, nullptr};
+        return {inboundContext, Freighter::NIL};
     }
 
 private:
@@ -244,5 +235,5 @@ private:
     // TODO: This means our client is not thread safe. I'd like to see if there is a better way to do this.
 
     /// Latest stream. Use to pass stream from finalizer.
-    GRPCStream<response_t, request_t, err_t, rpc_t> *latest_stream;
+    GRPCStream<response_t, request_t, rpc_t> *latest_stream{};
 };

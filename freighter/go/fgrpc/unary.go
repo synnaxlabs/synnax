@@ -14,8 +14,10 @@ import (
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -107,7 +109,9 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 				freighter.Unary,
 			)
 			if err != nil {
-				return oMD, err
+				p := &ferrors.Payload{}
+				p.Unmarshal(status.Convert(err).Message())
+				return oMD, ferrors.Decode(*p)
 			}
 			res, err = u.ResponseTranslator.Backward(ctx, tRes)
 			return oMD, err
@@ -137,16 +141,19 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 				return oCtx, err
 			}
 			res, err := u.handler(ctx, req)
-			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			if err != nil {
 				return oCtx, err
 			}
+			tRes, err = u.ResponseTranslator.Forward(ctx, res)
 			return oCtx, err
 		},
 		),
 	)
 	oCtx = attachContext(oCtx)
-	return tRes, err
+	if err == nil {
+		return tRes, nil
+	}
+	return tRes, ferrors.Encode(err)
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(

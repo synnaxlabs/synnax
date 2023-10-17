@@ -1,8 +1,6 @@
 cc_library(
     name = "auth",
-    srcs = [
-        "client.cpp",
-    ],
+    srcs = [],
     hdrs = ["auth.h"],
     visibility = ["//visibility:public"],
     deps = [

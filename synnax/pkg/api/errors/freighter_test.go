@@ -44,7 +44,7 @@ var _ = Describe("Freighter", func() {
 				Expect(decoded).To(Equal(err))
 			})
 		})
-		Context("Nil Error", func() {
+		Context("TypeNil Error", func() {
 			It("Should encode and decode a nil error", func() {
 				err := errors.Nil
 				encoded := ferrors.Encode(err)

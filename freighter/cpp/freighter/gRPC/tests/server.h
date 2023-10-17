@@ -38,11 +38,11 @@ public:
         // get the key 'test' from meta data
         auto test = context->client_metadata().find("test");
         std::string rep("Read request: ");
-        reply->set_payload(rep + request->payload());
         // if the test value exists, set the reply key back to the same value.
         if (test != context->client_metadata().end()) {
-            context->AddInitialMetadata("test", test->second.data());
+            context->AddInitialMetadata("test", "dog");
         }
+        reply->set_payload(rep + request->payload());
         return grpc::Status::OK;
     }
 private:

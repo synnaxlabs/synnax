@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"go/types"
 
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -39,8 +40,8 @@ func NewAuthServer(p Provider) *AuthService {
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
-func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, _ errors.Typed) {
-	if err := s.Validate(&cred); err.Occurred() {
+func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
+	if err := s.Validate(&cred); err != nil {
 		return tr, err
 	}
 	if err := s.authenticator.Authenticate(ctx, cred); err != nil {
@@ -63,11 +64,11 @@ type RegistrationRequest struct {
 
 // Register registers new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
-func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, _ errors.Typed) {
-	if err := s.Validate(req); err.Occurred() {
+func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
+	if err := s.Validate(req); err != nil {
 		return tr, err
 	}
-	return tr, s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
 			return errors.General(err)
 		}
@@ -75,9 +76,8 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
 			return errors.General(err)
 		}
-		var tErr errors.Typed
-		tr, tErr = s.tokenResponse(*u)
-		return tErr
+		tr, err = s.tokenResponse(*u)
+		return err
 	})
 }
 
@@ -88,12 +88,12 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
-func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequest) errors.Typed {
-	if err := s.Validate(cpr); err.Occurred() {
-		return err
+func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequest) (types.Nil, error) {
+	if err := s.Validate(cpr); err != nil {
+		return types.Nil{}, err
 	}
-	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
-		return errors.MaybeGeneral(s.authenticator.NewWriter(txn).
+	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
+		return errors.Auto(s.authenticator.NewWriter(txn).
 			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword))
 	})
 }
@@ -105,24 +105,24 @@ type ChangeUsernameRequest struct {
 }
 
 // ChangeUsername changes the username for the user with the provided credentials.
-func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequest) errors.Typed {
-	if err := s.Validate(&cur); err.Occurred() {
-		return err
+func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequest) (types.Nil, error) {
+	if err := s.Validate(&cur); err != nil {
+		return types.Nil{}, err
 	}
-	return s.WithTx(ctx, func(txn gorp.Tx) errors.Typed {
+	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
 		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
-			return errors.MaybeQuery(err)
+			return err
 		}
 		if err := s.authenticator.NewWriter(txn).UpdateUsername(
 			ctx,
 			cur.InsecureCredentials,
 			cur.NewUsername,
 		); err != nil {
-			return errors.Unexpected(err)
+			return err
 		}
 		u.Username = cur.NewUsername
-		return errors.MaybeUnexpected(s.user.NewWriter(txn).Update(ctx, u))
+		return s.user.NewWriter(txn).Update(ctx, u)
 	})
 }
 
@@ -135,7 +135,7 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
-func (s *AuthService) tokenResponse(u user.User) (TokenResponse, errors.Typed) {
+func (s *AuthService) tokenResponse(u user.User) (TokenResponse, error) {
 	tk, err := s.token.New(u.Key)
-	return TokenResponse{User: u, Token: tk}, errors.MaybeUnexpected(err)
+	return TokenResponse{User: u, Token: tk}, err
 }

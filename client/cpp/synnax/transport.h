@@ -9,9 +9,6 @@
 
 #pragma once
 
-/// freighter
-#include "freighter/freighter.h"
-
 /// internal
 #include "synnax/framer/framer.h"
 #include "synnax/channel/channel.h"

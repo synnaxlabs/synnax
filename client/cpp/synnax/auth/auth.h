@@ -21,19 +21,40 @@
 namespace Auth {
 typedef Freighter::UnaryClient<
         api::v1::LoginResponse,
-        api::v1::LoginRequest,
-        grpc::Status> LoginClient;
+        api::v1::LoginRequest> LoginClient;
 
 
-class Client {
+class Middleware : public Freighter::PassthroughMiddleware {
 private:
-    std::string token;
-    LoginClient *login_client;
+    std::string token = "";
+    bool authenticated = false;
+    Freighter::Error err = Freighter::NIL;
+    Auth::LoginClient *login_client;
+    std::string username;
+    std::string password;
+
 public:
-    Client(LoginClient *login_client);
+    Middleware(Auth::LoginClient *login_client, const std::string &username, const std::string &password) :
+            login_client(login_client), username(username), password(password) {
+    }
 
-    void login(const std::string &username, const std::string &password);
-
-    Freighter::Middleware *tokenMiddleware();
+    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
+        if (!authenticated) {
+            api::v1::LoginRequest req;
+            req.set_username(username);
+            req.set_password(password);
+            auto [res, exc] = login_client->send("/auth_login/login", req);
+            if (exc) {
+                err = exc;
+                return {context, err};
+            }
+            token = res.token();
+            authenticated = true;
+        }
+        if (err) return {context, err};
+        context.set("authorization", "Bearer " + token);
+        return Freighter::PassthroughMiddleware::operator()(context);
+    }
 };
 }
+
