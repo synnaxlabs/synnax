@@ -80,7 +80,7 @@ public:
 
     [[nodiscard]] Freighter::Error set(const std::string &key, const std::string &value) const;
 
-    [[nodiscard]] Freighter::Error delete_(const std::string &key) const;
+    [[nodiscard]] Freighter::Error del(const std::string &key) const;
 };
 
 /// @brief a range is a user-defined region of a cluster's data. It's identified
@@ -92,7 +92,7 @@ public:
     Key key;
     std::string name;
     Telem::TimeRange time_range{};
-    KV *kv = nullptr;
+    KV kv = KV("", nullptr, nullptr, nullptr);
 
     /// @brief constructs the range. Note that this does not mean the range has been
     /// persisted to the cluster. To persist the range, call create, at which

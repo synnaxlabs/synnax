@@ -31,8 +31,7 @@ Range::Range(const api::v1::Range &a) :
         key(a.key()),
         name(a.name()),
         time_range(
-                Telem::TimeRange(Telem::TimeStamp(a.time_range().start()), Telem::TimeStamp(a.time_range().end()))),
-        kv(nullptr) {
+                Telem::TimeRange(Telem::TimeStamp(a.time_range().start()), Telem::TimeStamp(a.time_range().end()))) {
 }
 
 void Range::to_proto(api::v1::Range *rng) const {
@@ -73,7 +72,7 @@ std::pair<std::vector<Range>, Freighter::Error> Client::retrieveMany(api::v1::Ra
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
-    for (auto &r: ranges) r.kv = nullptr;
+    for (auto &r: ranges) r.kv = KV(r.key, kv_get_client, kv_set_client, kv_delete_client);
     return {ranges, err};
 }
 
@@ -98,7 +97,7 @@ Freighter::Error Client::create(std::vector<Range> &ranges) const {
     if (!err)
         for (auto i = 0; i < res.ranges_size(); i++) {
             ranges[i].key = res.ranges(i).key();
-            ranges[i].kv = nullptr;
+            ranges[i].kv = KV(ranges[i].key, kv_get_client, kv_set_client, kv_delete_client);
         }
     return err;
 }
@@ -138,7 +137,7 @@ Freighter::Error KV::set(const std::string &key, const std::string &value) const
     return err;
 }
 
-Freighter::Error KV::delete_(const std::string &key) const {
+Freighter::Error KV::del(const std::string &key) const {
     auto req = api::v1::RangeKVDeleteRequest();
     req.set_range_key(range_key);
     req.add_keys(key);

@@ -11,7 +11,7 @@
 #include <string>
 
 /// GTest
-#include <gtest/gtest.h>
+#include <include/gtest/gtest.h>
 
 /// internal
 #include "synnax/synnax.h"
@@ -47,7 +47,7 @@ TEST(ChannelTests, testCreateIndex) {
             true
     );
     ASSERT_FALSE(err);
-    auto [indexed , err2] = client.channels.create(
+    auto [indexed, err2] = client.channels.create(
             "test",
             Telem::DataType("float64"),
             index.key,
@@ -103,7 +103,9 @@ TEST(ChannelTest, testRetrieveMany) {
             {"test3", Telem::DataType("float64"), Telem::Rate(1)},
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
-    auto [retrieved ,exc] = client.channels.retrieve(std::vector<Channel::Key>{channels[0].key, channels[1].key, channels[2].key});
+    auto [retrieved, exc] = client.channels.retrieve(
+            std::vector<Channel::Key>{channels[0].key, channels[1].key, channels[2].key}
+    );
     ASSERT_FALSE(exc);
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {

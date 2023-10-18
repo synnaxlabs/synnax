@@ -15,8 +15,8 @@
 
 using namespace Synnax;
 
-const std::string CREATE_ENDPOINT = "";
-const std::string RETRIEVE_ENDPOINT = "";
+const std::string CREATE_ENDPOINT = "/api/v1/channel/create";
+const std::string RETRIEVE_ENDPOINT = "/api/v1/channel/retrieve";
 
 /// @brief proto ctor.
 Channel::Channel::Channel(const api::v1::Channel &ch) :

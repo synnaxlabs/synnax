@@ -1,6 +1,8 @@
 cc_library(
     name = "channel",
-    srcs = ["channel.cpp"],
+    srcs = [
+        "channel.cpp",
+    ],
     hdrs = ["channel.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -9,5 +11,14 @@ cc_library(
         "@Freighter//freighter/gRPC",
         "@api_protos//v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "channel_test",
+    srcs = ["channel_test.cpp"],
+    deps = [
+        "//synnax",
+        "@com_google_googletest//:gtest_main",
     ],
 )
