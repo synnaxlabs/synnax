@@ -21,7 +21,7 @@ TEST(FrameTests, testString)
 {
     std::vector<std::any> vals;
     vals.push_back(5);
-    Synnax::Telem::Series s{vals};
+    synnax::synnax::Series s{vals};
     std::vector<std::any> raw_vals = s.getRaw();
     auto type_name = s.getDataType().name();
     ASSERT_EQ(type_name, "int");

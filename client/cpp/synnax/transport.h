@@ -19,17 +19,17 @@ class Transport {
 public:
     Transport(uint16_t port, const std::string &ip);
 
-    void use(Freighter::Middleware *mw) const;
+    void use(freighter::Middleware *mw) const;
 
     Auth::LoginClient *auth_login;
     Framer::IteratorClient *frame_iter;
     Framer::StreamerClient *frame_stream;
     Framer::WriterClient *frame_write;
-    Channel::CreateClient *chan_create;
-    Channel::RetrieveClient *chan_retrieve;
-    Ranger::RetrieveClient *range_retrieve;
-    Ranger::CreateClient *range_create;
-    Ranger::KVDeleteClient *range_kv_delete;
-    Ranger::KVGetClient *range_kv_get;
-    Ranger::KVSetClient *range_kv_set;
+    channel::ChannelCreateClient *chan_create;
+    channel::ChannelRetrieveClient *chan_retrieve;
+    Ranger::RangeRetrieveClient *range_retrieve;
+    Ranger::RangeCreateClient *range_create;
+    Ranger::RangeKVDeleteClient *range_kv_delete;
+    Ranger::RangeKVGetClient *range_kv_get;
+    Ranger::RangeKVSetClient *range_kv_set;
 };

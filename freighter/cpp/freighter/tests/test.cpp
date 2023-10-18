@@ -11,22 +11,22 @@
 
 #include "freighter/freighter.h"
 
-class BasicMiddleware : public Freighter::PassthroughMiddleware {
+class BasicMiddleware : public freighter::PassthroughMiddleware {
 private:
     std::string value;
 public:
     explicit BasicMiddleware(std::string value) : value(std::move(value)) {}
 
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
         context.set("test", value);
-        return Freighter::PassthroughMiddleware::operator()(context);
+        return freighter::PassthroughMiddleware::operator()(context);
     }
 };
 
-class BasicFinalizer : public Freighter::PassthroughMiddleware {
+class BasicFinalizer : public freighter::PassthroughMiddleware {
 public:
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
-        return {context, Freighter::NIL};
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
+        return {context, freighter::NIL};
     }
 };
 
@@ -34,18 +34,18 @@ TEST(testFreighter, testMiddleware) {
     auto middleware = BasicMiddleware("5");
     auto finalizer = BasicFinalizer();
     middleware.setNext(&finalizer);
-    auto context = Freighter::Context("test", "1");
+    auto context = freighter::Context("test", "1");
     auto result = middleware(context);
     ASSERT_EQ(result.first.get("test"), "5");
 }
 
 TEST(testFreighter, testMiddlewareCollector) {
-    auto collector = Freighter::MiddlewareCollector();
+    auto collector = freighter::MiddlewareCollector();
     auto mw1 = BasicMiddleware("5");
     auto mw2 = BasicMiddleware("6");
     auto f = BasicFinalizer();
     collector.use(&mw1);
     collector.use(&mw2);
-    auto result = collector.exec(Freighter::Context("test", "1"), &f);
+    auto result = collector.exec(freighter::Context("test", "1"), &f);
     ASSERT_EQ(result.first.get("test"), "6");
 }

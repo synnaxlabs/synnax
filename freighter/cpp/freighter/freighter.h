@@ -15,7 +15,7 @@
 #include <string>
 #include <utility>
 
-namespace Freighter {
+namespace freighter {
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 
@@ -160,7 +160,7 @@ public:
     /// @param context the context for the outgoing request. The context for the inbound response can be accessed
     /// by calling the next middleware in the chain.
     /// @returns a pair containing the context for the inbound response and an error.
-    virtual std::pair<Context, Freighter::Error> operator()(Context context) = 0;
+    virtual std::pair<Context, freighter::Error> operator()(Context context) = 0;
 };
 
 /// @brief A middleware implementation that simply passes the request to the next middleware in the chain. This
@@ -178,7 +178,7 @@ public:
     }
 
     /// @implements Middleware::operator()
-    std::pair<Context, Freighter::Error> operator()(Context context) override { return next->operator()(context); }
+    std::pair<Context, freighter::Error> operator()(Context context) override { return next->operator()(context); }
 
 private:
     /// @brief the next middleware in the chain.
@@ -194,8 +194,8 @@ public:
     Middleware *setNext(Middleware *n) override { return this; }
 
     /// @implements Middleware::operator()
-    std::pair<Context, Freighter::Error> operator()(Context context) override {
-        return {context, Freighter::NIL};
+    std::pair<Context, freighter::Error> operator()(Context context) override {
+        return {context, freighter::NIL};
     }
 };
 
@@ -206,20 +206,20 @@ public:
 class MiddlewareCollector {
 private:
     /// @brief The middlewares in the chain.
-    std::vector<Freighter::Middleware *> middlewares;
+    std::vector<freighter::Middleware *> middlewares;
 public:
     /// @brief Adds a middleware to the chain. Middleware is executed in the order it is added i.e. the last
     /// middleware added will be executed as the final middleware before the finalizer.
     /// @implements UnaryClient::use
     /// @implements StreamClient::use
-    void use(Freighter::Middleware *middleware) { middlewares.push_back(middleware); }
+    void use(freighter::Middleware *middleware) { middlewares.push_back(middleware); }
 
     /// @brief Executes the middleware chain.
     /// @param finalizer - the last middleware in the chain. This finalizer should NOT call the next middleware in
     /// the chain, as it will be a nullptr. It should instead execute the request and handle the response.
-    std::pair<Freighter::Context, Freighter::Error> exec(
-            const Freighter::Context &context,
-            Freighter::Middleware *finalizer
+    std::pair<freighter::Context, freighter::Error> exec(
+            const freighter::Context &context,
+            freighter::Middleware *finalizer
     ) {
         if (middlewares.empty()) return finalizer->operator()(context);
         for (int i = 0; i < middlewares.size(); i++) {
@@ -281,7 +281,7 @@ public:
     /// @see Stream.
     /// @param target the target to open the stream to.
     /// @returns a pointer to an object implementing the Stream interface.
-    virtual std::pair<Stream<response_t, request_t> *, Freighter::Error> stream(const std::string &target) = 0;
+    virtual std::pair<Stream<response_t, request_t> *, freighter::Error> stream(const std::string &target) = 0;
 };
 
 }

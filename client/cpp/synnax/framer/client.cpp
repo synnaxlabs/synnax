@@ -9,23 +9,23 @@
 
 #include "synnax/framer/framer.h"
 
-using namespace Synnax::Framer;
+using namespace synnax::Framer;
 
 const std::string ITERATOR_ENDPOINT = "/frame/iterate";
 const std::string STREAM_ENDPOINT = "/frame/stream";
 const std::string WRITE_ENDPOINT = "/frame/write";
 
-std::pair<Iterator, Freighter::Error> Client::openIterator(const IteratorConfig &config) {
+std::pair<Iterator, freighter::Error> Client::openIterator(const IteratorConfig &config) {
     auto [s, exc] =  iterator_client->stream(ITERATOR_ENDPOINT);
     return {Iterator(s, config), exc};
 }
 
-std::pair<Streamer, Freighter::Error> Client::openStreamer(const StreamerConfig &config) {
+std::pair<Streamer, freighter::Error> Client::openStreamer(const StreamerConfig &config) {
     auto [s, exc]  = streamer_client->stream(STREAM_ENDPOINT);
     return {Streamer(s, config), exc};
 }
 
-std::pair<Writer, Freighter::Error> Client::openWriter(const WriterConfig &config) {
+std::pair<Writer, freighter::Error> Client::openWriter(const WriterConfig &config) {
     auto [s, exc] = writer_client->stream(WRITE_ENDPOINT);
     return {Writer(s, config), exc};
 }

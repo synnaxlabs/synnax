@@ -18,10 +18,10 @@
 #include "synnax/channel/channel.h"
 #include "synnax/transport.h"
 
-using namespace Synnax;
+using namespace synnax;
 
 
-namespace Synnax {
+namespace synnax {
 
 // @brief Configuration for opening a Synnax login_client.
 struct Config {
@@ -39,18 +39,18 @@ struct Config {
 
 class Client {
 public:
-    Channel::Client channels = Channel::Client(nullptr, nullptr);
-    Ranger::Client ranges = Ranger::Client(nullptr, nullptr, nullptr, nullptr, nullptr);
+    channel::ChannelClient channels = channel::ChannelClient(nullptr, nullptr);
+    Ranger::RangeClient ranges = Ranger::RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     Framer::Client telem = Framer::Client(nullptr, nullptr, nullptr);
 
     explicit Client(const Config &cfg) {
         auto t = Transport(cfg.port, cfg.host);
         // TODO: fix this memory leak.
-        Freighter::Middleware *auth_mw = new Auth::Middleware(t.auth_login, cfg.username, cfg.password);
+        freighter::Middleware *auth_mw = new Auth::Middleware(t.auth_login, cfg.username, cfg.password);
         t.use(auth_mw);
-        channels = Channel::Client(t.chan_retrieve, t.chan_create);
+        channels = channel::ChannelClient(t.chan_retrieve, t.chan_create);
 
-        ranges = Ranger::Client(
+        ranges = Ranger::RangeClient(
                 t.range_retrieve,
                 t.range_create,
                 t.range_kv_get,

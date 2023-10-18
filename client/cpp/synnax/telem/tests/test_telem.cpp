@@ -15,7 +15,7 @@
 
 /// std.
 
-using namespace Synnax::Telem;
+using namespace synnax::Telem;
 
 /// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testContructor)

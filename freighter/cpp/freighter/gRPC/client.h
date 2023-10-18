@@ -47,7 +47,7 @@ public:
 
 /// @brief freighter stream object.
 template<typename response_t, typename request_t, typename rpc_t>
-class GRPCStream : public Freighter::Stream<response_t, request_t> {
+class GRPCStream : public freighter::Stream<response_t, request_t> {
 public:
 
     /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
@@ -58,28 +58,28 @@ public:
     }
 
     /// @brief Streamer send.
-    Freighter::Error send(request_t &request) override {
-        if (stream->Write(request)) return Freighter::NIL;
-        return Freighter::STREAM_CLOSED;
+    freighter::Error send(request_t &request) override {
+        if (stream->Write(request)) return freighter::NIL;
+        return freighter::STREAM_CLOSED;
     }
 
     /// @brief Streamer read.
-    std::pair<response_t, Freighter::Error> receive() override {
+    std::pair<response_t, freighter::Error> receive() override {
         response_t res;
-        if (stream->Read(&res)) return {res, Freighter::NIL};
+        if (stream->Read(&res)) return {res, freighter::NIL};
         if (err) return {res, err};
         grpc::Status stat = stream->Finish();
-        return {res, Freighter::Error(stat.error_message())};
+        return {res, freighter::Error(stat.error_message())};
     }
 
     /// @brief Closing streamer.
-    Freighter::Error closeSend() override {
+    freighter::Error closeSend() override {
         stream->WritesDone();
-        return Freighter::NIL;
+        return freighter::NIL;
     }
 
 private:
-    Freighter::Error err = Freighter::NIL;
+    freighter::Error err = freighter::NIL;
 
     /// The internal streaming type for GRPCUnaryClient.
     std::unique_ptr<grpc::ClientReaderWriter<response_t, request_t>> stream;
@@ -94,42 +94,42 @@ private:
     std::string last_target;
 };
 
-/// @brief An implementation of Freighter::UnaryClient that uses GRPC as the backing transport.
-/// @implements Freighter::UnaryClient
-/// @see Freighter::UnaryClient
+/// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing transport.
+/// @implements freighter::UnaryClient
+/// @see freighter::UnaryClient
 template<typename response_t, typename request_t, typename rpc_t>
 class GRPCUnaryClient :
-        public Freighter::UnaryClient<response_t, request_t>,
-        Freighter::Finalizer {
+        public freighter::UnaryClient<response_t, request_t>,
+        freighter::Finalizer {
 
 public:
     GRPCUnaryClient(
             GRPCPool *pool,
             const std::string &base_target
     ) : pool(pool),
-        base_target(Freighter::URL(base_target)) {
+        base_target(freighter::URL(base_target)) {
     }
 
-    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from Freighter::MiddlewareCollector.
+    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
 
     /// @brief Adds a middleware to the chain.
     /// @implements UnaryClient::use
-    void use(Freighter::Middleware *middleware) override { mw.use(middleware); }
+    void use(freighter::Middleware *middleware) override { mw.use(middleware); }
 
 
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<response_t, Freighter::Error> send(const std::string &target, request_t &request) override {
+    std::pair<response_t, freighter::Error> send(const std::string &target, request_t &request) override {
         this->latest_request = request;
-        Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
+        freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
         return {latest_response, exc};
     }
 
     /// @brief the finalizer that executes the request.
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context outboundContext) override {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
         for (auto &param: outboundContext.params)
@@ -141,26 +141,26 @@ public:
         latest_response = response_t();
         auto stat = stub->Exec(&grpcContext, latest_request, &latest_response);
         if (!stat.ok())
-            return {outboundContext, Freighter::Error(stat.error_message())};
+            return {outboundContext, freighter::Error(stat.error_message())};
 
         // Set inbound metadata.
-        auto inboundContext = Freighter::Context(outboundContext.protocol, outboundContext.target);
+        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
         for (auto &meta: grpcContext.GetServerInitialMetadata())
             inboundContext.set(std::string(meta.first.begin(), meta.first.end()),
                                std::string(meta.second.begin(), meta.second.end()));
-        return {inboundContext, Freighter::NIL};
+        return {inboundContext, freighter::NIL};
     }
 
 
 private:
     /// Middleware collector.
-    Freighter::MiddlewareCollector mw;
+    freighter::MiddlewareCollector mw;
 
     /// GRPCPool to pool connections across clients.
     GRPCPool *pool;
 
     /// Base target for all request.
-    Freighter::URL base_target;
+    freighter::URL base_target;
 
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;
@@ -174,38 +174,38 @@ private:
     response_t latest_response;
 };
 
-/// @brief An implementation of Freighter::StreamClient that uses GRPC as the backing transport.
-/// @implements Freighter::StreamClient
-/// @see Freighter::StreamClient
+/// @brief An implementation of freighter::StreamClient that uses GRPC as the backing transport.
+/// @implements freighter::StreamClient
+/// @see freighter::StreamClient
 template<typename response_t, typename request_t, typename rpc_t>
 class GRPCStreamClient :
-        public Freighter::StreamClient<response_t, request_t>,
-        Freighter::PassthroughMiddleware {
+        public freighter::StreamClient<response_t, request_t>,
+        freighter::PassthroughMiddleware {
 public:
     GRPCStreamClient(
             GRPCPool *pool,
             const std::string &base_target
     ) : pool(pool),
-        base_target(Freighter::URL(base_target)) {
+        base_target(freighter::URL(base_target)) {
     }
 
-    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from Freighter::MiddlewareCollector.
+    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
 
     /// @brief Adds a middleware to the chain.
     /// @implements StreamClient::use
-    void use(Freighter::Middleware *middleware) override { mw.use(middleware); }
+    void use(freighter::Middleware *middleware) override { mw.use(middleware); }
 
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
-    std::pair<Freighter::Stream<response_t, request_t> *, Freighter::Error> stream(const std::string &target) override {
-        Freighter::Context ctx = Freighter::Context("grpc", base_target.child(target).toString());
+    std::pair<freighter::Stream<response_t, request_t> *, freighter::Error> stream(const std::string &target) override {
+        freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
         return {latest_stream, exc};
     }
 
     /// @brief the finalizer that opens the stream.
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context &context) {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context &context) {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
         for (auto &param: context.params)
@@ -215,11 +215,11 @@ public:
         latest_stream = new GRPCStream<response_t, request_t, rpc_t>(channel);
 
         // Set inbound metadata.
-        auto inboundContext = Freighter::Context(context.protocol, context.target);
+        auto inboundContext = freighter::Context(context.protocol, context.target);
         for (auto &meta: grpcContext.GetServerTrailingMetadata())
             inboundContext.set(meta.first.data(), meta.second.data());
 
-        return {inboundContext, Freighter::NIL};
+        return {inboundContext, freighter::NIL};
     }
 
 private:
@@ -227,10 +227,10 @@ private:
     GRPCPool *pool;
 
     /// Middleware collector.
-    Freighter::MiddlewareCollector mw;
+    freighter::MiddlewareCollector mw;
 
     /// Base target for all requests.
-    Freighter::URL base_target;
+    freighter::URL base_target;
 
     // TODO: This means our client is not thread safe. I'd like to see if there is a better way to do this.
 

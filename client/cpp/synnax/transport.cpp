@@ -27,7 +27,7 @@
 using namespace api;
 
 Transport::Transport(uint16_t port, const std::string &ip) {
-    auto base_target = Freighter::URL(ip, port, "").toString();
+    auto base_target = freighter::URL(ip, port, "").toString();
     auto pool = new GRPCPool();
 
     auth_login = new GRPCUnaryClient<
@@ -98,7 +98,7 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     >(pool, base_target);
 }
 
-void Transport::use(Freighter::Middleware *mw) const {
+void Transport::use(freighter::Middleware *mw) const {
 //    auth_login->use(mw);
     frame_iter->use(mw);
     frame_stream->use(mw);

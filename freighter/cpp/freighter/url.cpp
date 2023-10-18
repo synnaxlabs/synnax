@@ -4,7 +4,7 @@
 
 #include "freighter/freighter.h"
 
-using namespace Freighter;
+using namespace freighter;
 
 
 /// @brief joins the two paths together to form a valid url with a trailing slash.

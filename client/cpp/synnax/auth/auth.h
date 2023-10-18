@@ -25,7 +25,7 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 namespace Auth {
 /// @brief type alias for the auth login transport.
-typedef Freighter::UnaryClient<
+typedef freighter::UnaryClient<
         api::v1::LoginResponse,
         api::v1::LoginRequest
 > LoginClient;
@@ -33,7 +33,7 @@ typedef Freighter::UnaryClient<
 
 /// @brief Middleware for authenticating requests using a bearer token. Middleware has
 /// no preference on order when provided to use.
-class Middleware : public Freighter::PassthroughMiddleware {
+class Middleware : public freighter::PassthroughMiddleware {
 private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
@@ -43,7 +43,7 @@ private:
     /// to authenticate again.
     bool auth_attempted = false;
     /// Accumulated error from authentication attempts.
-    Freighter::Error err = Freighter::NIL;
+    freighter::Error err = freighter::NIL;
     /// Transport for authentication requests.
     Auth::LoginClient *login_client;
     /// Username to be used for authentication.
@@ -60,12 +60,12 @@ public:
             login_client(login_client), username(username), password(password) {
     }
 
-    /// Implements Freighter::Middleware::operator().
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
+    /// Implements freighter::Middleware::operator().
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
         if (err) return {context, err};
         if (auth_attempted) {
             context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-            return Freighter::PassthroughMiddleware::operator()(context);
+            return freighter::PassthroughMiddleware::operator()(context);
         }
         api::v1::LoginRequest req;
         req.set_username(username);

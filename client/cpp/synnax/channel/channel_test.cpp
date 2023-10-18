@@ -16,7 +16,7 @@
 /// internal
 #include "synnax/synnax.h"
 
-const Synnax::Config cfg = {
+const synnax::Config cfg = {
         "localhost",
         9090,
         false,
@@ -26,11 +26,11 @@ const Synnax::Config cfg = {
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreate) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [channel, err] = client.channels.create(
             "test",
-            Telem::DataType("float64"),
-            Telem::Rate(1)
+            synnax::DataType("float64"),
+            synnax::Rate(1)
     );
     ASSERT_FALSE(err);
     ASSERT_EQ(channel.name, "test");
@@ -39,17 +39,17 @@ TEST(ChannelTests, testCreate) {
 
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreateIndex) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [index, err] = client.channels.create(
             "test",
-            Telem::DataType("timestamp"),
+            synnax::DataType("timestamp"),
             0,
             true
     );
     ASSERT_FALSE(err);
     auto [indexed, err2] = client.channels.create(
             "test",
-            Telem::DataType("float64"),
+            synnax::DataType("float64"),
             index.key,
             false
     );
@@ -63,11 +63,11 @@ TEST(ChannelTests, testCreateIndex) {
 
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(ChannelTests, testCreateMany) {
-    auto client = Synnax::Client(cfg);
-    auto channels = std::vector<Synnax::Channel::Channel>{
-            {"test1", Telem::DataType("float64"), Telem::Rate(1)},
-            {"test2", Telem::DataType("float64"), Telem::Rate(1)},
-            {"test3", Telem::DataType("float64"), Telem::Rate(1)},
+    auto client = synnax::Client(cfg);
+    auto channels = std::vector<synnax::Channel>{
+            {"test1", synnax::DataType("float64"), synnax::Rate(1)},
+            {"test2", synnax::DataType("float64"), synnax::Rate(1)},
+            {"test3", synnax::DataType("float64"), synnax::Rate(1)},
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
@@ -76,11 +76,11 @@ TEST(ChannelTests, testCreateMany) {
 
 /// @brief it should retrieve a channel by key.
 TEST(ChannelTest, testRetrieve) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [channel, err] = client.channels.create(
             "test",
-            Telem::DataType("float64"),
-            Telem::Rate(1)
+            synnax::DataType("float64"),
+            synnax::Rate(1)
     );
     ASSERT_FALSE(err);
     auto [retrieved, err2] = client.channels.retrieve(channel.key);
@@ -96,15 +96,15 @@ TEST(ChannelTest, testRetrieve) {
 
 /// @brief it should retrieve many channels by their key.
 TEST(ChannelTest, testRetrieveMany) {
-    auto client = Synnax::Client(cfg);
-    auto channels = std::vector<Synnax::Channel::Channel>{
-            {"test1", Telem::DataType("float64"), Telem::Rate(1)},
-            {"test2", Telem::DataType("float64"), Telem::Rate(1)},
-            {"test3", Telem::DataType("float64"), Telem::Rate(1)},
+    auto client = synnax::Client(cfg);
+    auto channels = std::vector<synnax::Channel>{
+            {"test1", synnax::DataType("float64"), synnax::Rate(1)},
+            {"test2", synnax::DataType("float64"), synnax::Rate(1)},
+            {"test3", synnax::DataType("float64"), synnax::Rate(1)},
     };
     ASSERT_TRUE(client.channels.create(channels).ok());
     auto [retrieved, exc] = client.channels.retrieve(
-            std::vector<Channel::Key>{channels[0].key, channels[1].key, channels[2].key}
+            std::vector<ChannelKey>{channels[0].key, channels[1].key, channels[2].key}
     );
     ASSERT_FALSE(exc);
     ASSERT_EQ(channels.size(), retrieved.size());

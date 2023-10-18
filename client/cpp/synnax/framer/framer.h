@@ -21,35 +21,35 @@
 #include <grpcpp/grpcpp.h>
 
 
-using namespace Synnax;
+using namespace synnax;
 
-namespace Synnax::Framer {
-typedef Freighter::Stream<
+namespace synnax::Framer {
+typedef freighter::Stream<
         api::v1::FrameIteratorResponse,
         api::v1::FrameIteratorRequest
 > IteratorStream;
 
-typedef Freighter::StreamClient<
+typedef freighter::StreamClient<
         api::v1::FrameIteratorResponse,
         api::v1::FrameIteratorRequest
 > IteratorClient;
 
-typedef Freighter::Stream<
+typedef freighter::Stream<
         api::v1::FrameStreamerResponse,
         api::v1::FrameStreamerRequest
 > StreamerStream;
 
-typedef Freighter::StreamClient<
+typedef freighter::StreamClient<
         api::v1::FrameStreamerResponse,
         api::v1::FrameStreamerRequest
 > StreamerClient;
 
-typedef Freighter::Stream<
+typedef freighter::Stream<
         api::v1::FrameWriterResponse,
         api::v1::FrameWriterRequest
 > WriterStream;
 
-typedef Freighter::StreamClient<
+typedef freighter::StreamClient<
         api::v1::FrameWriterResponse,
         api::v1::FrameWriterRequest
 > WriterClient;
@@ -57,11 +57,11 @@ typedef Freighter::StreamClient<
 
 /// @brief Frame type.
 class Frame {
-    std::vector<Channel::Key> *columns;
-    std::vector<Telem::Series> *series;
+    std::vector<channel::Key> *columns;
+    std::vector<synnax::Series> *series;
 
 public:
-    Frame(std::vector<Channel::Key> *channels, std::vector<Telem::Series> *series);
+    Frame(std::vector<channel::Key> *channels, std::vector<synnax::Series> *series);
 
     Frame(size_t size);
 
@@ -69,18 +69,18 @@ public:
 
     void to_proto(api::v1::Frame *f) const;
 
-    void push_back(Channel::Key col, Telem::Series ser);
+    void push_back(channel::Key col, synnax::Series ser);
 
     size_t size() const { return series->size(); }
 
-    std::pair<Channel::Key, Telem::Series> operator[](size_t i) const {
+    std::pair<channel::Key, synnax::Series> operator[](size_t i) const {
         return std::make_pair((*columns)[i], (*series)[i]);
     }
 };
 
 struct IteratorConfig {
-    std::vector<Channel::Key> channels;
-    Telem::TimeRange bounds;
+    std::vector<channel::Key> channels;
+    synnax::TimeRange bounds;
 };
 
 class Iterator {
@@ -88,17 +88,17 @@ private:
 public:
     Iterator(IteratorStream *stream, const IteratorConfig &config);
 
-    bool next(Telem::TimeSpan span);
+    bool next(synnax::TimeSpan span);
 
-    bool prev(Telem::TimeSpan span);
+    bool prev(synnax::TimeSpan span);
 
     bool seekFirst();
 
     bool seekLast();
 
-    bool seekLT(Telem::TimeStamp ts);
+    bool seekLT(synnax::TimeStamp ts);
 
-    bool seekGE(Telem::TimeStamp ts);
+    bool seekGE(synnax::TimeStamp ts);
 
     bool valid();
 
@@ -106,8 +106,8 @@ public:
 };
 
 struct StreamerConfig {
-    Telem::TimeStamp start;
-    std::vector<Channel::Key> channels;
+    synnax::TimeStamp start;
+    std::vector<channel::Key> channels;
 };
 
 class Streamer {
@@ -122,10 +122,10 @@ public:
 };
 
 struct WriterConfig {
-    std::vector<Telem::Authority> authorities;
-    std::vector<Channel::Key> channels;
-    Telem::Subject subject;
-    Telem::TimeStamp start;
+    std::vector<synnax::Authority> authorities;
+    std::vector<channel::Key> channels;
+    synnax::Subject subject;
+    synnax::TimeStamp start;
 
     void to_proto(api::v1::FrameWriterConfig *f) const;
 };
@@ -140,7 +140,7 @@ public:
     /// @brief Sends one frame to the given target.
     bool write(Frame fr);
 
-    std::pair<Telem::TimeStamp, bool> commit();
+    std::pair<synnax::TimeStamp, bool> commit();
 
 //    std::exception error();
 
@@ -161,10 +161,10 @@ public:
             writer_client(writer_client) {}
 
 
-    std::pair<Iterator, Freighter::Error> openIterator(const IteratorConfig &config);
+    std::pair<Iterator, freighter::Error> openIterator(const IteratorConfig &config);
 
-    std::pair<Writer, Freighter::Error> openWriter(const WriterConfig &config);
+    std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config);
 
-    std::pair<Streamer, Freighter::Error> openStreamer(const StreamerConfig &config);
+    std::pair<Streamer, freighter::Error> openStreamer(const StreamerConfig &config);
 };
 }

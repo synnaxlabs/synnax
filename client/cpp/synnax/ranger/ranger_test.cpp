@@ -16,7 +16,7 @@
 /// internal.
 #include "synnax/synnax.h"
 
-const Synnax::Config cfg = {
+const synnax::Config cfg = {
         "localhost",
         9090,
         false,
@@ -26,29 +26,29 @@ const Synnax::Config cfg = {
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     ASSERT_EQ(range.name, "test");
     ASSERT_FALSE(range.key.length() == 0);
-    ASSERT_EQ(range.time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(range.time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(range.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(range.time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its key.
 TEST(RangerTests, testRetrieveByKey) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
@@ -56,18 +56,18 @@ TEST(RangerTests, testRetrieveByKey) {
     ASSERT_FALSE(err2);
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got.time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
@@ -75,26 +75,26 @@ TEST(RangerTests, testRetrieveByName) {
     ASSERT_FALSE(err2);
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got.time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     auto [range2, err2] = client.ranges.create(
             "test2",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err2);
@@ -103,30 +103,30 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got[0].time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
     ASSERT_EQ(got[1].name, "test2");
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got[1].time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve multiple ranges by their keys.
 TEST(RangerTests, testRetrieveMultipleByKey) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     auto [range2, err2] = client.ranges.create(
             "test2",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err2);
@@ -135,23 +135,23 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got[0].time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
     ASSERT_EQ(got[1].name, "test2");
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, Telem::TimeStamp(0));
-    ASSERT_EQ(got[1].time_range.end, Telem::TimeStamp(100));
+    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
 }
 
 
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
@@ -161,12 +161,12 @@ TEST(RangerTests, testSet) {
 
 /// @brief it should get a key-value pair on the range.
 TEST(RangerTests, testGet) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
@@ -179,12 +179,12 @@ TEST(RangerTests, testGet) {
 
 /// @brief it should delete a key-value pair on the range.
 TEST(RangerTests, testDelete) {
-    auto client = Synnax::Client(cfg);
+    auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
-            Telem::TimeRange(
-                    Telem::TimeStamp(0),
-                    Telem::TimeStamp(100)
+            synnax::TimeRange(
+                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(synnax::SECOND * 10)
             )
     );
     ASSERT_FALSE(err);

@@ -19,7 +19,7 @@
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 
-using namespace Synnax::Framer;
+using namespace synnax::Framer;
 
 
 const int32_t OPEN = 0;
@@ -38,7 +38,7 @@ bool Writer::write(Frame fr) {
     return true;
 }
 
-std::pair<Telem::TimeStamp, bool> Writer::commit() {
+std::pair<synnax::TimeStamp, bool> Writer::commit() {
     auto req = api::v1::FrameWriterRequest();
     req.set_command(COMMIT);
     auto exc = stream->send(req);
@@ -46,7 +46,7 @@ std::pair<Telem::TimeStamp, bool> Writer::commit() {
     while (true) {
         auto [res, recExc] = stream->receive();
         if (!recExc.ok()) throw recExc;
-        if (res.command() == COMMIT) return {Telem::TimeStamp(res.end()), true};
+        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), true};
     }
 }
 

@@ -51,13 +51,13 @@ TEST(testGRPC, testBasicUnary) {
     delete pool;
 }
 
-class myMiddleware : public Freighter::PassthroughMiddleware {
+class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<Freighter::Context, Freighter::Error> operator()(Freighter::Context context) override {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
         context.set("test", "5");
-        auto [outContext, exc] =  Freighter::PassthroughMiddleware::operator()(context);
+        auto [outContext, exc] =  freighter::PassthroughMiddleware::operator()(context);
         auto a = outContext.get("test");
         if (a == "dog") {
             ack = true;
@@ -220,7 +220,7 @@ TEST(testGRPC, testStreamError) {
 
     auto [streamer ,exc]= client.stream(target);
     ASSERT_FALSE(exc);
-    Freighter::Error err = streamer->send(mes);
+    freighter::Error err = streamer->send(mes);
     ASSERT_FALSE(err.ok());
 
     auto [res, err2] = streamer->receive();
