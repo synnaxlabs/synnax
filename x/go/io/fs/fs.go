@@ -10,6 +10,7 @@
 package fs
 
 import (
+	"fmt"
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
@@ -92,25 +93,36 @@ type memFS struct {
 }
 
 func (m *memFS) Open(name string, flag int) (File, error) {
-	if flag == os.O_RDONLY {
-		return m.FS.Open(name)
-	} else if exists, _ := m.Exists(name); exists {
-		if flag == os.O_EXCL {
-			return nil, nil
+	if flag&os.O_CREATE != 0 {
+		// create
+		if flag&os.O_EXCL == 0 {
+			return m.FS.Create(name)
 		} else {
-			return m.OpenReadWrite(name)
+			if e, err := m.Exists(name); err != nil || e {
+				if err != nil {
+					return nil, err
+				} else {
+					return nil, nil
+				}
+			} else {
+				return m.FS.Create(name)
+			}
+
 		}
+	} else if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
+		// not readonly
+		return m.FS.OpenReadWrite(name)
 	} else {
-		return m.OpenReadWrite(name)
+		// readonly
+		return m.FS.Open(name)
 	}
 }
 
 func (m *memFS) Sub(name string) (FS, error) {
-	// vfs does not have an implementation of BasePathFS, so I manually made one with "join"
 	if err := m.FS.MkdirAll(name, m.perm); err != nil {
 		return nil, err
 	}
-	var ret *memFS = &memFS{
+	ret := &memFS{
 		FS: vfs.NewMem(),
 	}
 	ret.PathJoin(name)
@@ -118,8 +130,6 @@ func (m *memFS) Sub(name string) (FS, error) {
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
-
-	// vfs does not export Exists, so I just used the implementation of Exists from afero
 	_, err := m.FS.Stat(name)
 	if err == nil {
 		return true, nil
@@ -131,13 +141,14 @@ func (m *memFS) Exists(name string) (bool, error) {
 }
 
 func (m *memFS) List() ([]os.FileInfo, error) {
-	entries, err := m.FS.List(".")
+	entries, err := m.FS.List("")
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
 		infos[i], err = m.FS.Stat(e)
+		fmt.Println(e)
 		if err != nil {
 			return nil, err
 		}
