@@ -152,6 +152,12 @@ public:
             kv_set_client(kv_set_client),
             kv_delete_client(kv_delete_client) {}
 
+    /// @brief retrieves the currently active range in the cluster.
+    /// @returns a pair containing the currently active range and an error. error.ok()
+    /// will be false if there is no active range or the active range could not be
+    /// retrieved.
+    std::pair<Range, freighter::Error> activeRange();
+
     /// @brief retrieves the range with the given key.
     /// @param key - the key of the range to retrieve.
     /// @returns a pair containing the created range and an error where ok() is false

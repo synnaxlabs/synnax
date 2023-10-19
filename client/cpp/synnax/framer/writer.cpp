@@ -19,7 +19,7 @@
 
 const std::string WRITE_ENDPOINT = "/frame/write";
 
-using namespace synnax::Framer;
+using namespace synnax;
 
 
 const int32_t OPEN = 0;

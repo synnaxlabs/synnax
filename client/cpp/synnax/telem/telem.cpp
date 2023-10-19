@@ -7,17 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
+//
+// Created by Emiliano Bonilla on 10/18/23.
+//
 
-class QueryError : public std::exception {
-public:
-    explicit QueryError(std::string message) : message(message) {}
+#include <string>
 
-    std::string message;
+namespace synnax {
 
-    char *what() {
-        return const_cast<char *>(message.c_str());
-    }
-};
-
-
+}

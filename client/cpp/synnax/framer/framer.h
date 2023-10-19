@@ -23,7 +23,7 @@
 
 using namespace synnax;
 
-namespace synnax::Framer {
+namespace synnax {
 typedef freighter::Stream<
         api::v1::FrameIteratorResponse,
         api::v1::FrameIteratorRequest
@@ -57,11 +57,11 @@ typedef freighter::StreamClient<
 
 /// @brief Frame type.
 class Frame {
-    std::vector<channel::Key> *columns;
+    std::vector<ChannelKey> *columns;
     std::vector<synnax::Series> *series;
 
 public:
-    Frame(std::vector<channel::Key> *channels, std::vector<synnax::Series> *series);
+    Frame(std::vector<ChannelKey> *channels, std::vector<synnax::Series> *series);
 
     Frame(size_t size);
 
@@ -69,17 +69,17 @@ public:
 
     void to_proto(api::v1::Frame *f) const;
 
-    void push_back(channel::Key col, synnax::Series ser);
+    void push_back(ChannelKey col, synnax::Series ser);
 
     size_t size() const { return series->size(); }
 
-    std::pair<channel::Key, synnax::Series> operator[](size_t i) const {
+    std::pair<ChannelKey, synnax::Series> operator[](size_t i) const {
         return std::make_pair((*columns)[i], (*series)[i]);
     }
 };
 
 struct IteratorConfig {
-    std::vector<channel::Key> channels;
+    std::vector<ChannelKey> channels;
     synnax::TimeRange bounds;
 };
 
@@ -107,7 +107,7 @@ public:
 
 struct StreamerConfig {
     synnax::TimeStamp start;
-    std::vector<channel::Key> channels;
+    std::vector<ChannelKey> channels;
 };
 
 class Streamer {
@@ -123,7 +123,7 @@ public:
 
 struct WriterConfig {
     std::vector<synnax::Authority> authorities;
-    std::vector<channel::Key> channels;
+    std::vector<ChannelKey> channels;
     synnax::Subject subject;
     synnax::TimeStamp start;
 
@@ -142,20 +142,18 @@ public:
 
     std::pair<synnax::TimeStamp, bool> commit();
 
-//    std::exception error();
-
     void close();
 
 private:
 };
 
-class Client {
+class FrameClient {
 private:
     IteratorClient *iterator_client;
     StreamerClient *streamer_client;
     WriterClient *writer_client;
 public:
-    Client(IteratorClient *iterator_client, StreamerClient *streamer_client, WriterClient *writer_client) :
+    FrameClient(IteratorClient *iterator_client, StreamerClient *streamer_client, WriterClient *writer_client) :
             iterator_client(iterator_client),
             streamer_client(streamer_client),
             writer_client(writer_client) {}

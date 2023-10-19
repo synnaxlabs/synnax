@@ -37,27 +37,30 @@ struct Config {
     std::string password;
 };
 
+const std::string ERROR_PREFIX = "sy.api.";
+const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
+const std::string QUERY_ERROR = ERROR_PREFIX + "query";
+
 class Client {
 public:
-    channel::ChannelClient channels = channel::ChannelClient(nullptr, nullptr);
-    Ranger::RangeClient ranges = Ranger::RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
-    Framer::Client telem = Framer::Client(nullptr, nullptr, nullptr);
+    ChannelClient channels = ChannelClient(nullptr, nullptr);
+    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
+    FrameClient telem = FrameClient(nullptr, nullptr, nullptr);
 
     explicit Client(const Config &cfg) {
         auto t = Transport(cfg.port, cfg.host);
         // TODO: fix this memory leak.
-        freighter::Middleware *auth_mw = new Auth::Middleware(t.auth_login, cfg.username, cfg.password);
+        freighter::Middleware *auth_mw = new AuthMiddleware(t.auth_login, cfg.username, cfg.password);
         t.use(auth_mw);
-        channels = channel::ChannelClient(t.chan_retrieve, t.chan_create);
-
-        ranges = Ranger::RangeClient(
+        channels = ChannelClient(t.chan_retrieve, t.chan_create);
+        ranges = RangeClient(
                 t.range_retrieve,
                 t.range_create,
                 t.range_kv_get,
                 t.range_kv_set,
                 t.range_kv_delete
         );
-        telem = Framer::Client(t.frame_iter, t.frame_stream, t.frame_write);
+        telem = FrameClient(t.frame_iter, t.frame_stream, t.frame_write);
     }
 };
 }

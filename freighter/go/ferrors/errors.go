@@ -47,8 +47,8 @@ func Typed(err error, t Type) Error {
 }
 
 type typed struct {
-	error
-	t Type
+	error `json:"error"`
+	t     Type
 }
 
 var _ Error = (*typed)(nil)

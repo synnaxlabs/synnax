@@ -6,7 +6,6 @@ cc_library(
     hdrs = ["channel.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//synnax/exceptions",
         "//synnax/telem",
         "@Freighter//freighter/gRPC",
         "@api_protos//v1:api_grpc",

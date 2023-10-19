@@ -21,15 +21,15 @@ public:
 
     void use(freighter::Middleware *mw) const;
 
-    Auth::LoginClient *auth_login;
-    Framer::IteratorClient *frame_iter;
-    Framer::StreamerClient *frame_stream;
-    Framer::WriterClient *frame_write;
-    channel::ChannelCreateClient *chan_create;
-    channel::ChannelRetrieveClient *chan_retrieve;
-    Ranger::RangeRetrieveClient *range_retrieve;
-    Ranger::RangeCreateClient *range_create;
-    Ranger::RangeKVDeleteClient *range_kv_delete;
-    Ranger::RangeKVGetClient *range_kv_get;
-    Ranger::RangeKVSetClient *range_kv_set;
+    AuthLoginClient *auth_login;
+    IteratorClient *frame_iter;
+    StreamerClient *frame_stream;
+    WriterClient *frame_write;
+    ChannelCreateClient *chan_create;
+    ChannelRetrieveClient *chan_retrieve;
+    RangeRetrieveClient *range_retrieve;
+    RangeCreateClient *range_create;
+    RangeKVDeleteClient *range_kv_delete;
+    RangeKVGetClient *range_kv_get;
+    RangeKVSetClient *range_kv_set;
 };

@@ -14,6 +14,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <iostream>
 
 namespace freighter {
 const std::string TYPE_NIL = "nil";
@@ -30,6 +31,7 @@ public:
     Error(const std::string &err) {
         type = TYPE_UNKNOWN;
         data = err;
+        std::cout << err << std::endl;
         size_t pos = err.find("---");
         if (pos != std::string::npos) {
             type = err.substr(0, pos);

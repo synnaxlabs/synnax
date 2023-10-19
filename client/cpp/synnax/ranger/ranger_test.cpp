@@ -114,21 +114,13 @@ TEST(RangerTests, testRetrieveMultipleByName) {
 /// @brief it should retrieve multiple ranges by their keys.
 TEST(RangerTests, testRetrieveMultipleByKey) {
     auto client = synnax::Client(cfg);
-    auto [range, err] = client.ranges.create(
-            "test",
-            synnax::TimeRange(
-                    synnax::TimeStamp(0),
-                    synnax::TimeStamp(100)
-            )
+    auto tr = synnax::TimeRange(
+            synnax::TimeStamp(0 * synnax::SECOND),
+            synnax::TimeStamp(100 * synnax::SECOND)
     );
+    auto[range, err] = client.ranges.create("test", tr);
     ASSERT_FALSE(err);
-    auto [range2, err2] = client.ranges.create(
-            "test2",
-            synnax::TimeRange(
-                    synnax::TimeStamp(0),
-                    synnax::TimeStamp(100)
-            )
-    );
+    auto [range2, err2] = client.ranges.create("test2",tr);
     ASSERT_FALSE(err2);
     auto [got, err3] = client.ranges.retrieveByKey(std::vector<std::string>{range.key, range2.key});
     ASSERT_FALSE(err3);
@@ -184,7 +176,7 @@ TEST(RangerTests, testDelete) {
             "test",
             synnax::TimeRange(
                     synnax::TimeStamp(0),
-                    synnax::TimeStamp(synnax::SECOND * 10)
+                    synnax::TimeStamp(10 * synnax::SECOND)
             )
     );
     ASSERT_FALSE(err);

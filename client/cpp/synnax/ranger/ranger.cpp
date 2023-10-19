@@ -14,7 +14,6 @@
 
 /// internal
 #include "synnax/ranger/ranger.h"
-#include "synnax/exceptions/exceptions.h"
 #include "synnax/telem/telem.h"
 
 using namespace synnax;
@@ -49,8 +48,6 @@ const std::string CREATE_ENDPOINT = "/range/create";
 std::pair<Range, freighter::Error> RangeClient::retrieveOne(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
-    if (res.ranges_size() == 0)
-        throw QueryError("No range found");
     return {Range(res.ranges(0)), err};
 }
 
@@ -64,6 +61,10 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(const std::string
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
     return retrieveOne(req);
+}
+
+std::pair<Range, freighter::Error> RangeClient::activeRange() {
+    return {Range(), freighter::NIL};
 }
 
 

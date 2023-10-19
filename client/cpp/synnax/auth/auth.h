@@ -23,17 +23,16 @@ const std::string HEADER_KEY = "authorization";
 /// Auth value prefix.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
-namespace Auth {
 /// @brief type alias for the auth login transport.
 typedef freighter::UnaryClient<
         api::v1::LoginResponse,
         api::v1::LoginRequest
-> LoginClient;
+> AuthLoginClient;
 
 
-/// @brief Middleware for authenticating requests using a bearer token. Middleware has
+/// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
-class Middleware : public freighter::PassthroughMiddleware {
+class AuthMiddleware : public freighter::PassthroughMiddleware {
 private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
@@ -45,37 +44,38 @@ private:
     /// Accumulated error from authentication attempts.
     freighter::Error err = freighter::NIL;
     /// Transport for authentication requests.
-    Auth::LoginClient *login_client;
+    AuthLoginClient *login_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
     std::string password;
 
 public:
-    Middleware(
-            Auth::LoginClient *login_client,
+    AuthMiddleware(
+            AuthLoginClient *login_client,
             const std::string &username,
             const std::string &password
     ) :
             login_client(login_client), username(username), password(password) {
     }
 
-    /// Implements freighter::Middleware::operator().
+    /// Implements freighter::AuthMiddleware::operator().
     std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
-        if (err) return {context, err};
-        if (auth_attempted) {
-            context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-            return freighter::PassthroughMiddleware::operator()(context);
+        if (!auth_attempted) {
+            api::v1::LoginRequest req;
+            req.set_username(username);
+            req.set_password(password);
+            auto [res, exc] = login_client->send("/auth_login/login", req);
+            if (exc) {
+                err = exc;
+                return {context, err};
+            }
+            token = res.token();
+            auth_attempted = true;
         }
-        api::v1::LoginRequest req;
-        req.set_username(username);
-        req.set_password(password);
-        auto [res, exc] = login_client->send("/auth_login/login", req);
-        err = exc;
-        auth_attempted = true;
-        if (exc) return {context, err};
-        token = res.token();
+        if (err) return {context, err};
+        context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
+        return freighter::PassthroughMiddleware::operator()(context);
     }
 };
-}
 

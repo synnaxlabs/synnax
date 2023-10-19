@@ -13,7 +13,7 @@
 
 std::string STREAM_ENDPOINT = "/frame/stream";
 
-using namespace synnax::Framer;
+using namespace synnax;
 
 Frame Streamer::read() {
     auto [fr, exc] = stream->receive();

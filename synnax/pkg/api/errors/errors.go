@@ -21,6 +21,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/go-playground/validator/v10"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
@@ -28,7 +29,7 @@ import (
 	"strings"
 )
 
-const prefix = "synnax.api."
+const prefix = "sy.api."
 
 // See typed error initializers in errors.go for more info on what each of these
 // types mean.
@@ -43,7 +44,7 @@ const (
 	TypeRoute      ferrors.Type = prefix + "route"
 )
 
-// General is an error that doesn't fit into a specific Type. General errors should be
+// General is an error that doesn't fit into a specific t. General errors should be
 // used in the case where an error is expected to occur during normal use, such as a
 // query returning multiple results when it should return exactly one. Unexpected errors
 // should be used in the case where an error should not
@@ -102,24 +103,23 @@ func Validation(err error) ferrors.Error {
 	}
 	var fields Fields
 	if errors.As(err, &fields) {
-		return ferrors.Typed(err, TypeValidation)
+		return fields
 	}
-	var fErr Field
-	if errors.As(err, &fErr) {
-		return ferrors.Typed(err, TypeValidation)
+	var field Field
+	if errors.As(err, &field) {
+		return field
 	}
 	var validationErrors validator.ValidationErrors
 	if !errors.As(err, &validationErrors) {
 		if errors.Is(err, validate.Error) {
-			return ferrors.Typed(Field{Message: err.Error()}, TypeValidation)
+			return ferrors.Typed(err, TypeValidation)
 		}
 		return Unexpected(err)
 	}
-	var f Fields
 	for _, e := range validationErrors {
-		f = append(f, newFieldFromValidator(e))
+		fields = append(fields, newFieldFromValidator(e))
 	}
-	return ferrors.Typed(f, TypeValidation)
+	return fields
 }
 
 // Field is an error that is associated with a specific field.
@@ -130,12 +130,16 @@ type Field struct {
 	Message string `json:"message" msgpack:"message"`
 }
 
+func (f Field) FreighterType() ferrors.Type { return TypeValidation }
+
 // Error implements the error interface.
 func (f Field) Error() string { return f.Field + ": " + f.Message }
 
 // Fields is an implementation of the error interface that represents a collection of
 // field errors.
 type Fields []Field
+
+func (f Fields) FreighterType() ferrors.Type { return TypeValidation }
 
 // Error implements the error interface.
 func (f Fields) Error() string {
@@ -168,20 +172,12 @@ func parseFieldName(v validator.FieldError) string {
 	return strings.Replace(fieldName, EmbeddedFieldTag+".", "", -1)
 }
 
-const freighterErrorType ferrors.Type = "synnax.api.errors"
-
 var ecd = &binary.JSONEncoderDecoder{}
 
 func encode(_ context.Context, err error) (p ferrors.Payload, ok bool) {
 	var tErr ferrors.Error
 	if !errors.As(err, &tErr) || !strings.HasPrefix(string(tErr.FreighterType()), prefix) {
 		return
-	}
-	if !strings.HasPrefix(string(p.Type), prefix) {
-		return
-	}
-	if tErr.FreighterType() == TypeValidation {
-		return ferrors.Payload{Type: tErr.FreighterType(), Data: string(lo.Must(ecd.Encode(nil, err)))}, true
 	}
 	return ferrors.Payload{Type: tErr.FreighterType(), Data: err.Error()}, true
 }
@@ -214,4 +210,14 @@ func parseValidationError(ctx context.Context, data string) error {
 		})
 	}
 	return Validation(fields)
+}
+
+func Middleware() freighter.Middleware {
+	return freighter.MiddlewareFunc(func(ctx freighter.Context, next freighter.Next) (freighter.Context, error) {
+		oCtx, err := next(ctx)
+		if err == nil {
+			return oCtx, nil
+		}
+		return oCtx, Auto(err)
+	})
 }

@@ -84,13 +84,13 @@ var _ = Describe("AuthService", Ordered, func() {
 		})
 		//It("Should return a Validation error if the username field is empty", func() {
 		//	tr, err := svc.Login(ctx, auth.InsecureCredentials{Password: "test"})
-		//	Expect(err.Type).To(Equal(apierrors.TypeValidation))
+		//	Expect(err.t).To(Equal(apierrors.TypeValidation))
 		//	Expect(err.Err).To(Equal(apierrors.Fields{{Field: "username", Message: "required"}}))
 		//	Expect(tr.Token).To(BeEmpty())
 		//})
 		//It("Should return a Validation error it the caller provides an empty username or password field", func() {
 		//	tr, err := svc.Login(ctx, auth.InsecureCredentials{})
-		//	Expect(err.Type).To(Equal(apierrors.TypeValidation))
+		//	Expect(err.t).To(Equal(apierrors.TypeValidation))
 		//	Expect(err.Err).To(Equal(apierrors.Fields{
 		//		{Field: "username", Message: "required"},
 		//		{Field: "password", Message: "required"},

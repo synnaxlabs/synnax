@@ -12,15 +12,15 @@
 #include "v1/framer.pb.h"
 #include "synnax/framer/framer.h"
 
-using namespace synnax::Framer;
+using namespace synnax;
 
-Frame::Frame(std::vector<channel::Key> *channels, std::vector<synnax::Series> *series) {
+Frame::Frame(std::vector<ChannelKey> *channels, std::vector<synnax::Series> *series) {
     this->columns = channels;
     this->series = series;
 }
 
 Frame::Frame(size_t size) {
-    columns = new std::vector<channel::Key>();
+    columns = new std::vector<ChannelKey>();
     series = new std::vector<synnax::Series>();
     series->reserve(size);
     columns->reserve(size);
@@ -28,13 +28,13 @@ Frame::Frame(size_t size) {
 
 Frame::Frame(const api::v1::Frame &f) {
     auto key = f.keys();
-    columns = new std::vector<channel::Key>(key.begin(), key.end());
+    columns = new std::vector<ChannelKey>(key.begin(), key.end());
     series = new std::vector<synnax::Series>();
     series->reserve(f.series_size());
     for (auto &ser: f.series()) series->push_back(synnax::Series(ser));
 }
 
-void Frame::push_back(channel::Key col, synnax::Series ser) {
+void Frame::push_back(ChannelKey col, synnax::Series ser) {
     columns->push_back(col);
     series->push_back(ser);
 }
