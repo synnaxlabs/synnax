@@ -16,9 +16,12 @@
 #include <utility>
 #include <iostream>
 
+#include "ferrors/v1/ferrors.pb.h"
+
 namespace freighter {
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
+const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 
 class Error : std::exception {
 public:
@@ -39,6 +42,10 @@ public:
         }
     }
 
+    Error(const ferrors::v1::ErrorPayload &err) {
+        type = err.type();
+        data = err.data();
+    }
 
     [[nodiscard]] const char *what() const noexcept override {
         return data.c_str();
@@ -60,6 +67,11 @@ public:
     explicit operator bool() const {
         return !ok();
     }
+
+    friend std::ostream& operator<<(std::ostream& os, const Error& err) {
+        os << err.message();
+        return os;
+    }
 };
 
 
@@ -68,9 +80,7 @@ static_assert(std::is_nothrow_copy_constructible<Error>::value,
 
 
 const Error NIL = Error{TYPE_NIL, ""};
-
 const Error STREAM_CLOSED = Error{"freighter.stream_closed", "Stream closed"};
-
 const Error EOF_ = Error{"freighter.eof", "EOF"};
 
 
@@ -82,6 +92,8 @@ struct URL {
     std::uint16_t port;
     /// @brief Supplementary path information.
     std::string path;
+
+    URL();
 
     /// @brief Creates a URL with the given IP, port, and path.
     URL(const std::string &ip, std::uint16_t port, const std::string &path);
@@ -269,6 +281,8 @@ public:
     /// @brief Closes the sending end of the stream, signaling to the server that no more requests will be send,
     /// and (if desired) allowing the server to close the receiving end of the stream.
     virtual Error closeSend() = 0;
+
+    virtual ~Stream() = default;
 };
 
 /// @brief The client side interface for opening bidirectional streams between two entities.
@@ -283,7 +297,7 @@ public:
     /// @see Stream.
     /// @param target the target to open the stream to.
     /// @returns a pointer to an object implementing the Stream interface.
-    virtual std::pair<Stream<response_t, request_t> *, freighter::Error> stream(const std::string &target) = 0;
+    virtual std::pair<std::unique_ptr<Stream<response_t, request_t>>, freighter::Error> stream(const std::string &target) = 0;
 };
 
 }

@@ -14,10 +14,10 @@
 
 using namespace synnax;
 
-Frame::Frame(std::vector<ChannelKey> *channels, std::vector<synnax::Series> *series) {
-    this->columns = channels;
-    this->series = series;
-}
+Frame::Frame(
+        std::vector<ChannelKey> *channels,
+        std::vector<synnax::Series> *series) : columns(channels),
+                                               series(series) {}
 
 Frame::Frame(size_t size) {
     columns = new std::vector<ChannelKey>();
@@ -31,7 +31,7 @@ Frame::Frame(const api::v1::Frame &f) {
     columns = new std::vector<ChannelKey>(key.begin(), key.end());
     series = new std::vector<synnax::Series>();
     series->reserve(f.series_size());
-    for (auto &ser: f.series()) series->push_back(synnax::Series(ser));
+    for (auto &ser: f.series()) series->emplace_back(ser);
 }
 
 void Frame::push_back(ChannelKey col, synnax::Series ser) {

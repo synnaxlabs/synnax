@@ -22,6 +22,13 @@
 
 // TODO: Create internal error types!!
 
+freighter::Error errorFromGRPCStatus(grpc::Status status) {
+    if (status.ok()) return freighter::NIL;
+    if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
+        return freighter::Error(freighter::TYPE_UNREACHABLE, status.error_message());
+    return freighter::Error(status.error_message());
+}
+
 class GRPCPool {
 private:
     // TODO: Is this the right way to store the channels?
@@ -69,6 +76,7 @@ public:
         if (stream->Read(&res)) return {res, freighter::NIL};
         if (err) return {res, err};
         grpc::Status stat = stream->Finish();
+        if (stat.ok()) return {res, freighter::EOF_};
         return {res, freighter::Error(stat.error_message())};
     }
 
@@ -104,11 +112,13 @@ class GRPCUnaryClient :
 
 public:
     GRPCUnaryClient(
-            GRPCPool *pool,
+            std::shared_ptr<GRPCPool> pool,
             const std::string &base_target
     ) : pool(pool),
         base_target(freighter::URL(base_target)) {
     }
+
+    GRPCUnaryClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
 
     // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
 
@@ -141,7 +151,7 @@ public:
         latest_response = response_t();
         auto stat = stub->Exec(&grpcContext, latest_request, &latest_response);
         if (!stat.ok())
-            return {outboundContext, freighter::Error(stat.error_message())};
+            return {outboundContext, errorFromGRPCStatus(stat)};
 
         // Set inbound metadata.
         auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
@@ -151,13 +161,12 @@ public:
         return {inboundContext, freighter::NIL};
     }
 
-
 private:
     /// Middleware collector.
     freighter::MiddlewareCollector mw;
 
     /// GRPCPool to pool connections across clients.
-    GRPCPool *pool;
+    std::shared_ptr<GRPCPool> pool;
 
     /// Base target for all request.
     freighter::URL base_target;
@@ -183,11 +192,13 @@ class GRPCStreamClient :
         freighter::PassthroughMiddleware {
 public:
     GRPCStreamClient(
-            GRPCPool *pool,
+            std::shared_ptr<GRPCPool> pool,
             const std::string &base_target
     ) : pool(pool),
         base_target(freighter::URL(base_target)) {
     }
+
+    explicit GRPCStreamClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
 
     // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
 
@@ -198,24 +209,27 @@ public:
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
-    std::pair<freighter::Stream<response_t, request_t> *, freighter::Error> stream(const std::string &target) override {
+    std::pair<std::unique_ptr<freighter::Stream<response_t, request_t>>, freighter::Error>
+    stream(const std::string &target) override {
         freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
         auto [_, exc] = mw.exec(ctx, this);
-        return {latest_stream, exc};
+        auto p = std::unique_ptr<freighter::Stream<response_t, request_t>>(latest_stream);
+        latest_stream = nullptr;
+        return {std::move(p), exc};
     }
 
     /// @brief the finalizer that opens the stream.
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context &context) {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
-        for (auto &param: context.params)
+        for (auto &param: outboundContext.params)
             grpcContext.AddMetadata(param.first, param.second);
 
-        auto channel = pool->getChannel(context.target);
+        auto channel = pool->getChannel(outboundContext.target);
         latest_stream = new GRPCStream<response_t, request_t, rpc_t>(channel);
 
         // Set inbound metadata.
-        auto inboundContext = freighter::Context(context.protocol, context.target);
+        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
         for (auto &meta: grpcContext.GetServerTrailingMetadata())
             inboundContext.set(meta.first.data(), meta.second.data());
 
@@ -224,7 +238,7 @@ public:
 
 private:
     /// GRPCPool to pool connections across clients.
-    GRPCPool *pool;
+    std::shared_ptr<GRPCPool> pool;
 
     /// Middleware collector.
     freighter::MiddlewareCollector mw;
@@ -235,5 +249,5 @@ private:
     // TODO: This means our client is not thread safe. I'd like to see if there is a better way to do this.
 
     /// Latest stream. Use to pass stream from finalizer.
-    GRPCStream<response_t, request_t, rpc_t> *latest_stream{};
+    freighter::Stream<response_t, request_t> *latest_stream{};
 };

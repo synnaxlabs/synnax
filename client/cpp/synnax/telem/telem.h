@@ -16,28 +16,6 @@
 
 namespace synnax {
 
-namespace _priv {
-const std::string STRING_STR = "string";
-const std::string FLOAT64_STR = "float64";
-const std::string FLOAT32_STR = "float32";
-const std::string TIMESTAMP_STR = "timestamp";
-const std::string INT8_STR = "int8";
-const std::string INT16_STR = "int16";
-const std::string INT32_STR = "int32";
-const std::string INT64_STR = "int64";
-const std::string UINT8_STR = "uint8";
-const std::string UINT16_STR = "uint16";
-const std::string UINT32_STR = "uint32";
-const std::string UINT64_STR = "uint64";
-const std::string UUID_STR = "uuid";
-const std::uint32_t BIT8 = 1;
-const std::uint32_t BIT16 = 2 * BIT8;
-const std::uint32_t BIT32 = 2 * BIT16;
-const std::uint32_t BIT64 = 2 * BIT32;
-const std::uint32_t BIT128 = 2 * BIT64;
-}
-
-
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
@@ -52,7 +30,7 @@ public:
     }
 
     /// @property Gets type name.
-    [[nodiscard]] std::string name() const { return NAMES[value]; }
+    [[nodiscard]] std::string name() const { return value; }
 
     /// @property Essentially how many bytes in memory the datatype holds.
     [[nodiscard]] uint32_t density() const { return DENSITIES[value]; }
@@ -67,62 +45,62 @@ private:
     /// @brief Maps the data type to the 'density' of
     /// the object.
     static inline std::unordered_map<std::string, uint32_t> DENSITIES = {
-            {_priv::FLOAT64_STR,   _priv::BIT64},
-            {_priv::FLOAT32_STR,   _priv::BIT32},
-            {_priv::INT8_STR,      _priv::BIT8},
-            {_priv::INT16_STR,     _priv::BIT16},
-            {_priv::INT32_STR,     _priv::BIT32},
-            {_priv::INT64_STR,     _priv::BIT64},
-            {_priv::UINT8_STR,     _priv::BIT8},
-            {_priv::UINT16_STR,    _priv::BIT16},
-            {_priv::UINT32_STR,    _priv::BIT32},
-            {_priv::UINT64_STR,    _priv::BIT64},
-            {_priv::TIMESTAMP_STR, _priv::BIT64},
-            {_priv::STRING_STR,    _priv::BIT128},
-            {_priv::UUID_STR,      _priv::BIT128}
+            {"float64",   8},
+            {"float32",   4},
+            {"int8",      1},
+            {"int16",     2},
+            {"int32",     4},
+            {"int64",     8},
+            {"uint8",     1},
+            {"uint16",    2},
+            {"uint32",    4},
+            {"uint64",    8},
+            {"timestamp", 8},
+            {"string",    0},
+            {"uuid",      16}
     };
 
     /// @brief Maps the data type id to name
     static inline std::unordered_map<std::string, std::string> NAMES = {
-            {typeid(int).name(),            _priv::INT32_STR},
-            {typeid(double).name(),         _priv::FLOAT64_STR},
-            {typeid(float).name(),          _priv::FLOAT32_STR},
-            {typeid(long).name(),           _priv::INT64_STR},
-            {typeid(short).name(),          _priv::INT16_STR},
-            {typeid(char).name(),           _priv::INT8_STR},
-            {typeid(unsigned int).name(),   _priv::UINT32_STR},
-            {typeid(unsigned long).name(),  _priv::UINT64_STR},
-            {typeid(unsigned short).name(), _priv::UINT16_STR},
-            {typeid(unsigned char).name(),  _priv::UINT8_STR},
-            {typeid(std::string).name(),    _priv::STRING_STR},
+            {typeid(int).name(),            "int32"},
+            {typeid(double).name(),         "float64"},
+            {typeid(float).name(),          "float32"},
+            {typeid(long).name(),           "int64"},
+            {typeid(short).name(),          "int16"},
+            {typeid(char).name(),           "int8"},
+            {typeid(unsigned int).name(),   "uint32"},
+            {typeid(unsigned long).name(),  "uint64"},
+            {typeid(unsigned short).name(), "uint16"},
+            {typeid(unsigned char).name(),  "uint8"},
+            {typeid(std::string).name(),    "string"},
     };
 
 };
 
 /// @brief representation of a float64 data type in a Synnax cluster.
-const DataType FLOAT64 = DataType(_priv::FLOAT64_STR);
+const DataType FLOAT64 = DataType("float64");
 /// @brief representation of a float32 data type in a Synnax cluster.
-const DataType FLOAT32 = DataType(_priv::FLOAT32_STR);
+const DataType FLOAT32 = DataType("float32");
 /// @brief representation of a int8 data type in a Synnax cluster.
-const DataType INT8 = DataType(_priv::INT8_STR);
+const DataType INT8 = DataType("int8");
 /// @brief representation of a int16 data type in a Synnax cluster.
-const DataType INT16 = DataType(_priv::INT16_STR);
+const DataType INT16 = DataType("int16");
 /// @brief representation of a int32 data type in a Synnax cluster.
-const DataType INT32 = DataType(_priv::INT32_STR);
+const DataType INT32 = DataType("int32");
 /// @brief representation of a int64 data type in a Synnax cluster.
-const DataType INT64 = DataType(_priv::INT64_STR);
+const DataType INT64 = DataType("int64");
 /// @brief representation of a timestamp data type in a Synnax cluster.
-const DataType TIMESTAMP = DataType(_priv::TIMESTAMP_STR);
+const DataType TIMESTAMP = DataType("timestamp");
 /// @brief representation of a uint8 data type in a Synnax cluster.
-const DataType UINT8 = DataType(_priv::UINT8_STR);
+const DataType UINT8 = DataType("uint8");
 /// @brief representation of a uint16 data type in a Synnax cluster.
-const DataType UINT16 = DataType(_priv::UINT16_STR);
+const DataType UINT16 = DataType("uint16");
 /// @brief representation of a uint32 data type in a Synnax cluster.
-const DataType UINT32 = DataType(_priv::UINT32_STR);
+const DataType UINT32 = DataType("uint32");
 /// @brief representation of a uint64 data type in a Synnax cluster.
-const DataType UINT64 = DataType(_priv::UINT64_STR);
+const DataType UINT64 = DataType("uint16");
 /// @brief representation of a uuid data type in a Synnax cluster.
-const DataType STRING = DataType(_priv::STRING_STR);
+const DataType STRING = DataType("string");
 
 class TimeSpan {
 public:
@@ -243,7 +221,6 @@ public:
 
     TimeStamp operator%=(const TimeStamp &other) { return TimeStamp(value %= other.value); }
 };
-
 
 class TimeRange {
 public:

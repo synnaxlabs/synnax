@@ -49,7 +49,7 @@ Channel::Channel(
 /// @brief binds to the given proto.
 void Channel::to_proto(api::v1::Channel *a) const {
     a->set_name(name);
-    a->set_data_type(data_type.value);
+    a->set_data_type(data_type.name());
     a->set_rate(rate.value);
     a->set_is_index(is_index);
     a->set_leaseholder(leaseholder);

@@ -46,7 +46,7 @@ public:
     }
 
     void to_proto(telempb::Series *s) const {
-        s->set_data_type(data_type.value);
+        s->set_data_type(data_type.name());
     }
 
 private:

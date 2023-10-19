@@ -22,7 +22,6 @@ public:
     void use(freighter::Middleware *mw) const;
 
     AuthLoginClient *auth_login;
-    IteratorClient *frame_iter;
     StreamerClient *frame_stream;
     WriterClient *frame_write;
     ChannelCreateClient *chan_create;

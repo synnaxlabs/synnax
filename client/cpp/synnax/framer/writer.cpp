@@ -21,53 +21,30 @@ const std::string WRITE_ENDPOINT = "/frame/write";
 
 using namespace synnax;
 
+/// @brief enumeration of possible writer commands.
+enum WriterCommand : uint32_t {
+    OPEN = 0,
+    WRITE = 1,
+    COMMIT = 2,
+    ERROR = 3,
+    SET_AUTHORITY = 4
+};
 
-const int32_t OPEN = 0;
-const int32_t WRITE = 1;
-const int32_t COMMIT = 2;
-const int32_t ERROR = 3;
-const int32_t SET_AUTHORITY = 4;
 
-
-bool Writer::write(Frame fr) {
+std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig &config) {
+    auto [s, exc] = writer_client->stream(WRITE_ENDPOINT);
+    if (exc) return {Writer(), exc};
     auto req = api::v1::FrameWriterRequest();
-    req.set_command(WRITE);
-    fr.to_proto(req.mutable_frame());
-    auto exc = stream->send(req);
-    if (!exc.ok()) throw exc;
-    return true;
+    req.set_command(OPEN);
+    config.to_proto(req.mutable_config());
+    exc = s->send(req);
+    if (exc) return {Writer(), exc};
+    auto [_, recExc] = s->receive();
+    return {Writer(std::move(s)), recExc};
 }
 
-std::pair<synnax::TimeStamp, bool> Writer::commit() {
-    auto req = api::v1::FrameWriterRequest();
-    req.set_command(COMMIT);
-    auto exc = stream->send(req);
-    if (!exc.ok()) throw exc;
-    while (true) {
-        auto [res, recExc] = stream->receive();
-        if (!recExc.ok()) throw recExc;
-        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), true};
-    }
-}
+Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {}
 
-//Writer::error() {
-//    auto req = api::v1::FrameWriterRequest();
-//    req.set_command(ERROR);
-//    auto exc = stream->send(req);
-//    if (!exc.ok()) throw exc;
-//    while (true) {
-//        auto [res, recExc] = stream->receive();
-//        if (!recExc.ok()) throw recExc;
-//        if (res.command() == ERROR) return std::exception()
-//    }
-//}
-
-void Writer::close() {
-    auto exc = stream->closeSend();
-    if (!exc.ok()) throw exc;
-    auto [_, recExc] = stream->receive();
-    if (!recExc.ok()) throw recExc;
-}
 
 void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     subject.to_proto(f->mutable_control_subject());
@@ -76,14 +53,64 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     for (auto &ch: channels) f->add_keys(ch);
 }
 
-Writer::Writer(WriterStream *s, const WriterConfig &config) {
-    stream = s;
-    auto req = api::v1::FrameWriterRequest();
-    req.set_command(OPEN);
-    config.to_proto(req.mutable_config());
+bool Writer::write(Frame fr) {
+    assert_open();
+    if (err_accumulated) return false;
+    api::v1::FrameWriterRequest req;
+    req.set_command(WRITE);
+    fr.to_proto(req.mutable_frame());
     auto exc = stream->send(req);
-    if (!exc.ok()) throw exc;
-    auto [_, resExc] = stream->receive();
-    if (!resExc.ok()) throw exc;
+    if (exc) err_accumulated = true;
+    return !err_accumulated;
 }
 
+std::pair<synnax::TimeStamp, bool> Writer::commit() {
+    assert_open();
+    if (err_accumulated) return {synnax::TimeStamp(0), false};
+
+    auto req = api::v1::FrameWriterRequest();
+    req.set_command(COMMIT);
+    auto exc = stream->send(req);
+    if (exc) {
+        err_accumulated = true;
+        return {synnax::TimeStamp(0), false};
+    }
+
+    while (true) {
+        auto [res, recExc] = stream->receive();
+        if (recExc) {
+            err_accumulated = true;
+            return {synnax::TimeStamp(0), false};
+        }
+        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), true};
+    }
+}
+
+freighter::Error Writer::error() {
+    assert_open();
+
+    auto req = api::v1::FrameWriterRequest();
+    req.set_command(ERROR);
+    auto exc = stream->send(req);
+    if (exc) return exc;
+
+    while (true) {
+        auto [res, recExc] = stream->receive();
+        if (recExc) return recExc;
+        if (res.command() == ERROR) return {res.error()};
+    }
+}
+
+freighter::Error Writer::close() {
+    auto exc = stream->closeSend();
+    if (exc) return exc;
+    auto [_, recExc] = stream->receive();
+    if (recExc.type == freighter::EOF_.type) return freighter::NIL;
+    return recExc;
+}
+
+
+void Writer::assert_open() const {
+    if (closed)
+        throw std::runtime_error("cannot call method on closed writer");
+}

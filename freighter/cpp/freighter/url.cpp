@@ -15,6 +15,8 @@ std::string joinPaths(const std::string &a, const std::string &b) {
     return a + adjusted;
 }
 
+URL::URL(): ip(""), port(0), path("") {}
+
 URL::URL(
         const std::string &ip,
         std::uint16_t port,
@@ -32,6 +34,7 @@ URL::URL(const std::string &address) {
 
 URL URL::child(const std::string &child_path) const {
     if (child_path.empty()) return {ip, port, path};
+    if (ip.empty() && port == 0) return URL(child_path);
     return {ip, port, joinPaths(path, child_path)};
 }
 

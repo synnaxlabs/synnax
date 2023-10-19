@@ -45,7 +45,7 @@ class Client {
 public:
     ChannelClient channels = ChannelClient(nullptr, nullptr);
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
-    FrameClient telem = FrameClient(nullptr, nullptr, nullptr);
+    FrameClient telem = FrameClient(nullptr, nullptr);
 
     explicit Client(const Config &cfg) {
         auto t = Transport(cfg.port, cfg.host);
@@ -60,7 +60,7 @@ public:
                 t.range_kv_set,
                 t.range_kv_delete
         );
-        telem = FrameClient(t.frame_iter, t.frame_stream, t.frame_write);
+        telem = FrameClient(t.frame_stream, t.frame_write);
     }
 };
 }

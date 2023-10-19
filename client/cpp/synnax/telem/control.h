@@ -17,6 +17,8 @@
 namespace synnax {
 typedef uint8_t Authority;
 
+const Authority ABSOLUTE = 0;
+
 struct Subject {
     std::string name;
     std::string key;
