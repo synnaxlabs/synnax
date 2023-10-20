@@ -16,13 +16,22 @@
 /// std.
 #include <iostream>
 
-/// @brief create basic int frame
-TEST(FrameTests, testString)
+///// @brief create basic int series
+//TEST(TestSeries, testConstruction)
+//{
+//    std::vector<std::any> vals;
+//    vals.push_back(5);
+//    synnax::Series s{vals};
+//    std::vector<std::any> raw_vals = s.getRaw();
+//    auto type_name = s.getDataType().name();
+//    ASSERT_EQ(type_name, "int");
+//}
+
+/// @brief
+TEST(TestSeries, testStringify)
 {
-    std::vector<std::any> vals;
+    std::vector<int> vals;
     vals.push_back(5);
-    synnax::synnax::Series s{vals};
-    std::vector<std::any> raw_vals = s.getRaw();
-    auto type_name = s.getDataType().name();
-    ASSERT_EQ(type_name, "int");
+    vals.push_back(10);
+    synnax::Series<int> s{vals};
 }

@@ -21,11 +21,16 @@ class DataType {
 public:
     DataType() = default;
 
-    explicit DataType(std::string data_type) { setDataType(data_type); }
+    explicit DataType(std::string data_type) {
+        setDataType(data_type);
+    }
 
     void setDataType(std::string data_type) {
-        if (!DENSITIES.count(data_type))
-            throw std::runtime_error("Tried to create unknown datatype " + data_type);
+        if (!DENSITIES.count(data_type)) {
+            if (NAMES.count(data_type)) {
+                data_type = NAMES[data_type];
+            } else throw std::runtime_error("Tried to create unknown datatype " + data_type);
+        }
         value = data_type;
     }
 

@@ -21,24 +21,16 @@
 
 namespace synnax {
 
+template<typename T = std::byte>
 /// @brief Series type, able to hold generic types under the hood.
 class Series {
 public:
-    Series(std::vector<std::any> vals) {
-        data_type.setDataType(vals[0].type().name());
-        data_type = DataType(vals[0].type().name());
-        data = vals;
-    }
-
-    Series(const telempb::Series &s) {
-        data_type = DataType(s.data_type());
-        for (auto &val: s.data()) {
-            data.push_back(val);
-        }
-    }
-
-    std::vector<std::any> &getRaw() {
-        return data;
+    // allow construction of series from int iterator
+    explicit Series(std::vector<T> d) {
+        // interpret the data as a byte array.
+        data = reinterpret_cast<std::byte *>(d.data());
+        // set the size of the data. in bytes.
+        size = d.size() * sizeof(T);
     }
 
     DataType &getDataType() {
@@ -54,6 +46,7 @@ private:
     DataType data_type;
 
     /// @brief Holds the data.
-    std::vector<std::any> data;
-};
+    /// use a c character array to hold the data.
+    std::byte *data;
+    size_t size;
 }
