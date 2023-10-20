@@ -16,14 +16,8 @@
     padding: 0 2rem;
     font-family: var(--pluto-font-family);
 
-    &.pluto--disabled {
-        user-select: none;
-        background-color: var(--pluto-gray-m2);
-    }
-
-    &.pluto--disabled:hover {
-        background-color: var(--pluto-gray-m2);
-        border: var(--pluto-border);
+    &.pluto--small {
+        padding: 0 1.5rem;
     }
 }
 
@@ -31,21 +25,19 @@
 
 .pluto-btn--filled {
     background-color: var(--pluto-primary-z);
-    border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+    border: var(--pluto-border);
+    border-color: var(--pluto-primary-z) !important;
     color: var(--pluto-white);
 
-    & * {
-        color: var(--pluto-white);
-    }
 
     &:hover {
         background-color: var(--pluto-primary-p1);
-        border-color: var(--pluto-primary-p1);
+        border-color: var(--pluto-primary-p1) !important;
     }
 
     &:active {
         background-color: var(--pluto-primary-m1);
-        border-color: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1) !important;
     }
 }
 
@@ -60,19 +52,13 @@
     background: none;
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
-    &:hover:not(.pluto--disabled) {
-        border-color: var(--pluto-gray-m0) !important;
-        * {
-            color: var(--pluto-gray-p1) !important;
-        }
+    &:hover {
+        background-color: var(--pluto-gray-m4);
     }
 
-    &:active:not(.pluto--disabled) {
-        border-color: var(--pluto-gray-p1) !important;
-
-        * {
-            color: var(--pluto-gray-p1) !important;
-        }
+    &:active {
+        background-color: var(--pluto-gray-m3);
+        border-color: var(--pluto-gray-m2) !important;
     }
 }
 
@@ -81,27 +67,37 @@
     fill: inherit !important;
 }
 
+.pluto-btn--filled,
+.pluto-btn--outlined {
+    &:disabled {
+        background-color: var(--pluto-gray-m3);
+        border-color: var(--pluto-gray-m3) !important;
+        color: var(--pluto-gray-p0);
+    }
+}
+
 /* |||| TEXT |||| */
 
 .pluto-btn--text {
     background: none;
     border: none;
 
-    &:hover {
+    &:hover:not(:disabled) {
+        background-color: var(--pluto-gray-m3);
+    }
+
+    &:active:not(:disabled) {
         background-color: var(--pluto-gray-m2);
     }
 
-    /* & * {
-        color: var(--pluto-text-color);
-    } */
-
-    &:active {
-        background-color: var(--pluto-gray-m2);
+    &:disabled {
+        color: var(--pluto-gray-p0);
     }
 }
 
-.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important
+.pluto-btn-icon.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: inherit !important;
+    fill: inherit !important;
 }
 
 /* |||| ICON |||| */

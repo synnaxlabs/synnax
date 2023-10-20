@@ -21,7 +21,7 @@ export interface ConnectionStateBadgeProps {
   state: connection.State;
 }
 
-const statusVariants: Record<connection.Status, Status.Variant> = {
+export const statusVariants: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
   connecting: "info",
@@ -34,7 +34,7 @@ const statusVariants: Record<connection.Status, Status.Variant> = {
  * @param props - The props of the component.
  * @param props.state - The connection state of the cluster.
  */
-export const ConnectionStateBadge = ({
+export const ConnectionStatusBadge = ({
   state: { status },
 }: ConnectionStateBadgeProps): ReactElement => (
   <Status.Text variant={statusVariants[status]}>{Case.capitalize(status)}</Status.Text>
@@ -70,5 +70,5 @@ export const NameBadge = ({ key }: NameBadgeProps): ReactElement => {
  */
 export const ConnectionBadge = (): ReactElement => {
   const state = Synnax.useConnectionState();
-  return <ConnectionStateBadge state={state} />;
+  return <ConnectionStatusBadge state={state} />;
 };

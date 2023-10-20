@@ -49,9 +49,9 @@
 }
 
 .pluto-text-icon--p svg {
-    width: var(--pluto-p-size);
-    min-width: var(--pluto-p-size);
-    height: var(--pluto-p-size);
+    width: var(--pluto-p-line-height);
+    min-width: var(--pluto-p-line-height);
+    height: var(--pluto-p-line-height);
 }
 
 .pluto-text-icon--small svg {

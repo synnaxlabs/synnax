@@ -75,17 +75,18 @@ export const Button = Tooltip.wrap(
     ...props
   }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
     return (
-      <Text.WithIcon
+      <Text.WithIcon<"button", any>
         el="button"
         className={CSS(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
-          CSS.disabled(disabled),
           CSS.BM("btn", variant),
           className,
         )}
+        disabled={disabled}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={!disabled ? onClick : undefined}

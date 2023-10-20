@@ -195,7 +195,7 @@ const synnaxBase: ThemeSpec = {
     h4: {
       size: 2.5,
       weight: "medium",
-      lineHeight: 3.25,
+      lineHeight: 3,
     },
     h5: {
       size: 2.25,
@@ -211,7 +211,7 @@ const synnaxBase: ThemeSpec = {
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2.5,
+      lineHeight: 2.3,
     },
   },
 };
