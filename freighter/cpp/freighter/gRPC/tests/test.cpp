@@ -73,7 +73,7 @@ TEST(testGRPC, testMiddlewareInjection) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
     auto pool = std::make_shared<GRPCPool>();
     auto client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
-    auto mw = new myMiddleware();
+    auto mw = std::make_shared<myMiddleware>();
     client.use(mw);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
@@ -237,5 +237,39 @@ TEST(testGRPC, testStreamError) {
 
     auto [res, err2] = streamer->receive();
     ASSERT_FALSE(err2.ok());
+}
 
+auto pool = std::make_shared<GRPCPool>();
+auto global_client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
+
+void client_send(int num)
+{
+    auto mes = test::Message();
+    mes.set_payload(std::to_string(num));
+    auto [res, err] = global_client.send("", mes);
+    ASSERT_TRUE(err.ok());
+    ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
+}
+
+/// @brief Test that we can send many messages with the same client and don't have any errors.
+TEST(testGRPC, stressTestUnaryWithManyThreads) {
+    std::thread s(server, base_target);
+    // Sleep for 100 ms to make sure server is up.
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto mw = std::make_shared<myMiddleware>();
+    global_client.use(mw);
+    std::vector<std::thread> threads;
+
+    // Time to boil all the cores.
+    for (int i = 0; i < 10001; i++)
+    {
+        threads.emplace_back(std::thread(client_send, i));
+    }
+    for (size_t i = 0; i < 10001; i++)
+    {
+        threads[i].join();
+    }
+    stopServers();
+    s.join();
 }

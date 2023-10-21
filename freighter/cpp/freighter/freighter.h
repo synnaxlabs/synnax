@@ -144,6 +144,7 @@ namespace freighter
         {
             protocol = other.protocol;
             target = other.target;
+            id = other.id;
             for (auto &param : other.params)
             {
                 params[param.first] = param.second;
@@ -155,6 +156,7 @@ namespace freighter
         {
             protocol = other.protocol;
             target = other.target;
+            id = other.id;
             for (auto &param : other.params)
             {
                 params[param.first] = param.second;
@@ -174,9 +176,10 @@ namespace freighter
             params[key] = value;
         }
 
-        // TODO: This should probably be private no? But I want to be able to iterate through params so we can set meta data on the outbound middleware.
-
         std::unordered_map<std::string, std::string> params;
+
+        /// @brief unique hash used to retreive sent data.
+        int id;
     };
 
     /// @brief Interface for middleware that can be used to parse/attach metadata to a request, handle errors, or
@@ -186,7 +189,7 @@ namespace freighter
     public:
         /// @brief Sets the next middleware in the chain.
         /// @param n the next middleware.
-        virtual std::unique_ptr<Middleware> setNext(std::unique_ptr<Middleware> n) = 0;
+        virtual void setNext(Middleware* n) = 0;
 
         /// @brief executes the middleware.
         /// @param context the context for the outgoing request. The context for the inbound response can be accessed
@@ -205,12 +208,10 @@ namespace freighter
         PassthroughMiddleware() : next(nullptr) {}
 
         /// @implements Middleware::setNext
-        /// TODO: Not sure why thsi was returning at all, if intended to return next,
-        /// may need to change this. Currently returning raw ptr from smart ptr wrapper.
-        std::unique_ptr<Middleware> setNext(std::unique_ptr<Middleware> n) override
+        void setNext(Middleware* n) override
         {
-            next = std::move(n);
-            return next.get();
+            // Set raw ptr to avoid overhead of copying shared ptr, moving ownership.
+            next = n;
         }
 
         /// @implements Middleware::operator()
@@ -218,7 +219,7 @@ namespace freighter
 
     private:
         /// @brief the next middleware in the chain.
-        std::unique_ptr<Middleware> next;
+        Middleware* next;
     };
 
     /// @brief A middleware implementation that simply returns the context and a nullptr error. This is useful
@@ -228,7 +229,7 @@ namespace freighter
     public:
         /// @brief no-op. Ignores the next middleware.
         /// @implements Middleware::setNext
-        std::unique_ptr<Middleware> setNext(std::unique_ptr<Middleware> n) override { return this; }
+        void setNext(Middleware* n) override {}
 
         /// @implements Middleware::operator()
         std::pair<Context, freighter::Error> operator()(Context context) override
@@ -245,14 +246,14 @@ namespace freighter
     {
     private:
         /// @brief The middlewares in the chain.
-        std::vector<std::unique_ptr<freighter::Middleware>> middlewares;
+        std::vector<std::shared_ptr<freighter::Middleware>> middlewares;
 
     public:
         /// @brief Adds a middleware to the chain. Middleware is executed in the order it is added i.e. the last
         /// middleware added will be executed as the final middleware before the finalizer.
         /// @implements UnaryClient::use
         /// @implements StreamClient::use
-        void use(std::unique_ptr<freighter::Middleware> middleware) { middlewares.push_back(std::move(middleware)); }
+        void use(std::shared_ptr<freighter::Middleware> middleware) { middlewares.push_back(middleware); }
 
         /// @brief Executes the middleware chain.
         /// @param finalizer - the last middleware in the chain. This finalizer should NOT call the next middleware in
@@ -267,9 +268,9 @@ namespace freighter
             {
                 auto mw = middlewares[i];
                 if (i == middlewares.size() - 1)
-                    mw->setNext(std::move(finalizer));
+                    mw->setNext(finalizer);
                 else
-                    mw->setNext(std::move(middlewares[i + 1]));
+                    mw->setNext(middlewares[i + 1].get());
             }
             return middlewares[0]->operator()(context);
         }
@@ -284,7 +285,7 @@ namespace freighter
     public:
         /// @brief binds the middleware to the given transport. Middleware is executed in the order it is added
         /// i.e. the last middleware added will be executed as the final middleware before the request is sent.
-        virtual void use(Middleware *middleware) = 0;
+        virtual void use(std::shared_ptr<Middleware> middleware) = 0;
 
         /// @brief Sends the given request to the target and blocks until a response is received.
         /// @param target the target to send the request to.
@@ -323,7 +324,7 @@ namespace freighter
     public:
         /// @brief binds the middleware to the given transport. Middleware is executed in the order it is added
         /// i.e. the last middleware added will be executed as the final middleware before the stream is opened.
-        virtual void use(std::unique_ptr<Middleware> middleware) = 0;
+        virtual void use(std::shared_ptr<Middleware> middleware) = 0;
 
         /// @brief Opens a stream to the given target.
         /// @see Stream.

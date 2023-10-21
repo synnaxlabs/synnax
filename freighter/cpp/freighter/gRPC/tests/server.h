@@ -30,7 +30,6 @@ std::condition_variable cond;
 bool end_session = false;
 
 /// @brief Implements .proto generated interface Unary.
-/// TODO: Create a templated version of this that works with any proto generated types.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.

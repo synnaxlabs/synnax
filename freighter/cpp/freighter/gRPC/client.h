@@ -20,7 +20,8 @@
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 
-// TODO: Create internal error types!!
+/// std.
+#include <mutex>
 
 freighter::Error errorFromGRPCStatus(grpc::Status status)
 {
@@ -34,10 +35,9 @@ freighter::Error errorFromGRPCStatus(grpc::Status status)
 class GRPCPool
 {
 private:
-    // TODO: Is this the right way to store the channels?
 
     /// @brief A map of channels to targets.
-    std::map<std::string, std::shared_ptr<grpc::Channel>> channels;
+    std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels;
 
 public:
     /// @brief Get a channel for a given target.
@@ -48,14 +48,6 @@ public:
         if (channels.find(target) == channels.end())
             channels[target] = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
         return channels[target];
-    }
-
-    // TODO: Is this the right way to destruct the pool?
-
-    ~GRPCPool()
-    {
-        for (auto &channel : channels)
-            channel.second.reset();
     }
 };
 
@@ -135,11 +127,9 @@ public:
 
     GRPCUnaryClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
 
-    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
-
     /// @brief Adds a middleware to the chain.
     /// @implements UnaryClient::use
-    void use(std::unique_ptr<freighter::Middleware> middleware) override { mw.use(std::move(middleware)); }
+    void use(std::shared_ptr<freighter::Middleware> middleware) override { mw.use(middleware); }
 
     /// @brief Interface for unary send.
     /// @param target
@@ -147,9 +137,23 @@ public:
     /// @returns Should be of a generated proto message type.
     std::pair<response_t, freighter::Error> send(const std::string &target, request_t &request) override
     {
-        this->latest_request = request;
         freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
+
+        // Set this context's id to largest id.
+        mut.lock();
+        ctx.id = ++largest_id;
+        latest_requests_and_responses[ctx.id].first = request;
+        mut.unlock();
+
         auto [_, exc] = mw.exec(ctx, this);
+
+        // Decrement largest id and clean up container.
+        mut.lock();
+        auto latest_response = latest_requests_and_responses[ctx.id].second;
+        latest_requests_and_responses.erase(ctx.id);
+        largest_id--;
+        mut.unlock();
+
         return {latest_response, exc};
     }
 
@@ -163,11 +167,22 @@ public:
 
         // Execute request.
         auto channel = pool->getChannel(outboundContext.target);
-        stub = rpc_t::NewStub(channel);
-        latest_response = response_t();
+        auto stub = rpc_t::NewStub(channel);
+        auto latest_response = response_t();
+
+        // Retreive latest request with lock held.
+        mut.lock();
+        auto latest_request = latest_requests_and_responses[outboundContext.id].first;
+        mut.unlock();
+
         auto stat = stub->Exec(&grpcContext, latest_request, &latest_response);
         if (!stat.ok())
             return {outboundContext, errorFromGRPCStatus(stat)};
+
+        // If stat is ok, we can set response.
+        mut.lock();
+        latest_requests_and_responses[outboundContext.id].second = latest_response;
+        mut.unlock();
 
         // Set inbound metadata.
         auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
@@ -187,16 +202,15 @@ private:
     /// Base target for all request.
     freighter::URL base_target;
 
-    /// Stub to manage connection.
-    std::unique_ptr<typename rpc_t::Stub> stub;
+    /// Used to map from context id to request/ response pair.
+    std::unordered_map<int, std::pair<request_t, response_t>> latest_requests_and_responses;
 
-    // TODO: This means our client is not thread safe. I'd like to see if there is a better way to do this.
+    /// Used to keep track of the largest id.
+    int largest_id = 0;
 
-    /// Latest request. Use to pass request to finalizer.
-    request_t latest_request;
+    /// For thread safety.
+    std::mutex mut;
 
-    /// Latest response. Use to pass response from finalizer.
-    response_t latest_response;
 };
 
 /// @brief An implementation of freighter::StreamClient that uses GRPC as the backing transport.
@@ -216,11 +230,9 @@ public:
 
     explicit GRPCStreamClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
 
-    // TODO: Can we make this not passthrough? I was having trouble compiling when inheriting from freighter::MiddlewareCollector.
-
     /// @brief Adds a middleware to the chain.
     /// @implements StreamClient::use
-    void use(std::unique_ptr<freighter::Middleware> middleware) override { mw.use(std::move(middleware)); }
+    void use(std::shared_ptr<freighter::Middleware> middleware) override { mw.use(middleware); }
 
     /// @brief Interface for stream.
     /// @param target The server's IP.
