@@ -53,12 +53,13 @@
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
     &:hover {
-        background-color: var(--pluto-gray-m4);
+        background-color: var(--pluto-gray-m3);
+        border-color: var(--pluto-gray-m2) !important;
     }
 
     &:active {
-        background-color: var(--pluto-gray-m3);
-        border-color: var(--pluto-gray-m2) !important;
+        background-color: var(--pluto-gray-m2);
+        border-color: var(--pluto-gray-m0) !important;
     }
 }
 
@@ -72,7 +73,7 @@
     &:disabled {
         background-color: var(--pluto-gray-m3);
         border-color: var(--pluto-gray-m3) !important;
-        color: var(--pluto-gray-p0);
+        color: var(--pluto-gray-m0);
     }
 }
 
@@ -91,7 +92,7 @@
     }
 
     &:disabled {
-        color: var(--pluto-gray-p0);
+        color: var(--pluto-gray-m0);
     }
 }
 

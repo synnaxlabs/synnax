@@ -32,6 +32,7 @@ export interface CSSType extends BEM {
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   newGridBuilder: () => CSSGridBuilder;
+  inheritDims: (inherit?: boolean) => string | false;
   dropRegion: (active: boolean) => false | string;
   px: (value: number) => string;
 }
@@ -59,6 +60,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.newGridBuilder = () => new CSSGridBuilder();
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   CSS.px = (value: number) => `${value}px`;
+  CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");
   return CSS;
 };
 

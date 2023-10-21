@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { box, location, scale, xy } from "@synnaxlabs/x";
+import { Compare, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";
@@ -28,7 +28,7 @@ import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { Text } from "@/text";
 import { preventDefault } from "@/util/event";
-import { useContext } from "@/vis/lineplot/LinePlot";
+import { type LineSpec, useContext } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Legend.css";
 
@@ -152,22 +152,24 @@ export const Legend = memo(
         onDragEnd={preventDefault}
         size="small"
       >
-        {lines.map(({ key, color, label }) => (
-          <Align.Space key={key} direction="x" align="center">
-            <Swatch
-              value={color}
-              onChange={(c) => onColorChange?.(key, c)}
-              onVisibleChange={setPickerVisible}
-              size="small"
-            />
-            <Text.MaybeEditable
-              level="small"
-              value={label}
-              onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
-              noWrap
-            />
-          </Align.Space>
-        ))}
+        {lines
+          .sort((a, b) => a.label.localeCompare(b.label))
+          .map(({ key, color, label }) => (
+            <Align.Space key={key} direction="x" align="center">
+              <Swatch
+                value={color}
+                onChange={(c) => onColorChange?.(key, c)}
+                onVisibleChange={setPickerVisible}
+                size="small"
+              />
+              <Text.MaybeEditable
+                level="small"
+                value={label}
+                onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
+                noWrap
+              />
+            </Align.Space>
+          ))}
       </Align.Space>
     );
   },

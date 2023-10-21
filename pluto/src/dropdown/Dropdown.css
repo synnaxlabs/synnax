@@ -9,8 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-dropdown {
+    :is(button, input):first-child:is(:focus,:active,:hover) {
+        z-index: 5;
+    }
+}
+
 .pluto-dropdown__dialog {
-    background-color: var(--pluto-background-color);
+    background-color: var(--pluto-gray-m4);
     max-height: 360px;
     position: fixed;
 
@@ -27,6 +33,6 @@
     }
 
     &.pluto--visible {
-        z-index: 1000;
+        z-index: 4;
     }
 }

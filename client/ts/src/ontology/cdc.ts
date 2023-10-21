@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, type change, type Destructor } from "@synnaxlabs/x";
+import { observe, type change } from "@synnaxlabs/x";
 
 import { QueryError } from "@/errors";
 import { type Client as FrameClient } from "@/framer/client";
@@ -24,19 +24,10 @@ import { type Retriever } from "@/ontology/retriever";
 export type ResourceChange = change.Change<ID, Resource>;
 export type RelationshipChange = change.Change<Relationship, undefined>;
 
-export const parseIDsFromBuffer = (buf: ArrayBufferLike): ID[] =>
-  new TextDecoder()
-    .decode(buf)
-    .split("\n")
-    .slice(0, -1)
-    .map((id) => new ID(id));
-
-export const parseRelationshipsFromBuffer = (buf: ArrayBufferLike): Relationship[] =>
-  new TextDecoder()
-    .decode(buf)
-    .split("\n")
-    .slice(0, -1)
-    .map((rel) => parseRelationship(rel));
+const RESOURCE_SET_NAME = "sy_ontology_resource_set";
+const RESOURCE_DELETE_NAME = "sy_ontology_resource_delete";
+const RELATIONSHIP_SET_NAME = "sy_ontology_relationship_set";
+const RELATIONSHIP_DELETE_NAME = "sy_ontology_relationship_delete";
 
 export class ChangeTracker {
   private readonly resourceObs: observe.Observer<ResourceChange[]>;
@@ -82,26 +73,31 @@ export class ChangeTracker {
   }
 
   private parseRelationshipSets(frame: Frame): RelationshipChange[] {
-    const relationships = frame.get("sy_ontology_relationship_set");
+    const relationships = frame.get(RELATIONSHIP_SET_NAME);
     if (relationships.length === 0) return [];
     // We should only ever get one series of relationships
-    const rels = parseRelationshipsFromBuffer(relationships[0].buffer);
-    return rels.map((rel) => ({ variant: "set", key: rel, value: undefined }));
+    return relationships[0].toStrings().map((rel) => ({
+      variant: "set",
+      key: parseRelationship(rel),
+      value: undefined,
+    }));
   }
 
   private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
-    const relationships = frame.get("sy_ontology_relationship_delete");
+    const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
     if (relationships.length === 0) return [];
     // We should only ever get one series of relationships
-    const rels = parseRelationshipsFromBuffer(relationships[0].buffer);
-    return rels.map((rel) => ({ variant: "delete", key: rel }));
+    return relationships[0].toStrings().map((rel) => ({
+      variant: "delete",
+      key: parseRelationship(rel),
+    }));
   }
 
   private async parseResourceSets(frame: Frame): Promise<ResourceChange[]> {
-    const sets = frame.get("sy_ontology_resource_set");
+    const sets = frame.get(RESOURCE_SET_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
-    const ids = parseIDsFromBuffer(sets[0].buffer);
+    const ids = sets[0].toStrings().map((id) => new ID(id));
     try {
       const resources = await this.retriever.retrieve(ids);
       return resources.map((resource) => ({
@@ -119,19 +115,20 @@ export class ChangeTracker {
   }
 
   private parseResourceDeletes(frame: Frame): ResourceChange[] {
-    const deletes = frame.get("sy_ontology_resource_delete");
+    const deletes = frame.get(RESOURCE_DELETE_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
-    const ids = parseIDsFromBuffer(deletes[0].buffer);
-    return ids.map((id) => ({ variant: "delete", key: id }));
+    return deletes[0]
+      .toStrings()
+      .map((str) => ({ variant: "delete", key: new ID(str) }));
   }
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
     const streamer = await client.newStreamer([
-      "sy_ontology_resource_set",
-      "sy_ontology_resource_delete",
-      "sy_ontology_relationship_set",
-      "sy_ontology_relationship_delete",
+      RESOURCE_SET_NAME,
+      RESOURCE_DELETE_NAME,
+      RELATIONSHIP_SET_NAME,
+      RELATIONSHIP_DELETE_NAME,
     ]);
     return new ChangeTracker(streamer, retriever);
   }

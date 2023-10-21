@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type z } from "zod";
+
 import { Compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
@@ -112,6 +114,18 @@ export class Series {
     return this._refCount;
   }
 
+  static fromStrings(data: string[], timeRange?: TimeRange): Series {
+    const buffer = new TextEncoder().encode(data.join("\n") + "\n");
+    return new Series(buffer, DataType.STRING, timeRange);
+  }
+
+  static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
+    const buffer = new TextEncoder().encode(
+      data.map((d) => JSON.stringify(d)).join("\n") + "\n",
+    );
+    return new Series(buffer, DataType.JSON, timeRange);
+  }
+
   constructor(
     data: ArrayBuffer | NativeTypedArray,
     dataType?: CrudeDataType,
@@ -182,6 +196,22 @@ export class Series {
   get data(): NativeTypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
     return new this.dataType.Array(this._data, 0, this.writePos);
+  }
+
+  toStrings(): string[] {
+    if (!this.dataType.equals(DataType.STRING))
+      throw new Error("cannot convert non-string series to strings");
+    return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
+  }
+
+  parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
+    if (!this.dataType.equals(DataType.JSON))
+      throw new Error("cannot convert non-string series to strings");
+    return new TextDecoder()
+      .decode(this.buffer)
+      .split("\n")
+      .slice(0, -1)
+      .map((s) => schema.parse(JSON.parse(s)));
   }
 
   /** @returns the time range of this array. */

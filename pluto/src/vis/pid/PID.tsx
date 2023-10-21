@@ -406,12 +406,14 @@ export const ToggleEditControl = ({
     <Button.ToggleIcon
       onChange={() => onEditableChange(!editable)}
       value={editable}
+      checkedVariant="outlined"
+      uncheckedVariant="filled"
       tooltipLocation={location.RIGHT_CENTER}
       tooltip={
         editable ? (
-          <Text.Text level="small">Enable edit mode</Text.Text>
-        ) : (
           <Text.Text level="small">Disable edit mode</Text.Text>
+        ) : (
+          <Text.Text level="small">Enable edit mode</Text.Text>
         )
       }
       {...props}

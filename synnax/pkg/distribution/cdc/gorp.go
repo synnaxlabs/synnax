@@ -14,11 +14,13 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 	"io"
 	"strings"
 )
@@ -30,14 +32,28 @@ import (
 type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// DB is the DB to subscribe to.
 	DB *gorp.DB
-	// DataType is the data type of the key used by the DB.
-	DataType telem.DataType
-	// Marshal is a function that marshals the key used by the DB into a byte slice.
-	Marshal func(K) []byte
+	// SetDataType is the data type of the key used by the DB.
+	SetDataType telem.DataType
+	// DeleteDataType is the data type of the key used by the DB.
+	DeleteDataType telem.DataType
+	// MarshalSet is a function that marshals the key used by the DB into a byte slice.
+	MarshalSet func(entry E) ([]byte, error)
+	// MarshalDelete is a function that marshals the key used by the DB into a byte slice.
+	MarshalDelete func(K) ([]byte, error)
 	// SetName is the name of the set channel.
 	SetName string
 	// DeleteName is the name of the delete channel.
 	DeleteName string
+}
+
+var jsonEcd = binary.JSONEncoderDecoder{}
+
+func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
+	b, err := jsonEcd.Encode(context.TODO(), e)
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
 }
 
 // GorpConfigUUID is a helper function for creating a CDC pipeline that propagates
@@ -45,17 +61,21 @@ type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 // configuration should be passed to SubscribeToGorp.
 func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
 	return GorpConfig[uuid.UUID, E]{
-		DB:       db,
-		DataType: telem.UUIDT,
-		Marshal:  func(k uuid.UUID) []byte { return k[:] },
+		DB:             db,
+		DeleteDataType: telem.UUIDT,
+		SetDataType:    telem.JSONT,
+		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
+		MarshalSet:     marshalJSON[uuid.UUID, E],
 	}
 }
 
 func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
 	return GorpConfig[string, E]{
-		DB:       db,
-		DataType: telem.StringT,
-		Marshal:  func(k string) []byte { return append([]byte(k), '\n') },
+		DB:             db,
+		DeleteDataType: telem.StringT,
+		SetDataType:    telem.JSONT,
+		MarshalDelete:  func(k string) ([]byte, error) { return append([]byte(k), '\n'), nil },
+		MarshalSet:     marshalJSON[string, E],
 	}
 }
 
@@ -74,10 +94,21 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 			Translate: func(r gorp.TxReader[K, E]) []change.Change[[]byte, struct{}] {
 				out := make([]change.Change[[]byte, struct{}], 0, r.Count())
 				for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
-					out = append(out, change.Change[[]byte, struct{}]{
-						Key:     cfg.Marshal(c.Key),
-						Variant: c.Variant,
-					})
+					oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
+					if c.Variant == change.Set {
+						v, err := cfg.MarshalSet(c.Value)
+						if err != nil {
+							svc.L.Error("failed to marshal set", zap.Error(err))
+						}
+						oc.Key = v
+					} else {
+						k, err := cfg.MarshalDelete(c.Key)
+						if err != nil {
+							svc.L.Error("failed to marshal delete", zap.Error(err))
+						}
+						oc.Key = k
+					}
+					out = append(out, oc)
 				}
 				return out
 			},
@@ -87,11 +118,11 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 			Observable: obs,
 			Set: channel.Channel{
 				Name:     fmt.Sprintf("sy_%s_set", name),
-				DataType: cfg.DataType,
+				DataType: cfg.SetDataType,
 			},
 			Delete: channel.Channel{
 				Name:     fmt.Sprintf("sy_%s_delete", name),
-				DataType: cfg.DataType,
+				DataType: cfg.DeleteDataType,
 			},
 		}
 	)

@@ -34,7 +34,7 @@
 }
 
 .delta-palette__item--hovered {
-    background-color: var(--pluto-gray-m2) !important;
+    background-color: var(--pluto-gray-m3) !important;
     border-left: 2px var(--pluto-primary-z) solid !important;
 }
 

@@ -95,7 +95,7 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 // Grayscale
 
 const WHITE = "#FFFFFF";
-const BLACK = "#151515";
+const BLACK = "#121212";
 const GRAY_P4 = "#1C1C1C";
 const GRAY_P3 = "#2B2B2B";
 const GRAY_P2 = "#424242";

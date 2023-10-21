@@ -20,6 +20,7 @@ import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
+import { useAliases } from "./AliasProvider";
 import { HAUL_TYPE } from "./types";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
@@ -67,6 +68,26 @@ export interface SelectMultipleProps
 
 const DEFAULT_FILTER = ["name"];
 
+const useColumns = (
+  filter: string[],
+): Array<List.ColumnSpec<channel.Key, channel.Payload>> => {
+  const aliases = useAliases();
+  return useMemo(() => {
+    if (filter.length === 0) return channelColumns;
+    return channelColumns
+      .filter((column) => filter.includes(column.key))
+      .map((column) => {
+        if (column.key === "name") {
+          return {
+            ...column,
+            stringer: (entry: channel.Payload) => aliases[entry.key] ?? entry.name,
+          };
+        }
+        return column;
+      });
+  }, [filter, aliases]);
+};
+
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,
   onChange,
@@ -75,11 +96,7 @@ export const SelectMultiple = ({
   ...props
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
-  const columns = useMemo(() => {
-    if (filter.length === 0) return channelColumns;
-    return channelColumns.filter((column) => filter.includes(column.key));
-  }, [filter]);
-
+  const columns = useColumns(filter);
   const emptyContent =
     client != null ? undefined : (
       <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
@@ -149,10 +166,7 @@ export const SelectSingle = ({
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
-  const columns = useMemo(() => {
-    if (filter.length === 0) return channelColumns;
-    return channelColumns.filter((column) => filter.includes(column.key));
-  }, [filter]);
+  const columns = useColumns(filter);
 
   const emptyContent =
     client != null ? undefined : (

@@ -13,6 +13,9 @@
     margin-bottom: -1px;
     cursor: pointer;
 
+    border-bottom: var(--pluto-border);
+    border-color: transparent;
+
     .pluto-btn-icon {
         opacity: 0;
         > svg {
@@ -30,13 +33,23 @@
         .pluto-btn-icon {
             opacity: 1;
         }
-        .pluto-text {
-            color: var(--pluto-text-color);
-        }
+    }
+
+    &:hover:not(.pluto--selected) {
+        background-color: var(--pluto-gray-m4);
+        border-color: var(--pluto-border-color);
+    }
+
+    &:active:not(.pluto--selected) {
+        background-color: var(--pluto-gray-m3);
+        border-color: var(--pluto-border-color);
     }
 
     /* Sets the nice blue underline. */
     &.pluto--selected {
+        .pluto-text {
+            color: var(--pluto-text-color);
+        }
         box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
         .pluto-btn-icon, .pluto-btn-icon:hover {
             box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
@@ -59,9 +72,24 @@
 
 .pluto-tabs-selector {
     border-bottom: var(--pluto-border);
-    z-index: 7;
+    z-index: 3;
 }
 
 .pluto-header .pluto-tabs-selector {
-    margin-top: 2px;
+    margin-top: 1px;
+    /* add 2 px to small, medium, and large in height so we get the selected underline
+     to highlight nicely */
+    .pluto-tabs-selector__btn {
+        &.pluto-pack--small {
+            height: calc(var(--pluto-height-small) + 1px);
+        }
+        &.pluto-pack--medium {
+            height: calc(var(--pluto-height-medium) + 1px);
+        }
+        &.pluto-pack--large {
+            height: calc(var(--pluto-height-large) + 1px);
+        }
+
+
+    }
 }

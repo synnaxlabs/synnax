@@ -51,6 +51,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
           CSS.BM("btn", variant),
           CSS.disabled(disabled),
         )}
+        disabled={disabled}
         onClick={disabled ? undefined : onClick}
         {...props}
       >

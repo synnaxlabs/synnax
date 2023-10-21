@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu, Tree, useAsyncEffect, Synnax } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Tree, Channel } from "@synnaxlabs/pluto";
 
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -151,19 +151,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 };
 
 export const Item: Tree.Item = (props): ReactElement => {
-  const [entry, setEntry] = useState(props.entry);
-  const range = Range.useSelect();
-  const client = Synnax.use();
-
-  useAsyncEffect(async () => {
-    if (range == null || !range.persisted || client == null) return;
-    const rng = await client.ranges.retrieve(range.key);
-    const alias = await rng.listAliases();
-    const key = Number(new ontology.ID(props.entry.key).key);
-    setEntry({ ...entry, name: alias[key] ?? props.entry.name });
-  }, [range, client, props.entry.key, props.entry.name]);
-
-  return <Tree.DefaultItem {...props} entry={entry} />;
+  const alias = Channel.useAlias(Number(new ontology.ID(props.entry.key).key));
+  return (
+    <Tree.DefaultItem
+      {...props}
+      entry={{ ...props.entry, name: alias ?? props.entry.name }}
+    />
+  );
 };
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {

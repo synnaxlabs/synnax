@@ -74,9 +74,12 @@ const MainUnderContext = (): ReactElement => {
     return [hauled, onHauledChange];
   };
 
+  const activeRange = Range.useSelect();
+
   return (
     <Pluto.Provider
       {...theme}
+      channelAlias={{ activeRange: activeRange?.key }}
       workerEnabled
       connParams={cluster?.props}
       workerURL={WorkerURL}
@@ -84,6 +87,7 @@ const MainUnderContext = (): ReactElement => {
       haul={{ useState: useHaulState }}
       alamos={{
         level: "debug",
+        include: [],
       }}
     >
       <Vis.Canvas>

@@ -11,6 +11,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
+import { Channel } from "@/channel";
 import { Control } from "@/control";
 import { Haul } from "@/haul";
 import { Status } from "@/status";
@@ -37,6 +38,7 @@ export interface ProviderProps
   tooltip?: Tooltip.ConfigProps;
   triggers?: Triggers.ProviderProps;
   haul?: Haul.ProviderProps;
+  channelAlias?: Channel.AliasProviderProps;
 }
 
 export const Provider = ({
@@ -51,6 +53,7 @@ export const Provider = ({
   triggers,
   alamos,
   haul,
+  channelAlias,
 }: ProviderProps): ReactElement => {
   return (
     <Triggers.Provider {...triggers}>
@@ -61,15 +64,17 @@ export const Provider = ({
               <Alamos.Provider {...alamos}>
                 <Status.Aggregator>
                   <Synnax.Provider connParams={connParams}>
-                    <TelemProvider>
-                      <Theming.Provider
-                        theme={theme}
-                        toggleTheme={toggleTheme}
-                        setTheme={setTheme}
-                      >
-                        <Control.StateProvider>{children}</Control.StateProvider>
-                      </Theming.Provider>
-                    </TelemProvider>
+                    <Channel.AliasProvider {...channelAlias}>
+                      <TelemProvider>
+                        <Theming.Provider
+                          theme={theme}
+                          toggleTheme={toggleTheme}
+                          setTheme={setTheme}
+                        >
+                          <Control.StateProvider>{children}</Control.StateProvider>
+                        </Theming.Provider>
+                      </TelemProvider>
+                    </Channel.AliasProvider>
                   </Synnax.Provider>
                 </Status.Aggregator>
               </Alamos.Provider>

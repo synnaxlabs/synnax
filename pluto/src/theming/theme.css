@@ -14,7 +14,7 @@
 }
 
 :is(button, input):is(:focus,:active,:hover) {
-    z-index: 2000;
+    z-index: 3;
 }
 
 html {
@@ -119,4 +119,9 @@ body {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
+}
+
+.pluto--inherit-dims {
+    height: inherit;
+    width: inherit;
 }

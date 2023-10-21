@@ -247,8 +247,6 @@ export const fromHSLA = (hsla: RGBA): RGBA => {
     b = hueToRgb(p, q, h - 1 / 3);
   }
 
-  console.log(r * 255, g * 255, b * 255, a);
-
   return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255), a];
 };
 

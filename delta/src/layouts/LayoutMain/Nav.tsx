@@ -19,6 +19,7 @@ import {
   Triggers,
   Synnax,
   Text,
+  Aether,
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
@@ -227,7 +228,7 @@ export interface NavDrawerProps {
   location: Layout.NavdrawerLocation;
 }
 
-export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {
+export const NavDrawer = ({ aetherKey, location: l, ...props }): ReactElement => {
   const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
   return (
     <Nav.Drawer

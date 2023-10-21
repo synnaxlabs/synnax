@@ -78,22 +78,13 @@ describe("Ontology", () => {
     });
   });
   describe("cdc", async () => {
-    it("should correctly decode a set of ids from a buffer", () => {
-      const buf = new TextEncoder().encode("typeA:keyA\ntypeB:keyB\ntypeC:keyC\n");
-      const ids = ontology.parseIDsFromBuffer(buf);
-      expect(ids.length).toEqual(3);
-      expect(ids[0].type).toEqual("typeA");
-      expect(ids[0].key).toEqual("keyA");
-    });
-    it("should correctly decode a set of relationships from a buffer", () => {
-      const buf = new TextEncoder().encode("typeA:keyA->parent->typeB:keyB\n");
-      const rels = ontology.parseRelationshipsFromBuffer(buf);
-      expect(rels.length).toEqual(1);
-      expect(rels[0].type).toEqual("parent");
-      expect(rels[0].from.type).toEqual("typeA");
-      expect(rels[0].from.key).toEqual("keyA");
-      expect(rels[0].to.type).toEqual("typeB");
-      expect(rels[0].to.key).toEqual("keyB");
+    it("should correctly decode a set of relationships from a string", () => {
+      const rel = ontology.parseRelationship("typeA:keyA->parent->typeB:keyB");
+      expect(rel.type).toEqual("parent");
+      expect(rel.from.type).toEqual("typeA");
+      expect(rel.from.key).toEqual("keyA");
+      expect(rel.to.type).toEqual("typeB");
+      expect(rel.to.key).toEqual("keyB");
     });
     it("should correctly propagate resource changes to the ontology", async () => {
       const change = await client.ontology.openChangeTracker();

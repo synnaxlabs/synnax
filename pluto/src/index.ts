@@ -57,5 +57,6 @@ export { Remote } from "@/telem/remote";
 export { Control } from "@/control";
 export { Bool } from "@/telem/bool";
 export { noop } from "@/telem/noop";
+export { Eraser } from "@/vis/eraser";
 export * from "@/hooks";
 export * from "@/util/renderProp";

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "react";
+import {
+  forwardRef,
+  type DetailedHTMLProps,
+  type HTMLAttributes,
+  type ReactElement,
+} from "react";
 
 import { direction, location } from "@synnaxlabs/x";
 
@@ -25,36 +30,47 @@ export interface CoreProps
   showHandle?: boolean;
 }
 
-export const Core = ({
-  location: cloc,
-  style,
-  size,
-  className,
-  children,
-  onDragStart,
-  sizeUnits = "px",
-  showHandle = true,
-  ...props
-}: CoreProps): ReactElement => {
-  const loc_ = location.construct(cloc);
-  const dir = location.direction(loc_);
-  const dim = direction.dimension(dir);
-  return (
-    <div
-      className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
-      style={{ [dim]: `${size}${sizeUnits}`, ...style }}
-      {...props}
-    >
-      {children}
-      {showHandle && (
-        <div
-          draggable
-          className={CSS(CSS.BE("resize", "handle"), CSS.bordered(location.swap(loc_)))}
-          onDragStart={onDragStart}
-          onDrag={preventDefault}
-          onDragEnd={preventDefault}
-        />
-      )}
-    </div>
-  );
-};
+export const Core = forwardRef(
+  (
+    {
+      location: cloc,
+      style,
+      size,
+      className,
+      children,
+      onDragStart,
+      sizeUnits = "px",
+      showHandle = true,
+      ...props
+    }: CoreProps,
+    ref,
+  ): ReactElement => {
+    const loc_ = location.construct(cloc);
+    const dir = location.direction(loc_);
+    const dim = direction.dimension(dir);
+    return (
+      <div
+        className={CSS(CSS.B("resize"), CSS.loc(loc_), CSS.dir(dir), className)}
+        style={{ [dim]: `${size}${sizeUnits}`, ...style }}
+        ref={ref}
+        {...props}
+      >
+        {children}
+        {showHandle && (
+          <div
+            draggable
+            className={CSS(
+              CSS.BE("resize", "handle"),
+              CSS.bordered(location.swap(loc_)),
+            )}
+            onDragStart={onDragStart}
+            onDrag={preventDefault}
+            onDragEnd={preventDefault}
+          />
+        )}
+      </div>
+    );
+  },
+);
+
+Core.displayName = "Resize.Core";

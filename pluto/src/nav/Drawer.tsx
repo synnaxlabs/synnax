@@ -9,11 +9,13 @@
 
 import { type ReactElement, useCallback, useState } from "react";
 
-import { location } from "@synnaxlabs/x";
+import { type box, location } from "@synnaxlabs/x";
 
+import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
+import { Eraser } from "@/vis/eraser";
 
 import "@/nav/Drawer.css";
 
@@ -48,29 +50,43 @@ export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerRetur
   return { onSelect: handleSelect, activeItem };
 };
 
-export const Drawer = ({
-  activeItem,
-  children,
-  onSelect,
-  location: loc_ = "left",
-  collapseThreshold = 0.65,
-  className,
-  ...props
-}: DrawerProps): ReactElement | null => {
-  if (activeItem == null) return null;
-  const dir = location.direction(loc_);
-  const { key, content, ...rest } = activeItem;
-  const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
-  return (
-    <Resize.Single
-      className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
-      collapseThreshold={collapseThreshold}
-      onCollapse={handleCollapse}
-      location={loc_}
-      {...rest}
-      {...props}
-    >
-      {content}
-    </Resize.Single>
-  );
-};
+export const Drawer = Aether.wrap<DrawerProps>(
+  "Nav.Drawer",
+  ({
+    aetherKey,
+    activeItem,
+    children,
+    onSelect,
+    location: loc_ = "left",
+    collapseThreshold = 0.65,
+    className,
+    onResize,
+    ...props
+  }): ReactElement | null => {
+    if (activeItem == null) return null;
+    const dir = location.direction(loc_);
+    const { key, content, ...rest } = activeItem;
+    const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
+    const erase = Eraser.use({ aetherKey });
+    const handleResize = useCallback(
+      (size: number, box: box.Box) => {
+        onResize?.(size, box);
+        erase(box);
+      },
+      [onResize, erase],
+    );
+    return (
+      <Resize.Single
+        className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
+        collapseThreshold={collapseThreshold}
+        onCollapse={handleCollapse}
+        location={loc_}
+        onResize={handleResize}
+        {...rest}
+        {...props}
+      >
+        {content}
+      </Resize.Single>
+    );
+  },
+);

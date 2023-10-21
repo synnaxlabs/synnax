@@ -20,12 +20,12 @@ package cesium_test
 //	// store the values themselves.
 //	timeChannel := cesium.Channel{
 //		Key:      1,
-//		DataType: telem.TimeStampT,
+//		SetDataType: telem.TimeStampT,
 //		IsIndex:  true,
 //	}
 //	sensorChannel := cesium.Channel{
 //		Key:      2,
-//		DataType: telem.Float64T,
+//		SetDataType: telem.Float64T,
 //		Index:    1,
 //	}
 //	if err := db.CreateChannel(ctx, timeChannel, sensorChannel); err != nil {
