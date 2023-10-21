@@ -16,3 +16,4 @@ export * from "@/text/Text";
 export * from "@/text/types";
 export * from "@/text/WithIcon";
 export * from "@/text/Editable";
+export * from "@/text/SelectLevel";

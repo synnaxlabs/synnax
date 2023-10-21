@@ -48,6 +48,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
     showGrid,
     type,
     bounds,
+    tickSpacing,
     className,
     style,
     ...props
@@ -59,6 +60,7 @@ export const YAxis = Aether.wrap<YAxisProps>(
       showGrid,
       type,
       bounds,
+      tickSpacing,
       label,
     });
 
@@ -81,18 +83,18 @@ export const YAxis = Aether.wrap<YAxisProps>(
       "YAxis",
     );
 
-    const font = Theming.useTypography(labelLevel);
+    const font = Theming.useTypography(labelLevel).toString();
 
     useEffect(() => {
       if (label == null) return;
-      const dims = Text.dimensions(label, font.toString());
+      const dims = Text.dimensions(label, font);
       let labelSize = dims[direction.dimension(direction.construct(labelDirection))];
       if (labelSize > 0) labelSize += 6;
       setState((state) => ({
         ...state,
         labelSize,
       }));
-    }, [label, labelDirection]);
+    }, [label, labelDirection, font]);
 
     return (
       <>

@@ -23,6 +23,7 @@ import { Synnax } from "@/synnax";
 
 interface AliasContextValue {
   aliases: Record<channel.Key, string>;
+  activeRange?: string | null;
 }
 
 const AliasContext = createContext<AliasContextValue>({ aliases: {} });
@@ -41,7 +42,15 @@ export const useAliases = (): Record<channel.Key, string> => {
   return aliases;
 };
 
-export const AliasProvider = ({ activeRange }: AliasProviderProps): ReactElement => {
+export const useActiveRange = (): string | undefined => {
+  const { activeRange } = reactUseContext(AliasContext);
+  return activeRange ?? undefined;
+};
+
+export const AliasProvider = ({
+  activeRange,
+  children,
+}: AliasProviderProps): ReactElement => {
   const c = Synnax.use();
   const [aliases, setAliases] = useState<Record<channel.Key, string>>({});
 
@@ -50,8 +59,9 @@ export const AliasProvider = ({ activeRange }: AliasProviderProps): ReactElement
       setAliases((aliases) => {
         const newAliases = { ...aliases };
         changes.forEach(({ variant, key, value }) => {
+          const channelKey = Number(key.split("---")[1]);
           // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-          if (variant === "delete") delete newAliases[Number(key.split(":")[0])];
+          if (variant === "delete") delete newAliases[channelKey];
           else newAliases[value.channel] = value.alias;
         });
         return newAliases;
@@ -74,7 +84,11 @@ export const AliasProvider = ({ activeRange }: AliasProviderProps): ReactElement
       disconnect();
       void tracker.close();
     };
-  });
+  }, [c, activeRange]);
 
-  return <AliasContext.Provider value={{ aliases }} />;
+  return (
+    <AliasContext.Provider value={{ aliases, activeRange }}>
+      {children}
+    </AliasContext.Provider>
+  );
 };

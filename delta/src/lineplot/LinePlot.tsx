@@ -91,7 +91,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     const toFetch = lines.filter((line) => line.label == null);
     if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
-      unique(toFetch.map((line) => line.channels.y))
+      unique(toFetch.map((line) => line.channels.y)),
     );
     const update = toFetch.map((l) => ({
       key: l.key,
@@ -101,7 +101,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       setLine({
         key: layoutKey,
         line: update,
-      })
+      }),
     );
   }, [client, lines]);
 
@@ -113,14 +113,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     (key: string, label: string): void => {
       dispatch(setLine({ key: layoutKey, line: [{ key, label }] }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleLineColorChange = useCallback(
     (key: string, color: Color.Color): void => {
       dispatch(setLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleRulePositionChange = useCallback(
@@ -132,10 +132,10 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             key,
             position,
           },
-        })
+        }),
       );
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const rules = useMemo(() => buildRules(vis?.rules ?? []), [vis.rules]);
@@ -151,7 +151,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             key: layoutKey,
             axisKey: axis as Vis.XAxisKey,
             channel: channels[0],
-          })
+          }),
         );
       else
         dispatch(
@@ -160,7 +160,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             axisKey: axis as Vis.YAxisKey,
             channels,
             mode: "add",
-          })
+          }),
         );
       if (propsLines.length === 0 && rng != null) {
         dispatch(
@@ -169,11 +169,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             key: layoutKey,
             axisKey: "x1",
             ranges: [rng.key],
-          })
+          }),
         );
       }
     },
-    [dispatch, layoutKey, propsLines.length, rng]
+    [dispatch, layoutKey, propsLines.length, rng],
   );
 
   const handleRuleLabelChange = useCallback(
@@ -185,10 +185,10 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             key,
             label,
           },
-        })
+        }),
       );
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
@@ -199,11 +199,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           key: layoutKey,
           pan: box.bottomLeft(b),
           zoom: box.dims(b),
-        })
+        }),
       );
     },
     100,
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const { enableTooltip, clickMode, hold } = useSelectControlState();
@@ -213,7 +213,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const initialViewport = useMemo(() => {
     return box.reRoot(
       box.construct(vis.viewport.pan, vis.viewport.zoom),
-      location.BOTTOM_LEFT
+      location.BOTTOM_LEFT,
     );
   }, [vis.viewport.counter]);
 
@@ -262,12 +262,14 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
         type: Vis.X_AXIS_KEYS.includes(key as Vis.XAxisKey) ? "time" : "linear",
         bounds: axis.bounds,
         labelDirection: axis.labelDirection,
+        tickSpacing: axis.tickSpacing,
+        labelLevel: axis.labelLevel,
       };
     });
 
 const buildLines = (
   vis: State,
-  sug: Vis.MultiXAxisRecord<Workspace.Range>
+  sug: Vis.MultiXAxisRecord<Workspace.Range>,
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
@@ -323,8 +325,8 @@ const buildLines = (
             };
             return v;
           });
-        })
-    )
+        }),
+    ),
   );
 
 export const LinePlot: Layout.Renderer = ({

@@ -33,7 +33,7 @@
         "@opentelemetry/sdk-trace-web": "^1.17.1",
         "@synnaxlabs/x": "workspace:*",
         "@uptrace/node": "^1.17.0",
-        "@uptrace/web": "^1.17.0"
+        "@uptrace/web": "^1.11.1"
     },
     "devDependencies": {
         "@synnaxlabs/tsconfig": "workspace:*",

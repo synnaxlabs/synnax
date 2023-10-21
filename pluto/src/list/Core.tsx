@@ -19,6 +19,8 @@ import { type RenderProp } from "@/util/renderProp";
 
 import "@/list/Core.css";
 
+import { Align } from "..";
+
 export interface VirtualCoreProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
@@ -97,21 +99,21 @@ export const Core = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
-  props: Omit<ComponentPropsWithoutRef<"div">, "children"> & {
+  props: Omit<Align.SpaceProps, "children"> & {
     children: RenderProp<ItemProps<K, E>>;
   },
 ): ReactElement => {
   const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
 
   return (
-    <div className={CSS.BE("list", "container")} {...props}>
+    <Align.Space className={CSS.BE("list", "container")} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (
         <>
           {data.map((entry, index) =>
             props.children({
-              key: entry.key,
+              key: entry.key.toString(),
               index,
               onSelect: select.onSelect,
               entry,
@@ -123,7 +125,7 @@ export const Core = <
           )}
         </>
       )}
-    </div>
+    </Align.Space>
   );
 };
 

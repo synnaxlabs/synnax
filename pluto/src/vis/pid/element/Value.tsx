@@ -18,7 +18,7 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { Remote } from "@/telem/remote";
-import { Static } from "@/telem/static";
+import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { type FormProps, type Props, type Spec } from "@/vis/pid/element/element";
@@ -124,9 +124,10 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
 };
 
 const Preview = ({ color }: ElementProps): ReactElement => {
-  const telem = Static.useNumeric(500);
   return (
-    <ValueLabeled label="Value" units="psi" telem={telem} level="p" color={color} />
+    <div className={CSS.B("value")} style={{ padding: "0.75rem 3rem" }}>
+      <Text.Text level="p">500 psi</Text.Text>
+    </div>
   );
 };
 

@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { useSelect, useSelectToolbar } from "@/pid/selectors";
+import { useSelect, useSelectControlStatus, useSelectToolbar } from "@/pid/selectors";
 import { type ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
 import { Elements } from "@/pid/toolbar/Elements";
 import { PropertiesControls } from "@/pid/toolbar/Properties";
@@ -39,6 +39,7 @@ interface NotEditableContentProps extends ToolbarProps {}
 
 const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
+  const controlState = useSelectControlStatus(layoutKey);
   return (
     <Align.Center direction="x" size="small">
       <Status.Text variant="disabled" hideIcon>
@@ -51,7 +52,9 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
         }}
         level="p"
       >
-        enable edit mode.
+        {controlState === "acquired"
+          ? "release control and enable edit mode."
+          : "enable edit mode."}
       </Text.Link>
     </Align.Center>
   );
@@ -72,14 +75,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, pid?.editable]
+    [layoutKey, pid?.editable],
   );
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   if (pid == null) return null;

@@ -14,6 +14,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -22,7 +24,8 @@ import (
 // Range (short for time range) is an interesting, user defined regions of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
-	tx gorp.Tx
+	tx  gorp.Tx
+	otg *ontology.Ontology
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
 	Key uuid.UUID `json:"key" msgpack:"key"`
@@ -41,6 +44,8 @@ func (r Range) GorpKey() uuid.UUID { return r.Key }
 func (r Range) SetOptions() []interface{} { return nil }
 
 func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
+
+func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r }
 
 func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
 	var (
@@ -73,9 +78,12 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 	if !exists {
 		return errors.Wrapf(query.NotFound, "[range] - cannot alias non-existent channel %s", ch)
 	}
-	return gorp.NewCreate[string, alias]().
+	if err := gorp.NewCreate[string, alias]().
 		Entry(&alias{Range: r.Key, Channel: ch, Alias: al}).
-		Exec(ctx, r.tx)
+		Exec(ctx, r.tx); err != nil {
+		return err
+	}
+	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
 }
 
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
@@ -85,6 +93,24 @@ func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error)
 		Entry(&res).
 		Exec(ctx, r.tx)
 	return res.Channel, err
+}
+
+func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
+	ids, err := r.otg.SearchIDs(ctx, search.Request{Term: term, Type: aliasOntologyType})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]channel.Key, 0)
+	for _, id := range ids {
+		rangeKey, chKey, err := parseAliasKey(id.Key)
+		if err != nil {
+			return nil, err
+		}
+		if rangeKey == r.Key {
+			res = append(res, chKey)
+		}
+	}
+	return res, nil
 }
 
 func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {

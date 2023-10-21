@@ -48,7 +48,6 @@ export { Regulator } from "@/vis/regulator";
 export { Rule } from "@/vis/rule";
 export { Tank } from "@/vis/tank";
 export { Value } from "@/vis/value";
-export { Tooltip as VisTooltip } from "@/vis/tooltip";
 export { Valve } from "@/vis/valve";
 export { Element as PIDElement } from "@/vis/pid/element";
 export { Pluto } from "@/pluto";

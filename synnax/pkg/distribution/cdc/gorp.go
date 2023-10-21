@@ -16,10 +16,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
 	"strings"
@@ -44,6 +47,39 @@ type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	SetName string
 	// DeleteName is the name of the delete channel.
 	DeleteName string
+}
+
+var _ config.Config[GorpConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
+
+func DefaultGorpConfig[K gorp.Key, E gorp.Entry[K]]() GorpConfig[K, E] {
+	t := types.Name[E]()
+	return GorpConfig[K, E]{
+		SetName:    fmt.Sprintf("sy_%s_set", strings.ToLower(t)),
+		DeleteName: fmt.Sprintf("sy_%s_delete", strings.ToLower(t)),
+	}
+}
+
+func (g GorpConfig[K, E]) Override(other GorpConfig[K, E]) GorpConfig[K, E] {
+	g.DB = override.Nil(g.DB, other.DB)
+	g.SetDataType = override.String(g.SetDataType, other.SetDataType)
+	g.DeleteDataType = override.String(g.DeleteDataType, other.DeleteDataType)
+	g.MarshalSet = override.Nil(g.MarshalSet, other.MarshalSet)
+	g.MarshalDelete = override.Nil(g.MarshalDelete, other.MarshalDelete)
+	g.SetName = override.String(g.SetName, other.SetName)
+	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
+	return g
+}
+
+func (g GorpConfig[K, E]) Validate() error {
+	v := validate.New("cdc.GorpConfig")
+	validate.NotEmptyString(v, "SetName", g.SetName)
+	validate.NotEmptyString(v, "DeleteName", g.DeleteName)
+	validate.NotNil(v, "DB", g.DB)
+	validate.NotEmptyString(v, "SetDataType", g.SetDataType)
+	validate.NotEmptyString(v, "DeleteDataType", g.DeleteDataType)
+	validate.NotNil(v, "MarshalSet", g.MarshalSet)
+	validate.NotNil(v, "MarshalDelete", g.MarshalDelete)
+	return v.Error()
 }
 
 var jsonEcd = binary.JSONEncoderDecoder{}
@@ -85,11 +121,14 @@ func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
 func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	svc *Provider,
-	cfg GorpConfig[K, E],
+	cfgs ...GorpConfig[K, E],
 ) (io.Closer, error) {
+	cfg, err := config.New(DefaultGorpConfig[K, E](), cfgs...)
+	if err != nil {
+		return nil, err
+	}
 	var (
-		name = strings.ToLower(types.Name[E]())
-		obs  = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
+		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
 			Observable: gorp.Observe[K, E](cfg.DB),
 			Translate: func(r gorp.TxReader[K, E]) []change.Change[[]byte, struct{}] {
 				out := make([]change.Change[[]byte, struct{}], 0, r.Count())
@@ -114,14 +153,14 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 			},
 		}
 		obsCfg = ObservableConfig{
-			Name:       name,
+			Name:       fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
 			Observable: obs,
 			Set: channel.Channel{
-				Name:     fmt.Sprintf("sy_%s_set", name),
+				Name:     cfg.SetName,
 				DataType: cfg.SetDataType,
 			},
 			Delete: channel.Channel{
-				Name:     fmt.Sprintf("sy_%s_delete", name),
+				Name:     cfg.DeleteName,
 				DataType: cfg.DeleteDataType,
 			},
 		}

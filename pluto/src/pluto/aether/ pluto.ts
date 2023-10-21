@@ -25,7 +25,7 @@ import { lineplot } from "@/vis/lineplot/aether";
 import { measure } from "@/vis/measure/aether";
 import { pid } from "@/vis/pid/aether";
 import { rule } from "@/vis/rule/aether";
-import { tooltip } from "@/vis/tooltip/aether";
+import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { value } from "@/vis/value/aether";
 import { valve } from "@/vis/valve/aether";
 

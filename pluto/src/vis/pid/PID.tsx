@@ -438,6 +438,7 @@ export const FitViewControl = ({
       }}
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
+      variant="outlined"
       {...props}
     >
       <Icon.Expand />

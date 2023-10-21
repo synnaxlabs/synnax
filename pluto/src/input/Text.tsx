@@ -41,6 +41,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       selectOnFocus = false,
       centerPlaceholder = false,
       variant = "outlined",
+      sharp = false,
       ...props
     },
     ref,
@@ -52,6 +53,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         CSS.B("input"),
         CSS.size(size),
         CSS.BM("input", variant),
+        CSS.sharp(sharp),
         centerPlaceholder && CSS.BM("input", "placeholder-centered"),
         className,
       )}

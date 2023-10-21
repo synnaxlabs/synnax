@@ -29,6 +29,7 @@ const reqZ = z.object({
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
+  searchRangeKey: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
 });
@@ -41,7 +42,7 @@ const resZ = z.object({
 
 export interface Retriever {
   retrieve: (channels: Params) => Promise<Payload[]>;
-  search: (term: string) => Promise<Payload[]>;
+  search: (term: string, rangeKey?: string) => Promise<Payload[]>;
   page: (offset: number, limit: number) => Promise<Payload[]>;
 }
 
@@ -53,8 +54,8 @@ export class ClusterRetriever implements Retriever {
     this.client = client;
   }
 
-  async search(term: string): Promise<Payload[]> {
-    return await this.execute({ search: term });
+  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+    return await this.execute({ search: term, searchRangeKey: rangeKey });
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {
@@ -84,8 +85,8 @@ export class CacheRetriever implements Retriever {
     this.wrapped = wrapped;
   }
 
-  async search(term: string): Promise<Payload[]> {
-    return await this.wrapped.search(term);
+  async search(term: string, searchRangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.search(term, searchRangeKey);
   }
 
   async page(offset: number, limit: number): Promise<Payload[]> {

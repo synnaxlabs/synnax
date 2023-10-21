@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PID, type Viewport } from "@synnaxlabs/pluto";
+import { type Control, type PID, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -33,7 +33,7 @@ export const useSelectMany = (keys: string[]): State[] =>
 
 export const selectSelectedElementsProps = (
   state: StoreState,
-  layoutKey: string
+  layoutKey: string,
 ): ElementInfo[] => {
   const pid = select(state, layoutKey);
   const nodes: ElementInfo[] = pid.nodes
@@ -70,13 +70,13 @@ export type ElementInfo =
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
     (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
-    [layoutKey]
+    [layoutKey],
   );
 
 export const selectElementProps = (
   state: StoreState,
   layoutKey: string,
-  key: string
+  key: string,
 ): ElementInfo => {
   const pid = select(state, layoutKey);
   const node = pid.nodes.find((node) => node.key === key);
@@ -90,7 +90,7 @@ export const selectElementProps = (
 export const useSelectElementProps = (layoutKey: string, key: string): ElementInfo =>
   useMemoSelect(
     (state: StoreState) => selectElementProps(state, layoutKey, key),
-    [layoutKey, key]
+    [layoutKey, key],
   );
 
 export const selectToolbar = (state: StoreState): ToolbarState =>
@@ -109,3 +109,14 @@ export const selectViewportMode = (state: StoreState): Viewport.Mode =>
 
 export const useSelectViewporMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
+
+export const selecControlStatus = (
+  state: StoreState,
+  layoutKey: string,
+): Control.Status => select(state, layoutKey).control;
+
+export const useSelectControlStatus = (layoutKey: string): Control.Status =>
+  useMemoSelect(
+    (state: StoreState) => selecControlStatus(state, layoutKey),
+    [layoutKey],
+  );

@@ -47,15 +47,17 @@
 }
 
 .pluto-input--shadow:hover,
-.pluto-input--shadow:focus,
-.pluto-input--shadow:hover > *,
-.pluto-input--shadow:focus > * {
+.pluto-input--shadow:hover > * {
     border-color: var(--pluto-border-color);
+}
+.pluto-input--shadow:focus,
+.pluto-input--shadow:focus > * {
+    border-color: var(--pluto-primary-z);
 }
 
 .pluto-input--shadow,
 .pluto-input--shadow > * {
-    background: none !important;
+    background: var(--pluto-background-color) !important;
 }
 
 input[type="number"]::-webkit-inner-spin-button {
@@ -65,4 +67,5 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .pluto-input--placeholder-centered::placeholder {
     text-align: center;
+
 }

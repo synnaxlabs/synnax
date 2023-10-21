@@ -13,7 +13,7 @@ import { xy } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { tooltip } from "@/vis/tooltip/aether";
+import { tooltip } from "@/vis/lineplot/tooltip/aether";
 
 export interface TooltipProps
   extends Omit<z.input<typeof tooltip.tooltipStateZ>, "position"> {}

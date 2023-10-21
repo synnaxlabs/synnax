@@ -50,6 +50,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
     type,
     bounds,
     className,
+    tickSpacing,
     style,
     ...props
   }): ReactElement => {
@@ -61,6 +62,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
       type,
       bounds,
       label,
+      tickSpacing,
     });
 
     const [{ path }, { size, labelSize }, setState] = Aether.use({
@@ -84,11 +86,11 @@ export const XAxis = Aether.wrap<XAxisProps>(
       "XAxis",
     );
 
-    const font = Theming.useTypography(labelLevel);
+    const font = Theming.useTypography(labelLevel).toString();
 
     useEffect(() => {
       if (label == null) return;
-      const dims = Text.dimensions(label, font.toString());
+      const dims = Text.dimensions(label, font);
       const labelSize = dims.height + 12;
       const prevSize = prevLabelSize.current;
       if (!withinSizeThreshold(prevSize, labelSize)) {
@@ -98,7 +100,7 @@ export const XAxis = Aether.wrap<XAxisProps>(
           labelSize,
         }));
       }
-    }, [label]);
+    }, [label, font]);
 
     return (
       <>

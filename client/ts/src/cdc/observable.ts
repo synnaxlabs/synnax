@@ -24,14 +24,21 @@ export class Observable<K, V>
   private readonly decoder: Decoder<K, V>;
   private readonly base: observe.Observer<Array<change.Change<K, V>>>;
   private readonly closePromise: Promise<void>;
-  private readonly deleteChannel?: channel.Key;
-  private readonly setChannel?: channel.Key;
+  private readonly deleteChannel?: channel.Key | channel.Name;
+  private readonly setChannel?: channel.Key | channel.Name;
 
-  private constructor(streamer: framer.Streamer, ecd: Decoder<K, V>) {
+  private constructor(
+    streamer: framer.Streamer, 
+    ecd: Decoder<K, V>,
+    setChannel?: channel.Key | channel.Name,
+    deleteChannel?: channel.Key | channel.Name,
+    ) {
     this.streamer = streamer;
     this.decoder = ecd;
     this.base = new observe.Observer<Array<change.Change<K, V>>>();
     this.closePromise = this.stream();
+    this.deleteChannel = deleteChannel;
+    this.setChannel = setChannel;
   }
 
   onChange(handler: observe.Handler<Array<change.Change<K, V>>>): Destructor {
@@ -68,6 +75,6 @@ export class Observable<K, V>
       setChannel,
       deleteChannel,
     ] as channel.Keys);
-    return new Observable(stream, ecd);
+    return new Observable(stream, ecd, setChannel, deleteChannel);
   }
 }

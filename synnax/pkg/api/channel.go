@@ -11,10 +11,15 @@ package api
 
 import (
 	"context"
+	roacherrors "github.com/cockroachdb/errors"
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,11 +41,13 @@ type ChannelService struct {
 	validationProvider
 	dbProvider
 	internal channel.Service
+	ranger   *ranger.Service
 }
 
 func NewChannelService(p Provider) *ChannelService {
 	return &ChannelService{
 		internal:           p.Config.Channel,
+		ranger:             p.Config.Ranger,
 		validationProvider: p.Validation,
 		dbProvider:         p.db,
 	}
@@ -87,9 +94,10 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search string `json:"search" msgpack:"search"`
-	Limit  int    `json:"limit" msgpack:"limit"`
-	Offset int    `json:"offset" msgpack:"offset"`
+	Search         string    `json:"search" msgpack:"search"`
+	SearchRangeKey uuid.UUID `json:"search_range_key" msgpack:"search_range_key"`
+	Limit          int       `json:"limit" msgpack:"limit"`
+	Offset         int       `json:"offset" msgpack:"offset"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -105,12 +113,34 @@ func (s *ChannelService) Retrieve(
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, errors.Typed) {
 	var (
-		resChannels []channel.Channel
-		q           = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames    = len(req.Names) > 0
-		hasKeys     = len(req.Keys) > 0
-		hasSearch   = len(req.Search) > 0
+		resChannels   []channel.Channel
+		aliasChannels []channel.Channel
+		q             = s.internal.NewRetrieve().Entries(&resChannels)
+		hasNames      = len(req.Names) > 0
+		hasKeys       = len(req.Keys) > 0
+		hasSearch     = len(req.Search) > 0
 	)
+
+	if req.SearchRangeKey != uuid.Nil {
+		var resRng ranger.Range
+		err := s.ranger.NewRetrieve().WhereKeys(req.SearchRangeKey).Entry(&resRng).Exec(ctx, nil)
+		isNotFound := roacherrors.Is(query.NotFound, err)
+		if err != nil && !isNotFound {
+			return ChannelRetrieveResponse{}, errors.Auto(err)
+		}
+		// We can still do a best effort search without the range even if we don't find it.
+		if !isNotFound {
+			keys, err := resRng.SearchAliases(ctx, req.Search)
+			if err != nil {
+				return ChannelRetrieveResponse{}, errors.Auto(err)
+			}
+			aliasChannels = make([]channel.Channel, 0, len(keys))
+			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
+			if err != nil {
+				return ChannelRetrieveResponse{}, errors.Auto(err)
+			}
+		}
+	}
 
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
@@ -138,6 +168,12 @@ func (s *ChannelService) Retrieve(
 
 	err := errors.MaybeQuery(q.Exec(ctx, nil))
 
+	if len(aliasChannels) > 0 {
+		aliasKeys := channel.KeysFromChannels(aliasChannels)
+		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
+			return !aliasKeys.Contains(ch.Key())
+		})...)
+	}
 	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
 }
 

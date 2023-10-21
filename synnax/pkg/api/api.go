@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/synnaxlabs/synnax/pkg/api/latency"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -39,7 +38,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"go/types"
-	"time"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -189,7 +187,7 @@ func (a *API) BindTo(t Transport) {
 		err                = errors.Middleware()
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{latency.Middleware(50 * time.Millisecond), instrumentation, err}
+		insecureMiddleware = []freighter.Middleware{instrumentation, err}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)

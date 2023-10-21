@@ -36,7 +36,7 @@ const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): voi
           ...LinePlot.ZERO_CHANNELS_STATE,
           y1: selection.map((s) => Number(s.id.key)),
         },
-      })
+      }),
     );
     return;
   }
@@ -50,7 +50,7 @@ const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): voi
           mode: "add",
           axisKey: "y1",
           channels: selection.map((s) => Number(s.id.key)),
-        })
+        }),
       );
   }
 };
@@ -80,7 +80,6 @@ const handleSetAlias = async ({
   if (activeRange == null) return;
   const rng = await client.ranges.retrieve(activeRange.key);
   await rng.setAlias(Number(id.key), name);
-  setNodes([...Tree.updateNode(nodes, id.toString(), (n) => ({ ...n, name }))]);
 };
 
 const handleRename: Ontology.HandleTreeRename = (p) => {
@@ -97,14 +96,6 @@ const handleDeleteAlias = async ({
   if (activeRange == null) return;
   const rng = await client.ranges.retrieve(activeRange.key);
   await rng.deleteAlias(...resources.map((r) => Number(r.id.key)));
-  let next: Tree.Node[] = nodes;
-  resources.forEach((r) => {
-    next = Tree.updateNode(next, r.id.toString(), (n) => ({
-      ...n,
-      name: r.name,
-    }));
-  });
-  setNodes([...next]);
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

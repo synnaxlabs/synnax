@@ -47,7 +47,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--pluto-gray-m3);
+    background: var(--pluto-gray-m4);
 }
 
 ::-webkit-scrollbar-thumb {

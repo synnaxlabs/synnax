@@ -20,7 +20,7 @@ import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-import { useAliases } from "./AliasProvider";
+import { useActiveRange, useAliases } from "./AliasProvider";
 import { HAUL_TYPE } from "./types";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
@@ -96,7 +96,13 @@ export const SelectMultiple = ({
   ...props
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
+  const aliases = useAliases();
   const columns = useColumns(filter);
+  const activeRange = useActiveRange();
+  const searcher = useMemo(
+    () => client?.channels.newSearcherUnderRange(activeRange),
+    [client, activeRange],
+  );
   const emptyContent =
     client != null ? undefined : (
       <Status.Text.Centered variant="error" level="h4" style={{ height: 150 }}>
@@ -136,17 +142,22 @@ export const SelectMultiple = ({
     [startDrag, handleSuccessfulDrop],
   );
 
+  const tagKey = useCallback(
+    (e: channel.Payload) => aliases[e.key] ?? e.name,
+    [aliases],
+  );
+
   return (
     <Select.Multiple
       className={CSS(className, CSS.dropRegion(canDrop(dragging, value)))}
       value={value}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
-      searcher={client?.channels}
+      searcher={searcher}
       onChange={onChange}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={"name"}
+      tagKey={tagKey}
       {...dropProps}
       {...props}
     />
@@ -166,7 +177,13 @@ export const SelectSingle = ({
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
+  const aliases = useAliases();
   const columns = useColumns(filter);
+  const activeRange = useActiveRange();
+  const searcher = useMemo(
+    () => client?.channels.newSearcherUnderRange(activeRange),
+    [client, activeRange],
+  );
 
   const emptyContent =
     client != null ? undefined : (
@@ -205,6 +222,11 @@ export const SelectSingle = ({
     [startDrag, value],
   );
 
+  const tagKey = useCallback(
+    (e: channel.Payload) => aliases[e.key] ?? e.name,
+    [aliases],
+  );
+
   return (
     <Select.Single
       className={CSS(className, CSS.dropRegion(canDrop(dragging, [value])))}
@@ -212,10 +234,10 @@ export const SelectSingle = ({
       onDragStart={onDragStart}
       onDragEnd={endDrag}
       onChange={onChange}
-      searcher={client?.channels}
+      searcher={searcher}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={"name"}
+      tagKey={tagKey}
       {...dragProps}
       {...props}
     />

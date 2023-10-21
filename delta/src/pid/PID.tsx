@@ -108,10 +108,10 @@ const ElementRenderer = ({
   const handleChange = useCallback(
     (props: object) => {
       dispatch(
-        setElementProps({ layoutKey, key: elementKey, props: { type, ...props } })
+        setElementProps({ layoutKey, key: elementKey, props: { type, ...props } }),
       );
     },
-    [dispatch, elementKey, layoutKey, type]
+    [dispatch, elementKey, layoutKey, type],
   );
 
   const C = PIDElement.REGISTRY[type];
@@ -136,7 +136,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
     syncer,
-    1000
+    1000,
   );
   const theme = Theming.use();
   const viewportRef = useSyncedRef(pid.viewport);
@@ -145,28 +145,28 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     (edges) => {
       dispatch(setEdges({ layoutKey, edges }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleNodesChange: Core.PIDProps["onNodesChange"] = useCallback(
     (nodes) => {
       dispatch(setNodes({ layoutKey, nodes }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleViewportChange: Core.PIDProps["onViewportChange"] = useCallback(
     (vp) => {
       dispatch(setViewport({ layoutKey, viewport: vp }));
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const handleEditableChange: Core.PIDProps["onEditableChange"] = useCallback(
     (cbk) => {
       dispatch(setEditable({ layoutKey, editable: cbk }));
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const handleControlStatusChange: Control.ControllerProps["onStatusChange"] =
@@ -174,7 +174,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       (control) => {
         dispatch(setControlStatus({ layoutKey, control }));
       },
-      [layoutKey]
+      [layoutKey],
     );
 
   const acquireControl = useCallback(
@@ -183,17 +183,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         toggleControl({
           layoutKey,
           status: v ? "acquired" : "released",
-        })
+        }),
       );
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const elRenderer = useCallback(
     (props: Core.ElementProps) => {
       return <ElementRenderer layoutKey={layoutKey} {...props} />;
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -229,12 +229,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
               ...spec.initialProps(theme),
               ...(data ?? {}),
             },
-          })
+          }),
         );
       });
       return valid;
     },
-    [pid.viewport, theme]
+    [pid.viewport, theme],
   );
 
   const dropProps = Haul.useDrop({
@@ -262,7 +262,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         if (copy) dispatch(copySelection({ pos }));
         else dispatch(pasteSelection({ pos, layoutKey }));
       },
-      [dispatch, layoutKey, viewportRef]
+      [dispatch, layoutKey, viewportRef],
     ),
   });
 

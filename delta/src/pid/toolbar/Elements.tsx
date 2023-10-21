@@ -14,7 +14,7 @@ import {
   useCallback,
 } from "react";
 
-import { Align, Text, PIDElement, Theming, Haul } from "@synnaxlabs/pluto";
+import { Align, Text, PIDElement, Theming, Haul, Input, List } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
@@ -22,6 +22,11 @@ import { CSS } from "@/css";
 import { addElement } from "@/pid/slice";
 
 import "@/pid/toolbar/Elements.css";
+
+const LIST_DATA = Object.values(PIDElement.REGISTRY).map((el) => ({
+  key: el.type,
+  ...el,
+}));
 
 export const Elements = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const dispatch = useDispatch();
@@ -37,22 +42,29 @@ export const Elements = ({ layoutKey }: { layoutKey: string }): ReactElement => 
             type,
             ...PIDElement.REGISTRY[type].initialProps(theme),
           },
-        })
+        }),
       ),
-    [dispatch, layoutKey, theme]
+    [dispatch, layoutKey, theme],
   );
 
   return (
-    <Align.Space className={CSS.B("pid-elements")} direction="x" wrap>
-      {Object.entries(PIDElement.REGISTRY).map(([type, el]) => (
-        <ElementsButton
-          key={type}
-          el={el}
-          onClick={() => handleAddElement(type)}
-          theme={theme}
-        />
-      ))}
-    </Align.Space>
+    <List.List data={LIST_DATA}>
+      <Align.Space style={{ padding: "1rem", borderBottom: "var(--pluto-border)" }}>
+        <List.Filter>
+          {(p) => <Input.Text {...p} placeholder="Type to search..." size="small" />}
+        </List.Filter>
+      </Align.Space>
+      <List.Core direction="x" className={CSS.B("pid-elements")}>
+        {(p) => (
+          <ElementsButton
+            key={p.entry.type}
+            el={p.entry}
+            onClick={() => handleAddElement(p.entry.type)}
+            theme={theme}
+          />
+        )}
+      </List.Core>
+    </List.List>
   );
 };
 
@@ -84,7 +96,7 @@ const ElementsButton = ({
       <Align.Space
         el="button"
         className={CSS.BE("pid-elements", "button")}
-        justify="center"
+        justify="spaceBetween"
         align="center"
         draggable
         {...props}

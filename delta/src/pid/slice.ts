@@ -163,7 +163,7 @@ export interface SetRemoteCreatedPayload {
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
-  viewport: PID.Viewport
+  viewport: PID.Viewport,
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
@@ -207,7 +207,7 @@ export const { actions, reducer } = createSlice({
       if (nodes.length > 0) {
         const pos = nodes.reduce(
           (acc, node) => xy.translate(acc, node.position),
-          xy.ZERO
+          xy.ZERO,
         );
         copyBuffer.pos = xy.scale(pos, 1 / nodes.length);
       }
@@ -328,7 +328,7 @@ export const { actions, reducer } = createSlice({
     },
     setActiveToolbarTab: (
       state,
-      { payload }: PayloadAction<SetActiveToolbarTabPayload>
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
       const { tab } = payload;
       state.toolbar.activeTab = tab;
@@ -341,6 +341,10 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { layoutKey, editable } = payload;
       const pid = state.pids[layoutKey];
+      if (pid.control === "acquired") {
+        pid.controlAcquireTrigger = -1;
+        pid.control = "released";
+      }
       if (pid.snapshot) return;
       pid.editable = editable;
     },
@@ -358,7 +362,7 @@ export const { actions, reducer } = createSlice({
     },
     setViewportMode: (
       state,
-      { payload: { mode } }: PayloadAction<SetViewportModePayload>
+      { payload: { mode } }: PayloadAction<SetViewportModePayload>,
     ) => {
       state.mode = mode;
     },
@@ -414,7 +418,7 @@ export const LAYOUT_TYPE = "pid";
 
 export const create =
   (
-    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
+    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">,
   ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "PID", location = "mosaic", window, tab, ...rest } = initial;

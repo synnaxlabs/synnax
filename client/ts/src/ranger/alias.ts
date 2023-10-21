@@ -160,13 +160,15 @@ const aliasZ = z.object({
   alias: z.string(),
 });
 
+const aliasSeparator = "---";
+
 const decodeAliasChanges =
   (rangeKey: Key): cdc.Decoder<string, Alias> =>
   (variant, data) => {
     if (variant === "delete") {
       return data
         .toStrings()
-        .filter((k) => k.split(":")[0] === rangeKey)
+        .filter((k) => k.split(aliasSeparator)[0] === rangeKey)
         .map((alias) => ({
           variant,
           key: alias,
