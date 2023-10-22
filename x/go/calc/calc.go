@@ -10,12 +10,12 @@
 package calc
 
 import (
-	"errors"
 	"go/ast"
 	"go/token"
 	"math"
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/stack"
 )
 
@@ -36,6 +36,8 @@ var precedence map[string]int = map[string]int{
 	"(": 0,
 	"^": 3,
 }
+
+var InvalidExpressionError = errors.New("Invalid expression")
 
 type Expression struct {
 	exp ast.Expr
@@ -94,7 +96,7 @@ func (e *Expression) Build(s string) error {
 				Y, err1 := output.Pop()
 				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
-					return errors.New("Invalid expression")
+					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
@@ -108,7 +110,7 @@ func (e *Expression) Build(s string) error {
 				Y, err1 := output.Pop()
 				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
-					return errors.New("Invalid expression")
+					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
@@ -124,13 +126,13 @@ func (e *Expression) Build(s string) error {
 				Y, err1 := output.Pop()
 				X, err2 := output.Pop()
 				if err1 != nil || err2 != nil {
-					return errors.New("Invalid expression")
+					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
 				}
 				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			_, err := operators.Pop()
 			if err != nil {
-				return err
+				return errors.Wrap(InvalidExpressionError, "Invalid expression: mismatched parentheses")
 			}
 		default:
 			_, err := strconv.ParseFloat(t, 64)
@@ -143,14 +145,11 @@ func (e *Expression) Build(s string) error {
 		}
 	}
 	for operators.Len() > 0 {
-		op, err := operators.Pop()
-		if err != nil {
-			return err
-		}
+		op, _ := operators.Pop()
 		Y, err1 := output.Pop()
 		X, err2 := output.Pop()
 		if err1 != nil || err2 != nil {
-			return errors.New("Invalid expression")
+			return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
 		}
 		output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 	}
