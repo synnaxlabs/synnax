@@ -31,15 +31,11 @@ func findTokens(s string) ([]string, error) {
 	tokens := []string{}
 	currToken := ""
 	for i, c := range s {
-		if c == ' ' {
-			if currToken != "" {
-				tokens = append(tokens, currToken)
-				currToken = ""
-			}
-			continue
-		}
-		//	Check if token is a negative number
-		if c == '-' && currToken == "" && (i == 0 || tokens[len(tokens)-1] == "(" || tokens[len(tokens)-1] == "+" || tokens[len(tokens)-1] == "-" || tokens[len(tokens)-1] == "*" || tokens[len(tokens)-1] == "/" || tokens[len(tokens)-1] == "^") {
+		if c == ' ' && currToken != "" {
+			tokens = append(tokens, currToken)
+			currToken = ""
+		} else if c == '-' && currToken == "" && (i == 0 || tokens[len(tokens)-1] == "(" || tokens[len(tokens)-1] == "+" || tokens[len(tokens)-1] == "-" || tokens[len(tokens)-1] == "*" || tokens[len(tokens)-1] == "/" || tokens[len(tokens)-1] == "^") {
+			//	Check if token is a negative number
 			currToken += string(c)
 		} else if c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == '^' {
 			if currToken != "" {
@@ -47,7 +43,7 @@ func findTokens(s string) ([]string, error) {
 				currToken = ""
 			}
 			tokens = append(tokens, string(c))
-		} else {
+		} else if c != ' ' {
 			currToken += string(c)
 		}
 	}
