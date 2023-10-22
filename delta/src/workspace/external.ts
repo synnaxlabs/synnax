@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/workspace/palette";
-export * from "@/workspace/Toolbar";
 export * from "@/workspace/ontology";
 export * from "@/workspace/slice";
 export * from "@/workspace/Selector";

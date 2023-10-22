@@ -32,7 +32,7 @@ export const NavTop = (): ReactElement => {
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
       <Nav.Bar.End>
-        <OS.Controls className="delta-controls--windows" visibleIfOS="Windows" />
+        <Controls className="delta-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>
   );

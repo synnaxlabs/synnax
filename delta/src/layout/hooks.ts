@@ -86,11 +86,11 @@ export const usePlacer = (): Placer => {
             url: "/",
             key,
             title,
-          })
+          }),
         );
       return { windowKey, key };
     },
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 };
 
@@ -109,7 +109,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const memoKeys = useMemoCompare(
     () => baseKeys,
     ([a], [b]) => Compare.primitiveArrays(a, b) === Compare.EQUAL,
-    [baseKeys]
+    [baseKeys],
   );
   return useCallback(
     (...keys) => {
@@ -118,12 +118,13 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       keys.forEach((keys) => {
         const l = select(s, keys);
         // Even if the layout is not present, close the window for good measure.
+        console.log(l?.location);
         if (l == null || l.location === "window")
           store.dispatch(Drift.closeWindow({ key: keys }));
       });
       syncDispatch(remove({ keys }));
     },
-    [memoKeys]
+    [memoKeys],
   );
 };
 
@@ -154,7 +155,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(
-    Theming.themes.synnaxLight
+    Theming.themes.synnaxLight,
   );
   useAsyncEffect(async () => {
     const theme = matchThemeChange({ payload: await appWindow.theme() });
@@ -168,7 +169,7 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
       setTheme((t) =>
         t === Theming.themes.synnaxLight
           ? Theming.themes.synnaxDark
-          : Theming.themes.synnaxLight
+          : Theming.themes.synnaxLight,
       ),
   };
 };
@@ -202,7 +203,7 @@ export interface UseNavDrawerReturn {
 
 export const useNavDrawer = (
   location: NavdrawerLocation,
-  items: NavDrawerItem[]
+  items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
@@ -217,7 +218,7 @@ export const useNavDrawer = (
       dispatch(resizeNavdrawer({ location, size }));
     },
     100,
-    [dispatch]
+    [dispatch],
   );
 
   if (activeItem != null) activeItem.initialSize = state.size;

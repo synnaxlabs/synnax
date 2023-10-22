@@ -19,7 +19,6 @@ import {
   Triggers,
   Synnax,
   Text,
-  Aether,
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
@@ -45,7 +44,7 @@ import "@/layouts/LayoutMain/Nav.css";
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Cluster.Toolbar,
   Toolbar,
-  Workspace.Toolbar,
+  Range.Toolbar,
   Vis.Toolbar,
 ];
 
@@ -100,7 +99,11 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="delta-main-nav-top__start" data-tauri-drag-region>
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo className="delta-main-nav-top__logo" variant="icon" />
+          <Logo
+            className="delta-main-nav-top__logo"
+            variant="icon"
+            data-tauri-drag-region
+          />
         )}
         <Workspace.Selector />
       </Nav.Bar.Start>
@@ -185,7 +188,7 @@ export const NavRight = (): ReactElement | null => {
   const { menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
   const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = Layout.useNavDrawer(
     "bottom",
-    NAV_DRAWERS
+    NAV_DRAWERS,
   );
   return (
     <Nav.Bar location="right" size={NAV_SIZES.side}>
@@ -235,7 +238,7 @@ export const NavDrawer = ({ aetherKey, location: l, ...props }): ReactElement =>
       location={l}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", location.direction(l))
+        CSS.BM("main-nav-drawer", location.direction(l)),
       )}
       activeItem={activeItem}
       onResize={onResize}

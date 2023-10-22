@@ -30,7 +30,6 @@ export const use = ({ aetherKey }: UseProps): ((region: box.Box) => void) => {
   const regionRef = useSyncedRef(region);
   return useCallback(
     (b: box.Box) => {
-      console.log(b, regionRef.current);
       if (box.equals(b, regionRef.current)) return;
       setState((p) => ({ ...p, region: b }));
     },

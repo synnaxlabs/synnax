@@ -82,7 +82,7 @@ const ListItem = ({
     onDoubleClick={() => onSelect?.(key)}
     className={CSS(
       CSS.BE("cluster-toolbar-list", "item"),
-      selected && CSS.M("selected")
+      selected && CSS.M("selected"),
     )}
     style={style}
   >

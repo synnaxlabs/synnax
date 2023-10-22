@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Align, Text } from "@synnaxlabs/pluto";
+import { Eraser, Button, Align, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -31,26 +31,33 @@ export const LayoutSelector = ({
   const place = Layout.usePlacer();
 
   return (
-    <Align.Center className={CSS.B("vis-layout-selector")} size="large" {...props} wrap>
-      <Text.Text level="h4" color="var(--pluto-gray-p0)">
-        Select a visualization type
-      </Text.Text>
-      <Align.Space direction={direction}>
-        <Button.Button
-          variant="outlined"
-          onClick={() => place(LinePlot.create({ key: layoutKey }))}
-          startIcon={<Icon.Visualize />}
-        >
-          Line Plot
-        </Button.Button>
-        <Button.Button
-          variant="outlined"
-          onClick={() => place(PID.create({ key: layoutKey }))}
-          startIcon={<Icon.PID />}
-        >
-          PID
-        </Button.Button>
-      </Align.Space>
-    </Align.Center>
+    <Eraser.Eraser>
+      <Align.Center
+        className={CSS.B("vis-layout-selector")}
+        size="large"
+        {...props}
+        wrap
+      >
+        <Text.Text level="h4" color="var(--pluto-gray-p0)">
+          Select a visualization type
+        </Text.Text>
+        <Align.Space direction={direction}>
+          <Button.Button
+            variant="outlined"
+            onClick={() => place(LinePlot.create({ key: layoutKey }))}
+            startIcon={<Icon.Visualize />}
+          >
+            Line Plot
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            onClick={() => place(PID.create({ key: layoutKey }))}
+            startIcon={<Icon.PID />}
+          >
+            PID
+          </Button.Button>
+        </Align.Space>
+      </Align.Center>
+    </Eraser.Eraser>
   );
 };

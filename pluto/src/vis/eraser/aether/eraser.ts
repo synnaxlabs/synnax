@@ -39,11 +39,10 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
 
   async render(): Promise<render.Cleanup> {
     return async ({ canvases }) => {
-      console.log("rendering eraser");
       this.eraser.erase(
         this.internal.render,
         this.state.region,
-        this.state.region,
+        this.prevState.region,
         xy.construct(0),
         canvases,
       );
