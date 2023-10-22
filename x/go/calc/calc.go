@@ -30,11 +30,15 @@ type Resolver interface {
 func findTokens(s string) ([]string, error) {
 	tokens := []string{}
 	currToken := ""
-	for i, c := range s {
+	for _, c := range s {
+		previousToken := ""
+		if len(tokens) > 0 {
+			previousToken = tokens[len(tokens)-1]
+		}
 		if c == ' ' && currToken != "" {
 			tokens = append(tokens, currToken)
 			currToken = ""
-		} else if c == '-' && currToken == "" && (i == 0 || tokens[len(tokens)-1] == "(" || tokens[len(tokens)-1] == "+" || tokens[len(tokens)-1] == "-" || tokens[len(tokens)-1] == "*" || tokens[len(tokens)-1] == "/" || tokens[len(tokens)-1] == "^") {
+		} else if c == '-' && currToken == "" && (len(tokens) == 0 || previousToken == "(" || previousToken == "+" || previousToken == "-" || previousToken == "*" || previousToken == "/" || previousToken == "^") {
 			//	Check if token is a negative number
 			currToken += string(c)
 		} else if c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == '^' {
