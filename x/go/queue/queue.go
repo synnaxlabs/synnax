@@ -10,8 +10,10 @@
 package queue
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 )
+
+var EmptyQueueError = errors.New("queue is empty")
 
 type Queue[T any] struct {
 	queue []T
@@ -25,7 +27,7 @@ func (q *Queue[T]) Push(i T) {
 // Remove an element from the front of the queue, returns the element or an error if the queue is empty
 func (q *Queue[T]) Pop() (val T, err error) {
 	if len(q.queue) == 0 {
-		return val, errors.New("queue is empty")
+		return val, errors.Wrap(EmptyQueueError, "queue is empty")
 	}
 	i := q.queue[0]
 	q.queue = q.queue[1:]

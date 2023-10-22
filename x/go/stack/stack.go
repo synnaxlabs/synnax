@@ -10,8 +10,10 @@
 package stack
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 )
+
+var EmptyStackError = errors.New("stack is empty")
 
 type Stack[T any] struct {
 	stack []T
@@ -25,7 +27,7 @@ func (s *Stack[T]) Push(i T) {
 // Remove an element from the top of the stack, returns the element and an error if the stack is empty
 func (s *Stack[T]) Pop() (val T, err error) {
 	if len(s.stack) == 0 {
-		return val, errors.New("stack is empty")
+		return val, errors.Wrap(EmptyStackError, "stack is empty")
 	}
 	i := s.stack[len(s.stack)-1]
 	s.stack = s.stack[:len(s.stack)-1]
