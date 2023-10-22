@@ -3,20 +3,25 @@ package encoder_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/encoder"
 	"github.com/synnaxlabs/x/telem"
+	"time"
 )
 
 var _ = Describe("Encoder", func() {
+
+	var experiment *gmeasure.Experiment
+
 	typeSlice := []telem.DataType{
 		"uint8", "uint16", "uint16",
 	}
 	keySlice := channel.Keys{
 		1141, 2434, 3234,
 	}
-	var cd encoder.EncoderDecoder = encoder.NewEncoderDecoder(
+	var cd encoder.DecoderEncoder = encoder.New(
 		typeSlice,
 		keySlice,
 	)
@@ -48,16 +53,27 @@ var _ = Describe("Encoder", func() {
 	series3.Data = []byte{1, 4, 6, 2, 5, 4}
 	series4.Data = []byte{1, 4, 6, 2, 5, 4, 1, 2}
 	series5.Data = []byte{4, 2, 3, 4, 2, 3}
+
+	BeforeEach(func() {
+		experiment = gmeasure.NewExperiment(CurrentSpecReport().LeafNodeText)
+	})
+
+	BeforeEach(func() {
+		experiment.RecordDuration("runtime", time.Second, gmeasure.Annotation("first"), gmeasure.Style("{{red}}"), gmeasure.Precision(time.Millisecond), gmeasure.Units("ignored"))
+	})
+
 	Describe("Various tests", func() {
 		It("Everything is the same", func() {
 			testStruct := framer.Frame{
 				Keys:   keySlice,
 				Series: []telem.Series{series1, series2, series3},
 			}
-			byteArray, err := cd.Encode(testStruct)
-			returnStruct, err := cd.Decode(byteArray)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(testStruct).To(Equal(returnStruct))
+			experiment.MeasureDuration("runtime", func() {
+				byteArray, err := cd.Encode(testStruct)
+				returnStruct, err := cd.Decode(byteArray)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(testStruct).To(Equal(returnStruct))
+			}, gmeasure.Annotation("second"))
 		})
 		It("Not all channels sent", func() {
 			testStruct := framer.Frame{

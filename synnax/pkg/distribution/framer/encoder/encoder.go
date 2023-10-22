@@ -1,3 +1,7 @@
+// For detailed information about the specifications,
+// please refer to the official RFC 0016 document.
+// Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
+
 package encoder
 
 import (
@@ -7,41 +11,30 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type EncoderDecoder struct {
+type DecoderEncoder struct {
 	dtypes []telem.DataType
 	keys   channel.Keys
 }
 
-func (m EncoderDecoder) JSONtoByte(src framer.Frame) ([]byte, error) {
-	return nil, nil
+func New(DataTypes []telem.DataType, ChannelKeys channel.Keys) DecoderEncoder {
+	return DecoderEncoder{dtypes: DataTypes, keys: ChannelKeys}
 }
 
-func (m EncoderDecoder) BytetoJSON(src []byte) (framer.Frame, error) {
-	return framer.Frame{}, nil
-}
-
-func NewEncoderDecoder(DataTypes []telem.DataType, ChannelKeys channel.Keys) EncoderDecoder {
-	return EncoderDecoder{dtypes: DataTypes, keys: ChannelKeys}
-}
-
-// struct - CONFIG - ANOTHER STRUCT - Given the channels (keys of the channels)
-// List of all channels
-// All datatypes send at beginning
-// Not guarenteed are channels exist in the Frame, if bit = 1 don't send keys, or bit = 0 send keys
-//
-//
-//
-
-// Ignoring Partial Channels and Strongly Aligned For Name
-func (m EncoderDecoder) Encode(src framer.Frame) (dst []byte, err error) {
+func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
 	var (
 		curDataSize, index               int             = -1, 0
 		startTime, endTime               telem.TimeStamp = 0, 0
-		returnArray                      []byte
-		sizeFlag, alignFlag, channelFlag int = 1, 1, 0
+		byteArraySize                    int             = 1 // Set to one to handle start array
+		encoded                          []byte
+		sizeFlag, alignFlag, channelFlag uint8 = 1, 1, 0
 	)
 
-	channelFlag = map[bool]int{false: 0, true: 1}[len(m.keys) == len(src.Keys)]
+	if len(m.keys) == len(src.Keys) {
+		channelFlag = 1
+	} else {
+		channelFlag = 0
+		byteArraySize += len(src.Keys) * 4
+	}
 
 	for i := 0; i < len(m.keys); i++ {
 		if index >= len(src.Keys) || src.Keys[index] != m.keys[i] {
@@ -54,26 +47,50 @@ func (m EncoderDecoder) Encode(src framer.Frame) (dst []byte, err error) {
 			endTime = src.Series[index].TimeRange.End
 		}
 
-		sizeFlag &= map[bool]int{false: 0, true: 1}[len(src.Series[index].Data)/int(m.dtypes[index].Density()) == curDataSize]
-		alignFlag &= map[bool]int{false: 0, true: 1}[src.Series[index].TimeRange.Start == startTime && src.Series[index].TimeRange.End == endTime]
+		if len(src.Series[index].Data)/int(m.dtypes[index].Density()) == curDataSize {
+			sizeFlag &= 1
+		} else {
+			sizeFlag &= 0
+		}
+
+		if src.Series[index].TimeRange.Start == startTime && src.Series[index].TimeRange.End == endTime {
+			alignFlag &= 1
+		} else {
+			alignFlag &= 0
+		}
+
+		byteArraySize += len(src.Series[index].Data)
 		index += 1
 	}
 
-	// First byte for any is
-	// sameData_strongAligned_allChannels_curDataSize (5 bits)
-	returnArray = append(returnArray, byte((sizeFlag<<2)|(alignFlag<<1)|(channelFlag)))
+	if sizeFlag == 0 {
+		byteArraySize += len(src.Keys) * 4
+	} else {
+		byteArraySize += 4
+	}
+
+	if alignFlag == 0 {
+		byteArraySize += len(src.Keys) * 16
+	} else {
+		byteArraySize += 16
+	}
+
+	encoded = make([]byte, byteArraySize)
+	byteArraySize = 0
+
+	encoded[byteArraySize] = byte((sizeFlag << 2) | (alignFlag << 1) | (channelFlag))
+	byteArraySize += 1
 
 	if sizeFlag == 1 {
-		bytesToAppend := make([]byte, 4)
-		binary.LittleEndian.PutUint32(bytesToAppend, uint32(curDataSize))
-		returnArray = append(returnArray, bytesToAppend...)
+		binary.LittleEndian.PutUint32(encoded[byteArraySize:], uint32(curDataSize))
+		byteArraySize += 4
 	}
+
 	if alignFlag == 1 {
-		timeRangeAppend := make([]byte, 8)
-		binary.LittleEndian.PutUint64(timeRangeAppend, uint64(src.Series[index-1].TimeRange.Start))
-		returnArray = append(returnArray, timeRangeAppend...)
-		binary.LittleEndian.PutUint64(timeRangeAppend, uint64(src.Series[index-1].TimeRange.End))
-		returnArray = append(returnArray, timeRangeAppend...)
+		binary.LittleEndian.PutUint64(encoded[byteArraySize:], uint64(src.Series[index-1].TimeRange.Start))
+		byteArraySize += 8
+		binary.LittleEndian.PutUint64(encoded[byteArraySize:], uint64(src.Series[index-1].TimeRange.End))
+		byteArraySize += 8
 	}
 
 	index = 0
@@ -84,37 +101,37 @@ func (m EncoderDecoder) Encode(src framer.Frame) (dst []byte, err error) {
 		}
 		lenSeriesData := uint32(len(src.Series[index].Data))
 		dataSize := uint32(m.dtypes[i].Density())
+
 		// Adding Key
 		if channelFlag == 0 {
-			keyInformation := make([]byte, 4)
-			binary.LittleEndian.PutUint32(keyInformation, uint32(src.Keys[index]))
-			returnArray = append(returnArray, keyInformation...)
+			binary.LittleEndian.PutUint32(encoded[byteArraySize:], uint32(src.Keys[index]))
+			byteArraySize += 4
 		}
 		// Adding Data Length
 		if sizeFlag == 0 {
-			bytesToAppend := make([]byte, 4)
-			binary.LittleEndian.PutUint32(bytesToAppend, uint32(lenSeriesData/dataSize))
-			returnArray = append(returnArray, bytesToAppend...)
+			binary.LittleEndian.PutUint32(encoded[byteArraySize:], uint32(lenSeriesData/dataSize))
+			byteArraySize += 4
 		}
+
 		// Adding Data
-		for j := 0; j < int(lenSeriesData); j++ {
-			returnArray = append(returnArray, src.Series[index].Data[j])
-		}
+		copy(encoded[byteArraySize:], src.Series[index].Data)
+		byteArraySize += int(lenSeriesData)
+
 		// Adding Time range
 		if alignFlag == 0 {
-			timeRangeAppend := make([]byte, 8)
-			binary.LittleEndian.PutUint64(timeRangeAppend, uint64(src.Series[index].TimeRange.Start))
-			returnArray = append(returnArray, timeRangeAppend...)
-			binary.LittleEndian.PutUint64(timeRangeAppend, uint64(src.Series[index].TimeRange.End))
-			returnArray = append(returnArray, timeRangeAppend...)
+			binary.LittleEndian.PutUint64(encoded[byteArraySize:], uint64(src.Series[index].TimeRange.Start))
+			byteArraySize += 8
+			binary.LittleEndian.PutUint64(encoded[byteArraySize:], uint64(src.Series[index].TimeRange.End))
+			byteArraySize += 8
 		}
 
 		index += 1
 	}
-	return returnArray, nil
+
+	return encoded, nil
 }
 
-func (m EncoderDecoder) Decode(src []byte) (dst framer.Frame, err error) {
+func (m DecoderEncoder) Decode(src []byte) (dst framer.Frame, err error) {
 	var (
 		returnStruct                                   = framer.Frame{}
 		sizeFlag, alignFlag, channelFlag, index int    = 0, 0, 0, 0
@@ -144,12 +161,11 @@ func (m EncoderDecoder) Decode(src []byte) (dst framer.Frame, err error) {
 
 	for i := 0; i < len(m.keys); i++ {
 		if channelFlag == 0 {
-			if index < len(src) && channel.Key(binary.LittleEndian.Uint32(src[index:])) == m.keys[i] {
-				returnStruct.Keys = append(returnStruct.Keys, channel.Key(binary.LittleEndian.Uint32(src[index:])))
-				index += 4
-			} else {
+			if index >= len(src) || channel.Key(binary.LittleEndian.Uint32(src[index:])) != m.keys[i] {
 				continue
 			}
+			returnStruct.Keys = append(returnStruct.Keys, channel.Key(binary.LittleEndian.Uint32(src[index:])))
+			index += 4
 		}
 
 		// Obtain size if not given yet
