@@ -10,11 +10,11 @@
 package fs
 
 import (
-	"fmt"
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
 	"path"
+	"sort"
 )
 
 type File interface {
@@ -148,10 +148,13 @@ func (m *memFS) List() ([]os.FileInfo, error) {
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
 		infos[i], err = m.FS.Stat(e)
-		fmt.Println(e)
 		if err != nil {
 			return nil, err
 		}
 	}
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Name() < infos[j].Name()
+	})
+
 	return infos, nil
 }
