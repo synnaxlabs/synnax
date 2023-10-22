@@ -14,38 +14,6 @@
     width: 100%;
 }
 
-.delta-main--windows {
-    border-radius: 8px;
-    .pluto-navbar.pluto--top {
-        border-radius: 8px 8px 0 0;
-    }
-
-    .pluto-navbar.pluto--bottom {
-        border-radius: 0 0 8px 8px;
-    }
-
-    &.delta-main--maximized {
-        .delta-border,
-        .delta-background {
-            border-radius: 0px;
-        }
-    }
-
-    .delta-border,
-    .delta-background {
-        border-radius: 8px;
-        display: block;
-    }
-
-    .delta-border {
-        border-radius: 8px;
-        display: block;
-        border: var(--pluto-border);
-        height: calc(100vh - 1px);
-        width: calc(100vw - 1px);
-    }
-}
-
 .delta-controls--windows button {
     height: 100% !important;
     border-radius: 0 !important;
@@ -58,7 +26,7 @@
 }
 
 .delta-main-nav-top__logo {
-    height: 85%;
+    height: 50%;
 }
 
 .delta-main-nav-left__logo {

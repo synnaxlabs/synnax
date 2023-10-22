@@ -25,6 +25,7 @@ tauri = { version = "^1.4", features = ["api-all", "updater"] }
 ctrlc = "3.2.4"
 sled = "0.34.7"
 home = "0.5.4"
+window-shadows = "0.2.2"
 
 [patch.crates-io]
 tao = { git = "https://github.com/tauri-apps/tao", branch = "v0.16" }
@@ -32,7 +33,7 @@ tao = { git = "https://github.com/tauri-apps/tao", branch = "v0.16" }
 [features]
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
-default = [ "custom-protocol" ]
+default = ["custom-protocol"]
 # this feature is used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
-custom-protocol = [ "tauri/custom-protocol" ]
+custom-protocol = ["tauri/custom-protocol"]

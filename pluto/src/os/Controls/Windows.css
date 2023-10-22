@@ -10,8 +10,8 @@
  */
 
 .pluto-windows-control--close:hover {
-    background-color: var(--pluto-error-z);
-    border-color: var(--pluto-error-z);
+    background-color: var(--pluto-error-z) !important;
+    border-color: var(--pluto-error-z) !important;
 
     & svg {
         fill: var(--pluto-white);

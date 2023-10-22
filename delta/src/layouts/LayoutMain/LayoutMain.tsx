@@ -32,7 +32,7 @@ import "@/layouts/LayoutMain/LayoutMain.css";
 const createNewVis = (
   placer: Layout.Placer,
   mosaicKey: number,
-  loc: location.Location
+  loc: location.Location,
 ): void => {
   placer(Vis.create({ tab: { mosaicKey, location: loc }, location: "mosaic" }));
 };
@@ -70,7 +70,7 @@ export const LayoutMain = (): ReactElement => {
         } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
       });
     },
-    [placer, store, client]
+    [placer, store, client],
   );
 
   return (

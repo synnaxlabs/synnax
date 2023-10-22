@@ -66,13 +66,11 @@ export const Window = (): ReactElement | null => {
         className={CSS(
           CSS.B("main"),
           CSS.BM("main", os?.toLowerCase() as string),
-          maximized && CSS.BM("main", "maximized")
+          maximized && CSS.BM("main", "maximized"),
         )}
       >
         {layout?.window?.navTop === true && <NavTop />}
         {content}
-        <div className="delta-background" />
-        <div className="delta-border" />
       </Align.Space>
     </PMenu.ContextMenu>
   );
