@@ -19,6 +19,24 @@ import (
 	"github.com/synnaxlabs/x/stack"
 )
 
+// A dictionary mapping operators to their token
+var operatorTokens map[string]token.Token = map[string]token.Token{
+	"+": token.ADD,
+	"-": token.SUB,
+	"*": token.MUL,
+	"/": token.QUO,
+	"^": token.XOR,
+}
+
+var precedence map[string]int = map[string]int{
+	"+": 1,
+	"-": 1,
+	"*": 2,
+	"/": 2,
+	"(": 0,
+	"^": 3,
+}
+
 type Expression struct {
 	exp ast.Expr
 }
@@ -35,13 +53,15 @@ func findTokens(s string) ([]string, error) {
 		if len(tokens) > 0 {
 			previousToken = tokens[len(tokens)-1]
 		}
+		_, previousTokenIsOperator := operatorTokens[previousToken]
+		_, currTokenInOperator := operatorTokens[string(c)]
 		if c == ' ' && currToken != "" {
 			tokens = append(tokens, currToken)
 			currToken = ""
-		} else if c == '-' && currToken == "" && (len(tokens) == 0 || previousToken == "(" || previousToken == "+" || previousToken == "-" || previousToken == "*" || previousToken == "/" || previousToken == "^") {
+		} else if c == '-' && currToken == "" && (len(tokens) == 0 || previousToken == "(" || previousTokenIsOperator) {
 			//	Check if token is a negative number
 			currToken += string(c)
-		} else if c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == '^' {
+		} else if currTokenInOperator || c == '(' || c == ')' {
 			if currToken != "" {
 				tokens = append(tokens, currToken)
 				currToken = ""
@@ -64,25 +84,9 @@ func (e *Expression) Build(s string) error {
 	if err != nil {
 		return err
 	}
-	//	Uses the shunting yard algorithm to create an ast
-	precedence := map[string]int{
-		"+": 1,
-		"-": 1,
-		"*": 2,
-		"/": 2,
-		"(": 0,
-		"^": 3,
-	}
-	tokensDict := map[string]token.Token{
-		"+": token.ADD,
-		"-": token.SUB,
-		"*": token.MUL,
-		"/": token.QUO,
-		"^": token.XOR,
-	}
 	output := stack.Stack[interface{}]{}
 	operators := stack.Stack[string]{}
-
+	//	Use shunting-yard algorithm
 	for _, t := range tokens {
 		switch t {
 		case "+", "-", "*", "/":
@@ -96,7 +100,7 @@ func (e *Expression) Build(s string) error {
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
+				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			operators.Push(t)
 		case "^":
@@ -110,7 +114,7 @@ func (e *Expression) Build(s string) error {
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
+				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			operators.Push(t)
 		case "(":
@@ -126,7 +130,7 @@ func (e *Expression) Build(s string) error {
 				if err1 != nil || err2 != nil {
 					return errors.New("Invalid expression")
 				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
+				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			_, err := operators.Pop()
 			if err != nil {
@@ -152,7 +156,7 @@ func (e *Expression) Build(s string) error {
 		if err1 != nil || err2 != nil {
 			return errors.New("Invalid expression")
 		}
-		output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: tokensDict[op], Y: Y.(ast.Expr)})
+		output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 	}
 	exp, err := output.Pop()
 	if err != nil {
