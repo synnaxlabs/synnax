@@ -161,7 +161,7 @@ func (e *Expression) Build(s string) error {
 	return nil
 }
 
-func (e Expression) GetTree() ast.Expr {
+func (e Expression) Tree() ast.Expr {
 	return e.exp
 }
 
