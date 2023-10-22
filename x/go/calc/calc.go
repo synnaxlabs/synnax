@@ -78,6 +78,17 @@ func findTokens(s string) (tokens []string) {
 	return
 }
 
+func makeBinaryExpr(output *stack.Stack[interface{}], operators *stack.Stack[string]) error {
+	op, _ := operators.Pop()
+	Y, err1 := output.Pop()
+	X, err2 := output.Pop()
+	if err1 != nil || err2 != nil {
+		return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
+	}
+	output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
+	return nil
+}
+
 // Given a string representing a valid mathematical expression, sets exp to the
 // parsed expression
 func (e *Expression) Build(s string) error {
@@ -89,46 +100,28 @@ func (e *Expression) Build(s string) error {
 		switch t {
 		case "+", "-", "*", "/":
 			for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
-				op, err := operators.Pop()
+				err := makeBinaryExpr(&output, &operators)
 				if err != nil {
 					return err
 				}
-				Y, err1 := output.Pop()
-				X, err2 := output.Pop()
-				if err1 != nil || err2 != nil {
-					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
-				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			operators.Push(t)
 		case "^":
 			for operators.Len() > 0 && precedence[*operators.Peek()] > precedence[t] {
-				op, err := operators.Pop()
+				err := makeBinaryExpr(&output, &operators)
 				if err != nil {
 					return err
 				}
-				Y, err1 := output.Pop()
-				X, err2 := output.Pop()
-				if err1 != nil || err2 != nil {
-					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
-				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			operators.Push(t)
 		case "(":
 			operators.Push(t)
 		case ")":
 			for operators.Len() > 0 && *operators.Peek() != "(" {
-				op, err := operators.Pop()
+				err := makeBinaryExpr(&output, &operators)
 				if err != nil {
 					return err
 				}
-				Y, err1 := output.Pop()
-				X, err2 := output.Pop()
-				if err1 != nil || err2 != nil {
-					return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
-				}
-				output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 			}
 			_, err := operators.Pop()
 			if err != nil {
@@ -145,13 +138,10 @@ func (e *Expression) Build(s string) error {
 		}
 	}
 	for operators.Len() > 0 {
-		op, _ := operators.Pop()
-		Y, err1 := output.Pop()
-		X, err2 := output.Pop()
-		if err1 != nil || err2 != nil {
-			return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
+		err := makeBinaryExpr(&output, &operators)
+		if err != nil {
+			return err
 		}
-		output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 	}
 	exp, err := output.Pop()
 	if err != nil {
