@@ -45,8 +45,7 @@ type Resolver interface {
 	Resolve(string) (float64, error)
 }
 
-func findTokens(s string) ([]string, error) {
-	tokens := []string{}
+func findTokens(s string) (tokens []string) {
 	currToken := ""
 	for _, c := range s {
 		previousToken := ""
@@ -74,16 +73,13 @@ func findTokens(s string) ([]string, error) {
 	if currToken != "" {
 		tokens = append(tokens, currToken)
 	}
-	return tokens, nil
+	return
 }
 
 // Given a string representing a valid mathematical expression, sets exp to the
 // parsed expression
 func (e *Expression) Build(s string) error {
-	tokens, err := findTokens(s)
-	if err != nil {
-		return err
-	}
+	tokens := findTokens(s)
 	output := stack.Stack[interface{}]{}
 	operators := stack.Stack[string]{}
 	//	Use shunting-yard algorithm
