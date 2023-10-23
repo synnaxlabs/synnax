@@ -108,7 +108,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const store = useStore<RootState>();
   const memoKeys = useMemoCompare(
     () => baseKeys,
-    ([a], [b]) => Compare.primitiveArrays(a, b) === Compare.EQUAL,
+    ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys]
   );
   return useCallback(

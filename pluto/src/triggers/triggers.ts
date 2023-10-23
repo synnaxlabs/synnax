@@ -12,32 +12,14 @@ import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
 
+/** All the mouse keys that can be used in a trigger */
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
 
 export const mouseKeyZ = z.enum(MOUSE_KEYS);
 export type MouseKey = z.infer<typeof mouseKeyZ>;
 
-export const KEYS = [
-  ...MOUSE_KEYS,
-  "Backspace",
-  "Tab",
-  "Enter",
-  "Shift",
-  "Control",
-  "Alt",
-  "CapsLock",
-  "Escape",
-  "Space",
-  "PageUp",
-  "PageDown",
-  "End",
-  "Home",
-  "ArrowLeft",
-  "ArrowUp",
-  "ArrowRight",
-  "ArrowDown",
-  "Insert",
-  "Delete",
+/** A list of all the alphanumeric keys that can be used in a trigger i.e. 0-9, A-Z */
+export const ALPHANUMERIC_KEYS = [
   "0",
   "1",
   "2",
@@ -74,6 +56,33 @@ export const KEYS = [
   "X",
   "Y",
   "Z",
+];
+
+export const ALPHANUMERIC_KEYS_SET = new Set(ALPHANUMERIC_KEYS);
+
+/** The set of all possible keyboard and mouse inputs that can be used in a trigger */
+export const KEYS = [
+  ...MOUSE_KEYS,
+  ...ALPHANUMERIC_KEYS,
+  "Backspace",
+  "Tab",
+  "Enter",
+  "Shift",
+  "Control",
+  "Alt",
+  "CapsLock",
+  "Escape",
+  "Space",
+  "PageUp",
+  "PageDown",
+  "End",
+  "Home",
+  "ArrowLeft",
+  "ArrowUp",
+  "ArrowRight",
+  "ArrowDown",
+  "Insert",
+  "Delete",
   "ContextMenu",
   "F1",
   "F2",
@@ -133,106 +142,166 @@ export const KEYS = [
 ] as const;
 
 export const keyZ = z.enum(KEYS);
+/** An enum of all the possible keyboard and mouse inputs that can be used in a trigger */
 export type Key = z.infer<typeof keyZ>;
 
 export const triggerZ = z.array(keyZ);
+/**
+ * A sequence of unordered keyboard and mouse inputs that can be used to fire
+ * a trigger. Repeated keys that represent double presses are allowed, but must be
+ * placed next to each other.
+ */
 export type Trigger = z.infer<typeof triggerZ>;
 
+/**
+ * The stage of a trigger. The 'start' event fires when the trigger is first activated.
+ * The 'during' state is only fired in hooks that track cursor movement. The 'end' state
+ * is fired when the trigger is released.
+ */
 export type Stage = "start" | "during" | "end";
 
+/**
+ * An event fired when a trigger is activated in Triggers.use.
+ */
 export interface Event {
+  /** The target element that the trigger was fired on. */
   target: HTMLElement;
+  /** Previously held triggers that are now released. */
   prev: Trigger[];
+  /** Triggers that were not previously held that are now activated. */
   next: Trigger[];
+  /** The current cursor position. */
   cursor: xy.XY;
 }
 
+/** A callback that is fired when a trigger is activated. */
 export type Callback = (e: Event) => void;
 
+/** Parses the TriggerKey from the provided KeyboardEvent or MouseEvent. */
 export const eventKey = (e: KeyboardEvent | MouseEvent): Key =>
   e instanceof KeyboardEvent ? keyboardKey(e) : mouseKey(e.button);
 
-// Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
-// as Triggers is location agnostic.
+/* Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
+ as Triggers is location agnostic. */
 const INCLUDES_KEYS: Key[] = ["Control", "Alt", "Shift"];
 
 /**
  * Parses the TriggerKey from the provided KeyboardEvent.
- *
  * @param e - The KeyboardEvent to parse.
  * @returns the TriggerKey.
  */
 export const keyboardKey = (e: KeyboardEvent): Key => {
-  if (["Digit", "Key"].some((k) => e.code.startsWith(k)))
-    return e.code.slice(-1) as Key;
+  if (["Digit", "Key"].some((k) => e.code.startsWith(k))) return e.code.slice(-1);
   if (e.code.includes("Meta")) return "Control";
   const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
   if (includeKey != null) return includeKey;
-  return e.code as Key;
+  return e.code;
+};
+
+const MOUSE_BUTTONS: Record<number, MouseKey> = {
+  0: "MouseLeft",
+  1: "MouseMiddle",
+  2: "MouseRight",
 };
 
 /**
  * Converts a mouse button number to a TriggerKey.
- *
  * @param button - The mouse button number.
  * @returns the TriggerKey.
  */
-export const mouseKey = (button: number): Key => {
-  if (button === 1) return "MouseMiddle";
-  if (button === 2) return "MouseRight";
-  return "MouseLeft";
-};
+export const mouseKey = (button: number): Key => MOUSE_BUTTONS[button] ?? "MouseLeft";
 
-export const match = (
-  options: Trigger[],
-  triggers: Trigger[],
-  loose = false,
-): boolean => filter(options, triggers, loose).length > 0;
+/**
+ * Match compares the expected triggers against the actual triggers.
+ *
+ * @param expected - The reference triggers to match the actual triggers against.
+ * @param actual - The actual triggers that were fired.
+ * @param loose - If true, triggers in actual that are a superset of those in expected
+ * will still be considered a match i.e. if expected is [["Control"]] and actual is
+ * [["Control", "A"]], then match will return true.
+ * @returns true if any triggers in expected match those in actual.
+ *
+ */
+export const match = (expected: Trigger[], actual: Trigger[], loose = false): boolean =>
+  filter(expected, actual, loose).length > 0;
 
+/**
+ * Filter compares the expected triggers against the actual triggers and returns
+ * an array of triggers in expected that match those in actual.
+ *
+ * @param expected - The reference triggers to match the actual triggers against.
+ * @param actual - The actual triggers that were fired.
+ * @param loose - If true, triggers in actual that are a superset of those in expected
+ * will still be considered a match i.e. if expected is [["Control"]] and actual is
+ * [["Control", "A"]], then filter will return [["Control"]].
+ */
 export const filter = (
-  options: Trigger[],
-  triggers: Trigger[],
+  expected: Trigger[],
+  actual: Trigger[],
   loose = false,
 ): Trigger[] => {
   const f = compareF(loose);
-  const res = options.filter((o) => triggers.some((t) => f(o, t) === 0));
-  return res;
+  return expected.filter((o) => actual.some((t) => f(o, t) === compare.EQUAL));
 };
 
+/**
+ * Removes all triggers from the source that strongly match those in toPurge.
+ *
+ * @param source - The source triggers to purge from.
+ * @param toPurge - The triggers to purge from the source.
+ * @returns the source triggers with all triggers in toPurge removed.
+ */
 export const purge = (source: Trigger[], toPurge: Trigger[]): Trigger[] =>
   source.filter(
     (t) =>
-      !toPurge.some((t2) => Compare.unorderedPrimitiveArrays(t, t2) === Compare.EQUAL),
+      !toPurge.some((t2) => compare.unorderedPrimitiveArrays(t, t2) === compare.EQUAL),
   );
 
-export const diff = (
-  a: Trigger[],
-  b: Trigger[],
-  loose = false,
-): [Trigger[], Trigger[]] => {
-  const f = compareF(loose);
-  const added = a.filter((t) => !b.some((t2) => f(t, t2) === 0));
-  const removed = b.filter((t) => !a.some((t2) => f(t, t2) === 0));
+/**
+ *  Finds the difference between two sets of triggers.
+ *
+ * @param a - The first set of triggers.
+ * @param b - The second set of triggers.
+ * @returns a tuple, where the first element is the triggers in a that are not in b,
+ * and the second element is the triggers in b that are not in a.
+ */
+export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
+  const f = compareF(false);
+  const added = a.filter((ta) => !b.some((tb) => f(ta, tb) === compare.EQUAL));
+  const removed = b.filter((tb) => !a.some((ta) => f(tb, ta) === compare.EQUAL));
   return [added, removed];
 };
 
+/**
+ * Determines if two triggers are semantically equal.
+ * @param loose - If true, if the second trigger is a superset of the first, then
+ * the triggers will be considered equal.
+ * @returns a comparison function that determines if two triggers are semantically equal.
+ */
 const compareF = (loose: boolean): CompareF<Trigger> =>
-  loose
-    ? (a: Trigger, b: Trigger) => {
-        const aCounts: Record<Key[number], number> = {};
-        a.forEach((k) => (aCounts[k] = (aCounts[k] ?? 0) + 1));
-        const bCounts: Record<Key[number], number> = {};
-        b.forEach((k) => (bCounts[k] = (bCounts[k] ?? 0) + 1));
-        return a.every((k) => (aCounts[k] = bCounts[k])) ? 0 : -1;
-      }
-    : Compare.unorderedPrimitiveArrays;
+  loose ? _looseCompare : compare.unorderedPrimitiveArrays;
 
-export type Config<K extends string | number | symbol> = Record<K, Trigger[]> & {
-  defaultMode: K;
+const _looseCompare: CompareF<Trigger> = (a, b) =>
+  a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
+
+/** ModeConfig is a mapping of modes to triggers along with a default mode. */
+export type ModeConfig<M extends string | number | symbol> = Record<M, Trigger[]> & {
+  defaultMode: M;
 };
 
+/**
+ * DetermineMode determines the mode that should be used given the provided triggers.
+ * It's important to note that this object uses Object.entries to iterate over the
+ * config, so the order of modes is guaranteed by the insertion order of modes into
+ * the config object, or, in the case of numeric keys, the order of the keys.
+ *
+ * @param config - The mode config to use.
+ * @param triggers - The triggers to use to determine the mode.
+ * @param loose - If true, if the triggers are a superset of the triggers in a mode,
+ * then that mode will be used.
+ */
 export const determineMode = <K extends string | number | symbol>(
-  config: Config<K>,
+  config: ModeConfig<K>,
   triggers: Trigger[],
   loose = false,
 ): K => {
@@ -246,9 +315,13 @@ export const determineMode = <K extends string | number | symbol>(
   return config.defaultMode;
 };
 
-export const compareConfigs = <K extends string | number | symbol>(
-  [a]: Array<Config<K> | undefined | null>,
-  [b]: Array<Config<K> | undefined | null>,
+/**
+ * A useMemoCompare function that compares two ModeConfigs.
+ * @returns true if the two ModeConfigs are equal.
+ */
+export const compareModeConfigs = <K extends string | number | symbol>(
+  [a]: Array<ModeConfig<K> | undefined | null>,
+  [b]: Array<ModeConfig<K> | undefined | null>,
 ): boolean => {
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
@@ -257,11 +330,16 @@ export const compareConfigs = <K extends string | number | symbol>(
   const bKeys = Object.keys(b) as K[];
   if (aKeys.length !== bKeys.length) return false;
   if (a.defaultMode !== b.defaultMode) return false;
-  return aKeys.every((k) => Compare.unorderedPrimitiveArrays(a[k], b[k]) === 0);
+  return aKeys.every((k) => compare.unorderedPrimitiveArrays(a[k], b[k]) === 0);
 };
 
+/**
+ * Flattens the given ModeConfig into a list of triggers, excluding the default mode.
+ * @param config - The ModeConfig to flatten.
+ * @returns a list of triggers.
+ */
 export const flattenConfig = <K extends string | number | symbol>(
-  config: Config<K>,
+  config: ModeConfig<K>,
 ): Trigger[] => {
   const e = Object.entries(config).filter(
     ([k]) => k !== "defaultMode",
@@ -269,10 +347,16 @@ export const flattenConfig = <K extends string | number | symbol>(
   return e.map(([, v]) => v).flat();
 };
 
-export const useFlattenedConfig = <K extends string | number | symbol>(
-  config: Config<K>,
-): Trigger[] => useMemoCompare(() => flattenConfig(config), compareConfigs, [config]);
+/**
+ * @returns a memoized flattened config, only recomputing when the config changes.
+ */
+export const useFlattenedMemoConfig = <K extends string | number | symbol>(
+  config: ModeConfig<K>,
+): Trigger[] =>
+  useMemoCompare(() => flattenConfig(config), compareModeConfigs, [config]);
 
+/** Purges all mouse keys from the given triggers. If the resulting trigger is empty,
+ * it will be removed from the list of triggers. */
 export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
   triggers
     .map((t) => t.filter((k) => !k.startsWith("Mouse")))

@@ -223,7 +223,7 @@ const sortTransform =
   ): ArrayTransform<E> =>
   (data: E[]) => {
     if (data.length === 0) return data;
-    return [...data].sort(Compare.newFieldF(k, data[0], !dir));
+    return [...data].sort(compare.newFieldF(k, data[0], !dir));
   };
 
 export const Column = {

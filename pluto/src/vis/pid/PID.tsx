@@ -197,7 +197,7 @@ const Core = Aether.wrap<PIDProps>(
 
     const triggers = useMemoCompare(
       () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
-      Triggers.compareConfigs,
+      Triggers.compareModeConfigs,
       [pTriggers],
     );
 

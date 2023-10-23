@@ -27,6 +27,7 @@ import {
   type Trigger,
   type Callback,
   match,
+  ALPHANUMERIC_KEYS_SET,
 } from "@/triggers/triggers";
 
 type Listen = (callback: Callback) => Destructor;
@@ -89,7 +90,10 @@ export const Provider = ({
     // We prevent the default behavior of arrow keys to prevent scrolling and movement
     // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
-    if (EXCLUDE_TRIGGERS.includes(key as string)) return;
+    // We don't want to trigger any events for excluded keys.
+    if (EXCLUDE_TRIGGERS.includes(key)) return;
+    // If our target element is an input, we don't want to trigger any events.
+    if (e.target instanceof HTMLInputElement && ALPHANUMERIC_KEYS_SET.has(key)) return;
     setCurr((prev) => {
       const next: Trigger = [...prev.next, key];
       if (prev.next.includes(key)) return prev;
@@ -112,9 +116,10 @@ export const Provider = ({
 
   const handleKeyUp = useCallback((e: KeyboardEvent | MouseEvent): void => {
     const key = eventKey(e);
-    if (key === "P") e.preventDefault();
+    // We prevent the default behavior of arrow keys to prevent scrolling and movement
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
-    if (EXCLUDE_TRIGGERS.includes(key as string)) return;
+    // We don't want to trigger any events for excluded keys.
+    if (EXCLUDE_TRIGGERS.includes(key)) return;
     setCurr((prevS) => {
       const next = prevS.next.filter(
         (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),

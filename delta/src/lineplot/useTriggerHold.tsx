@@ -15,31 +15,28 @@ import { useDispatch } from "react-redux";
 import { useSelectControlState } from "@/lineplot/selectors";
 import { setControlState } from "@/lineplot/slice";
 
-export type Config = Triggers.Config<"toggle" | "hold">;
+export type Config = Triggers.ModeConfig<"toggle" | "hold">;
 
 export const useTriggerHold = (triggers: Config): void => {
   const { hold } = useSelectControlState();
   const ref = useSyncedRef(hold);
   const triggersRef = useSyncedRef(triggers);
   const d = useDispatch();
-  const flat = Triggers.useFlattenedConfig(triggers);
+  const flat = Triggers.useFlattenedMemoConfig(triggers);
   Triggers.use({
     triggers: flat,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
         const mode = Triggers.determineMode(triggersRef.current, e.triggers);
         if (mode === "hold") {
-          if (e.stage === "start") {
-            d(setControlState({ state: { hold: true } }));
-          } else if (e.stage === "end") {
-            d(setControlState({ state: { hold: false } }));
-          }
+          if (e.stage === "start") d(setControlState({ state: { hold: true } }));
+          else if (e.stage === "end") d(setControlState({ state: { hold: false } }));
           return;
         }
         if (e.stage !== "start") return;
         d(setControlState({ state: { hold: !ref.current } }));
       },
-      [d]
+      [d],
     ),
   });
 };

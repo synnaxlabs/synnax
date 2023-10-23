@@ -9,7 +9,7 @@
 
 import { type z } from "zod";
 
-import { Compare } from "@/compare";
+import { Compare } from "@/compare/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -349,7 +349,7 @@ export class Series {
   binarySearch(value: SampleValue): number {
     let left = 0;
     let right = this.length - 1;
-    const compare = Compare.newF(value);
+    const compare = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const cmp = compare(this.at(mid), value);

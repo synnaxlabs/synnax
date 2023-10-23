@@ -100,7 +100,7 @@ export const Multiple = <
   useAsyncEffect(async () => {
     const selectedKeys = selected.map((v) => v.key);
     if (value.length === 0) return setSelected([]);
-    if (Compare.primitiveArrays(selectedKeys, value) === Compare.EQUAL) return;
+    if (compare.primitiveArrays(selectedKeys, value) === compare.EQUAL) return;
     const e = searchMode
       ? await searcher.retrieve(value)
       : data?.filter((v) => value.includes(v.key)) ?? [];

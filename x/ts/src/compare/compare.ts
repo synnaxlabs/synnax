@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Primitive, isStringer, type PrimitiveRecord } from "@/primitive";
-
-import { type spatial } from ".";
+import { type spatial } from "@/spatial";
 
 export type CompareF<T> = (a: T, b: T) => number;
 
@@ -21,7 +20,10 @@ export type CompareF<T> = (a: T, b: T) => number;
  * This is used to determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-const newF = <T extends Primitive>(v: T, reverse: boolean = false): CompareF<T> => {
+export const newF = <T extends Primitive>(
+  v: T,
+  reverse: boolean = false,
+): CompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
@@ -56,7 +58,7 @@ const newF = <T extends Primitive>(v: T, reverse: boolean = false): CompareF<T> 
  * comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-const newFieldF = <T extends PrimitiveRecord>(
+export const newFieldF = <T extends PrimitiveRecord>(
   key: keyof T,
   value: T,
   reverse?: boolean,
@@ -72,7 +74,7 @@ const newFieldF = <T extends PrimitiveRecord>(
  * @returns The array with the greater length if the array lengths are not equal. If the
  * arrays are the same length, returns 0 if all elements are equal, otherwise returns -1.
  */
-const primitiveArrays = <T extends Primitive>(
+export const primitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -80,7 +82,7 @@ const primitiveArrays = <T extends Primitive>(
   return a.every((v, i) => v === b[i]) ? 0 : -1;
 };
 
-const unorderedPrimitiveArrays = <T extends Primitive>(
+export const unorderedPrimitiveArrays = <T extends Primitive>(
   a: readonly T[] | T[],
   b: readonly T[] | T[],
 ): number => {
@@ -92,26 +94,23 @@ const unorderedPrimitiveArrays = <T extends Primitive>(
   return aSorted.every((v, i) => v === bSorted[i]) ? 0 : -1;
 };
 
-const order = (a: spatial.Order, b: spatial.Order): number => {
+export const order = (a: spatial.Order, b: spatial.Order): number => {
   if (a === b) return 0;
   if (a === "first" && b === "last") return 1;
   return -1;
 };
 
 /** @returns the reverse of the given compare function. */
-const reverseF =
+export const reverseF =
   <T>(f: CompareF<T>): CompareF<T> =>
   (a: T, b: T) =>
     f(b, a);
 
-export const Compare = {
-  newF,
-  newFieldF,
-  reverseF,
-  primitiveArrays,
-  unorderedPrimitiveArrays,
-  order,
-  EQUAL: 0,
-  LESS_THAN: -1,
-  GREATER_THAN: 1,
-};
+/** The equal return value of a compare function. */
+export const EQUAL = 0;
+
+/** The less than return value of a compare function. */
+export const LESS_THAN = -1;
+
+/** The greater than return value of a compare function. */
+export const GREATER_THAN = 1;

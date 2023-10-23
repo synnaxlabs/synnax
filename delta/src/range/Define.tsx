@@ -143,7 +143,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
             persisted,
           },
         ],
-      })
+      }),
     );
     onClose();
   };

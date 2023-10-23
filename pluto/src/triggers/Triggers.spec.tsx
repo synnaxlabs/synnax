@@ -75,23 +75,33 @@ describe("Triggers", () => {
           ["A"],
         ]);
       });
+      it("should return an empty list when no triggers match", () => {
+        expect(
+          Triggers.filter(
+            [
+              ["A", "B"],
+              ["A", "C"],
+            ],
+            [["A"]],
+            true,
+          ),
+        ).toEqual([]);
+      });
     });
-  });
-  describe("Triggers.purge", () => {
-    it("Should correctly removed triggers from a list", () => {
-      expect(
-        Triggers.purge(
-          [
-            ["A", "B"],
-            ["A", "C"],
-          ],
-          [["A", "B"]],
-        ),
-      ).toEqual([["A", "C"]]);
+    describe("Triggers.purge", () => {
+      it("Should correctly removed triggers from a list", () => {
+        expect(
+          Triggers.purge(
+            [
+              ["A", "B"],
+              ["A", "C"],
+            ],
+            [["A", "B"]],
+          ),
+        ).toEqual([["A", "C"]]);
+      });
     });
-  });
-  describe("Diff", () => {
-    describe("not loose", () => {
+    describe("Diff", () => {
       it("Should correctly diff two lists of triggers", () => {
         expect(
           Triggers.diff(
@@ -109,48 +119,33 @@ describe("Triggers", () => {
         ).toEqual([[["A", "E"]], [["A", "D"]]]);
       });
     });
-    describe("loose", () => {
-      it("Should correctly diff two lists of triggers", () => {
-        expect(
-          Triggers.diff(
-            [["A", "B"], ["A", "C"], ["A"]],
-            [
-              ["A", "B"],
-              ["A", "C"],
-              ["A", "D"],
-            ],
-            true,
-          ),
-        ).toEqual([[], [["A", "D"]]]);
+    describe("match", () => {
+      it("should match the trigger correctly", () => {
+        expect(Triggers.match);
       });
     });
-  });
-  describe("match", () => {
-    it("should match the trigger correctly", () => {
-      expect(Triggers.match);
-    });
-  });
-  describe("Config", () => {
-    describe("determineMode", () => {
-      it("should select the matching mode with the highest complexity", () => {
-        const config: Triggers.Config<"a" | "b"> = {
-          defaultMode: "a",
-          a: [["Shift"]],
-          b: [["Shift", "Control"]],
-        };
-        expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
-        expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
-      });
-      it("should correctly match loose trigers", () => {
-        const config: Triggers.Config<"a" | "b"> = {
-          defaultMode: "a",
-          a: [["Shift"]],
-          b: [["Shift", "Control"]],
-        };
-        expect(Triggers.determineMode(config, [["Shift", "Control"]], true)).toEqual(
-          "b",
-        );
-        expect(Triggers.determineMode(config, [["Shift"]], true)).toEqual("a");
+    describe("Config", () => {
+      describe("determineMode", () => {
+        it("should select the matching mode with the highest complexity", () => {
+          const config: Triggers.ModeConfig<"a" | "b"> = {
+            defaultMode: "a",
+            a: [["Shift"]],
+            b: [["Shift", "Control"]],
+          };
+          expect(Triggers.determineMode(config, [["Shift", "Control"]])).toEqual("b");
+          expect(Triggers.determineMode(config, [["Shift"]])).toEqual("a");
+        });
+        it("should correctly match loose trigers", () => {
+          const config: Triggers.ModeConfig<"a" | "b"> = {
+            defaultMode: "a",
+            a: [["Shift"]],
+            b: [["Shift", "Control"]],
+          };
+          expect(Triggers.determineMode(config, [["Shift", "Control"]], true)).toEqual(
+            "b",
+          );
+          expect(Triggers.determineMode(config, [["Shift"]], true)).toEqual("a");
+        });
       });
     });
   });
