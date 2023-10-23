@@ -18,7 +18,9 @@ import "@/align/Pack.css";
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
   SpaceProps<E>,
   "empty"
->;
+> & {
+  shadow?: boolean;
+};
 
 const CorePack = <E extends SpaceElementType = "div">(
   {
@@ -28,6 +30,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     direction = "x",
     bordered = true,
     rounded = true,
+    shadow = false,
     ...props
   }: PackProps<E>,
   // select the correct type for the ref
@@ -40,6 +43,7 @@ const CorePack = <E extends SpaceElementType = "div">(
     reverse={reverse}
     className={CSS(
       CSS.B("pack"),
+      shadow && CSS.BM("pack", "shadow"),
       CSS.dir(direction),
       typeof size !== "number" && CSS.BM("pack", size),
       reverse && CSS.BM("pack", "reverse"),

@@ -30,9 +30,22 @@
     &.pluto--bordered {
         border: none !important;
 
-        > * {
+        &:not(.pluto-pack--shadow) > * {
             border: var(--pluto-border);
         }
+
+
+        &.pluto-pack--shadow {
+            &:is(:hover, :focus-within) > * {
+                border: var(--pluto-border);
+                opacity: 1 !important;
+            }
+
+            & > .pluto-btn {
+                opacity: 0;
+            }
+        }
+
     }
 
     &.pluto--x {

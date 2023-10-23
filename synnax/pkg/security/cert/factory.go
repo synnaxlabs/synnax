@@ -135,6 +135,29 @@ func (c *Factory) CreateCAPair() error {
 	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
 }
 
+func (c *Factory) CreateCAPairIfMissing() error {
+	exists, err := c.FS.Exists(c.CACertPath)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return c.CreateCAPair()
+}
+
+// CreateNodePairIfMissing creates a new node certificate and its private key if they do not already exist.
+func (c *Factory) CreateNodePairIfMissing() error {
+	exists, err := c.FS.Exists(c.NodeCertPath)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return c.CreateNodePair()
+}
+
 // CreateNodePair creates a new node certificate and its private key.
 func (c *Factory) CreateNodePair() error {
 	ca, caPrivate, err := c.Loader.LoadCAPair()

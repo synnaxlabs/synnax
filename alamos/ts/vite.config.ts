@@ -15,7 +15,7 @@ export default defineConfig({
   plugins: [lib({ name: "alamos" })],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),

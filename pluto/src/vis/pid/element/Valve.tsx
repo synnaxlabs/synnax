@@ -10,10 +10,11 @@
 import { type ReactElement } from "react";
 
 import { Authority } from "@synnaxlabs/client";
-import { bounds, direction } from "@synnaxlabs/x";
+import { bounds, direction, location } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Control } from "@/control";
 import { Chip } from "@/control/chip";
@@ -22,10 +23,13 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { Bool } from "@/telem/bool";
 import { Remote } from "@/telem/remote";
+import { Static } from "@/telem/static";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
+import { Tooltip } from "@/tooltip";
 import { componentRenderProp } from "@/util/renderProp";
 import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element";
+import { Tooltip as PIDTooltip } from "@/vis/pid/element/Tooltip";
 import { Valve, type ValveProps } from "@/vis/valve/Valve";
 
 import "@/vis/pid/element/Valve.css";
@@ -45,12 +49,11 @@ const Element = ({
   editable,
   onChange,
   label,
-  position: _,
+  position,
   direction: dir = "x",
   source,
   sink,
   authority,
-  onDoubleClick,
   ...props
 }: Props<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void =>
@@ -73,43 +76,67 @@ const Element = ({
     falsy: 0,
   });
 
+  const commandName = Static.useString(
+    `Output: ${Channel.useName(sink.channel, "None")}`,
+  );
+  const enabledName = Static.useString(
+    `Input: ${Channel.useName(source.channel, "None")}`,
+  );
+
   return (
-    <Align.Space
-      justify="center"
-      align="center"
-      size="small"
-      className={CSS(
-        CSS.B("valve-pid-element"),
-        CSS.selected(selected),
-        CSS.editable(editable),
+    <Tooltip.Dialog location={location.TOP_CENTER} hide={selected}>
+      {(p) => (
+        <PIDTooltip
+          {...p}
+          position={position}
+          sources={[
+            {
+              key: "commandName",
+              valueSource: commandName,
+            },
+            {
+              key: "enabledName",
+              valueSource: enabledName,
+            },
+          ]}
+        />
       )}
-      direction={direction.swap(dir)}
-      onDoubleClick={onDoubleClick}
-    >
-      <Text.Editable level="p" value={label} onChange={handleLabelChange} />
-      <div className={CSS.BE("valve-pid-element", "valve-container")}>
-        <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
-        <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
-        <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
-      </div>
       <Align.Space
-        direction="x"
-        style={{ width: "100%", marginTop: "-1rem", paddingRight: "1rem" }}
+        justify="center"
         align="center"
-        empty
+        size="small"
+        className={CSS(
+          CSS.B("valve-pid-element"),
+          CSS.selected(selected),
+          CSS.editable(editable),
+        )}
+        direction={direction.swap(dir)}
       >
-        <Chip
-          size="small"
-          source={authoritySource}
-          sink={authoritySink}
-          variant="text"
-        />
-        <Control.Indicator
-          statusSource={authoritySource}
-          colorSource={authorityColorSource}
-        />
+        <Text.Editable level="p" value={label} onChange={handleLabelChange} />
+        <div className={CSS.BE("valve-pid-element", "valve-container")}>
+          <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
+          <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
+          <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
+        </div>
+        <Align.Space
+          direction="x"
+          style={{ width: "100%", marginTop: "-1rem", paddingRight: "1rem" }}
+          align="center"
+          empty
+        >
+          <Chip
+            size="small"
+            source={authoritySource}
+            sink={authoritySink}
+            variant="text"
+          />
+          <Control.Indicator
+            statusSource={authoritySource}
+            colorSource={authorityColorSource}
+          />
+        </Align.Space>
       </Align.Space>
-    </Align.Space>
+    </Tooltip.Dialog>
   );
 };
 

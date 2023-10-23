@@ -118,7 +118,6 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       keys.forEach((keys) => {
         const l = select(s, keys);
         // Even if the layout is not present, close the window for good measure.
-        console.log(l?.location);
         if (l == null || l.location === "window")
           store.dispatch(Drift.closeWindow({ key: keys }));
       });

@@ -16,6 +16,7 @@ import {
   cloneElement,
   useRef,
   useState,
+  useId,
 } from "react";
 
 import {
@@ -30,6 +31,7 @@ import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useConfig } from "@/tooltip/Config";
+import { isRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/tooltip/Dialog.css";
 
@@ -37,14 +39,16 @@ export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "chil
   delay?: CrudeTimeSpan;
   location?: location.Outer | Partial<location.XY>;
   hide?: boolean;
-  children: [ReactNode, ReactElement];
+  children: [ReactNode | RenderProp<ContentProps>, ReactElement];
 }
 
 interface State {
   location: location.XY;
   position: xy.XY;
-  elDims: dimensions.Dimensions;
+  triggerDims: dimensions.Dimensions;
 }
+
+export interface ContentProps extends State {}
 
 const SIZE_THRESHOLD = 150;
 
@@ -79,6 +83,26 @@ const bestLocation = <C extends location.Location>(
   return options[0];
 };
 
+const getRenderRoot = (target: HTMLElement): HTMLElement => {
+  // get the first parent with a transform property or the body
+  let el: HTMLElement | null = target;
+  while (el != null) {
+    if (el.style.transform?.includes("scale")) return el;
+    el = el.parentElement;
+  }
+  return document.body;
+};
+
+const resolveTarget = (target: HTMLElement, id: string): HTMLElement => {
+  // we want to find the firrt parent that has the given id
+  let el: HTMLElement | null = target;
+  while (el != null) {
+    if (el.id === id) return el;
+    el = el.parentElement;
+  }
+  return target;
+};
+
 /**
  * A tooltip that appears when the user hovers over an element.
  *
@@ -106,13 +130,17 @@ export const Dialog = ({
   const parsedDelay = new TimeSpan(delay ?? config.delay);
   const [state, setState] = useState<State | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const id = useId();
 
   const handleVisibleChange = (e: MouseEvent, visible: boolean): void => {
     if (!visible || hide) return setState(null);
     config.startAccelerating();
-    const container = box.construct(e.target as HTMLElement);
+    const container = box.construct(resolveTarget(e.target as HTMLElement, id));
     const window = box.construct(document.documentElement);
     const parse = location.location.safeParse(cornerOrLocation);
+    const root = box.construct(
+      getRenderRoot(document.getElementById(id) ?? document.body),
+    );
 
     const chooseRemainingLocation = (first: location.Location): location.Location => {
       let preferences: location.Location[];
@@ -124,9 +152,9 @@ export const Dialog = ({
       return location.construct(bestLocation(container, window, preferences));
     };
 
-    let xy: location.XY = location.CENTER;
+    let xyLoc: location.XY = location.CENTER;
     if (parse.success) {
-      xy = location.constructXY(parse.data, chooseRemainingLocation(parse.data));
+      xyLoc = location.constructXY(parse.data, chooseRemainingLocation(parse.data));
     } else if (cornerOrLocation != null) {
       const v = cornerOrLocation as Partial<location.XY>;
       if (v.x == null && v.y != null)
@@ -137,20 +165,20 @@ export const Dialog = ({
         v.x = bestLocation(container, window, LOCATION_PREFERENCES) as location.X;
         v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
       }
-      xy = location.constructXY(v as location.XY);
+      xyLoc = location.constructXY(v as location.XY);
     } else {
       const chosen = bestLocation(container, window, LOCATION_PREFERENCES);
-      xy = location.constructXY(chosen, chooseRemainingLocation(chosen));
+      xyLoc = location.constructXY(chosen, chooseRemainingLocation(chosen));
     }
 
-    let pos = box.xyLoc(container, xy);
-    const translate = LOCATION_TRANSLATIONS[location.xyToString(xy)];
+    let pos = box.xyLoc(container, xyLoc);
+    const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
     if (translate != null) pos = translate(pos, container);
 
     setState({
-      location: xy,
-      position: pos,
-      elDims: box.dims(container),
+      location: xyLoc,
+      position: xy.translate(pos, xy.scale(box.topLeft(root), -1)),
+      triggerDims: box.dims(container),
     });
   };
 
@@ -170,6 +198,8 @@ export const Dialog = ({
 
   const [tip, children_] = children;
 
+  const root = getRenderRoot(document.getElementById(id) ?? document.body);
+
   return (
     <>
       {state != null &&
@@ -181,16 +211,18 @@ export const Dialog = ({
               CSS.loc(state.location.y),
             )}
             style={{
-              ...xy.css(state.position),
               // @ts-expect-error - css
-              "--el-width": CSS.px(state.elDims.width),
+              "--pos-x": CSS.px(state.position.x),
+              "--pos-y": CSS.px(state.position.y),
+              "--el-width": CSS.px(state.triggerDims.width),
             }}
           >
-            {tip}
+            {isRenderProp(tip) ? tip(state) : tip}
           </div>,
-          document.body,
+          root,
         )}
       {cloneElement(children_, {
+        id,
         onMouseEnter: handleMouseEnter,
         onMouseLeave: handleMouseLeave,
       })}

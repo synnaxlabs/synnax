@@ -348,10 +348,10 @@ export interface SetRemoteCreatedPayload {
 }
 
 export const typedLineKeyToString = (key: TypedLineKey): string =>
-  `${key.yAxis}-${key.xAxis}-${key.range}-${key.channels.x}-${key.channels.y}`;
+  `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
 
 export const typedLineKeyFromString = (key: string): TypedLineKey => {
-  const [yAxis, xAxis, range, x, y] = key.split("-");
+  const [yAxis, xAxis, range, x, y] = key.split("---");
   return {
     range,
     xAxis: xAxis as Vis.XAxisKey,

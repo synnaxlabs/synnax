@@ -14,12 +14,16 @@ import { type status } from "@/status/aether";
 import { type telem } from "@/telem/core";
 
 class Noop implements telem.Telem {
+  key: string;
+  type: string;
   setProps(): void {}
   cleanup(): void {}
   invalidate(): void {}
 }
 
 class BooleanSink extends Noop implements telem.BooleanSink {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-boolean-sink";
 
   async setBoolean(): Promise<void> {
@@ -34,6 +38,8 @@ export const booleanSinkSpec: telem.BooleanSinkSpec = {
 };
 
 class NumericSink extends Noop implements telem.NumericSink {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-numeric-sink";
 
   async setNumber(): Promise<void> {
@@ -48,6 +54,8 @@ export const numericSinkSpec: telem.NumericSinkSpec = {
 };
 
 class BooleanSource extends Noop implements telem.BooleanSource {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-boolean-source";
 
   async boolean(): Promise<boolean> {
@@ -64,6 +72,8 @@ export const booleanSourceSpec: telem.BooleanSourceSpec = {
 };
 
 class NumericSource extends Noop implements telem.NumericSource {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-numeric-source";
 
   async number(): Promise<number> {
@@ -79,7 +89,27 @@ export const numericSourceSpec: telem.NumericSourceSpec = {
   variant: "numeric-source",
 };
 
+class StringSource extends Noop implements telem.StringSource {
+  key: string;
+  type: string;
+  static readonly TYPE = "noop-string-source";
+
+  async string(): Promise<string> {
+    return "";
+  }
+
+  onChange(): void {}
+}
+
+export const stringSourceSpec: telem.StringSourceSpec = {
+  type: StringSource.TYPE,
+  props: {},
+  variant: "string-source",
+};
+
 class StatusSource extends Noop implements telem.StatusSource {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-status-source";
 
   async status(): Promise<status.Spec> {
@@ -101,6 +131,8 @@ export const statusSourceSpec: telem.StatusSourceSpec = {
 };
 
 class ColorSource extends Noop implements telem.ColorSource {
+  key: string;
+  type: string;
   static readonly TYPE = "noop-color-source";
 
   async color(): Promise<color.Color> {
@@ -123,6 +155,7 @@ const REGISTRY: Record<string, telem.Telem> = {
   [NumericSource.TYPE]: new NumericSource(),
   [StatusSource.TYPE]: new StatusSource(),
   [ColorSource.TYPE]: new ColorSource(),
+  [StringSource.TYPE]: new StringSource(),
 };
 
 export class Factory implements telem.Factory {

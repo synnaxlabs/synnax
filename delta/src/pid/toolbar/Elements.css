@@ -21,6 +21,7 @@
     cursor: pointer;
     border-radius: var(--pluto-border-radius);
     height: 80px;
+    min-width: 80px;
 }
 
 .delta-pid-elements__button:hover {

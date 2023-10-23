@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import urllib3
+
 from typing import Type
 from urllib3 import PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError

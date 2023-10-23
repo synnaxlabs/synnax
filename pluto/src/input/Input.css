@@ -20,7 +20,7 @@
 
     &:focus {
         outline: none;
-        border-color: var(--pluto-primary-z);
+        border-color: var(--pluto-primary-z) !important;
     }
 
     &.pluto--medium {

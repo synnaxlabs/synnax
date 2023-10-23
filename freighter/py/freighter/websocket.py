@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import ssl
 from pydantic import BaseModel
 from typing import Generic, Type, Any, Literal
 from websockets.client import connect, WebSocketClientProtocol
@@ -172,6 +173,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
                     self.__endpoint.child(target).stringify(),
                     extra_headers=headers,
                     max_size=self.__max_message_size,
+                   ssl=ssl._create_unverified_context(),
                     **self.__kwargs,
                 )
 

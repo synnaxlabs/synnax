@@ -23,8 +23,8 @@ PyJWT = "^2.5.0"
 rich = "^13.4.1"
 pick = "^2.0.2"
 pydantic = "^1.10.9"
-synnax-freighter = "^0.4.0"
-#synnax-freighter = { path = "../../freighter/py", develop = true }
+#synnax-freighter = "^0.4.0"
+synnax-freighter = { path = "../../freighter/py", develop = true }
 alamos = "^0.2.0"
 #alamos = { path = "../../alamos/py", develop = true }
 keyring = "^23.9.3"

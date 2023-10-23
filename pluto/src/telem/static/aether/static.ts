@@ -31,6 +31,8 @@ export class Factory implements telem.Factory {
         return new IterativeXY(key, spec.props);
       case Numeric.TYPE:
         return new Numeric(key, spec.props);
+      case String.TYPE:
+        return new String(key, spec.props);
       default:
         return null;
     }
@@ -95,6 +97,7 @@ export class XY extends XYCore implements telem.XYSource {
   static readonly TYPE = "static-xy";
 
   variant = "xy";
+  type = XY.TYPE;
 
   constructor(key: string, props_: any) {
     const props = xyPropsZ.parse(props_);
@@ -147,6 +150,7 @@ export class IterativeXY extends XYCore implements telem.XYSource {
   interval?: number;
 
   static readonly TYPE = "iterative-xy";
+  type = IterativeXY.TYPE;
 
   variant = "xy";
 
@@ -207,6 +211,7 @@ export class Numeric implements telem.NumericSource {
   static readonly TYPE = "static-point";
 
   variant = "numeric";
+  type = Numeric.TYPE;
 
   key: string;
   _value: number;
@@ -221,6 +226,37 @@ export class Numeric implements telem.NumericSource {
   }
 
   async number(): Promise<number> {
+    return this._value;
+  }
+
+  onChange(): void {}
+
+  release(): void {}
+
+  cleanup(): void {}
+
+  invalidate(): void {}
+}
+
+export class String implements telem.StringSource {
+  static readonly TYPE = "static-string";
+
+  variant = "string";
+  type = String.TYPE;
+
+  key: string;
+  _value: string;
+
+  constructor(key: string, props_: any) {
+    this.key = key;
+    this._value = props_;
+  }
+
+  setProps(props_: any): void {
+    this._value = props_;
+  }
+
+  async string(): Promise<string> {
     return this._value;
   }
 

@@ -28,14 +28,14 @@ import { Text } from "@/text";
 
 interface AliasContextValue {
   aliases: Record<channel.Key, string>;
-  getName: (key: channel.Key) => Promise<string>;
+  getName: (key: channel.Key) => Promise<string | undefined>;
   setAlias: ((key: channel.Key, alias: string) => Promise<void>) | null;
   activeRange?: string | null;
 }
 
 const AliasContext = createContext<AliasContextValue>({
   aliases: {},
-  getName: async () => await Promise.resolve(""),
+  getName: async () => await Promise.resolve(undefined),
   setAlias: null,
 });
 
@@ -57,11 +57,12 @@ export const useAliases = (): Record<channel.Key, string> => {
   return aliases;
 };
 
-export const useName = (key: channel.Key): string => {
+export const useName = (key: channel.Key, def: string = ""): string => {
   const { getName } = reactUseContext(AliasContext);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(def);
   useAsyncEffect(async () => {
-    setName(await getName(key));
+    const n = await getName(key);
+    if (n != null) setName(n);
   }, [key, getName]);
   return name;
 };
@@ -104,8 +105,8 @@ export const AliasProvider = ({
   );
 
   const getName = useCallback(
-    async (key: channel.Key): Promise<string> => {
-      if (c == null) return "";
+    async (key: channel.Key): Promise<string | undefined> => {
+      if (c == null || key === 0) return undefined;
       const alias = aliases[key];
       if (alias != null) return alias;
       return (await c.channels.retrieve(key)).name;
@@ -145,11 +146,15 @@ export const AliasProvider = ({
 
 export interface AliasInputProps extends Input.TextProps {
   channelKey: channel.Key;
+  shadow?: boolean;
 }
 
 export const AliasInput = ({
   channelKey,
   value,
+  shadow,
+  style,
+  className,
   ...props
 }: AliasInputProps): ReactElement => {
   const [loading, setLoading] = useState(false);
@@ -200,7 +205,7 @@ export const AliasInput = ({
   };
 
   return (
-    <Align.Pack direction="x">
+    <Align.Pack direction="x" shadow style={style} className={className}>
       <Input.Text value={value} {...props} />
       {canSetAlias && (
         <Button.Icon
