@@ -10,17 +10,27 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align } from "@synnaxlabs/pluto";
+import { Align, Header } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Range } from "@/range";
+import { defineWindowLayout } from "@/range/Define";
 
 const Content = (): ReactElement => {
+  const p = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Workspace />}>Workspace</ToolbarTitle>
+        <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
+        <Header.Actions>
+          {[
+            {
+              children: <Icon.Add />,
+              onClick: () => p(defineWindowLayout),
+            },
+          ]}
+        </Header.Actions>
       </ToolbarHeader>
       <Range.List />
     </Align.Space>
@@ -28,8 +38,8 @@ const Content = (): ReactElement => {
 };
 
 export const Toolbar: Layout.NavDrawerItem = {
-  key: "workspace",
-  icon: <Icon.Workspace />,
+  key: "range",
+  icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Workspace",
   initialSize: 350,

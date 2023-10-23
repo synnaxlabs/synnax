@@ -12,14 +12,13 @@ import { type ComponentPropsWithoutRef, type ReactElement, useRef } from "react"
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
 import { type ItemProps } from "@/list/types";
 import { type RenderProp } from "@/util/renderProp";
 
 import "@/list/Core.css";
-
-import { Align } from "..";
 
 export interface VirtualCoreProps<
   K extends Key = Key,
@@ -106,7 +105,7 @@ export const Core = <
   const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
 
   return (
-    <Align.Space className={CSS.BE("list", "container")} {...props}>
+    <Align.Space className={CSS.BE("list", "container")} {...props} empty>
       {data.length === 0 ? (
         emptyContent
       ) : (

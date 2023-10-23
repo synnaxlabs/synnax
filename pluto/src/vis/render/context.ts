@@ -13,6 +13,7 @@ import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { clear } from "@/vis/render/clear";
 import { Queue } from "@/vis/render/queue";
 
 export type CanvasVariant = "upper2d" | "lower2d" | "gl";
@@ -49,6 +50,9 @@ export class Context {
 
   /** queue render transitions onto the stack */
   readonly queue: Queue;
+
+  /** See the @link{clear.Program} for why this is necessary. */
+  private readonly clearProg: clear.Program;
 
   private static readonly CONTEXT_KEY = CSS.B("render-context");
 
@@ -90,6 +94,8 @@ export class Context {
 
     this.region = box.ZERO;
     this.dpr = 1;
+
+    this.clearProg = new clear.Program(this);
   }
 
   static useOptional(ctx: aether.Context): Context | null {
@@ -218,7 +224,9 @@ export class Context {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverscan(box, overscan));
     gl.clearColor(...color.ZERO.rgba1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // See the documentation for the clear program for why this is necessary.
+    this.clearProg.exec();
     removeScissor();
   }
 

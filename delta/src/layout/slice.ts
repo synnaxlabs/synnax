@@ -111,7 +111,7 @@ export const ZERO_SLICE_STATE: SliceState = {
       },
       right: {
         activeItem: null,
-        menuItems: ["workspace"],
+        menuItems: ["range"],
       },
       bottom: {
         activeItem: null,
@@ -122,7 +122,7 @@ export const ZERO_SLICE_STATE: SliceState = {
 };
 
 export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
-  (key) => `${SLICE_NAME}.${key}`
+  (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayut action. */
@@ -203,7 +203,7 @@ export const { actions, reducer } = createSlice({
           mosaic.root,
           mosaicTab,
           tab?.location,
-          tab?.mosaicKey
+          tab?.mosaicKey,
         );
         mosaic.activeTab = key;
       }
@@ -237,7 +237,7 @@ export const { actions, reducer } = createSlice({
     },
     moveMosaicTab: (
       state,
-      { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>
+      { payload: { tabKey, windowKey, key, loc } }: PayloadAction<MoveMosaicTabPayload>,
     ) => {
       const layout = state.layouts[tabKey];
       const prevWindowKey = layout.windowKey;
@@ -265,7 +265,7 @@ export const { actions, reducer } = createSlice({
     },
     selectMosaicTab: (
       state,
-      { payload: { tabKey } }: PayloadAction<SelectMosaicTabPayload>
+      { payload: { tabKey } }: PayloadAction<SelectMosaicTabPayload>,
     ) => {
       const { windowKey } = state.layouts[tabKey];
       const mosaic = state.mosaics[windowKey];
@@ -276,7 +276,7 @@ export const { actions, reducer } = createSlice({
     },
     resizeMosaicTab: (
       state,
-      { payload: { key, size, windowKey } }: PayloadAction<ResizeMosaicTabPayload>
+      { payload: { key, size, windowKey } }: PayloadAction<ResizeMosaicTabPayload>,
     ) => {
       const mosaic = state.mosaics[windowKey];
       mosaic.root = Mosaic.resizeNode(mosaic.root, key, size);
@@ -284,7 +284,7 @@ export const { actions, reducer } = createSlice({
     },
     rename: (
       state,
-      { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>
+      { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
       if (name.length === 0) return;
       const layout = state.layouts[tabKey];
@@ -310,13 +310,13 @@ export const { actions, reducer } = createSlice({
     },
     resizeNavdrawer: (
       state,
-      { payload: { location, size } }: PayloadAction<ResizeNavdrawerPayload>
+      { payload: { location, size } }: PayloadAction<ResizeNavdrawerPayload>,
     ) => {
       state.nav.drawers[location].size = size;
     },
     setNavdrawerVisible: (
       state,
-      { payload: { key, location, value } }: PayloadAction<SetNavdrawerVisiblePayload>
+      { payload: { key, location, value } }: PayloadAction<SetNavdrawerVisiblePayload>,
     ) => {
       if (key != null) {
         Object.values(state.nav.drawers).forEach((drawer) => {
@@ -351,7 +351,7 @@ export const { actions, reducer } = createSlice({
           tabKey: "getStarted",
           name: "Get Started",
           editable: false,
-        }
+        },
       );
       state.layouts.getStarted = {
         name: "Get Started",
@@ -363,7 +363,7 @@ export const { actions, reducer } = createSlice({
     },
     setWorkspace: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetSlicePayload>
+      { payload: { slice, keepNav = true } }: PayloadAction<SetSlicePayload>,
     ) => {
       return {
         ...slice,
