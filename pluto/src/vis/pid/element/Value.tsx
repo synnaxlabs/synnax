@@ -13,6 +13,7 @@ import { type direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
@@ -84,13 +85,16 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   return (
     <>
       <Align.Space direction="x" grow align="stretch">
-        <Input.Item<string>
+        <Input.Item<string, string, Channel.AliasInputProps>
           label="Label"
           value={value.label}
           onChange={handleLabelChange}
+          channelKey={value.telem.channel}
           grow
-        />
-        <Input.Item<string>
+        >
+          {componentRenderProp(Channel.AliasInput)}
+        </Input.Item>
+        <Input.Item<string, string>
           label="Units"
           value={value.units}
           onChange={handleUnitsChange}
@@ -144,6 +148,7 @@ export const initialProps = (th: Theming.Theme): ElementProps => ({
 export const ValueSpec: Spec<ElementProps> = {
   type: "value",
   title: "Value",
+  zIndex: 3,
   initialProps,
   Element,
   Form,

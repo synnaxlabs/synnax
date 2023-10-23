@@ -33,17 +33,21 @@ export const Elements = ({ layoutKey }: { layoutKey: string }): ReactElement => 
   const theme = Theming.use();
 
   const handleAddElement = useCallback(
-    (type: string) =>
+    (type: string) => {
+      const spec = PIDElement.REGISTRY[type];
+      const initialProps = spec.initialProps(theme);
       dispatch(
         addElement({
           layoutKey,
           key: nanoid(),
           props: {
             type,
-            ...PIDElement.REGISTRY[type].initialProps(theme),
+            ...initialProps,
           },
+          node: { zIndex: spec.zIndex },
         }),
-      ),
+      );
+    },
     [dispatch, layoutKey, theme],
   );
 

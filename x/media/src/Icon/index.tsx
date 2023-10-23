@@ -27,8 +27,8 @@ import {
   AiOutlineExpand,
   AiFillGithub,
   AiFillLinkedin,
-  AiOutlineLoading3Quarters,
   AiOutlineLoading,
+  AiOutlineSync,
 } from "react-icons/ai";
 import { BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
@@ -178,6 +178,7 @@ export const Icon: IconType = {
   User: MdPerson,
   Rename: BiRename,
   Snapshot: MdPictureInPicture,
+  Sync: AiOutlineSync,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -268,4 +269,5 @@ export interface IconType {
   Rename: IconFC;
   Snapshot: IconFC;
   Loading: IconFC;
+  Sync: IconFC;
 }

@@ -50,6 +50,7 @@ const Element = ({
   source,
   sink,
   authority,
+  onDoubleClick,
   ...props
 }: Props<ElementProps>): ReactElement => {
   const handleLabelChange = (label: string): void =>
@@ -83,6 +84,7 @@ const Element = ({
         CSS.editable(editable),
       )}
       direction={direction.swap(dir)}
+      onDoubleClick={onDoubleClick}
     >
       <Text.Editable level="p" value={label} onChange={handleLabelChange} />
       <div className={CSS.BE("valve-pid-element", "valve-container")}>
@@ -168,7 +170,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
           grow
         />
         <Input.Item<number>
-          label="Authority"
+          label="Control Authority"
           value={value.authority}
           onChange={handleAuthorityChange}
           grow
@@ -200,6 +202,7 @@ export const ValveSpec: Spec<ElementProps> = {
   type: "valve",
   title: "Valve",
   initialProps,
+  zIndex: 3,
   Element,
   Form,
   Preview,

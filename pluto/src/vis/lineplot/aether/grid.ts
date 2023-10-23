@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Compare,
+  compare,
   TimeSpan,
   TimeStamp,
   bounds,

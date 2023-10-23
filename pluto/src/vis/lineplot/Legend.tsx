@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { Compare, box, location, scale, xy } from "@synnaxlabs/x";
+import { compare, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { type Color } from "@/color";

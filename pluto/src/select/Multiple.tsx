@@ -21,7 +21,7 @@ import {
   type Key,
   type KeyedRenderableRecord,
   type AsyncTermSearcher,
-  Compare,
+  compare,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";

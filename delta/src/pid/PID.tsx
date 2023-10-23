@@ -9,6 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
+import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 import {
   PID as Core,
@@ -223,6 +224,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 x: event.clientX + OFFSET * i,
                 y: event.clientY + OFFSET * i,
               }),
+              zIndex: spec.zIndex,
             },
             props: {
               type,
@@ -266,6 +268,21 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     ),
   });
 
+  const handleDoubleClick = useCallback(() => {
+    dispatch(
+      Layout.setNavdrawerVisible({
+        key: "visualization",
+        value: true,
+      }) as PayloadAction<SyncPayload>,
+    );
+  }, [dispatch]);
+
+  Triggers.use({
+    triggers: [["MouseLeft", "MouseLeft"]],
+    region: ref,
+    callback: handleDoubleClick,
+  });
+
   return (
     <div ref={ref} style={{ width: "inherit", height: "inherit" }}>
       <Control.Controller
@@ -284,6 +301,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onEditableChange={handleEditableChange}
           editable={pid.editable}
           triggers={triggers}
+          onDoubleClick={handleDoubleClick}
           {...dropProps}
         >
           <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>

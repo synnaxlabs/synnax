@@ -11,7 +11,7 @@ import { type CSSProperties, type ReactElement, useEffect, useState } from "reac
 
 import { Icon } from "@synnaxlabs/media";
 import {
-  Compare,
+  compare,
   convertRenderV,
   type Key,
   type KeyedRenderableRecord,

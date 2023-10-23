@@ -21,7 +21,7 @@ import {
   useDebouncedCallback,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
-import { Compare } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
@@ -108,7 +108,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const store = useStore<RootState>();
   const memoKeys = useMemoCompare(
     () => baseKeys,
-    ([a], [b]) => Compare.primitiveArrays(a, b) === Compare.EQUAL,
+    ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],
   );
   return useCallback(

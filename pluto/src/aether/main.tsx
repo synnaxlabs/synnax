@@ -23,7 +23,7 @@ import {
 } from "react";
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Compare, type SenderHandler } from "@synnaxlabs/x";
+import { compare, type SenderHandler } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";

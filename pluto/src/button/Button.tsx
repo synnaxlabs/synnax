@@ -83,10 +83,10 @@ export const Button = Tooltip.wrap(
           CSS.B("btn"),
           CSS.size(size),
           CSS.sharp(sharp),
+          CSS.disabled(disabled),
           CSS.BM("btn", variant),
           className,
         )}
-        disabled={disabled}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={!disabled ? onClick : undefined}

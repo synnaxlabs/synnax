@@ -9,7 +9,6 @@
 
 import { type z } from "zod";
 
-import { Compare } from "@/compare/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -22,6 +21,7 @@ import {
   type TimeStamp,
   type CrudeDataType,
 } from "@/telem/telem";
+import { compare } from "@/compare";
 
 export type SampleValue = number | bigint;
 
@@ -349,10 +349,10 @@ export class Series {
   binarySearch(value: SampleValue): number {
     let left = 0;
     let right = this.length - 1;
-    const compare = compare.newF(value);
+    const cf = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = compare(this.at(mid), value);
+      const cmp = cf(this.at(mid), value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;

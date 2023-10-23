@@ -17,16 +17,31 @@ import {
 } from "react";
 
 import { type channel, type ranger } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 
+import { Align } from "@/align";
+import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
+import { Input } from "@/input";
 import { Synnax } from "@/synnax";
+import { Text } from "@/text";
 
 interface AliasContextValue {
   aliases: Record<channel.Key, string>;
+  getName: (key: channel.Key) => Promise<string>;
+  setAlias: ((key: channel.Key, alias: string) => Promise<void>) | null;
   activeRange?: string | null;
 }
 
-const AliasContext = createContext<AliasContextValue>({ aliases: {} });
+const AliasContext = createContext<AliasContextValue>({
+  aliases: {},
+  getName: async () => await Promise.resolve(""),
+  setAlias: null,
+});
+
+export const useContext = (): AliasContextValue => {
+  return reactUseContext(AliasContext);
+};
 
 export interface AliasProviderProps extends PropsWithChildren {
   activeRange?: string | null;
@@ -40,6 +55,15 @@ export const useAlias = (key: channel.Key): string | null => {
 export const useAliases = (): Record<channel.Key, string> => {
   const { aliases } = reactUseContext(AliasContext);
   return aliases;
+};
+
+export const useName = (key: channel.Key): string => {
+  const { getName } = reactUseContext(AliasContext);
+  const [name, setName] = useState("");
+  useAsyncEffect(async () => {
+    setName(await getName(key));
+  }, [key, getName]);
+  return name;
 };
 
 export const useActiveRange = (): string | undefined => {
@@ -70,6 +94,25 @@ export const AliasProvider = ({
     [setAliases],
   );
 
+  const setAlias = useCallback(
+    async (key: channel.Key, alias: string) => {
+      if (c == null || activeRange == null) return;
+      const r = await c.ranges.retrieve(activeRange);
+      await r.setAlias(key, alias);
+    },
+    [c, activeRange],
+  );
+
+  const getName = useCallback(
+    async (key: channel.Key): Promise<string> => {
+      if (c == null) return "";
+      const alias = aliases[key];
+      if (alias != null) return alias;
+      return (await c.channels.retrieve(key)).name;
+    },
+    [aliases, c],
+  );
+
   useAsyncEffect(async () => {
     if (c == null || activeRange == null) {
       setAliases({});
@@ -87,8 +130,95 @@ export const AliasProvider = ({
   }, [c, activeRange]);
 
   return (
-    <AliasContext.Provider value={{ aliases, activeRange }}>
+    <AliasContext.Provider
+      value={{
+        aliases,
+        activeRange,
+        setAlias: activeRange != null ? setAlias : null,
+        getName,
+      }}
+    >
       {children}
     </AliasContext.Provider>
+  );
+};
+
+export interface AliasInputProps extends Input.TextProps {
+  channelKey: channel.Key;
+}
+
+export const AliasInput = ({
+  channelKey,
+  value,
+  ...props
+}: AliasInputProps): ReactElement => {
+  const [loading, setLoading] = useState(false);
+  const { setAlias } = useContext();
+  const alias = useAlias(channelKey);
+  const name = useName(channelKey);
+  let icon = <Icon.Rename />;
+  if (loading) icon = <Icon.Loading />;
+  else if (alias === value) icon = <Icon.Check />;
+  const canSetAlias =
+    setAlias != null && !loading && alias !== value && channelKey !== 0;
+  const handleSetAlias = (): void => {
+    if (!canSetAlias) return;
+    void (async () => {
+      setLoading(true);
+      await setAlias(channelKey, value);
+      setLoading(false);
+    })();
+  };
+
+  const handleSetValueToAlias = (): void => {
+    if (alias == null) return;
+    props.onChange?.(alias);
+  };
+
+  const SetAliasTooltip = (): ReactElement => {
+    if (channelKey === 0)
+      return (
+        <Text.Text level="small">
+          Select a channel to enable alias syncing with this label
+        </Text.Text>
+      );
+    if (setAlias == null)
+      return (
+        <Text.Text level="small">
+          Select a range to enable alias syncing with this label
+        </Text.Text>
+      );
+    if (value.length === 0)
+      return (
+        <Text.Text level="small">
+          Enter a value to enable alias syncing with this label
+        </Text.Text>
+      );
+    if (alias === value)
+      return <Text.Text level="small">Alias synced with this label</Text.Text>;
+    return <Text.Text level="small">Sync alias for {name} with this label</Text.Text>;
+  };
+
+  return (
+    <Align.Pack direction="x">
+      <Input.Text value={value} {...props} />
+      {canSetAlias && (
+        <Button.Icon
+          onClick={handleSetValueToAlias}
+          tooltip={<Text.Text level="small">Set {name} as label</Text.Text>}
+          tooltipLocation={{ y: "top" }}
+        >
+          <Icon.Sync />
+        </Button.Icon>
+      )}
+      <Button.Icon
+        onClick={handleSetAlias}
+        disabled={!canSetAlias}
+        tooltip={<SetAliasTooltip />}
+        tooltipLocation={{ y: "top" }}
+      >
+        {icon}
+      </Button.Icon>
+    </Align.Pack>
   );
 };

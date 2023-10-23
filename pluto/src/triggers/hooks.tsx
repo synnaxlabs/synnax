@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 
-import { box, Compare, unique, type xy } from "@synnaxlabs/x";
+import { box, compare, unique, type xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";

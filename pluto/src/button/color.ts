@@ -16,7 +16,7 @@ export const color = (
   disabled?: boolean,
   color?: Color.Crude,
 ): Color.Crude => {
-  if (disabled === true) return "var(--pluto-gray-p0)";
+  if (disabled === true) return "var(--pluto-gray-m0)";
   if (color != null) return color;
   if (variant === "filled") return "var(--pluto-white)";
   return "var(--pluto-text-color)";

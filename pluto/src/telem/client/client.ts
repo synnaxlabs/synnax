@@ -16,7 +16,7 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import {
-  Compare,
+  compare,
   type Destructor,
   type Series,
   TimeRange,

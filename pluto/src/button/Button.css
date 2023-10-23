@@ -70,7 +70,7 @@
 
 .pluto-btn--filled,
 .pluto-btn--outlined {
-    &:disabled {
+    &.pluto--disabled {
         background-color: var(--pluto-gray-m3);
         border-color: var(--pluto-gray-m3) !important;
         color: var(--pluto-gray-m0);
@@ -83,15 +83,15 @@
     background: none;
     border: none;
 
-    &:hover:not(:disabled) {
+    &:hover:not(.pluto--disabled) {
         background-color: var(--pluto-gray-m3);
     }
 
-    &:active:not(:disabled) {
+    &:active:not(.pluto--disabled) {
         background-color: var(--pluto-gray-m2);
     }
 
-    &:disabled {
+    &.pluto--disabled {
         color: var(--pluto-gray-m0);
     }
 }

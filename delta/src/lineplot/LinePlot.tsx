@@ -217,6 +217,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     );
   }, [vis.viewport.counter]);
 
+  const handleDoubleClick = useCallback(
+    () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
+    [dispatch],
+  );
+
   return (
     <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
       <Channel.LinePlot
@@ -240,6 +245,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         viewportTriggers={triggers}
         enableTooltip={enableTooltip}
         enableMeasure={clickMode === "measure"}
+        onDoubleClick={handleDoubleClick}
       />
     </div>
   );

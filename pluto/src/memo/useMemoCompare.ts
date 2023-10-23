@@ -9,7 +9,7 @@
 
 import { type DependencyList, useRef } from "react";
 
-import { Compare, deep } from "@synnaxlabs/x";
+import { compare, deep } from "@synnaxlabs/x";
 import type { Primitive } from "@synnaxlabs/x";
 
 export const useMemoCompare = <V, D extends DependencyList>(
