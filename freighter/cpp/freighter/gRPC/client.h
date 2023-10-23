@@ -35,7 +35,6 @@ freighter::Error errorFromGRPCStatus(grpc::Status status)
 class GRPCPool
 {
 private:
-
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels;
 
@@ -109,7 +108,7 @@ private:
     std::string last_target;
 };
 
-/// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing transport.
+/// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing transport. Safe to be shared between threads.
 /// @implements freighter::UnaryClient
 /// @see freighter::UnaryClient
 template <typename response_t, typename request_t, typename rpc_t>
@@ -147,11 +146,10 @@ public:
 
         auto [_, exc] = mw.exec(ctx, this);
 
-        // Decrement largest id and clean up container.
+        // Clean up container.
         mut.lock();
         auto latest_response = latest_requests_and_responses[ctx.id].second;
         latest_requests_and_responses.erase(ctx.id);
-        largest_id--;
         mut.unlock();
 
         return {latest_response, exc};
@@ -210,10 +208,9 @@ private:
 
     /// For thread safety.
     std::mutex mut;
-
 };
 
-/// @brief An implementation of freighter::StreamClient that uses GRPC as the backing transport.
+/// @brief An implementation of freighter::StreamClient that uses GRPC as the backing transport. Safe to be shared between threads.
 /// @implements freighter::StreamClient
 /// @see freighter::StreamClient
 template <typename response_t, typename request_t, typename rpc_t>
@@ -237,14 +234,29 @@ public:
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
+    /// NOTE: Sharing stream invocations is not thread safe.
+    /// It is suggested to create one StreamClient and create a stream per thread.
     std::pair<std::unique_ptr<freighter::Stream<response_t, request_t>>, freighter::Error>
     stream(const std::string &target) override
     {
+        // Requires lock to do this or else DNS resolver gets overloaded.
+        mut.lock();
         freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
+
+        // Get context id quickly.
+        ctx.id = ++largest_id;
+        mut.unlock();
+
+        // Mut is unlocked for expensive exec function call.
         auto [_, exc] = mw.exec(ctx, this);
-        auto p = std::unique_ptr<freighter::Stream<response_t, request_t>>(latest_stream);
-        latest_stream = nullptr;
-        return {std::move(p), exc};
+
+        // Lock again to read data in latest_streams.
+        mut.lock();
+        auto latest_stream = std::move(latest_streams[ctx.id]);
+        latest_streams.erase(ctx.id);
+        mut.unlock();
+
+        return {std::move(latest_stream), exc};
     }
 
     /// @brief the finalizer that opens the stream.
@@ -256,7 +268,11 @@ public:
             grpcContext.AddMetadata(param.first, param.second);
 
         auto channel = pool->getChannel(outboundContext.target);
-        latest_stream = new GRPCStream<response_t, request_t, rpc_t>(channel);
+        auto latest_stream = std::make_unique<GRPCStream<response_t, request_t, rpc_t>>(channel);
+
+        mut.lock();
+        latest_streams[outboundContext.id] = std::move(latest_stream);
+        mut.unlock();
 
         // Set inbound metadata.
         auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
@@ -276,8 +292,12 @@ private:
     /// Base target for all requests.
     freighter::URL base_target;
 
-    // TODO: This means our client is not thread safe. I'd like to see if there is a better way to do this.
+    /// Map from context instances to latest streams.
+    std::unordered_map<int, std::unique_ptr<freighter::Stream<response_t, request_t>>> latest_streams;
 
-    /// Latest stream. Use to pass stream from finalizer.
-    freighter::Stream<response_t, request_t> *latest_stream{};
+    /// Largest id a context has at the moment.
+    int largest_id = 0;
+
+    /// Lock for mutual exclusion.
+    std::mutex mut;
 };
