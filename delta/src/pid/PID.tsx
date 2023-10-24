@@ -269,13 +269,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   });
 
   const handleDoubleClick = useCallback(() => {
+    if (!pid.editable) return;
     dispatch(
       Layout.setNavdrawerVisible({
         key: "visualization",
         value: true,
       }) as PayloadAction<SyncPayload>,
     );
-  }, [dispatch]);
+  }, [dispatch, pid.editable]);
 
   Triggers.use({
     triggers: [["MouseLeft", "MouseLeft"]],
