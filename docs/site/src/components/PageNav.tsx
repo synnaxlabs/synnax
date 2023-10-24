@@ -36,8 +36,8 @@ export const useDocumentSize = (): number | null => {
 export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const width = useDocumentSize();
   const { visible, toggle, ref } = Dropdown.use({ initialVisible: false });
-  const treeProps = Tree.use();
-  const tree = <Tree.Tree nodes={pages} {...treeProps} selected={[currentPage]} />;
+  const treeProps = Tree.use({nodes:pages});
+  const tree = <Tree.Tree {...treeProps} selected={[currentPage]} />;
   if (width == null) return null;
   if (width > 700) return tree;
   return (

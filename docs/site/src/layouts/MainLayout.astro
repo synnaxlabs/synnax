@@ -24,11 +24,11 @@ if (url.includes("theme")) {
 
 const noHeader = Astro.cookies.get("noHeader");
 let vars: Record<string, any> = {};
-if (noHeader.value == "true") {
+if (noHeader?.value == "true") {
   vars["--docs-header-display"] = "none";
 }
 const theme = Astro.cookies.get("theme");
-vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
+vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) };
 ---
 
 <script>
@@ -86,7 +86,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
   </header>
   <section>
     <nav class="docs-nav">
-      <PageNav client:idle currentPage={Astro.url.pathname} />
+      <PageNav client:only="react" currentPage={Astro.url.pathname} />
     </nav>
     <article>
       <h1 class="pluto--bordered-bottom">{heading ?? title}</h1>
@@ -108,8 +108,21 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     }
 
     a {
-      color: var(--pluto-primary-m1);
+      color: var(--pluto-primary-p1);
       text-decoration: none;
+    }
+
+  :root {
+      --nav-height: 10rem;
+      --max-width: 1300px;
+      --astro-code-color-text: var(--pluto-text-color);
+      --astro-code-color-background: var(--pluto-gray-m4);
+      --astro-code-color-comment: var(--pluto-text-color);
+      --astro-code-token-string-expression: #ffc43d;
+      --astro-code-token-function: #20a4f3;
+      --astro-code-token-punctuation: var(--pluto-text-color);
+      --astro-code-token-keyword: #dc136c;
+      --astro-code-token-constant: var(--astro-code-token-string-expression);
     }
 
     a:hover {
@@ -179,8 +192,8 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
-      background-color: var(--pluto-gray-m2);
-      color: var(--pluto-text-color);
+      background-color: var(--pluto-gray-m4); */
+      or: var(--pluto-text-color);
     }
 
     .pluto-tabs-selector__button p {
@@ -217,8 +230,6 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     }
 
     code {
-      background: #0d1117;
-      color: rgba(255, 255, 255, 0.9);
       border-radius: var(--pluto-border-radius);
     }
 

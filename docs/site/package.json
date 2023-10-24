@@ -11,27 +11,27 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/mdx": "^0.14.0",
-    "@astrojs/react": "^1.2.2",
-    "@astrojs/vercel": "^3.2.0",
+    "@astrojs/mdx": "^1.1.2",
+    "@astrojs/react": "^3.0.3",
+    "@astrojs/vercel": "^5.0.2",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "@types/offscreencanvas": "^2019.7.0",
-    "astro": "^2.1.2",
-    "astro-embed": "^0.2.1",
-    "astro-seo": "^0.7.1",
-    "clsx": "^1.2.1",
+    "@types/offscreencanvas": "^2019.7.2",
+    "astro": "^3.3.3",
+    "astro-embed": "^0.6.0",
+    "astro-seo": "^0.8.0",
+    "clsx": "^2.0.0",
     "html-escaper": "^3.0.3",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "shiki": "^0.14.1"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "shiki": "^0.14.5"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
-    "@types/react": "^18.0.21",
-    "@types/react-dom": "^18.0.6",
+    "@types/react": "^18.2.31",
+    "@types/react-dom": "^18.2.14",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.2.2"
   }

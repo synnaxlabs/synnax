@@ -20,6 +20,16 @@ export default defineConfig({
       entry: {
         index: path.resolve(".", "src/index.ts"),
         aether: path.resolve(".", "src/aetherIndex.ts"),
+        tabs: path.resolve(".", "src/tabs/index.ts"),
+        theming: path.resolve(".", "src/theming/index.ts"),
+        menu: path.resolve(".", "src/menu/index.ts"),
+        header: path.resolve(".", "src/header/index.ts"),
+        align: path.resolve(".", "src/align/index.ts"),
+        tree: path.resolve(".", "src/tree/index.ts"),
+        dropdown: path.resolve(".", "src/dropdown/index.ts"),
+        button: path.resolve(".", "src/button/index.ts"),
+        video: path.resolve(".", "src/video/index.ts"),
+        text: path.resolve(".", "src/text/index.ts"),
       },
     },
     rollupOptions: {

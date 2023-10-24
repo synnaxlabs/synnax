@@ -30,7 +30,7 @@ export default defineConfig({
     }),
     markdown: {
         shikiConfig: {
-            theme: "github-dark",
+            theme: "css-variables",
         },
     },
     site: "https://docs.synnaxlabs.com",

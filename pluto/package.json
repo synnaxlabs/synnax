@@ -101,6 +101,56 @@
       "require": "./dist/aether.cjs",
       "types": "./dist/aetherIndex.d.ts"
     },
+    "./align": {
+      "import": "./dist/align.js",
+      "require": "./dist/align.cjs",
+      "types": "./dist/align/index.d.ts"
+    },
+    "./button": {
+      "import": "./dist/button.js",
+      "require": "./dist/button.cjs",
+      "types": "./dist/button/index.d.ts"
+    },
+    "./tabs": {
+      "import": "./dist/tabs.js",
+      "require": "./dist/tabs.cjs",
+      "types": "./dist/tabs/index.d.ts"
+    },
+    "./theming": {
+      "import": "./dist/theming.js",
+      "require": "./dist/theming.cjs",
+      "types": "./dist/theming/index.d.ts"
+    },
+    "./menu": {
+      "import": "./dist/menu.js",
+      "require": "./dist/menu.cjs",
+      "types": "./dist/menu.d.ts"
+    },
+    "./header": {
+      "import": "./dist/header.js",
+      "require": "./dist/header.cjs", 
+      "types": "./dist/header/index.d.ts"
+    },
+    "./tree": {
+      "import": "./dist/tree.js",
+      "require": "./dist/tree.cjs",
+      "types": "./dist/tree/index.d.ts"
+    },
+    "./dropdown": {
+      "import": "./dist/dropdown.js",
+      "require": "./dist/dropdown.cjs",
+      "types": "./dist/dropdown/index.d.ts"
+    },
+    "./video": {
+      "import": "./dist/video.js",
+      "require": "./dist/video.cjs",
+      "types": "./dist/video/index.d.ts"
+    },
+    "./text": {
+      "import": "./dist/text.js",
+      "require": "./dist/text.cjs",
+      "types": "./dist/text/index.d.ts"
+    },
     "./dist/*": "./dist/*"
   },
   "readme": "ERROR: No README data found!",
