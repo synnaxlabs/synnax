@@ -151,6 +151,16 @@
       "require": "./dist/text.cjs",
       "types": "./dist/text/index.d.ts"
     },
+    "./input": {
+      "import": "./dist/input.js",
+      "require": "./dist/input.cjs",
+      "types": "./dist/input/index.d.ts"
+    },
+    "./triggers": {
+      "import": "./dist/triggers.js",
+      "require": "./dist/triggers.cjs",
+      "types": "./dist/triggers/index.d.ts"
+    }, 
     "./dist/*": "./dist/*"
   },
   "readme": "ERROR: No README data found!",

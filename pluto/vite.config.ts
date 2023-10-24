@@ -30,6 +30,8 @@ export default defineConfig({
         button: path.resolve(".", "src/button/index.ts"),
         video: path.resolve(".", "src/video/index.ts"),
         text: path.resolve(".", "src/text/index.ts"),
+        input: path.resolve(".", "src/input/index.ts"),
+        triggers: path.resolve(".", "src/triggers/index.ts"),
       },
     },
     rollupOptions: {

@@ -10,6 +10,7 @@
 import { type ReactElement, useCallback, useMemo, useState, type FC } from "react";
 
 import { Icon } from "@synnaxlabs/media";
+import { type Optional } from "@synnaxlabs/x";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -57,6 +58,7 @@ export interface HandleExpandProps {
 
 export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
+  initialExpanded?: string[];
   nodes: Node[];
 }
 
@@ -68,8 +70,9 @@ export interface UseReturn {
 }
 
 export const use = (props: UseProps): UseReturn => {
-  const { onExpand, nodes } = props ?? {};
-  const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
+  const { onExpand, nodes, initialExpanded = [] } = props ?? {};
+  const [expanded, setExpanded, ref] =
+    useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = useState<string[]>([]);
   const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
   const flatRef = useSyncedRef(flat);
@@ -111,13 +114,20 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
   loading?: boolean;
   selectedItems: FlattenedNode[];
+  useMargin?: boolean;
 }
 
 export interface TreeProps
-  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick">,
-    Omit<
-      List.VirtualCoreProps<string, FlattenedNode>,
-      "onDrop" | "onSelect" | "itemHeight" | "children" | "onDoubleClick"
+  extends Pick<
+      ItemProps,
+      "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick" | "useMargin"
+    >,
+    Optional<
+      Omit<
+        List.VirtualCoreProps<string, FlattenedNode>,
+        "onDrop" | "onSelect" | "children" | "onDoubleClick"
+      >,
+      "itemHeight"
     > {
   nodes: FlattenedNode[];
   selected?: string[];
@@ -141,6 +151,7 @@ export const DefaultItem = ({
   selectedItems,
   onDoubleClick,
   loading = false,
+  useMargin = false,
 }: ItemProps): ReactElement => {
   const {
     key,
@@ -155,9 +166,10 @@ export const DefaultItem = ({
     haulItems = [],
   } = entry;
 
+  const actuallyHasChildren = hasChildren || (children != null && children.length > 0);
+
   const startIcons: ReactElement[] = [];
-  if (hasChildren || (children != null && children.length > 0))
-    startIcons.push(expanded ? expandedCaret : collapsedCaret);
+  if (actuallyHasChildren) startIcons.push(expanded ? expandedCaret : collapsedCaret);
   if (icon != null) startIcons.push(icon);
   const endIcons: ReactElement[] = [];
   if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
@@ -190,6 +202,8 @@ export const DefaultItem = ({
     );
   };
 
+  const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
+
   const baseProps: Button.LinkProps | Button.ButtonProps = {
     id: key,
     variant: "text",
@@ -199,11 +213,12 @@ export const DefaultItem = ({
       draggingOver && CSS.M("dragging-over"),
       selected && CONTEXT_SELECTED,
       CSS.selected(selected),
+      actuallyHasChildren && CSS.M("has-children"),
     ),
     onDragLeave: () => setDraggingOver(false),
     onDragStart: handleDragStart,
     onClick: () => onSelect?.(key),
-    style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
+    style: { ...style, [offsetKey]: `${depth * 1.5 + 1}rem` },
     startIcon: startIcons,
     iconSpacing: "small",
     noWrap: true,
@@ -241,6 +256,8 @@ export const Tree = ({
   onDoubleClick,
   className,
   children = defaultChild,
+  itemHeight = 27,
+  useMargin = false,
   ...props
 }: TreeProps): ReactElement => {
   return (
@@ -252,13 +269,14 @@ export const Tree = ({
         replaceOnSingle
       />
       <List.Core.Virtual<string, FlattenedNode>
-        itemHeight={27}
+        itemHeight={itemHeight}
         className={CSS(className, CSS.B("tree"))}
         {...props}
       >
         {(props) =>
           children({
             ...props,
+            useMargin,
             onDrop,
             onRename,
             onSuccessfulDrop,

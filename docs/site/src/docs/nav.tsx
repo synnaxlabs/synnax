@@ -9,12 +9,12 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { acquireNav } from "./acquire/nav";
-import { analyzeNav } from "./analyze/nav";
-import { conceptsNav } from "./concepts/nav";
-import { deployNav } from "./deploy/nav";
-import { referenceNav } from "./reference/nav";
-import { visualizeNav } from "./visualize/nav";
+import { acquireNav } from "../pages/acquire/nav";
+import { analyzeNav } from "../pages/analyze/nav";
+import { conceptsNav } from "../pages/concepts/nav";
+import { deployNav } from "../pages/deploy/nav";
+import { referenceNav } from "../pages/reference/nav";
+import { visualizeNav } from "../pages/visualize/nav";
 
 export const pages = [
   {

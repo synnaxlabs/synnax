@@ -14,7 +14,6 @@ import { PageNavNode } from "@/components/PageNav";
 export const visualizeNav: PageNavNode = {
   key: "visualize",
   name: "Visualize",
-  icon: <Icon.Visualize />,
   children: [
     {
       key: "/visualize/get-started",

@@ -94,18 +94,18 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Grayscale
 
-const WHITE = "#FFFFFF";
-const BLACK = "#121212";
-const GRAY_P4 = "#1C1C1C";
-const GRAY_P3 = "#2B2B2B";
-const GRAY_P2 = "#424242";
-const GRAY_P1 = "#5F5F5F";
-const GRAY_P0 = "#7D7D7D";
-const GRAY_M0 = "#9B9B9B";
+const BLACK = "#050505";
+const GRAY_P4 = "#0D0D0D";
+const GRAY_P3 = "#171717";
+const GRAY_P2 = "#2E2E2E";
+const GRAY_P1 = "#4F4F4F";
+const GRAY_P0 = "#717171";
+const GRAY_M0 = "#939393";
 const GRAY_M1 = "#B5B5B5";
-const GRAY_M2 = "#D1D1D1";
+const GRAY_M2 = "#D6D6D6";
 const GRAY_M3 = "#EDEDED";
 const GRAY_M4 = "#F7F7F7";
+const WHITE = "#FFFFFF";
 
 const synnaxBase: ThemeSpec = {
   key: "synnax-base",

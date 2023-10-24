@@ -17,6 +17,5 @@ import { PageNavNode } from "@/components/PageNav";
 export const referenceNav: PageNavNode = {
   key: "reference",
   name: "Reference",
-  icon: <Icon.Reference />,
   children: [clientCLINav, serverCLINav],
 };

@@ -29,6 +29,10 @@
         color: var(--pluto-gray-p0);
     }
 
+    &:not(.pluto--selected) path:is(:not([fill="none"]), [stroke="#000"]) {
+        fill: var(--pluto-gray-p0);
+    }
+
     &:hover, &.pluto--selected {
         .pluto-btn-icon {
             opacity: 1;
@@ -68,6 +72,7 @@
 
 .pluto-tabs-selector__btn--uneditable {
     user-select: none;
+    padding: 0 1rem;
 }
 
 .pluto-tabs-selector {

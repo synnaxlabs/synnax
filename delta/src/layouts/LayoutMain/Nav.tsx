@@ -78,7 +78,7 @@ const NavTopPalette = (): ReactElement => {
 };
 
 /**
- * NavTop is the top navigation bar for the Delta UI. Try to keep this component
+ * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavTop = (): ReactElement => {
@@ -160,7 +160,7 @@ export const NavMenu = ({
 );
 
 /**
- * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
+ * NavLeft is the left navigation drawer for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
@@ -181,7 +181,7 @@ export const NavLeft = (): ReactElement => {
 };
 
 /**
- * NavRight is the right navigation bar for the Delta UI. Try to keep this component
+ * NavRight is the right navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
@@ -205,7 +205,7 @@ export const NavRight = (): ReactElement | null => {
 };
 
 /**
- * NavBottom is the bottom navigation bar for the Delta UI. Try to keep this component
+ * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavBottom = (): ReactElement => {

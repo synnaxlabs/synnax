@@ -38,7 +38,7 @@ const createNewVis = (
 };
 
 /**
- * The center of it all. This is the main layout for the Delta UI. Try to keep this
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): ReactElement => {

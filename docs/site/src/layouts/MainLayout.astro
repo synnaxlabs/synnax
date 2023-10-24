@@ -2,11 +2,15 @@
 import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
+import { ViewTransitions } from "astro:transitions";
 import { Theming } from "@synnaxlabs/pluto/theming";
 import { DARK, LIGHT } from "@/util/theme";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
+import { Align } from "@synnaxlabs/pluto/align"
+import { Icon } from "@synnaxlabs/media";
+import { Search } from "@/components/Search"
 const {
   headings,
   frontmatter: { title, heading, description },
@@ -28,7 +32,7 @@ if (noHeader?.value == "true") {
   vars["--docs-header-display"] = "none";
 }
 const theme = Astro.cookies.get("theme");
-vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) };
+vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
 ---
 
 <script>
@@ -47,9 +51,17 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
   };
   window.addEventListener("popstate", updateHref);
   updateHref();
+
+  const VERSION =
+    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
+  const version = await (await fetch(VERSION)).text();
+  const versionEl = document.querySelector(".version")
+  if (versionEl) {
+    versionEl.innerHTML = `v${version}`;
+  }
 </script>
 
-<html style={vars}>
+<html style={vars} transition:animate="none">
   <head>
     <SEO
       title={title}
@@ -71,6 +83,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
         ],
       }}
     />
+    <ViewTransitions />
   </head>
   <header
     class="pluto--bordered-bottom"
@@ -78,22 +91,29 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
       display: vars["--docs-header-display"],
     }}
   >
-    <div class="header-content">
+    <Align.Space className="header-content" direction="x" justify="spaceBetween" align="center">
       <a href="/">
-        <Logo style={{ height: "6.5rem" }} />
+        <Logo style={{ height: "5rem" }} variant="title"/>
       </a>
-    </div>
+      <Search client:only="react"/>
+      <Align.Space direction="x" align="center">
+        <a href="https://github.com/synnaxlabs/synnax">
+          <Icon.Logo.Github style={{height:"3rem", width: "3rem"}} fill="var(--pluto-text-color)" />
+        </a>
+      <p class="version" transition:persist></p>
+      </Align.Space>
+    </Align.Space>
   </header>
   <section>
     <nav class="docs-nav">
-      <PageNav client:only="react" currentPage={Astro.url.pathname} />
+      <PageNav client:idle currentPage={Astro.url.pathname} />
     </nav>
-    <article>
-      <h1 class="pluto--bordered-bottom">{heading ?? title}</h1>
+    <article transition:animate="fade">
+      <h1 class="article-title">{heading ?? title}</h1>
       <slot />
     </article>
     <nav class="docs-toc pluto--bordered-left">
-      <TableOfContents client:only="react" headings={headings} />
+      <TableOfContents client:idle headings={headings} />
     </nav>
   </section>
 
@@ -102,9 +122,59 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
     startThemeDriver();
   </script>
 
+  <script is:inline>
+  document.querySelector('#search')?.addEventListener('input', async (e) => {
+
+    console.log(json)
+  })
+  </script>
+
   <style is:global>
     .pluto-tabs-selector__button p {
       margin: 0;
+    }
+
+    .search-box {
+      z-index: 1000;
+      & input {
+        width: 500px;
+      }
+
+      &.pluto--visible {
+        position: fixed;
+          left: 50%;
+          transform: translateX(-50%);
+          box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+          & input  {
+            width: 80vw;
+            max-width: 900px;
+            height: 40px;
+          }
+      }
+
+      .pluto-dropdown__dialog {
+          position: absolute;
+          left: 0 !important;
+          top: 40px !important;
+          box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+          background-color: var(--pluto-background-color);
+          border-radius: var(--pluto-border-radius) !important;
+
+          & .search-result {
+            &:hover {
+              background-color: var(--pluto-gray-m3);
+            }
+            padding: 2rem;
+
+            & b {
+              background-color: var(--pluto-primary-z-30);
+            }
+          }
+          
+          & a:hover {
+            text-decoration: none;
+          }
+      }
     }
 
     a {
@@ -125,8 +195,58 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
       --astro-code-token-constant: var(--astro-code-token-string-expression);
     }
 
-    a:hover {
+    a:hover:not(.pluto-btn) {
       text-decoration: underline;
+    }
+
+    .pluto-tree {
+      .pluto-text {
+        color: var(--pluto-gray-p1);
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        font-weight: var(--pluto-small-weight);
+      }
+
+      overflow: hidden;
+
+
+      .pluto-btn {
+        height: 32px;
+        background: none !important;
+
+        &:hover {
+            & .pluto-text {
+              color: var(--pluto-text-color);
+            }
+
+            & path:is(:not([fill="none"]), [stroke="#000"]) {
+              fill: var(--pluto-text-color) !important;
+            }
+        }
+      
+        &:not(.pluto--has-children) {
+          border-left: 1px solid var(--pluto-gray-m3);
+
+          &.pluto--selected {
+            border-left: 2px solid var(--pluto-primary-p1);
+            background: none;
+            .pluto-text {
+              color: var(--pluto-text-color);
+            }
+          }
+
+          &:hover {
+            background: none;
+            border-left: 2px solid var(--pluto-text-color);
+          }
+        }
+      }
+
+      .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+        fill: var(--pluto-gray-p0)
+      }
+
+      
     }
 
     .copy-code {
@@ -161,7 +281,6 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
     }
 
     article h1,
-    article h2,
     article h3,
     article h4,
     article h5,
@@ -170,6 +289,10 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
     article table,
     article video {
       margin: 2.5rem 0;
+    }
+
+    article h2 {
+      margin: 4rem 0;
     }
 
     article img {
@@ -193,11 +316,23 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
       background-color: var(--pluto-gray-m4); */
-      or: var(--pluto-text-color);
     }
 
-    .pluto-tabs-selector__button p {
-      margin: 1rem 0;
+    code {
+      font-size: var(--pluto-small-size);
+      line-height: var(--pluto-small-line-height);
+    }
+
+    .pluto-tabs-selector__btn--uneditable {
+      padding: 0 3rem;
+
+      .pluto-text-icon {
+        gap: 1.5rem;
+      }
+
+      .pluto-text {
+        margin: 0 !important;
+      }
     }
 
     li {
@@ -251,7 +386,21 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
       border-width: 0 1px;
       border-color: var(--pluto-border-color);
       border-style: solid;
-      padding: 0.75rem 1.25rem;
+      padding: 1.25rem 1.5rem;
+    }
+
+    table td {
+      font-size: var(--pluto-small-size);
+    }
+
+    table thead th {
+      padding: 1.5rem 1.5rem;
+      font-weight: 600;
+
+    }
+
+    table thead tr {
+      border-width: 2px;
     }
 
     table th {
@@ -273,6 +422,19 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
   <style>
     :root {
       --max-width: 1440px;
+    }
+
+    .article-title {
+      width: fit-content;
+    }
+
+    .article-title::after {
+      content: "";
+      display: block;
+      width: 100px;
+      margin-top: 2rem;
+      height: 2px;
+      background-color: var(--pluto-primary-p1);
     }
 
     h1 {
@@ -349,14 +511,14 @@ vars = { ...vars, ...Theming.toCSSVars(theme?.value === "dark" ? DARK : LIGHT) }
 
     nav {
       padding: 20px 0px;
-      flex-basis: 200px;
+      flex-basis: 210px;
       overflow-y: auto;
     }
 
     article {
       flex-basis: 0;
       flex-grow: 9999;
-      padding: 5rem;
+      padding: 5rem 8rem;
       overflow-y: auto;
     }
   </style>

@@ -14,7 +14,6 @@ import { PageNavNode } from "@/components/PageNav";
 export const analyzeNav: PageNavNode = {
   key: "analyze",
   name: "Analyze",
-  icon: <Icon.Analyze />,
   children: [
     {
       key: "/analyze/get-started",

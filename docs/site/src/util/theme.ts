@@ -19,20 +19,30 @@ export const applyCSSVars = (
 
 const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   const m = { ...theme };
-  m.sizes.base = 6.5;
-  m.typography.p.lineHeight = 3.5;
+  m.sizes.base = 7;
+  m.typography.small.lineHeight = m.typography.small.size * 1.3;
+  m.typography.p.lineHeight = m.typography.p.size * 1.75;
+  m.typography.p.weight = 350;
   m.typography.h1 = {
     ...m.typography.h1,
     lineHeight: 8,
     size: 7,
+    weight: 450,
   };
+  m.typography.h2 = {
+    ...m.typography.h2,
+    weight: 500,
+  };
+
+  m.colors.text = m.key == "synnaxDark" ? "#eaeaea" : "#1a1a1a";
+  m.typography.h5.textTransform= "none";
   return m;
 };
 
 export const DARK = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxDark));
 export const LIGHT = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxLight));
 
-export const DEFAULT_THEME = Theming.themes.synnaxLight;
+export const DEFAULT_THEME = Theming.themes.synnaxDark;
 
 export const startThemeDriver = (): void => {
   applyTheme(getPreferredTheme());
@@ -40,12 +50,12 @@ export const startThemeDriver = (): void => {
 };
 
 export const toggleTheme = (): void => {
-  const theme = THEME_ALTERNATES[localStorage.getItem("theme") ?? "synnaxLight"];
+  const theme = THEME_ALTERNATES[localStorage.getItem("theme") ?? "synnaxDark"];
   applyTheme(theme);
 };
 
 export const getCurrentTheme = (): Theming.ThemeSpec => {
-  const theme = localStorage.getItem("theme") ?? "synnaxLight";
+  const theme = localStorage.getItem("theme") ?? "synnaxDark";
   return Theming.themes[theme as keyof typeof Theming.themes];
 };
 
