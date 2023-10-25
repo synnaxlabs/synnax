@@ -140,6 +140,5 @@ describe("Ranger", () => {
         expect(aliases).toEqual({ [ch.key]: "myalias" });
       });
     });
-    describe("track changes", () => {});
   });
 });
