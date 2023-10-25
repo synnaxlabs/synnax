@@ -1,12 +1,12 @@
 {
   "name": "@synnaxlabs/delta",
   "private": true,
-  "version": "0.14.0",
+  "version": "0.14.1",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/delta/scripts/kill-dev.zsh",
-    "build": "tauri build",
+    "build": "tauri build --debug",
     "dev-vite": "vite",
     "build-vite": "vite build",
     "preview": "vite preview",
@@ -26,7 +26,7 @@
     "@synnaxlabs/x": "workspace:*",
     "@tauri-apps/api": "^1.5.1",
     "nanoid": "^5.0.2",
-    "proxy-memoize": "2.0.4",
+    "proxy-memoize": "1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.47.0",
