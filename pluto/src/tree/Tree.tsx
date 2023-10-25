@@ -24,6 +24,8 @@ import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
+import { compare } from "@/util/compare";
+
 import "@/tree/Tree.css";
 
 export const HAUL_TYPE = "tree-item";
@@ -60,6 +62,7 @@ export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
   initialExpanded?: string[];
   nodes: Node[];
+  sort?: boolean;
 }
 
 export interface UseReturn {
@@ -70,11 +73,11 @@ export interface UseReturn {
 }
 
 export const use = (props: UseProps): UseReturn => {
-  const { onExpand, nodes, initialExpanded = [] } = props ?? {};
+  const { onExpand, nodes, initialExpanded = [], sort = true } = props ?? {};
   const [expanded, setExpanded, ref] =
     useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = useState<string[]>([]);
-  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  const flat = useMemo(() => flatten(nodes, expanded, sort), [nodes, expanded, sort]);
   const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
@@ -298,16 +301,18 @@ export const flatten = (
   nodes: Node[],
   expanded: string[],
   depth: number = 0,
+  sort: boolean,
 ): FlattenedNode[] => {
   // Sort the first level of the tree independently of the rest
-  if (depth === 0) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
+  if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
     const expand = shouldExpand(node, expanded);
     flattened.push({ ...node, depth, expanded: expand, index });
     if (expand && node.children != null) {
-      node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
-      flattened.push(...flatten(node.children, expanded, depth + 1));
+      if (sort)
+        node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
+      flattened.push(...flatten(node.children, expanded, depth + 1, sort));
     }
   });
   return flattened;

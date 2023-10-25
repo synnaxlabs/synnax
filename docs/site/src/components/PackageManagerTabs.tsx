@@ -45,5 +45,5 @@ export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement
     })
   );
   const tabsProps = Tabs.useStatic({ tabs });
-  return <Tabs.Tabs {...tabsProps}>{(tab) => props[tab.tabKey]}</Tabs.Tabs>;
+  return <Tabs.Tabs {...tabsProps} size="large">{(tab) => props[tab.tabKey]}</Tabs.Tabs>;
 };

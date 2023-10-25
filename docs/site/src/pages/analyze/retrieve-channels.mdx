@@ -6,13 +6,16 @@ description: "Retrieve channels from a cluster using the Synnax client libraries
 
 import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
 
+When analyzing data, it's common to fetch a particular channel and read a subset of it's
+data. This page shows you different methods for retrieving channels.
+
 ## Prerequisites
 
-This page assumes you’ve already:
+This guide assumes you’ve already:
 
-1. Started a Synnax cluster.
-2. Familiarized yourself with channels, domains, arrays, and frames.
-3. Know how to create channels in a cluster.
+1. [Started a Synnax cluster](/deploy/get-started)
+2. [Familiarized yourself with channels](/concepts/channels)
+3. [Installed the Synnax client in a language of your choice](/analyze/get-started)
 
 <ClientTabs>
 <Fragment slot="python">
@@ -23,9 +26,12 @@ Retrieving a single channel is easy.
 ```python
 # By name
 my_precise_tc = client.channels.retrieve("my-precise-tc")
-# By key
-my_precise_tc = client.channels.retrieve("1-1")
+# If you know the key, you can also retrieve by key
+my_precise_tc = client.channels.retrieve(my_precise_tc.key)
 ```
+
+If Synnax finds no or multiple channels matching the query parameters, the client will
+raise a `QueryError`.
 
 ### Retrieving Multiple Channels
 
@@ -35,28 +41,28 @@ the same channels.
 ```python
 # By name
 channels = client.channels.retrieve(["sensor-one", "sensor-three"])
-# Also by name
-channels = client.channels.retrieve("sensor-one", "sensor-three")
-# By key
-channels = client.channels.retrieve("1-1", "2-12")
-# By key and name
-channels = client.channels.retrieve("sensor-one", "2-12"),
+
+# As with above, if you know the keys, you can also retrieve by them
+channels = client.channels.retrieve([ch.key for ch in channels])
 ```
 
-Unlike retrieving a single channel, retrieving several channels will not raise a
+Unlike retrieving a single channel, retrieving several channels will <b>not</b> raise a
 `QueryError` when no or multiple channels are found for a given parameter. If no results
-match, the method will return an empty list. Sometimes its useful to know which channel’s
-weren’t found. To receive a list of parameters without a matching channel, set the
-`include_not_found` argument to `True`.
+match, the method will return an empty list. 
+
+### Retrieving a Channel using a Range
+
+If you've queried a [range](/analyze/access-ranges), you can access it's channels using
+Python's dictionary (`[]`) syntax, or as a property:
 
 ```python
-# Note that this returns a tuple
-channels, not_found = client.channels.retrieve(
-    ["sensor-one", "sensor-three", "does-not-exist"],
-    include_not_found=True,
-)
-print(len(channels)) # 2
-print(not_found) # ["does-not-exist"]
+# Retrieve the range - see the highlighted link above for how these work
+bike_outing = client.ranges.retrieve("02/22/23 Cycling")
+
+# Grab a channel
+ch = bike_outing["sensor_one"]
+# Or like this
+ch = bike_outing.sensor_one
 ```
 
 </Fragment>
@@ -99,8 +105,6 @@ console.log(channels.map((c) => c.key)); // ["1-1", "2-12"]
 channels = client.channels.retrieve({ keys: ["1-1", "2-12"] });
 // By key and name
 channels = client.channels.retrieve({ names: ["sensor-one"], keys: ["2-12"] });
-// Also by key and name
-channels = client.channels.retrieve("sensor-one", "2-12");
 ```
 
 Unlike retrieving a single channel, retrieving several channels will not raise a query

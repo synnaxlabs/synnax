@@ -32,6 +32,7 @@ export default defineConfig({
         text: path.resolve(".", "src/text/index.ts"),
         input: path.resolve(".", "src/input/index.ts"),
         triggers: path.resolve(".", "src/triggers/index.ts"),
+        list: path.resolve(".", "src/list/index.ts"),
       },
     },
     rollupOptions: {

@@ -161,6 +161,11 @@
       "require": "./dist/triggers.cjs",
       "types": "./dist/triggers/index.d.ts"
     }, 
+    "./list": {
+      "import": "./dist/list.js",
+      "require": "./dist/list.cjs",
+      "types": "./dist/list/index.d.ts"
+    },
     "./dist/*": "./dist/*"
   },
   "readme": "ERROR: No README data found!",

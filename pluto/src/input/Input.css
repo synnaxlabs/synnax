@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+ .pluto-input-wrapper {
+    position: relative;
+ }
+
 .pluto-input {
     border-radius: var(--pluto-border-radius);
     background: var(--pluto-gray-m4);
@@ -34,10 +38,14 @@
         font-weight: var(--pluto-small-font-weight);
         line-height: var(--pluto-small-line-height);
     }
+}
 
-    &::placeholder {
-        color: var(--pluto-gray-m0);
-    }
+.pluto-input__placeholder {
+    position: absolute;
+    color: var(--pluto-gray-m0);
+    top: 50%;
+    left: 2rem;
+    transform: translateY(-50%);
 }
 
 

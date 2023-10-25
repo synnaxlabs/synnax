@@ -169,11 +169,12 @@ class WebsocketClient(AsyncMiddlewareCollector):
             out_ctx = Context(target, "websocket", "client")
             headers.update(ctx.params)
             try:
+                if (self.__secure and "ssl" not in self.__kwargs):
+                    self.__kwargs["ssl"] = ssl._create_unverified_context()
                 ws = await connect(
                     self.__endpoint.child(target).stringify(),
                     extra_headers=headers,
                     max_size=self.__max_message_size,
-                   ssl=ssl._create_unverified_context(),
                     **self.__kwargs,
                 )
 

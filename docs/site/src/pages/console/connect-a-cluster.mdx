@@ -1,21 +1,19 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Connect a Cluster"
-description: "This page will show you how to connect to a Synnax cluster using Delta."
+description: "Learn how to connect a cluster using the Synnax console."
 ---
 
 import { DeltaDownloadButton } from "@/components/OSDownloadButton";
 import { Video } from "@/components/Media";
 import { Table } from "@/components/Table";
 
-This page will show you how to connect to a Synnax cluster using Delta.
-
 ## Prerequisites
 
 This page assumes you've already:
 
-1. [Started a Synnax cluster.](/deploy/get-started)
-2. [Installed the Delta UI.](/visualize/get-started)
+1. [Started a cluster](/deploy/get-started)
+2. [Installed the Synnax console](/console/get-started)
 
 ## Adding a New Cluster
 
@@ -73,6 +71,6 @@ the connection to the cluster and displays it in the bottom right corner of the 
 ## Switching Clusters
 
 If you have multiple clusters, you can switch between them by double clicking on the
-cluster you want to connect to in the cluster toolbar.
+cluster you'd like to to connect in the toolbar.
 
 <Video client:only="react" id="visualize/switch-clusters" />

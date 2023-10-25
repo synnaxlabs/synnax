@@ -11,12 +11,14 @@ import { forwardRef } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
+import { Text as CoreText } from "@/text";
 
 import "@/input/Input.css";
 
 export interface TextProps extends BaseProps<string> {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
+  placeholder?: ReactElement;
 }
 
 /**
@@ -40,6 +42,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       onFocus,
       selectOnFocus = false,
       centerPlaceholder = false,
+      placeholder,
       variant = "outlined",
       sharp = false,
       ...props
@@ -62,6 +65,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         if (selectOnFocus) e.target.select();
         onFocus?.(e);
       }}
+      placeholder={placeholder}
       {...props}
     />
   ),

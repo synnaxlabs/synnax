@@ -3,8 +3,6 @@ import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
 import { ViewTransitions } from "astro:transitions";
-import { Theming } from "@synnaxlabs/pluto/theming";
-import { DARK, LIGHT } from "@/util/theme";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
@@ -15,53 +13,9 @@ const {
   headings,
   frontmatter: { title, heading, description },
 } = Astro.props;
-
-const url = Astro.request.url;
-if (url.includes("noHeader")) {
-  const header = url.split("noHeader=")[1].split("&")[0];
-  Astro.cookies.set("noHeader", header);
-}
-if (url.includes("theme")) {
-  const theme = url.split("theme=")[1].split("&")[0];
-  Astro.cookies.set("theme", theme);
-}
-
-const noHeader = Astro.cookies.get("noHeader");
-let vars: Record<string, any> = {};
-if (noHeader?.value == "true") {
-  vars["--docs-header-display"] = "none";
-}
-const theme = Astro.cookies.get("theme");
-vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
 ---
 
-<script>
-  const updateHref = () => {
-    const url = window.location.href;
-    const path = url
-      .replace(window.location.origin, "")
-      .split("?")[0]
-      .split("#")[0];
-    const maybeHeading = url.split("#");
-    let heading = "";
-    if (maybeHeading.length > 1) {
-      heading = maybeHeading[1].split("&")[0];
-    }
-    window.parent.postMessage({ path, heading }, "*");
-  };
-  window.addEventListener("popstate", updateHref);
-  updateHref();
-
-  const VERSION =
-    "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
-  const version = await (await fetch(VERSION)).text();
-  const versionEl = document.querySelector(".version")
-  if (versionEl) {
-    versionEl.innerHTML = `v${version}`;
-  }
-</script>
-
-<html style={vars} transition:animate="none">
+<html transition:animate="none">
   <head>
     <SEO
       title={title}
@@ -87,9 +41,6 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
   </head>
   <header
     class="pluto--bordered-bottom"
-    style={{
-      display: vars["--docs-header-display"],
-    }}
   >
     <Align.Space className="header-content" direction="x" justify="spaceBetween" align="center">
       <a href="/">
@@ -110,6 +61,7 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
     </nav>
     <article transition:animate="fade">
       <h1 class="article-title">{heading ?? title}</h1>
+      <h3 class="article-description">{description}</h3>
       <slot />
     </article>
     <nav class="docs-toc pluto--bordered-left">
@@ -119,14 +71,13 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
 
   <script>
     import { startThemeDriver } from "@/util/theme";
-    startThemeDriver();
-  </script>
-
-  <script is:inline>
-  document.querySelector('#search')?.addEventListener('input', async (e) => {
-
-    console.log(json)
-  })
+    import { startUpdatingIframeHref } from "@/util/iframe";
+      startThemeDriver();
+      startUpdatingIframeHref();
+    document.addEventListener("astro:after-swap", () => {
+      startThemeDriver();
+      startUpdatingIframeHref();
+    })
   </script>
 
   <style is:global>
@@ -134,17 +85,71 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
       margin: 0;
     }
 
+    .docs-get-started-chip {
+      overflow: hidden;
+       
+
+      & .text-container {
+        transition: all 0.15s ease-in-out;
+        position: relative;
+        top: 45px;
+      }
+
+      & p {
+        color: var(--pluto-gray-p1);
+      }
+
+      :hover {
+        & p {
+          opacity: 1;
+        }
+
+        & .text-container {
+          top: 0px;
+        }
+      }
+    }
+
+    
+
+    .table-of-contents {
+      & h5 {
+        font-weight: 500;
+      }
+
+      & .pluto-menu-item {
+        margin: 1rem 0;
+        white-space: normal;
+        height: fit-content;
+        & small {
+          color: var(--pluto-gray-p2) !important;
+        }
+
+        &.pluto--selected {
+          background: none !important;
+          & small {
+            font-weight: 600 !important;
+          }
+        }
+      }
+    }
+
     .search-box {
       z-index: 1000;
       & input {
-        width: 500px;
+        width: 50vw;
+        max-width: 700px;
       }
+
+      --box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+
 
       &.pluto--visible {
         position: fixed;
           left: 50%;
           transform: translateX(-50%);
-          box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+          box-shadow: var(--box-shadow);
+
           & input  {
             width: 80vw;
             max-width: 900px;
@@ -156,9 +161,12 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
           position: absolute;
           left: 0 !important;
           top: 40px !important;
-          box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+          box-shadow: var(--box-shadow);
           background-color: var(--pluto-background-color);
-          border-radius: var(--pluto-border-radius) !important;
+
+          .hovered {
+            background-color: var(--pluto-gray-m3);
+          }
 
           & .search-result {
             &:hover {
@@ -187,8 +195,8 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
       --max-width: 1300px;
       --astro-code-color-text: var(--pluto-text-color);
       --astro-code-color-background: var(--pluto-gray-m4);
-      --astro-code-color-comment: var(--pluto-text-color);
-      --astro-code-token-string-expression: #ffc43d;
+      --astro-code-token-comment: var(--pluto-gray-m0);
+      --astro-code-token-string-expression: #00b023;
       --astro-code-token-function: #20a4f3;
       --astro-code-token-punctuation: var(--pluto-text-color);
       --astro-code-token-keyword: #dc136c;
@@ -201,7 +209,7 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
 
     .pluto-tree {
       .pluto-text {
-        color: var(--pluto-gray-p1);
+        color: var(--pluto-gray-p2);
         font-size: var(--pluto-small-size);
         line-height: var(--pluto-small-line-height);
         font-weight: var(--pluto-small-weight);
@@ -225,7 +233,8 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
         }
       
         &:not(.pluto--has-children) {
-          border-left: 1px solid var(--pluto-gray-m3);
+          border-left: 1px solid var(--pluto-gray-m2);
+          border-radius: 0 !important;
 
           &.pluto--selected {
             border-left: 2px solid var(--pluto-primary-p1);
@@ -242,8 +251,9 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
         }
       }
 
+
       .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-p0)
+        fill: var(--pluto-gray-m0) !important;
       }
 
       
@@ -343,7 +353,7 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
       padding: 3rem;
       position: relative;
       border-radius: var(--pluto-border-radius);
-      margin: 2rem 1rem;
+      margin: 3rem 1rem;
       overflow-x: auto !important;
       overflow-y: visible !important;
     }
@@ -437,6 +447,11 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
       background-color: var(--pluto-primary-p1);
     }
 
+    .article-description {
+      color: var(--pluto-gray-p2);
+      font-weight: 350;
+    }
+
     h1 {
       padding-bottom: 1rem;
     }
@@ -509,9 +524,13 @@ vars = { ...vars, ...Theming.toCSSVars(LIGHT) }
       height: calc(100% - 10rem);
     }
 
-    nav {
-      padding: 20px 0px;
+    nav:first-child {
       flex-basis: 210px;
+    }
+
+    nav {
+      padding: 3rem 0;
+      flex-basis: 235px;
       overflow-y: auto;
     }
 

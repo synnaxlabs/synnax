@@ -30,5 +30,10 @@ export const analyzeNav: PageNavNode = {
       href: "/analyze/read-telemetry",
       name: "Read Telemetry",
     },
+    {
+      key: "/analyze/named-ranges",
+      href: "/analyze/named-ranges",
+      name: "Named Ranges",
+    }
   ],
 };
