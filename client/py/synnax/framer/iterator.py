@@ -9,9 +9,9 @@
 
 from enum import Enum
 
+from alamos import NOOP, Instrumentation, trace
 from freighter import EOF, ExceptionPayload, Payload, Stream, StreamClient
 
-from alamos import trace, Instrumentation, NOOP
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter

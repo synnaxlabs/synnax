@@ -12,28 +12,28 @@ from typing import overload
 
 from numpy import ndarray
 from pydantic import PrivateAttr
-from synnax.exceptions import ValidationError
+
 from synnax.channel.create import ChannelCreator
 from synnax.channel.payload import (
-    normalize_channel_params,
-    ChannelPayload,
-    ChannelParams,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.exceptions import QueryError
+from synnax.exceptions import QueryError, ValidationError
 from synnax.framer.client import Client
 from synnax.telem import (
-    Rate,
     CrudeDataType,
     CrudeRate,
-    DataType,
-    TimeRange,
-    Series,
     CrudeTimeStamp,
+    DataType,
+    Rate,
+    Series,
+    TimeRange,
 )
 
 

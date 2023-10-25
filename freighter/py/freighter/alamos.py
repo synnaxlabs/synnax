@@ -8,13 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from alamos import Instrumentation
+
 from freighter.context import Context, Role
-from freighter.transport import (
-    Middleware,
-    Next,
-    AsyncMiddleware,
-    AsyncNext,
-)
+from freighter.transport import AsyncMiddleware, AsyncNext, Middleware, Next
 
 
 def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:

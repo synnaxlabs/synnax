@@ -8,7 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-from freighter import UnaryClient, Payload
+
+from freighter import Payload, UnaryClient
+
 from synnax.util.normalize import normalize
 
 

@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
-
 from alamos import Instrumentation
 from alamos.dev import instrumentation as dev_instrumentation
+
 from freighter import URL
 
 

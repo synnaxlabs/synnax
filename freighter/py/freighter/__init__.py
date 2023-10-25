@@ -10,26 +10,32 @@ __version__ = "0.2.14"
 #  included in the file licenses/APL.txt.
 
 from freighter.alamos import (
-    instrumentation_middleware,
     async_instrumentation_middleware,
+    instrumentation_middleware,
 )
 from freighter.context import Context, Role
-from freighter.encoder import EncoderDecoder, MsgpackEncoder, JSONEncoder
-from freighter.exceptions import EOF, ExceptionPayload, StreamClosed
-from freighter.exceptions import register_exception, encode_exception, decode_exception
+from freighter.encoder import EncoderDecoder, JSONEncoder, MsgpackEncoder
+from freighter.exceptions import (
+    EOF,
+    ExceptionPayload,
+    StreamClosed,
+    decode_exception,
+    encode_exception,
+    register_exception,
+)
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.sync import SyncStreamClient
 from freighter.transport import (
-    Payload,
-    Transport,
-    Middleware,
-    Next,
-    Finalizer,
+    AsyncFinalizer,
     AsyncMiddleware,
     AsyncNext,
-    AsyncFinalizer,
+    Finalizer,
+    Middleware,
     MiddlewareCollector,
+    Next,
+    Payload,
+    Transport,
 )
 from freighter.unary import UnaryClient
 from freighter.url import URL

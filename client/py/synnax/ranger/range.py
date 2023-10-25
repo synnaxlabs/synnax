@@ -14,21 +14,22 @@ from uuid import UUID
 
 import numpy as np
 from pydantic import PrivateAttr
+
 from synnax.channel import (
-    ChannelRetriever,
-    ChannelPayload,
-    ChannelKeys,
-    ChannelNames,
     ChannelKey,
+    ChannelKeys,
     ChannelName,
+    ChannelNames,
     ChannelParams,
+    ChannelPayload,
+    ChannelRetriever,
 )
-from synnax.ranger.payload import RangePayload
-from synnax.telem import TimeRange, Series
-from synnax.framer import Client, Frame
 from synnax.exceptions import QueryError
-from synnax.ranger.kv import KV
+from synnax.framer import Client, Frame
 from synnax.ranger.alias import Aliaser
+from synnax.ranger.kv import KV
+from synnax.ranger.payload import RangePayload
+from synnax.telem import Series, TimeRange
 
 
 class RangeChannel(ChannelPayload):

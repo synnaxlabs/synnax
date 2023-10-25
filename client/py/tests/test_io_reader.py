@@ -9,13 +9,13 @@
 
 import pathlib
 
+import numpy as np
 import pytest
+from nptdms import ChannelObject, GroupObject, RootObject, TdmsWriter
 
 from synnax.io import IO_FACTORY
-from synnax.io.protocol import RowFileReader, ColumnFileReader
+from synnax.io.protocol import ColumnFileReader, RowFileReader
 from synnax.io.tdms import TDMSReader
-from nptdms import TdmsWriter, RootObject, GroupObject, ChannelObject
-import numpy as np
 
 BASE_DIR = pathlib.Path("./tests/testdata/io")
 VALID_FILE = BASE_DIR / "valid"

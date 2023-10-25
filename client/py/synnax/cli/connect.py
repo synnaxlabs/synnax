@@ -10,10 +10,10 @@
 from freighter.exceptions import Unreachable
 
 from synnax import Synnax
-from synnax.options import SynnaxOptions
-from synnax.exceptions import AuthError
-from synnax.config import load_options
 from synnax.cli.flow import Context
+from synnax.config import load_options
+from synnax.exceptions import AuthError
+from synnax.options import SynnaxOptions
 
 
 def prompt_client_options(ctx: Context) -> SynnaxOptions:

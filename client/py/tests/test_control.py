@@ -10,8 +10,9 @@
 import threading
 import time
 
-import synnax as sy
 import pytest
+
+import synnax as sy
 
 
 def create_valve_set(

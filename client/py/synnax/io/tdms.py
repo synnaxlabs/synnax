@@ -7,25 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from math import ceil
+from pathlib import Path
 from typing import Iterator
 
-from pathlib import Path
-
 import pandas as pd
+from nptdms import TdmsChannel, TdmsFile, TdmsGroup
 from pandas.io.parsers import TextFileReader
+
 from synnax.exceptions import ValidationError
-
-from nptdms import TdmsFile, TdmsGroup, TdmsChannel
-
-from math import ceil
-
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import (
-    ChannelMeta,
-    ReaderType,
-    File,
     BaseReader,
+    ChannelMeta,
     ColumnFileReader,
+    File,
+    ReaderType,
 )
 
 TDMSMatcher = new_extension_matcher(["tdms"])

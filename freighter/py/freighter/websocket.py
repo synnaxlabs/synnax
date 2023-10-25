@@ -8,16 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 import ssl
+from typing import Any, Generic, Literal, Type
+
 from pydantic import BaseModel
-from typing import Generic, Type, Any, Literal
-from websockets.client import connect, WebSocketClientProtocol
+from websockets.client import WebSocketClientProtocol, connect
 from websockets.exceptions import ConnectionClosedOK
 
 from freighter.context import Context
 from freighter.encoder import EncoderDecoder
 from freighter.exceptions import EOF, ExceptionPayload, StreamClosed, decode_exception
 from freighter.stream import AsyncStream, AsyncStreamClient
-from freighter.transport import RQ, RS, P, AsyncMiddlewareCollector
+from freighter.transport import RQ, RS, AsyncMiddlewareCollector, P
 from freighter.url import URL
 
 
@@ -169,7 +170,7 @@ class WebsocketClient(AsyncMiddlewareCollector):
             out_ctx = Context(target, "websocket", "client")
             headers.update(ctx.params)
             try:
-                if (self.__secure and "ssl" not in self.__kwargs):
+                if self.__secure and "ssl" not in self.__kwargs:
                     self.__kwargs["ssl"] = ssl._create_unverified_context()
                 ws = await connect(
                     self.__endpoint.child(target).stringify(),
