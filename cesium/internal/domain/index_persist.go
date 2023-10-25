@@ -34,14 +34,16 @@ func openIndexPersist(idx *index, cfg Config) (*indexPersist, error) {
 	return ip, err
 }
 
-func (f *indexPersist) onChange(ctx context.Context, update indexUpdate) {
+func (f indexPersist) onChange(ctx context.Context, update indexUpdate) {
 	ctx, span := f.T.Bench(ctx, "onChange")
 	var encoded []byte
 	f.idx.read(func() {
 		encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
 	})
-
-	_, err := f.WriteAt(encoded, int64(update.afterIndex*pointerByteSize))
+	var err error
+	if len(encoded) != 0 {
+		_, err = f.WriteAt(encoded, int64(update.afterIndex*pointerByteSize))
+	}
 
 	_ = span.EndWith(err)
 	if err != nil {
@@ -56,10 +58,11 @@ func (f *indexPersist) load() ([]pointer, error) {
 		return nil, err
 	}
 
-	var b []byte
-	_, err = f.ReadAt(b, size)
-	if err != nil {
-		return nil, err
+	b := make([]byte, size)
+	if len(b) != 0 {
+		if _, err = f.ReadAt(b, 0); err != nil {
+			return nil, err
+		}
 	}
 	return f.decode(b), nil
 }

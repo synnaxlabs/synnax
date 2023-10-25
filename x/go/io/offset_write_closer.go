@@ -9,20 +9,41 @@
 
 package io
 
+import (
+	"errors"
+	"github.com/synnaxlabs/x/io/fs"
+	"io"
+	"os"
+)
+
 type offsetWriteCloser struct {
-	WriteSeekCloser
+	fs.File
 	// offset stores the offset of the write cursor at the start of the write.
 	offset int64
 	// len stores the number of bytes written by the writer.
 	len int64
 }
 
-func NewOffsetWriteCloser(f WriteSeekCloser, seek int) (OffsetWriteCloser, error) {
-	off, err := f.Seek(0, seek)
+func NewOffsetWriteCloser(f fs.File, seek int) (OffsetWriteCloser, error) {
+	var err error
+	var offset int64
+	switch seek {
+	default:
+		offset = 0
+		err = errors.New("Whence error: not between 0 and 2")
+	case io.SeekStart:
+		offset = 0
+	case io.SeekCurrent:
+		offset = 0
+	case io.SeekEnd:
+		var info os.FileInfo
+		info, err = f.Stat()
+		offset = info.Size()
+	}
 	return &offsetWriteCloser{
-		WriteSeekCloser: f,
-		offset:          off,
-		len:             0,
+		File:   f,
+		offset: offset,
+		len:    0,
 	}, err
 }
 
@@ -36,7 +57,9 @@ func (o *offsetWriteCloser) Len() int64 { return o.len }
 func (o *offsetWriteCloser) Offset() int64 { return o.offset }
 
 func (o *offsetWriteCloser) Write(p []byte) (n int, err error) {
-	n, err = o.WriteSeekCloser.Write(p)
+	n, err = o.WriteAt(p, o.offset)
 	o.len += int64(n)
+	b := make([]byte, 12)
+	_, err = o.Read(b)
 	return n, err
 }
