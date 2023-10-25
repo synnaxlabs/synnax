@@ -179,6 +179,7 @@ export const Icon: IconType = {
   Rename: BiRename,
   Snapshot: MdPictureInPicture,
   Sync: AiOutlineSync,
+  Search: PiMagnifyingGlassBold,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -270,4 +271,5 @@ export interface IconType {
   Snapshot: IconFC;
   Loading: IconFC;
   Sync: IconFC;
+  Search: IconFC;
 }

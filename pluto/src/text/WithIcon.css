@@ -55,13 +55,9 @@
 }
 
 .pluto-text-icon--small svg {
-    width: var(--pluto-small-line-height);
-    min-width: var(--pluto-small-line-height);
-    height: var(--pluto-small-line-height);
+    width: var(--pluto-small-size);
+    min-width: var(--pluto-small-size);
+    height: var(--pluto-small-size);
 }
 
-.pluto-text-icon--small svg {
-    width: var(--pluto-tiny-line-height);
-    min-width: var(--pluto-tiny-line-height);
-    height: var(--pluto-tiny-line-height);
-}
+

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, cloneElement, type ReactElement } from "react";
+import { Children, cloneElement, type ReactNode, type ReactElement } from "react";
 
 import { toArray } from "@synnaxlabs/x";
 
@@ -21,8 +21,6 @@ import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 
-type ValidChild = string | number | ReactElement;
-
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends Level = "h1",
@@ -30,7 +28,7 @@ export type WithIconProps<
   Omit<CoreProps<L>, "children"> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
-    children?: ValidChild | ValidChild[];
+    children?: ReactNode;
     divided?: boolean;
     noWrap?: boolean;
   };
@@ -90,15 +88,16 @@ const formatIcons = (
   );
 };
 
-const formatChildren = <L extends Level>(
+export const formatChildren = <L extends Level>(
   level: L,
-  children: ValidChild | ValidChild[] = [],
+  children: ReactNode = [],
   color?: string,
 ): ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];
-  let buff: Array<string | number> = [];
+  let buff: Array<string | number | boolean | Iterable<ReactNode>> = [];
   arr.forEach((child) => {
+    if (child == null) return;
     if (
       typeof child === "string" ||
       typeof child === "number" ||

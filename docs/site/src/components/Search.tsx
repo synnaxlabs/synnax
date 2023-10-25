@@ -6,6 +6,7 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
+import { Icon } from "@synnaxlabs/media";
 
 interface SearchResult {
   key: string;
@@ -72,8 +73,11 @@ export const Search = () => {
       <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth>
         <Input.Text
           ref={inputRef}
-          size="small"
-          placeholder="Search the documentation..."
+          placeholder={
+            <Text.WithIcon level="small" startIcon={<Icon.Search />}>
+              Search Synnax
+            </Text.WithIcon>
+          }
           value={value}
           onChange={handleSearch}
           onFocus={() => {

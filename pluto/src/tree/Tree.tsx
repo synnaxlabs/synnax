@@ -24,8 +24,6 @@ import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
-import { compare } from "@/util/compare";
-
 import "@/tree/Tree.css";
 
 export const HAUL_TYPE = "tree-item";
@@ -136,6 +134,7 @@ export interface TreeProps
   selected?: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
+  virtual?: boolean;
 }
 
 const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
@@ -261,8 +260,10 @@ export const Tree = ({
   children = defaultChild,
   itemHeight = 27,
   useMargin = false,
+  virtual = true,
   ...props
 }: TreeProps): ReactElement => {
+  const Core = virtual ? List.Core.Virtual : List.Core;
   return (
     <List.List<string, FlattenedNode> data={nodes}>
       <List.Selector
@@ -271,7 +272,7 @@ export const Tree = ({
         allowMultiple
         replaceOnSingle
       />
-      <List.Core.Virtual<string, FlattenedNode>
+      <Core<string, FlattenedNode>
         itemHeight={itemHeight}
         className={CSS(className, CSS.B("tree"))}
         {...props}
@@ -287,7 +288,7 @@ export const Tree = ({
             onDoubleClick,
           })
         }
-      </List.Core.Virtual>
+      </Core>
     </List.List>
   );
 };

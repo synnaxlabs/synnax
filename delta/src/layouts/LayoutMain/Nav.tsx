@@ -71,7 +71,7 @@ const NavTopPalette = (): ReactElement => {
       commands={COMMANDS}
       searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
-      resourceTypes={SERVICES}
+      services={SERVICES}
       commandSymbol=">"
     />
   );

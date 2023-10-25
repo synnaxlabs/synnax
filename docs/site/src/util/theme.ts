@@ -20,7 +20,7 @@ export const applyCSSVars = (
 const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   const m = { ...theme };
   m.sizes.base = 7;
-  m.typography.small.lineHeight = m.typography.small.size * 1.5;
+  m.typography.small.lineHeight = m.typography.small.size * 1.3;
   m.typography.p.lineHeight = m.typography.p.size * 1.7;
   m.typography.small.weight = 350;
   m.typography.p.weight = 350;

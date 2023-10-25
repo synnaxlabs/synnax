@@ -10,7 +10,7 @@
  */
 
 .pluto-dropdown {
-    :is(button, input):first-child:is(:focus,:active,:hover) {
+    :is(button, input, .pluto-input):first-child:is(:focus,:focus-within,:hover) {
         z-index: 5;
     }
 }

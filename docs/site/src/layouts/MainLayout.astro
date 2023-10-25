@@ -85,6 +85,15 @@ const {
       margin: 0;
     }
 
+    nav {
+      & p, small {
+        white-space: normal !important;
+      }
+      & small {
+        margin-top: 2px !important;
+      }
+    }
+
     .docs-get-started-chip {
       overflow: hidden;
        
@@ -136,7 +145,7 @@ const {
 
     .search-box {
       z-index: 1000;
-      & input {
+      & .pluto-input {
         width: 50vw;
         max-width: 700px;
       }
@@ -150,7 +159,7 @@ const {
           transform: translateX(-50%);
           box-shadow: var(--box-shadow);
 
-          & input  {
+          & .pluto-input  {
             width: 80vw;
             max-width: 900px;
             height: 40px;
@@ -219,8 +228,10 @@ const {
 
 
       .pluto-btn {
-        height: 32px;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
         background: none !important;
+        height: auto;
 
         &:hover {
             & .pluto-text {

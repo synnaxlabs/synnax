@@ -19,11 +19,14 @@ class Noop implements telem.Telem {
   setProps(): void {}
   cleanup(): void {}
   invalidate(): void {}
+
+  constructor(key: string, type: string) {
+    this.key = key;
+    this.type = type;
+  }
 }
 
 class BooleanSink extends Noop implements telem.BooleanSink {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-boolean-sink";
 
   async setBoolean(): Promise<void> {
@@ -38,8 +41,6 @@ export const booleanSinkSpec: telem.BooleanSinkSpec = {
 };
 
 class NumericSink extends Noop implements telem.NumericSink {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-numeric-sink";
 
   async setNumber(): Promise<void> {
@@ -54,8 +55,6 @@ export const numericSinkSpec: telem.NumericSinkSpec = {
 };
 
 class BooleanSource extends Noop implements telem.BooleanSource {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-boolean-source";
 
   async boolean(): Promise<boolean> {
@@ -72,8 +71,6 @@ export const booleanSourceSpec: telem.BooleanSourceSpec = {
 };
 
 class NumericSource extends Noop implements telem.NumericSource {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-numeric-source";
 
   async number(): Promise<number> {
@@ -90,8 +87,6 @@ export const numericSourceSpec: telem.NumericSourceSpec = {
 };
 
 class StringSource extends Noop implements telem.StringSource {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-string-source";
 
   async string(): Promise<string> {
@@ -108,8 +103,6 @@ export const stringSourceSpec: telem.StringSourceSpec = {
 };
 
 class StatusSource extends Noop implements telem.StatusSource {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-status-source";
 
   async status(): Promise<status.Spec> {
@@ -131,8 +124,6 @@ export const statusSourceSpec: telem.StatusSourceSpec = {
 };
 
 class ColorSource extends Noop implements telem.ColorSource {
-  key: string;
-  type: string;
   static readonly TYPE = "noop-color-source";
 
   async color(): Promise<color.Color> {
@@ -148,20 +139,21 @@ export const colorSourceSpec: telem.ColorSourceSpec = {
   variant: "color-source",
 };
 
-const REGISTRY: Record<string, telem.Telem> = {
-  [BooleanSink.TYPE]: new BooleanSink(),
-  [NumericSink.TYPE]: new NumericSink(),
-  [BooleanSource.TYPE]: new BooleanSource(),
-  [NumericSource.TYPE]: new NumericSource(),
-  [StatusSource.TYPE]: new StatusSource(),
-  [ColorSource.TYPE]: new ColorSource(),
-  [StringSource.TYPE]: new StringSource(),
+const REGISTRY: Record<string, (k: string) => telem.Telem> = {
+  [BooleanSink.TYPE]: (k) => new BooleanSink(k, BooleanSink.TYPE),
+  [NumericSink.TYPE]: (k) => new NumericSink(k, NumericSink.TYPE),
+  [BooleanSource.TYPE]: (k) => new BooleanSource(k, BooleanSource.TYPE),
+  [NumericSource.TYPE]: (k) => new NumericSource(k, NumericSource.TYPE),
+  [StatusSource.TYPE]: (k) => new StatusSource(k, StatusSource.TYPE),
+  [ColorSource.TYPE]: (k) => new ColorSource(k, ColorSource.TYPE),
+  [StringSource.TYPE]: (k) => new StringSource(k, StringSource.TYPE),
 };
 
 export class Factory implements telem.Factory {
-  create(_: string, spec: telem.Spec): telem.Telem | null {
-    const t = REGISTRY[spec.type];
-    if (t == null) return null;
+  create(key: string, spec: telem.Spec): telem.Telem | null {
+    const f = REGISTRY[spec.type];
+    if (f == null) return null;
+    const t = f(key);
     t.setProps(spec.props);
     return t;
   }

@@ -11,7 +11,12 @@
 
 .pluto-select-multiple {
     width: 100%;
-    background-color: var(--pluto-gray-m4);
+
+    & .pluto-input {
+        width: 200px;
+        flex-shrink: 0;
+        flex-grow: 0 !important;
+    }
 }
 
 .pluto-select-multiple.pluto-haul-drop-region > * {
@@ -19,14 +24,9 @@
     border-color: var(--haul-border-color) !important;
 }
 
-.pluto-select-multiple__input {
-    width: 200px;
-    flex-shrink: 0;
-    flex-grow: 0 !important;
-}
-
 .pluto-select-multiple__tags {
     padding: 0.25rem 1rem;
+    background-color: var(--pluto-gray-m4);
     overflow-x: scroll;
     flex-wrap: wrap;
 }

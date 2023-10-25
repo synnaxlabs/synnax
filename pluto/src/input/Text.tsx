@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef } from "react";
+import { type ReactNode, forwardRef, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
@@ -18,7 +18,6 @@ import "@/input/Input.css";
 export interface TextProps extends BaseProps<string> {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
-  placeholder?: ReactElement;
 }
 
 /**
@@ -37,6 +36,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     {
       size = "medium",
       value,
+      style,
       onChange,
       className,
       onFocus,
@@ -49,25 +49,37 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     },
     ref,
   ) => (
-    <input
-      ref={ref}
-      value={value}
+    <div
+      style={style}
       className={CSS(
         CSS.B("input"),
         CSS.size(size),
         CSS.BM("input", variant),
         CSS.sharp(sharp),
-        centerPlaceholder && CSS.BM("input", "placeholder-centered"),
         className,
       )}
-      onChange={(e) => onChange(e.target.value)}
-      onFocus={(e) => {
-        if (selectOnFocus) e.target.select();
-        onFocus?.(e);
-      }}
-      placeholder={placeholder}
-      {...props}
-    />
+    >
+      {(value == null || value.length === 0) && (
+        <div
+          className={CSS(
+            CSS.BE("input", "placeholder"),
+            centerPlaceholder && CSS.M("centered"),
+          )}
+        >
+          {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
+        </div>
+      )}
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => {
+          if (selectOnFocus) e.target.select();
+          onFocus?.(e);
+        }}
+        {...props}
+      />
+    </div>
   ),
 );
 Text.displayName = "Input";

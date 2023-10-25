@@ -12,15 +12,14 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/aetherIndex";
-import { color } from "@/color/core";
-import { noop } from "@/index";
 import { telem } from "@/telem/core";
+import { noop } from "@/telem/noop";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 export const tableSourceZ = z.object({
   key: z.string(),
-  valueSource: telem.stringSpecZ.default(noop.stringSourceSpec),
+  valueSource: telem.stringSpecZ.optional().default(noop.stringSourceSpec),
 });
 
 export const tableStateZ = z.object({
