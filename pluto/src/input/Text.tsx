@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode, forwardRef, ReactElement } from "react";
+import { forwardRef } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
@@ -77,6 +77,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           if (selectOnFocus) e.target.select();
           onFocus?.(e);
         }}
+        placeholder={placeholder as string}
         {...props}
       />
     </div>

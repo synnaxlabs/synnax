@@ -19,6 +19,14 @@
     width: 100%;
 
     & input {
+        &::-webkit-input-placeholder {
+            color: transparent;
+        }
+
+        &::placeholder {
+            color: transparent;
+        }
+
         border: none;
         background: transparent;
         width: 100%;
