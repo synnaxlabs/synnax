@@ -753,16 +753,14 @@ export class Density extends Number implements Stringer {
 
   /** Unknown/Invalid Density. */
   static readonly UNKNOWN = new Density(0);
-
+  /** 128 bits per value. */
+  static readonly BIT128 = new Density(16);
   /** 64 bits per value. */
   static readonly BIT64 = new Density(8);
-
   /** 32 bits per value. */
   static readonly BIT32 = new Density(4);
-
   /** 16 bits per value. */
   static readonly BIT16 = new Density(2);
-
   /** 8 bits per value. */
   static readonly BIT8 = new Density(1);
 
@@ -1001,6 +999,14 @@ export class DataType extends String implements Stringer {
   static readonly UINT8 = new DataType("uint8");
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
+  /** Represents a UUID data type */
+  static readonly UUID = new DataType("uuid");
+  /** Represents a string data type. Strings have an unknown density, and are separate
+   * by a newline character. */
+  static readonly STRING = new DataType("string");
+  /** Represents a JSON data type. JSON has an unknown density, and is separated by a
+   * newline character. */
+  static readonly JSON = new DataType("json");
 
   static readonly ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> =
     new Map<string, NativeTypedArrayConstructor>([
@@ -1015,6 +1021,9 @@ export class DataType extends String implements Stringer {
       [DataType.INT32.toString(), Int32Array],
       [DataType.INT64.toString(), BigInt64Array],
       [DataType.TIMESTAMP.toString(), BigInt64Array],
+      [DataType.STRING.toString(), Uint8Array],
+      [DataType.JSON.toString(), Uint8Array],
+      [DataType.UUID.toString(), Uint8Array],
     ]);
 
   static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
@@ -1045,6 +1054,9 @@ export class DataType extends String implements Stringer {
     [DataType.INT32.toString(), Density.BIT32],
     [DataType.INT64.toString(), Density.BIT64],
     [DataType.TIMESTAMP.toString(), Density.BIT64],
+    [DataType.STRING.toString(), Density.UNKNOWN],
+    [DataType.JSON.toString(), Density.UNKNOWN],
+    [DataType.UUID.toString(), Density.BIT128],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];

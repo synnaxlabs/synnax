@@ -16,9 +16,9 @@ import { type FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
+import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { render } from "@/vis/render";
-import { tooltip } from "@/vis/tooltip/aether";
 
 export const linePlotStateZ = z.object({
   container: box.box,

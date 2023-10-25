@@ -84,3 +84,17 @@ func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
 		KeySize:       viper.GetInt("key-size"),
 	}
 }
+
+func generateAutoCerts(ins alamos.Instrumentation) error {
+	cfg := buildCertFactoryConfig(ins)
+	cfg.Hosts = []address.Address{address.Address(viper.GetString("listen"))}
+	factory, err := cert.NewFactory(cfg)
+	if err != nil {
+		return err
+	}
+	err = factory.CreateCAPairIfMissing()
+	if err != nil {
+		return err
+	}
+	return factory.CreateNodePairIfMissing()
+}

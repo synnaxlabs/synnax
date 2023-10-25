@@ -16,7 +16,7 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import {
-  Compare,
+  compare,
   type Destructor,
   type Series,
   TimeRange,
@@ -284,7 +284,7 @@ export class Core implements Client {
     }
 
     const arrKeys = Array.from(keys);
-    if (Compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === Compare.EQUAL)
+    if (compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === compare.EQUAL)
       return;
 
     // Update or create the streamer.

@@ -32,13 +32,13 @@ import "@/layouts/LayoutMain/LayoutMain.css";
 const createNewVis = (
   placer: Layout.Placer,
   mosaicKey: number,
-  loc: location.Location
+  loc: location.Location,
 ): void => {
   placer(Vis.create({ tab: { mosaicKey, location: loc }, location: "mosaic" }));
 };
 
 /**
- * The center of it all. This is the main layout for the Delta UI. Try to keep this
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): ReactElement => {
@@ -70,7 +70,7 @@ export const LayoutMain = (): ReactElement => {
         } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
       });
     },
-    [placer, store, client]
+    [placer, store, client],
   );
 
   return (

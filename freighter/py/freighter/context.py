@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
-from typing import MutableMapping, Any, Literal
+from typing import Any, Literal, MutableMapping
 
 Role = Literal["client", "server"]
 

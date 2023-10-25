@@ -154,7 +154,7 @@ export class Context extends render.GLProgram {
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
-    this.ctx.gl.vertexAttribDivisor(loc, 1);
+    gl.vertexAttribDivisor(loc, 1);
     return translationBuffer.length / 2;
   }
 }

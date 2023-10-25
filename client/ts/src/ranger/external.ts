@@ -12,3 +12,4 @@ export * from "@/ranger/writer";
 export * from "@/ranger/payload";
 export * from "@/ranger/range";
 export * from "@/ranger/retriever";
+export type { Alias, AliasChange } from "@/ranger/alias";

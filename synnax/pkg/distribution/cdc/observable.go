@@ -35,12 +35,12 @@ import (
 type ObservableConfig struct {
 	// Name is an optional name for the CDC pipeline, used for debugging purposes.
 	Name string
-	// Set is the channel used to propagate set operations. Only Name and DataType
+	// Set is the channel used to propagate set operations. Only Name and SetDataType
 	// need to be provided. The config will automatically set Leaseholder to Free
 	// and Virtual to true.
 	Set channel.Channel
 	// Delete is the channel used to propagate delete operations. Only Name and
-	// DataType need to be provided. The config will automatically set Leaseholder
+	// SetDataType need to be provided. The config will automatically set Leaseholder
 	// to Free and Virtual to true.
 	Delete channel.Channel
 	// Observable is the observable used to subscribe to changes. This observable should

@@ -9,13 +9,10 @@
 
 import { useEffect, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { Icon } from "@synnaxlabs/media";
 import { dimensions, direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Space } from "@/align/Space";
-import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";

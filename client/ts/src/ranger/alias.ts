@@ -8,10 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { cdc } from "@/cdc";
+import { type channel } from "@/channel";
 import { keyZ as channelKeyZ, type Key as ChannelKey } from "@/channel/payload";
+import { type Client as FrameClient } from "@/framer/client";
 import { type Key, keyZ } from "@/ranger/payload";
+
+export const ALIAS_SET_NAME = "sy_range_alias_set";
+export const ALIAS_DELETE_NAME = "sy_range_alias_delete";
 
 const resolveReqZ = z.object({
   range: keyZ,
@@ -49,14 +56,16 @@ export class Aliaser {
   private static readonly RESOLVE_ENDPOINT = "/range/alias/resolve";
   private static readonly LIST_ENDPOINT = "/range/alias/list";
   private static readonly DELETE_ENDPOINT = "/range/alias/delete";
+  private readonly frameClient: FrameClient;
   private readonly cache = new Map<string, ChannelKey>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;
 
-  constructor(rangeKey: Key, client: UnaryClient) {
+  constructor(rangeKey: Key, frameClient: FrameClient, client: UnaryClient) {
     this.rangeKey = rangeKey;
     this.cache = new Map();
     this.client = client;
+    this.frameClient = frameClient;
   }
 
   resolve(aliases: string): Promise<ChannelKey>;
@@ -126,4 +135,49 @@ export class Aliaser {
       deleteResZ,
     );
   }
+
+  async openChangeTracker(): Promise<cdc.Observable<string, Alias>> {
+    return await cdc.Observable.open<string, Alias>(
+      this.frameClient,
+      ALIAS_SET_NAME,
+      ALIAS_DELETE_NAME,
+      decodeAliasChanges(this.rangeKey),
+    );
+  }
 }
+
+export interface Alias {
+  range: Key;
+  channel: channel.Key;
+  alias: string;
+}
+
+export type AliasChange = change.Change<string, Alias>;
+
+const aliasZ = z.object({
+  range: keyZ,
+  channel: channelKeyZ,
+  alias: z.string(),
+});
+
+const aliasSeparator = "---";
+
+const decodeAliasChanges =
+  (rangeKey: Key): cdc.Decoder<string, Alias> =>
+  (variant, data) => {
+    if (variant === "delete") {
+      return data
+        .toStrings()
+        .filter((k) => k.split(aliasSeparator)[0] === rangeKey)
+        .map((alias) => ({
+          variant,
+          key: alias,
+          value: undefined,
+        }));
+    }
+    return data.parseJSON(aliasZ).map((alias) => ({
+      variant,
+      key: alias.alias,
+      value: alias,
+    }));
+  };

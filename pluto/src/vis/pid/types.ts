@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { xy } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
 
 import { type Color } from "@/color";
-import { xy } from "@synnaxlabs/x";
 
 export interface Viewport {
   position: xy.XY;
@@ -32,6 +32,7 @@ export interface Node {
   key: string;
   position: xy.XY;
   selected?: boolean;
+  zIndex?: number;
 }
 
 export const translateNodesForward = (nodes: Node[]): rf.Node[] =>

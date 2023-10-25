@@ -9,24 +9,23 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload, cast
-
-from pandas import DataFrame
+from typing import Literal, cast, overload
 
 from freighter import Payload
+from pandas import DataFrame
 from pydantic import Field
 
-from synnax.telem import Series, TimeRange, TypedCrudeSeries
 from synnax.channel.payload import (
-    ChannelKeys,
-    ChannelNames,
     ChannelKey,
+    ChannelKeys,
     ChannelName,
+    ChannelNames,
     ChannelParams,
 )
-from synnax.util.normalize import normalize
-from synnax.util.interop import overload_comparison_operators
 from synnax.exceptions import ValidationError
+from synnax.telem import Series, TimeRange, TypedCrudeSeries
+from synnax.util.interop import overload_comparison_operators
+from synnax.util.normalize import normalize
 
 
 class FramePayload(Payload):

@@ -83,12 +83,9 @@ export const TableOfContents = ({
 
   return (
     <Align.Space
-      style={{
-        paddingLeft: "2rem",
-        transition: "0.2s ease-in-out",
-      }}
+      className="table-of-contents"
     >
-      <Header.Header id={onThisPageID} className="heading" level="h3">
+      <Header.Header id={onThisPageID} className="heading" level="h5">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
       <div ref={toc}>
@@ -98,7 +95,7 @@ export const TableOfContents = ({
             .map((heading) => (
               <Menu.Item.Link
                 href={`#${heading.slug}`}
-                level="p"
+                level="small"
                 key={heading.slug}
                 itemKey={heading.slug}
                 id={heading.slug}

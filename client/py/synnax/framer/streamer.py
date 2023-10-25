@@ -8,21 +8,20 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import (
-    Payload,
-    ExceptionPayload,
-    Stream,
-    StreamClient,
+    EOF,
     AsyncStream,
     AsyncStreamClient,
-    EOF,
+    ExceptionPayload,
+    Payload,
+    Stream,
+    StreamClient,
 )
-
 
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
-from synnax.framer.frame import Frame, FramePayload
 from synnax.framer.adapter import ReadFrameAdapter
-from synnax.telem import TimeStamp, CrudeTimeStamp
+from synnax.framer.frame import Frame, FramePayload
+from synnax.telem import CrudeTimeStamp, TimeStamp
 
 
 class _Request(Payload):

@@ -12,8 +12,8 @@ import { ReactElement } from "react";
 import {
   convertRenderV,
   KeyedRenderableRecord,
-  Bounds,
-  Direction,
+  bounds,
+  direction,
   Key,
 } from "@synnaxlabs/x";
 
@@ -27,7 +27,7 @@ export interface TableColumn<K extends Key, E extends KeyedRenderableRecord<K, E
 export interface TableHighlight<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   key: string;
   columns?: Array<keyof E>;
-  rows?: Bounds;
+  rows?: bounds.Bounds;
   color: string;
 }
 
@@ -133,7 +133,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const elements = [];
   if (upperColors.length > 0) {
-    const background = buildGradient(upperColors, Direction.Y, false);
+    const background = buildGradient(upperColors, "y", false);
     elements.push(
       <div
         style={{
@@ -149,7 +149,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }
 
   const left = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? new Bounds(rows).contains(index) : true;
+    const rowValid = rows != null ? bounds.contains(bounds.construct(rows), index) : true;
     const colValid = columns != null ? columns[0] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
     return rowValid && colValid && !isEnd;
@@ -174,7 +174,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }
 
   const right = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? new Bounds(rows).contains(index) : true;
+    const rowValid = rows != null ? bounds.contains(rows, index) : true;
     const colValid =
       columns != null ? columns[columns.length - 1] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
@@ -184,7 +184,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   const rightColors = right.map(({ color }) => color);
 
   if (rightColors.length > 0) {
-    const background = buildGradient(rightColors, Direction.X, true);
+    const background = buildGradient(rightColors, "x", true);
     elements.push(
       <div
         style={{
@@ -214,7 +214,7 @@ const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
 const buildGradient = (
   colors: string[],
-  direction: Direction,
+  direction: direction.Direction,
   reverse: boolean
 ): string => {
   const count = colors.length;
@@ -224,7 +224,7 @@ const buildGradient = (
     return `${color} ${start}% ${end}%`;
   });
   let dir;
-  if (direction.isX) dir = reverse ? "to right" : "to left";
+  if (direction === "x") dir = reverse ? "to right" : "to left";
   else dir = reverse ? "to top" : "to bottom";
   return `linear-gradient(${dir}, ${gradient.join(", ")})`;
 };

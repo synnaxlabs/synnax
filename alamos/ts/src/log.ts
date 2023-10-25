@@ -78,22 +78,26 @@ export class Logger {
 
   debug(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("debug")) return;
-    console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, kv);
+    if (kv == null) console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg);
+    else console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, kv);
   }
 
   info(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("info")) return;
-    console.log("%cINFO", "color: #005eff;", this.meta.path, msg, kv);
+    if (kv == null) console.log("%cINFO", "color: #005eff;", this.meta.path, msg);
+    else console.log("%cINFO", "color: #005eff;", this.meta.path, msg, kv);
   }
 
   warn(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("warn")) return;
-    console.warn("WARN", this.meta.path, msg, kv);
+    if (kv == null) console.warn("WARN", this.meta.path, msg);
+    else console.warn("WARN", this.meta.path, msg, kv);
   }
 
   error(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("error")) return;
-    console.error("ERROR", this.meta.path, msg, kv);
+    if (kv == null) console.error("ERROR", this.meta.path, msg);
+    else console.error("ERROR", this.meta.path, msg, kv);
   }
 
   static readonly NOOP = new Logger();

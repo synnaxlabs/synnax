@@ -9,7 +9,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Protocol, Iterator
+from typing import Iterator, Protocol
 
 from pandas import DataFrame
 

@@ -9,9 +9,10 @@
 
 
 from typing import Unpack
+
 from synnax.cli.console.sugared import AskKwargs
-from synnax.telem import DataType, TimeSpan, TimeSpanUnits
 from synnax.cli.flow import Context
+from synnax.telem import DataType, TimeSpan, TimeSpanUnits
 
 
 def select_data_type(

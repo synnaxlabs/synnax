@@ -84,6 +84,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           return [outCtx, null];
         }
         try {
+          if (httpRes.status !== 400) return [outCtx, new Error(httpRes.statusText)];
           const err = this.encoder.decode(data, errorZ);
           const decoded = decodeError(err);
           return [outCtx, decoded];

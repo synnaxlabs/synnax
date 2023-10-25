@@ -15,20 +15,20 @@ import pytest
 from pytz import timezone as pytz_timezone
 
 from synnax import (
-    TimeStamp,
-    TimeSpan,
-    Density,
-    DataType,
-    CrudeDataType,
-    CrudeTimeStamp,
-    TimeRange,
     ContiguityError,
-    Rate,
-    CrudeTimeSpan,
-    Size,
+    CrudeDataType,
     CrudeRate,
-    convert_time_units,
+    CrudeTimeSpan,
+    CrudeTimeStamp,
+    DataType,
+    Density,
+    Rate,
+    Size,
+    TimeRange,
+    TimeSpan,
     TimeSpanUnits,
+    TimeStamp,
+    convert_time_units,
 )
 
 _now = TimeStamp.now()

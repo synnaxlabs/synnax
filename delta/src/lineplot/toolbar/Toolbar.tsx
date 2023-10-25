@@ -73,14 +73,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           return <Data layoutKey={layoutKey} />;
       }
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(setActiveToolbarTab({ tab: tabKey as ToolbarTab }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   if (linePlot == null) return null;

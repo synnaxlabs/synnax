@@ -9,14 +9,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast, TypeAlias, get_args, ClassVar
-from math import trunc
-
 from datetime import datetime, timedelta, timezone, tzinfo
-from numpy.typing import DTypeLike
+from math import trunc
+from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
 import numpy as np
 import pandas as pd
+from numpy.typing import DTypeLike
 from pydantic import BaseModel
 
 from synnax.exceptions import ContiguityError

@@ -9,7 +9,17 @@
 
 import { type ReactElement } from "react";
 
-import { Input, Select, Align } from "@synnaxlabs/pluto";
+import {
+  Input,
+  Select,
+  Align,
+  Tabs,
+  componentRenderProp,
+  useMemoCompare,
+  compareArrayDeps,
+  Text,
+} from "@synnaxlabs/pluto";
+import { type direction } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
@@ -22,81 +32,140 @@ export interface AxesProps {
 
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
   const vis = useSelect(layoutKey);
-  const dispatch = useDispatch();
 
-  const handleAxisChange = (key: Vis.AxisKey) => (axis: AxisState) => {
-    dispatch(setAxis({ key: layoutKey, axisKey: key, axis }));
-  };
+  const shouldShow = Object.values(vis.axes)
+    .filter((a) => shouldDisplayAxis(a.key, vis))
+    .map((a) => a.key);
+
+  const tabs = useMemoCompare(
+    () =>
+      shouldShow.map((key) => ({
+        tabKey: key,
+        name: key.toUpperCase(),
+      })),
+    compareArrayDeps,
+    [shouldShow] as [string[]],
+  );
+
+  const t = Tabs.useStatic({
+    tabs,
+  });
 
   return (
-    <Align.Space style={{ padding: "2rem", width: "100%" }}>
-      {Object.entries(vis.axes)
-        .filter(([key]) => shouldDisplayAxis(key as Vis.AxisKey, vis))
-        .map(([key, axis]) => (
+    <Tabs.Tabs {...t} size="small">
+      {(p) => {
+        return (
           <LinePlotAxisControls
-            key={key}
-            axis={axis}
-            axisKey={key as Vis.AxisKey}
-            onChange={handleAxisChange(key as Vis.AxisKey)}
+            key={p.tabKey}
+            axisKey={p.tabKey as Vis.AxisKey}
+            layoutKey={layoutKey}
           />
-        ))}
-    </Align.Space>
+        );
+      }}
+    </Tabs.Tabs>
   );
 };
 
 export interface LinePlotAxisControlsProps {
   axisKey: Vis.AxisKey;
-  axis: AxisState;
-  onChange: (axis: AxisState) => void;
+  layoutKey: string;
 }
 
 export const LinePlotAxisControls = ({
   axisKey,
-  axis,
-  onChange,
+  layoutKey,
 }: LinePlotAxisControlsProps): ReactElement => {
+  const dispatch = useDispatch();
+  const axis = useSelect(layoutKey).axes[axisKey];
+
+  const handleChange = (axis: AxisState): void => {
+    dispatch(setAxis({ key: layoutKey, axisKey, axis }));
+  };
+
   const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
-    onChange({ ...axis, label: value });
+    handleChange({ ...axis, label: value });
   };
 
   const handleLowerBoundChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...axis, bounds: { ...axis.bounds, lower: value } });
+    handleChange({ ...axis, bounds: { ...axis.bounds, lower: value } });
   };
 
   const handleUpperBoundChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...axis, bounds: { ...axis.bounds, upper: value } });
+    handleChange({ ...axis, bounds: { ...axis.bounds, upper: value } });
   };
 
   const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) => {
-    onChange({ ...axis, labelDirection: value });
+    handleChange({ ...axis, labelDirection: value });
+  };
+
+  const handleTickSpacingChange: Input.Control<number>["onChange"] = (value) => {
+    handleChange({ ...axis, tickSpacing: value });
+  };
+
+  const handleLabelLevelChange: Input.Control<Text.Level>["onChange"] = (value) => {
+    handleChange({ ...axis, labelLevel: value });
   };
 
   return (
-    <Align.Space direction="x">
-      <Input.Text
-        value={axis.label}
-        placeholder={axisKey.toUpperCase()}
-        onChange={handleLabelChange}
-        grow
-      />
-      <Input.Numeric
-        value={axis.bounds.lower}
-        onChange={handleLowerBoundChange}
-        resetValue={0}
-        dragScale={AXES_BOUNDS_DRAG_SCALE}
-        style={{ flexGrow: 1 }}
-      />
-      <Input.Numeric
-        value={axis.bounds.upper}
-        onChange={handleUpperBoundChange}
-        resetValue={0}
-        dragScale={AXES_BOUNDS_DRAG_SCALE}
-        grow
-      />
-      <Select.Direction
-        value={axis.labelDirection}
-        onChange={handleLabelDirectionChange}
-      />
+    <Align.Space direction="y" style={{ padding: "2rem" }} size="small">
+      <Align.Space direction="x">
+        <Input.Item<number, number, Input.NumericProps>
+          label="Lower Bound"
+          value={axis.bounds.upper}
+          onChange={handleUpperBoundChange}
+          resetValue={0}
+          dragScale={AXES_BOUNDS_DRAG_SCALE}
+          grow
+        >
+          {componentRenderProp(Input.Numeric)}
+        </Input.Item>
+        <Input.Item<number, number, Input.NumericProps>
+          label="Upper Bound"
+          value={axis.bounds.lower}
+          onChange={handleLowerBoundChange}
+          resetValue={0}
+          dragScale={AXES_BOUNDS_DRAG_SCALE}
+          style={{ flexGrow: 1 }}
+        >
+          {componentRenderProp(Input.Numeric)}
+        </Input.Item>
+        <Input.Item<number, number, Input.NumericProps>
+          label="Tick Spacing"
+          value={axis.tickSpacing}
+          onChange={handleTickSpacingChange}
+          resetValue={75}
+          dragScale={AXES_BOUNDS_DRAG_SCALE}
+          bounds={{ lower: 1, upper: 200 }}
+          grow
+        >
+          {componentRenderProp(Input.Numeric)}
+        </Input.Item>
+      </Align.Space>
+      <Align.Space direction="x">
+        <Input.Item<string, string, Input.TextProps>
+          label="Label"
+          value={axis.label}
+          placeholder={axisKey.toUpperCase()}
+          onChange={handleLabelChange}
+          grow
+        />
+
+        <Input.Item<direction.Direction, direction.Direction, Select.DirectionProps>
+          label="Label Direction"
+          value={axis.labelDirection}
+          onChange={handleLabelDirectionChange}
+          style={{ minWidth: 90 }}
+        >
+          {componentRenderProp(Select.Direction)}
+        </Input.Item>
+        <Input.Item<Text.Level, Text.Level, Text.SelectLevelProps>
+          label="Label Size"
+          value={axis.labelLevel}
+          onChange={handleLabelLevelChange}
+        >
+          {componentRenderProp(Text.SelectLevel)}
+        </Input.Item>
+      </Align.Space>
     </Align.Space>
   );
 };

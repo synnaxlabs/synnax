@@ -11,17 +11,17 @@ from __future__ import annotations
 
 from typing import Protocol, cast
 
-from alamos import Instrumentation, trace, NOOP
+from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
 from synnax.channel.payload import (
-    normalize_channel_params,
-    ChannelPayload,
-    ChannelParams,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    normalize_channel_params,
 )
 
 

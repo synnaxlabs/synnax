@@ -132,7 +132,7 @@ const SelectorButton = ({
       size={size}
       className={CSS(
         CSS.BE(CLS, "btn"),
-        onRename == null && CSS.BEM(CLS, "button", "uneditable"),
+        onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
         CSS.selected(selected === tabKey),
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
       )}

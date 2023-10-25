@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Align, Button, Synnax } from "@synnaxlabs/pluto";
+import { Text, Align, Button, Synnax, Eraser } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -87,35 +87,37 @@ const Overview = (): ReactElement => {
   };
 
   return (
-    <Align.Center
-      className="delta-get-started"
-      size={6}
-      direction="y"
-      style={{ padding: "200px" }}
-    >
-      <Logo variant="title" className="delta-get-started__logo" />
-      <Align.Space
-        direction="x"
-        style={{ width: "100%" }}
-        justify="center"
-        size={30}
-        wrap
+    <Eraser.Eraser>
+      <Align.Center
+        className="delta-get-started"
+        size={6}
+        direction="y"
+        style={{ padding: "200px" }}
       >
-        <Align.Space direction="y">
-          <Text.Text level="h1">Your Workspaces</Text.Text>
-          <Workspace.Recent />
-          <Button.Button
-            startIcon={<Icon.Add />}
-            onClick={handleWorkspace}
-            style={{ width: "fit-content" }}
-          >
-            Create a Workspace
-          </Button.Button>
+        <Logo variant="title" className="delta-get-started__logo" />
+        <Align.Space
+          direction="x"
+          style={{ width: "100%" }}
+          justify="center"
+          size={30}
+          wrap
+        >
+          <Align.Space direction="y">
+            <Text.Text level="h1">Your Workspaces</Text.Text>
+            <Workspace.Recent />
+            <Button.Button
+              startIcon={<Icon.Add />}
+              onClick={handleWorkspace}
+              style={{ width: "fit-content" }}
+            >
+              Create a Workspace
+            </Button.Button>
+          </Align.Space>
+          <Align.Space direction="y" align="center">
+            <Text.Text level="h1">Recent Ranges</Text.Text>
+          </Align.Space>
         </Align.Space>
-        <Align.Space direction="y" align="center">
-          <Text.Text level="h1">Recent Ranges</Text.Text>
-        </Align.Space>
-      </Align.Space>
-    </Align.Center>
+      </Align.Center>
+    </Eraser.Eraser>
   );
 };

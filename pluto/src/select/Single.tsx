@@ -43,7 +43,7 @@ export interface SingleProps<
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant"> {
-  tagKey?: keyof E;
+  tagKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
@@ -128,7 +128,6 @@ export const Single = <
         matchTriggerWidth
         {...props}
       >
-        {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
             <SingleInput
@@ -157,7 +156,7 @@ export const Single = <
 
 export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<Input.TextProps, "value"> {
-  tagKey: keyof E;
+  tagKey: keyof E | ((e: E) => string | number);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
@@ -191,8 +190,10 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   useEffect(() => {
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
-    const v = selected?.[tagKey] as string | number;
-    setInternalValue?.(v.toString());
+    if (selected == null) return;
+    if (typeof tagKey === "function")
+      return setInternalValue(tagKey(selected).toString());
+    else return setInternalValue((selected?.[tagKey] as string | number).toString());
   }, [selected, visible, tagKey]);
 
   const handleChange = (v: string): void => {

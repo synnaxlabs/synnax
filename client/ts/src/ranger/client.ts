@@ -98,7 +98,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         payload.key,
         this.frameClient,
         new KV(payload.key, this.unaryClient),
-        new Aliaser(payload.key, this.unaryClient),
+        new Aliaser(payload.key, this.frameClient, this.unaryClient),
         this.channels,
       );
     });

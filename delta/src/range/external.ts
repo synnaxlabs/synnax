@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/range/Define";
+export * from "@/range/Toolbar";
 export * from "@/range/accordionEntry";
 export * from "@/range/Select";
 export * from "@/range/selectors";

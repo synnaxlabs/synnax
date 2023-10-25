@@ -87,7 +87,12 @@ export class StateProvider extends aether.Composite<
 
   private async startUpdating(client: Synnax): Promise<void> {
     const { instrumentation: i } = this.internal;
-    this.tracker = await control.StateTracker.open(client.telem);
+    try {
+      this.tracker = await control.StateTracker.open(client.telem);
+    } catch {
+      i.L.error("failed to open state tracker");
+      return;
+    }
     this.disconnectTrackerChange = this.tracker.onChange((t) => {
       i.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
       this.updateColors(this.tracker as control.StateTracker);

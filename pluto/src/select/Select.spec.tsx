@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { List } from "@/list";
+import { type List } from "@/list";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
@@ -81,30 +81,30 @@ describe("Select", () => {
   describe("Select.Multiple", () => {
     it("should render a search input", () => {
       const c = render(<SelectMultiple />);
-      expect(c.getByPlaceholderText(PLACEHOLDER)).toBeTruthy();
+      expect(c.getByText(PLACEHOLDER)).toBeTruthy();
     });
     it("should render a list of options when the input area is selected", () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
+      fireEvent.click(c.getByText(PLACEHOLDER));
       expect(c.getByText("John")).toBeTruthy();
     });
     it("should not render a list of options when the input area is not selected", () => {
       const c = render(<SelectMultiple />);
       const el = c.getByText("John");
       expect(
-        el.parentElement?.parentElement?.parentElement?.parentElement?.className
+        el.parentElement?.parentElement?.parentElement?.parentElement?.className,
       ).toContain("hidden");
     });
     it("should allow the user to select an item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
+      fireEvent.click(c.getByText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = c.queryAllByText("John");
       expect(j.length).toBe(2);
     });
     it("should allow the user to remove a selected item", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
+      fireEvent.click(c.getByText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
       fireEvent.click(j[0].nextSibling as HTMLElement);
@@ -113,7 +113,7 @@ describe("Select", () => {
     });
     it("should allow the user to clear all selections", async () => {
       const c = render(<SelectMultiple />);
-      fireEvent.click(c.getByPlaceholderText(PLACEHOLDER));
+      fireEvent.click(c.getByText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       fireEvent.click(c.getByText("James"));
       fireEvent.click(c.getByText("Javier"));

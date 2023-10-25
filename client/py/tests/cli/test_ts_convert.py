@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+
 from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
-
 from synnax.cli.ts_convert import pure_tsconvert
 from synnax.io import IO_FACTORY
 

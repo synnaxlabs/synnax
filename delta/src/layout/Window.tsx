@@ -32,7 +32,7 @@ export const NavTop = (): ReactElement => {
         {os === "Windows" && <Logo className="delta-main-nav-top__logo" />}
       </Nav.Bar.Start>
       <Nav.Bar.End>
-        <OS.Controls className="delta-controls--windows" visibleIfOS="Windows" />
+        <Controls className="delta-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>
   );
@@ -66,13 +66,11 @@ export const Window = (): ReactElement | null => {
         className={CSS(
           CSS.B("main"),
           CSS.BM("main", os?.toLowerCase() as string),
-          maximized && CSS.BM("main", "maximized")
+          maximized && CSS.BM("main", "maximized"),
         )}
       >
         {layout?.window?.navTop === true && <NavTop />}
         {content}
-        <div className="delta-background" />
-        <div className="delta-border" />
       </Align.Space>
     </PMenu.ContextMenu>
   );

@@ -13,4 +13,5 @@
     background-color: var(--haul-background-color);
     border: var(--pluto-border);
     border-color: var(--haul-border-color);
+    border-radius: var(--pluto-border-radius);
 }

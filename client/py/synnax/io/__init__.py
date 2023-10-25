@@ -10,10 +10,10 @@
 from .factory import IO_FACTORY, IOFactory
 from .meta import ChannelMeta
 from .protocol import (
-    ColumnFileReader,
-    ReaderType,
-    RowFileReader,
     BaseReader,
+    ColumnFileReader,
     DataFrameWriter,
     FileWriter,
+    ReaderType,
+    RowFileReader,
 )

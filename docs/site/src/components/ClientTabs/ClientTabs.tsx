@@ -26,12 +26,30 @@ const TABS = [
 ];
 
 export const ClientTabs = (props: any): ReactElement => {
-  const tabsProps = Tabs.useStatic({ tabs: TABS });
+  const handleSelect = (tab: string) => {
+    // set the tab key as a query param on url
+    // this will allow us to persist the tab selection
+    // when navigating between pages
+    console.log(window.location)
+    const currHref = window.location.href;
+    const paramIdx = currHref.indexOf("tab=");
+    let paramEndIdx = currHref.indexOf("&", paramIdx);
+    const newHref = paramIdx === -1
+      ? `${currHref}&tab=${tab}`
+      : `${currHref.substring(0, paramIdx)}tab=${tab}${paramEndIdx === -1 ? "" : currHref.substring(paramEndIdx)}`;
+    window.history.replaceState(
+      {},
+      "",
+      newHref,
+    );
+  }
+
+
+  const tabsProps = Tabs.useStatic({ tabs: TABS, onSelect: handleSelect });
   return (
-    <Tabs.Tabs {...tabsProps}>
+    <Tabs.Tabs {...tabsProps} size="large">
       {(tab) => (
         <div>
-          <h2>Using {tab.name}</h2>
           {props[`setup-${tab.tabKey}`]}
           {props[tab.tabKey]}
         </div>

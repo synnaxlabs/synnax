@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Generic, TypedDict, overload, NotRequired, Unpack
+from typing import Any, Generic, NotRequired, TypedDict, Unpack, overload
 
 from synnax.cli.console.protocol import Print, Prompt, R
 from synnax.exceptions import ValidationError

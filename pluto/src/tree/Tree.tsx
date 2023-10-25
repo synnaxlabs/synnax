@@ -10,6 +10,7 @@
 import { type ReactElement, useCallback, useMemo, useState, type FC } from "react";
 
 import { Icon } from "@synnaxlabs/media";
+import { type Optional } from "@synnaxlabs/x";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -57,7 +58,9 @@ export interface HandleExpandProps {
 
 export interface UseProps {
   onExpand?: (props: HandleExpandProps) => void;
+  initialExpanded?: string[];
   nodes: Node[];
+  sort?: boolean;
 }
 
 export interface UseReturn {
@@ -68,10 +71,11 @@ export interface UseReturn {
 }
 
 export const use = (props: UseProps): UseReturn => {
-  const { onExpand, nodes } = props ?? {};
-  const [expanded, setExpanded, ref] = useCombinedStateAndRef<string[]>([]);
+  const { onExpand, nodes, initialExpanded = [], sort = true } = props ?? {};
+  const [expanded, setExpanded, ref] =
+    useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = useState<string[]>([]);
-  const flat = useMemo(() => flatten(nodes, expanded), [nodes, expanded]);
+  const flat = useMemo(() => flatten(nodes, expanded, sort), [nodes, expanded, sort]);
   const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
@@ -111,18 +115,26 @@ export interface ItemProps extends List.ItemProps<string, FlattenedNode> {
   onDoubleClick?: (key: string, e: React.MouseEvent) => void;
   loading?: boolean;
   selectedItems: FlattenedNode[];
+  useMargin?: boolean;
 }
 
 export interface TreeProps
-  extends Pick<ItemProps, "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick">,
-    Omit<
-      List.VirtualCoreProps<string, FlattenedNode>,
-      "onDrop" | "onSelect" | "itemHeight" | "children" | "onDoubleClick"
+  extends Pick<
+      ItemProps,
+      "onDrop" | "onRename" | "onSuccessfulDrop" | "onDoubleClick" | "useMargin"
+    >,
+    Optional<
+      Omit<
+        List.VirtualCoreProps<string, FlattenedNode>,
+        "onDrop" | "onSelect" | "children" | "onDoubleClick"
+      >,
+      "itemHeight"
     > {
   nodes: FlattenedNode[];
   selected?: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
+  virtual?: boolean;
 }
 
 const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
@@ -141,6 +153,7 @@ export const DefaultItem = ({
   selectedItems,
   onDoubleClick,
   loading = false,
+  useMargin = false,
 }: ItemProps): ReactElement => {
   const {
     key,
@@ -155,9 +168,10 @@ export const DefaultItem = ({
     haulItems = [],
   } = entry;
 
+  const actuallyHasChildren = hasChildren || (children != null && children.length > 0);
+
   const startIcons: ReactElement[] = [];
-  if (hasChildren || (children != null && children.length > 0))
-    startIcons.push(expanded ? expandedCaret : collapsedCaret);
+  if (actuallyHasChildren) startIcons.push(expanded ? expandedCaret : collapsedCaret);
   if (icon != null) startIcons.push(icon);
   const endIcons: ReactElement[] = [];
   if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
@@ -190,6 +204,8 @@ export const DefaultItem = ({
     );
   };
 
+  const offsetKey = useMargin ? "marginLeft" : "paddingLeft";
+
   const baseProps: Button.LinkProps | Button.ButtonProps = {
     id: key,
     variant: "text",
@@ -199,11 +215,12 @@ export const DefaultItem = ({
       draggingOver && CSS.M("dragging-over"),
       selected && CONTEXT_SELECTED,
       CSS.selected(selected),
+      actuallyHasChildren && CSS.M("has-children"),
     ),
     onDragLeave: () => setDraggingOver(false),
     onDragStart: handleDragStart,
     onClick: () => onSelect?.(key),
-    style: { ...style, paddingLeft: `${depth * 1.5 + 1}rem` },
+    style: { ...style, [offsetKey]: `${depth * 1.5 + 1}rem` },
     startIcon: startIcons,
     iconSpacing: "small",
     noWrap: true,
@@ -241,8 +258,12 @@ export const Tree = ({
   onDoubleClick,
   className,
   children = defaultChild,
+  itemHeight = 27,
+  useMargin = false,
+  virtual = true,
   ...props
 }: TreeProps): ReactElement => {
+  const Core = virtual ? List.Core.Virtual : List.Core;
   return (
     <List.List<string, FlattenedNode> data={nodes}>
       <List.Selector
@@ -251,14 +272,15 @@ export const Tree = ({
         allowMultiple
         replaceOnSingle
       />
-      <List.Core.Virtual<string, FlattenedNode>
-        itemHeight={27}
+      <Core<string, FlattenedNode>
+        itemHeight={itemHeight}
         className={CSS(className, CSS.B("tree"))}
         {...props}
       >
         {(props) =>
           children({
             ...props,
+            useMargin,
             onDrop,
             onRename,
             onSuccessfulDrop,
@@ -266,7 +288,7 @@ export const Tree = ({
             onDoubleClick,
           })
         }
-      </List.Core.Virtual>
+      </Core>
     </List.List>
   );
 };
@@ -280,16 +302,18 @@ export const flatten = (
   nodes: Node[],
   expanded: string[],
   depth: number = 0,
+  sort: boolean,
 ): FlattenedNode[] => {
   // Sort the first level of the tree independently of the rest
-  if (depth === 0) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
+  if (depth === 0 && sort) nodes = nodes.sort((a, b) => a.name.localeCompare(b.name));
   const flattened: FlattenedNode[] = [];
   nodes.forEach((node, index) => {
     const expand = shouldExpand(node, expanded);
     flattened.push({ ...node, depth, expanded: expand, index });
     if (expand && node.children != null) {
-      node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
-      flattened.push(...flatten(node.children, expanded, depth + 1));
+      if (sort)
+        node.children = node.children.sort((a, b) => a.name.localeCompare(b.name));
+      flattened.push(...flatten(node.children, expanded, depth + 1, sort));
     }
   });
   return flattened;

@@ -23,6 +23,7 @@ import { Align } from "@/align";
 import { type Color } from "@/color";
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
+import { useStateRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
@@ -82,9 +83,9 @@ export const Legend = memo(
     const [position, setPosition] = state.usePurePassthrough<xy.XY>({
       value,
       onChange,
-      initial: xy.construct(0.1, 0.1),
+      initial: xy.construct(0.1, 0.01),
     });
-    const [pickerVisible, setPickerVisible] = useState(false);
+    const [pickerVisibleRef, setPickerVisible] = useStateRef<boolean>(false);
     useContext("Legend");
     const positionRef = useRef(position);
     const ref = useRef<HTMLDivElement | null>(null);
@@ -101,39 +102,36 @@ export const Legend = memo(
       setIntelligentPos(intelligentPosition(xy.construct(position), ref));
     }, []);
 
-    const calculatePosition = useCallback(
-      (b: box.Box): xy.XY => {
-        if (ref.current?.parentElement == null || pickerVisible)
-          return positionRef.current;
-        const bounds = box.construct(ref.current.parentElement);
-        const d = box.reRoot(box.DECIMAL, location.TOP_LEFT);
-        const s = scale.XY.scale(bounds).scale(d);
-        const el = s.box(box.construct(ref.current));
-        const clamp = scale.XY.clamp(
-          box.construct(box.topLeft(d), {
-            width: box.width(d) - box.width(el),
-            height: box.height(d) - box.height(el),
-          }),
-        );
-        return clamp.pos(
-          xy.translate(xy.construct(positionRef.current), box.signedDims(s.box(b))),
-        );
-      },
-      [pickerVisible],
-    );
+    const calculatePosition = useCallback((b: box.Box): xy.XY => {
+      if (ref.current?.parentElement == null) return positionRef.current;
+      const bounds = box.construct(ref.current.parentElement);
+      const d = box.reRoot(box.DECIMAL, location.TOP_LEFT);
+      const s = scale.XY.scale(bounds).scale(d);
+      const el = s.box(box.construct(ref.current));
+      const clamp = scale.XY.clamp(
+        box.construct(box.topLeft(d), {
+          width: box.width(d) - box.width(el),
+          height: box.height(d) - box.height(el),
+        }),
+      );
+      return clamp.pos(
+        xy.translate(xy.construct(positionRef.current), box.signedDims(s.box(b))),
+      );
+    }, []);
 
     const handleCursorDragStart = useCursorDrag({
       onMove: useCallback(
         (box: box.Box) => {
+          if (pickerVisibleRef.current) return;
           const pos = calculatePosition(box);
           setIntelligentPos(intelligentPosition(xy.construct(pos), ref));
         },
         [setPosition],
       ),
-      onEnd: useCallback(
-        (box: box.Box) => (positionRef.current = calculatePosition(box)),
-        [pickerVisible],
-      ),
+      onEnd: useCallback((box: box.Box) => {
+        if (pickerVisibleRef.current) return;
+        positionRef.current = calculatePosition(box);
+      }, []),
     });
 
     if (lines.length === 0) return null;
@@ -152,22 +150,24 @@ export const Legend = memo(
         onDragEnd={preventDefault}
         size="small"
       >
-        {lines.map(({ key, color, label }) => (
-          <Align.Space key={key} direction="x" align="center">
-            <Swatch
-              value={color}
-              onChange={(c) => onColorChange?.(key, c)}
-              onVisibleChange={setPickerVisible}
-              size="small"
-            />
-            <Text.MaybeEditable
-              level="small"
-              value={label}
-              onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
-              noWrap
-            />
-          </Align.Space>
-        ))}
+        {lines
+          .sort((a, b) => a.label.localeCompare(b.label))
+          .map(({ key, color, label }) => (
+            <Align.Space key={key} direction="x" align="center">
+              <Swatch
+                value={color}
+                onChange={(c) => onColorChange?.(key, c)}
+                onVisibleChange={setPickerVisible}
+                size="small"
+              />
+              <Text.MaybeEditable
+                level="small"
+                value={label}
+                onChange={onLabelChange != null && ((l) => onLabelChange(key, l))}
+                noWrap
+              />
+            </Align.Space>
+          ))}
       </Align.Space>
     );
   },

@@ -57,4 +57,10 @@ func configureStartFlags() {
 		"seldon",
 		"Password for the admin user.",
 	)
+
+	startCmd.Flags().Bool(
+		"auto-cert",
+		false,
+		"Automatically generate self-signed certificates.",
+	)
 }

@@ -10,24 +10,25 @@
 from typing import overload
 
 from freighter import UnaryClient
+
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.exceptions import QueryError
 from synnax.framer.client import Client
-from synnax.ranger.retrieve import RangeRetriever
+from synnax.ranger.alias import Aliaser
 from synnax.ranger.create import RangeCreator
-from synnax.ranger.range import Range
-from synnax.telem import TimeRange
+from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
-    RangePayload,
     RangeKey,
-    RangeName,
     RangeKeys,
+    RangeName,
     RangeNames,
     RangeParams,
+    RangePayload,
     normalize_range_params,
 )
-from synnax.ranger.kv import KV
-from synnax.ranger.alias import Aliaser
-from synnax.exceptions import QueryError
+from synnax.ranger.range import Range
+from synnax.ranger.retrieve import RangeRetriever
+from synnax.telem import TimeRange
 
 
 class RangeClient:

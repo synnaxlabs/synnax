@@ -18,11 +18,14 @@ export const themeZ = z.object({
   colors: z.object({
     border: color.Color.z,
     primary: z.object({
+      m2: color.Color.z,
       m1: color.Color.z,
       z: color.Color.z,
       p1: color.Color.z,
+      p2: color.Color.z,
     }),
     gray: z.object({
+      m4: color.Color.z,
       m3: color.Color.z,
       m2: color.Color.z,
       m1: color.Color.z,
@@ -31,11 +34,14 @@ export const themeZ = z.object({
       p1: color.Color.z,
       p2: color.Color.z,
       p3: color.Color.z,
+      p4: color.Color.z,
     }),
     error: z.object({
+      m2: color.Color.z,
       m1: color.Color.z,
       z: color.Color.z,
       p1: color.Color.z,
+      p2: color.Color.z,
     }),
     visualization: z.object({
       palettes: z.record(z.array(color.Color.z)),
@@ -72,35 +78,65 @@ export const themeZ = z.object({
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.output<typeof themeZ>;
 
-const white: string = "#FFFFFF";
-const black: string = "#121212";
 const fontFamily = "'Inter Variable', sans-serif";
 const baseSize: number = 6;
+
+const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
+  color[0],
+  color[1],
+  lightness,
+  color[3],
+];
+
+// Error
+
+const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
+
+// Grayscale
+
+const BLACK = "#050505";
+const GRAY_P4 = "#0D0D0D";
+const GRAY_P3 = "#171717";
+const GRAY_P2 = "#2E2E2E";
+const GRAY_P1 = "#4F4F4F";
+const GRAY_P0 = "#717171";
+const GRAY_M0 = "#939393";
+const GRAY_M1 = "#B5B5B5";
+const GRAY_M2 = "#D6D6D6";
+const GRAY_M3 = "#EDEDED";
+const GRAY_M4 = "#F7F7F7";
+const WHITE = "#FFFFFF";
 
 const synnaxBase: ThemeSpec = {
   key: "synnax-base",
   name: "Synnax Base",
   colors: {
     primary: {
-      m1: "#3363BE",
+      m2: "#041B3D",
+      m1: "#164FA0",
       z: "#3774D0",
-      p1: "#3b84e5",
+      p1: "#5E94EE",
+      p2: "#8AB8FF",
     },
     gray: {
-      p3: "#1D1D1C",
-      p2: "#2c2c2c",
-      p1: "#474744",
-      p0: "#676762",
-      m0: "#94938D",
-      m1: "#C8C7BF",
-      m2: "#eceaea",
-      m3: "#FEFEFD",
+      p4: GRAY_P4,
+      p3: GRAY_P3,
+      p2: GRAY_P2,
+      p1: GRAY_P1,
+      p0: GRAY_P0,
+      m0: GRAY_M0,
+      m1: GRAY_M1,
+      m2: GRAY_M2,
+      m3: GRAY_M3,
+      m4: GRAY_M4,
     },
-    border: "#C8C7BF",
+    border: GRAY_M3,
     error: {
-      m1: "#CF1322",
-      z: "#F5222D",
-      p1: "#FF4547",
+      m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
+      z: color.fromHSLA(ERROR_HSLA),
+      p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
+      p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
     },
     visualization: {
       palettes: {
@@ -123,11 +159,11 @@ const synnaxBase: ThemeSpec = {
       },
     },
     logo: "url(#synnax-linear-gradient)",
-    white,
-    black,
-    background: white,
-    text: new color.Color(black).setAlpha(0.85).hex,
-    textContrast: new color.Color(white).setAlpha(0.85).hex,
+    white: WHITE,
+    black: BLACK,
+    background: WHITE,
+    text: GRAY_P4,
+    textContrast: GRAY_M4,
   },
   sizes: {
     base: baseSize,
@@ -159,7 +195,7 @@ const synnaxBase: ThemeSpec = {
     h4: {
       size: 2.5,
       weight: "medium",
-      lineHeight: 3.25,
+      lineHeight: 3,
     },
     h5: {
       size: 2.25,
@@ -175,7 +211,7 @@ const synnaxBase: ThemeSpec = {
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2.5,
+      lineHeight: 2.3,
     },
   },
 };
@@ -193,6 +229,7 @@ export const synnaxDark: ThemeSpec = {
   colors: {
     ...synnaxBase.colors,
     gray: {
+      m4: synnaxBase.colors.gray.p4,
       m3: synnaxBase.colors.gray.p3,
       m2: synnaxBase.colors.gray.p2,
       m1: synnaxBase.colors.gray.p1,
@@ -201,12 +238,13 @@ export const synnaxDark: ThemeSpec = {
       p1: synnaxBase.colors.gray.m1,
       p2: synnaxBase.colors.gray.m2,
       p3: synnaxBase.colors.gray.m3,
+      p4: synnaxBase.colors.gray.m4,
     },
     logo: "var(--pluto-text-color)",
-    border: synnaxBase.colors.gray.p1,
+    border: synnaxBase.colors.gray.p3,
     background: synnaxBase.colors.black,
-    text: new color.Color(synnaxBase.colors.white).setAlpha(0.9).hex,
-    textContrast: new color.Color(synnaxBase.colors.black).setAlpha(0.9).hex,
+    text: synnaxBase.colors.gray.m4,
+    textContrast: synnaxBase.colors.black,
   },
 };
 

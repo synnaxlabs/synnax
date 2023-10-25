@@ -197,7 +197,7 @@ const Core = Aether.wrap<PIDProps>(
 
     const triggers = useMemoCompare(
       () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
-      Triggers.compareConfigs,
+      Triggers.compareModeConfigs,
       [pTriggers],
     );
 
@@ -354,12 +354,13 @@ const Core = Aether.wrap<PIDProps>(
             nodeTypes={nodeTypes}
             edgeTypes={EDGE_TYPES}
             ref={resizeRef}
+            fitView={true}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
             onEdgeUpdate={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
-            snapToGrid={true}
+            snapToGrid={false}
             minZoom={0.5}
             maxZoom={1}
             connectionMode={ConnectionMode.Loose}
@@ -405,12 +406,14 @@ export const ToggleEditControl = ({
     <Button.ToggleIcon
       onChange={() => onEditableChange(!editable)}
       value={editable}
+      checkedVariant="outlined"
+      uncheckedVariant="filled"
       tooltipLocation={location.RIGHT_CENTER}
       tooltip={
         editable ? (
-          <Text.Text level="small">Enable edit mode</Text.Text>
-        ) : (
           <Text.Text level="small">Disable edit mode</Text.Text>
+        ) : (
+          <Text.Text level="small">Enable edit mode</Text.Text>
         )
       }
       {...props}
@@ -435,6 +438,7 @@ export const FitViewControl = ({
       }}
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
+      variant="outlined"
       {...props}
     >
       <Icon.Expand />

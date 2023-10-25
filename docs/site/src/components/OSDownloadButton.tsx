@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { ReactElement, useState, useEffect } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
-import { OS } from "@synnaxlabs/x";
+import { runtime } from "@synnaxlabs/x";
 
 export interface OSDownloadButtonEntry {
   os: OS;
@@ -30,12 +30,12 @@ export const OSDownloadButton = ({
 }: OSDownloadButtonProps): ReactElement | null => {
   // const os = useOS();
   if (entries.length === 0) return null;
-  let entry = entries.find((entry) => entry.os === os);
+  let entry = entries.find((entry) => entry.os === runtime.getOS());
   if (entry == null) entry = entries[0];
   const { href } = entry;
   return (
     <Button.Link href={href} startIcon={<Icon.Download />} {...props}>
-      Download {name} for {os}
+      Download {name} for {runtime.getOS()}
     </Button.Link>
   );
 };
@@ -64,14 +64,12 @@ const OSToUpdateFilePlatform: Record<OS, keyof UpdateFile["platforms"]> = {
 const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/delta/release-spec.json";
 
-export const DeltaDownloadButton = () => {
+export const SynnaxConsoleDownloadButton = () => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
-  // useAsyncEffect(async () => {
-  //   const response = await fetch(JSON_URL);
-  //   const updateFile = await response.json();
-  //   setUpdateFile(updateFile);
-  // }, []);
+  useEffect(() => {
+    fetch(JSON_URL).then((response) => response.json()).then((f) => setUpdateFile(f))
+  }, []);
 
   if (updateFile == null) return null;
   return (

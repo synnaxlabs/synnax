@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.framer import Client as FrameClient
-from synnax.control.controller import Controller
 from synnax.channel.payload import ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.control.controller import Controller
+from synnax.framer import Client as FrameClient
 from synnax.telem.control import Authority, CrudeAuthority
 
 

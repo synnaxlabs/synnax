@@ -19,6 +19,7 @@ extern crate objc;
 
 use tauri::{Runtime, Window};
 mod kv;
+use window_shadows::set_shadow;
 
 pub trait WindowExt {
   fn set_transparent_titlebar(&self, transparent: bool);
@@ -104,6 +105,7 @@ fn main() {
       })
     .on_page_load(move |window, _| {
         window.set_transparent_titlebar(true);
+        set_shadow(&window, true).expect("Unsupported platform!");
         if window.label() != "main" { return };
         let db_err_ = db_err.clone();
         let win = window.clone();

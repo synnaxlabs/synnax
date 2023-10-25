@@ -11,6 +11,7 @@ import { forwardRef } from "react";
 
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
+import { Text as CoreText } from "@/text";
 
 import "@/input/Input.css";
 
@@ -35,33 +36,51 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
     {
       size = "medium",
       value,
+      style,
       onChange,
       className,
       onFocus,
       selectOnFocus = false,
       centerPlaceholder = false,
+      placeholder,
       variant = "outlined",
+      sharp = false,
       ...props
     },
     ref,
   ) => (
-    <input
-      ref={ref}
-      value={value}
+    <div
+      style={style}
       className={CSS(
         CSS.B("input"),
         CSS.size(size),
         CSS.BM("input", variant),
-        centerPlaceholder && CSS.BM("input", "placeholder-centered"),
+        CSS.sharp(sharp),
         className,
       )}
-      onChange={(e) => onChange(e.target.value)}
-      onFocus={(e) => {
-        if (selectOnFocus) e.target.select();
-        onFocus?.(e);
-      }}
-      {...props}
-    />
+    >
+      {(value == null || value.length === 0) && (
+        <div
+          className={CSS(
+            CSS.BE("input", "placeholder"),
+            centerPlaceholder && CSS.M("centered"),
+          )}
+        >
+          {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
+        </div>
+      )}
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => {
+          if (selectOnFocus) e.target.select();
+          onFocus?.(e);
+        }}
+        placeholder={placeholder as string}
+        {...props}
+      />
+    </div>
   ),
 );
 Text.displayName = "Input";

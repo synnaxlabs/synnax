@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.cli.console.mock import MockConsole
 from synnax.cli.console.protocol import Console
 from synnax.cli.console.rich import RichConsole
-from synnax.cli.console.mock import MockConsole
 from synnax.cli.console.sugared import SugaredConsole

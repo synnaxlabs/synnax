@@ -44,7 +44,7 @@ import "@/layouts/LayoutMain/Nav.css";
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Cluster.Toolbar,
   Toolbar,
-  Workspace.Toolbar,
+  Range.Toolbar,
   Vis.Toolbar,
 ];
 
@@ -71,14 +71,14 @@ const NavTopPalette = (): ReactElement => {
       commands={COMMANDS}
       searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
-      resourceTypes={SERVICES}
+      services={SERVICES}
       commandSymbol=">"
     />
   );
 };
 
 /**
- * NavTop is the top navigation bar for the Delta UI. Try to keep this component
+ * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavTop = (): ReactElement => {
@@ -99,7 +99,11 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="delta-main-nav-top__start" data-tauri-drag-region>
         <Controls className="delta-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo className="delta-main-nav-top__logo" variant="icon" />
+          <Logo
+            className="delta-main-nav-top__logo"
+            variant="icon"
+            data-tauri-drag-region
+          />
         )}
         <Workspace.Selector />
       </Nav.Bar.Start>
@@ -156,7 +160,7 @@ export const NavMenu = ({
 );
 
 /**
- * NavLeft is the left navigation drawer for the Delta UI. Try to keep this component
+ * NavLeft is the left navigation drawer for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavLeft = (): ReactElement => {
@@ -177,14 +181,14 @@ export const NavLeft = (): ReactElement => {
 };
 
 /**
- * NavRight is the right navigation bar for the Delta UI. Try to keep this component
+ * NavRight is the right navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavRight = (): ReactElement | null => {
   const { menuItems, onSelect } = Layout.useNavDrawer("right", NAV_DRAWERS);
   const { menuItems: bottomMenuItems, onSelect: onBottomSelect } = Layout.useNavDrawer(
     "bottom",
-    NAV_DRAWERS
+    NAV_DRAWERS,
   );
   return (
     <Nav.Bar location="right" size={NAV_SIZES.side}>
@@ -201,7 +205,7 @@ export const NavRight = (): ReactElement | null => {
 };
 
 /**
- * NavBottom is the bottom navigation bar for the Delta UI. Try to keep this component
+ * NavBottom is the bottom navigation bar for the Synnax Console. Try to keep this component
  * presentational.
  */
 export const NavBottom = (): ReactElement => {
@@ -227,14 +231,14 @@ export interface NavDrawerProps {
   location: Layout.NavdrawerLocation;
 }
 
-export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {
+export const NavDrawer = ({ aetherKey, location: l, ...props }): ReactElement => {
   const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
   return (
     <Nav.Drawer
       location={l}
       className={CSS(
         CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", location.direction(l))
+        CSS.BM("main-nav-drawer", location.direction(l)),
       )}
       activeItem={activeItem}
       onResize={onResize}

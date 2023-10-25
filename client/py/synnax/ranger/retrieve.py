@@ -9,14 +9,10 @@
 
 import uuid
 
-from freighter import UnaryClient, Payload
-from alamos import Instrumentation, NOOP, trace
+from alamos import NOOP, Instrumentation, trace
+from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import (
-    RangePayload,
-    RangeParams,
-    normalize_range_params,
-)
+from synnax.ranger.payload import RangeParams, RangePayload, normalize_range_params
 
 
 class _Request(Payload):

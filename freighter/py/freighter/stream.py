@@ -9,7 +9,7 @@
 
 from typing import Protocol, Type
 
-from freighter.transport import RQ, RS, Transport, AsyncTransport
+from freighter.transport import RQ, RS, AsyncTransport, Transport
 
 
 class AsyncStreamReceiver(Protocol[RS]):

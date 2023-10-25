@@ -7,21 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import Instrumentation, NOOP
+from alamos import NOOP, Instrumentation
 from freighter import URL
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
-from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
+from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
 from synnax.config import try_load_options_if_none_provided
+from synnax.control import Client as ControlClient
 from synnax.framer import Client
 from synnax.options import SynnaxOptions
+from synnax.ranger import RangeCreator, RangeRetriever
+from synnax.ranger.client import RangeClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.ranger import RangeRetriever, RangeCreator
-from synnax.ranger.client import RangeClient
-from synnax.control import Client as ControlClient
 
 
 class Synnax(Client):

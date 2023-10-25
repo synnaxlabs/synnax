@@ -23,7 +23,7 @@ import {
 } from "react";
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { Compare, type SenderHandler } from "@synnaxlabs/x";
+import { compare, type SenderHandler } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";
@@ -147,7 +147,7 @@ const useLifecycle = <S extends z.ZodTypeAny>({
   const ctx = useAetherContext();
   const path = useMemoCompare(
     () => [...ctx.path, key],
-    ([a], [b]) => Compare.primitiveArrays(a, b) === 0,
+    ([a], [b]) => compare.primitiveArrays(a, b) === 0,
     [ctx.path, key] as [string[], string],
   );
 

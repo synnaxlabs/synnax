@@ -21,7 +21,7 @@ import {
   useDebouncedCallback,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
-import { Compare } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x";
 import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
@@ -86,11 +86,11 @@ export const usePlacer = (): Placer => {
             url: "/",
             key,
             title,
-          })
+          }),
         );
       return { windowKey, key };
     },
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 };
 
@@ -108,8 +108,8 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const store = useStore<RootState>();
   const memoKeys = useMemoCompare(
     () => baseKeys,
-    ([a], [b]) => Compare.primitiveArrays(a, b) === Compare.EQUAL,
-    [baseKeys]
+    ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
+    [baseKeys],
   );
   return useCallback(
     (...keys) => {
@@ -123,7 +123,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       });
       syncDispatch(remove({ keys }));
     },
-    [memoKeys]
+    [memoKeys],
   );
 };
 
@@ -154,7 +154,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(
-    Theming.themes.synnaxLight
+    Theming.themes.synnaxLight,
   );
   useAsyncEffect(async () => {
     const theme = matchThemeChange({ payload: await appWindow.theme() });
@@ -168,7 +168,7 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
       setTheme((t) =>
         t === Theming.themes.synnaxLight
           ? Theming.themes.synnaxDark
-          : Theming.themes.synnaxLight
+          : Theming.themes.synnaxLight,
       ),
   };
 };
@@ -202,7 +202,7 @@ export interface UseNavDrawerReturn {
 
 export const useNavDrawer = (
   location: NavdrawerLocation,
-  items: NavDrawerItem[]
+  items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
@@ -217,7 +217,7 @@ export const useNavDrawer = (
       dispatch(resizeNavdrawer({ location, size }));
     },
     100,
-    [dispatch]
+    [dispatch],
   );
 
   if (activeItem != null) activeItem.initialSize = state.size;

@@ -20,12 +20,14 @@ import {
   Nav,
   Align,
   componentRenderProp,
+  Status,
 } from "@synnaxlabs/pluto";
+import { Case } from "@synnaxlabs/x";
 import { type FieldValues, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { ConnectionStateBadge } from "@/cluster/Badges";
+import { ConnectionStatusBadge, statusVariants } from "@/cluster/Badges";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
@@ -58,6 +60,7 @@ export const connectWindowLayout: Layout.LayoutState = {
 export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
+  const [loading, setLoading] = useState<"test" | "submit" | null>(null);
 
   const {
     getValues,
@@ -68,7 +71,10 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
     const { name, ...data } = _data;
+    setConnState(null);
+    setLoading("submit");
     const state = await testConnection(data as SynnaxProps);
+    setLoading(null);
     if (state.status !== "connected") return setConnState(state);
     dispatch(
       set({
@@ -85,14 +91,17 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
     void (async (): Promise<void> => {
       const valid = await trigger();
       if (!valid) return;
+      setConnState(null);
+      setLoading("test");
       const state = await testConnection(getValues() as SynnaxProps);
       setConnState(state);
+      setLoading(null);
     })();
   };
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Header.Header level="h4" divided>
+      <Header.Header level="h4">
         <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
       </Header.Header>
       <Align.Space className="delta-form" grow>
@@ -141,13 +150,30 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start className={CSS.BE("footer", "start")}>
-          {connState != null && <ConnectionStateBadge state={connState} />}
+          {connState != null && (
+            <Status.Text variant={statusVariants[connState.status]}>
+              {connState.status === "connected"
+                ? Case.capitalize(connState.status)
+                : (connState.message as string)}
+            </Status.Text>
+          )}
         </Nav.Bar.Start>
         <Nav.Bar.End className={CSS.BE("footer", "end")}>
-          <Button.Button variant="text" onClick={handleTestConnection}>
+          <Button.Button
+            loading={loading === "test"}
+            disabled={loading !== null}
+            variant="text"
+            onClick={handleTestConnection}
+          >
             Test Connection
           </Button.Button>
-          <Button.Button type="submit" form="connect-cluster">
+
+          <Button.Button
+            type="submit"
+            form="connect-cluster"
+            loading={loading === "submit"}
+            disabled={loading !== null}
+          >
             Done
           </Button.Button>
         </Nav.Bar.End>

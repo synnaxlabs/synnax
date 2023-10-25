@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { ontology } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
   Dropdown,
   Input,
@@ -35,6 +36,7 @@ import {
   Mosaic,
   Divider,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
 import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
@@ -53,7 +55,7 @@ import "@/palette/Palette.css";
 export interface PaletteProps {
   searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
-  resourceTypes: Record<string, Service>;
+  services: Ontology.Services;
   triggers: TriggerConfig;
   commandSymbol: string;
 }
@@ -64,7 +66,7 @@ type Key = string;
 export const Palette = ({
   commands,
   searcher,
-  resourceTypes,
+  services,
   triggers,
   commandSymbol,
 }: PaletteProps): ReactElement => {
@@ -90,8 +92,9 @@ export const Palette = ({
       } else {
         if (client == null) return;
         const id = new ontology.ID(key);
-        const t = resourceTypes[id.type];
+        const t = services[id.type];
         t?.onSelect({
+          services,
           store,
           placeLayout,
           removeLayout,
@@ -100,7 +103,7 @@ export const Palette = ({
         });
       }
     },
-    [mode, commands, dropdown.close, client]
+    [mode, commands, dropdown.close, client, services],
   );
 
   const showDropdown = dropdown.visible || notifications.statuses.length > 0;
@@ -131,7 +134,7 @@ export const Palette = ({
             {dropdown.visible && (
               <PaletteList
                 mode={mode}
-                resourceTypes={resourceTypes}
+                resourceTypes={services}
                 onSelect={handleSelect}
                 visible={dropdown.visible}
               />
@@ -195,7 +198,7 @@ export const PaletteInput = ({
         setEmptyContent(TYPE_TO_SEARCH);
       }
     },
-    [setMode, setSourceData, commands]
+    [setMode, setSourceData, commands],
   );
 
   const handleSearch = useDebouncedCallback(
@@ -208,7 +211,7 @@ export const PaletteInput = ({
             setEmptyContent(
               <Status.Text.Centered level="h4" variant="disabled" hideIcon>
                 No resources found
-              </Status.Text.Centered>
+              </Status.Text.Centered>,
             );
           setSourceData(d);
         })
@@ -216,12 +219,12 @@ export const PaletteInput = ({
           setEmptyContent(
             <Status.Text.Centered level="h4" variant="error">
               {e.message}
-            </Status.Text.Centered>
+            </Status.Text.Centered>,
           );
         });
     },
     250,
-    [searcher, setSourceData]
+    [searcher, setSourceData],
   );
 
   const debouncedSetTransform = useDebouncedCallback(setTransform, 250, []);
@@ -231,7 +234,7 @@ export const PaletteInput = ({
       if (term.length === 0) deleteTransform("filter");
       else debouncedSetTransform("filter", createFilterTransform({ term }));
     },
-    [debouncedSetTransform, deleteTransform]
+    [debouncedSetTransform, deleteTransform],
   );
 
   const handleTrigger = useCallback(
@@ -247,12 +250,12 @@ export const PaletteInput = ({
       }
       inputRef.current?.focus();
     },
-    [visible, triggerConfig.command, commandSymbol, updateMode]
+    [visible, triggerConfig.command, commandSymbol, updateMode],
   );
 
   const triggers = useMemo(
     () => Triggers.flattenConfig(triggerConfig),
-    [triggerConfig]
+    [triggerConfig],
   );
 
   Triggers.use({ triggers, callback: handleTrigger });
@@ -265,7 +268,7 @@ export const PaletteInput = ({
       else handleSearch(value);
       setValue(value);
     },
-    [mode, setMode, commandSymbol, handleFilter, handleSearch]
+    [mode, setMode, commandSymbol, handleFilter, handleSearch],
   );
 
   const placer = Layout.usePlacer();
@@ -283,11 +286,11 @@ export const PaletteInput = ({
             key: 1,
             tabKey: item.key as string,
             loc: "center",
-          })
+          }),
         );
         return [item];
       },
-      [placer]
+      [placer],
     ),
   });
 
@@ -297,7 +300,11 @@ export const PaletteInput = ({
     <Input.Text
       className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
-      placeholder="Search Synnax"
+      placeholder={
+        <Text.WithIcon level="p" startIcon={<Icon.Search />}>
+          Search Synnax
+        </Text.WithIcon>
+      }
       onDragOver={onDragOver}
       onDrop={onDrop}
       centerPlaceholder
@@ -357,7 +364,7 @@ export const CommandListItem = ({
       className={CSS(
         CSS.BE("palette", "item"),
         hovered && CSS.BEM("palette", "item", "hovered"),
-        CSS.BEM("palette", "item", "command")
+        CSS.BEM("palette", "item", "command"),
       )}
       sharp
       {...props}
@@ -368,7 +375,7 @@ export const CommandListItem = ({
 };
 
 export const createResourceListItem = (
-  resourceTypes: Record<string, Ontology.Service>
+  resourceTypes: Record<string, Ontology.Service>,
 ): FC<List.ItemProps<string, ontology.Resource>> => {
   const ResourceListItem = ({
     entry: { name, key, id },
@@ -387,7 +394,7 @@ export const createResourceListItem = (
         className={CSS(
           CSS.BE("palette", "item"),
           hovered && CSS.BEM("palette", "item", "hovered"),
-          CSS.BEM("palette", "item", "resource")
+          CSS.BEM("palette", "item", "resource"),
         )}
         {...props}
       >

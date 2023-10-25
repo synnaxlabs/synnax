@@ -12,8 +12,8 @@ import { type ReactElement } from "react";
 import { Header } from "@synnaxlabs/pluto";
 
 export const ToolbarHeader = (
-  props: Omit<Header.HeaderProps, "level" | "divided">
-): ReactElement => <Header.Header level="h4" divided {...props} />;
+  props: Omit<Header.HeaderProps, "level" | "divided">,
+): ReactElement => <Header.Header level="h4" {...props} />;
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
   icon: ReactElement;

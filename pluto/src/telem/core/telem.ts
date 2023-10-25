@@ -106,6 +106,17 @@ export interface NumericSource extends Telem {
   onChange: (f: () => void) => void;
 }
 
+export const stringSpecZ = specZ.extend({
+  variant: z.literal("string-source"),
+});
+
+export type StringSourceSpec = z.infer<typeof stringSpecZ>;
+
+export interface StringSource extends Telem {
+  string: () => Promise<string>;
+  onChange: (f: () => void) => void;
+}
+
 export const colorSourceSpecZ = specZ.extend({
   variant: z.literal("color-source"),
 });

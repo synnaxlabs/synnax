@@ -11,22 +11,24 @@
 
 .pluto-tooltip {
     position: fixed;
-    z-index: 1000;
+    top: 0;
+    left: 0;
+    z-index: 6;
     pointer-events: none;
-    background-color: var(--pluto-gray-m3);
+    background-color: var(--pluto-gray-m4);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     padding: 1rem;
 
     &.pluto--center {
         &.pluto--top {
-            transform: translate(-50%, calc(-100% - 1rem));
+            transform: translate(calc(var(--pos-x) - 50%), calc(var(--pos-y) + calc(-100% - 1rem)));
         }
         &.pluto--bottom {
-            transform: translate(-50%, 1rem);
+            transform: translate(calc(var(--pos-x) - 50%), calc(var(--pos-y) + 1rem));
         }
         &.pluto--left {
-            transform: translate(calc(-100% - 1rem), -50%);
+            transform: translate(calc(var(--pos-x) + calc(-100% - 1rem)), calc(var(--pos-y) - 50%));
             &::after {
                 right: -2rem;
                 border-color: transparent transparent transparent
@@ -34,7 +36,7 @@
             }
         }
         &.pluto--right {
-            transform: translate(1rem, -50%);
+            transform: translate(calc(var(--pos-x) + 1rem), calc(var(--pos-y) - 50%));
             &::after {
                 left: -2rem;
                 border-color: transparent var(--pluto-border-color) transparent
@@ -75,10 +77,10 @@
             top: 100%;
         }
         &.pluto--right {
-            transform: translateY(calc(-100% - 1rem));
+            transform: translate(var(--pos-x) , calc(var(--pos-y) - calc(-100% - 1rem)));
         }
         &.pluto--left {
-            transform: translate(-100%, calc(-100% - 1rem));
+            transform: translate(calc(var(--pos-x) - 100%), calc(var(--pos-y) + calc(-100% - 1rem)));
         }
     }
 
@@ -88,10 +90,10 @@
             bottom: 100%;
         }
         &.pluto--right {
-            transform: translateY(1rem);
+            transform: translate(var(--pos-x), calc(var(--pos-y) - 1rem));
         }
         &.pluto--left {
-            transform: translate(-100%, 1rem);
+            transform: translate(calc(var(--pos-x) - 100%), calc(var(--pos-y) + 1rem));
         }
     }
 

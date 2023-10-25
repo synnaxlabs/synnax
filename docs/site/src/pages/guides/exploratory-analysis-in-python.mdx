@@ -1,0 +1,193 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Exploratory Analysis in Python"
+description: "Use python to analyze flow through a tube"
+---
+
+This guide will walk you through basic data analysis on an example data set using Synnax.
+We'll import the data set, explore the data using the Synnax console, run analysis, and
+attach results to the data set.
+
+## Prerequisites
+
+1. [Start a local cluster](/deploy/get-started)
+2. [Install the Synnax Console](/console/install)
+2. [Install the Python Client](/client/python/install)
+
+## Logging into our Local Cluster
+
+The first thing we need to do is log in to our local cluster. This will save our 
+credentials in our operating system keychain so that we don't have to log in again.
+
+```bash
+synnax login
+```
+
+This will prompt us to enter our cluster's host:
+
+```bash
+Enter your Synnax connection parameters:
+Host (localhost): 
+```
+
+We'll enter `localhost` and hit enter. Then we'll be prompted for the port number:
+
+```bash
+Port (9090):
+```
+
+We'll just use the default port number and hit enter. Then we'll be prompted for our username:
+
+```bash
+Username (synnax):
+```
+
+Again, we'll use the default username that is provisioned with our local cluster. Finally,
+we'll use the default password, `seldon`:
+
+```bash
+Password:
+```
+
+Finally, we'll be prompted if we want to establish a secure connection. Because we're
+running an insecure local cluster, we'll enter `n`:
+
+```bash
+Secure connection (y/n) (y):
+```
+
+If we've entered everything correctly and our local cluster is running, we should see
+the following message:
+
+```bash
+Connection successful!
+Saved credentials. You can now use the Synnax Client without having 
+to log in. To connect the cluster in a Python shell, use the following:
+
+from synnax import Synnax
+client = Synnax()
+```
+
+## Importing a Data Set
+
+Our next step is importing some test data to analyze. We'll use a flow measurement data
+set we've created for this example. To download it, run the following command:
+
+```bash
+curl -O https://raw.githubusercontent.com/synnaxlabs/synnax/docs/examples/april_9_wetdress.csv
+```
+
+To import the data set, we'll run:
+
+```bash
+synnax import april_9_wetdress.csv
+```
+
+This command will begin an interactive import process that will prompt us with a few 
+questions:
+
+```bash
+Welcome to the Synnax Ingestion CLI! Let's get started.
+Using saved credentials.
+Connection successful!
+Would you like to ingest all cahnnels? [y/n] (y):
+```
+
+This question is asking if we want to import data for all columns in the CSV file. We do,
+so we'll hit enter. Next, Synnax will check if all of the columns in the CSV file are
+valid channe names in our cluster:
+
+```bash
+Validating that channels exist...
+The following channels were not found in the database:
+┏━━━━━━━━━━━━━━━━━┓
+┃ name            ┃
+┡━━━━━━━━━━━━━━━━━┩
+│ ec_pressure_5   │
+│ ec_pressure_7   │
+│ ec_pressure_9   │
+│ ec_pressure_11  │
+│ ec_pressure_12  │
+│ ec_pressure_14  │
+│ ec_pressure_19  │
+│ ec_tc_0         │
+│ ec_tc_1         │
+│ Time            │
+└─────────────────┘
+Would you like to create them? [y/n] (y):
+```
+
+We do want to create them, so we'll just hit enter. 
+
+```bash
+Any any channels indexes (e.g. timestamps)? [y/n] (y):
+```
+
+Synnax is asking if any of the columns in the CSV contain timestamps that tell us when
+samples were taken. These types of columns are called "indexes" and are used to execute
+queries by time range. If you'd like to read more about the different channel types in
+Synnax, see [this page](/concepts/channels).
+
+In our case, we have a 'Time' column that contains timestamps, so we'll enter `y` and hit
+enter. Synnax will then ask us to select the index column:
+
+```bash
+You can enter 'all' for all channels or a comma-separated list of:
+    1) Names (e.g. 'channel1, channel2, channel3')
+    2) Channel indices (e.g. '1, 2, 3')
+    3) A pattern to match (e.g. 'channel*, sensor*')
+    
+channels: 
+```
+
+We'll enter `Time`, and move on to the next step:
+
+```bash
+Do all non-indexed channels have the same data rate or index? [y/n] (y): 
+```
+
+This question asks us if our `Time` column represents the timestamps for all of the other
+columns in the CSV file. In our case, it does, so we'll enter `y` and hit enter. Synnax
+will then ask us to enter the name of our time column:
+
+```bash
+Enter the name of an index or a data rate: 
+```
+
+We'll enter `Time` and move on. Then, Synnax will ask us about the data type of our
+channels:
+
+```bash
+Please select an option for assigning data types:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ value                                                         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Guess data types from file                                    │
+│ Assign the same data type to all channels (excluding indexes) │
+│ Group channels by data type                                   │
+└───────────────────────────────────────────────────────────────┘
+Select an option # [0/1/2] (0): 
+```
+
+We'll select the first option, which will guess the data types from the file. 
+We're almost done. Synnax will ask us to confirm the starting time of our data set:
+
+```bash
+Identified start timestamp for file as 2023-04-10T12:07:23.662716-04:00.
+Is this correct? [y/n] (y): 
+```
+
+We'll enter `y` and hit enter. Finally, Synnax will ask us to enter a name for our data
+set:
+
+```bash
+Please enter a name for the data set
+Name (4_9_wetdress_data_cleaned.csv): 
+```
+
+We'll enter `April 9 Wetdress` and hit enter. Synnax will then begin importing the data
+set. When it's done, we'll see the following message:
+
+```bash
+━━━━━━━━━━━━━━━━━━ 100% 85740 out of 85570 samples 0:00:00 7477108.2235981515 samples/s
+```

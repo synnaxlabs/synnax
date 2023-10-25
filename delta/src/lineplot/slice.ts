@@ -63,10 +63,13 @@ export const ZERO_VIEWPORT_STATE: ViewportState = {
 // |||||| AXES ||||||
 
 export interface AxisState {
+  key: Vis.AxisKey;
   label?: string;
   labelDirection: direction.Direction;
   bounds: bounds.Bounds;
   driven: boolean;
+  tickSpacing: number;
+  labelLevel: Text.Level;
 }
 
 export type AxesState = Record<Vis.AxisKey, AxisState>;
@@ -163,19 +166,22 @@ export interface State {
 }
 
 export const ZERO_AXIS_STATE: AxisState = {
+  key: "x1",
   label: "",
   labelDirection: "x",
+  labelLevel: "small",
   driven: true,
   bounds: bounds.ZERO,
+  tickSpacing: 75,
 };
 
 export const ZERO_AXES_STATE: AxesState = {
-  y1: ZERO_AXIS_STATE,
-  y2: ZERO_AXIS_STATE,
-  y3: ZERO_AXIS_STATE,
-  y4: ZERO_AXIS_STATE,
-  x1: ZERO_AXIS_STATE,
-  x2: ZERO_AXIS_STATE,
+  y1: { ...ZERO_AXIS_STATE, key: "y1" },
+  y2: { ...ZERO_AXIS_STATE, key: "y2" },
+  y3: { ...ZERO_AXIS_STATE, key: "y3" },
+  y4: { ...ZERO_AXIS_STATE, key: "y4" },
+  x1: { ...ZERO_AXIS_STATE, key: "x1" },
+  x2: { ...ZERO_AXIS_STATE, key: "x2" },
 };
 
 export const ZERO_LINE_VIS: State = {
@@ -342,10 +348,10 @@ export interface SetRemoteCreatedPayload {
 }
 
 export const typedLineKeyToString = (key: TypedLineKey): string =>
-  `${key.yAxis}-${key.xAxis}-${key.range}-${key.channels.x}-${key.channels.y}`;
+  `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
 
 export const typedLineKeyFromString = (key: string): TypedLineKey => {
-  const [yAxis, xAxis, range, x, y] = key.split("-");
+  const [yAxis, xAxis, range, x, y] = key.split("---");
   return {
     range,
     xAxis: xAxis as Vis.XAxisKey,
@@ -374,8 +380,8 @@ const generateTypedLineKeys = (state: State): TypedLineKey[] =>
                 y: yChannel,
               },
             }));
-          })
-      )
+          }),
+      ),
     )
     .flat();
 
@@ -404,7 +410,7 @@ export const { actions, reducer } = createSlice({
     },
     remove: (
       state,
-      { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>
+      { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>,
     ) => {
       layoutKeys.forEach((layoutKey) => {
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -457,7 +463,7 @@ export const { actions, reducer } = createSlice({
     setAxis: (state, { payload }: PayloadAction<SetAxisPayload>) => {
       const { key: layoutKey, axisKey, axis } = payload;
       const plot = state.plots[layoutKey];
-      plot.axes[axisKey] = { ...plot.axes[axisKey], ...axis };
+      plot.axes[axisKey] = { ...plot.axes[axisKey], ...axis, key: axisKey };
     },
     setTitle: (state, { payload }: PayloadAction<SetTitlePayload>) => {
       const { key: layoutKey, title } = payload;
@@ -491,7 +497,7 @@ export const { actions, reducer } = createSlice({
     },
     setActiveToolbarTab: (
       state,
-      { payload }: PayloadAction<SetActiveToolbarTabPayload>
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
       state.toolbar.activeTab = payload.tab;
     },
@@ -500,7 +506,7 @@ export const { actions, reducer } = createSlice({
     },
     setViewportMode: (
       state,
-      { payload: { mode } }: PayloadAction<SetViewportModePayload>
+      { payload: { mode } }: PayloadAction<SetViewportModePayload>,
     ) => {
       state.mode = mode;
     },
@@ -538,7 +544,7 @@ export const LAYOUT_TYPE = "lineplot";
 
 export const create =
   (
-    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">
+    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">,
   ): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
