@@ -1,0 +1,156 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Named Ranges"
+heading: "Named Ranges"
+description: "Use named ranges to categorize your cluster's data."
+---
+
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+
+Named ranges identify specific periods time with a label. Read and write telemetry data 
+to these ranges and attach meta-data to them. 
+
+
+## Creating a Named Range
+
+
+Creating a named range is as easy as calling `client.ranges.create`:
+
+<ClientTabs includeSetup={false}>
+
+
+<Fragment slot="python">
+
+```python
+from datetime import datetime
+
+my_named_range = client.ranges.create(
+    # This name does not need to be unique, but it's a good idea to
+    # pick something that will be easy to identify later.
+    name="My Named Range",
+    time_range=sy.TimeRange(
+        start = datetime.datetime("2023-2-12 12:30:00")
+        end = datetime.datetime("2023-2-12 14:30:00")
+    ),
+)
+```
+</Fragment>
+<Fragment slot="typescript">
+
+```ts
+const start = new Date("2023-2-12 12:30:00");
+const end = new Date("2023-2-12 14:30:00");
+
+const myNamedRange = await client.ranges.create({
+    // This name does not need to be unique, but it's a good idea to
+    // pick something that will be easy to identify later.
+    name: "My Named Range",
+    timeRange: { start, end },
+});
+```
+</Fragment>
+
+</ClientTabs>
+
+## Retrieving a Named Range
+
+You can retrieve a named range by it's name or key.
+
+<ClientTabs includeSetup={false}>
+<Fragment slot="python">
+
+```python
+# By name
+my_named_range = client.ranges.retrieve("My Named Range")
+
+# By key
+my_named_range = client.ranges.retrieve(my_named_range.key)
+```
+
+Or retrieve multiple ranges at once:
+
+```python
+# By name
+my_named_ranges = client.ranges.retrieve([
+    "My Named Range", 
+    "My Other Named Range",
+])
+
+# By key
+my_named_ranges = client.ranges.retrieve([
+    my_named_range.key, 
+    my_other_named_range.key,
+])
+```
+</Fragment>
+
+
+<Fragment slot="typescript">
+
+```ts
+# By name
+const myNamedRange = await client.ranges.retrieve("My Named Range");
+# By key
+const myNamedRange = await client.ranges.retrieve(myNamedRange.key);
+```
+</Fragment>
+</ClientTabs>
+
+
+## Searching for Ranges
+
+<ClientTabs includeSetup={false}>
+<Fragment slot="python">
+If you don't know the exact name of the range you're looking for, you can perform
+fuzzy search to find it.
+
+```python
+range_one = client.ranges.create(
+    name="My Named Range 1", 
+    time_range=sy.TimeRange(
+        start=datetime.datetime(2023, 2, 12, 12, 30, 0), 
+        end=datetime.datetime(2023, 2, 12, 14, 30, 0),
+    ),
+)
+
+range_two = client.ranges.create(
+    name="My Named Range 2", 
+    time_range=sy.TimeRange(
+        start=datetime.datetime(2023, 2, 13, 12, 50, 0), 
+        end=datetime.datetime(2023, 2, 12, 14, 55, 0),
+    ),
+)
+
+results = client.ranges.search("My Named Range")
+print([r.name for r in results])
+
+# ["My Named Range 1", "My Named Range 2"]
+```
+</Fragment>
+<Fragment slot="typescript">
+
+```ts
+const start = new Date("2023-2-12 12:30:00");
+const end = new Date("2023-2-12 14:30:00");
+
+const rangeOne = await client.ranges.create({
+    name: "My Named Range 1",
+    timeRange: { start, end },
+});
+
+const start = new Date("2023-2-13 12:50:00");
+const end = new Date("2023-2-13 14:55:00");
+
+const rangeTwo = await client.ranges.create({
+    name: "My Named Range 2",
+    timeRange: { start, end },
+});
+
+const results = await client.ranges.search("My Named Range");
+
+console.log(results.map((r) => r.name));
+// ["My Named Range 1", "My Named Range 2"]
+```
+</Fragment>
+
+</ClientTabs>

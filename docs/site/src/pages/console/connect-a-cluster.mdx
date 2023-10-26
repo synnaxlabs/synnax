@@ -1,0 +1,76 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Connect a Cluster"
+description: "Learn how to connect a cluster using the Synnax console."
+---
+
+import { DeltaDownloadButton } from "@/components/OSDownloadButton";
+import { Video } from "@/components/Media";
+import { Table } from "@/components/Table";
+
+## Prerequisites
+
+This page assumes you've already:
+
+1. [Started a cluster](/deploy/get-started)
+2. [Installed the Synnax console](/console/get-started)
+
+## Adding a New Cluster
+
+Adding a new cluster is as simple as clicking the **Add Cluster** button in the top
+right corner of the cluster toolbar and entering your connection parameters, as shown
+below.
+
+<Video client:only="react" id="visualize/connect-a-cluster" />
+
+This will add a new cluster to the list and set it as active. Delta continuously monitors
+the connection to the cluster and displays it in the bottom right corner of the UI.
+
+### Parameters
+
+<Table
+  columns={[
+    {
+      key: "name",
+      name: "Name"
+    },
+    {
+      key: "description",
+      name: "Description"
+    }
+  ]}
+  data={[
+    {
+      name: "Name",
+      description: "A human-readable name for the cluster."
+    },
+    {
+      name: "Host",
+      description: "The hostname or IP address of the cluster."
+    },
+    {
+      name: "Port",
+      description: "The port number of the cluster."
+    },
+    {
+      name: "Username",
+      description: "The username to use when connecting to the cluster."
+    },
+    {
+      name: "Password",
+      description: "The password to use when connecting to the cluster."
+    },
+    {
+      name: "Secure",
+      description:
+        "A boolean value indicating whether to use TLS when connecting to the cluster. This parameter only works with secure clusters."
+    }
+  ]}
+/>
+
+## Switching Clusters
+
+If you have multiple clusters, you can switch between them by double clicking on the
+cluster you'd like to to connect in the toolbar.
+
+<Video client:only="react" id="visualize/switch-clusters" />

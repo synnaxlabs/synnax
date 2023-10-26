@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Compare,
+  compare,
   TimeSpan,
   TimeStamp,
   bounds,
@@ -72,7 +72,7 @@ export const filterGridPositions = (
 ): GridPositionSpec[] =>
   grid
     .filter(({ loc: l }) => l === loc)
-    .sort((a, b) => Compare.order(a.order, b.order));
+    .sort((a, b) => compare.order(a.order, b.order));
 
 export const calculateGridPosition = (
   key: string,

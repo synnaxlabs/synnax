@@ -30,6 +30,7 @@ export type TabRenderProp = RenderProp<Tab>;
 export interface UseStaticTabsProps {
   tabs: Tab[];
   content?: TabRenderProp;
+  onSelect?: (key: string) => void;
 }
 
 export const resetSelection = (selected = "", tabs: Tab[] = []): string | undefined => {
@@ -47,14 +48,23 @@ export const rename = (key: string, title: string, tabs: Tab[]): Tab[] => {
   return tabs.map((t) => (t.tabKey === key ? { ...t, name: title } : t));
 };
 
-export const useStatic = ({ tabs, content }: UseStaticTabsProps): TabsContextValue => {
+export const useStatic = ({
+  tabs,
+  content,
+  onSelect,
+}: UseStaticTabsProps): TabsContextValue => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
+
+  const handleSelect = (key: string): void => {
+    setSelected(key);
+    onSelect?.(key);
+  };
 
   return {
     tabs,
     selected,
     content,
-    onSelect: setSelected,
+    onSelect: handleSelect,
   };
 };
 

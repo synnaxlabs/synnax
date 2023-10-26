@@ -46,7 +46,7 @@ func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) 
 	}
 	if err := s.authenticator.Authenticate(ctx, cred); err != nil {
 		if roacherrors.Is(err, auth.InvalidCredentials) {
-			return tr, errors.Auth(err)
+			return tr, errors.Auth(roacherrors.New("Invalid authentication credentials"))
 		}
 		return tr, errors.Unexpected(err)
 	}

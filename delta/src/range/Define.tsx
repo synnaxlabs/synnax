@@ -143,7 +143,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
             persisted,
           },
         ],
-      })
+      }),
     );
     onClose();
   };
@@ -152,7 +152,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
 
   return (
     <Align.Space grow>
-      <Header.Header level="h4" divided>
+      <Header.Header level="h4">
         <Header.Title startIcon={<Icon.Range />}>Define a Range</Header.Title>
       </Header.Header>
       <form

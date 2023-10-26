@@ -9,11 +9,12 @@
 
 import { type Series, TimeRange } from "@synnaxlabs/x";
 
+import { type cdc } from "@/cdc";
 import { type Key, type Params, type Name } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { type Aliaser } from "@/ranger/alias";
+import { type Alias, type Aliaser } from "@/ranger/alias";
 import { type KV } from "@/ranger/kv";
 
 export class Range {
@@ -57,6 +58,10 @@ export class Range {
 
   async listAliases(): Promise<Record<Key, string>> {
     return await this.aliaser.list();
+  }
+
+  async openAliasTracker(): Promise<cdc.Observable<string, Alias>> {
+    return await this.aliaser.openChangeTracker();
   }
 
   async read(channel: Key | Name): Promise<Series>;

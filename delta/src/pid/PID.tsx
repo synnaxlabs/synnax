@@ -9,6 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
+import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 import {
   PID as Core,
@@ -108,10 +109,10 @@ const ElementRenderer = ({
   const handleChange = useCallback(
     (props: object) => {
       dispatch(
-        setElementProps({ layoutKey, key: elementKey, props: { type, ...props } })
+        setElementProps({ layoutKey, key: elementKey, props: { type, ...props } }),
       );
     },
-    [dispatch, elementKey, layoutKey, type]
+    [dispatch, elementKey, layoutKey, type],
   );
 
   const C = PIDElement.REGISTRY[type];
@@ -136,7 +137,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
     syncer,
-    1000
+    1000,
   );
   const theme = Theming.use();
   const viewportRef = useSyncedRef(pid.viewport);
@@ -145,28 +146,28 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     (edges) => {
       dispatch(setEdges({ layoutKey, edges }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleNodesChange: Core.PIDProps["onNodesChange"] = useCallback(
     (nodes) => {
       dispatch(setNodes({ layoutKey, nodes }));
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleViewportChange: Core.PIDProps["onViewportChange"] = useCallback(
     (vp) => {
       dispatch(setViewport({ layoutKey, viewport: vp }));
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const handleEditableChange: Core.PIDProps["onEditableChange"] = useCallback(
     (cbk) => {
       dispatch(setEditable({ layoutKey, editable: cbk }));
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const handleControlStatusChange: Control.ControllerProps["onStatusChange"] =
@@ -174,7 +175,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       (control) => {
         dispatch(setControlStatus({ layoutKey, control }));
       },
-      [layoutKey]
+      [layoutKey],
     );
 
   const acquireControl = useCallback(
@@ -183,17 +184,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         toggleControl({
           layoutKey,
           status: v ? "acquired" : "released",
-        })
+        }),
       );
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const elRenderer = useCallback(
     (props: Core.ElementProps) => {
       return <ElementRenderer layoutKey={layoutKey} {...props} />;
     },
-    [layoutKey]
+    [layoutKey],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -223,18 +224,19 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 x: event.clientX + OFFSET * i,
                 y: event.clientY + OFFSET * i,
               }),
+              zIndex: spec.zIndex,
             },
             props: {
               type,
               ...spec.initialProps(theme),
               ...(data ?? {}),
             },
-          })
+          }),
         );
       });
       return valid;
     },
-    [pid.viewport, theme]
+    [pid.viewport, theme],
   );
 
   const dropProps = Haul.useDrop({
@@ -262,8 +264,24 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         if (copy) dispatch(copySelection({ pos }));
         else dispatch(pasteSelection({ pos, layoutKey }));
       },
-      [dispatch, layoutKey, viewportRef]
+      [dispatch, layoutKey, viewportRef],
     ),
+  });
+
+  const handleDoubleClick = useCallback(() => {
+    if (!pid.editable) return;
+    dispatch(
+      Layout.setNavdrawerVisible({
+        key: "visualization",
+        value: true,
+      }) as PayloadAction<SyncPayload>,
+    );
+  }, [dispatch, pid.editable]);
+
+  Triggers.use({
+    triggers: [["MouseLeft", "MouseLeft"]],
+    region: ref,
+    callback: handleDoubleClick,
   });
 
   return (
@@ -284,6 +302,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onEditableChange={handleEditableChange}
           editable={pid.editable}
           triggers={triggers}
+          onDoubleClick={handleDoubleClick}
           {...dropProps}
         >
           <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>

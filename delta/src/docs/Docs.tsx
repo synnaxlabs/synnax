@@ -27,6 +27,12 @@ const HOST = new URL({
   protocol: "https",
 });
 
+const DEV_HOST = new URL({
+  host: "localhost",
+  port: 4321,
+  protocol: "http",
+});
+
 /**
  * Renders a layout that loads the documentation site in an iframe. Updates the docs
  * redux store to preserve the location when re-opening the docs.
@@ -54,7 +60,7 @@ export const Docs: Layout.Renderer = memo(() => {
       setDocsLocation({
         path: (event as MessageEvent).data.path,
         heading: (event as MessageEvent).data.heading,
-      })
+      }),
     );
   };
 
@@ -63,7 +69,7 @@ export const Docs: Layout.Renderer = memo(() => {
       noHeader: true,
       theme: theme.key.includes("dark") ? "dark" : "light",
     };
-    setURL(HOST.child(path ?? "").child(buildQueryString(queryParams)));
+    setURL(DEV_HOST.child(path ?? "").child(buildQueryString(queryParams)));
     window.addEventListener("message", handleFrameMessage);
     return () => window.removeEventListener("message", handleFrameMessage);
   }, []);

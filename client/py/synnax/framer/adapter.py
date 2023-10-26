@@ -10,19 +10,18 @@
 from pandas import DataFrame
 
 from synnax.channel.payload import (
-    ChannelPayload,
     ChannelKey,
     ChannelKeys,
-    ChannelNames,
     ChannelName,
+    ChannelNames,
     ChannelParams,
+    ChannelPayload,
+    normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.channel.payload import normalize_channel_params
+from synnax.exceptions import QueryError, ValidationError
 from synnax.framer.frame import Frame
 from synnax.telem.series import CrudeSeries, Series
-from synnax.exceptions import ValidationError
-from synnax.exceptions import QueryError
 
 
 class ReadFrameAdapter:

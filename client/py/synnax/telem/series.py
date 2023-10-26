@@ -9,13 +9,14 @@
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import uuid
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 from freighter import Payload
-from synnax.telem.telem import TimeRange, DataType, CrudeDataType, Size, TimeStamp
+
+from synnax.telem.telem import CrudeDataType, DataType, Size, TimeRange, TimeStamp
 from synnax.util.interop import overload_comparison_operators
 
 

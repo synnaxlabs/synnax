@@ -1,6 +1,6 @@
 ---
 title: "Get Started"
-layout: ../layouts/MainLayout.astro
+layout: "@/layouts/MainLayout.astro"
 ---
 
 import { Icon } from "@synnaxlabs/media";
@@ -10,11 +10,25 @@ import { Align } from "@synnaxlabs/pluto/align";
 
 import { GetStartedChip } from "@/components/GetStartedChip";
 
-<Align.Space>
-    <GetStartedChip
-    title="Start a Cluster"
+## Analyze Data
+
+<GetStartedChip
+    title="Python"
     href="/deploy/get-started"
     description="Start a single node cluster for learning."
+>
+<Icon.Cluster slot="icon" />
+</GetStartedChip>
+
+## Automate with Control Sequences
+
+## Use the Synnax Console
+
+<Align.Space direction="x" wrap>
+    <GetStartedChip
+        title="Start a Cluster"
+        href="/deploy/get-started"
+        description="Start a single node cluster for learning."
     >
     <Icon.Cluster slot="icon" />
     </GetStartedChip>
@@ -46,7 +60,7 @@ import { GetStartedChip } from "@/components/GetStartedChip";
     title="Create Visualizations"
     description="Use the Synnax UI to visualize and
         explore a cluster's telemetry."
-    href="/visualize/get-started"
+    href="/console/get-started"
     >
     <Icon.Visualize slot="icon" />
     </GetStartedChip>

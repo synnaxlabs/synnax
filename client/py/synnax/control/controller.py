@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from __future__ import annotations
-from collections.abc import Callable
+
 import uuid
+from asyncio import create_task, events, tasks
+from collections.abc import Callable
+from threading import Event, Thread
+from typing import Any, Protocol
 
 import numpy as np
-from threading import Thread, Event
-from typing import Any, Protocol
-from asyncio import events, create_task, tasks
 from janus import Queue
 
 from synnax import framer
@@ -25,8 +26,8 @@ from synnax.channel.payload import (
     ChannelPayload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
-from synnax.telem import TimeStamp, CrudeTimeSpan, TimeSpan
-from synnax.telem.control import CrudeAuthority, Authority
+from synnax.telem import CrudeTimeSpan, TimeSpan, TimeStamp
+from synnax.telem.control import Authority, CrudeAuthority
 
 
 class State:

@@ -14,7 +14,7 @@
 }
 
 :is(button, input):is(:focus,:active,:hover) {
-    z-index: 2000;
+    z-index: 3;
 }
 
 html {
@@ -42,16 +42,16 @@ body {
 }
 
 ::-webkit-scrollbar {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1rem;
+    height: 1rem;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--pluto-gray-m3);
+    background: var(--pluto-gray-m4);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-m1);
+    background: var(--pluto-gray-m2);
     border-radius: var(--pluto-border-radius);
 }
 
@@ -119,4 +119,9 @@ body {
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
+}
+
+.pluto--inherit-dims {
+    height: inherit;
+    width: inherit;
 }

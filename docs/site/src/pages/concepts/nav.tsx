@@ -14,7 +14,6 @@ import { PageNavNode } from "@/components/PageNav";
 export const conceptsNav: PageNavNode = {
   key: "concepts",
   name: "Concepts",
-  icon: <Icon.Concepts />,
   children: [
     {
       key: "/concepts/overview",

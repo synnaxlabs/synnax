@@ -19,12 +19,14 @@ import { provider } from "@/telem/provider/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
+import { eraser } from "@/vis/eraser/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
+import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { pid } from "@/vis/pid/aether";
 import { rule } from "@/vis/rule/aether";
-import { tooltip } from "@/vis/tooltip/aether";
+import { table } from "@/vis/table/aether";
 import { value } from "@/vis/value/aether";
 import { valve } from "@/vis/valve/aether";
 
@@ -51,6 +53,8 @@ export const render = (): void => {
     ...button.REGISTRY,
     ...chip.REGISTRY,
     ...alamos.REGISTRY,
+    ...eraser.REGISTRY,
+    ...table.REGISTRY,
   };
 
   aether.render({

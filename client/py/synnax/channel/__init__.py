@@ -7,16 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.channel.client import ChannelClient, Channel
+from synnax.channel.client import Channel, ChannelClient
 from synnax.channel.payload import (
-    ChannelPayload,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
     ChannelParams,
+    ChannelPayload,
     normalize_channel_params,
 )
-from synnax.channel.retrieve import (
-    ChannelRetriever,
-)
+from synnax.channel.retrieve import ChannelRetriever

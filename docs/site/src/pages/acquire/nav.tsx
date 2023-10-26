@@ -14,7 +14,6 @@ import { PageNavNode } from "@/components/PageNav";
 export const acquireNav: PageNavNode = {
   key: "acquire",
   name: "Acquire",
-  icon: <Icon.Acquire />,
   children: [
     {
       key: "/acquire/get-started",

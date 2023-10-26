@@ -39,7 +39,7 @@ describe("auth", () => {
       expect(client.authenticated).toBeFalsy();
       expect(e).toBeInstanceOf(AuthError);
       if (e instanceof AuthError) {
-        expect(e.message).toEqual("[synnax] - invalid credentials");
+        expect(e.message).toEqual("Invalid authentication credentials");
       }
     }
   });

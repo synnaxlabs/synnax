@@ -13,7 +13,6 @@ import React from "react";
 import { Pluto } from "../src";
 import "./index.css";
 import 'reactflow/dist/style.css';
-import { devInstrumentaton } from "@synnaxlabs/alamos"
 
 export const parameters = {
     actions: { argTypesRegex: "^on[A-Z].*" },
@@ -32,14 +31,12 @@ const CONN_PARAMS = {
     password: "seldon"
 }
 
-const ins = devInstrumentaton()
 
 
 export const decorators = [
     (StoryFn) => (
         <Pluto.Provider
             connParams={CONN_PARAMS} 
-            instrumentation={ins}
         >
             {StoryFn()}
         </Pluto.Provider>

@@ -9,11 +9,20 @@
 
 import { type ReactElement } from "react";
 
-import { Input, List, Align, Status, Tabs, Text, Color } from "@synnaxlabs/pluto";
+import {
+  Input,
+  List,
+  Align,
+  Status,
+  Tabs,
+  Text,
+  Color,
+  Channel,
+} from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
-import { type LineState, setLine } from "@/lineplot/slice";
+import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
 
 export interface LinesProps {
   layoutKey: string;
@@ -56,7 +65,7 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
           {
             key: "label",
             name: "Label",
-            width: 300,
+            width: 305,
           },
           {
             key: "strokeWidth",
@@ -101,14 +110,19 @@ const Line = ({ entry: line, onChange }: LinePlotLineControlsProps): ReactElemen
   };
 
   const handleColorChange: Input.Control<Color.Color>["onChange"] = (
-    value: Color.Color
+    value: Color.Color,
   ) => {
     onChange({ ...line, color: value.hex });
   };
 
+  const {
+    channels: { y: yChannel },
+  } = typedLineKeyFromString(line.key);
+
   return (
     <Align.Space style={{ padding: "0.5rem", width: "100%" }} direction="x">
-      <Input.Text
+      <Channel.AliasInput
+        channelKey={yChannel}
         style={{ width: 305 }}
         value={line.label ?? ""}
         onChange={handleLabelChange}

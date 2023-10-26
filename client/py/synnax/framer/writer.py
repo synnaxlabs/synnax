@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
-
 from enum import Enum
+from uuid import uuid4
 from warnings import warn
 
 from freighter import (
@@ -17,18 +16,19 @@ from freighter import (
     ExceptionPayload,
     Payload,
     Stream,
-    decode_exception,
     StreamClient,
+    decode_exception,
 )
 from numpy import can_cast as np_can_cast
-from pandas import DataFrame, concat as pd_concat
+from pandas import DataFrame
+from pandas import concat as pd_concat
 
 from synnax import io
-from synnax.channel.payload import ChannelKeys, ChannelKey, ChannelName, ChannelNames
+from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
 from synnax.exceptions import Field, ValidationError
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import Frame, FramePayload
-from synnax.telem import TimeSpan, TimeStamp, CrudeTimeStamp, DataType, CrudeSeries
+from synnax.telem import CrudeSeries, CrudeTimeStamp, DataType, TimeSpan, TimeStamp
 from synnax.telem.control import Authority, Subject
 from synnax.util.normalize import normalize
 

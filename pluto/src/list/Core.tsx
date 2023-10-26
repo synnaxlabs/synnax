@@ -12,6 +12,7 @@ import { type ComponentPropsWithoutRef, type ReactElement, useRef } from "react"
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
 import { type ItemProps } from "@/list/types";
@@ -97,21 +98,21 @@ export const Core = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
-  props: Omit<ComponentPropsWithoutRef<"div">, "children"> & {
+  props: Omit<Align.SpaceProps, "children"> & {
     children: RenderProp<ItemProps<K, E>>;
   },
 ): ReactElement => {
   const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
 
   return (
-    <div className={CSS.BE("list", "container")} {...props}>
+    <Align.Space className={CSS.BE("list", "container")} {...props} empty>
       {data.length === 0 ? (
         emptyContent
       ) : (
         <>
           {data.map((entry, index) =>
             props.children({
-              key: entry.key,
+              key: entry.key.toString(),
               index,
               onSelect: select.onSelect,
               entry,
@@ -123,7 +124,7 @@ export const Core = <
           )}
         </>
       )}
-    </div>
+    </Align.Space>
   );
 };
 

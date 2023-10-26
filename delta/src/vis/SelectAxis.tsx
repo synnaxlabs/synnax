@@ -32,7 +32,6 @@ export const SelectMultipleAxesInputItem = ({
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
-    tagKey="name"
     {...props}
   >
     {componentRenderProp(Channel.SelectMultiple)}
@@ -57,7 +56,6 @@ export const SelectAxisInputItem = ({
     direction="x"
     label={axisLabel(axis)}
     onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
-    tagKey="name"
     {...props}
   >
     {componentRenderProp(Channel.SelectSingle)}

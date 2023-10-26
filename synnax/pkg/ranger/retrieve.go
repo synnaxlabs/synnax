@@ -77,7 +77,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	}
 	entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
 	for i, e := range entries.All() {
-		entries.Set(i, e.UseTx(tx))
+		entries.Set(i, e.UseTx(tx).setOntology(r.otg))
 	}
 	return nil
 }

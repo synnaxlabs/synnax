@@ -71,6 +71,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if cfg.CDC != nil {
 		rangeCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
 		if err != nil {

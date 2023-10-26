@@ -51,7 +51,7 @@ const Content = (): ReactElement => {
   };
 
   return (
-    <Align.Space empty>
+    <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
@@ -82,7 +82,7 @@ const ListItem = ({
     onDoubleClick={() => onSelect?.(key)}
     className={CSS(
       CSS.BE("cluster-toolbar-list", "item"),
-      selected && CSS.M("selected")
+      selected && CSS.M("selected"),
     )}
     style={style}
   >

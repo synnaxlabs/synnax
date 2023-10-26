@@ -74,12 +74,12 @@ var _ = Describe("AuthService", Ordered, func() {
 		})
 		It("Should return an InvalidCredentials error if the creds are invalid", func() {
 			tr, err := svc.Login(ctx, auth.InsecureCredentials{Username: "test", Password: "blabla"})
-			Expect(err).To(MatchError(apierrors.Auth(auth.InvalidCredentials)))
+			Expect(err).To(MatchError(apierrors.Auth(errors.New("Invalid authentication credentials"))))
 			Expect(tr.Token).To(BeEmpty())
 		})
 		It("Should return an InvalidCredentials error if the user can't be found", func() {
 			tr, err := svc.Login(ctx, auth.InsecureCredentials{Username: "jeff", Password: "blabla"})
-			Expect(err).To(MatchError(apierrors.Auth(auth.InvalidCredentials)))
+			Expect(err).To(MatchError(apierrors.Auth(errors.New("Invalid authentication credentials"))))
 			Expect(tr.Token).To(BeEmpty())
 		})
 		//It("Should return a Validation error if the username field is empty", func() {

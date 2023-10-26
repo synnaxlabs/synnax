@@ -168,8 +168,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return res[0];
   }
 
-  async search(term: string): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term));
+  async search(term: string, rangeKey?: string): Promise<Channel[]> {
+    return this.sugar(await this.retriever.search(term, rangeKey));
+  }
+
+  newSearcherUnderRange(rangeKey?: string): AsyncTermSearcher<string, Key, Channel> {
+    return new SearcherUnderRange(this, rangeKey);
   }
 
   async page(offset: number, limit: number): Promise<Channel[]> {
@@ -179,5 +183,27 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private sugar(payloads: Payload[]): Channel[] {
     const { frameClient } = this;
     return payloads.map((p) => new Channel({ ...p, frameClient }));
+  }
+}
+
+class SearcherUnderRange implements AsyncTermSearcher<string, Key, Channel> {
+  private readonly client: Client;
+  private readonly rangeKey?: string;
+
+  constructor(client: Client, rangeKey?: string) {
+    this.client = client;
+    this.rangeKey = rangeKey;
+  }
+
+  async search(term: string): Promise<Channel[]> {
+    return await this.client.search(term, this.rangeKey);
+  }
+
+  async page(offset: number, limit: number): Promise<Channel[]> {
+    return await this.client.page(offset, limit);
+  }
+
+  async retrieve(channels: Key[]): Promise<Channel[]> {
+    return await this.client.retrieve(channels);
   }
 }

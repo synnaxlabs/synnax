@@ -2,28 +2,30 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Read"
 heading: "Read Telemetry"
-description: "Reading telemetry from a cluster is simple. Synnax supports both single
-request reads as well as server side iterators for reading large quantities of data
-easily. This page will walk you through the details of each."
+description: "Learn how to read telemetry from the channel's in a Synnax cluster."
 ---
 
 import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
 
-Reading telemetry from a cluster is simple. Synnax supports both single request reads as
-well as server side iterators for reading large quantities of data easily. This page will
-walk you through the details of each.
+Synnax supports several different ways of reading from a cluster: by pure time range, 
+by retrieving a named range and accessing it's data, or by leveraging a server side 
+iterator for large reads. This page will cover all three methods and when to use each.
 
 ## Prerequisites
 
 This page assumes you’ve already:
 
--   [Started a cluster](/deploy/get-started)
--   [Familiarized yourself with channels](/concepts/channels)
--   [Installed the Synnax client in the language of your choice](/analyze/get-started)
+1.   [Started a cluster](/deploy/get-started)
+2.  [Familiarized yourself with channels](/concepts/channels)
+3.  [Installed the Synnax client in the language of your choice](/analyze/get-started)
 
-If you'd like a formal introduction to how ranges and reads work in Synnax, look here.
+## Setup
 
-<ClientTabs>
+<ClientTabs />
+
+## Read Directly from a Channel
+
+<ClientTabs includeSetup={false}>
 <Fragment slot="python">
 
 ### Single Channel Read
@@ -60,25 +62,6 @@ df = client.read_frame(
 ).as_df()
 ```
 
-### Reading Large Amounts of Telemetry
-
-Single and multi-channel reads will cover must of your needs, but in some cases, it's
-necessary to process quantities of data that can’t fit in memory. This is where iterators
-come into play. An iterator can efficiently traverse a time range with hundreds of billions
-of samples. You can read conceptually about iterators here.
-
-We can create a new iterator by providing the channels we want to read along with a time
-range. The following code creates an iterator that will read 100 samples at a time
-and reads each frame.
-
-```python
-with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as i:
-    for frame in iter:
-        # Do something with the current frame
-```
-
-We recommend using the iterator as a context manager. This ensures that all iterator-related
-resources are freed if an exception is thrown or the context exits.
 
 </Fragment>
 <Fragment slot="typescript">
@@ -108,7 +91,39 @@ const tcData = frame.retrieve("my-precise-tc");
 const timeData = frame.retrieve("time");
 ```
 
-### Reading Large Amounts of Telemetry
+</Fragment>
+
+</ClientTabs>
+
+## Use an Iterator for Large Reads
+
+
+<ClientTabs includeSetup={false}>
+<Fragment slot="python">
+
+Single and multi-channel reads will cover must of your needs, but in some cases, it's
+necessary to process quantities of data that can’t fit in memory. This is where iterators
+come into play. An iterator can efficiently traverse a time range with hundreds of billions
+of samples. You can read conceptually about iterators here.
+
+We can create a new iterator by providing the channels we want to read along with a time
+range. The following code creates an iterator that will read 100 samples at a time
+and reads each frame.
+
+```python
+with client.new_iterator(start, end, "my-precise-tc", "time", chunk_size=100) as i:
+    for frame in iter:
+        # Do something with the current frame
+```
+
+We recommend using the iterator as a context manager. This ensures that all iterator-related
+resources are freed if an exception is thrown or the context exits.
+
+
+</Fragment>
+
+
+<Fragment slot="typescript">
 
 Single and multi-channel reads will probably cover must of your needs, although in some cases
 it's necessary to process quantities of data that can’t fit in memory. This is where iterators

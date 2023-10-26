@@ -13,12 +13,13 @@ import { type direction } from "@synnaxlabs/x";
 import { Handle, Position } from "reactflow";
 
 import { Align } from "@/align";
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { Remote } from "@/telem/remote";
-import { Static } from "@/telem/static";
+import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { type FormProps, type Props, type Spec } from "@/vis/pid/element/element";
@@ -84,13 +85,16 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   return (
     <>
       <Align.Space direction="x" grow align="stretch">
-        <Input.Item<string>
+        <Input.Item<string, string, Channel.AliasInputProps>
           label="Label"
           value={value.label}
           onChange={handleLabelChange}
+          channelKey={value.telem.channel}
           grow
-        />
-        <Input.Item<string>
+        >
+          {componentRenderProp(Channel.AliasInput)}
+        </Input.Item>
+        <Input.Item<string, string>
           label="Units"
           value={value.units}
           onChange={handleUnitsChange}
@@ -124,9 +128,10 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
 };
 
 const Preview = ({ color }: ElementProps): ReactElement => {
-  const telem = Static.useNumeric(500);
   return (
-    <ValueLabeled label="Value" units="psi" telem={telem} level="p" color={color} />
+    <div className={CSS.B("value")} style={{ padding: "0.75rem 3rem" }}>
+      <Text.Text level="p">500 psi</Text.Text>
+    </div>
   );
 };
 
@@ -143,6 +148,7 @@ export const initialProps = (th: Theming.Theme): ElementProps => ({
 export const ValueSpec: Spec<ElementProps> = {
   type: "value",
   title: "Value",
+  zIndex: 3,
   initialProps,
   Element,
   Form,

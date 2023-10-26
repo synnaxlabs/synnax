@@ -1,0 +1,64 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Define a Range"
+---
+
+import { Video } from "@/components/Media";
+import { Table } from "@/components/Table";
+
+This page walks you through creating a new [range](/concepts/read-ranges) to visualize
+an area of interest.
+
+## Prerequisites
+
+This page assumes you've already:
+
+-   [Installed the Visualization UI.](/console/get-started)
+-   [Connected to a Synnax cluster.](/console/connect-a-cluster)
+
+## Create a New Range
+
+Creating a new range is as easy as clicking the Add Range button in the workspace toolbar,
+and entering the time range you're interested in querying.
+
+<Video client:only="react" id="/console/define-range" />
+
+### Parameters
+
+<Table
+    columns={[
+        {
+            key: "name",
+            name: "Name",
+            width: 125,
+        },
+        {
+            key: "description",
+            name: "Description",
+        },
+    ]}
+    data={[
+        {
+            name: "Name",
+            description: "A human-readable name for identifying the range",
+        },
+        {
+            name: "Start Date",
+            description: "The start date of the range.",
+        },
+        {
+            name: "Start Time",
+            description:
+                "The start time of the range. This value is inclusive, meaning any samples with a timestamp equal to the start time will be included in the range.",
+        },
+        {
+            name: "End Date",
+            description: "The end date of the range.",
+        },
+        {
+            name: "End Time",
+            description:
+                "The end time of the range. This value is exclusive, meaning any samples with a timestamp equal to the end time will not be included in the range.",
+        },
+    ]}
+/>

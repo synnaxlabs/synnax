@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ComponentPropsWithoutRef } from "react";
+import { type ReactNode, type ComponentPropsWithoutRef } from "react";
 
-import { ComponentSize } from "@/util/component";
+import { type ComponentSize } from "@/util/component";
 
 export type Value = unknown;
 
@@ -29,8 +29,10 @@ type HTMLInputProps = Omit<
 export type Variant = "outlined" | "shadow";
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>
-  extends HTMLInputProps,
+  extends Omit<HTMLInputProps, "placeholder">,
     Control<I, O> {
   size?: ComponentSize;
   variant?: Variant;
+  sharp?: boolean;
+  placeholder?: ReactNode;
 }

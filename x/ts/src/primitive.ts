@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key } from "@/record";
+
 export type Primitive =
   | string
   | number
@@ -23,7 +25,7 @@ export interface Stringer {
 export const isStringer = (value: unknown): boolean =>
   value != null && typeof value === "object" && "toString" in value;
 
-export type PrimitiveRecord = Record<string, Primitive>;
+export type PrimitiveRecord = Record<Key, Primitive>;
 
 export const primitiveIsZero = (value: Primitive): boolean => {
   if (isStringer(value)) return value?.toString().length === 0;

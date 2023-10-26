@@ -3,9 +3,12 @@ layout: "@/layouts/MainLayout.astro"
 title: "Analyze"
 ---
 
+import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
+import { PackageManagerTabs } from "@/components/PackageManagerTabs";
+
 This section guides you through reading telemetry from a Synnax cluster to perform analysis.
 Guides are available for both Python and TypeScript. If you're interested in quickly
-visualizing data, see the [Visualize](/visualize/get-started) section.
+visualizing data, see the [Console](/console/get-started) section.
 
 ## Prerequisites
 
@@ -15,8 +18,7 @@ This section assumes you've already:
 2. [Familiarized yourself with channels.](/concepts/channels)
 3. [Acquired data you'd like to analyze.](/acquire/get-started)
 
-import ClientTabs from "@/components/ClientTabs/ClientTabs.astro";
-import { PackageManagerTabs } from "@/components/PackageManagerTabs";
+
 
 <ClientTabs includeSetup={false}>
 <Fragment slot="python">
@@ -42,14 +44,14 @@ If successful, you should see the following output:
 
 ```
 Connection successful!
-Saved credentials. You can now use the Synnax Client without having to log in. To connect
-the cluster in a Python shell, use the following:
+Saved credentials. You can now use the Synnax Client without having 
+to log in. To connect the cluster in a Python shell, use the following command:
 
 from synnax import Synnax
 client = Synnax()
 ```
 
-### Read and Plot Data
+### Query Data
 
 You're now free to read and write data. Take the following example,
 where we read data from a temperature sensor and plot it.

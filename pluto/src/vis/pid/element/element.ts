@@ -26,6 +26,7 @@ export interface FormProps<P extends object = UnknownRecord> extends Input.Contr
 export interface Spec<P extends object = UnknownRecord> {
   type: string;
   title: string;
+  zIndex?: number;
   initialProps: (theme: Theming.Theme) => P;
   Element: FC<Props<P>>;
   Form: FC<FormProps<P>>;

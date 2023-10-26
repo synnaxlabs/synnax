@@ -10,8 +10,8 @@
  */
 
 .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-text-color);
-    fill: var(--pluto-text-color);
+    stroke: var(--pluto-gray-p2);
+    fill: var(--pluto-gray-p2);
 }
 
 .pluto-text-icon svg {
@@ -55,13 +55,9 @@
 }
 
 .pluto-text-icon--small svg {
-    width: var(--pluto-small-line-height);
-    min-width: var(--pluto-small-line-height);
-    height: var(--pluto-small-line-height);
+    width: var(--pluto-small-size);
+    min-width: var(--pluto-small-size);
+    height: var(--pluto-small-size);
 }
 
-.pluto-text-icon--small svg {
-    width: var(--pluto-tiny-line-height);
-    min-width: var(--pluto-tiny-line-height);
-    height: var(--pluto-tiny-line-height);
-}
+

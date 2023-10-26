@@ -10,7 +10,7 @@
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Status as CoreStatus } from "@/status";
-import { useContext } from "@/triggers/Context";
+import { useContext } from "@/triggers/Provider";
 import { type Trigger } from "@/triggers/triggers";
 
 export interface StatusProps extends CoreStatus.TextProps {}

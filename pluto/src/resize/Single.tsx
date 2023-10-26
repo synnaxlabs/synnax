@@ -18,11 +18,11 @@ import { Core, type CoreProps } from "@/resize/Core";
 
 /** Props for the {@link Single} component. */
 export interface SingleProps
-  extends Omit<CoreProps, "showHandle" | "size" | "onResize" | "onDragStart"> {
+  extends Omit<CoreProps, "showHandle" | "size" | "onResize" | "onDragStart" | "ref"> {
   initialSize?: number;
   minSize?: number;
   maxSize?: number;
-  onResize?: (size: number) => void;
+  onResize?: (size: number, box: box.Box) => void;
   collapseThreshold?: number;
   onCollapse?: () => void;
 }
@@ -68,11 +68,14 @@ export const Single = ({
     [loc, minSize, maxSize, collapseThreshold],
   );
 
+  const ref = useRef<HTMLDivElement>(null);
+
   const handleMove = useCallback(
-    (box: box.Box) => {
-      const nextSize = calcNextSize(box);
+    (dragRegion: box.Box) => {
+      const nextSize = calcNextSize(dragRegion);
       setSize(nextSize);
-      onResize?.(nextSize);
+      if (ref.current == null) return;
+      onResize?.(nextSize, box.construct(ref.current));
     },
     [onResize, calcNextSize],
   );
@@ -109,6 +112,7 @@ export const Single = ({
 
   return (
     <Core
+      ref={ref}
       location={loc}
       size={size}
       onDragStart={handleDragStart}
