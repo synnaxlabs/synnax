@@ -41,15 +41,15 @@ TEST(FramerTests, testWriteBasic) {
 
     auto now = synnax::TimeStamp::now();
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
-        .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-        .start = now,
-        .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
-        .subject = synnax::Subject{.name = "test_writer"},
+            .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
+            .start = now,
+            .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
+            .subject = synnax::Subject{.name = "test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto frame = synnax::Frame(2);
-    frame.push_back(
+    frame.add(
             time.key,
             synnax::Series(std::vector<std::int64_t>{
                     (now.value + synnax::SECOND).value,
@@ -62,7 +62,7 @@ TEST(FramerTests, testWriteBasic) {
                     (now + synnax::SECOND * 8).value,
             })
     );
-    frame.push_back(
+    frame.add(
             data.key,
             synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );

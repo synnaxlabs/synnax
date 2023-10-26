@@ -71,9 +71,9 @@ public:
 
     explicit Frame(const api::v1::Frame &f);
 
-    void to_proto(api::v1::Frame *f) const;
+    void toProto(api::v1::Frame *f) const;
 
-    void push_back(ChannelKey col, synnax::Series ser);
+    void add(ChannelKey col, synnax::Series ser);
 
     [[nodiscard]] size_t size() const { return series->size(); }
 };
@@ -83,7 +83,7 @@ public:
     std::vector<ChannelKey> channels;
     synnax::TimeStamp start;
 private:
-    void to_proto(api::v1::FrameStreamerRequest *f) const;
+    void toProto(api::v1::FrameStreamerRequest *f) const;
 
     friend class FrameClient;
 };
@@ -133,7 +133,7 @@ private:
     bool closed = false;
 
     /// @brief true if an error has occurred in the streamer.
-    void assert_open() const;
+    void assertOpen() const;
 
     /// @brief constructs the streamer from a configured stream and moves ownership.
     explicit Streamer(std::unique_ptr<StreamerStream> stream);
@@ -168,7 +168,7 @@ public:
     synnax::Subject subject;
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameWriterConfig *f) const;
+    void toProto(api::v1::FrameWriterConfig *f) const;
 
     friend class FrameClient;
 };
@@ -232,7 +232,7 @@ private:
     explicit Writer(std::unique_ptr<WriterStream> s);
 
     /// @brief throws a runtime error if the writer is closed.
-    void assert_open() const;
+    void assertOpen() const;
 
     friend class FrameClient;
 };

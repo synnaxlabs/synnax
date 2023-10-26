@@ -36,7 +36,7 @@ std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig &
     if (exc) return {Writer(), exc};
     auto req = api::v1::FrameWriterRequest();
     req.set_command(OPEN);
-    config.to_proto(req.mutable_config());
+    config.toProto(req.mutable_config());
     exc = s->send(req);
     if (exc) return {Writer(), exc};
     auto [_, recExc] = s->receive();
@@ -46,7 +46,7 @@ std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig &
 Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {}
 
 
-void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
+void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
     subject.to_proto(f->mutable_control_subject());
     f->set_start(start.value);
     for (auto &auth: authorities) f->add_authorities(auth);
@@ -54,18 +54,18 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
 }
 
 bool Writer::write(Frame fr) {
-    assert_open();
+    assertOpen();
     if (err_accumulated) return false;
     api::v1::FrameWriterRequest req;
     req.set_command(WRITE);
-    fr.to_proto(req.mutable_frame());
+    fr.toProto(req.mutable_frame());
     auto exc = stream->send(req);
     if (exc) err_accumulated = true;
     return !err_accumulated;
 }
 
 std::pair<synnax::TimeStamp, bool> Writer::commit() {
-    assert_open();
+    assertOpen();
     if (err_accumulated) return {synnax::TimeStamp(), false};
 
     auto req = api::v1::FrameWriterRequest();
@@ -87,7 +87,7 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
 }
 
 freighter::Error Writer::error() {
-    assert_open();
+    assertOpen();
 
     auto req = api::v1::FrameWriterRequest();
     req.set_command(ERROR);
@@ -110,7 +110,7 @@ freighter::Error Writer::close() {
 }
 
 
-void Writer::assert_open() const {
+void Writer::assertOpen() const {
     if (closed)
         throw std::runtime_error("cannot call method on closed writer");
 }

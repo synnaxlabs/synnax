@@ -53,7 +53,7 @@ TEST(FramerTests, testStreamBasic) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
     auto frame = synnax::Frame(1);
-    frame.push_back(
+    frame.add(
             data.key,
             synnax::Series(std::vector<std::float_t>{1.0})
     );

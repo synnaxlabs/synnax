@@ -39,12 +39,12 @@ Frame::Frame(const api::v1::Frame &f) {
     for (auto &k: key) columns->push_back(k);
 }
 
-void Frame::push_back(ChannelKey col, synnax::Series ser) {
+void Frame::add(ChannelKey col, synnax::Series ser) {
     columns->push_back(col);
     series->push_back(std::move(ser));
 }
 
-void Frame::to_proto(api::v1::Frame *f) const {
+void Frame::toProto(api::v1::Frame *f) const {
     f->mutable_keys()->Add(columns->begin(), columns->end());
     f->mutable_series()->Reserve(series->size());
     for (auto &ser: *series) ser.to_proto(f->add_series());

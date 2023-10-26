@@ -15,7 +15,7 @@ std::string STREAM_ENDPOINT = "/frame/stream";
 
 using namespace synnax;
 
-void StreamerConfig::to_proto(api::v1::FrameStreamerRequest *f) const {
+void StreamerConfig::toProto(api::v1::FrameStreamerRequest *f) const {
     f->mutable_keys()->Add(channels.begin(), channels.end());
     f->set_start(start.value);
 }
@@ -24,7 +24,7 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerCo
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc) return {Streamer(), exc};
     auto req = new api::v1::FrameStreamerRequest();
-    config.to_proto(req);
+    config.toProto(req);
     auto exc2 = s->send(*req);
     delete req;
     return {Streamer(std::move(s)), exc2};
@@ -33,6 +33,7 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerCo
 Streamer::Streamer(std::unique_ptr<StreamerStream> s): stream(std::move(s)) {}
 
 std::pair<Frame, freighter::Error> Streamer::read() {
+    assertOpen();
     auto [fr, exc] = stream->receive();
     return {Frame(fr.frame()), exc};
 }
@@ -46,6 +47,7 @@ freighter::Error Streamer::close() {
 }
 
 freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) {
+    assertOpen();
     auto req = new api::v1::FrameStreamerRequest();
     req->mutable_keys()->Add(channels.begin(), channels.end());
     auto [_, exc] = stream->send(*req);
@@ -53,6 +55,6 @@ freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) {
     return exc;
 }
 
-void Streamer::assert_open() const {
+void Streamer::assertOpen() const {
     if (closed) throw std::runtime_error("streamer is closed");
 }
