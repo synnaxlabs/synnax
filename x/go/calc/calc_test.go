@@ -78,7 +78,8 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("1 + 1")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}
+				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.ADD,
+					Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -86,7 +87,15 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("1 + 2 * 4")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.ADD, Y: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					Op: token.ADD,
+					Y: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+						Op: token.MUL,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -94,7 +103,14 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * 4 + 1")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}
+				expectedTree := &ast.BinaryExpr{
+					X: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+						Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+					},
+					Op: token.ADD,
+					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -102,7 +118,15 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * (4 + 1)")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					Op: token.MUL,
+					Y: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+						Op: token.ADD,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -110,7 +134,19 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * (4 + (1 / 2))")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}, Op: token.ADD, Y: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.QUO, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					Op: token.MUL,
+					Y: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+						Op: token.ADD,
+						Y: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+							Op: token.QUO,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+						},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -118,7 +154,19 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * ((4 + 1) / 2)")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BinaryExpr{X: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}, Op: token.QUO, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					Op: token.MUL,
+					Y: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+							Op: token.ADD,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+						},
+						Op: token.QUO,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -126,7 +174,19 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * (4 + 1) ^ 2")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BinaryExpr{X: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}, Op: token.ADD, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}}, Op: token.XOR, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					Op: token.MUL,
+					Y: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+							Op: token.ADD,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+						},
+						Op: token.XOR,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -134,7 +194,11 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("-1 * 2")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "-1"}, Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+					Op: token.MUL,
+					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -142,7 +206,11 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("2 * -1")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "-1"}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+					Op: token.MUL,
+					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -150,7 +218,31 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("3+4*2/(1-5)^2^3")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "3"}, Op: token.ADD, Y: &ast.BinaryExpr{X: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "4"}, Op: token.MUL, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}}, Op: token.QUO, Y: &ast.BinaryExpr{X: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.SUB, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "5"}}, Op: token.XOR, Y: &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "2"}, Op: token.XOR, Y: &ast.BasicLit{Kind: token.FLOAT, Value: "3"}}}}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "3"},
+					Op: token.ADD,
+					Y: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "4"},
+							Op: token.MUL,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+						},
+						Op: token.QUO,
+						Y: &ast.BinaryExpr{
+							X: &ast.BinaryExpr{
+								X:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+								Op: token.SUB,
+								Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "5"},
+							},
+							Op: token.XOR,
+							Y: &ast.BinaryExpr{
+								X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
+								Op: token.XOR,
+								Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "3"},
+							},
+						},
+					},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
@@ -160,7 +252,11 @@ var _ = Describe("Calc", func() {
 				e := calc.Expression{}
 				err := e.Build("1+x")
 				Expect(err).ToNot(HaveOccurred())
-				expectedTree := &ast.BinaryExpr{X: &ast.BasicLit{Kind: token.FLOAT, Value: "1"}, Op: token.ADD, Y: &ast.Ident{Name: "x"}}
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					Op: token.ADD,
+					Y:  &ast.Ident{Name: "x"},
+				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
