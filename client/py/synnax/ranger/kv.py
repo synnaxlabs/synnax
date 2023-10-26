@@ -82,3 +82,15 @@ class KV:
         res, exc = self.__client.send(self.__DELETE_ENDPOINT, req, _EmptyResponse)
         if exc is not None:
             raise exc
+
+    # Implement dict-like interface
+    def __getitem__(self, key: str) -> str:
+        return self.get(key)
+
+    def __setitem__(self, key: str, value: str) -> None:
+        self.set(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        self.delete(key)
+
+

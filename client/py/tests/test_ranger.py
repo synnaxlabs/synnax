@@ -92,22 +92,22 @@ class TestRangeKV:
             name="test",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        rng.kv.set("test", "test")
-        assert rng.kv.get("test") == "test"
-        rng.kv.delete("test")
+        rng.meta_data.set("test", "test")
+        assert rng.meta_data.get("test") == "test"
+        rng.meta_data.delete("test")
         with pytest.raises(sy.exceptions.QueryError):
-            rng.kv.get("test")
+            rng.meta_data.get("test")
 
     def test_set_get_delete_multiple(self, client: sy.Synnax):
         rng = client.ranges.create(
             name="test",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        rng.kv.set({"test": "test", "test2": "test2"})
-        assert rng.kv.get(["test", "test2"]) == {"test": "test", "test2": "test2"}
-        rng.kv.delete(["test", "test2"])
+        rng.meta_data.set({"test": "test", "test2": "test2"})
+        assert rng.meta_data.get(["test", "test2"]) == {"test": "test", "test2": "test2"}
+        rng.meta_data.delete(["test", "test2"])
         with pytest.raises(sy.exceptions.QueryError):
-            rng.kv.get(["test", "test2"])
+            rng.meta_data.get(["test", "test2"])
 
 
 @pytest.mark.ranger

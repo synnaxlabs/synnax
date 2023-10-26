@@ -37,7 +37,7 @@
     position: fixed;
     height: calc(100vh) !important;
     width: calc(100vw) !important;
-    background: var(--pluto-background-color);
+    background: var(--pluto-gray-l0);
     display: none;
     z-index: -10;
 }

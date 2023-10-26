@@ -215,7 +215,7 @@ const Preview = ({ color }: ElementProps): ReactElement => {
 
 const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Valve",
-  color: th.colors.gray.p3.hex,
+  color: th.colors.gray.l8.hex,
   source: {
     channel: 0,
   },

@@ -12,7 +12,7 @@
 
 .delta-nav-controls {
     .delta-control__pause.pluto-btn--filled {
-        background-color: red;
+        background: red;
         border-color: red !important;
     }
 }

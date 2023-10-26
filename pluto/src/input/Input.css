@@ -12,10 +12,10 @@
 .pluto-input {
     position: relative;
     border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-m4);
+    background: var(--pluto-gray-l2);
     color: var(--pluto-text-color);
     margin: 0;
-    border: var(--pluto-border);
+    border: var(--pluto-border-l4);
     width: 100%;
 
     & input {
@@ -67,12 +67,12 @@
     pointer-events: none;
 
     & * {
-        color: var(--pluto-gray-m0);
+        color: var(--pluto-gray-l6);
     }
 
     & .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        stroke: var(--pluto-gray-m0);
-        fill: var(--pluto-gray-m0);
+        stroke: var(--pluto-gray-l6);
+        fill: var(--pluto-gray-l6);
     }
 }
 
@@ -92,7 +92,7 @@
 
 .pluto-input--shadow,
 .pluto-input--shadow > * {
-    background: var(--pluto-background-color) !important;
+    background: var(--pluto-gray-l0) !important;
 }
 
 input[type="number"]::-webkit-inner-spin-button {

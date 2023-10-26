@@ -306,7 +306,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           {...dropProps}
         >
           <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
-          <Core.Background />
+          <Core.l0 />
           <Core.Controls reverse>
             {!pid.snapshot && (
               <Core.ToggleEditControl disabled={pid.control === "acquired"} />

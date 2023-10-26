@@ -35,6 +35,7 @@ from synnax.telem import Series, TimeRange
 class RangeChannel(ChannelPayload):
     __range: Range | None = PrivateAttr(None)
     __frame_client: Client | None = PrivateAttr(None)
+    __aliaser: Aliaser | None = PrivateAttr(None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -44,10 +45,12 @@ class RangeChannel(ChannelPayload):
         rng: Range,
         frame_client: Client,
         payload: ChannelPayload,
+        aliaser: Aliaser | None = None,
     ):
         super().__init__(**payload.dict())
         self.__range = rng
         self.__frame_client = frame_client
+        self.__aliaser = aliaser
 
     @property
     def time_range(self) -> TimeRange:
@@ -61,6 +64,9 @@ class RangeChannel(ChannelPayload):
 
     def read(self) -> Series:
         return self.__frame_client.read(self.time_range, self.key)
+
+    def set_alias(self, alias: str):
+        self.__range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
@@ -137,7 +143,7 @@ class Range(RangePayload):
         return self.__getattr__(name)
 
     @property
-    def kv(self):
+    def meta_data(self):
         if self.__kv is None:
             raise _RANGE_NOT_CREATED
         return self.__kv

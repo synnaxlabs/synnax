@@ -70,7 +70,7 @@ export const Search = () => {
 
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth>
+      <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth >
         <Input.Text
           ref={inputRef}
           placeholder={

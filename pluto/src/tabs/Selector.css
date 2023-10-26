@@ -19,18 +19,18 @@
     .pluto-btn-icon {
         opacity: 0;
         > svg {
-            fill: var(--pluto-gray-p0);
+            fill: var(--pluto-gray-l6);
         }
     }
 
     .pluto-text {
         margin: 0 2rem;
         padding: 0 0.25rem;
-        color: var(--pluto-gray-p0);
+        color: var(--pluto-gray-l6);
     }
 
     &:not(.pluto--selected) path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-p0);
+        fill: var(--pluto-gray-l6);
     }
 
     &:hover, &.pluto--selected {
@@ -40,12 +40,12 @@
     }
 
     &:hover:not(.pluto--selected) {
-        background-color: var(--pluto-gray-m4);
+        background: var(--pluto-gray-l1);
         border-color: var(--pluto-border-color);
     }
 
     &:active:not(.pluto--selected) {
-        background-color: var(--pluto-gray-m3);
+        background: var(--pluto-gray-l2);
         border-color: var(--pluto-border-color);
     }
 

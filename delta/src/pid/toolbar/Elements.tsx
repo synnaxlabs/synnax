@@ -107,7 +107,7 @@ const ElementsButton = ({
         {...dragProps}
         onDragStart={handleDragStart}
       >
-        <Text.Text level="p" color="var(--pluto-gray-p0)">
+        <Text.Text level="p" color="var(--pluto-gray-l6)">
           {title}
         </Text.Text>
         <Preview {...initialProps(theme)} />

@@ -34,11 +34,11 @@
 }
 
 .delta-palette__item--hovered {
-    background-color: var(--pluto-gray-m3) !important;
+    background: var(--pluto-gray-l2) !important;
     border-left: 2px var(--pluto-primary-z) solid !important;
 }
 
 .delta-palette input.pluto-haul-drop-region {
-    background-color: var(--haul-background-color) !important;
+    background: var(--haul-l0) !important;
     border-color: var(--haul-border-color) !important;
 }

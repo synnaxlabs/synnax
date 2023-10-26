@@ -11,7 +11,7 @@
 
 .pluto-windows-control--close {
     &:hover {
-        background-color: var(--pluto-error-z) !important;
+        background: var(--pluto-error-z) !important;
         border-color: var(--pluto-error-z) !important;
 
 
@@ -22,7 +22,7 @@
     }
 
     &:active {
-        background-color: var(--pluto-error-m1) !important;
+        background: var(--pluto-error-m1) !important;
         border-color: var(--pluto-error-m1) !important;
     }
 }

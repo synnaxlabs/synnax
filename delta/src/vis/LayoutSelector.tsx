@@ -38,7 +38,7 @@ export const LayoutSelector = ({
         {...props}
         wrap
       >
-        <Text.Text level="h4" color="var(--pluto-gray-p0)">
+        <Text.Text level="h4" color="var(--pluto-gray-l6)">
           Select a visualization type
         </Text.Text>
         <Align.Space direction={direction}>

@@ -30,7 +30,7 @@
 }
 
 .docs-get-started-chip:hover {
-    background-color: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
 }
 
 .docs-get-started-chip:hover .call-to-action {

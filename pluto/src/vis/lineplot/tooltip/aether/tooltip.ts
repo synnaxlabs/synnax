@@ -46,10 +46,9 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   afterUpdate(): void {
     const theme = theming.use(this.ctx);
     if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
-    if (this.state.backgroundColor.isZero)
-      this.state.backgroundColor = theme.colors.gray.m4;
+    if (this.state.l0Color.isZero) this.state.l0Color = theme.colors.gray.l1;
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
-    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.m0;
+    if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l5;
     this.internal.dotColor = theme.colors.text;
     this.internal.dotColorContrast = theme.colors.textContrast;
 
@@ -104,7 +103,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     draw.textContainer({
       text,
-      backgroundColor: this.state.backgroundColor,
+      backgroundColor: this.state.l0Color,
       borderColor: this.state.borderColor,
       position: xy.translate(this.state.position, [10, 10]),
       direction: "y",

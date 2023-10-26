@@ -10,5 +10,5 @@
  */
 
 .pluto-menu-item.pluto--selected {
-    background-color: var(--pluto-primary-z-40);
+    background: var(--pluto-primary-z-40);
 }

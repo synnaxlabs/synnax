@@ -55,7 +55,7 @@ export class StateProvider extends aether.Composite<
     );
     const theme = theming.use(this.ctx);
     this.internal.palette = theme.colors.visualization.palettes.default;
-    this.internal.defaultColor = theme.colors.gray.p0;
+    this.internal.defaultColor = theme.colors.gray.l6;
     const nextClient = synnax.use(this.ctx);
     if (nextClient === this.internal.client) return;
     this.internal.client = nextClient;

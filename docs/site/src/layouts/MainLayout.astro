@@ -15,6 +15,14 @@ const {
 } = Astro.props;
 ---
 
+<script>
+import { getVersion } from "@/util/fetchVersion";
+
+  getVersion().then((version) => {
+    document.querySelector(".version").innerHTML = version;
+  })
+</script>
+
 <html transition:animate="none">
   <head>
     <SEO
@@ -48,10 +56,10 @@ const {
       </a>
       <Search client:only="react"/>
       <Align.Space direction="x" align="center">
+        <p class="version" transition:persist></p>
         <a href="https://github.com/synnaxlabs/synnax">
           <Icon.Logo.Github style={{height:"3rem", width: "3rem"}} fill="var(--pluto-text-color)" />
         </a>
-      <p class="version" transition:persist></p>
       </Align.Space>
     </Align.Space>
   </header>
@@ -85,6 +93,21 @@ const {
       margin: 0;
     }
 
+    .info {
+      padding: 0.1rem 3rem;
+      margin: 4rem 0;
+      background: var(--pluto-primary-z-20);
+      border: var(--pluto-border);
+      border-color: var(--pluto-primary-z-30);
+      border-radius: var(--pluto-border-radius);
+      & > * {
+        font-size: var(--pluto-small-size);
+        font-family: var(--pluto-font-family);
+        font-weight: var(--pluto-small-weight);
+        line-height: calc(var(--pluto-small-line-height) * 1.2);
+      }
+    }
+
     nav {
       & p, small {
         white-space: normal !important;
@@ -105,7 +128,7 @@ const {
       }
 
       & p {
-        color: var(--pluto-gray-p1);
+        color: var(--pluto-gray-l7);
       }
 
       :hover {
@@ -126,24 +149,36 @@ const {
         font-weight: 500;
       }
 
+      .heading {
+        border-bottom: none;
+      }
+
+
       & .pluto-menu-item {
-        margin: 1rem 0;
         white-space: normal;
         height: fit-content;
+        padding: 0.5rem 2rem;
+        border-right: 2px solid transparent;
         & small {
-          color: var(--pluto-gray-p2) !important;
+          color: var(--pluto-gray-l6) !important;
         }
 
-        &.pluto--selected {
-          background: none !important;
+        &:is(.pluto--selected,:hover) {
+          background: none;
+          border-right: 2px solid var(--pluto-text-color);
+          border-radius: 0 !important;
           & small {
-            font-weight: 600 !important;
+            font-weight: 500 !important;
+            color: var(--pluto-text-color) !important;
           }
         }
       }
     }
 
     .search-box {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 1000;
       & .pluto-input {
         width: 50vw;
@@ -171,20 +206,24 @@ const {
           left: 0 !important;
           top: 40px !important;
           box-shadow: var(--box-shadow);
-          background-color: var(--pluto-background-color);
+          background: var(--pluto-gray-l1);
 
           .hovered {
-            background-color: var(--pluto-gray-m3);
+            background: var(--pluto-gray-l3);
           }
 
           & .search-result {
-            &:hover {
-              background-color: var(--pluto-gray-m3);
-            }
             padding: 2rem;
+            &:hover {
+              background: var(--pluto-gray-l3);
+            }
 
             & b {
-              background-color: var(--pluto-primary-z-30);
+              background: var(--pluto-primary-z-30);
+            }
+
+            & small {
+              color: var(--pluto-gray-l7);
             }
           }
           
@@ -201,10 +240,10 @@ const {
 
   :root {
       --nav-height: 10rem;
-      --max-width: 1300px;
+      --max-width: 1400px;
       --astro-code-color-text: var(--pluto-text-color);
-      --astro-code-color-background: var(--pluto-gray-m4);
-      --astro-code-token-comment: var(--pluto-gray-m0);
+      --astro-code-color-background: var(--pluto-gray-l1);
+      --astro-code-token-comment: var(--pluto-gray-l5);
       --astro-code-token-string-expression: #00b023;
       --astro-code-token-function: #20a4f3;
       --astro-code-token-punctuation: var(--pluto-text-color);
@@ -218,13 +257,13 @@ const {
 
     .pluto-tree {
       .pluto-text {
-        color: var(--pluto-gray-p2);
+        color: var(--pluto-gray-l6);
         font-size: var(--pluto-small-size);
         line-height: var(--pluto-small-line-height);
         font-weight: var(--pluto-small-weight);
       }
 
-      overflow: hidden;
+      overflow-x: hidden;
 
 
       .pluto-btn {
@@ -235,6 +274,7 @@ const {
 
         &:hover {
             & .pluto-text {
+              font-weight: 500;
               color: var(--pluto-text-color);
             }
 
@@ -244,7 +284,7 @@ const {
         }
       
         &:not(.pluto--has-children) {
-          border-left: 1px solid var(--pluto-gray-m2);
+          border-left: 1px solid var(--pluto-gray-l3);
           border-radius: 0 !important;
 
           &.pluto--selected {
@@ -252,6 +292,7 @@ const {
             background: none;
             .pluto-text {
               color: var(--pluto-text-color);
+              font-weight: 500;
             }
           }
 
@@ -264,7 +305,7 @@ const {
 
 
       .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-m0) !important;
+        fill: var(--pluto-gray-l5) !important;
       }
 
       
@@ -274,7 +315,7 @@ const {
       position: absolute;
       top: 25%;
       right: 20px;
-      border-color: var(--pluto-gray-m1);
+      border-color: var(--pluto-gray-l4);
       opacity: 0;
       transition: all 0.15s ease-in-out;
     }
@@ -284,11 +325,11 @@ const {
     }
 
     .copy-code svg > * {
-      fill: var(--pluto-gray-m1);
+      fill: var(--pluto-gray-l4);
     }
 
     .copy-code:hover svg > * {
-      fill: var(--pluto-gray-m0);
+      fill: var(--pluto-gray-l5);
     }
 
     header h1,
@@ -336,7 +377,7 @@ const {
 
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
-      background-color: var(--pluto-gray-m4); */
+      background: var(--pluto-gray-l3); 
     }
 
     code {
@@ -363,6 +404,7 @@ const {
     .astro-code {
       padding: 3rem;
       position: relative;
+      border: var(--pluto-border);
       border-radius: var(--pluto-border-radius);
       margin: 3rem 1rem;
       overflow-x: auto !important;
@@ -387,13 +429,6 @@ const {
 
     code {
       border-radius: var(--pluto-border-radius);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      html {
-        --pluto-background-color: #121212;
-        --pluto-text-color: #ffffff;
-      }
     }
 
     table > :not(caption) > * {
@@ -431,7 +466,7 @@ const {
     table {
       width: calc(100% - 4px);
       border-spacing: 0;
-      background-color: transparent;
+      background: transparent;
       border-collapse: collapse;
       overflow-x: auto;
       border-style: hidden;
@@ -442,7 +477,7 @@ const {
 
   <style>
     :root {
-      --max-width: 1440px;
+      --max-width: 1500px;
     }
 
     .article-title {
@@ -455,11 +490,11 @@ const {
       width: 100px;
       margin-top: 2rem;
       height: 2px;
-      background-color: var(--pluto-primary-p1);
+      background: var(--pluto-primary-p1);
     }
 
     .article-description {
-      color: var(--pluto-gray-p2);
+      color: var(--pluto-gray-l8);
       font-weight: 350;
     }
 
@@ -502,7 +537,7 @@ const {
       }
     }
 
-    @media (min-width: 1440px) {
+    @media (min-width: 1500px) {
       section {
         width: var(--max-width);
       }
@@ -541,7 +576,7 @@ const {
 
     nav {
       padding: 3rem 0;
-      flex-basis: 235px;
+      flex-basis: 210px;
       overflow-y: auto;
     }
 
