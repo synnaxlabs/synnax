@@ -23,6 +23,7 @@ cc_test(
     name = "framer_test",
     srcs = [
         "frame_test.cpp",
+        "streamer_test.cpp",
         "writer_test.cpp",
     ],
     deps = [

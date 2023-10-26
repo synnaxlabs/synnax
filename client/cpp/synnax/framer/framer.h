@@ -80,8 +80,8 @@ public:
 
 class StreamerConfig {
 public:
-    synnax::TimeStamp start;
     std::vector<ChannelKey> channels;
+    synnax::TimeStamp start;
 private:
     void to_proto(api::v1::FrameStreamerRequest *f) const;
 

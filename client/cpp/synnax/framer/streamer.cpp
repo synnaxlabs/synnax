@@ -25,7 +25,7 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerCo
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc) return {Streamer(), exc};
     config.to_proto(req);
-    auto [_, exc2] = s->send(*req);
+    auto exc2 = s->send(*req);
     delete req;
     return {Streamer(std::move(s)), exc2};
 }

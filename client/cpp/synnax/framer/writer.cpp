@@ -66,7 +66,7 @@ bool Writer::write(Frame fr) {
 
 std::pair<synnax::TimeStamp, bool> Writer::commit() {
     assert_open();
-    if (err_accumulated) return {synnax::TimeStamp(0), false};
+    if (err_accumulated) return {synnax::TimeStamp(), false};
 
     auto req = api::v1::FrameWriterRequest();
     req.set_command(COMMIT);

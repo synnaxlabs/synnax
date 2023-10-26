@@ -33,7 +33,7 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 		return err
 	}
 	var (
-		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
 		receiver     = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender       = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
 			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},

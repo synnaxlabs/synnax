@@ -38,16 +38,17 @@ TEST(FramerTests, testWriteBasic) {
             false
     );
     ASSERT_FALSE(dErr) << dErr.message();
+
+    auto now = synnax::TimeStamp::now();
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
         .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-        .start = synnax::TimeStamp(10 * synnax::SECOND),
+        .start = now,
         .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
         .subject = synnax::Subject{.name = "test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
     auto frame = synnax::Frame(2);
-    auto now = synnax::TimeStamp::now();
     frame.push_back(
             time.key,
             synnax::Series(std::vector<std::int64_t>{
@@ -69,6 +70,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
+    ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);
     auto err = writer.close();
     ASSERT_FALSE(err) << err.message();
 }
