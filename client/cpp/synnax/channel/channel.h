@@ -114,9 +114,10 @@ private:
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
 class ChannelClient {
 public:
-    ChannelClient(ChannelRetrieveClient *retrieve_client, ChannelCreateClient *create_client) :
-            retrieve_client(retrieve_client),
-            create_client(create_client) {}
+    ChannelClient(std::unique_ptr<ChannelRetrieveClient> retrieve_client,
+                  std::unique_ptr<ChannelCreateClient> create_client) :
+            retrieve_client(std::move(retrieve_client)),
+            create_client(std::move(create_client)) {}
 
     /// @brief Creates the given channel in the Synnax cluster.
     /// @param channel The channel to create.
@@ -208,9 +209,9 @@ public:
 
 private:
     /// @brief transport for retrieving channels.
-    ChannelRetrieveClient *retrieve_client;
+    std::unique_ptr<ChannelRetrieveClient> retrieve_client;
     /// @brief transport for creating channels.
-    ChannelCreateClient *create_client;
+    std::unique_ptr<ChannelCreateClient> create_client;
 };
 
 }

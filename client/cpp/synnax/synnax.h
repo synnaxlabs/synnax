@@ -49,18 +49,17 @@ public:
 
     explicit Client(const Config &cfg) {
         auto t = Transport(cfg.port, cfg.host);
-        // TODO: fix this memory leak.
-        auto auth_mw = std::make_shared<AuthMiddleware>(t.auth_login, cfg.username, cfg.password);
+        auto auth_mw = std::make_shared<AuthMiddleware>(std::move(t.auth_login), cfg.username, cfg.password);
         t.use(auth_mw);
-        channels = ChannelClient(t.chan_retrieve, t.chan_create);
+        channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
         ranges = RangeClient(
-                t.range_retrieve,
-                t.range_create,
+                std::move(t.range_retrieve),
+                std::move(t.range_create),
                 t.range_kv_get,
                 t.range_kv_set,
                 t.range_kv_delete
         );
-        telem = FrameClient(t.frame_stream, t.frame_write);
+        telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
     }
 };
 }

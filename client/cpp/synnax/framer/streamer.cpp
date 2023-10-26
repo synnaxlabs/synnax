@@ -21,9 +21,9 @@ void StreamerConfig::to_proto(api::v1::FrameStreamerRequest *f) const {
 }
 
 std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerConfig &config) {
-    auto req = new api::v1::FrameStreamerRequest();
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc) return {Streamer(), exc};
+    auto req = new api::v1::FrameStreamerRequest();
     config.to_proto(req);
     auto exc2 = s->send(*req);
     delete req;

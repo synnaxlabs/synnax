@@ -44,7 +44,7 @@ private:
     /// Accumulated error from authentication attempts.
     freighter::Error err = freighter::NIL;
     /// Transport for authentication requests.
-    AuthLoginClient *login_client;
+    std::unique_ptr<AuthLoginClient> login_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
@@ -52,11 +52,11 @@ private:
 
 public:
     AuthMiddleware(
-            AuthLoginClient *login_client,
+            std::unique_ptr<AuthLoginClient> login_client,
             const std::string &username,
             const std::string &password
     ) :
-            login_client(login_client), username(username), password(password) {
+            login_client(std::move(login_client)), username(username), password(password) {
     }
 
     /// Implements freighter::AuthMiddleware::operator().

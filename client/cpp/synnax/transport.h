@@ -21,14 +21,14 @@ public:
 
     void use(std::shared_ptr<freighter::Middleware>) const;
 
-    AuthLoginClient *auth_login;
-    StreamerClient *frame_stream;
-    WriterClient *frame_write;
-    ChannelCreateClient *chan_create;
-    ChannelRetrieveClient *chan_retrieve;
-    RangeRetrieveClient *range_retrieve;
-    RangeCreateClient *range_create;
-    RangeKVDeleteClient *range_kv_delete;
-    RangeKVGetClient *range_kv_get;
-    RangeKVSetClient *range_kv_set;
+    std::unique_ptr<AuthLoginClient> auth_login;
+    std::unique_ptr<StreamerClient> frame_stream;
+    std::unique_ptr<WriterClient> frame_write;
+    std::unique_ptr<ChannelCreateClient> chan_create;
+    std::unique_ptr<ChannelRetrieveClient> chan_retrieve;
+    std::unique_ptr<RangeRetrieveClient> range_retrieve;
+    std::unique_ptr<RangeCreateClient> range_create;
+    std::shared_ptr<RangeKVDeleteClient> range_kv_delete;
+    std::shared_ptr<RangeKVGetClient> range_kv_get;
+    std::shared_ptr<RangeKVSetClient> range_kv_set;
 };

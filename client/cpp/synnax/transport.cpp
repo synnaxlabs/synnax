@@ -30,66 +30,66 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     auto base_target = freighter::URL(ip, port, "").toString();
     auto pool = std::make_shared<GRPCPool>();
 
-    auth_login = new GRPCUnaryClient<
+    auth_login = std::make_unique<GRPCUnaryClient<
             v1::LoginResponse,
             v1::LoginRequest,
             v1::AuthLoginService
-    >(pool, base_target);
+    >>(pool, base_target);
 
 
-    frame_stream = new GRPCStreamClient<
+    frame_stream = std::make_unique<GRPCStreamClient<
             v1::FrameStreamerResponse,
             v1::FrameStreamerRequest,
             v1::FrameStreamerService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    frame_write = new GRPCStreamClient<
+    frame_write = std::make_unique<GRPCStreamClient<
             v1::FrameWriterResponse,
             v1::FrameWriterRequest,
             v1::FrameWriterService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    chan_create = new GRPCUnaryClient<
+    chan_create = std::make_unique<GRPCUnaryClient<
             v1::ChannelCreateResponse,
             v1::ChannelCreateRequest,
             v1::ChannelCreateService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    chan_retrieve = new GRPCUnaryClient<
+    chan_retrieve = std::make_unique<GRPCUnaryClient<
             v1::ChannelRetrieveResponse,
             v1::ChannelRetrieveRequest,
             v1::ChannelRetrieveService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    range_retrieve = new GRPCUnaryClient<
+    range_retrieve = std::make_unique<GRPCUnaryClient<
             v1::RangeRetrieveResponse,
             v1::RangeRetrieveRequest,
             v1::RangeRetrieveService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    range_create = new GRPCUnaryClient<
+    range_create = std::make_unique<GRPCUnaryClient<
             v1::RangeCreateResponse,
             v1::RangeCreateRequest,
             v1::RangeCreateService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    range_kv_delete = new GRPCUnaryClient<
+    range_kv_delete = std::make_shared<GRPCUnaryClient<
             google::protobuf::Empty,
             v1::RangeKVDeleteRequest,
             v1::RangeKVDeleteService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    range_kv_get = new GRPCUnaryClient<
+    range_kv_get = std::make_shared<GRPCUnaryClient<
             v1::RangeKVGetResponse,
             v1::RangeKVGetRequest,
             v1::RangeKVGetService
-    >(pool, base_target);
+    >>(pool, base_target);
 
-    range_kv_set = new GRPCUnaryClient<
+    range_kv_set = std::make_shared<GRPCUnaryClient<
             google::protobuf::Empty,
             v1::RangeKVSetRequest,
             v1::RangeKVSetService
-    >(pool, base_target);
+    >>(pool, base_target);
 }
 
 void Transport::use(std::shared_ptr<freighter::Middleware> mw) const {

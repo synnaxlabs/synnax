@@ -35,34 +35,34 @@ using namespace synnax;
 namespace synnax {
 
 /// @brief type alias for the transport used to retrieve ranges.
-typedef freighter::UnaryClient <
-api::v1::RangeRetrieveResponse,
-api::v1::RangeRetrieveRequest
+typedef freighter::UnaryClient<
+        api::v1::RangeRetrieveResponse,
+        api::v1::RangeRetrieveRequest
 > RangeRetrieveClient;
 
 /// @brief type alias for the transport used to create ranges.
-typedef freighter::UnaryClient <
-api::v1::RangeCreateResponse,
-api::v1::RangeCreateRequest
+typedef freighter::UnaryClient<
+        api::v1::RangeCreateResponse,
+        api::v1::RangeCreateRequest
 > RangeCreateClient;
 
 
 /// @brief type alias for the transport used to get range-scoped key-values.
-typedef freighter::UnaryClient <
-api::v1::RangeKVGetResponse,
-api::v1::RangeKVGetRequest
+typedef freighter::UnaryClient<
+        api::v1::RangeKVGetResponse,
+        api::v1::RangeKVGetRequest
 > RangeKVGetClient;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-api::v1::RangeKVSetRequest
+typedef freighter::UnaryClient<
+        google::protobuf::Empty,
+        api::v1::RangeKVSetRequest
 > RangeKVSetClient;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-api::v1::RangeKVDeleteRequest
+typedef freighter::UnaryClient<
+        google::protobuf::Empty,
+        api::v1::RangeKVDeleteRequest
 > RangeKVDeleteClient;
 
 
@@ -71,15 +71,15 @@ api::v1::RangeKVDeleteRequest
 class RangeKV {
 private:
     std::string range_key;
-    RangeKVGetClient *kv_get_client;
-    RangeKVSetClient *kv_set_client;
-    RangeKVDeleteClient *kv_delete_client;
+    std::shared_ptr<RangeKVGetClient> kv_get_client;
+    std::shared_ptr<RangeKVSetClient> kv_set_client;
+    std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
 public:
     RangeKV(
             std::string range_key,
-            RangeKVGetClient *kv_get_client,
-            RangeKVSetClient *kv_set_client,
-            RangeKVDeleteClient *kv_delete_client
+            std::shared_ptr<RangeKVGetClient> kv_get_client,
+            std::shared_ptr<RangeKVSetClient> kv_set_client,
+            std::shared_ptr<RangeKVDeleteClient> kv_delete_client
     ) : range_key(range_key), kv_get_client(kv_get_client),
         kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {}
 
@@ -144,10 +144,14 @@ private:
 class RangeClient {
 
 public:
-    RangeClient(RangeRetrieveClient *retrieve_client, RangeCreateClient *create_client, RangeKVGetClient *kv_get_client,
-                RangeKVSetClient *kv_set_client, RangeKVDeleteClient *kv_delete_client) :
-            retrieve_client(retrieve_client),
-            create_client(create_client),
+    RangeClient(
+            std::unique_ptr<RangeRetrieveClient> retrieve_client,
+            std::unique_ptr<RangeCreateClient> create_client,
+            std::shared_ptr<RangeKVGetClient> kv_get_client,
+                std::shared_ptr<RangeKVSetClient> kv_set_client,
+                std::shared_ptr<RangeKVDeleteClient> kv_delete_client) :
+            retrieve_client(std::move(retrieve_client)),
+            create_client(std::move(create_client)),
             kv_get_client(kv_get_client),
             kv_set_client(kv_set_client),
             kv_delete_client(kv_delete_client) {}
@@ -213,15 +217,15 @@ public:
 
 private:
     /// @brief range retrieval transport.
-    RangeRetrieveClient *retrieve_client;
+    std::unique_ptr<RangeRetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
-    RangeCreateClient *create_client;
+    std::unique_ptr<RangeCreateClient> create_client;
     /// @brief range kv get transport.
-    RangeKVGetClient *kv_get_client;
+    std::shared_ptr<RangeKVGetClient> kv_get_client;
     /// @brief range kv set transport.
-    RangeKVSetClient *kv_set_client;
+    std::shared_ptr<RangeKVSetClient> kv_set_client;
     /// @brief range kv delete transport.
-    RangeKVDeleteClient *kv_delete_client;
+    std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
 
     /// @brief retrieves a single range.
     std::pair<Range, freighter::Error> retrieveOne(api::v1::RangeRetrieveRequest &req) const;

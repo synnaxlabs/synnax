@@ -239,12 +239,12 @@ private:
 
 class FrameClient {
 private:
-    StreamerClient *streamer_client;
-    WriterClient *writer_client;
+    std::unique_ptr<StreamerClient> streamer_client;
+    std::unique_ptr<WriterClient> writer_client;
 public:
-    FrameClient(StreamerClient *streamer_client, WriterClient *writer_client) :
-            streamer_client(streamer_client),
-            writer_client(writer_client) {}
+    FrameClient(std::unique_ptr<StreamerClient> streamer_client, std::unique_ptr<WriterClient> writer_client) :
+            streamer_client(std::move(streamer_client)),
+            writer_client(std::move(writer_client)) {}
 
 
     std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config);
