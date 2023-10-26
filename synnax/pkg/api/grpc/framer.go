@@ -65,11 +65,13 @@ func translateFrameForward(f api.Frame) *gapi.Frame {
 	}
 }
 
-func translateFrameBackward(f *gapi.Frame) api.Frame {
-	return api.Frame{
-		Keys:   translateChannelKeysBackward(f.Keys),
-		Series: telempb.TranslateManySeriesBackward(f.Series),
+func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
+	if f == nil {
+		return
 	}
+	of.Keys = translateChannelKeysBackward(f.Keys)
+	of.Series = telempb.TranslateManySeriesBackward(f.Series)
+	return
 }
 
 func (t frameWriterRequestTranslator) Forward(
@@ -89,15 +91,19 @@ func (t frameWriterRequestTranslator) Forward(
 func (t frameWriterRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.FrameWriterRequest,
-) (api.FrameWriterRequest, error) {
-	return api.FrameWriterRequest{
-		Command: writer.Command(msg.Command),
-		Config: api.FrameWriterConfig{
+) (r api.FrameWriterRequest, err error) {
+	if msg == nil {
+		return
+	}
+	r.Command = writer.Command(msg.Command)
+	if msg.Config != nil {
+		r.Config = api.FrameWriterConfig{
 			Keys:  translateChannelKeysBackward(msg.Config.Keys),
 			Start: telem.TimeStamp(msg.Config.Start),
-		},
-		Frame: translateFrameBackward(msg.Frame),
-	}, nil
+		}
+	}
+	r.Frame = translateFrameBackward(msg.Frame)
+	return
 }
 
 func (t frameWriterResponseTranslator) Forward(

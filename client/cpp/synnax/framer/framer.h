@@ -58,11 +58,14 @@ typedef freighter::StreamClient<
 
 /// @brief Frame type.
 class Frame {
-    std::vector<ChannelKey> *columns;
-    std::vector<synnax::Series> *series;
-
 public:
-    Frame(std::vector<ChannelKey> *channels, std::vector<synnax::Series> *series);
+    std::unique_ptr<std::vector<ChannelKey>> columns;
+    std::unique_ptr<std::vector<synnax::Series>> series;
+
+    Frame(
+            std::unique_ptr<std::vector<ChannelKey>> columns,
+            std::unique_ptr<std::vector<synnax::Series>> series
+    );
 
     explicit Frame(size_t size);
 
@@ -73,10 +76,6 @@ public:
     void push_back(ChannelKey col, synnax::Series ser);
 
     [[nodiscard]] size_t size() const { return series->size(); }
-
-    std::pair<ChannelKey, synnax::Series> operator[](size_t i) const {
-        return std::make_pair((*columns)[i], (*series)[i]);
-    }
 };
 
 class StreamerConfig {

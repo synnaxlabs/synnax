@@ -40,13 +40,13 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     frame_stream = new GRPCStreamClient<
             v1::FrameStreamerResponse,
             v1::FrameStreamerRequest,
-            v1::FrameService
+            v1::FrameStreamerService
     >(pool, base_target);
 
     frame_write = new GRPCStreamClient<
             v1::FrameWriterResponse,
             v1::FrameWriterRequest,
-            v1::FrameService
+            v1::FrameWriterService
     >(pool, base_target);
 
     chan_create = new GRPCUnaryClient<
@@ -92,7 +92,7 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     >(pool, base_target);
 }
 
-void Transport::use(freighter::Middleware *mw) const {
+void Transport::use(std::shared_ptr<freighter::Middleware> mw) const {
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);

@@ -19,7 +19,7 @@ class Transport {
 public:
     Transport(uint16_t port, const std::string &ip);
 
-    void use(freighter::Middleware *mw) const;
+    void use(std::shared_ptr<freighter::Middleware>) const;
 
     AuthLoginClient *auth_login;
     StreamerClient *frame_stream;

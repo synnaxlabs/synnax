@@ -32,7 +32,7 @@ TEST(ChannelTests, testCreate) {
             synnax::FLOAT64,
             1 * synnax::HZ
     );
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(channel.name, "test");
     ASSERT_FALSE(channel.key == 0);
 }
@@ -47,7 +47,7 @@ TEST(ChannelTests, testCreateValidation) {
             0,
             true
     );
-    ASSERT_TRUE(err);
+    ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err.type, synnax::VALIDATION_ERROR);
 }
 
@@ -56,18 +56,18 @@ TEST(ChannelTests, testCreateIndex) {
     auto client = synnax::Client(cfg);
     auto [index, err] = client.channels.create(
             "test",
-            synnax::FLOAT64,
+            synnax::TIMESTAMP,
             0,
             true
     );
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     auto [indexed, err2] = client.channels.create(
             "test",
             synnax::FLOAT64,
             index.key,
             false
     );
-    ASSERT_FALSE(err2);
+    ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(index.name, "test");
     ASSERT_FALSE(index.key == 0);
     ASSERT_EQ(indexed.name, "test");
@@ -96,9 +96,9 @@ TEST(ChannelTest, testRetrieve) {
             synnax::FLOAT64,
             synnax::Rate(1)
     );
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     auto [retrieved, err2] = client.channels.retrieve(channel.key);
-    ASSERT_FALSE(err2);
+    ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);
     ASSERT_EQ(channel.data_type, retrieved.data_type);
@@ -112,7 +112,7 @@ TEST(ChannelTest, testRetrieve) {
 TEST(ChannelTest, testRetrieveNotFound) {
     auto client = synnax::Client(cfg);
     auto [retrieved, err] = client.channels.retrieve(0);
-    ASSERT_TRUE(err);
+    ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err.type, synnax::QUERY_ERROR);
 }
 
@@ -128,7 +128,7 @@ TEST(ChannelTest, testRetrieveMany) {
     auto [retrieved, exc] = client.channels.retrieve(
             std::vector<ChannelKey>{channels[0].key, channels[1].key, channels[2].key}
     );
-    ASSERT_FALSE(exc);
+    ASSERT_FALSE(exc) << exc.message();
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
         auto found = false;

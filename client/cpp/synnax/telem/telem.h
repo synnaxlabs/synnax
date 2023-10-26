@@ -44,6 +44,8 @@ public:
 
     bool operator==(const DataType &other) const { return value == other.value; }
 
+    bool operator!=(const DataType &other) const { return value != other.value; }
+
 private:
     /// @brief Holds the id of the data type
     std::string value;
@@ -103,7 +105,7 @@ const DataType UINT16 = DataType("uint16");
 /// @brief representation of a uint32 data type in a Synnax cluster.
 const DataType UINT32 = DataType("uint32");
 /// @brief representation of a uint64 data type in a Synnax cluster.
-const DataType UINT64 = DataType("uint16");
+const DataType UINT64 = DataType("uint64");
 /// @brief representation of a uuid data type in a Synnax cluster.
 const DataType STRING = DataType("string");
 
@@ -177,6 +179,12 @@ public:
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(TimeSpan ts) : value(ts.value) {}
+
+    TimeStamp static now() {
+        return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+        ).count());
+    }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 

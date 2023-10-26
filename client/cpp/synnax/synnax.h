@@ -13,7 +13,7 @@
 #include <memory>
 
 /// internal
-#include "synnax/framer/framer.h"
+//#include "synnax/framer/framer.h"
 #include "synnax/ranger/ranger.h"
 #include "synnax/channel/channel.h"
 #include "synnax/transport.h"
@@ -50,7 +50,7 @@ public:
     explicit Client(const Config &cfg) {
         auto t = Transport(cfg.port, cfg.host);
         // TODO: fix this memory leak.
-        freighter::Middleware *auth_mw = new AuthMiddleware(t.auth_login, cfg.username, cfg.password);
+        auto auth_mw = std::make_shared<AuthMiddleware>(t.auth_login, cfg.username, cfg.password);
         t.use(auth_mw);
         channels = ChannelClient(t.chan_retrieve, t.chan_create);
         ranges = RangeClient(

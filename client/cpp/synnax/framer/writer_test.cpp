@@ -30,19 +30,45 @@ TEST(FramerTests, testWriteBasic) {
             0,
             true
     );
-    ASSERT_FALSE(tErr);
+    ASSERT_FALSE(tErr) << tErr.message();
     auto [data, dErr] = client.channels.create(
             "data",
-            synnax::FLOAT32,
+            synnax::UINT8,
             time.key,
             false
     );
-    ASSERT_FALSE(dErr);
+    ASSERT_FALSE(dErr) << dErr.message();
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
         .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
         .start = synnax::TimeStamp(10 * synnax::SECOND),
-        .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE},
+        .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
         .subject = synnax::Subject{.name = "test_writer"},
     });
-    ASSERT_FALSE(wErr);
+    ASSERT_FALSE(wErr) << wErr.message();
+
+    auto frame = synnax::Frame(2);
+    auto now = synnax::TimeStamp::now();
+    frame.push_back(
+            time.key,
+            synnax::Series(std::vector<std::int64_t>{
+                    (now.value + synnax::SECOND).value,
+                    (now + synnax::SECOND * 2).value,
+                    (now + synnax::SECOND * 3).value,
+                    (now + synnax::SECOND * 4).value,
+                    (now + synnax::SECOND * 5).value,
+                    (now + synnax::SECOND * 6).value,
+                    (now + synnax::SECOND * 7).value,
+                    (now + synnax::SECOND * 8).value,
+            })
+    );
+    frame.push_back(
+            data.key,
+            synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+    );
+
+    ASSERT_TRUE(writer.write(std::move(frame)));
+    auto [end, ok] = writer.commit();
+    ASSERT_TRUE(ok);
+    auto err = writer.close();
+    ASSERT_FALSE(err) << err.message();
 }

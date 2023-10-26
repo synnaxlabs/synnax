@@ -12,26 +12,35 @@
 
 /// Local headers.
 #include "synnax/telem/series.h"
+#include "telempb/telem.pb.h"
 
 /// std.
 #include <iostream>
 
 ///// @brief create basic int series
-//TEST(TestSeries, testConstruction)
-//{
-//    std::vector<std::any> vals;
-//    vals.push_back(5);
-//    synnax::Series s{vals};
-//    std::vector<std::any> raw_vals = s.getRaw();
-//    auto type_name = s.getDataType().name();
-//    ASSERT_EQ(type_name, "int");
-//}
-
-/// @brief
-TEST(TestSeries, testStringify)
+TEST(TestSeries, testConstruction)
 {
-    std::vector<int> vals;
-    vals.push_back(5);
-    vals.push_back(10);
-    synnax::Series<int> s{vals};
+    std::vector<std::uint8_t> vals = {1, 2, 3, 4, 5};
+    synnax::Series s{vals};
+    ASSERT_EQ(s.getDataType(), synnax::UINT8);
+    auto v = s.uint8();
+    for (auto i = 0; i < vals.size(); i++) {
+        ASSERT_EQ(v[i], vals[i]);
+    }
 }
+
+//// @brief it should correctly serialize and deserialize the series from protoubuf
+TEST(TestSeries, testProto)
+{
+    std::vector<std::uint8_t> vals = {1, 2, 3, 4, 5};
+    synnax::Series s{vals};
+    telempb::Series s2;
+    s.to_proto(s2);
+    synnax::Series s3{s2};
+    auto v = s3.uint8();
+    for (auto i = 0; i < vals.size(); i++) {
+        ASSERT_EQ(v[i], vals[i]);
+    }
+}
+
+

@@ -105,7 +105,8 @@ freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
 
 freighter::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
-    range.to_proto(req.add_ranges());
+    auto rng = req.add_ranges();
+    range.to_proto(rng);
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
     if (!err) range.key = res.ranges(0).key();
     return err;

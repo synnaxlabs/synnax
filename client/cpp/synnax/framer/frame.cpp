@@ -8,35 +8,40 @@
 // included in the file licenses/APL.txt.
 
 #include <vector>
+#include <memory>
 
 #include "v1/framer.pb.h"
 #include "synnax/framer/framer.h"
+#include "synnax/telem/series.h"
 
 using namespace synnax;
 
 Frame::Frame(
-        std::vector<ChannelKey> *channels,
-        std::vector<synnax::Series> *series) : columns(channels),
-                                               series(series) {}
+        std::unique_ptr<std::vector<ChannelKey>> columns,
+        std::unique_ptr<std::vector<synnax::Series>> series
+) : columns(std::move(columns)), series(std::move(series)) {}
+
 
 Frame::Frame(size_t size) {
-    columns = new std::vector<ChannelKey>();
-    series = new std::vector<synnax::Series>();
+    columns = std::make_unique<std::vector<ChannelKey>>();
+    series = std::make_unique<std::vector<synnax::Series>>();
     series->reserve(size);
     columns->reserve(size);
 }
 
 Frame::Frame(const api::v1::Frame &f) {
     auto key = f.keys();
-    columns = new std::vector<ChannelKey>(key.begin(), key.end());
-    series = new std::vector<synnax::Series>();
+    columns = std::make_unique<std::vector<ChannelKey>>();
+    series = std::make_unique<std::vector<synnax::Series>>();
     series->reserve(f.series_size());
     for (auto &ser: f.series()) series->emplace_back(ser);
+    columns->reserve(key.size());
+    for (auto &k: key) columns->push_back(k);
 }
 
 void Frame::push_back(ChannelKey col, synnax::Series ser) {
     columns->push_back(col);
-    series->push_back(ser);
+    series->push_back(std::move(ser));
 }
 
 void Frame::to_proto(api::v1::Frame *f) const {

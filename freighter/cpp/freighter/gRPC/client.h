@@ -55,11 +55,16 @@ template <typename response_t, typename request_t, typename rpc_t>
 class GRPCStream : public freighter::Stream<response_t, request_t>
 {
 public:
+    /// Each streamer needs to manage its own context.
+    grpc::ClientContext context;
+
     /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
-    explicit GRPCStream(std::shared_ptr<grpc::Channel> channel)
+    explicit GRPCStream(std::shared_ptr<grpc::Channel> channel, freighter::Context &ctx)
     {
         // Note that the streamer also sets up its own internal stub.
         stub = rpc_t::NewStub(channel);
+        for (auto &param : ctx.params)
+            context.AddMetadata(param.first, param.second);
         stream = stub->Exec(&context);
     }
 
@@ -96,13 +101,12 @@ private:
     freighter::Error err = freighter::NIL;
 
     /// The internal streaming type for GRPCUnaryClient.
-    std::unique_ptr<grpc::ClientReaderWriter<response_t, request_t>> stream;
+    std::unique_ptr<grpc::ClientReaderWriter<request_t, response_t>> stream;
 
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;
 
-    /// Each streamer needs to manage its own context.
-    grpc::ClientContext context;
+
 
     /// Last target managed.
     std::string last_target;
@@ -168,7 +172,7 @@ public:
         auto stub = rpc_t::NewStub(channel);
         auto latest_response = response_t();
 
-        // Retreive latest request with lock held.
+        // Retrieve latest request with lock held.
         mut.lock();
         auto latest_request = latest_requests_and_responses[outboundContext.id].first;
         mut.unlock();
@@ -262,22 +266,16 @@ public:
     /// @brief the finalizer that opens the stream.
     std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override
     {
-        // Set outbound metadata.
-        grpc::ClientContext grpcContext;
-        for (auto &param : outboundContext.params)
-            grpcContext.AddMetadata(param.first, param.second);
-
         auto channel = pool->getChannel(outboundContext.target);
-        auto latest_stream = std::make_unique<GRPCStream<response_t, request_t, rpc_t>>(channel);
+        auto latest_stream = std::make_unique<GRPCStream<response_t, request_t, rpc_t>>(channel, outboundContext);
+        // Set inbound metadata.
+        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
+        for (auto &meta : latest_stream->context.GetServerTrailingMetadata())
+            inboundContext.set(meta.first.data(), meta.second.data());
 
         mut.lock();
         latest_streams[outboundContext.id] = std::move(latest_stream);
         mut.unlock();
-
-        // Set inbound metadata.
-        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
-        for (auto &meta : grpcContext.GetServerTrailingMetadata())
-            inboundContext.set(meta.first.data(), meta.second.data());
 
         return {inboundContext, freighter::NIL};
     }
