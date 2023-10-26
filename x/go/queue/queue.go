@@ -13,6 +13,7 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+// EmptyQueueError is an error returned when popping from an empty queue
 var EmptyQueueError = errors.New("queue is empty")
 
 // Queue is a container datatype that follows the FIFO (First In First Out) principle
@@ -28,7 +29,7 @@ func (q *Queue[T]) Push(i T) {
 // Pop removes an element from the front of the queue, returns the element or an error if the queue is empty
 func (q *Queue[T]) Pop() (val T, err error) {
 	if len(q.queue) == 0 {
-		return val, errors.Wrap(EmptyQueueError, "queue is empty")
+		return val, EmptyQueueError
 	}
 	i := q.queue[0]
 	q.queue = q.queue[1:]
