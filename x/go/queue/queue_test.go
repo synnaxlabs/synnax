@@ -49,5 +49,25 @@ var _ = Describe("Queue", func() {
 			Expect(err).To(MatchError(queue.EmptyQueueError))
 			Expect(err.Error()).To(Equal("queue is empty"))
 		})
+		It("Should work with other types", func() {
+			q := &queue.Queue[string]{}
+			q.Push("a")
+			q.Push("b")
+			q.Push("c")
+			Expect(q.Len()).To(Equal(3))
+			Expect(q.Empty()).To(BeFalse())
+
+			front := q.Peek()
+			Expect(*front).To(Equal("a"))
+
+			val, err := q.Pop()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal("a"))
+			for _, v := range []string{"b", "c"} {
+				x, e := q.Pop()
+				Expect(e).ToNot(HaveOccurred())
+				Expect(x).To(Equal(v))
+			}
+		})
 	})
 })
