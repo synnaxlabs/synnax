@@ -39,10 +39,12 @@ var precedence map[string]int = map[string]int{
 
 var InvalidExpressionError = errors.New("Invalid expression")
 
+// Expression is a datatype for representing and evaluating mathematical expressions
 type Expression struct {
 	exp ast.Expr
 }
 
+// Resolver is an interface for resolving identifiers in an expression
 type Resolver interface {
 	Resolve(string) (float64, error)
 }
@@ -89,8 +91,7 @@ func makeBinaryExpr(output *stack.Stack[interface{}], operators *stack.Stack[str
 	return nil
 }
 
-// Given a string representing a valid mathematical expression, sets exp to the
-// parsed expression
+// Build builds an AST from a string
 func (e *Expression) Build(s string) error {
 	tokens := findTokens(s)
 	output := stack.Stack[interface{}]{}
@@ -151,10 +152,12 @@ func (e *Expression) Build(s string) error {
 	return nil
 }
 
+// Tree returns the AST of the expression
 func (e Expression) Tree() ast.Expr {
 	return e.exp
 }
 
+// Evaluate evaluates the expression
 func (e Expression) Evaluate(r Resolver) float64 {
 	return eval(e.exp, r)
 }
