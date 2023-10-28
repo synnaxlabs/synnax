@@ -24,8 +24,8 @@ export const useMemoCompare = <V, D extends DependencyList>(
 };
 
 export const compareArrayDeps = <T extends Primitive>(
-  [a]: readonly [T[]],
-  [b]: readonly [T[]],
+  [a]: readonly [T[]] | [T[]],
+  [b]: readonly [T[]] | [T[]],
 ): boolean => compare.primitiveArrays(a, b) === 0;
 
 export const useMemoDeepEqualProps = <T extends Record<string, unknown>>(
