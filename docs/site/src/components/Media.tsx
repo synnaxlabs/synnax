@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DetailedHTMLProps, type ReactElement } from "react";
+import { DetailedHTMLProps, useEffect, type ReactElement } from "react";
 
 import { Video as Core } from "@synnaxlabs/pluto/video";
 
@@ -22,7 +22,7 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
   const theme = localStorage.getItem("theme") ?? "light";
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
   return <Core.Video 
-  href={`${CDN_ROOT}/${id}-${modifier}.mp4`} loop autoPlay {...props} />;
+  href={`${CDN_ROOT}/${id}-${modifier}.mp4`} loop autoPlay muted {...props} />;
 };
 
 export const Image = ({ id, themed = true }: VideoProps): ReactElement => {

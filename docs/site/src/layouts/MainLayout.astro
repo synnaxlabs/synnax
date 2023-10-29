@@ -6,9 +6,9 @@ import { ViewTransitions } from "astro:transitions";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
-import { Align } from "@synnaxlabs/pluto/align"
+import { Align } from "@synnaxlabs/pluto/align";
 import { Icon } from "@synnaxlabs/media";
-import { Search } from "@/components/Search"
+import { Search } from "@/components/Search";
 const {
   headings,
   frontmatter: { title, heading, description },
@@ -16,11 +16,11 @@ const {
 ---
 
 <script>
-import { getVersion } from "@/util/fetchVersion";
+  import { getVersion } from "@/util/fetchVersion";
 
   getVersion().then((version) => {
     document.querySelector(".version").innerHTML = version;
-  })
+  });
 </script>
 
 <html transition:animate="none">
@@ -47,18 +47,24 @@ import { getVersion } from "@/util/fetchVersion";
     />
     <ViewTransitions />
   </head>
-  <header
-    class="pluto--bordered-bottom"
-  >
-    <Align.Space className="header-content" direction="x" justify="spaceBetween" align="center">
+  <header class="pluto--bordered-bottom">
+    <Align.Space
+      className="header-content"
+      direction="x"
+      justify="spaceBetween"
+      align="center"
+    >
       <a href="/">
-        <Logo style={{ height: "5rem" }} variant="title"/>
+        <Logo style={{ height: "5rem" }} variant="title" />
       </a>
-      <Search client:only="react"/>
+      <Search client:only="react" />
       <Align.Space direction="x" align="center">
         <p class="version" transition:persist></p>
         <a href="https://github.com/synnaxlabs/synnax">
-          <Icon.Logo.Github style={{height:"3rem", width: "3rem"}} fill="var(--pluto-text-color)" />
+          <Icon.Logo.Github
+            style={{ height: "3rem", width: "3rem" }}
+            fill="var(--pluto-text-color)"
+          />
         </a>
       </Align.Space>
     </Align.Space>
@@ -80,12 +86,12 @@ import { getVersion } from "@/util/fetchVersion";
   <script>
     import { startThemeDriver } from "@/util/theme";
     import { startUpdatingIframeHref } from "@/util/iframe";
-      startThemeDriver();
-      startUpdatingIframeHref();
+    startThemeDriver();
+    startUpdatingIframeHref();
     document.addEventListener("astro:after-swap", () => {
       startThemeDriver();
       startUpdatingIframeHref();
-    })
+    });
   </script>
 
   <style is:global>
@@ -109,7 +115,8 @@ import { getVersion } from "@/util/fetchVersion";
     }
 
     nav {
-      & p, small {
+      & p,
+      small {
         white-space: normal !important;
       }
       & small {
@@ -119,7 +126,6 @@ import { getVersion } from "@/util/fetchVersion";
 
     .docs-get-started-chip {
       overflow: hidden;
-       
 
       & .text-container {
         transition: all 0.15s ease-in-out;
@@ -142,8 +148,6 @@ import { getVersion } from "@/util/fetchVersion";
       }
     }
 
-    
-
     .table-of-contents {
       & h5 {
         font-weight: 500;
@@ -152,7 +156,6 @@ import { getVersion } from "@/util/fetchVersion";
       .heading {
         border-bottom: none;
       }
-
 
       & .pluto-menu-item {
         white-space: normal;
@@ -163,7 +166,7 @@ import { getVersion } from "@/util/fetchVersion";
           color: var(--pluto-gray-l6) !important;
         }
 
-        &:is(.pluto--selected,:hover) {
+        &:is(.pluto--selected, :hover) {
           background: none;
           border-right: 2px solid var(--pluto-text-color);
           border-radius: 0 !important;
@@ -185,51 +188,48 @@ import { getVersion } from "@/util/fetchVersion";
         max-width: 700px;
       }
 
-      --box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
-
-
       &.pluto--visible {
         position: fixed;
-          left: 50%;
-          transform: translateX(-50%);
-          box-shadow: var(--box-shadow);
+        left: 50%;
+        transform: translateX(-50%);
+        box-shadow: var(--box-shadow);
 
-          & .pluto-input  {
-            width: 80vw;
-            max-width: 900px;
-            height: 40px;
-          }
+        & .pluto-input {
+          width: 80vw;
+          max-width: 900px;
+          height: 40px;
+        }
       }
 
       .pluto-dropdown__dialog {
-          position: absolute;
-          left: 0 !important;
-          top: 40px !important;
-          box-shadow: var(--box-shadow);
-          background: var(--pluto-gray-l1);
+        position: absolute;
+        left: 0 !important;
+        top: 40px !important;
+        box-shadow: var(--box-shadow);
+        background: var(--pluto-gray-l1);
 
-          .hovered {
+        .hovered {
+          background: var(--pluto-gray-l3);
+        }
+
+        & .search-result {
+          padding: 2rem;
+          &:hover {
             background: var(--pluto-gray-l3);
           }
 
-          & .search-result {
-            padding: 2rem;
-            &:hover {
-              background: var(--pluto-gray-l3);
-            }
-
-            & b {
-              background: var(--pluto-primary-z-30);
-            }
-
-            & small {
-              color: var(--pluto-gray-l7);
-            }
+          & b {
+            background: var(--pluto-primary-z-30);
           }
-          
-          & a:hover {
-            text-decoration: none;
+
+          & small {
+            color: var(--pluto-gray-l7);
           }
+        }
+
+        & a:hover {
+          text-decoration: none;
+        }
       }
     }
 
@@ -238,7 +238,7 @@ import { getVersion } from "@/util/fetchVersion";
       text-decoration: none;
     }
 
-  :root {
+    :root {
       --nav-height: 10rem;
       --max-width: 1400px;
       --astro-code-color-text: var(--pluto-text-color);
@@ -265,7 +265,6 @@ import { getVersion } from "@/util/fetchVersion";
 
       overflow-x: hidden;
 
-
       .pluto-btn {
         padding-top: 1rem;
         padding-bottom: 1rem;
@@ -273,16 +272,16 @@ import { getVersion } from "@/util/fetchVersion";
         height: auto;
 
         &:hover {
-            & .pluto-text {
-              font-weight: 500;
-              color: var(--pluto-text-color);
-            }
+          & .pluto-text {
+            font-weight: 500;
+            color: var(--pluto-text-color);
+          }
 
-            & path:is(:not([fill="none"]), [stroke="#000"]) {
-              fill: var(--pluto-text-color) !important;
-            }
+          & path:is(:not([fill="none"]), [stroke="#000"]) {
+            fill: var(--pluto-text-color) !important;
+          }
         }
-      
+
         &:not(.pluto--has-children) {
           border-left: 1px solid var(--pluto-gray-l3);
           border-radius: 0 !important;
@@ -303,12 +302,9 @@ import { getVersion } from "@/util/fetchVersion";
         }
       }
 
-
       .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
         fill: var(--pluto-gray-l5) !important;
       }
-
-      
     }
 
     .copy-code {
@@ -369,8 +365,12 @@ import { getVersion } from "@/util/fetchVersion";
       width: 100%;
       border-radius: 1rem !important;
       border: var(--pluto-border);
-      box-shadow: 0 0 1rem var(--pluto-gray-l3);
+      box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
       border-radius: calc(var(--pluto-border-radius) * 2);
+
+      @media (prefers-color-scheme: dark) {
+        box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+      }
     }
 
     article img {
@@ -379,7 +379,7 @@ import { getVersion } from "@/util/fetchVersion";
 
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
-      background: var(--pluto-gray-l3); 
+      background: var(--pluto-gray-l3);
     }
 
     code {
@@ -454,7 +454,6 @@ import { getVersion } from "@/util/fetchVersion";
     table thead th {
       padding: 1.5rem 1.5rem;
       font-weight: 600;
-
     }
 
     table thead tr {

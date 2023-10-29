@@ -32,6 +32,14 @@
     width: 7rem;
 }
 
-.pluto-windows-control > svg {
-    width: 35%;
+.pluto-windows-control--maximize > svg {
+    width: 40% !important;
+    height: 40% !important;
+}
+
+.pluto-windows-control--close, .pluto-windows-control--minimize {
+    & > svg {
+        width: 45% !important;
+        height: 45% !important;
+    }
 }
