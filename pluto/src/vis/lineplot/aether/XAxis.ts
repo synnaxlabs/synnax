@@ -62,7 +62,7 @@ export class XAxis extends aether.Composite<typeof xAxisStateZ, InternalState, Y
     this.internal.core = new Canvas(this.internal.ctx, {
       color: theme.colors.gray.l8,
       font: fontString(theme, "small"),
-      gridColor: theme.colors.gray.l1,
+      gridColor: theme.colors.gray.l2,
       ...this.state,
       size: this.state.size + this.state.labelSize,
     });

@@ -175,11 +175,6 @@ import { getVersion } from "@/util/fetchVersion";
       }
     }
 
-    .image {
-      border: var(--pluto-border);
-      border-radius: var(--pluto-border-radius);
-    }
-
     .search-box {
       position: absolute;
       left: 50%;
@@ -370,10 +365,12 @@ import { getVersion } from "@/util/fetchVersion";
       margin: 1.5rem 0;
     }
 
-    article video {
+    article :is(video, img) {
       width: 100%;
       border-radius: 1rem !important;
-      box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+      border: var(--pluto-border);
+      box-shadow: 0 0 1rem var(--pluto-gray-l3);
+      border-radius: calc(var(--pluto-border-radius) * 2);
     }
 
     article img {

@@ -8,4 +8,4 @@ const version = await (await fetch(VERSION)).text();
 const url = `github.com/synnaxlabs/synnax/releases/download/synnax%2Fv${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
 ---
 
-<Code lang="bash" code={`curl -LO ${url}`} />
+<Code lang="bash" code={`curl -LO ${url}`} theme="css-variables" />

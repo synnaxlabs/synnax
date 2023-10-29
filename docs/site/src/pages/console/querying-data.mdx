@@ -1,0 +1,110 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Querying Data"
+header: "Querying Data A"
+description: "Learn how to create and find data ranges in Synnax"
+---
+
+import { Video } from "@/components/Media";
+import { Table } from "@/components/Table";
+
+This page walks you through using [ranges](/concepts/read-ranges) to query sections of
+your cluster's data.
+
+## Prerequisites
+
+This page assumes you've already:
+
+-   [Installed the Console](/console/get-started)
+-   [Connected to a cluster](/console/connect-a-cluster)
+
+## Defining New Ranges
+
+The primary means for accessing data in the Synnax console is through ranges. A range 
+is identified by a start timestamp, end timestamp, and name. You can read more conceptually
+about ranges [here](/concepts/read-ranges).
+
+### Local ranges
+
+Local ranges exist only within your console, and are not persisted to the cluster. They're
+quite useful for quickly exploring data, and can eventually be converted to persisted
+ranges if you so desire. To create a local range, click the "Add Range" button in the
+ranges toolbar.
+
+<Video client:only="react" id="console/new-range" />
+
+### Persisted ranges
+
+Persistes ranges are saved permanently to the cluster, and can be accessed by other
+members of your organization. Creating a persisted range is the same as creating a 
+local range, you'll just want to click the "Save Permanently" button instead.
+
+<Video client:only="react" id="console/new-permanent-range" />
+
+### Parameters for creating a range
+
+<Table
+    columns={[
+        {
+            key: "name",
+            name: "Name",
+            width: 125,
+        },
+        {
+            key: "description",
+            name: "Description",
+        },
+    ]}
+    data={[
+        {
+            name: "Name",
+            description: "A human-readable name for identifying the range",
+        },
+        {
+            name: "Start Date",
+            description: "The start date of the range.",
+        },
+        {
+            name: "Start Time",
+            description:
+                "The start time of the range. This value is inclusive, meaning any samples with a timestamp equal to the start time will be included in the range.",
+        },
+        {
+            name: "End Date",
+            description: "The end date of the range.",
+        },
+        {
+            name: "End Time",
+            description:
+                "The end time of the range. This value is exclusive, meaning any samples with a timestamp equal to the end time will not be included in the range.",
+        },
+    ]}
+/>
+
+
+## Finding Existing Ranges
+
+There are two ways to find existing ranges in the console. The resources tool bar and
+the command and search palette.
+
+### Through the resources toolbar
+
+The resources toolbar is located on the left side of the console, and can be used to 
+browse all of your cluster's resources, including ranges. All of your ranges can
+be found under the "Ranges" section.
+
+<Video client:only="react" id="console/range-resources" style={{width: "50%", marginLeft: "25%"}}/>
+
+We can load a specific range into our ranges table by double clicking on it.
+
+### Through the command and search palette
+
+The command and search palette is located in the top center of the console, and can be
+used to search for cluster resources and execute commands. We can find a permanently
+saved range by typing `range` into the palette, and selecting the "Find Range" command.
+
+<Video client:only="react" id="console/ranges-palette" />
+
+Use the arrow keys to navigate the results, and press enter to load the range you're
+interested in. You can also hover and click using your mouse.
+

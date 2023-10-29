@@ -33,7 +33,7 @@ The simplest way to start a single node cluster is by using the `synnaxlabs/synn
 simply run:
 
 ```cmd
-docker run -p 9090:9090 synnaxlabs/synnax --listen-address=localhost:9090 --mem --insecure
+docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
 ```
 
 This will pull the latest version of Synnax from Docker Hub and start a single node cluster with
@@ -42,7 +42,7 @@ the following parameters:
 `-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This allows
 access to the Synnax node from the host machine.
 
-`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
 is the reachable adress of the node, and is also the address that other nodes will use to
 connect when deploying a multi-node cluster.
 
@@ -61,31 +61,30 @@ by running:
 
 <SynnaxDownloadURL os="linux" />
 
-Then, move the binary to `/usr/local/synnax/bin`:
+Then, move the binary to `/usr/local/bin`:
 
 <SynnaxMoveCommand os="linux" />
 
 Next, give execution permissions to the binary:
 
 ```cmd
-chmod +x /usr/local/synnax/synnax
+chmod +x /usr/local/bin/synnax
 ```
 
-Then add `/usr/local/synnax` to your `PATH`:
-
-```cmd
-export PATH=$PATH:/usr/local/synnax
-```
+<div class="info">
+<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</div>
 
 Finally, start the node:
 
 ```cmd
-synnax start --listen-address=localhost:9090 --mem --insecure
+synnax start --listen=localhost:9090 --mem --insecure
 ```
 
 This will start a single node cluster with the following parameters:
 
-`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
 is the reachable address of the node, and is also the address that other nodes will use to
 connect when deploying a multi-node cluster.
 
@@ -104,7 +103,7 @@ by running:
 
 <SynnaxDownloadURL os="macos" />
 
-Next, move the binary:
+Next, move the binary to `usr/local/bin`:
 
 <SynnaxMoveCommand os="macos" />
 
@@ -114,21 +113,20 @@ Then, give execution permissions to the binary:
 chmod +x /usr/local/bin/synnax
 ```
 
-Next, add `/usr/local/bin/synnax` to your `PATH`:
-
-```cmd
-export PATH=$PATH:/usr/local/synnax
-```
+<div class="info">
+<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</div>
 
 Finally, start the node:
 
 ```cmd
-synnax start --listen-address=localhost:9090 --mem --insecure
+synnax start --listen=localhost:9090 --mem --insecure
 ```
 
 This will start a single node cluster with the following parameters:
 
-`--listen-address=localhost:9090` - This sets the address that the node will listen on. This
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
 is the reachable adress of the node, and is also the address that other nodes will use to
 connect when deploying a multi-node cluster.
 

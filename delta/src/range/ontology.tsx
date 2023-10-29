@@ -79,7 +79,7 @@ const handleRename: Ontology.HandleTreeRename = ({
 const fetchIfNotInState = async (
   store: Store<StoreState>,
   client: Synnax,
-  key: string
+  key: string,
 ): Promise<void> => {
   const existing = select(store.getState(), key);
   if (existing == null) {
@@ -113,7 +113,7 @@ const handleAddToActivePlot = async ({
       axisKey: "x1",
       mode: "add",
       ranges: [res.id.key],
-    })
+    }),
   );
 };
 
@@ -132,7 +132,7 @@ const handleAddToNewPlot = async ({
         x1: [res.id.key],
         x2: [],
       },
-    })
+    }),
   );
 };
 

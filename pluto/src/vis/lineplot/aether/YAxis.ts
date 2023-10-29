@@ -76,7 +76,7 @@ export class YAxis extends aether.Composite<
     this.internal.core = new axis.Canvas(this.internal.render, {
       color: theme.colors.gray.l8,
       font: fontString(theme, "small"),
-      gridColor: theme.colors.gray.l1,
+      gridColor: theme.colors.gray.l2,
       ...this.state,
       size: this.state.size + this.state.labelSize,
     });

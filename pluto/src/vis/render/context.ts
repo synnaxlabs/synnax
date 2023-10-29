@@ -226,7 +226,7 @@ export class Context {
     gl.clearColor(...color.ZERO.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
-    this.clearProg.exec();
+    // this.clearProg.exec();
     removeScissor();
   }
 

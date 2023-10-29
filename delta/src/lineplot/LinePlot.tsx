@@ -191,31 +191,31 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey],
   );
 
-  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-    ({ box: b, stage }) => {
-      if (stage !== "end") return;
-      dispatch(
-        storeViewport({
-          key: layoutKey,
-          pan: box.bottomLeft(b),
-          zoom: box.dims(b),
-        }),
-      );
-    },
-    100,
-    [dispatch, layoutKey],
-  );
+  // const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
+  //   ({ box: b, stage }) => {
+  //     if (stage !== "end") return;
+  //     dispatch(
+  //       storeViewport({
+  //         key: layoutKey,
+  //         pan: box.bottomLeft(b),
+  //         zoom: box.dims(b),
+  //       }),
+  //     );
+  //   },
+  //   100,
+  //   [dispatch, layoutKey],
+  // );
 
   const { enableTooltip, clickMode, hold } = useSelectControlState();
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  const initialViewport = useMemo(() => {
-    return box.reRoot(
-      box.construct(vis.viewport.pan, vis.viewport.zoom),
-      location.BOTTOM_LEFT,
-    );
-  }, [vis.viewport.counter]);
+  // const initialViewport = useMemo(() => {
+  //   return box.reRoot(
+  //     box.construct(vis.viewport.pan, vis.viewport.zoom),
+  //     location.BOTTOM_LEFT,
+  //   );
+  // }, [vis.viewport.counter]);
 
   const handleDoubleClick = useCallback(
     () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
@@ -240,8 +240,8 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         onRulePositionChange={handleRulePositionChange}
         onRuleLabelChange={handleRuleLabelChange}
         onAxisChannelDrop={handleChannelAxisDrop}
-        onViewportChange={handleViewportChange}
-        initialViewport={initialViewport}
+        // onViewportChange={handleViewportChange}
+        // initialViewport={initialViewport}
         viewportTriggers={triggers}
         enableTooltip={enableTooltip}
         enableMeasure={clickMode === "measure"}

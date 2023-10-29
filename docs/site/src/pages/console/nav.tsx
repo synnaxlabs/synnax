@@ -24,9 +24,9 @@ export const consoleNav: PageNavNode = {
       name: "Connect a Cluster",
     },
     {
-      key: "/console/define-a-range",
-      href: "/console/define-a-range",
-      name: "Define a Range",
+      key: "/console/querying-data",
+      href: "/console/querying-data",
+      name: "Querying Data Using Ranges",
     },
     {
       key: "/console/plot-data",
