@@ -81,6 +81,33 @@ my_pressure_channel = my_named_range.pressure_2
 my_pressure_channel = my_named_range["pressure_2"]
 ```
 
+### Accessing multiple channels
+
+We can also access multiple channels on the range by passing a regular expression to
+our property accessor.
+
+```python
+my_named_range = client.ranges.retrieve("My Named Range")
+
+# Returns an iterable object containing matching channels
+my_pressure_channels = my_named_range["^pressure"]
+```
+
+If we try to access channel-specific methods on the returned object, such as a name or 
+data, Synnax will raise `MultipleResultsError`. Instead, we should iterate over the 
+returned list. Here's a simple example where we plot the data from all of our
+pressure channels:
+
+```python
+import matplolib.pyplot as plt
+
+for ch in my_named_range["^pressure"]:
+    plt.plot(ch, my_named_range.timestamps, label=ch.name)
+```
+
+Note that this iteration pattern is valid even if we only have one channel that matches
+our regular expression.
+
 ### Aliasing channels
 
 Channels must maintain their original names, but situations arise where we'd like to give

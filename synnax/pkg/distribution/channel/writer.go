@@ -12,6 +12,7 @@ package channel
 import (
 	"context"
 	"github.com/synnaxlabs/x/gorp"
+	"strings"
 )
 
 type Writer interface {
@@ -41,9 +42,21 @@ func (w writer) CreateIfNameDoesntExist(ctx context.Context, c *Channel) error {
 }
 
 func (w writer) CreateManyIfNamesDontExist(ctx context.Context, channels *[]Channel) error {
-	return w.proxy.create(ctx, w.tx, channels, true)
+	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), true)
 }
 
 func (w writer) CreateMany(ctx context.Context, channels *[]Channel) error {
-	return w.proxy.create(ctx, w.tx, channels, false)
+	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), false)
+}
+
+func applyAdjustments(c Channel) Channel {
+	c.Name = strings.TrimSpace(c.Name)
+	return c
+}
+
+func applyManyAdjustments(channels *[]Channel) *[]Channel {
+	for i := range *channels {
+		(*channels)[i] = applyAdjustments((*channels)[i])
+	}
+	return channels
 }

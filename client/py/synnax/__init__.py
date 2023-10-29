@@ -17,6 +17,8 @@ from synnax.exceptions import (
     GeneralError,
     ParseError,
     QueryError,
+    MultipleResultsError,
+    NoResultsError,
     RouteError,
     UnexpectedError,
     ValidationError,
@@ -44,4 +46,5 @@ from synnax.telem import (
     TimeSpanUnits,
     TimeStamp,
     convert_time_units,
+    elapsed_seconds,
 )

@@ -7,7 +7,7 @@ description: "Learn how to work with channels using the Synnax Python client"
 The Python client provides interfaces for creating, retrieving, and reading data from
 channels. In this guide, we'll cover the details of each of these operations.
 
-If you're unfamiliar with what channels are and how tey work, check out the 
+If you're unfamiliar with what channels are and how they work, check out the 
 [channels concepts guide](/concepts/channels).
 
 ## Creating Channels
@@ -127,8 +127,10 @@ my_precise_tc = client.channels.retrieve("my-precise-tc")
 my_precise_tc = client.channels.retrieve(my_precise_tc.key)
 ```
 
-If Synnax finds no or multiple channels matching the query parameters, the client will
-raise a `QueryError`.
+If Synnax finds no channels matching the query, the client will raise a `NoResultsError`.
+If more than one channel matches the query, the client will raise a `MultipleResultsError`. 
+If you'd like to accept no or multiple results, provide a list to the `retrieve` method
+as shown in the next section.
 
 ### Retrieving multiple channels
 
@@ -141,6 +143,9 @@ my_channels = client.channels.retrieve(["my-precise-tc", "my-precise-tc"])
 # By key
 my_channels = client.channels.retrieve([my_precise_tc.key, my_precise_tc.key])
 ```
+
+Note that Synnax will not raise a `QueryError` if it cannot find a channel matching a 
+key or name. Instead, it will simply omit that channel from the list of results.
 
 ### Retrieving a channel using a Range
 
@@ -161,8 +166,23 @@ ch = bike_outing.sensor_one
 <div class="info">
 <b>Note</b> - When using a range, it's possible to retrieve a channel by it's alias
 instead of it's name. For more information, see 
-<a href="/analyze/access-ranges">ranges aliases</a>.
+<a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
 </div>
+
+### Retrieving channels using regular expressions
+
+If you're familiar with regular expressions, you can use them to retrieve channels
+that match a pattern. For example, if we wanted to retrieve all channels that start
+with "sensor", we could do the following:
+
+```python
+sensor_channels = client.channels.retrieve(["^sensor"])
+```
+
+It's important to note that if we're expecting multiple channels to match our pattern,
+we need to pass in a list to the `retrieve` method, otherwise the client will raise
+a `QueryError`.
+
 
 ## Next Steps
 

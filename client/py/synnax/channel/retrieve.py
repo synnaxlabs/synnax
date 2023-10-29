@@ -62,6 +62,8 @@ class ClusterChannelRetriever:
     @trace("debug")
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
+        if len(normal.params) == 0:
+            return list()
         return self.__execute(
             _Request(**{normal.variant: normal.params})
         )  # type: ignore

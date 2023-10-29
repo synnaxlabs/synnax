@@ -18,5 +18,15 @@ export const guidesNav: PageNavNode = {
       href: "/guides/exploratory-analysis-in-python",
       key: "/guides/exploratory-analysis-in-python",
     },
+    {
+      name: "Automated Post Processing",
+      href: "/guides/automated-post-processing",
+      key: "/guides/automated-post-processing",
+    },
+    {
+      name: "Writing Control Sequences",
+      href: "/guides/writing-control-sequences",
+      key: "/guides/writing-control-sequences",
+    },
   ],
 };

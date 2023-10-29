@@ -9,8 +9,8 @@
 
 
 # We dynamically define all of these operators to allow for interoperability with
-# numpy arrays. This is a bit of a hack, but it works for now.
-_COMPARISON_OPERATORS = [
+# numpy arrays.
+_NP_COMPARISON_OPERATORS = [
     "__eq__",
     "__ne__",
     "__lt__",
@@ -70,14 +70,22 @@ _COMPARISON_OPERATORS = [
     "__matmul__",
     "__rmatmul__",
     "__imatmul__",
+    "__getitem__",
+    "__len__"
 ]
 
 
 def overload_comparison_operators(cls, method: str):
-    for op in _COMPARISON_OPERATORS:
+    return forward_methods(cls, method, _NP_COMPARISON_OPERATORS)
+
+
+def forward_methods(cls, to: str, methods: list[str]):
+    for method in methods:
         setattr(
             cls,
-            op,
-            lambda self, other, op=op: getattr(getattr(self, method)(), op)(other),
+            method,
+            lambda self, *args, method=method: getattr(getattr(self, to)(), method)(
+                *args
+            ),
         )
     return cls

@@ -39,6 +39,11 @@ const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
     lineHeight: m.typography.h3.size * 1.5,
     weight: 500,
   };
+  m.typography.h4 = {
+    ...m.typography.h4,
+    lineHeight: m.typography.h4.size * 1.5,
+    weight: 500,
+  };
 
   m.typography.h5.textTransform = "none";
   return m;

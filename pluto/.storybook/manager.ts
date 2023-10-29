@@ -142,8 +142,8 @@ const t = synnaxLight;
 const theme = create({
   ...t,
   colorSecondary: t.colors.primary.z,
-  appBg: t.colors.l0,
-  appContentBg: t.colors.l0,
+  appBg: t.colors.gray.l0,
+  appContentBg: t.colors.gray.l0,
   appBorderColor: t.colors.border,
   appBorderRadius: t.sizes.border.radius as number,
   fontBase: t.typography.family,

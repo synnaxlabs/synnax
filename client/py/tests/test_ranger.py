@@ -69,20 +69,49 @@ class TestRangeClient:
         rng = client.ranges.search(two_ranges[0].name)
         assert len(rng) > 0
 
-    def test_read(self, client: sy.Synnax):
-        tr = sy.TimeStamp.now().span_range(100 * sy.TimeSpan.SECOND)
-        stamps = np.linspace(int(tr.start), int(tr.end), 100, dtype=np.int64)
-        client.channels.create(
-            name="test_idx", data_type=sy.DataType.TIMESTAMP, is_index=True
-        ).write(tr.start, stamps)
-        rng = client.ranges.create(
-            name="test",
-            time_range=(tr.start + 10 * sy.TimeSpan.SECOND).span_range(
-                10 * sy.TimeSpan.SECOND
-            ),
+
+@pytest.mark.ranger
+class TestRangeChannelResolution:
+    @pytest.fixture(scope="class")
+    def rng(self, client: sy.Synnax) -> sy.Range:
+        name = f"test_{np.random.randint(0, 10000)}"
+        return client.ranges.create(
+            name=name,
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        res: sy.Series = rng.test_idx
-        assert len(res) == 10
+
+    @pytest.fixture(scope="class", autouse=True)
+    def two_channels(self, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
+        return client.channels.create(
+            [
+                sy.Channel(
+                    name=f"{rng.name}_test1",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                ),
+                sy.Channel(
+                    name=f"{rng.name}_test2",
+                    data_type=sy.DataType.FLOAT32,
+                    rate=1 * sy.Rate.HZ,
+                ),
+            ]
+        )
+
+    def test_access_by_key(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        """Should access a channel by key"""
+        assert rng[two_channels[0].key].key == two_channels[0].key
+
+    def test_access_by_name(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        """Should access a channel by name"""
+        assert rng[two_channels[0].name].name == two_channels[0].name
+
+    def test_access_by_regex(self, rng: sy.Range, two_channels: list[sy.Channel]):
+        """Should access a channel by regex"""
+        channels = rng[f"{rng.name}_.*"]
+        found = 0
+        for ch in channels:
+            found += 1
+        assert found == 2
 
 
 @pytest.mark.ranger
@@ -104,7 +133,10 @@ class TestRangeKV:
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
         rng.meta_data.set({"test": "test", "test2": "test2"})
-        assert rng.meta_data.get(["test", "test2"]) == {"test": "test", "test2": "test2"}
+        assert rng.meta_data.get(["test", "test2"]) == {
+            "test": "test",
+            "test2": "test2",
+        }
         rng.meta_data.delete(["test", "test2"])
         with pytest.raises(sy.exceptions.QueryError):
             rng.meta_data.get(["test", "test2"])

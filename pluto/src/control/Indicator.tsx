@@ -26,10 +26,10 @@ export interface IndicatorProps
 
 export const Indicator = Aether.wrap<IndicatorProps>(
   control.Indicator.TYPE,
-  ({ aetherKey, colorSource, statusSource, children }): ReactElement => {
+  ({ aetherKey, colorSource, statusSource }): ReactElement => {
     const memoProps = useMemoDeepEqualProps({ colorSource, statusSource });
 
-    const [, { status, color }, setState] = Aether.use({
+    const [, { color }, setState] = Aether.use({
       aetherKey,
       type: control.Indicator.TYPE,
       initialState: {
