@@ -50,6 +50,38 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereLabelKeys(keys ...uuid.UUID) Retrieve {
+	r.gorp.WhereWithTx(func(ctx context.Context, tx gorp.Tx, rng *Range) bool {
+		labels := make([]Label, 0, len(rng.Labels))
+		if err := gorp.NewRetrieve[uuid.UUID, Label]().WhereKeys(rng.Labels...).Entries(&labels).Exec(context.Background(), tx); err != nil {
+			return false
+		}
+		for _, l := range labels {
+			if lo.Contains(keys, l.Key) {
+				return true
+			}
+		}
+		return false
+	})
+	return r
+}
+
+func (r Retrieve) WhereLabelNames(names ...string) Retrieve {
+	r.gorp.WhereWithTx(func(ctx context.Context, tx gorp.Tx, rng *Range) bool {
+		labels := make([]Label, 0, len(rng.Labels))
+		if err := gorp.NewRetrieve[uuid.UUID, Label]().WhereKeys(rng.Labels...).Entries(&labels).Exec(context.Background(), tx); err != nil {
+			return false
+		}
+		for _, l := range labels {
+			if lo.Contains(names, l.Name) {
+				return true
+			}
+		}
+		return false
+	})
+	return r
+}
+
 // WhereOverlapsWith filters for ranges whose TimeRange overlaps with the
 func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 	r.gorp.Where(func(rng *Range) bool { return rng.TimeRange.OverlapsWith(tr) })

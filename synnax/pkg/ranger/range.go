@@ -33,6 +33,8 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Labels is a list of labels that are associated with the range.
+	Labels []uuid.UUID `json:"labels" msgpack:"labels"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
