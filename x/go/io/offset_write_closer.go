@@ -57,9 +57,7 @@ func (o *offsetWriteCloser) Len() int64 { return o.len }
 func (o *offsetWriteCloser) Offset() int64 { return o.offset }
 
 func (o *offsetWriteCloser) Write(p []byte) (n int, err error) {
-	n, err = o.WriteAt(p, o.offset)
+	n, err = o.WriteAt(p, o.offset+o.len)
 	o.len += int64(n)
-	b := make([]byte, 12)
-	_, err = o.Read(b)
 	return n, err
 }
