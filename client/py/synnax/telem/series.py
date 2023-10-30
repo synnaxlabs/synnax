@@ -16,7 +16,14 @@ import numpy as np
 import pandas as pd
 from freighter import Payload
 
-from synnax.telem.telem import CrudeDataType, DataType, Size, TimeRange, TimeStamp
+from synnax.telem.telem import (
+    CrudeDataType,
+    DataType,
+    Size,
+    TimeRange,
+    TimeStamp,
+    TimeSpan,
+)
 from synnax.util.interop import overload_comparison_operators
 
 
@@ -133,3 +140,12 @@ class Series(Payload):
 
 TypedCrudeSeries = Series | pd.Series | np.ndarray
 CrudeSeries = Series | bytes | pd.Series | np.ndarray | list | float | int | TimeStamp
+
+
+def elapsed_seconds(d: np.ndarray) -> np.ndarray:
+    """Converts a Series of timestamps to elapsed seconds since the first timestamp.
+
+    :param d: A Series of timestamps.
+    :returns: A Series of elapsed seconds.
+    """
+    return (d - d[0]) / TimeSpan.SECOND

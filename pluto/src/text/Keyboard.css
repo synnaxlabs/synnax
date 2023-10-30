@@ -10,7 +10,7 @@
  */
 
 .pluto-text--keyboard {
-    background: var(--pluto-gray-m3);
+    background: var(--pluto-gray-l2);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     padding: 0.25rem 1rem;

@@ -176,7 +176,7 @@ pnpm build:pluto
 As another test, we'll start a development server for Pluto. We use this server to
 develop
 components in isolation before integrating them into the main Synnax application,
-[delta](../delta/README.md). To start, run
+[console](../console/README.md). To start, run
 
 ```bash
  pnpm dev:pluto

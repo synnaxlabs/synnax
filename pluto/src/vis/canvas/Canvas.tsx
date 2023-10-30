@@ -15,7 +15,7 @@ import {
   useRef,
 } from "react";
 
-import { box } from "@synnaxlabs/x";
+import { box, runtime } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -33,7 +33,7 @@ export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
   resizeDebounce?: number;
 }
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1 };
+const ZERO_PROPS = { region: box.ZERO, dpr: 1,os: runtime.getOS() as runtime.OS};
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -70,10 +70,11 @@ export const Canvas = Aether.wrap<CanvasProps>(
     const handleResize = useCallback(
       (region: box.Box) => {
         if (canvases.current.bootstrapped)
-          setState(() => ({
+          setState((p) => ({
             bootstrapped: true,
             region,
             dpr: window.devicePixelRatio,
+            os: runtime.getOS({default: "Windows"}) as runtime.OS,
           }));
       },
       [setState],
@@ -108,6 +109,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             bootstrapped: false,
             region: box.construct(gl),
             dpr: window.devicePixelRatio,
+            os: runtime.getOS({default: "Windows"}) as runtime.OS,
           },
           [glCanvas, upper2dCanvas, lower2dCanvas],
         );

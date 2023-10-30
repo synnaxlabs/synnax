@@ -34,7 +34,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
     transition: 0.15s;
     border-radius: calc(var(--pluto-base-size) * 4);
 }
@@ -46,16 +46,16 @@
     width: calc(var(--pluto-base-size) * 3);
     left: 0;
     bottom: -3px;
-    background-color: var(--pluto-gray-m1);
+    background: var(--pluto-gray-l4);
     transition: 0.15s;
     border-radius: 50%;
 }
 
 .pluto-input-switch__input:checked + .pluto-input-switch__slider {
-    background-color: var(--pluto-primary-m1);
+    background: var(--pluto-primary-m1);
 }
 
 .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
     transform: translateX(calc(var(--pluto-base-size) * 2));
-    background-color: var(--pluto-primary-p1);
+    background: var(--pluto-primary-p1);
 }

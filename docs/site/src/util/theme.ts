@@ -11,10 +11,10 @@ import { Theming } from "@synnaxlabs/pluto/theming";
 
 export const applyCSSVars = (
   element: HTMLElement,
-  vars: Record<string, string | number | undefined>
+  vars: Record<string, string | number | undefined>,
 ): void =>
   Object.entries(vars).forEach(
-    ([key, value]) => value != null && element.style.setProperty(key, `${value}`)
+    ([key, value]) => value != null && element.style.setProperty(key, `${value}`),
   );
 
 const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
@@ -32,15 +32,20 @@ const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   };
   m.typography.h2 = {
     ...m.typography.h2,
-    weight: 500,
+    weight: 550,
   };
   m.typography.h3 = {
     ...m.typography.h3,
     lineHeight: m.typography.h3.size * 1.5,
+    weight: 500,
+  };
+  m.typography.h4 = {
+    ...m.typography.h4,
+    lineHeight: m.typography.h4.size * 1.5,
+    weight: 500,
   };
 
-  m.colors.text = m.key === "synnax-dark" ? "#eaeaea" : "#1a1a1a";
-  m.typography.h5.textTransform= "none";
+  m.typography.h5.textTransform = "none";
   return m;
 };
 
@@ -72,7 +77,7 @@ const THEME_ALTERNATES: Record<string, Theming.ThemeSpec> = {
 const applyTheme = (theme: Theming.ThemeSpec): void => {
   applyCSSVars(
     window.document.documentElement,
-    Theming.toCSSVars(Theming.themeZ.parse(theme))
+    Theming.toCSSVars(Theming.themeZ.parse(theme)),
   );
   localStorage.setItem("theme", theme.key);
 };

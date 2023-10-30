@@ -12,6 +12,22 @@ import { z } from "zod";
 import { color } from "@/color/core";
 import { specZ } from "@/text/types";
 
+const grayScaleZ = z.object({
+  l0: color.Color.z,
+  l1: color.Color.z,
+  l2: color.Color.z,
+  l3: color.Color.z,
+  l4: color.Color.z,
+  l5: color.Color.z,
+  l6: color.Color.z,
+  l7: color.Color.z,
+  l8: color.Color.z,
+  l9: color.Color.z,
+  l10: color.Color.z,
+});
+
+type GrayScale = z.input<typeof grayScaleZ>;
+
 export const themeZ = z.object({
   name: z.string(),
   key: z.string(),
@@ -24,18 +40,7 @@ export const themeZ = z.object({
       p1: color.Color.z,
       p2: color.Color.z,
     }),
-    gray: z.object({
-      m4: color.Color.z,
-      m3: color.Color.z,
-      m2: color.Color.z,
-      m1: color.Color.z,
-      m0: color.Color.z,
-      p0: color.Color.z,
-      p1: color.Color.z,
-      p2: color.Color.z,
-      p3: color.Color.z,
-      p4: color.Color.z,
-    }),
+    gray: grayScaleZ,
     error: z.object({
       m2: color.Color.z,
       m1: color.Color.z,
@@ -48,7 +53,6 @@ export const themeZ = z.object({
     }),
     white: color.Color.z,
     black: color.Color.z,
-    background: color.Color.z,
     text: color.Color.z,
     textContrast: color.Color.z,
     logo: z.string(),
@@ -94,18 +98,23 @@ const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
 // Grayscale
 
-const BLACK = "#050505";
-const GRAY_P4 = "#0D0D0D";
-const GRAY_P3 = "#171717";
-const GRAY_P2 = "#2E2E2E";
-const GRAY_P1 = "#4F4F4F";
-const GRAY_P0 = "#717171";
-const GRAY_M0 = "#939393";
-const GRAY_M1 = "#B5B5B5";
-const GRAY_M2 = "#D6D6D6";
-const GRAY_M3 = "#EDEDED";
-const GRAY_M4 = "#F7F7F7";
-const WHITE = "#FFFFFF";
+const LIGHT_SCALE = [
+  "#FCFCFC",
+  "#F9F9F9",
+  "#F4F4F4",
+  "#ededed",
+  "#d9d9d9",
+  "#ADADAD",
+  "#878787",
+  "#616161",
+  "#404040",
+  "#1C1C1C",
+  "#050505",
+];
+
+const lightGrayScale: GrayScale = Object.fromEntries(
+  LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
+) as GrayScale;
 
 const synnaxBase: ThemeSpec = {
   key: "synnax-base",
@@ -118,19 +127,8 @@ const synnaxBase: ThemeSpec = {
       p1: "#5E94EE",
       p2: "#8AB8FF",
     },
-    gray: {
-      p4: GRAY_P4,
-      p3: GRAY_P3,
-      p2: GRAY_P2,
-      p1: GRAY_P1,
-      p0: GRAY_P0,
-      m0: GRAY_M0,
-      m1: GRAY_M1,
-      m2: GRAY_M2,
-      m3: GRAY_M3,
-      m4: GRAY_M4,
-    },
-    border: GRAY_M3,
+    gray: lightGrayScale,
+    border: lightGrayScale.l3,
     error: {
       m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
       m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
@@ -159,11 +157,10 @@ const synnaxBase: ThemeSpec = {
       },
     },
     logo: "url(#synnax-linear-gradient)",
-    white: WHITE,
-    black: BLACK,
-    background: WHITE,
-    text: GRAY_P4,
-    textContrast: GRAY_M4,
+    white: "#FFFFFF",
+    black: "#000000",
+    text: lightGrayScale.l9,
+    textContrast: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -222,29 +219,35 @@ export const synnaxLight: ThemeSpec = {
   name: "Synnax Light",
 };
 
+const DARK_SCALE = [
+  "#020202",
+  "#080808",
+  "#141414",
+  "#1a1a1a",
+  "#242424",
+  "#515151",
+  "#7f7f7f",
+  "#9D9D9D",
+  "#BFBFBF",
+  "#E2E2E2",
+  "#FDFDFD",
+];
+
+const darkGrayScale: GrayScale = Object.fromEntries(
+  DARK_SCALE.map((color, index) => [`l${index}`, color]),
+) as GrayScale;
+
 export const synnaxDark: ThemeSpec = {
   ...synnaxBase,
   key: "synnax-dark",
   name: "Synnax Dark",
   colors: {
     ...synnaxBase.colors,
-    gray: {
-      m4: synnaxBase.colors.gray.p4,
-      m3: synnaxBase.colors.gray.p3,
-      m2: synnaxBase.colors.gray.p2,
-      m1: synnaxBase.colors.gray.p1,
-      m0: synnaxBase.colors.gray.p0,
-      p0: synnaxBase.colors.gray.m0,
-      p1: synnaxBase.colors.gray.m1,
-      p2: synnaxBase.colors.gray.m2,
-      p3: synnaxBase.colors.gray.m3,
-      p4: synnaxBase.colors.gray.m4,
-    },
+    gray: darkGrayScale,
     logo: "var(--pluto-text-color)",
-    border: synnaxBase.colors.gray.p3,
-    background: synnaxBase.colors.black,
-    text: synnaxBase.colors.gray.m4,
-    textContrast: synnaxBase.colors.black,
+    border: darkGrayScale.l3,
+    text: darkGrayScale.l9,
+    textContrast: darkGrayScale.l0,
   },
 };
 

@@ -26,7 +26,7 @@ def prompt_client_options(ctx: Context) -> SynnaxOptions:
     return SynnaxOptions(
         host=ctx.console.ask("Host", default="localhost"),
         port=ctx.console.ask("Port", default=9090),
-        username=ctx.console.ask("Username", default="Synnax"),
+        username=ctx.console.ask("Username", default="synnax"),
         password=ctx.console.ask("Password", password=True),
         secure=ctx.console.ask("Secure Connection?", default=False),
     )

@@ -1,23 +1,35 @@
-#  Copyright 2023 Synnax Labs, Inc.
-#
-#  Use of this software is governed by the Business Source License included in the file
-#  licenses/BSL.txt.
-#
-#  As of the Change Date specified in that file, in accordance with the Business Source
-#  License, use of this software will be governed by the Apache License, Version 2.0,
-#  included in the file licenses/APL.txt.
-
-import matplotlib.pyplot as plt
-
 import synnax as sy
+import matplotlib.pyplot as plt
+import numpy as np
 
 client = sy.Synnax()
 
-with client.new_streamer("sy_range_set") as s:
-    for r in s:
-        r = client.ranges.retrieve(r.series[0][0])
-        t = r.read("Time (hs)")
-        d = r.read("ec.pressure[12] (hs)")
-        print(t.__array__(), d.__array__())
-        plt.plot(t, d, "r-")
-        plt.show()
+data = client.ranges.retrieve("April 9 Wetdress")
+
+data.ec_pressure_12.set_alias("flowmeter_dp")
+
+elapsed = sy.elapsed_seconds(data.Time)
+
+for chan in data["ec_vlv_*"]:
+    # plot dashed
+    plt.plot(elapsed, chan, "--", label=chan.name)
+
+plt.show()
+
+
+# press_mask = data.flowmeter_dp > 5
+# valid_times = data.Time[press_mask]
+# valid_pressures = data.flowmeter_dp[press_mask]
+# elapsed_times = sy.elapsed_seconds(valid_times)
+#
+# plt.plot(elapsed_times, valid_pressures)
+# plt.xlabel("Elapsed Time (s)")
+# plt.ylabel("Pressure (psi)")
+# plt.show()
+#
+# # grab the peak pressure from valid_pressures
+# # grab the average pressure from valid_pressures
+# data.meta_data.set("peak_pressure", valid_pressures.max())
+# print(data.meta_data.get("peak_pressure"))
+# data.meta_data.set("avg_pressure", valid_pressures.mean())
+# print(data.meta_data.get("avg_pressure"))

@@ -70,29 +70,29 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   private get verticalLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.p0;
+      return this.internal.theme.colors.gray.l6;
     }
 
     if (!this.state.color.verticalLine.isZero) return this.state.color.verticalLine;
-    return this.internal.theme.colors.gray.p0;
+    return this.internal.theme.colors.gray.l6;
   }
 
   private get horizontalLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.p0;
+      return this.internal.theme.colors.gray.l6;
     }
     if (!this.state.color.horizontalLine.isZero) return this.state.color.horizontalLine;
-    return this.internal.theme.colors.gray.p0;
+    return this.internal.theme.colors.gray.l6;
   }
 
   private get obliqueLineColor(): color.Color {
     if (this.state.color instanceof color.Color) {
       if (!this.state.color.isZero) return this.state.color;
-      return this.internal.theme.colors.gray.p0;
+      return this.internal.theme.colors.gray.l6;
     }
     if (!this.state.color.obliqueLine.isZero) return this.state.color.obliqueLine;
-    return this.internal.theme.colors.gray.p0;
+    return this.internal.theme.colors.gray.l6;
   }
 
   private async find(props: MeasureProps): Promise<[FindResult, FindResult] | null> {

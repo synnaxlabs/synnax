@@ -106,7 +106,7 @@ const Preview = ({ color }: ElementProps): ReactElement => (
 const initialProps = (th: Theming.Theme): ElementProps => ({
   dimensions: { width: 100, height: 250 },
   label: "Tank",
-  color: th.colors.gray.p3.hex,
+  color: th.colors.gray.l8.hex,
 });
 
 export const TankSpec: Spec<ElementProps> = {

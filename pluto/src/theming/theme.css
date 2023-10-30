@@ -19,11 +19,12 @@
 
 html {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
+    --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-gray-l4);
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
 
-    background-color: var(--pluto-background-color);
+    background: var(--pluto-gray-l0);
     margin: 0;
     height: 100%;
     width: 100%;
@@ -47,11 +48,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--pluto-gray-m4);
+    background: var(--pluto-gray-l1);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
     border-radius: var(--pluto-border-radius);
 }
 

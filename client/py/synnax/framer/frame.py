@@ -24,7 +24,6 @@ from synnax.channel.payload import (
 )
 from synnax.exceptions import ValidationError
 from synnax.telem import Series, TimeRange, TypedCrudeSeries
-from synnax.util.interop import overload_comparison_operators
 from synnax.util.normalize import normalize
 
 
@@ -78,7 +77,8 @@ class Frame:
     series: list[Series] = Field(default_factory=list)
 
     def __new__(cls, *args, **kwargs):
-        return super().__new__(overload_comparison_operators(cls, "to_df"))
+        return super().__new__(cls)
+        # return super().__new__(overload_np_array_operators(cls, "to_df"))
 
     def __init__(
         self,

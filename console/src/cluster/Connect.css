@@ -1,0 +1,30 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-connect-cluster .console-input__port {
+    width: 20rem;
+}
+
+.console-connect-cluster .console-input__host {
+     width: 20rem;
+}
+
+.console-connect-cluster .console-input__password {
+    width: 100%;
+}
+
+.console-connect-cluster .console-footer__start {
+    padding: 0 2rem;
+}
+
+.console-connect-cluster .console-footer__end {
+        padding: 1rem;
+}

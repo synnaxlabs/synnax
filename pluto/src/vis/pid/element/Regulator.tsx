@@ -81,7 +81,7 @@ const Preview = ({ color }: ElementProps): ReactElement => {
 
 const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Regulator",
-  color: th.colors.gray.p2.hex,
+  color: th.colors.gray.l8.hex,
 });
 
 export const RegulatorSpec: Spec<ElementProps> = {

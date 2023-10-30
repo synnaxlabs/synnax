@@ -24,17 +24,17 @@
 }
 
 .pluto-list-col-item__container--selected {
-    background-color: var(--pluto-primary-z-20);
+    background: var(--pluto-primary-z-20);
 }
 
 .pluto-list-col-item__container--selectable:hover,
 .pluto-list-col-item__container--selectable.pluto-list-col-item__container--hovered {
-    background-color: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
 }
 
 .pluto-list-col-item__container--selected:hover,
 .pluto-list-col-item__container--selected.pluto-list-col-item__container--hovered {
-    background-color: var(--pluto-primary-z-10);
+    background: var(--pluto-primary-z-10);
 }
 
 .pluto-list-col-header__container {
@@ -49,5 +49,5 @@
 
 .pluto-list-col-header__item * {
     font-weight: normal;
-    color: var(--pluto-gray-p1);
+    color: var(--pluto-gray-l7);
 }

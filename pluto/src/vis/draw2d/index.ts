@@ -117,7 +117,7 @@ export class Draw2D {
     backgroundColor,
   }: Draw2DContainerProps): void {
     if (borderColor == null) borderColor = this.theme.colors.border;
-    if (backgroundColor == null) backgroundColor = this.theme.colors.gray.m4;
+    if (backgroundColor == null) backgroundColor = this.theme.colors.gray.l1;
     if (borderRadius == null) borderRadius = this.theme.sizes.border.radius;
     if (borderWidth == null) borderWidth = 1;
 

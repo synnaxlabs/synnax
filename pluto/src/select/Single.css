@@ -10,7 +10,7 @@
  */
 
 .pluto-select__clear {
-    background: var(--pluto-background-color);
+    background: var(--pluto-gray-l0);
 }
 
 .pluto-select__input {
@@ -18,6 +18,6 @@
 }
 
 .pluto-select-input.pluto-haul-drop-region > * {
-    background-color: var(--haul-background-color) !important;
+    background: var(--haul-l0) !important;
     border-color: var(--haul-border-color) !important;
 }

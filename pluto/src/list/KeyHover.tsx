@@ -39,7 +39,6 @@ export const Hover = <
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
-      console.log(triggers);
       if (stage !== "start") return;
       if (Triggers.match(triggers, [UP_TRIGGER]))
         onChange((pos) => {

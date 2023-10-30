@@ -41,7 +41,7 @@ export const Swatch = ({
 }: SwatchProps): ReactElement => {
   const { visible, open, ref } = Dropdown.use({ onVisibleChange, initialVisible });
 
-  const bg = Theming.use().colors.background;
+  const bg = Theming.use().colors.gray.l0;
 
   const d = new color.Color(value);
 

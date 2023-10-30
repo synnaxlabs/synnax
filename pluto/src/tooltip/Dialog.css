@@ -15,7 +15,7 @@
     left: 0;
     z-index: 6;
     pointer-events: none;
-    background-color: var(--pluto-gray-m4);
+    background: var(--pluto-gray-l1);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
     padding: 1rem;

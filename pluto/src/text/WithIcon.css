@@ -10,8 +10,8 @@
  */
 
 .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-gray-p2);
-    fill: var(--pluto-gray-p2);
+    stroke: var(--pluto-gray-l8);
+    fill: var(--pluto-gray-l8);
 }
 
 .pluto-text-icon svg {

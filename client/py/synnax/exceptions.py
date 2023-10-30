@@ -111,6 +111,22 @@ class QueryError(Exception):
     pass
 
 
+class NoResultsError(QueryError):
+    """
+    Raised when a query returns no results.
+    """
+
+    pass
+
+
+class MultipleResultsError(QueryError):
+    """
+    Raised when a query that should return a single result returns multiple.
+    """
+
+    pass
+
+
 class RouteError(Exception):
     """
     Raised when an API routing error occurs, such as a 404.
