@@ -73,7 +73,7 @@ public:
 
     void toProto(api::v1::Frame *f) const;
 
-    void add(ChannelKey col, synnax::Series ser);
+    void add(ChannelKey col, synnax::Series ser) const;
 
     [[nodiscard]] size_t size() const { return series->size(); }
 };

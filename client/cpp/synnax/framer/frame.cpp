@@ -39,7 +39,7 @@ Frame::Frame(const api::v1::Frame &f) {
     for (auto &k: key) columns->push_back(k);
 }
 
-void Frame::add(ChannelKey col, synnax::Series ser) {
+void Frame::add(ChannelKey col, synnax::Series ser) const {
     columns->push_back(col);
     series->push_back(std::move(ser));
 }

@@ -36,9 +36,8 @@ void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
     auto tr = telempb::TimeRange();
-    tr.set_start(time_range.start.value);
-    tr.set_end(time_range.end.value);
-    rng->set_allocated_time_range(&tr);
+    rng->mutable_time_range()->set_start(time_range.start.value);
+    rng->mutable_time_range()->set_end(time_range.end.value);
 }
 
 
@@ -105,10 +104,13 @@ freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
 
 freighter::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();
-    auto rng = req.add_ranges();
-    range.to_proto(rng);
+    range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
-    if (!err) range.key = res.ranges(0).key();
+    if (!err) {
+        auto rng = res.ranges(0);
+        range.key = rng.key();
+        range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
+    }
     return err;
 }
 
@@ -126,7 +128,9 @@ const std::string KV_DELETE_ENDPOINT = "/range/kv/delete";
 std::pair<std::string, freighter::Error> RangeKV::get(const std::string &key) const {
     auto req = api::v1::RangeKVGetRequest();
     req.add_keys(key);
+    req.set_range_key(range_key);
     auto [res, err] = kv_get_client->send(KV_GET_ENDPOINT, req);
+    if (err) return {"", err};
     return {res.pairs().at(key), err};
 }
 

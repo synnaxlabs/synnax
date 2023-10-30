@@ -9,6 +9,7 @@
 
 /// std
 #include <string>
+#include <cstdlib>
 
 /// GTest
 #include <include/gtest/gtest.h>
@@ -30,14 +31,14 @@ TEST(RangerTests, testCreate) {
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(10),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     ASSERT_EQ(range.name, "test");
     ASSERT_FALSE(range.key.length() == 0);
-    ASSERT_EQ(range.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(range.time_range.start, synnax::TimeStamp(10));
     ASSERT_EQ(range.time_range.end, synnax::TimeStamp(100));
 }
 
@@ -47,67 +48,69 @@ TEST(RangerTests, testRetrieveByKey) {
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     auto [got, err2] = client.ranges.retrieveByKey(range.key);
-    ASSERT_FALSE(err2);
+    ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(got.name, "test");
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(30));
     ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
     auto client = synnax::Client(cfg);
+    auto rand = std::to_string(std::rand());
     auto [range, err] = client.ranges.create(
-            "test",
+            rand,
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(10),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveByName("test");
+    auto [got, err2] = client.ranges.retrieveByName(rand);
     ASSERT_FALSE(err2);
-    ASSERT_EQ(got.name, "test");
+    ASSERT_EQ(got.name, rand);
     ASSERT_FALSE(got.key.length() == 0);
-    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got.time_range.start, synnax::TimeStamp(10));
     ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
 }
 
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
     auto client = synnax::Client(cfg);
+    auto rand = std::to_string(std::rand());
     auto [range, err] = client.ranges.create(
-            "test",
+            rand,
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
     auto [range2, err2] = client.ranges.create(
-            "test2",
+            rand,
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err2);
-    auto [got, err3] = client.ranges.retrieveByName(std::vector<std::string>{"test", "test2"});
+    auto [got, err3] = client.ranges.retrieveByName(std::vector<std::string>{rand});
     ASSERT_FALSE(err3);
     ASSERT_EQ(got.size(), 2);
-    ASSERT_EQ(got[0].name, "test");
+    ASSERT_EQ(got[0].name, rand);
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(30));
     ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
-    ASSERT_EQ(got[1].name, "test2");
+    ASSERT_EQ(got[1].name, rand);
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(0));
+    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(30));
     ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
 }
 
@@ -115,24 +118,24 @@ TEST(RangerTests, testRetrieveMultipleByName) {
 TEST(RangerTests, testRetrieveMultipleByKey) {
     auto client = synnax::Client(cfg);
     auto tr = synnax::TimeRange(
-            synnax::TimeStamp(0 * synnax::SECOND),
+            synnax::TimeStamp(10 * synnax::SECOND),
             synnax::TimeStamp(100 * synnax::SECOND)
     );
     auto[range, err] = client.ranges.create("test", tr);
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     auto [range2, err2] = client.ranges.create("test2",tr);
-    ASSERT_FALSE(err2);
+    ASSERT_FALSE(err2) << err2.message();
     auto [got, err3] = client.ranges.retrieveByKey(std::vector<std::string>{range.key, range2.key});
-    ASSERT_FALSE(err3);
+    ASSERT_FALSE(err3) << err3.message();
     ASSERT_EQ(got.size(), 2);
     ASSERT_EQ(got[0].name, "test");
     ASSERT_FALSE(got[0].key.length() == 0);
-    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(0));
-    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(10 * synnax::SECOND));
+    ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100 * synnax::SECOND));
     ASSERT_EQ(got[1].name, "test2");
     ASSERT_FALSE(got[1].key.length() == 0);
-    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(0));
-    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
+    ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(10 * synnax::SECOND));
+    ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100 * synnax::SECOND));
 }
 
 
@@ -142,7 +145,7 @@ TEST(RangerTests, testSet) {
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
@@ -157,25 +160,25 @@ TEST(RangerTests, testGet) {
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     err = range.kv.set("test", "test");
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     auto [val, err2] = range.kv.get("test");
-    ASSERT_FALSE(err2);
+    ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(val, "test");
 }
 
 /// @brief it should delete a key-value pair on the range.
-TEST(RangerTests, testDelete) {
+TEST(RangerTests, testKVDeelete) {
     auto client = synnax::Client(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
-                    synnax::TimeStamp(0),
+                    synnax::TimeStamp(30),
                     synnax::TimeStamp(10 * synnax::SECOND)
             )
     );
@@ -185,6 +188,6 @@ TEST(RangerTests, testDelete) {
     err = range.kv.del("test");
     ASSERT_FALSE(err);
     auto [val, err2] = range.kv.get("test");
-    ASSERT_TRUE(err2);
+    ASSERT_TRUE(err2) << err2.message();
     ASSERT_EQ(val, "");
 }
