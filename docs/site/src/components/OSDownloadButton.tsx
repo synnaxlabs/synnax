@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState, useEffect } from "react";
+import { type ReactElement, useState, useEffect } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
@@ -68,7 +68,10 @@ export const SynnaxConsoleDownloadButton = () => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
   useEffect(() => {
-    fetch(JSON_URL).then((response) => response.json()).then((f) => setUpdateFile(f))
+    fetch(JSON_URL)
+      .then(async (response) => await response.json())
+      .then((f) => setUpdateFile(f))
+      .catch(() => setUpdateFile(null));
   }, []);
 
   if (updateFile == null) return null;
