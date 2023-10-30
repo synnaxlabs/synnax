@@ -28,10 +28,5 @@ export const consoleNav: PageNavNode = {
       href: "/console/querying-data",
       name: "Querying Data Using Ranges",
     },
-    {
-      key: "/console/plot-data",
-      href: "/console/plot-data",
-      name: "Plot Data",
-    },
   ],
 };

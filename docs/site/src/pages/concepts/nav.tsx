@@ -31,11 +31,6 @@ export const conceptsNav: PageNavNode = {
       name: "Channels",
     },
     {
-      key: "/concepts/arrays-and-frames",
-      href: "/concepts/arrays-and-frames",
-      name: "Arrays and Frames",
-    },
-    {
       key: "/concepts/write-domains",
       href: "/concepts/write-domains",
       name: "Write Domains",

@@ -99,6 +99,37 @@ const {
       margin: 0;
     }
 
+    .chip {
+      text-decoration: none !important;
+      flex-grow: 1;
+      min-width: 275px;
+      flex-basis: 275px;
+      & div {
+        height: 100%;
+        transition: all 0.1s ease-in-out;
+        border: var(--pluto-border-l4);
+                padding: 1rem 3rem;
+        border-radius: var(--pluto-border-radius);
+        &:hover {
+          border-color: var(--pluto-primary-z);
+          cursor: pointer;
+
+          & h4 {
+            color: var(--pluto-primary-z);
+          }
+          & p {
+            color: var(--pluto-gray-l9);
+          }
+        }
+      }
+      & h4 {
+        color: var(--pluto-primary-p1);
+      }
+      & p {
+        color: var(--pluto-gray-l7);
+      }
+    }
+
     .info {
       padding: 0.1rem 3rem;
       margin: 4rem 0;
@@ -160,7 +191,7 @@ const {
       & .pluto-menu-item {
         white-space: normal;
         height: fit-content;
-        padding: 0.5rem 2rem;
+        padding: 0.75rem 2rem;
         border-right: 2px solid transparent;
         & small {
           color: var(--pluto-gray-l6) !important;

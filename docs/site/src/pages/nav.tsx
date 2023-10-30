@@ -9,7 +9,7 @@
 
 import { conceptsNav } from "./concepts/nav";
 import { consoleNav } from "./console/nav";
-import { deployNav } from "./deploy/nav";
+import { deploymentNav } from "./deployment/nav";
 import { guidesNav } from "./guides/nav";
 import { pythonClientNav } from "./python-client/nav";
 
@@ -21,8 +21,7 @@ export const pages = [
   },
   guidesNav,
   conceptsNav,
-  deployNav,
+  deploymentNav,
   pythonClientNav,
   consoleNav,
-  // rfcNav,
 ];

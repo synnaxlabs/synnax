@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactElement } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { Icon } from "@synnaxlabs/media";
 
 interface SearchResult {
   key: string;
@@ -16,7 +16,7 @@ interface SearchResult {
   href: string;
 }
 
-export const Search = () => {
+export const Search = (): ReactElement => {
   const d = Dropdown.use();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [value, setValue] = useState<string>("");
@@ -70,7 +70,7 @@ export const Search = () => {
 
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth >
+      <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth>
         <Input.Text
           ref={inputRef}
           placeholder={
