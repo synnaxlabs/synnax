@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import datetime, timeconsole, timezone, tzinfo
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
@@ -32,7 +32,7 @@ class TimeStamp(int):
         not timezone aware, it is assumed to be in the local timezone.
     * datetime - Converts the datetime to a TimeStamp.  If the datetime is not timezone
         aware, it is assumed to be in the local timezone.
-    * timedelta - Treats the timedelta as a duration since the Unix epoch in UTC.
+    * timeconsole - Treats the timeconsole as a duration since the Unix epoch in UTC.
     * np.datetime64 - Treats the datetime64 as a duration since the Unix epoch in UTC.
     * int - Treats the int as a nanosecond duration since the Unix epoch in UTC.
     """
@@ -48,7 +48,7 @@ class TimeStamp(int):
             )
         elif isinstance(value, datetime):
             value = int(float(TimeSpan.SECOND) * value.timestamp())
-        elif isinstance(value, timedelta):
+        elif isinstance(value, timeconsole):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.datetime64):
             value = int(pd.Timestamp(value).value)
@@ -193,16 +193,16 @@ class TimeSpan(int):
     * np.int64 - The number of nanoseconds.
     * TimeSpan - Creates a copy of the TimeSpan.
     * TimeStamp - The difference between the TimeStamp and the Unix epoch
-    * timedelta - The duration of the timedelta.
-    * pands.Timedelta - The duration of the Timedelta.
-    * np.timedelta64 - The duration of the timedelta64.
+    * timeconsole - The duration of the timeconsole.
+    * pands.Timeconsole - The duration of the Timeconsole.
+    * np.timeconsole64 - The duration of the timeconsole64.
     """
 
     def __new__(cls, value: CrudeTimeSpan):
-        if isinstance(value, timedelta):
+        if isinstance(value, timeconsole):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
-        elif isinstance(value, np.timedelta64):
-            value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
+        elif isinstance(value, np.timeconsole64):
+            value = int(float(TimeSpan.SECOND) * pd.Timeconsole(value).total_seconds())
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
         return super().__new__(cls, value)
@@ -364,9 +364,9 @@ class TimeSpan(int):
         return TimeSpan(trunc(self / span) * span)
 
     @property
-    def timedelta(self) -> timedelta:
-        """:returns: The TimeSpan represented as a datetime.timedelta."""
-        return timedelta(seconds=self.seconds)
+    def timeconsole(self) -> timeconsole:
+        """:returns: The TimeSpan represented as a datetime.timeconsole."""
+        return timeconsole(seconds=self.seconds)
 
     def __add__(self, rhs: CrudeTimeSpan) -> TimeSpan:
         return TimeSpan(super().__add__(TimeSpan(rhs)))
@@ -1009,10 +1009,10 @@ DataType.ALL = (
 )
 
 CrudeTimeStamp: TypeAlias = (
-    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64
+    int | TimeStamp | TimeSpan | datetime | timeconsole | np.datetime64 | np.int64
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
+    int | float | TimeSpan | TimeStamp | timeconsole | np.timeconsole64
 )
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate
 CrudeDensity: TypeAlias = Density | int

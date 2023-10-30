@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timeconsole, timezone
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ class TestTimeStamp:
                 TimeStamp(105 * TimeSpan.SECOND),
             ),
             (_now, _now),
-            (timedelta(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
+            (timeconsole(seconds=105), TimeStamp(105 * TimeSpan.SECOND)),
             (np.datetime64(1000, "ms"), TimeStamp(1000 * TimeSpan.MILLISECOND)),
             (
                 datetime(2022, 2, 22, 15, 41, 50, tzinfo=pytz_timezone("EST")),
@@ -272,10 +272,10 @@ class TestTimeSpan:
         "crude, expected",
         [
             (1000, TimeSpan.MICROSECOND),
-            (timedelta(microseconds=1000), 1000 * TimeSpan.MICROSECOND),
+            (timeconsole(microseconds=1000), 1000 * TimeSpan.MICROSECOND),
             (TimeStamp(1000), TimeSpan.MICROSECOND),
-            (np.timedelta64(1000, "us"), 1000 * TimeSpan.MICROSECOND),
-            (pd.Timedelta(1000, "ms"), 1000 * TimeSpan.MILLISECOND),
+            (np.timeconsole64(1000, "us"), 1000 * TimeSpan.MICROSECOND),
+            (pd.Timeconsole(1000, "ms"), 1000 * TimeSpan.MILLISECOND),
             (TimeSpan.MICROSECOND * 1000, TimeSpan.MICROSECOND * 1000),
             (np.int64(1000), 1 * TimeSpan.MICROSECOND),
         ],
@@ -287,9 +287,9 @@ class TestTimeSpan:
         """Should return the number of seconds in the timespan"""
         assert TimeSpan.SECOND.seconds == 1
 
-    def test_delta(self):
-        """Should return a timedelta"""
-        assert TimeSpan.SECOND.timedelta == timedelta(seconds=1)
+    def test_console(self):
+        """Should return a timeconsole"""
+        assert TimeSpan.SECOND.timeconsole == timeconsole(seconds=1)
 
     def test_add(self):
         """Should correctly add two time spans"""
@@ -342,7 +342,7 @@ class TestRate:
     def test_invalid_init(self):
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            Rate(timedelta(seconds=1))  # type: ignore
+            Rate(timeconsole(seconds=1))  # type: ignore
 
     def test_sample_count(self):
         """Should return the number of samples"""

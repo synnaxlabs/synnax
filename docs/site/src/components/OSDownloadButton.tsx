@@ -62,7 +62,7 @@ const OSToUpdateFilePlatform: Record<OS, keyof UpdateFile["platforms"]> = {
 };
 
 const JSON_URL =
-  "https://raw.githubusercontent.com/synnaxlabs/synnax/main/delta/release-spec.json";
+  "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
 export const SynnaxConsoleDownloadButton = () => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);

@@ -269,7 +269,7 @@ pnpm build:pluto
 ## 6.3 - Start a Pluto Dev Server
 
 As another test, we'll start a development server for Pluto. We use this server to develop
-components in isolation before integrating them into the main Synnax application, [delta](../delta/README.md).
+components in isolation before integrating them into the main Synnax application, [console](../console/README.md).
 To start, run
 
 ```zsh
