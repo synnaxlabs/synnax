@@ -20,7 +20,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -94,7 +94,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -109,7 +109,7 @@ jobs:
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: synnax/v${{ steps.version.outputs.VERSION }}
+          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
           name: Synnax v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
@@ -147,7 +147,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -181,4 +181,4 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax/v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}

@@ -202,7 +202,7 @@ class TimeSpan(int):
         if isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
-            value = int(float(TimeSpan.SECOND) * pd.timedelta(value).total_seconds())
+            value = int(float(TimeSpan.SECOND) * pd.Timedelta(value).total_seconds())
         elif not isinstance(value, (int, float, np.floating, np.integer)):
             raise TypeError(f"Cannot convert {type(value)} to TimeSpan")
         return super().__new__(cls, value)

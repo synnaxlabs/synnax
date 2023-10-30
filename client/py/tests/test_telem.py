@@ -275,7 +275,7 @@ class TestTimeSpan:
             (timedelta(microseconds=1000), 1000 * TimeSpan.MICROSECOND),
             (TimeStamp(1000), TimeSpan.MICROSECOND),
             (np.timedelta64(1000, "us"), 1000 * TimeSpan.MICROSECOND),
-            (pd.timedelta(1000, "ms"), 1000 * TimeSpan.MILLISECOND),
+            (pd.Timedelta(1000, "ms"), 1000 * TimeSpan.MILLISECOND),
             (TimeSpan.MICROSECOND * 1000, TimeSpan.MICROSECOND * 1000),
             (np.int64(1000), 1 * TimeSpan.MICROSECOND),
         ],
