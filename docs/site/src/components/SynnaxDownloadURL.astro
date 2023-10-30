@@ -5,7 +5,7 @@ const { os } = Astro.props;
 const VERSION =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
 const version = await (await fetch(VERSION)).text();
-const url = `github.com/synnaxlabs/synnax/releases/download/synnax%2Fv${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
+const url = `github.com/synnaxlabs/synnax/releases/download/synnax-v${version.trim()}/synnax-v${version.trim()}-${os.toLowerCase()}`;
 ---
 
 <Code lang="bash" code={`curl -LO ${url}`} theme="css-variables" />
