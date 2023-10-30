@@ -135,7 +135,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 
 			err = services[1].
 				NewRetrieve().
-				WhereNames("SG22*").
+				WhereNames("SG22.*").
 				Entries(&resChannels).
 				Exec(ctx, nil)
 			Expect(err).ToNot(HaveOccurred())
