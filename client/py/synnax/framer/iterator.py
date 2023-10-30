@@ -51,7 +51,7 @@ class _Response(Payload):
     variant: _ResponseVariant
     command: _Command
     ack: bool
-    error: ExceptionPayload | None
+    error: str | None
     frame: FramePayload
 
 

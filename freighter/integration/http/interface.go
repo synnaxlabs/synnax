@@ -10,6 +10,7 @@
 package http
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
@@ -36,35 +37,43 @@ type TestError struct {
 
 func (t TestError) Error() string {
 	return t.Message
-}
+}:w
+
 
 func (t TestError) FreighterType() ferrors.Type {
 	return "integration.error"
 }
 
-func encodeTestError(err error) string {
-	te, ok := err.(TestError)
+func encodeTestError(_ context.Context, err error) (ferrors.Payload, bool) {
+	var te TestError
+	ok := errors.As(err, &te)
 	if !ok {
-		panic("unexpected error type")
+		return ferrors.Payload{}, false
 	}
-	return strconv.Itoa(te.Code) + "," + te.Message
+	return ferrors.Payload{
+		Type: "integration.error",
+		Data: strconv.Itoa(te.Code) + "," + te.Message,
+	}, true
 }
 
-func decodeTestError(s string) error {
-	parts := strings.Split(s, ",")
+func decodeTestError(_ context.Context, pld ferrors.Payload) (error, bool) {
+	if pld.Type != "integration.error" {
+		return nil, false
+	}
+	parts := strings.Split(pld.Data, ",")
 	if len(parts) != 2 {
-		return errors.New("unexpected error format")
+		return errors.New("unexpected error format"), true
 	}
 	code, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return err
+		return err, true
 	}
 	return TestError{
 		Code:    code,
 		Message: parts[1],
-	}
+	}, true
 }
 
 func init() {
-	ferrors.Register("integration.error", encodeTestError, decodeTestError)
+	ferrors.Register(encodeTestError, decodeTestError)
 }

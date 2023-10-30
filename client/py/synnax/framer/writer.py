@@ -57,7 +57,7 @@ class _Request(Payload):
 class _Response(Payload):
     command: _Command
     ack: bool
-    error: ExceptionPayload | None
+    error: str | None
     end: TimeStamp | None
 
 

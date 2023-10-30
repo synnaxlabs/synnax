@@ -293,10 +293,8 @@ export const Tree = (): ReactElement => {
 
   const handleDoubleClick: Core.TreeProps["onDoubleClick"] = useCallback(
     (key: string) => {
-      console.log("DEBOUCLE");
       const id = new ontology.ID(key);
       const svc = services[id.type];
-      console.log(svc, client);
       if (client == null) return;
       svc.onSelect({
         client,

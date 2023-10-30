@@ -25,8 +25,8 @@ class ExceptionPayload(Payload):
     data: str | None
 
 
-EncoderFunc = Callable[[Exception], str]
-DecoderFunc = Callable[[str], Exception]
+EncoderFunc = Callable[[Exception], ExceptionPayload | None]
+DecoderFunc = Callable[[ExceptionPayload], Exception | None]
 
 
 @dataclass
@@ -36,15 +36,13 @@ class _ExceptionProvider:
 
 
 class _Registry:
-    providers: dict[str, _ExceptionProvider]
+    providers: list[_ExceptionProvider]
 
     def __init__(self):
-        self.providers = dict()
+        self.providers = list()
 
-    def register(self, _type: str, provider: _ExceptionProvider) -> None:
-        if _type in self.providers:
-            raise ValueError(f"Error type {_type} is already registered")
-        self.providers[_type] = provider
+    def register(self, provider: _ExceptionProvider) -> None:
+        self.providers.append(provider)
 
     @staticmethod
     def encode(error: Exception | None) -> ExceptionPayload:
@@ -54,26 +52,26 @@ class _Registry:
         assert isinstance(encoded, ExceptionPayload)
         if encoded.type == _TYPE_NONE:
             return None
-        if encoded.type in self.providers:
-            if encoded.data is None:
-                raise Exception(f"Error data is missing for {encoded.type}")
-            return self.providers[encoded.type].decode(encoded.data)
+        for provider in self.providers:
+            decoded = provider.decode(encoded)
+            if decoded is not None:
+                return decoded
         return Exception(encoded.data)
 
 
 REGISTRY = _Registry()
 
 
-def register_exception(_type: str, _encode: EncoderFunc, _decode: DecoderFunc) -> None:
-    """Registers a custom error type with the freighter error registry, which allows
+def register_exception(_encode: EncoderFunc, _decode: DecoderFunc) -> None:
+    """Registers a custom error encoder and decoder with the freighter error registry,
+    which allows
     it to be sent over the network.
 
-    :param _type: The type of the error, which must be unique.
     :param _encode: A function that takes an exception and returns a string.
     :param _decode: A function that takes a string and returns an exception.
     :return: None
     """
-    REGISTRY.register(_type, _ExceptionProvider(_encode, _decode))
+    REGISTRY.register(_ExceptionProvider(_encode, _decode))
 
 
 def encode_exception(exc: Exception) -> ExceptionPayload:
@@ -138,20 +136,23 @@ _EXCEPTIONS = [
     EOF,
 ]
 
-
-def _freighter_encode(exc: Exception) -> str:
-    raise NotImplemented
+_FREIGHTER_EXCEPTION_TYPE = "freighter.exceptions"
 
 
-def _freighter_decode(exc: str) -> Exception:
-    if exc == "Unreachable":
+def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
+    return ExceptionPayload(type=_FREIGHTER_EXCEPTION_TYPE, data=str(exc))
+
+
+def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
+    if exc.type != "freighter":
+        return None
+    if exc.data == "Unreachable":
         return Unreachable()
-    if exc == "StreamClosed":
+    if exc.data == "StreamClosed":
         return StreamClosed()
-    if exc == "EOF":
+    if exc.data == "EOF":
         return EOF()
     raise ValueError(f"Unknown freighter exception: {exc}")
 
 
-_FREIGHTER_TYPE = "freighter"
-register_exception(_FREIGHTER_TYPE, _freighter_encode, _freighter_decode)
+register_exception(_freighter_encode, _freighter_decode)

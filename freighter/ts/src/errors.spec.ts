@@ -15,7 +15,7 @@ import {
   FREIGHTER,
   NONE,
   StreamClosed,
-  TypedError,
+  type TypedError,
   UNKNOWN,
   UnknownError,
   Unreachable,
@@ -24,6 +24,7 @@ import {
   encodeError,
   isTypedError,
   registerError,
+  type ErrorPayload,
 } from "@/errors";
 
 class MyCustomError extends BaseTypedError {
@@ -32,12 +33,12 @@ class MyCustomError extends BaseTypedError {
   }
 }
 
-const myCustomErrorEncoder = (error: MyCustomError): string => {
-  return error.message;
+const myCustomErrorEncoder = (error: MyCustomError): ErrorPayload => {
+  return { type: "MyCustomError", data: error.message };
 };
 
-const myCustomErrorDecoder = (encoded: string): TypedError => {
-  return new MyCustomError(encoded);
+const myCustomErrorDecoder = (encoded: ErrorPayload): TypedError => {
+  return new MyCustomError(encoded.data);
 };
 
 describe("errors", () => {
@@ -50,7 +51,6 @@ describe("errors", () => {
 
   test("encoding and decoding a custom error through registry", () => {
     registerError({
-      type: "MyCustomError",
       encode: myCustomErrorEncoder,
       decode: myCustomErrorDecoder,
     });
@@ -60,7 +60,7 @@ describe("errors", () => {
     expect(encoded.data).toEqual("test");
     const decoded = assertErrorType<MyCustomError>(
       "MyCustomError",
-      decodeError(encoded)
+      decodeError(encoded),
     );
     expect(decoded.message).toEqual("test");
   });
@@ -80,21 +80,6 @@ describe("errors", () => {
     expect(encoded.data).toEqual("{}");
     const decoded = decodeError(encoded);
     expect(decoded).toEqual(new UnknownError("{}"));
-  });
-
-  test("registering duplicate error should throw", () => {
-    registerError({
-      type: "MyDuplicateError",
-      encode: myCustomErrorEncoder,
-      decode: myCustomErrorDecoder,
-    });
-    expect(() => {
-      registerError({
-        type: "MyDuplicateError",
-        encode: myCustomErrorEncoder,
-        decode: myCustomErrorDecoder,
-      });
-    }).toThrow();
   });
 
   test("encoding and decoding freighter errors", () => {

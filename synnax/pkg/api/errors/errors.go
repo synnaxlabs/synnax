@@ -36,7 +36,6 @@ const prefix = "sy.api."
 const (
 	TypeUnexpected ferrors.Type = prefix + "unexpected"
 	TypeGeneral    ferrors.Type = prefix + "general"
-	TypeNil        ferrors.Type = prefix + "nil"
 	TypeValidation ferrors.Type = prefix + "validation"
 	TypeParse      ferrors.Type = prefix + "parse"
 	TypeAuth       ferrors.Type = prefix + "auth"
@@ -77,9 +76,9 @@ func Route(err error, path string) ferrors.Error {
 	return ferrors.Typed(routeError{Path: path}, TypeRoute)
 }
 
-func Auto(err error) ferrors.Error {
+func Auto(err error) error {
 	if err == nil {
-		return ferrors.Nil
+		return nil
 	}
 	var t ferrors.Error
 	if errors.As(err, &t) {
