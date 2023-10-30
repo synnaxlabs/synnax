@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/media";
-
 import { type PageNavNode } from "@/components/PageNav";
 
 export const deploymentNav: PageNavNode = {
@@ -16,7 +14,7 @@ export const deploymentNav: PageNavNode = {
   name: "Deployment",
   children: [
     {
-      key: "/deploymen/get-started",
+      key: "/deployment/get-started",
       href: "/deployment/get-started",
       name: "Get Started",
     },
@@ -26,7 +24,7 @@ export const deploymentNav: PageNavNode = {
       name: "Requirements",
     },
     {
-      key: "deployment/cli-reference",
+      key: "/deployment/cli-reference",
       href: "/deployment/cli-reference",
       name: "CLI Reference",
     },
