@@ -31,7 +31,7 @@ type ReaderAtWriterAtCloser interface {
 	WriterAtCloser
 }
 
-type OffsetWriteCloser interface {
+type TrackedWriteCloser interface {
 	OffsetWriter
 	io.Closer
 }
