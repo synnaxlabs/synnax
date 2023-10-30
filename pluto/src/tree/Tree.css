@@ -18,7 +18,7 @@
         width: 100%;
 
         & .pluto-caret path {
-            fill: var(--pluto-gray-p0) !important;
+            fill: var(--pluto-gray-l6) !important;
         }
     }
 

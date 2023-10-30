@@ -1,0 +1,115 @@
+---
+title: "CLI Reference"
+layout: "@/layouts/MainLayout.astro"
+description: "Reference for the Synnax Database CLI"
+---
+
+import { Table } from "@/components/Table";
+
+## Start 
+
+The `start` command starts a node in a Synnax cluster, bootstrapping a new cluster if
+necessary.
+
+### Examples
+
+#### Starting a single-node cluster
+
+We can use the `i` and `m` flags to start a single node in insecure mode with an 
+in-memory data store.
+
+```cmd
+synnax start -l localhost:9090 -im
+```
+
+#### Joining a node to an existing cluster
+
+We can use the `p` flag to join a node to an existing cluster. If the node has no 
+existing cluster data, it will attempt to join the cluster by repeatedly contacting
+each peer in the list until successful.
+
+```cmd
+synnax start -l localhost:9090 -p localhost:9091,localhost:9092
+```
+
+
+### Flags
+
+<Table
+    columns={[
+        {
+            key: "option",
+            name: "Option",
+            type: "code",
+            width: 150,
+        },
+        { key: "default", name: "Default", type: "code" },
+        { key: "description", name: "Description" },
+    ]}
+    data={[
+        {
+            option: "--listen/-l",
+            default: "localhost:9090",
+            description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
+                is also the address and port that will be advertised to peers in the cluster.`,
+        },
+        {
+            option: "--peers/-p",
+            default: "[]",
+            description: `A list of comma separated peer nodes in an existing cluster. If this list is not empty, the node will
+            attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
+            data is found, the node will bootstrap a new cluster.`,
+        },
+        {
+            option: "--data/-d",
+            default: "/usr/local/synnax/data",
+            description:
+                "The file path to the storage device where Synnax will keep its data.",
+        },
+        {
+            option: "--verbose/-v",
+            default: "false",
+            description: "Enables verbose logging for diagnostic purposes.",
+        },
+        {
+            option: "--insecure/-i",
+            default: "false",
+            description:
+                "Starts the node without TLS encryption. This is not recommended for production use.",
+        },
+        {
+            option: "--mem/-m",
+            default: "false",
+            description:
+                "Starts the node with an in-memory data store. When specified, the data flag is ignored. This is not reccomended for production use.",
+        },
+        {
+            option: "--config/c",
+            default: "/usr/local/synnax/config.yaml",
+            description: "Path to a JSON, YAML, or TOML configuration file.",
+        },
+        {
+            option: "--certs-dir",
+            default: "/usr/local/synnax/certs",
+            description:
+                "Path to the directory containing the TLS certificates for the node.",
+        },
+        {
+            option: "--ca-cert",
+            default: "ca.crt",
+            description: "Path to the CA certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-cert",
+            default: "node.crt",
+            description: "Path to the node certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-key",
+            default: "node.key",
+            description: "Path to the node key file relative to the certs-dir.",
+        },
+    ]}
+/>
+
+

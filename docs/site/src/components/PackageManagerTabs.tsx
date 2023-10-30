@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
@@ -42,8 +42,12 @@ export const PackageManagerTabs = (props: PackageManagerTabsProps): ReactElement
       tabKey,
       name,
       icon,
-    })
+    }),
   );
   const tabsProps = Tabs.useStatic({ tabs });
-  return <Tabs.Tabs {...tabsProps} size="large">{(tab) => props[tab.tabKey]}</Tabs.Tabs>;
+  return (
+    <Tabs.Tabs {...tabsProps} size="large">
+      {(tab) => props[tab.tabKey]}
+    </Tabs.Tabs>
+  );
 };

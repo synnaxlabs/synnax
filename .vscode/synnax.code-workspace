@@ -53,8 +53,8 @@
       "path": "../pluto"
     },
     {
-      "name": "delta",
-      "path": "../delta"
+      "name": "console",
+      "path": "../console"
     },
     {
       "name": "x/go",

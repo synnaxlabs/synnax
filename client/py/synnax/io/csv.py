@@ -95,7 +95,9 @@ class CSVReader(CSVMatcher):  # type: ignore
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
             cols = pd.read_csv(self._path, nrows=0).columns
-            self._channels = [ChannelMeta(name=name, meta_data=dict()) for name in cols]
+            self._channels = [ChannelMeta(name=name.strip(), meta_data=dict()) for name
+                              in
+                              cols]
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):

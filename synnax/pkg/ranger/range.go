@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"regexp"
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
@@ -88,8 +89,13 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
 	var res alias
-	err := gorp.NewRetrieve[string, alias]().
-		Where(func(a *alias) bool { return a.Range == r.Key && a.Alias == al }).
+	matcher := func(a *alias) bool { return a.Range == r.Key && a.Alias == al }
+	rxp, err := regexp.Compile(al)
+	if err == nil {
+		matcher = func(a *alias) bool { return a.Range == r.Key && rxp.MatchString(a.Alias) }
+	}
+	err = gorp.NewRetrieve[string, alias]().
+		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	return res.Channel, err

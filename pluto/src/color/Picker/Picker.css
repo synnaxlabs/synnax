@@ -26,7 +26,7 @@
     }
 
     & label {
-        color: var(--pluto-gray-p0) !important;
+        color: var(--pluto-gray-l6) !important;
         padding-top: 1rem !important;
         padding-bottom: 0 !important;
     }
