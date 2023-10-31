@@ -12,16 +12,16 @@ package domain
 import (
 	"context"
 	"encoding/binary"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
-	"io"
 	"os"
 )
 
 type indexPersist struct {
 	Config
 	indexEncoder
-	io.ReadWriteSeeker
+	fs.File
 	idx *index
 }
 
@@ -29,21 +29,22 @@ const indexFile = "index"
 
 func openIndexPersist(idx *index, cfg Config) (*indexPersist, error) {
 	f, err := cfg.FS.Open(fileName(indexFile), os.O_CREATE|os.O_RDWR)
-	ip := &indexPersist{ReadWriteSeeker: f, idx: idx}
+	ip := &indexPersist{File: f, idx: idx}
 	idx.OnChange(ip.onChange)
 	return ip, err
 }
 
-func (f *indexPersist) onChange(ctx context.Context, update indexUpdate) {
+func (f indexPersist) onChange(ctx context.Context, update indexUpdate) {
 	ctx, span := f.T.Bench(ctx, "onChange")
 	var encoded []byte
 	f.idx.read(func() {
 		encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
 	})
-	_, err := f.Seek(int64(update.afterIndex*pointerByteSize), io.SeekStart)
-	if err == nil {
-		_, err = f.Write(encoded)
+	var err error
+	if len(encoded) != 0 {
+		_, err = f.WriteAt(encoded, int64(update.afterIndex*pointerByteSize))
 	}
+
 	_ = span.EndWith(err)
 	if err != nil {
 		f.L.Error("failed to write index update", zap.Error(err))
@@ -51,16 +52,17 @@ func (f *indexPersist) onChange(ctx context.Context, update indexUpdate) {
 }
 
 func (f *indexPersist) load() ([]pointer, error) {
-	size, err := f.Seek(0, io.SeekEnd)
+	info, err := f.File.Stat()
+	size := info.Size()
 	if err != nil {
 		return nil, err
 	}
-	if _, err = f.Seek(0, io.SeekStart); err != nil {
-		return nil, err
-	}
+
 	b := make([]byte, size)
-	if _, err = f.Read(b); err != nil {
-		return nil, err
+	if len(b) != 0 {
+		if _, err = f.ReadAt(b, 0); err != nil {
+			return nil, err
+		}
 	}
 	return f.decode(b), nil
 }
