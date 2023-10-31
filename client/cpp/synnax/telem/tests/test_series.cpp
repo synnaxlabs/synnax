@@ -20,11 +20,11 @@
 ///// @brief create basic int series
 TEST(TestSeries, testConstruction)
 {
-    std::vector<std::uint8_t> vals = {1, 2, 3, 4, 5};
+    std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
     ASSERT_EQ(s.getDataType(), synnax::UINT8);
     auto v = s.uint8();
-    for (auto i = 0; i < vals.size(); i++) {
+    for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
     }
 }
@@ -32,13 +32,13 @@ TEST(TestSeries, testConstruction)
 //// @brief it should correctly serialize and deserialize the series from protoubuf
 TEST(TestSeries, testProto)
 {
-    std::vector<std::uint8_t> vals = {1, 2, 3, 4, 5};
+    std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
     auto s2 = new telempb::Series();
     s.to_proto(s2);
     synnax::Series s3{*s2};
     auto v = s3.uint8();
-    for (auto i = 0; i < vals.size(); i++) {
+    for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
     }
     delete s2;

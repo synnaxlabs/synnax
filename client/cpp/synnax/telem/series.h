@@ -25,24 +25,24 @@ namespace synnax {
 class Series {
 public:
 
-    explicit Series(const std::vector<std::uint8_t> &d) {
+    explicit Series(const std::vector<uint8_t> &d) {
         data = std::make_unique<std::byte[]>(d.size());
         memcpy(data.get(), d.data(), d.size());
         size = d.size();
         data_type = synnax::UINT8;
     }
 
-    explicit Series(const std::vector<std::float_t> &d) {
-        data = std::make_unique<std::byte[]>(d.size() * sizeof(std::float_t));
-        memcpy(data.get(), d.data(), d.size() * sizeof(std::float_t));
-        size = d.size() * sizeof(std::float_t);
+    explicit Series(const std::vector<float> &d) {
+        data = std::make_unique<std::byte[]>(d.size() * sizeof(float));
+        memcpy(data.get(), d.data(), d.size() * sizeof(float));
+        size = d.size() * sizeof(float);
         data_type = synnax::FLOAT32;
     }
 
-    explicit Series(const std::vector<std::int64_t> &d) {
-        data = std::make_unique<std::byte[]>(d.size() * sizeof(std::int64_t));
-        memcpy(data.get(), d.data(), d.size() * sizeof(std::int64_t));
-        size = d.size() * sizeof(std::int64_t);
+    explicit Series(const std::vector<int64_t> &d) {
+        data = std::make_unique<std::byte[]>(d.size() * sizeof(int64_t));
+        memcpy(data.get(), d.data(), d.size() * sizeof(int64_t));
+        size = d.size() * sizeof(int64_t);
         data_type = synnax::INT64;
     }
 
@@ -62,29 +62,29 @@ public:
         s->set_data(data.get(), size);
     }
 
-    std::vector<std::uint8_t> uint8()  {
+    std::vector<uint8_t> uint8()  {
         if (data_type != synnax::UINT8) {
             throw std::runtime_error("invalid data type");
         }
-        std::vector<std::uint8_t> v(size);
+        std::vector<uint8_t> v(size);
         memcpy(v.data(), data.get(), size);
         return v;
     }
 
-    std::vector<std::float_t> float32() {
+    std::vector<float> float32() {
         if (data_type != synnax::FLOAT32) {
             throw std::runtime_error("invalid data type");
         }
-        std::vector<std::float_t> v(size / sizeof(std::float_t));
+        std::vector<float> v(size / sizeof(float));
         memcpy(v.data(), data.get(), size);
         return v;
     }
 
-    std::vector<std::int64_t> int64() {
+    std::vector<int64_t> int64() {
         if (data_type != synnax::INT64) {
             throw std::runtime_error("invalid data type");
         }
-        std::vector<std::int64_t> v(size / sizeof(std::int64_t));
+        std::vector<int64_t> v(size / sizeof(int64_t));
         memcpy(v.data(), data.get(), size);
         return v;
     }
