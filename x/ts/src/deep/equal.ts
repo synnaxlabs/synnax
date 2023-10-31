@@ -8,13 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { type UnknownRecord } from "@/record";
+import { Primitive } from "@/primitive";
 
-type DeepEqualBase<T extends UnknownRecord<T>> =
-  | UnknownRecord<T>
-  | (UnknownRecord<T> & { equals: (other: T) => boolean });
+type DeepEqualBaseRecord = UnknownRecord | {
+  equals?: (other: any) => boolean;
+}
 
-export const equal = <T extends DeepEqualBase<T>>(a: T, b: T): boolean => {
-  if ("equals" in a) return a.equals(b);
+export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[]>(a: T, b: T): boolean => {
+  const aIsArray = Array.isArray(a);
+  const bIsArray = Array.isArray(b);
+  if (aIsArray !== bIsArray) return false;
+  if (aIsArray && bIsArray) {
+    const aArr = a as DeepEqualBaseRecord[];
+    const bArr = b as DeepEqualBaseRecord[];
+    if (aArr.length !== bArr.length) return false;
+    for (let i = 0; i < aArr.length; i++) {
+      if (!equal(aArr[i], bArr[i])) return false;
+    }
+    return true;
+  }
+  if (typeof a !== "object" || typeof b !== "object") return a === b;
+  if ("equals" in a) 
+    return (a.equals as {equals: (other: any) => boolean}).equals(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
