@@ -12,6 +12,7 @@ package cesium
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -27,7 +28,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
-	info, err := o.fs.List()
+	info, err := o.fs.List("")
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +39,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		relay:      newRelay(o),
 	}
 	for _, i := range info {
+		logrus.Info(i.Name())
 		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
 		if err != nil {
 			return nil, err

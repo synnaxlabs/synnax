@@ -31,37 +31,60 @@ type File interface {
 const defaultPerm = 0755
 
 type FS interface {
-	Open(name string, flag int) (File, error)
-	Sub(name string) (FS, error)
-	List() ([]os.FileInfo, error)
-	Exists(name string) (bool, error)
+	Open(pth string, flag int) (File, error)
+	Sub(pth string) (FS, error)
+	List(pth string) ([]os.FileInfo, error)
+	Exists(pth string) (bool, error)
+}
+
+type subFS struct {
+	dir string
+	FS
+}
+
+func (s *subFS) Open(name string, flag int) (File, error) {
+	return s.FS.Open(path.Join(s.dir, name), flag)
+}
+
+func (s *subFS) Sub(name string) (FS, error) {
+	return s.FS.Sub(path.Join(s.dir, name))
+}
+
+func (s *subFS) Exists(name string) (bool, error) {
+	return s.FS.Exists(path.Join(s.dir, name))
+}
+
+func (s *subFS) List(name string) ([]os.FileInfo, error) {
+	return s.FS.List(path.Join(s.dir, name))
 }
 
 type defaultFS struct {
-	dir  string
 	perm os.FileMode
 }
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
-func (d *defaultFS) Open(name string, flag int) (File, error) {
-	return os.OpenFile(path.Join(d.dir, name), flag, d.perm)
+func (d *defaultFS) Open(pth string, flag int) (File, error) {
+	return os.OpenFile(pth, flag, d.perm)
 }
 
-func (d *defaultFS) Sub(name string) (FS, error) {
-	return OSDirFS(path.Join(d.dir, name))
+func (d *defaultFS) Sub(pth string) (FS, error) {
+	if err := os.MkdirAll(pth, d.perm); err != nil {
+		return nil, err
+	}
+	return &subFS{dir: pth, FS: d}, nil
 }
 
-func (d *defaultFS) Exists(name string) (bool, error) {
-	_, err := os.Stat(path.Join(d.dir, name))
+func (d *defaultFS) Exists(pth string) (bool, error) {
+	_, err := os.Stat(pth)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return true, err
 }
 
-func (d *defaultFS) List() ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(d.dir)
+func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(pth)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +99,7 @@ func (d *defaultFS) List() ([]os.FileInfo, error) {
 }
 
 func OSDirFS(dir string) (FS, error) {
-	err := os.MkdirAll(dir, defaultPerm)
-	return &defaultFS{dir: dir, perm: defaultPerm}, err
+	return (&defaultFS{perm: defaultPerm}).Sub(dir)
 }
 
 func NewMem() FS {
@@ -118,15 +140,11 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 	}
 }
 
-func (m *memFS) Sub(name string) (FS, error) {
-	if err := m.FS.MkdirAll(name, m.perm); err != nil {
+func (m *memFS) Sub(pth string) (FS, error) {
+	if err := m.FS.MkdirAll(path.Clean(pth), m.perm); err != nil {
 		return nil, err
 	}
-	ret := &memFS{
-		FS: vfs.NewMem(),
-	}
-	ret.PathJoin(name)
-	return ret, nil
+	return &subFS{dir: pth, FS: m}, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
@@ -140,14 +158,14 @@ func (m *memFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-func (m *memFS) List() ([]os.FileInfo, error) {
-	entries, err := m.FS.List("")
+func (m *memFS) List(pth string) ([]os.FileInfo, error) {
+	entries, err := m.FS.List(pth)
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = m.FS.Stat(e)
+		infos[i], err = m.FS.Stat(path.Join(pth, e))
 		if err != nil {
 			return nil, err
 		}
