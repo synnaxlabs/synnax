@@ -27,8 +27,7 @@ using stream_rpc_t = test::StreamMessageService;
 auto base_target = "localhost:8080";
 
 /// @brief Test to make sure message proto works as expected.
-TEST(testGRPC, basicProto)
-{
+TEST(testGRPC, basicProto) {
     auto m = test::Message();
     m.set_payload("Hello");
 
@@ -36,8 +35,7 @@ TEST(testGRPC, basicProto)
 }
 
 /// @brief Test the basic unary interface on success.
-TEST(testGRPC, testBasicUnary)
-{
+TEST(testGRPC, testBasicUnary) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -52,18 +50,15 @@ TEST(testGRPC, testBasicUnary)
     s.join();
 }
 
-class myMiddleware : public freighter::PassthroughMiddleware
-{
+class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override
-    {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
         context.set("test", "5");
         auto [outContext, exc] = freighter::PassthroughMiddleware::operator()(context);
         auto a = outContext.get("test");
-        if (a == "dog")
-        {
+        if (a == "dog") {
             ack = true;
         }
         return {outContext, exc};
@@ -72,8 +67,7 @@ public:
 
 /// @brief Test that the basic unary interface propagates metadata headers through
 /// middleware.
-TEST(testGRPC, testMiddlewareInjection)
-{
+TEST(testGRPC, testMiddlewareInjection) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -90,8 +84,7 @@ TEST(testGRPC, testMiddlewareInjection)
 }
 
 /// @brief Test the basic unary interface on failure.
-TEST(testGRPC, testFailedUnary)
-{
+TEST(testGRPC, testFailedUnary) {
     // Note that the easiest way to cause a failure
     // here is to simply not set up a server, so that
     // we don't get a response.
@@ -105,8 +98,7 @@ TEST(testGRPC, testFailedUnary)
 }
 
 /// @brief Test sending a message to multiple targets.
-TEST(testGRPC, testMultipleTargets)
-{
+TEST(testGRPC, testMultipleTargets) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
@@ -134,8 +126,7 @@ TEST(testGRPC, testMultipleTargets)
 }
 
 /// @brief Test sending and receiving one message.
-TEST(testGRPC, testBasicStream)
-{
+TEST(testGRPC, testBasicStream) {
     std::string target("localhost:8080");
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -160,8 +151,7 @@ TEST(testGRPC, testBasicStream)
 }
 
 /// @brief Test making and sending with multiple stream objects.
-TEST(testGRPC, testMultipleStreamObjects)
-{
+TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
     std::thread s1(server, target_one);
@@ -187,8 +177,8 @@ TEST(testGRPC, testMultipleStreamObjects)
     auto [res_two, err_two2] = streamer_two->receive();
     ASSERT_EQ(res_one.payload(), "Read request: Sending to Streaming Server from Streamer One");
     ASSERT_EQ(res_two.payload(), "Read request: Sending to Streaming Server from Streamer Two");
-    auto [_, err_one3] = streamer_one->receive();
-    auto [__, err_two3] = streamer_two->receive();
+    auto err_one3 = streamer_one->receive().second;
+    auto err_two3 = streamer_two->receive().second;
     ASSERT_TRUE(err_one3.type == freighter::EOF_.type);
     ASSERT_TRUE(err_two3.type == freighter::EOF_.type);
 
@@ -198,8 +188,7 @@ TEST(testGRPC, testMultipleStreamObjects)
 }
 
 /// @brief Test sending and receiving one message.
-TEST(testGRPC, testSendMultipleMessages)
-{
+TEST(testGRPC, testSendMultipleMessages) {
     std::string target("localhost:8080");
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -231,8 +220,7 @@ TEST(testGRPC, testSendMultipleMessages)
 }
 
 /// @brief Test sending and receiving one message.
-TEST(testGRPC, testStreamError)
-{
+TEST(testGRPC, testStreamError) {
     std::string target("localhost:8080");
     auto pool = std::make_shared<GRPCPool>();
     auto client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
@@ -251,8 +239,7 @@ auto pool = std::make_shared<GRPCPool>();
 auto global_unary_client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
 auto global_stream_client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
 
-void client_send(int num)
-{
+void client_send(int num) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [res, err] = global_unary_client.send("", mes);
@@ -261,8 +248,7 @@ void client_send(int num)
 }
 
 /// @brief Test that we can send many messages with the same client and don't have any errors.
-TEST(testGRPC, stressTestUnaryWithManyThreads)
-{
+TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -272,20 +258,17 @@ TEST(testGRPC, stressTestUnaryWithManyThreads)
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 1000; i++)
-    {
-        threads.emplace_back(std::thread(client_send, i));
+    for (int i = 0; i < 1000; i++) {
+        threads.emplace_back(client_send, i);
     }
-    for (size_t i = 0; i < 1000; i++)
-    {
+    for (size_t i = 0; i < 1000; i++) {
         threads[i].join();
     }
     stopServers();
     s.join();
 }
 
-void stream_send(int num)
-{
+void stream_send(int num) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [stream, err] = global_stream_client.stream("");
@@ -298,8 +281,7 @@ void stream_send(int num)
 }
 
 /// @brief Test that we can send many messages with the same client and different stream invocations.
-TEST(testGRPC, stressTestStreamWithManyThreads)
-{
+TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -309,12 +291,10 @@ TEST(testGRPC, stressTestStreamWithManyThreads)
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 1000; i++)
-    {
-        threads.emplace_back(std::thread(stream_send, i));
+    for (int i = 0; i < 1000; i++) {
+        threads.emplace_back(stream_send, i);
     }
-    for (size_t i = 0; i < 1000; i++)
-    {
+    for (size_t i = 0; i < 1000; i++) {
         threads[i].join();
     }
     stopServers();

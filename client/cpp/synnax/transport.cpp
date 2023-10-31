@@ -26,9 +26,23 @@
 
 using namespace api;
 
-Transport::Transport(uint16_t port, const std::string &ip) {
+Transport::Transport(
+        uint16_t port,
+        const std::string &ip,
+        const std::string &ca_cert_file,
+        const std::string &client_cert_file,
+        const std::string &client_key_file
+    ) {
     auto base_target = freighter::URL(ip, port, "").toString();
-    auto pool = std::make_shared<GRPCPool>();
+    std::shared_ptr<GRPCPool> pool = nullptr;
+    if (ca_cert_file.empty() && client_cert_file.empty() && client_key_file.empty()) {
+        pool = std::make_shared<GRPCPool>();
+    } else if (client_cert_file.empty() && client_key_file.empty()) {
+        pool = std::make_shared<GRPCPool>(ca_cert_file);
+    } else {
+        pool = std::make_shared<GRPCPool>(ca_cert_file, client_cert_file, client_key_file);
+    }
+
 
     auth_login = std::make_unique<GRPCUnaryClient<
             v1::LoginResponse,
@@ -92,7 +106,7 @@ Transport::Transport(uint16_t port, const std::string &ip) {
     >>(pool, base_target);
 }
 
-void Transport::use(std::shared_ptr<freighter::Middleware> mw) const {
+void Transport::use(const std::shared_ptr<freighter::Middleware>& mw) const {
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);

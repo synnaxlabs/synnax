@@ -25,28 +25,28 @@ namespace synnax {
 class Series {
 public:
 
-    explicit Series(std::vector<std::uint8_t> d) {
+    explicit Series(const std::vector<std::uint8_t> &d) {
         data = std::make_unique<std::byte[]>(d.size());
         memcpy(data.get(), d.data(), d.size());
         size = d.size();
         data_type = synnax::UINT8;
     }
 
-    explicit Series(std::vector<std::float_t> d) {
+    explicit Series(const std::vector<std::float_t> &d) {
         data = std::make_unique<std::byte[]>(d.size() * sizeof(std::float_t));
         memcpy(data.get(), d.data(), d.size() * sizeof(std::float_t));
         size = d.size() * sizeof(std::float_t);
         data_type = synnax::FLOAT32;
     }
 
-    explicit Series(std::vector<std::int64_t> d) {
+    explicit Series(const std::vector<std::int64_t> &d) {
         data = std::make_unique<std::byte[]>(d.size() * sizeof(std::int64_t));
         memcpy(data.get(), d.data(), d.size() * sizeof(std::int64_t));
         size = d.size() * sizeof(std::int64_t);
         data_type = synnax::INT64;
     }
 
-    explicit Series(telempb::Series s) {
+    explicit Series(const telempb::Series &s) {
         data_type = synnax::DataType(s.data_type());
         size = s.data().size();
         data = std::make_unique<std::byte[]>(size);

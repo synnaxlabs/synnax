@@ -77,7 +77,7 @@ freighter::Error ChannelClient::create(synnax::Channel &channel) const {
 
 /// @brief index based create.
 std::pair<Channel, freighter::Error> ChannelClient::create(
-        std::string name,
+        const std::string& name,
         synnax::DataType data_type,
         ChannelKey index,
         bool is_index
@@ -89,7 +89,7 @@ std::pair<Channel, freighter::Error> ChannelClient::create(
 
 /// @brief rate based create.
 std::pair<Channel, freighter::Error> ChannelClient::create(
-        std::string name,
+        const std::string& name,
         synnax::DataType data_type,
         synnax::Rate rate
 ) const {

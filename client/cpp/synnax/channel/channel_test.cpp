@@ -19,14 +19,13 @@
 const synnax::Config cfg = {
         .host =  "localhost",
         .port =  9090,
-        .secure =  false,
         .username =  "synnax",
-        .password =  "seldon"
+        .password =  "seldon",
 };
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreate) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [channel, err] = client.channels.create(
             "test",
             synnax::FLOAT64,
@@ -40,7 +39,7 @@ TEST(ChannelTests, testCreate) {
 /// @brief it should return a validation error when an index channel has the
 /// wrong data type.
 TEST(ChannelTests, testCreateValidation) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [channel, err] = client.channels.create(
             "validation",
             synnax::FLOAT64,
@@ -53,7 +52,7 @@ TEST(ChannelTests, testCreateValidation) {
 
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreateIndex) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [index, err] = client.channels.create(
             "test",
             synnax::TIMESTAMP,
@@ -77,7 +76,7 @@ TEST(ChannelTests, testCreateIndex) {
 
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(ChannelTests, testCreateMany) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto channels = std::vector<synnax::Channel>{
             {"test1", synnax::FLOAT64, 2 * synnax::HZ},
             {"test2", synnax::FLOAT64, 4 * synnax::HZ},
@@ -90,7 +89,7 @@ TEST(ChannelTests, testCreateMany) {
 
 /// @brief it should retrieve a channel by key.
 TEST(ChannelTest, testRetrieve) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [channel, err] = client.channels.create(
             "test",
             synnax::FLOAT64,
@@ -110,7 +109,7 @@ TEST(ChannelTest, testRetrieve) {
 
 /// @brief it should return a query error when the channel cannot be found.
 TEST(ChannelTest, testRetrieveNotFound) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [retrieved, err] = client.channels.retrieve(0);
     ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err.type, synnax::QUERY_ERROR);
@@ -118,7 +117,7 @@ TEST(ChannelTest, testRetrieveNotFound) {
 
 /// @brief it should retrieve many channels by their key.
 TEST(ChannelTest, testRetrieveMany) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto channels = std::vector<synnax::Channel>{
             {"test1", synnax::FLOAT64, 5 * synnax::HZ},
             {"test2", synnax::FLOAT64, 10 * synnax::HZ},

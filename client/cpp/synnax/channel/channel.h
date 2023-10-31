@@ -144,7 +144,7 @@ public:
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
-            std::string name,
+            const std::string& name,
             synnax::DataType data_type,
             ChannelKey index,
             bool is_index = false
@@ -160,7 +160,7 @@ public:
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
-            std::string name,
+            const std::string& name,
             synnax::DataType data_type,
             synnax::Rate rate
     ) const;

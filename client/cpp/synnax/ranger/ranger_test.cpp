@@ -9,7 +9,7 @@
 
 /// std
 #include <string>
-#include <cstdlib>
+#include <random>
 
 /// GTest
 #include <include/gtest/gtest.h>
@@ -17,17 +17,30 @@
 /// internal.
 #include "synnax/synnax.h"
 
+
 const synnax::Config cfg = {
         "localhost",
         9090,
-        false,
         "synnax",
         "seldon"
 };
 
+/// @brief creates a pseudo-random number generator from a random seed request
+/// from the OS. Logs the seed to stdout for reproducibility.
+std::mt19937 rand_gen() {
+    std::random_device rd;
+    auto rand_seed = rd();
+    std::cout << "Range tests seed - " << rand_seed << std::endl;
+    std::mt19937 mt(rand_seed);
+    std::uniform_real_distribution<double> dist(0, 1);
+    return mt;
+}
+
+std::mt19937 mt = rand_gen();
+
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -44,7 +57,7 @@ TEST(RangerTests, testCreate) {
 
 /// @brief it should retrieve a range by its key.
 TEST(RangerTests, testRetrieveByKey) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -63,19 +76,19 @@ TEST(RangerTests, testRetrieveByKey) {
 
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
-    auto client = synnax::Client(cfg);
-    auto rand = std::to_string(std::rand());
+    auto client = synnax::Synnax(cfg);
+    auto rand_name = std::to_string(mt());
     auto [range, err] = client.ranges.create(
-            rand,
+            rand_name,
             synnax::TimeRange(
                     synnax::TimeStamp(10),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err);
-    auto [got, err2] = client.ranges.retrieveByName(rand);
+    auto [got, err2] = client.ranges.retrieveByName(rand_name);
     ASSERT_FALSE(err2);
-    ASSERT_EQ(got.name, rand);
+    ASSERT_EQ(got.name, rand_name);
     ASSERT_FALSE(got.key.length() == 0);
     ASSERT_EQ(got.time_range.start, synnax::TimeStamp(10));
     ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
@@ -83,10 +96,10 @@ TEST(RangerTests, testRetrieveByName) {
 
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
-    auto client = synnax::Client(cfg);
-    auto rand = std::to_string(std::rand());
+    auto client = synnax::Synnax(cfg);
+    auto rand_name = std::to_string(mt());
     auto [range, err] = client.ranges.create(
-            rand,
+            rand_name,
             synnax::TimeRange(
                     synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
@@ -94,21 +107,21 @@ TEST(RangerTests, testRetrieveMultipleByName) {
     );
     ASSERT_FALSE(err);
     auto [range2, err2] = client.ranges.create(
-            rand,
+            rand_name,
             synnax::TimeRange(
                     synnax::TimeStamp(30),
                     synnax::TimeStamp(100)
             )
     );
     ASSERT_FALSE(err2);
-    auto [got, err3] = client.ranges.retrieveByName(std::vector<std::string>{rand});
+    auto [got, err3] = client.ranges.retrieveByName(std::vector<std::string>{rand_name});
     ASSERT_FALSE(err3);
     ASSERT_EQ(got.size(), 2);
-    ASSERT_EQ(got[0].name, rand);
+    ASSERT_EQ(got[0].name, rand_name);
     ASSERT_FALSE(got[0].key.length() == 0);
     ASSERT_EQ(got[0].time_range.start, synnax::TimeStamp(30));
     ASSERT_EQ(got[0].time_range.end, synnax::TimeStamp(100));
-    ASSERT_EQ(got[1].name, rand);
+    ASSERT_EQ(got[1].name, rand_name);
     ASSERT_FALSE(got[1].key.length() == 0);
     ASSERT_EQ(got[1].time_range.start, synnax::TimeStamp(30));
     ASSERT_EQ(got[1].time_range.end, synnax::TimeStamp(100));
@@ -116,14 +129,14 @@ TEST(RangerTests, testRetrieveMultipleByName) {
 
 /// @brief it should retrieve multiple ranges by their keys.
 TEST(RangerTests, testRetrieveMultipleByKey) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto tr = synnax::TimeRange(
             synnax::TimeStamp(10 * synnax::SECOND),
             synnax::TimeStamp(100 * synnax::SECOND)
     );
-    auto[range, err] = client.ranges.create("test", tr);
+    auto [range, err] = client.ranges.create("test", tr);
     ASSERT_FALSE(err) << err.message();
-    auto [range2, err2] = client.ranges.create("test2",tr);
+    auto [range2, err2] = client.ranges.create("test2", tr);
     ASSERT_FALSE(err2) << err2.message();
     auto [got, err3] = client.ranges.retrieveByKey(std::vector<std::string>{range.key, range2.key});
     ASSERT_FALSE(err3) << err3.message();
@@ -141,7 +154,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
 
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -156,7 +169,7 @@ TEST(RangerTests, testSet) {
 
 /// @brief it should get a key-value pair on the range.
 TEST(RangerTests, testGet) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -174,7 +187,7 @@ TEST(RangerTests, testGet) {
 
 /// @brief it should delete a key-value pair on the range.
 TEST(RangerTests, testKVDeelete) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(

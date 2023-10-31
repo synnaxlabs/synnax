@@ -30,13 +30,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.AuthRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
 
 	// RANGE
-
-	a.RangeDelete = fnoop.UnaryServer[api.RangeDeleteRequest, types.Nil]{}
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
-	a.RangeAliasSet = fnoop.UnaryServer[api.RangeAliasSetRequest, types.Nil]{}
-	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
-	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
-	a.RangeAliasDelete = fnoop.UnaryServer[api.RangeAliasDeleteRequest, types.Nil]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}

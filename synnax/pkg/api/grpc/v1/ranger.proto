@@ -13,6 +13,10 @@ service RangeRetrieveService {
     rpc Exec(RangeRetrieveRequest) returns (RangeRetrieveResponse) {}
 }
 
+service RangeDeleteService {
+    rpc Exec(RangeDeleteRequest) returns (google.protobuf.Empty) {}
+}
+
 service RangeKVSetService {
     rpc Exec(RangeKVSetRequest) returns (google.protobuf.Empty) {}
 }
@@ -25,11 +29,60 @@ service RangeKVDeleteService {
     rpc Exec(RangeKVDeleteRequest) returns (google.protobuf.Empty) {}
 }
 
+service RangeAliasSetService {
+    rpc Exec(RangeAliasSetRequest) returns (google.protobuf.Empty) {}
+}
+
+service RangeAliasResolveService {
+    rpc Exec(RangeAliasResolveRequest) returns (RangeAliasResolveResponse) {}
+}
+
+service RangeAliasDeleteService {
+    rpc Exec(RangeAliasDeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+service RangeAliasListService{
+    rpc Exec(RangeAliasListRequest) returns (RangeAliasListResponse) {}
+}
+
+message RangeAliasSetRequest {
+    string range = 1;
+    map<uint32, string> aliases = 2;
+}
+
+message RangeAliasResolveRequest {
+    string range = 1;
+    repeated string aliases = 2;
+}
+
+message RangeAliasResolveResponse {
+    map<string, uint32> aliases = 1;
+}
+
+message RangeAliasDeleteRequest {
+    string range = 1;
+    repeated uint32 channels = 2;
+}
+
+message RangeAliasListRequest {
+    string range = 1;
+}
+
+message RangeAliasListResponse {
+    map<uint32, string> aliases = 1;
+}
+
+
 message Range {
     string key = 1;
     telempb.TimeRange time_range = 2;
     string name = 3;
 }
+
+message RangeDeleteRequest {
+    repeated string keys = 1;
+}
+
 
 message RangeCreateRequest {
     repeated Range ranges = 1;

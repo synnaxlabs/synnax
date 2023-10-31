@@ -19,14 +19,13 @@
 const synnax::Config cfg = {
         .host =  "localhost",
         .port =  9090,
-        .secure =  false,
         .username =  "synnax",
         .password =  "seldon"
 };
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(FramerTests, testStreamBasic) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [data, cErr] = client.channels.create(
             "data",
             synnax::FLOAT32,
@@ -45,7 +44,6 @@ TEST(FramerTests, testStreamBasic) {
 
     auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
             .channels = channels,
-            .start = now,
     });
     ASSERT_FALSE(sErr) << sErr.message();
 

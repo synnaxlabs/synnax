@@ -18,8 +18,3 @@ plugins:
     opt:
       - paths=source_relative
 
-  - plugin: buf.build/grpc/cpp
-    out: .
-
-  - plugin: buf.build/protocolbuffers/cpp
-    out: .

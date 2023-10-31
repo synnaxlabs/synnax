@@ -196,6 +196,8 @@ namespace freighter
         /// by calling the next middleware in the chain.
         /// @returns a pair containing the context for the inbound response and an error.
         virtual std::pair<Context, freighter::Error> operator()(Context context) = 0;
+
+        virtual ~Middleware() = default;
     };
 
     /// @brief A middleware implementation that simply passes the request to the next middleware in the chain. This
@@ -292,6 +294,8 @@ namespace freighter
         /// @param request the request to send.
         /// @returns a pair containing the response and an error.
         virtual std::pair<response_t, Error> send(const std::string &target, request_t &request) = 0;
+
+        virtual ~UnaryClient() = default;
     };
 
     /// @brief An interface for a bidirectional stream between two entities.
@@ -330,7 +334,10 @@ namespace freighter
         /// @see Stream.
         /// @param target the target to open the stream to.
         /// @returns a pointer to an object implementing the Stream interface.
+
         virtual std::pair<std::unique_ptr<Stream<response_t, request_t>>, freighter::Error> stream(const std::string &target) = 0;
+
+        virtual ~StreamClient() = default;
     };
 
 }

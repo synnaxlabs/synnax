@@ -196,6 +196,94 @@ var RangeRetrieveService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	RangeDeleteService_Exec_FullMethodName = "/api.v1.RangeDeleteService/Exec"
+)
+
+// RangeDeleteServiceClient is the client API for RangeDeleteService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeDeleteServiceClient interface {
+	Exec(ctx context.Context, in *RangeDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rangeDeleteServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeDeleteServiceClient(cc grpc.ClientConnInterface) RangeDeleteServiceClient {
+	return &rangeDeleteServiceClient{cc}
+}
+
+func (c *rangeDeleteServiceClient) Exec(ctx context.Context, in *RangeDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RangeDeleteService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeDeleteServiceServer is the server API for RangeDeleteService service.
+// All implementations should embed UnimplementedRangeDeleteServiceServer
+// for forward compatibility
+type RangeDeleteServiceServer interface {
+	Exec(context.Context, *RangeDeleteRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRangeDeleteServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRangeDeleteServiceServer struct {
+}
+
+func (UnimplementedRangeDeleteServiceServer) Exec(context.Context, *RangeDeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeRangeDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeDeleteServiceServer will
+// result in compilation errors.
+type UnsafeRangeDeleteServiceServer interface {
+	mustEmbedUnimplementedRangeDeleteServiceServer()
+}
+
+func RegisterRangeDeleteServiceServer(s grpc.ServiceRegistrar, srv RangeDeleteServiceServer) {
+	s.RegisterService(&RangeDeleteService_ServiceDesc, srv)
+}
+
+func _RangeDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeDeleteServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeDeleteService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeDeleteServiceServer).Exec(ctx, req.(*RangeDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeDeleteService_ServiceDesc is the grpc.ServiceDesc for RangeDeleteService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeDeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.RangeDeleteService",
+	HandlerType: (*RangeDeleteServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeDeleteService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "v1/ranger.proto",
+}
+
+const (
 	RangeKVSetService_Exec_FullMethodName = "/api.v1.RangeKVSetService/Exec"
 )
 
@@ -453,6 +541,358 @@ var RangeKVDeleteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Exec",
 			Handler:    _RangeKVDeleteService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "v1/ranger.proto",
+}
+
+const (
+	RangeAliasSetService_Exec_FullMethodName = "/api.v1.RangeAliasSetService/Exec"
+)
+
+// RangeAliasSetServiceClient is the client API for RangeAliasSetService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeAliasSetServiceClient interface {
+	Exec(ctx context.Context, in *RangeAliasSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rangeAliasSetServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeAliasSetServiceClient(cc grpc.ClientConnInterface) RangeAliasSetServiceClient {
+	return &rangeAliasSetServiceClient{cc}
+}
+
+func (c *rangeAliasSetServiceClient) Exec(ctx context.Context, in *RangeAliasSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RangeAliasSetService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeAliasSetServiceServer is the server API for RangeAliasSetService service.
+// All implementations should embed UnimplementedRangeAliasSetServiceServer
+// for forward compatibility
+type RangeAliasSetServiceServer interface {
+	Exec(context.Context, *RangeAliasSetRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRangeAliasSetServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRangeAliasSetServiceServer struct {
+}
+
+func (UnimplementedRangeAliasSetServiceServer) Exec(context.Context, *RangeAliasSetRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeRangeAliasSetServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeAliasSetServiceServer will
+// result in compilation errors.
+type UnsafeRangeAliasSetServiceServer interface {
+	mustEmbedUnimplementedRangeAliasSetServiceServer()
+}
+
+func RegisterRangeAliasSetServiceServer(s grpc.ServiceRegistrar, srv RangeAliasSetServiceServer) {
+	s.RegisterService(&RangeAliasSetService_ServiceDesc, srv)
+}
+
+func _RangeAliasSetService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeAliasSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeAliasSetServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeAliasSetService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeAliasSetServiceServer).Exec(ctx, req.(*RangeAliasSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeAliasSetService_ServiceDesc is the grpc.ServiceDesc for RangeAliasSetService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeAliasSetService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.RangeAliasSetService",
+	HandlerType: (*RangeAliasSetServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeAliasSetService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "v1/ranger.proto",
+}
+
+const (
+	RangeAliasResolveService_Exec_FullMethodName = "/api.v1.RangeAliasResolveService/Exec"
+)
+
+// RangeAliasResolveServiceClient is the client API for RangeAliasResolveService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeAliasResolveServiceClient interface {
+	Exec(ctx context.Context, in *RangeAliasResolveRequest, opts ...grpc.CallOption) (*RangeAliasResolveResponse, error)
+}
+
+type rangeAliasResolveServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeAliasResolveServiceClient(cc grpc.ClientConnInterface) RangeAliasResolveServiceClient {
+	return &rangeAliasResolveServiceClient{cc}
+}
+
+func (c *rangeAliasResolveServiceClient) Exec(ctx context.Context, in *RangeAliasResolveRequest, opts ...grpc.CallOption) (*RangeAliasResolveResponse, error) {
+	out := new(RangeAliasResolveResponse)
+	err := c.cc.Invoke(ctx, RangeAliasResolveService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeAliasResolveServiceServer is the server API for RangeAliasResolveService service.
+// All implementations should embed UnimplementedRangeAliasResolveServiceServer
+// for forward compatibility
+type RangeAliasResolveServiceServer interface {
+	Exec(context.Context, *RangeAliasResolveRequest) (*RangeAliasResolveResponse, error)
+}
+
+// UnimplementedRangeAliasResolveServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRangeAliasResolveServiceServer struct {
+}
+
+func (UnimplementedRangeAliasResolveServiceServer) Exec(context.Context, *RangeAliasResolveRequest) (*RangeAliasResolveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeRangeAliasResolveServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeAliasResolveServiceServer will
+// result in compilation errors.
+type UnsafeRangeAliasResolveServiceServer interface {
+	mustEmbedUnimplementedRangeAliasResolveServiceServer()
+}
+
+func RegisterRangeAliasResolveServiceServer(s grpc.ServiceRegistrar, srv RangeAliasResolveServiceServer) {
+	s.RegisterService(&RangeAliasResolveService_ServiceDesc, srv)
+}
+
+func _RangeAliasResolveService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeAliasResolveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeAliasResolveServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeAliasResolveService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeAliasResolveServiceServer).Exec(ctx, req.(*RangeAliasResolveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeAliasResolveService_ServiceDesc is the grpc.ServiceDesc for RangeAliasResolveService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeAliasResolveService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.RangeAliasResolveService",
+	HandlerType: (*RangeAliasResolveServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeAliasResolveService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "v1/ranger.proto",
+}
+
+const (
+	RangeAliasDeleteService_Exec_FullMethodName = "/api.v1.RangeAliasDeleteService/Exec"
+)
+
+// RangeAliasDeleteServiceClient is the client API for RangeAliasDeleteService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeAliasDeleteServiceClient interface {
+	Exec(ctx context.Context, in *RangeAliasDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rangeAliasDeleteServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeAliasDeleteServiceClient(cc grpc.ClientConnInterface) RangeAliasDeleteServiceClient {
+	return &rangeAliasDeleteServiceClient{cc}
+}
+
+func (c *rangeAliasDeleteServiceClient) Exec(ctx context.Context, in *RangeAliasDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RangeAliasDeleteService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeAliasDeleteServiceServer is the server API for RangeAliasDeleteService service.
+// All implementations should embed UnimplementedRangeAliasDeleteServiceServer
+// for forward compatibility
+type RangeAliasDeleteServiceServer interface {
+	Exec(context.Context, *RangeAliasDeleteRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRangeAliasDeleteServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRangeAliasDeleteServiceServer struct {
+}
+
+func (UnimplementedRangeAliasDeleteServiceServer) Exec(context.Context, *RangeAliasDeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeRangeAliasDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeAliasDeleteServiceServer will
+// result in compilation errors.
+type UnsafeRangeAliasDeleteServiceServer interface {
+	mustEmbedUnimplementedRangeAliasDeleteServiceServer()
+}
+
+func RegisterRangeAliasDeleteServiceServer(s grpc.ServiceRegistrar, srv RangeAliasDeleteServiceServer) {
+	s.RegisterService(&RangeAliasDeleteService_ServiceDesc, srv)
+}
+
+func _RangeAliasDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeAliasDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeAliasDeleteServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeAliasDeleteService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeAliasDeleteServiceServer).Exec(ctx, req.(*RangeAliasDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeAliasDeleteService_ServiceDesc is the grpc.ServiceDesc for RangeAliasDeleteService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeAliasDeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.RangeAliasDeleteService",
+	HandlerType: (*RangeAliasDeleteServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeAliasDeleteService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "v1/ranger.proto",
+}
+
+const (
+	RangeAliasListService_Exec_FullMethodName = "/api.v1.RangeAliasListService/Exec"
+)
+
+// RangeAliasListServiceClient is the client API for RangeAliasListService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeAliasListServiceClient interface {
+	Exec(ctx context.Context, in *RangeAliasListRequest, opts ...grpc.CallOption) (*RangeAliasListResponse, error)
+}
+
+type rangeAliasListServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeAliasListServiceClient(cc grpc.ClientConnInterface) RangeAliasListServiceClient {
+	return &rangeAliasListServiceClient{cc}
+}
+
+func (c *rangeAliasListServiceClient) Exec(ctx context.Context, in *RangeAliasListRequest, opts ...grpc.CallOption) (*RangeAliasListResponse, error) {
+	out := new(RangeAliasListResponse)
+	err := c.cc.Invoke(ctx, RangeAliasListService_Exec_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeAliasListServiceServer is the server API for RangeAliasListService service.
+// All implementations should embed UnimplementedRangeAliasListServiceServer
+// for forward compatibility
+type RangeAliasListServiceServer interface {
+	Exec(context.Context, *RangeAliasListRequest) (*RangeAliasListResponse, error)
+}
+
+// UnimplementedRangeAliasListServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedRangeAliasListServiceServer struct {
+}
+
+func (UnimplementedRangeAliasListServiceServer) Exec(context.Context, *RangeAliasListRequest) (*RangeAliasListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeRangeAliasListServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeAliasListServiceServer will
+// result in compilation errors.
+type UnsafeRangeAliasListServiceServer interface {
+	mustEmbedUnimplementedRangeAliasListServiceServer()
+}
+
+func RegisterRangeAliasListServiceServer(s grpc.ServiceRegistrar, srv RangeAliasListServiceServer) {
+	s.RegisterService(&RangeAliasListService_ServiceDesc, srv)
+}
+
+func _RangeAliasListService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeAliasListRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeAliasListServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeAliasListService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeAliasListServiceServer).Exec(ctx, req.(*RangeAliasListRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeAliasListService_ServiceDesc is the grpc.ServiceDesc for RangeAliasListService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeAliasListService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.RangeAliasListService",
+	HandlerType: (*RangeAliasListServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeAliasListService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

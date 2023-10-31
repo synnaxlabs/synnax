@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 // Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -16,8 +17,14 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
-const resolveFetchAPI = (): typeof fetch =>
-  runtime.RUNTIME === "node" ? require("node-fetch") : fetch;
+const resolveFetchAPI = (): typeof fetch => {
+  if (runtime.RUNTIME !== "node") return fetch;
+  const _fetch: typeof fetch = require("node-fetch");
+  const https = require("https");
+  const agent = new https.Agent({ rejectUnauthorized: false });
+  // @ts-expect-error - TS doesn't know about qhis option
+  return async (info, init) => await _fetch(info, { ...init, agent });
+};
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary
@@ -72,7 +79,8 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         };
         let httpRes: Response;
         try {
-          httpRes = await fetch(ctx.target, request);
+          const f = resolveFetchAPI();
+          httpRes = await f(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;
           if (err.message === "Load failed") err = new Unreachable({ url });

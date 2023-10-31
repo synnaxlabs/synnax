@@ -34,13 +34,14 @@ TEST(TestSeries, testProto)
 {
     std::vector<std::uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
-    telempb::Series s2;
+    auto s2 = new telempb::Series();
     s.to_proto(s2);
-    synnax::Series s3{s2};
+    synnax::Series s3{*s2};
     auto v = s3.uint8();
     for (auto i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
     }
+    delete s2;
 }
 
 

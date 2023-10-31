@@ -12,19 +12,17 @@
 /// Internal
 #include "synnax/synnax.h"
 #include <thread>
-#include <cmath>
 
 const synnax::Config cfg = {
         .host =  "localhost",
         .port =  9090,
-        .secure =  false,
         .username =  "synnax",
         .password =  "seldon"
 };
 
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(FramerTests, testWriteBasic) {
-    auto client = synnax::Client(cfg);
+    auto client = synnax::Synnax(cfg);
     auto [time, tErr] = client.channels.create(
             "time",
             synnax::TIMESTAMP,

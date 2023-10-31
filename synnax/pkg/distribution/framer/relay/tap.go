@@ -131,7 +131,7 @@ func (t *tapper) updateTaps(
 		}
 	}
 
-	// Update or close any taps we don't need
+	// Rename or close any taps we don't need
 	for nk, tc := range t.taps {
 		if keys, ok := nodeDemands[nk]; ok {
 			// If we still need the tap, send the updated key set

@@ -41,11 +41,11 @@ TEST(testFreighter, testMiddleware) {
 
 TEST(testFreighter, testMiddlewareCollector) {
     auto collector = freighter::MiddlewareCollector();
-    auto mw1 = BasicMiddleware("5");
-    auto mw2 = BasicMiddleware("6");
+    auto mw1 = std::make_shared<BasicMiddleware>("5");
+    auto mw2 = std::make_shared<BasicMiddleware>("6");
     auto f = BasicFinalizer();
-    collector.use(&mw1);
-    collector.use(&mw2);
+    collector.use(mw1);
+    collector.use(mw2);
     auto result = collector.exec(freighter::Context("test", "1"), &f);
     ASSERT_EQ(result.first.get("test"), "6");
 }

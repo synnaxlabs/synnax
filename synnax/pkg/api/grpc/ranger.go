@@ -6,7 +6,9 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem/telempb"
+	"github.com/synnaxlabs/x/unsafe"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -23,6 +25,12 @@ type (
 		*gapi.RangeRetrieveRequest,
 		api.RangeRetrieveResponse,
 		*gapi.RangeRetrieveResponse,
+	]
+	rangeDeleteServer = fgrpc.UnaryServer[
+		api.RangeDeleteRequest,
+		*gapi.RangeDeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
 	]
 	rangeKVGetServer = fgrpc.UnaryServer[
 		api.RangeKVGetRequest,
@@ -42,28 +50,66 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
+	rangeAliasSetServer = fgrpc.UnaryServer[
+		api.RangeAliasSetRequest,
+		*gapi.RangeAliasSetRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	rangeAliasDeleteServer = fgrpc.UnaryServer[
+		api.RangeAliasDeleteRequest,
+		*gapi.RangeAliasDeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	rangeAliasResolveServer = fgrpc.UnaryServer[
+		api.RangeAliasResolveRequest,
+		*gapi.RangeAliasResolveRequest,
+		api.RangeAliasResolveResponse,
+		*gapi.RangeAliasResolveResponse,
+	]
+	rangeAliasListServer = fgrpc.UnaryServer[
+		api.RangeAliasListRequest,
+		*gapi.RangeAliasListRequest,
+		api.RangeAliasListResponse,
+		*gapi.RangeAliasListResponse,
+	]
 )
 
 type (
-	rangeCreateRequestTranslator    struct{}
-	rangeCreateResponseTranslator   struct{}
-	rangeRetrieveRequestTranslator  struct{}
-	rangeRetrieveResponseTranslator struct{}
-	rangeKVGetRequestTranslator     struct{}
-	rangeKVGetResponseTranslator    struct{}
-	rangeKVSetRequestTranslator     struct{}
-	rangeKVDeleteRequestTranslator  struct{}
+	rangeCreateRequestTranslator        struct{}
+	rangeCreateResponseTranslator       struct{}
+	rangeRetrieveRequestTranslator      struct{}
+	rangeRetrieveResponseTranslator     struct{}
+	rangeDeleteRequestTranslator        struct{}
+	rangeKVGetRequestTranslator         struct{}
+	rangeKVGetResponseTranslator        struct{}
+	rangeKVSetRequestTranslator         struct{}
+	rangeKVDeleteRequestTranslator      struct{}
+	rangeAliasSetRequestTranslator      struct{}
+	rangeAliasDeleteRequestTranslator   struct{}
+	rangeAliasResolveRequestTranslator  struct{}
+	rangeAliasResolveResponseTranslator struct{}
+	rangeAliasListRequestTranslator     struct{}
+	rangeAliasListResponseTranslator    struct{}
 )
 
 var (
-	_ fgrpc.Translator[api.RangeCreateRequest, *gapi.RangeCreateRequest]       = (*rangeCreateRequestTranslator)(nil)
-	_ fgrpc.Translator[api.RangeCreateResponse, *gapi.RangeCreateResponse]     = (*rangeCreateResponseTranslator)(nil)
-	_ fgrpc.Translator[api.RangeRetrieveRequest, *gapi.RangeRetrieveRequest]   = (*rangeRetrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[api.RangeRetrieveResponse, *gapi.RangeRetrieveResponse] = (*rangeRetrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[api.RangeKVGetRequest, *gapi.RangeKVGetRequest]         = (*rangeKVGetRequestTranslator)(nil)
-	_ fgrpc.Translator[api.RangeKVGetResponse, *gapi.RangeKVGetResponse]       = (*rangeKVGetResponseTranslator)(nil)
-	_ fgrpc.Translator[api.RangeKVSetRequest, *gapi.RangeKVSetRequest]         = (*rangeKVSetRequestTranslator)(nil)
-	_ fgrpc.Translator[api.RangeKVDeleteRequest, *gapi.RangeKVDeleteRequest]   = (*rangeKVDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeCreateRequest, *gapi.RangeCreateRequest]               = (*rangeCreateRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeCreateResponse, *gapi.RangeCreateResponse]             = (*rangeCreateResponseTranslator)(nil)
+	_ fgrpc.Translator[api.RangeRetrieveRequest, *gapi.RangeRetrieveRequest]           = (*rangeRetrieveRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeRetrieveResponse, *gapi.RangeRetrieveResponse]         = (*rangeRetrieveResponseTranslator)(nil)
+	_ fgrpc.Translator[api.RangeKVGetRequest, *gapi.RangeKVGetRequest]                 = (*rangeKVGetRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeKVGetResponse, *gapi.RangeKVGetResponse]               = (*rangeKVGetResponseTranslator)(nil)
+	_ fgrpc.Translator[api.RangeKVSetRequest, *gapi.RangeKVSetRequest]                 = (*rangeKVSetRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeKVDeleteRequest, *gapi.RangeKVDeleteRequest]           = (*rangeKVDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasSetRequest, *gapi.RangeAliasSetRequest]           = (*rangeAliasSetRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasDeleteRequest, *gapi.RangeAliasDeleteRequest]     = (*rangeAliasDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasResolveRequest, *gapi.RangeAliasResolveRequest]   = (*rangeAliasResolveRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasResolveResponse, *gapi.RangeAliasResolveResponse] = (*rangeAliasResolveResponseTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasListRequest, *gapi.RangeAliasListRequest]         = (*rangeAliasListRequestTranslator)(nil)
+	_ fgrpc.Translator[api.RangeAliasListResponse, *gapi.RangeAliasListResponse]       = (*rangeAliasListResponseTranslator)(nil)
+	_ fgrpc.Translator[api.RangeDeleteRequest, *gapi.RangeDeleteRequest]               = (*rangeDeleteRequestTranslator)(nil)
 )
 
 func (t rangeCreateRequestTranslator) Forward(
@@ -214,6 +260,148 @@ func (t rangeKVDeleteRequestTranslator) Backward(
 	}, err
 }
 
+func (t rangeAliasSetRequestTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasSetRequest,
+) (*gapi.RangeAliasSetRequest, error) {
+	return &gapi.RangeAliasSetRequest{
+		Range:   r.Range.String(),
+		Aliases: unsafe.ReinterpretMap[channel.Key, string, uint32, string](r.Aliases),
+	}, nil
+}
+
+func (t rangeAliasSetRequestTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasSetRequest,
+) (api.RangeAliasSetRequest, error) {
+	key, err := uuid.Parse(r.Range)
+	return api.RangeAliasSetRequest{
+		Range:   key,
+		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+	}, err
+}
+
+func (t rangeAliasDeleteRequestTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasDeleteRequest,
+) (*gapi.RangeAliasDeleteRequest, error) {
+	return &gapi.RangeAliasDeleteRequest{
+		Range:    r.Range.String(),
+		Channels: unsafe.ReinterpretSlice[channel.Key, uint32](r.Channels),
+	}, nil
+}
+
+func (t rangeAliasDeleteRequestTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasDeleteRequest,
+) (api.RangeAliasDeleteRequest, error) {
+	key, err := uuid.Parse(r.Range)
+	return api.RangeAliasDeleteRequest{
+		Range:    key,
+		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
+	}, err
+}
+
+func (t rangeAliasResolveRequestTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasResolveRequest,
+) (*gapi.RangeAliasResolveRequest, error) {
+	return &gapi.RangeAliasResolveRequest{
+		Range:   r.Range.String(),
+		Aliases: r.Aliases,
+	}, nil
+}
+
+func (t rangeAliasResolveRequestTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasResolveRequest,
+) (api.RangeAliasResolveRequest, error) {
+	key, err := uuid.Parse(r.Range)
+	return api.RangeAliasResolveRequest{
+		Range:   key,
+		Aliases: r.Aliases,
+	}, err
+}
+
+func (t rangeAliasListRequestTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasListRequest,
+) (*gapi.RangeAliasListRequest, error) {
+	return &gapi.RangeAliasListRequest{
+		Range: r.Range.String(),
+	}, nil
+}
+
+func (t rangeAliasListRequestTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasListRequest,
+) (api.RangeAliasListRequest, error) {
+	key, err := uuid.Parse(r.Range)
+	return api.RangeAliasListRequest{
+		Range: key,
+	}, err
+}
+
+func (t rangeAliasResolveResponseTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasResolveResponse,
+) (*gapi.RangeAliasResolveResponse, error) {
+	return &gapi.RangeAliasResolveResponse{
+		Aliases: unsafe.ReinterpretMap[string, channel.Key, string, uint32](r.Aliases),
+	}, nil
+}
+
+func (t rangeAliasResolveResponseTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasResolveResponse,
+) (api.RangeAliasResolveResponse, error) {
+	return api.RangeAliasResolveResponse{
+		Aliases: unsafe.ReinterpretMap[string, uint32, string, channel.Key](r.Aliases),
+	}, nil
+}
+
+func (t rangeAliasListResponseTranslator) Forward(
+	_ context.Context,
+	r api.RangeAliasListResponse,
+) (*gapi.RangeAliasListResponse, error) {
+	return &gapi.RangeAliasListResponse{
+		Aliases: unsafe.ReinterpretMap[channel.Key, string, uint32, string](r.Aliases),
+	}, nil
+}
+
+func (t rangeAliasListResponseTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeAliasListResponse,
+) (api.RangeAliasListResponse, error) {
+	return api.RangeAliasListResponse{
+		Aliases: unsafe.ReinterpretMap[uint32, string, channel.Key, string](r.Aliases),
+	}, nil
+}
+
+func (t rangeDeleteRequestTranslator) Forward(
+	_ context.Context,
+	r api.RangeDeleteRequest,
+) (*gapi.RangeDeleteRequest, error) {
+	return &gapi.RangeDeleteRequest{
+		Keys: unsafe.ReinterpretSlice[uuid.UUID, string](r.Keys),
+	}, nil
+}
+
+func (t rangeDeleteRequestTranslator) Backward(
+	_ context.Context,
+	r *gapi.RangeDeleteRequest,
+) (api.RangeDeleteRequest, error) {
+	keys := make([]uuid.UUID, len(r.Keys))
+	for i := range r.Keys {
+		key, err := uuid.Parse(r.Keys[i])
+		if err != nil {
+			return api.RangeDeleteRequest{}, err
+		}
+		keys[i] = key
+	}
+	return api.RangeDeleteRequest{Keys: keys}, nil
+}
+
 func translateRangeForward(r api.Range) *gapi.Range {
 	return &gapi.Range{
 		Key:       r.Key.String(),
@@ -267,6 +455,12 @@ func newRanger(a *api.Transport) fgrpc.BindableTransport {
 		ServiceDesc:        &gapi.RangeRetrieveService_ServiceDesc,
 	}
 	a.RangeRetrieve = retrieve
+	rangeDelete := &rangeDeleteServer{
+		RequestTranslator:  rangeDeleteRequestTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ServiceDesc:        &gapi.RangeDeleteService_ServiceDesc,
+	}
+	a.RangeDelete = rangeDelete
 	kvGet := &rangeKVGetServer{
 		RequestTranslator:  rangeKVGetRequestTranslator{},
 		ResponseTranslator: rangeKVGetResponseTranslator{},
@@ -285,11 +479,39 @@ func newRanger(a *api.Transport) fgrpc.BindableTransport {
 		ServiceDesc:        &gapi.RangeKVDeleteService_ServiceDesc,
 	}
 	a.RangeKVDelete = kvDelete
+	rangeAliasSet := &rangeAliasSetServer{
+		RequestTranslator:  rangeAliasSetRequestTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ServiceDesc:        &gapi.RangeAliasSetService_ServiceDesc,
+	}
+	a.RangeAliasSet = rangeAliasSet
+	rangeAliasDelete := &rangeAliasDeleteServer{
+		RequestTranslator:  rangeAliasDeleteRequestTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ServiceDesc:        &gapi.RangeAliasDeleteService_ServiceDesc,
+	}
+	a.RangeAliasDelete = rangeAliasDelete
+	rangeAliasResolve := &rangeAliasResolveServer{
+		RequestTranslator:  rangeAliasResolveRequestTranslator{},
+		ResponseTranslator: rangeAliasResolveResponseTranslator{},
+		ServiceDesc:        &gapi.RangeAliasResolveService_ServiceDesc,
+	}
+	a.RangeAliasResolve = rangeAliasResolve
+	rangeAliasList := &rangeAliasListServer{
+		RequestTranslator:  rangeAliasListRequestTranslator{},
+		ResponseTranslator: rangeAliasListResponseTranslator{},
+		ServiceDesc:        &gapi.RangeAliasListService_ServiceDesc,
+	}
+	a.RangeAliasList = rangeAliasList
 	return fgrpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		kvGet,
 		kvSet,
 		kvDelete,
+		rangeAliasSet,
+		rangeAliasDelete,
+		rangeAliasResolve,
+		rangeAliasList,
 	}
 }

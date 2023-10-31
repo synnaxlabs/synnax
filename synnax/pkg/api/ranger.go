@@ -104,8 +104,7 @@ func (s *RangeService) Rename(ctx context.Context, req RangeRenameRequest) (res 
 }
 
 type RangeDeleteRequest struct {
-	Keys  []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names []string    `json:"names" msgpack:"names"`
+	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
 func (s *RangeService) Delete(ctx context.Context, req RangeDeleteRequest) (res types.Nil, _ error) {
@@ -247,8 +246,8 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 }
 
 type RangeAliasDeleteRequest struct {
-	Range   uuid.UUID     `json:"range" msgpack:"range"`
-	Aliases []channel.Key `json:"aliases" msgpack:"aliases"`
+	Range    uuid.UUID     `json:"range" msgpack:"range"`
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
 }
 
 func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequest) (res types.Nil, _ error) {
@@ -260,7 +259,7 @@ func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequ
 			return err
 		}
 		rng = rng.UseTx(tx)
-		for _, alias := range req.Aliases {
+		for _, alias := range req.Channels {
 			if err := rng.DeleteAlias(ctx, alias); err != nil {
 				return err
 			}
@@ -270,8 +269,7 @@ func (s *RangeService) AliasDelete(ctx context.Context, req RangeAliasDeleteRequ
 }
 
 type RangeAliasListRequest struct {
-	Range    uuid.UUID     `json:"range" msgpack:"range"`
-	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 type RangeAliasListResponse struct {

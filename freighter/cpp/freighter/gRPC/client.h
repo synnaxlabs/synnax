@@ -28,8 +28,27 @@ freighter::Error errorFromGRPCStatus(grpc::Status status)
     if (status.ok())
         return freighter::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
-        return freighter::Error(freighter::TYPE_UNREACHABLE, status.error_message());
-    return freighter::Error(status.error_message());
+        return {freighter::TYPE_UNREACHABLE, status.error_message()};
+    return {status.error_message()};
+}
+
+std::string readFile(const std::string &path) {
+    std::string data;
+    FILE *f = fopen(path.c_str(), "r");
+    if (f == nullptr)
+        throw std::runtime_error("failed to open " + path);
+    char buf[1024];
+    for (;;) {
+        ssize_t n = fread(buf, 1, sizeof(buf), f);
+        if (n <= 0)
+            break;
+        data.append(buf, n);
+    }
+    if (ferror(f)) {
+        throw std::runtime_error("failed to read " + path);
+    }
+    fclose(f);
+    return data;
 }
 
 class GRPCPool
@@ -38,14 +57,48 @@ private:
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels;
 
+    /// @brief GRPC credentials to provide when connecting to a target.
+    std::shared_ptr<grpc::ChannelCredentials> credentials = grpc::InsecureChannelCredentials();
+
 public:
+    GRPCPool() = default;
+
+
+    /// @brief Instantiates the GRPC pool to use TLS encryption where the CA certificate
+    /// is located at the provided path.
+    explicit GRPCPool(const std::string &ca_path)
+    {
+        grpc::SslCredentialsOptions opts;
+        opts.pem_root_certs = readFile(ca_path);
+        credentials = grpc::SslCredentials(opts);
+    }
+
+    /// @brief instantiates the GRPC pool to use TLS encryption and authentication
+    /// where the CA certificate, client certificate, and client key are located at
+    /// the provided paths.
+    GRPCPool(
+        const std::string &ca_path,
+        const std::string &cert_path,
+        const std::string &key_path)
+    {
+        grpc::SslCredentialsOptions opts;
+        opts.pem_root_certs = readFile(ca_path);
+        opts.pem_cert_chain = readFile(cert_path);
+        opts.pem_private_key = readFile(key_path);
+        credentials = grpc::SslCredentials(opts);
+    }
+
+    /// @brief instantiates a GRPC pool with the provided credentials.
+    GRPCPool(std::shared_ptr<grpc::ChannelCredentials> credentials) : credentials(credentials) {}
+
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
     std::shared_ptr<grpc::Channel> getChannel(const std::string &target)
     {
-        if (channels.find(target) == channels.end())
-            channels[target] = grpc::CreateChannel(target, grpc::InsecureChannelCredentials());
+        if (channels.find(target) == channels.end()) {
+            channels[target] = grpc::CreateChannel(target, credentials);
+        }
         return channels[target];
     }
 };

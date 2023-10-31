@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
 #include <vector>
 #include <memory>
 
+/// api protos
 #include "v1/framer.pb.h"
+
+/// internal
 #include "synnax/framer/framer.h"
 #include "synnax/telem/series.h"
 

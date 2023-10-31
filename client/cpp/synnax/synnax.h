@@ -23,32 +23,47 @@ using namespace synnax;
 
 namespace synnax {
 
-// @brief Configuration for opening a Synnax login_client.
+/// @brief Configuration for opening a Synnax client.
+/// @see Synnax
 struct Config {
-    // @brief the host of a node in the cluster.
+    /// @brief the host of a node in the cluster.
     std::string host;
-    // @brief the port for the specified host.
+    /// @brief the port for the specified host.
     std::uint16_t port;
-    // @brief whether to use TLS when connecting to the host. Only works when the node is running in secure mode.
-    bool secure;
-    // @brief the username to use when authenticating with the node.
+    /// @brief the username to use when authenticating with the node.
     std::string username;
-    // @brief the password to use when authenticating with the node.
+    /// @brief the password to use when authenticating with the node.
     std::string password;
+    /// @brief path to the CA certificate file to use when connecting to a secure node.
+    /// This is only required if the node is configured to use TLS.
+    std::string ca_cert_file;
+    /// @brief path to the client certificate file to use when connecting to a secure
+    /// node and using client authentication. This is not required when in insecure mode
+    /// or using username/password authentication.
+    std::string client_cert_file;
+    /// @brief path to the client key file to use when connecting to a secure node and
+    /// using client authentication. This is not required when in insecure mode or using
+    /// username/password authentication.
+    std::string client_key_file;
 };
 
 const std::string ERROR_PREFIX = "sy.api.";
 const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
 const std::string QUERY_ERROR = ERROR_PREFIX + "query";
 
-class Client {
+/// @brief Client to perform operations against a Synnax cluster.
+class Synnax {
 public:
+    /// @brief Client for creating and retrieving channels in a cluster.
     ChannelClient channels = ChannelClient(nullptr, nullptr);
+    /// @brief Client for creating, retrieving, and performing operations on ranges in a cluster.
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
+    /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
 
-    explicit Client(const Config &cfg) {
-        auto t = Transport(cfg.port, cfg.host);
+    /// @brief constructs the Synnax client from the provided configuration.
+    explicit Synnax(const Config &cfg) {
+        auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file, cfg.client_key_file);
         auto auth_mw = std::make_shared<AuthMiddleware>(
                 std::move(t.auth_login), cfg.username, cfg.password);
         t.use(auth_mw);
@@ -64,3 +79,5 @@ public:
     }
 };
 }
+
+
