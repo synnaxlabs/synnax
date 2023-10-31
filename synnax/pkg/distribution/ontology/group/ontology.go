@@ -49,13 +49,13 @@ func (s *Service) Schema() *ontology.Schema {
 	return _schema
 }
 
-func (s *Service) RetrieveResource(ctx context.Context, key string) (r schema.Resource, err error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (r ontology.Resource, err error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return r, err
 	}
 	var g Group
-	err = s.NewRetrieve().Entry(&g).WhereKeys(k).Exec(ctx, nil)
+	err = s.NewRetrieve().Entry(&g).WhereKeys(k).Exec(ctx, tx)
 	return newResource(g), err
 }
 

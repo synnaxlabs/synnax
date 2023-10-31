@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, test, it } from "vitest";
+import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { Series } from "@/telem/series";
@@ -44,7 +45,7 @@ describe("Series", () => {
       const a = new Series(
         new Float32Array([1, 2, 3]),
         DataType.FLOAT32,
-        new TimeRange(1, 2)
+        new TimeRange(1, 2),
       );
       expect(a.timeRange.span.valueOf()).toBe(1);
     });
@@ -71,7 +72,7 @@ describe("Series", () => {
         new Float32Array([1, 2, 3]),
         DataType.FLOAT32,
         undefined,
-        2
+        2,
       );
       expect(arr.at(0)).toEqual(3);
       expect(arr.at(1)).toEqual(4);
@@ -161,7 +162,7 @@ describe("Series", () => {
         new Float32Array([1]),
         DataType.FLOAT32,
         TimeRange.ZERO,
-        -1
+        -1,
       );
       expect(arr.write(writeTwo)).toEqual(1);
       expect(arr.min).toEqual(-5);
@@ -173,7 +174,7 @@ describe("Series", () => {
     it("should correctly generate timestamps", () => {
       const ts = Series.generateTimestamps(5, Rate.hz(1), TimeStamp.seconds(1));
       expect(ts.timeRange).toEqual(
-        new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6))
+        new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6)),
       );
       expect(ts.cap).toEqual(5);
       expect(ts.length).toEqual(5);
@@ -185,7 +186,7 @@ describe("Series", () => {
           BigInt(TimeStamp.seconds(3).valueOf()),
           BigInt(TimeStamp.seconds(4).valueOf()),
           BigInt(TimeStamp.seconds(5).valueOf()),
-        ])
+        ]),
       );
     });
   });
@@ -247,6 +248,42 @@ describe("Series", () => {
       s.release();
       expect(s.refCount).toEqual(0);
       expect(control.deleteBufferMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("string series", () => {
+    it("should correctly encode and decode a string series", () => {
+      const s = Series.fromStrings(["apple", "banana", "carrot"]);
+      expect(s.dataType.toString()).toEqual(DataType.STRING.toString());
+      const outStrings = s.toStrings();
+      expect(outStrings).toEqual(["apple", "banana", "carrot"]);
+    });
+    it("should throw an error if the series is not of type string", () => {
+      const s = new Series(new Float32Array([1, 2, 3]));
+      expect(() => {
+        s.toStrings();
+      }).toThrow();
+    });
+  });
+
+  describe("JSON series", () => {
+    it("should correctly encode and decode a JSON series", () => {
+      const schema = z.object({
+        a: z.number(),
+        b: z.string(),
+      });
+      const s = Series.fromJSON<z.output<typeof schema>>([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+      ]);
+      const outJSON = s.parseJSON(schema);
+      print(outJSON);
+      expect(outJSON).toEqual([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+      ]);
     });
   });
 });

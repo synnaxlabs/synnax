@@ -20,12 +20,12 @@ import (
 
 type server struct {
 	Config
-	newStreamer func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error)
+	newStreamer func(ctx context.Context, cfg StreamerConfig) (confluence.Segment[Request, Response], error)
 }
 
 func startServer(
 	cfg Config,
-	newStreamer func(ctx context.Context, cfg ReaderConfig) (confluence.Segment[Request, Response], error),
+	newStreamer func(ctx context.Context, cfg StreamerConfig) (confluence.Segment[Request, Response], error),
 ) *server {
 	s := &server{Config: cfg, newStreamer: newStreamer}
 	cfg.Transport.Server().BindHandler(s.handle)
@@ -39,18 +39,18 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sender       = &freightfluence.Sender[Response]{
 			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 		}
-		reader, err = s.newStreamer(ctx, ReaderConfig{})
+		reader, err = s.newStreamer(ctx, StreamerConfig{})
 		pipe        = plumber.New()
 	)
 	defer cancel()
 	if err != nil {
 		return err
 	}
-	plumber.SetSegment(pipe, "reader", reader)
-	plumber.SetSource[Request](pipe, "receiver", rcv)
+	plumber.SetSegment(pipe, "streamer", reader)
+	plumber.SetSource[Request](pipe, "tap", rcv)
 	plumber.SetSink[Response](pipe, "sender", sender)
-	plumber.MustConnect[Request](pipe, "receiver", "reader", 1)
-	plumber.MustConnect[Response](pipe, "reader", "sender", 1)
+	plumber.MustConnect[Request](pipe, "tap", "streamer", 1)
+	plumber.MustConnect[Response](pipe, "streamer", "sender", 1)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

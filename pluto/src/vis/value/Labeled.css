@@ -21,13 +21,6 @@
         padding: 0 1rem;
     }
 
-    & .pluto-value {
-        border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
-        border-radius: var(--pluto-border-radius);
-        position: relative;
-        width: 100%;
-    }
-
     &.pluto--x {
         .pluto-value {
             width: 100px;
@@ -35,3 +28,9 @@
     }
 }
 
+.pluto-value {
+    border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
+    border-radius: var(--pluto-border-radius);
+    position: relative;
+    width: 100%;
+}

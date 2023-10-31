@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
+import { Align } from "@/align";
 import { Button } from "@/button";
 
 const story: Meta<typeof Button.Button> = {
@@ -25,16 +26,88 @@ const story: Meta<typeof Button.Button> = {
   },
 };
 
-const Template = (args: Button.ButtonProps): ReactElement => (
-  <Button.Button {...args} />
+export const Primary: StoryFn<typeof Button.Button> = (args: Button.ButtonProps) => (
+  <Align.Space align="start">
+    <Button.Button startIcon={<AiOutlineDelete />} {...args} size="small">
+      Button
+    </Button.Button>
+    <Button.Button startIcon={<AiOutlineDelete />} {...args} size="medium">
+      Button
+    </Button.Button>
+    <Button.Button startIcon={<AiOutlineDelete />} {...args} size="large">
+      Button
+    </Button.Button>
+    <Button.Button startIcon={<AiOutlineDelete />} {...args} size="large" disabled>
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="small"
+      variant="outlined"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="medium"
+      variant="outlined"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="large"
+      variant="outlined"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="large"
+      variant="outlined"
+      disabled
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="small"
+      variant="text"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="medium"
+      variant="text"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="large"
+      variant="text"
+    >
+      Button
+    </Button.Button>
+    <Button.Button
+      startIcon={<AiOutlineDelete />}
+      {...args}
+      size="large"
+      variant="text"
+      disabled
+    >
+      Button
+    </Button.Button>
+  </Align.Space>
 );
-
-export const Primary: StoryFn<typeof Button.Button> = Template.bind({});
-Primary.args = {
-  size: "medium",
-  startIcon: <AiOutlineDelete />,
-  children: "Button",
-};
 
 export const Outlined = (): ReactElement => (
   <Button.Button variant="outlined" endIcon={<AiOutlineDelete />}>

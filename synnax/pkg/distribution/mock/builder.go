@@ -22,14 +22,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/errutil"
 )
 
 type Builder struct {
-	mock.CoreBuilder
-	Nodes      []distribution.Distribution
+	core       mock.CoreBuilder
+	Nodes      map[dcore.NodeKey]distribution.Distribution
 	writerNet  *tmock.FramerWriterNetwork
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
@@ -40,16 +41,17 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 	coreBuilder := mock.NewCoreBuilder(cfg...)
 
 	return &Builder{
-		CoreBuilder: *coreBuilder,
-		writerNet:   tmock.NewFramerWriterNetwork(),
-		iterNet:     tmock.NewFramerIteratorNetwork(),
-		channelNet:  tmock.NewChannelNetwork(),
-		relayNet:    tmock.NewRelayNetwork(),
+		core:       *coreBuilder,
+		writerNet:  tmock.NewFramerWriterNetwork(),
+		iterNet:    tmock.NewFramerIteratorNetwork(),
+		channelNet: tmock.NewChannelNetwork(),
+		relayNet:   tmock.NewRelayNetwork(),
+		Nodes:      make(map[dcore.NodeKey]distribution.Distribution),
 	}
 }
 
 func (b *Builder) New(ctx context.Context) distribution.Distribution {
-	core := b.CoreBuilder.New()
+	core := b.core.New()
 	d := distribution.Distribution{Core: core}
 
 	trans := mockFramerTransport{
@@ -93,6 +95,15 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Framer:          d.Framer,
 	}))
 
+	// If we're not the bootstrapper, don't propagate changes to prevent issues when
+	// trying to find free channels. We're going to resolve this issue in #105:
+	// https://github.com/synnaxlabs/synnax/issues/105
+	if d.Cluster.HostKey().IsBootstrapper() {
+		d.Closers = append(d.Closers, lo.Must(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
+	}
+
+	b.Nodes[core.Cluster.HostKey()] = d
+
 	return d
 }
 
@@ -102,6 +113,10 @@ func (b *Builder) Close() error {
 		c.Exec(node.Close)
 	}
 	return c.Error()
+}
+
+func (b *Builder) Cleanup() error {
+	return b.core.Cleanup()
 }
 
 type mockFramerTransport struct {

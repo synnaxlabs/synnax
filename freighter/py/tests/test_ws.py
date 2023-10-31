@@ -10,10 +10,10 @@
 import pytest
 
 import freighter.exceptions
-from freighter.encoder import MsgpackEncoder
 from freighter.context import Context
+from freighter.encoder import MsgpackEncoder
 from freighter.sync import SyncStreamClient
-from freighter.transport import Next, AsyncNext
+from freighter.transport import AsyncNext, Next
 from freighter.url import URL
 from freighter.websocket import WebsocketClient
 

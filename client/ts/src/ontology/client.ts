@@ -10,22 +10,27 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 
+import { type Client as FrameClient } from "@/framer/client";
+import { ChangeTracker } from "@/ontology/cdc";
 import { group } from "@/ontology/group";
+import { type ID, type Resource } from "@/ontology/payload";
 import { Retriever } from "@/ontology/retriever";
 import { Writer } from "@/ontology/writer";
 
-import { type ID, type Resource } from "./payload";
+import { QueryError } from "..";
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {
   groups: group.Client;
   retriever: Retriever;
-  writer: Writer;
+  private readonly writer: Writer;
+  private readonly framer: FrameClient;
 
-  constructor(unary: UnaryClient) {
+  constructor(unary: UnaryClient, framer: FrameClient) {
     this.retriever = new Retriever(unary);
     this.writer = new Writer(unary);
     this.groups = new group.Client(unary);
+    this.framer = framer;
   }
 
   async search(term: string): Promise<Resource[]> {
@@ -49,7 +54,15 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     includeSchema?: boolean,
     includeFieldData?: boolean,
   ): Promise<Resource | Resource[]> {
-    return await this.retriever.retrieve(ids, includeSchema, includeFieldData);
+    const resources = await this.retriever.retrieve(
+      ids,
+      includeSchema,
+      includeFieldData,
+    );
+    if (Array.isArray(ids)) return resources;
+    if (resources.length === 0)
+      throw new QueryError(`No resource found with ID ${ids.toString()}`);
+    return resources[0];
   }
 
   async page(offset: number, limit: number): Promise<Resource[]> {
@@ -82,5 +95,9 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
 
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     return await this.writer.moveChildren(from, to, ...children);
+  }
+
+  async openChangeTracker(): Promise<ChangeTracker> {
+    return await ChangeTracker.open(this.framer, this.retriever);
   }
 }

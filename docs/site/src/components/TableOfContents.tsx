@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
-import { MarkdownHeading } from "astro";
+import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
 interface ItemOffset {
@@ -82,13 +82,8 @@ export const TableOfContents = ({
   if (headings.length === 0) return <></>;
 
   return (
-    <Align.Space
-      style={{
-        paddingLeft: "2rem",
-        transition: "0.2s ease-in-out",
-      }}
-    >
-      <Header.Header id={onThisPageID} className="heading" level="h3">
+    <Align.Space className="table-of-contents" size={0.5}>
+      <Header.Header id={onThisPageID} className="heading" level="h5">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
       <div ref={toc}>
@@ -98,7 +93,7 @@ export const TableOfContents = ({
             .map((heading) => (
               <Menu.Item.Link
                 href={`#${heading.slug}`}
-                level="p"
+                level="small"
                 key={heading.slug}
                 itemKey={heading.slug}
                 id={heading.slug}

@@ -11,7 +11,11 @@ import { type Channel, TimeRange } from "@synnaxlabs/client";
 import { type Series } from "@synnaxlabs/x";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
-import { Static } from "@/telem/client/cache/static";
+import {
+  type DirtyReadResult,
+  Static,
+  type DirtyReadForWriteResult,
+} from "@/telem/client/cache/static";
 
 export class Cache {
   channel: Channel;
@@ -25,9 +29,9 @@ export class Cache {
   }
 
   writeDynamic(series: Series[]): Series[] {
-    const pushDynamic = this.dynamic.buffer == null;
-    const flushed = this.dynamic.write(series);
-    if (pushDynamic && this.dynamic.buffer != null) flushed.push(this.dynamic.buffer);
+    const { flushed, allocated } = this.dynamic.write(series);
+    // Buffers that have been flushed out of the dynamic cache are written to the
+    // static cache.
     if (flushed.length > 0) {
       this.static.write(
         new TimeRange(
@@ -36,17 +40,19 @@ export class Cache {
         ),
         flushed,
       );
-      if (this.dynamic.buffer != null && !pushDynamic)
-        flushed.push(this.dynamic.buffer);
     }
-    return flushed;
+    return allocated;
   }
 
   writeStatic(tr: TimeRange, series: Series[]): void {
     this.static.write(tr, series);
   }
 
-  read(tr: TimeRange): [Series[], TimeRange[]] {
+  dirtyRead(tr: TimeRange): DirtyReadResult {
     return this.static.dirtyRead(tr);
+  }
+
+  async dirtyReadForStaticWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
+    return await this.static.dirtyReadForWrite(tr);
   }
 }

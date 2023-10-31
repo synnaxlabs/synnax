@@ -15,7 +15,7 @@ import { Input } from "@/input";
 describe("Input", () => {
   it("should render an input with the provided placeholder", () => {
     const c = render(<Input.Text value="" placeholder="Hello" onChange={vi.fn()} />);
-    expect(c.getByPlaceholderText("Hello")).toBeTruthy();
+    expect(c.getByText("Hello")).toBeTruthy();
   });
   it("should call the onChange handler when the value changes", () => {
     const onChange = vi.fn();
@@ -27,7 +27,7 @@ describe("Input", () => {
   });
   it("should programatically set the input value when the prop is passed", () => {
     const c = render(
-      <Input.Text placeholder="Hello" onChange={vi.fn()} value="Hello2" />
+      <Input.Text placeholder="Hello" onChange={vi.fn()} value="Hello2" />,
     );
     expect(c.getByDisplayValue("Hello2")).toBeTruthy();
   });

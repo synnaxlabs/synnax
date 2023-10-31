@@ -11,6 +11,11 @@ import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
 
+export interface DynamicWriteResponse {
+  flushed: Series[];
+  allocated: Series[];
+}
+
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
@@ -43,8 +48,12 @@ export class Dynamic {
    * @returns a list of buffers that were filled by the cache during the write. If
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
-  write(series: Series[]): Series[] {
-    return series.flatMap((arr) => this._write(arr));
+  write(series: Series[]): DynamicWriteResponse {
+    const responses = series.flatMap((arr) => this._write(arr));
+    return {
+      flushed: responses.flatMap((res) => res.flushed),
+      allocated: responses.flatMap((res) => res.allocated),
+    };
   }
 
   private allocate(length: number, alignment: number): Series {
@@ -54,18 +63,36 @@ export class Dynamic {
       DataType.FLOAT32,
       start.spanRange(TimeStamp.MAX),
       this.dataType.equals(DataType.TIMESTAMP) ? start.valueOf() : 0,
-      "static",
+      "dynamic",
       alignment,
     );
   }
 
-  private _write(series: Series): Series[] {
-    if (this.buffer == null) this.buffer = this.allocate(this.cap, series.alignment);
+  private _write(series: Series): DynamicWriteResponse {
+    // This only happens on the first write to the cache.
+    const res: DynamicWriteResponse = { flushed: [], allocated: [] };
+    if (this.buffer == null) {
+      this.buffer = this.allocate(this.cap, series.alignment);
+      res.allocated.push(this.buffer);
+    } else if (
+      Math.abs(this.buffer.alignment + this.buffer.length - series.alignment) > 1
+    ) {
+      // This case occurs when the alignment of the incoming series does not match
+      // the alignment of the current buffer. In this case, we flush the current buffer
+      // and allocate a new one.
+      res.flushed.push(this.buffer);
+      this.buffer = this.allocate(this.cap, series.alignment);
+      res.allocated.push(this.buffer);
+    }
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
-    if (amountWritten === series.length) return [];
-    const out = this.buffer;
-    this.buffer = this.allocate(this.cap, series.alignment);
-    return [out, ...this._write(series.slice(amountWritten))];
+    if (amountWritten === series.length) return res;
+    res.flushed.push(this.buffer);
+    this.buffer = this.allocate(this.cap, series.alignment + amountWritten);
+    res.allocated.push(this.buffer);
+    const nextRes = this._write(series.slice(amountWritten));
+    res.flushed.push(...nextRes.flushed);
+    res.allocated.push(...nextRes.allocated);
+    return res;
   }
 }

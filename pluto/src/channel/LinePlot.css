@@ -10,7 +10,8 @@
  */
 
 .pluto-line-plot .pluto-haul-drop-region {
-    background-color: var(--haul-background-color);
+    background: var(--haul-l0);
     border: var(--pluto-border);
     border-color: var(--haul-border-color);
+    border-radius: var(--pluto-border-radius);
 }

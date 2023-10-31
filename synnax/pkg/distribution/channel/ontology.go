@@ -61,10 +61,10 @@ type change = changex.Change[Key, Channel]
 func (s *service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := MustParseKey(key)
 	var ch Channel
-	err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, tx)
 	return newResource(ch), err
 }
 

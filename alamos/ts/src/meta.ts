@@ -17,7 +17,7 @@ export class Meta {
     key: string,
     path: string,
     serviceName: string = "",
-    noop: boolean = false
+    noop: boolean = false,
   ) {
     this.key = key;
     this.path = path;

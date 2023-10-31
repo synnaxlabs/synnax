@@ -51,3 +51,11 @@ export const useNumeric = (value: number): telem.NumericSourceSpec => {
     variant: "numeric-source",
   };
 };
+
+export const useString = (value: string): telem.StringSourceSpec => {
+  return {
+    type: staticTelem.String.TYPE,
+    props: value,
+    variant: "string-source",
+  };
+};

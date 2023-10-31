@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
 	"github.com/synnaxlabs/x/address"
+	xnet "github.com/synnaxlabs/x/net"
+	. "github.com/synnaxlabs/x/testutil"
 	"sync"
 	"time"
 )
@@ -50,10 +52,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		})
 
 		It("Should correctly bootstrap a cluster with peers provided", func() {
+			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
 			db, err := aspen.Open(
 				ctx,
 				"",
-				"localhost:22546",
+				addr1,
 				[]aspen.Address{"localhost:22547"},
 				aspen.MemBacked(),
 				aspen.Bootstrap(),
@@ -70,6 +73,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It("Should correctly join a node that is already looking for peers", func() {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
+			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
+			addr2 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
@@ -78,8 +83,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				db, err := aspen.Open(
 					ctx,
 					"",
-					"localhost:22546",
-					[]aspen.Address{"localhost:22547"},
+					addr1,
+					[]aspen.Address{addr2},
 					aspen.MemBacked(),
 				)
 				defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -93,7 +98,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			db, err := aspen.Open(
 				ctx,
 				"",
-				"localhost:22547",
+				addr2,
 				[]aspen.Address{},
 				aspen.MemBacked(),
 				aspen.Bootstrap(),

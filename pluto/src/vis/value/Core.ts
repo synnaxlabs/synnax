@@ -1,4 +1,4 @@
-// Copyrght 2023 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,10 @@ import { type ReactElement, useLayoutEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoCompare } from "@/memo";
+import { useMemoDeepEqualProps } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Value } from "@/vis/value/aether/value";
-import { deep } from "@synnaxlabs/x";
 
 export const corePropsZ = Value.z
   .omit({ font: true })
@@ -27,18 +26,26 @@ export type CoreProps = z.input<typeof corePropsZ>;
 
 export const Core = Aether.wrap<CoreProps>(
   "ValueCore",
-  ({ aetherKey, ...props }): ReactElement | null => {
-    const font = Theming.useTypography(props.level);
-    const memoProps = useMemoCompare(
-      () => {
-        return {
-          font: font.toString(),
-          ...props,
-        };
-      },
-      ([prevProps], [nextProps]) => deep.equal(prevProps, nextProps),
-      [props],
-    );
+  ({
+    aetherKey,
+    box,
+    telem,
+    units,
+    color,
+    precision,
+    width,
+    level,
+  }): ReactElement | null => {
+    const font = Theming.useTypography(level);
+    const memoProps = useMemoDeepEqualProps({
+      box,
+      telem,
+      units,
+      color,
+      precision,
+      width,
+      font: font.toString(),
+    });
 
     const [, , setState] = Aether.use({
       aetherKey,

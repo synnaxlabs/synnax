@@ -9,8 +9,8 @@
 
 from pathlib import Path
 
-from synnax.io import IO_FACTORY, RowFileReader
 from synnax.cli.flow import Context
+from synnax.io import IO_FACTORY, RowFileReader
 
 
 def prompt_file(ctx: Context) -> Path | None:

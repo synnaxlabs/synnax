@@ -31,19 +31,34 @@ export interface State {
   authority: Authority;
 }
 
+interface Release {
+  from: State;
+  to?: null;
+}
+
+interface Acquire {
+  from?: null;
+  to: State;
+}
+
 export type Transfer =
   | {
       from: State;
       to: State;
     }
-  | {
-      from?: State;
-      to: State;
-    }
-  | {
-      from: State;
-      to?: State;
-    };
+  | Release
+  | Acquire;
+
+export const transferString = (t: Transfer): string => {
+  if (t.to == null) return `${t.from?.resource} - ${t.from?.subject.name} -> released`;
+  if (t.from == null)
+    return `${t.to.resource} - released -> ${
+      t.to.subject.name
+    } (${t.to.authority.toString()})`;
+  return `${t.to.resource} - ${t.from.subject.name} -> ${
+    t.to.subject.name
+  } (${t.to.authority.toString()})`;
+};
 
 interface Update {
   transfers: Transfer[];
@@ -54,13 +69,14 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   private readonly streamer: FrameStreamer;
   private readonly ecd: binary.EncoderDecoder;
   private readonly observer: observe.Observer<Transfer[]>;
+  private readonly closePromise: Promise<void>;
 
   private constructor(streamer: FrameStreamer) {
     this.states = new Map();
     this.ecd = new binary.JSONEncoderDecoder();
     this.observer = new observe.Observer<Transfer[]>();
     this.streamer = streamer;
-    void this.stream();
+    this.closePromise = this.stream();
   }
 
   subjects(): Subject[] {
@@ -73,8 +89,9 @@ export class StateTracker implements observe.Observable<Transfer[]> {
     return this.observer.onChange(handler);
   }
 
-  close(): void {
+  async close(): Promise<void> {
     this.streamer.close();
+    await this.closePromise;
   }
 
   static async open(client: FrameClient): Promise<StateTracker> {
@@ -92,10 +109,8 @@ export class StateTracker implements observe.Observable<Transfer[]> {
 
   private merge(update: Update): void {
     update.transfers.forEach((t) => {
-      if (t.from == null && t.to == null) {
-        console.warn("Invalid transfer: ", t);
-      }
-      if (t.to == null) this.states.delete((t.from as State).resource);
+      if (t.from == null && t.to == null) console.warn("Invalid transfer: ", t);
+      if (t.to == null) this.states.delete(t.from.resource);
       else this.states.set(t.to.resource, t.to);
     });
   }

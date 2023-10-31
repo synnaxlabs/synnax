@@ -11,11 +11,9 @@
 
 .pluto-menu-context {
     position: fixed;
-    z-index: 1000;
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    box-shadow:  0 2px 4px rgba(0, 0, 0, 0.1);
-    background: none;
+    z-index: 2001;
+    border: var(--pluto-border);
+    background-color: var(--pluto-gray-l1);
     border-radius: var(--pluto-border-radius);
     padding: 1rem;
 }
@@ -24,7 +22,3 @@
     width: 100%;
 }
 
-.pluto-menu-context__container {
-    width: inherit;
-    height: inherit;
-}

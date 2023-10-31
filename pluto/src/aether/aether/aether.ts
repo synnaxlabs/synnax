@@ -302,7 +302,9 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
 
   /**
    * Runs after the component has been spliced out of the tree. This is useful for
-   * running cleanup code, such as unsubscribing from an event emitter.
+   * running cleanup code, such as unsubscribing from an event emitter. At this point,
+   * the current state, previous state, derived state, and current context are all
+   * available to the component, and this.deleted is true.
    */
   afterDelete(): void {}
 
@@ -501,19 +503,14 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   handle(msg: MainMessage): void {
-    try {
-      if (msg.variant === "delete") this.internalDelete(msg.path);
-      else {
-        const u: Update = {
-          ...msg,
-          variant: "state",
-          ctx: this.ctx,
-        };
-        this.internalUpdate(u);
-      }
-    } catch (e) {
-      console.error(e);
-      throw e;
+    if (msg.variant === "delete") this.internalDelete(msg.path);
+    else {
+      const u: Update = {
+        ...msg,
+        variant: "state",
+        ctx: this.ctx,
+      };
+      this.internalUpdate(u);
     }
   }
 }

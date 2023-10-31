@@ -13,7 +13,7 @@ import { z } from "zod";
 import { type Params, type Payload, analyzeParams, keyZ, payloadZ } from "./payload";
 
 const reqZ = z.object({
-  keys: z.array(keyZ).optional(),
+  keys: keyZ.array().optional(),
   names: z.array(z.string()).optional(),
   term: z.string().optional(),
 });

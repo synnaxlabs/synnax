@@ -16,7 +16,7 @@ export { measure } from "@/vis/measure/aether";
 export { pid } from "@/vis/pid/aether";
 export { telem } from "@/telem/core";
 export { rule } from "@/vis/rule/aether";
-export { tooltip } from "@/vis/tooltip/aether";
+export { tooltip } from "@/vis/lineplot/tooltip/aether";
 export { valve } from "@/vis/valve/aether";
 export { render } from "@/vis/render";
 export { value } from "@/vis/value/aether";

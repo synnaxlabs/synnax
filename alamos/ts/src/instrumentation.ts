@@ -17,10 +17,11 @@ export interface InstrumentationOptions {
   logger?: Logger;
   tracer?: Tracer;
   noop?: boolean;
+  __meta?: Meta;
 }
 
 export class Instrumentation {
-  private meta: Meta;
+  private readonly meta: Meta;
   readonly T: Tracer;
   readonly L: Logger;
 
@@ -30,22 +31,21 @@ export class Instrumentation {
     logger = Logger.NOOP,
     tracer = Tracer.NOOP,
     noop = false,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    __meta,
   }: InstrumentationOptions) {
-    this.meta = new Meta(key, "", serviceName, noop);
+    this.meta = __meta ?? new Meta(key, key, serviceName, noop);
     this.T = tracer.child(this.meta);
     this.L = logger.child(this.meta);
   }
 
   child(key: string): Instrumentation {
-    const meta = this.meta.child(key);
-    const ins = new Instrumentation({
-      key: meta.key,
-      logger: this.L.child(meta),
-      tracer: this.T.child(meta),
-    });
-    ins.meta = meta;
-    return ins;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const __meta = this.meta.child(key);
+    return new Instrumentation({ __meta, tracer: this.T, logger: this.L });
   }
 
   static readonly NOOP = new Instrumentation({ noop: true });
 }
+
+export const NOOP = Instrumentation.NOOP;

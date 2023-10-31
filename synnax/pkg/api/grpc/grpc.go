@@ -31,6 +31,15 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	// RANGE
 	a.RangeCreate = fnoop.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse]{}
 	a.RangeRetrieve = fnoop.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse]{}
+	a.RangeDelete = fnoop.UnaryServer[api.RangeDeleteRequest, types.Nil]{}
+	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
+	a.RangeKVGet = fnoop.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse]{}
+	a.RangeKVSet = fnoop.UnaryServer[api.RangeKVSetRequest, types.Nil]{}
+	a.RangeKVDelete = fnoop.UnaryServer[api.RangeKVDeleteRequest, types.Nil]{}
+	a.RangeAliasSet = fnoop.UnaryServer[api.RangeAliasSetRequest, types.Nil]{}
+	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
+	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
+	a.RangeAliasDelete = fnoop.UnaryServer[api.RangeAliasDeleteRequest, types.Nil]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}
@@ -56,6 +65,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.PIDRetrieve = fnoop.UnaryServer[api.PIDRetrieveRequest, api.PIDRetrieveResponse]{}
 	a.PIDRename = fnoop.UnaryServer[api.PIDRenameRequest, types.Nil]{}
 	a.PIDSetData = fnoop.UnaryServer[api.PIDSetDataRequest, types.Nil]{}
+	a.PIDCopy = fnoop.UnaryServer[api.PIDCopyRequest, api.PIDCopyResponse]{}
 
 	// LINE PLOT
 	a.LinePlotCreate = fnoop.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse]{}

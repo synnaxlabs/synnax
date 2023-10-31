@@ -7,21 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import Instrumentation, NOOP
+from alamos import NOOP, Instrumentation
 from freighter import URL
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.create import ChannelCreator
-from synnax.channel.retrieve import ClusterChannelRetriever, CacheChannelRetriever
+from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
 from synnax.config import try_load_options_if_none_provided
+from synnax.control import Client as ControlClient
 from synnax.framer import Client
 from synnax.options import SynnaxOptions
+from synnax.ranger import RangeCreator, RangeRetriever
+from synnax.ranger.client import RangeClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.ranger import RangeRetriever, RangeCreator
-from synnax.ranger.client import RangeClient
-from synnax.control import Client as ControlClient
 
 
 class Synnax(Client):
@@ -97,12 +97,13 @@ class Synnax(Client):
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,
-            retriever=ch_retriever
+            retriever=ch_retriever,
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeCreator(self._transport.unary, instrumentation)
         self.ranges = RangeClient(
+            unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
             creator=range_creator,

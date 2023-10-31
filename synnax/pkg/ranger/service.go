@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"io"
@@ -70,8 +71,20 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if cfg.CDC != nil {
-		s.cdc, err = cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+		rangeCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+		if err != nil {
+			return nil, err
+		}
+		aliasCDCCfg := cdc.GorpConfigString[alias](cfg.DB)
+		aliasCDCCfg.SetName = "sy_range_alias_set"
+		aliasCDCCfg.DeleteName = "sy_range_alias_delete"
+		aliasCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, aliasCDCCfg)
+		if err != nil {
+			return nil, err
+		}
+		s.cdc = xio.MultiCloser{rangeCDC, aliasCDC}
 	}
 	return s, err
 }

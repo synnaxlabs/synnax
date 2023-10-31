@@ -9,23 +9,22 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload, get_args, cast
-
-from pandas import DataFrame
+from typing import Literal, cast, overload
 
 from freighter import Payload
+from pandas import DataFrame
 from pydantic import Field
 
-from synnax.telem import Series, TimeRange, TypedCrudeSeries
 from synnax.channel.payload import (
-    ChannelKeys,
-    ChannelNames,
     ChannelKey,
+    ChannelKeys,
     ChannelName,
+    ChannelNames,
     ChannelParams,
 )
-from synnax.util.normalize import normalize
 from synnax.exceptions import ValidationError
+from synnax.telem import Series, TimeRange, TypedCrudeSeries
+from synnax.util.normalize import normalize
 
 
 class FramePayload(Payload):
@@ -76,6 +75,10 @@ class ColumnType:
 class Frame:
     columns: ChannelKeys | ChannelNames
     series: list[Series] = Field(default_factory=list)
+
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls)
+        # return super().__new__(overload_np_array_operators(cls, "to_df"))
 
     def __init__(
         self,
@@ -158,7 +161,9 @@ class Frame:
     ) -> list[tuple[ChannelKey, Series]] | list[tuple[ChannelName, Series]]:
         return zip(self.columns, self.series)  # type: ignore
 
-    def __getitem__(self, key: ChannelKey | ChannelName) -> Series:
+    def __getitem__(self, key: ChannelKey | ChannelName | any) -> Series:
+        if not isinstance(key, (ChannelKey, ChannelName)):
+            return self.to_df()[key]
         return self.series[self.columns.index(key)]  # type: ignore
 
     def get(

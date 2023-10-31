@@ -130,3 +130,11 @@ func ToSlice[T any](ctx context.Context, n Nexter[T]) []T {
 	}
 	return values
 }
+
+func MapToSlice[I, O any](ctx context.Context, n Nexter[I], f func(I) O) []O {
+	var values []O
+	for v, ok := n.Next(ctx); ok; v, ok = n.Next(ctx) {
+		values = append(values, f(v))
+	}
+	return values
+}

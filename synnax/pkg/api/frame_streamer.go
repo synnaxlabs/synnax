@@ -28,36 +28,35 @@ type (
 )
 
 func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
-	reader, err := s.openReader(ctx, stream)
+	streamer, err := s.openStreamer(ctx, stream)
 	if err.Occurred() {
 		return err
 	}
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+	var (
+		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+		receiver     = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
+		sender       = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
+			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
+			Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
+				if res.Error != nil {
+					res.Error = ferrors.Encode(res.Error)
+				}
+				return res, true, nil
+			},
+		}
+		pipe = plumber.New()
+	)
 	defer cancel()
-	receiver := &freightfluence.Receiver[FrameStreamerRequest]{
-		Receiver: stream,
-	}
-	sender := &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
-		Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
-		Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
-			if res.Error != nil {
-				res.Error = ferrors.Encode(res.Error)
-			}
-			return res, true, nil
-		},
-	}
-	pipe := plumber.New()
-	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "reader", reader)
+	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "streamer", streamer)
 	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
 	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
-	plumber.MustConnect[FrameStreamerResponse](pipe, "reader", "sender", 1)
-	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "reader", 1)
+	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 10)
+	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 10)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	end := errors.MaybeUnexpected(sCtx.Wait())
-	return end
+	return errors.MaybeUnexpected(sCtx.Wait())
 }
 
-func (s *FrameService) openReader(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {
+func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)

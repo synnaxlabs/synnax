@@ -14,7 +14,7 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Static } from "@/telem/static";
 import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";
-import { Tooltip } from "@/vis/tooltip/Tooltip";
+import { Tooltip } from "@/vis/lineplot/tooltip/Tooltip";
 
 const story: Meta<typeof LinePlot.LinePlot> = {
   title: "LinePlot",

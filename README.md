@@ -55,7 +55,7 @@ in this monorepo. The following is an alphabetically sorted summary of each:
 - [Cesium](cesium) - An embedded time-series engine optimized for high performance reads
   and writes of time-series sensor data.
 - [Client](client) - Client libraries for synnax available in multiple languages.
-- [Delta](delta) - Data visualization and cluster management user interface for Windows,
+- [Console](console) - Data visualization and cluster management user interface for Windows,
   macOS, and Linux.
 - [Documentation Site](docs/site) - The user-facing documentation for Synnax. Contains
   the code for the Synnax documentation website, technical RFCs, and additional media

@@ -9,14 +9,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast, TypeAlias, get_args, ClassVar
-from math import trunc
-
 from datetime import datetime, timedelta, timezone, tzinfo
-from numpy.typing import DTypeLike
+from math import trunc
+from typing import ClassVar, Literal, TypeAlias, cast, get_args
 
 import numpy as np
 import pandas as pd
+from numpy.typing import DTypeLike
 from pydantic import BaseModel
 
 from synnax.exceptions import ContiguityError
@@ -195,7 +194,7 @@ class TimeSpan(int):
     * TimeSpan - Creates a copy of the TimeSpan.
     * TimeStamp - The difference between the TimeStamp and the Unix epoch
     * timedelta - The duration of the timedelta.
-    * pands.Timedelta - The duration of the Timedelta.
+    * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
     """
 
@@ -469,7 +468,7 @@ TimeSpan.UNITS = {
 }
 TimeStamp.MIN = TimeStamp(0)
 TimeStamp.ZERO = TimeStamp.MIN
-TimeStamp.MAX = TimeStamp(2 ** 63 - 1)
+TimeStamp.MAX = TimeStamp(2**63 - 1)
 
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 

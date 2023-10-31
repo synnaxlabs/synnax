@@ -17,8 +17,8 @@
 import pytest
 
 from freighter import URL, encoder
-from freighter.http import HTTPClient
 from freighter.context import Context
+from freighter.http import HTTPClient
 from freighter.transport import Next
 
 from .interface import Message

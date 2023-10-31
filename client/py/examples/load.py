@@ -7,15 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import numpy as np
 import time
-import synnax as sy
+
+import numpy as np
 import pandas as pd
+
+import synnax as sy
 
 client = sy.Synnax()
 
-NUM_VALVES = 10
-NUM_SENSORS = 100
+NUM_VALVES = 40
+NUM_SENSORS = 250
 
 valve_commands = []
 valve_acks = []
@@ -62,7 +64,7 @@ for i in range(NUM_SENSORS):
 
 write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
 
-rate = (sy.Rate.HZ * 5).period.seconds
+rate = (sy.Rate.HZ * 100).period.seconds
 
 valve_states = {v.key: False for v in valve_acks}
 

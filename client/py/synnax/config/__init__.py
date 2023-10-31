@@ -10,11 +10,10 @@
 import os
 from pathlib import Path
 
+from synnax.config.clusters import ClusterConfig, ClustersConfig
+from synnax.config.file import ConfigFile
 from synnax.exceptions import ValidationError
 from synnax.options import SynnaxOptions
-from synnax.config.clusters import ClustersConfig, ClusterConfig
-from synnax.config.file import ConfigFile
-
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 

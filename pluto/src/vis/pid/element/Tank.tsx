@@ -1,4 +1,4 @@
-// Copyrght 2023 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -106,7 +106,7 @@ const Preview = ({ color }: ElementProps): ReactElement => (
 const initialProps = (th: Theming.Theme): ElementProps => ({
   dimensions: { width: 100, height: 250 },
   label: "Tank",
-  color: th.colors.gray.p2.hex,
+  color: th.colors.gray.l8.hex,
 });
 
 export const TankSpec: Spec<ElementProps> = {

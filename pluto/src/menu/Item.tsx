@@ -35,7 +35,6 @@ const menuItemFactory =
       // @ts-expect-error
       <Base
         level={level}
-        iconSpacing={iconSpacing}
         {...rest}
         onClick={handleClick}
         variant="text"

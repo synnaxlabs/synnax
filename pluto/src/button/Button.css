@@ -15,37 +15,30 @@
     border-radius: var(--pluto-border-radius);
     padding: 0 2rem;
     font-family: var(--pluto-font-family);
+    text-decoration: none;
 
-    &.pluto--disabled {
-        user-select: none;
-        background-color: var(--pluto-gray-m2);
-    }
-
-    &.pluto--disabled:hover {
-        background-color: var(--pluto-gray-m2);
-        border: var(--pluto-border);
+    &.pluto--small {
+        padding: 0 1.5rem;
     }
 }
 
 /* |||| FILLED |||| */
 
 .pluto-btn--filled {
-    background-color: var(--pluto-primary-z);
-    border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+    background: var(--pluto-primary-z);
+    border: var(--pluto-border);
+    border-color: var(--pluto-primary-z) !important;
     color: var(--pluto-white);
 
-    & * {
-        color: var(--pluto-white);
-    }
 
     &:hover {
-        background-color: var(--pluto-primary-p1);
-        border-color: var(--pluto-primary-p1);
+        background: var(--pluto-primary-p1);
+        border-color: var(--pluto-primary-p1) !important;
     }
 
     &:active {
-        background-color: var(--pluto-primary-m1);
-        border-color: var(--pluto-primary-m1);
+        background: var(--pluto-primary-m1);
+        border-color: var(--pluto-primary-m1) !important;
     }
 }
 
@@ -60,19 +53,14 @@
     background: none;
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
-    &:hover:not(.pluto--disabled) {
-        border-color: var(--pluto-gray-m0) !important;
-        * {
-            color: var(--pluto-gray-p1) !important;
-        }
+    &:hover {
+        background: var(--pluto-gray-l2);
+        border-color: var(--pluto-gray-l3) !important;
     }
 
-    &:active:not(.pluto--disabled) {
-        border-color: var(--pluto-gray-p1) !important;
-
-        * {
-            color: var(--pluto-gray-p1) !important;
-        }
+    &:active {
+        background: var(--pluto-gray-l3);
+        border-color: var(--pluto-gray-l5) !important;
     }
 }
 
@@ -81,27 +69,37 @@
     fill: inherit !important;
 }
 
+.pluto-btn--filled,
+.pluto-btn--outlined {
+    &.pluto--disabled {
+        background: var(--pluto-gray-l2);
+        border-color: var(--pluto-gray-l2) !important;
+        color: var(--pluto-gray-l5);
+    }
+}
+
 /* |||| TEXT |||| */
 
 .pluto-btn--text {
     background: none;
     border: none;
 
-    &:hover {
-        background-color: var(--pluto-gray-m2);
+    &:hover:not(.pluto--disabled) {
+        background: var(--pluto-gray-l2);
     }
 
-    /* & * {
-        color: var(--pluto-text-color);
-    } */
+    &:active:not(.pluto--disabled) {
+        background: var(--pluto-gray-l3);
+    }
 
-    &:active {
-        background-color: var(--pluto-gray-m2);
+    &.pluto--disabled {
+        color: var(--pluto-gray-l5);
     }
 }
 
-.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important
+.pluto-btn-icon.pluto-btn--text path:is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: inherit !important;
+    fill: inherit !important;
 }
 
 /* |||| ICON |||| */

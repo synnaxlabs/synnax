@@ -26,11 +26,11 @@
 
     &.synnax-logo--loader {
         & path {
-            fill: var(--pluto-background-color);
+            fill: var(--pluto-gray-l0);
         }
 
         & feFlood {
-            flood-color: var(--pluto-gray-p2);
+            flood-color: var(--pluto-gray-l8);
         }
     }
 }

@@ -118,6 +118,26 @@ var _ = Describe("retrieveResource", func() {
 				Expect(v).To(Equal("C"))
 			})
 
+			It("Should retrieve the resources of a parent by their type", func() {
+				a := newEmptyID("A")
+				b := newEmptyID("B")
+				c := newEmptyID("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				var r []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(a).
+					TraverseTo(ontology.Children).
+					WhereTypes("empty").
+					Entries(&r).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(len(r)).To(Equal(2))
+			})
 		})
 	})
 })

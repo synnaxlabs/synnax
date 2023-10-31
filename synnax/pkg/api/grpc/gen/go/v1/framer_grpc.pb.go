@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	FrameService_Iterate_FullMethodName = "/api.v1.FrameService/Iterate"
-	FrameService_Write_FullMethodName   = "/api.v1.FrameService/Write"
+	FrameService_Write_FullMethodName   = "/api.v1.FrameService/write"
 	FrameService_Stream_FullMethodName  = "/api.v1.FrameService/Stream"
 )
 
@@ -151,7 +151,7 @@ func (UnimplementedFrameServiceServer) Iterate(FrameService_IterateServer) error
 	return status.Errorf(codes.Unimplemented, "method Iterate not implemented")
 }
 func (UnimplementedFrameServiceServer) Write(FrameService_WriteServer) error {
-	return status.Errorf(codes.Unimplemented, "method Write not implemented")
+	return status.Errorf(codes.Unimplemented, "method write not implemented")
 }
 func (UnimplementedFrameServiceServer) Stream(FrameService_StreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
@@ -261,7 +261,7 @@ var FrameService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "Write",
+			StreamName:    "write",
 			Handler:       _FrameService_Write_Handler,
 			ServerStreams: true,
 			ClientStreams: true,

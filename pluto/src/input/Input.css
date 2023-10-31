@@ -10,36 +10,71 @@
  */
 
 .pluto-input {
+    position: relative;
     border-radius: var(--pluto-border-radius);
-    background: var(--pluto-background-color);
+    background: var(--pluto-gray-l2);
     color: var(--pluto-text-color);
-    padding: 0 2rem;
     margin: 0;
-    border: var(--pluto-border);
+    border: var(--pluto-border-l4);
     width: 100%;
 
-    &:focus {
-        outline: none;
-        border-color: var(--pluto-primary-z);
+    & input {
+        &::-webkit-input-placeholder {
+            color: transparent;
+        }
+
+        &::placeholder {
+            color: transparent;
+        }
+
+        border: none;
+        background: transparent;
+        width: 100%;
+        height: 100%;
+        padding: 0 2rem;
     }
 
-    &.pluto--medium {
+    &:focus-within {
+        & input {
+            outline: none;
+        }
+        border-color: var(--pluto-primary-z) !important;
+    }
+
+    &.pluto--medium input {
         font-size: var(--pluto-p-size);
         font-weight: var(--pluto-p-weight);
         line-height: var(--pluto-p-line-height);
     }
 
-    &.pluto--small {
+    &.pluto--small input {
         font-size: var(--pluto-small-size);
         font-weight: var(--pluto-small-font-weight);
         line-height: var(--pluto-small-line-height);
     }
 
-    &::placeholder {
-        color: var(--pluto-gray-m0);
+    &:not(:focus-within) .pluto--centered {
+        left: 50%;
+        transform: translate(-50%, -50%);
     }
 }
 
+.pluto-input__placeholder {
+    position: absolute;
+    top: 50%;
+    left: 2rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+
+    & * {
+        color: var(--pluto-gray-l6);
+    }
+
+    & .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+        stroke: var(--pluto-gray-l6);
+        fill: var(--pluto-gray-l6);
+    }
+}
 
 .pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover),
 .pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover) > * {
@@ -47,15 +82,17 @@
 }
 
 .pluto-input--shadow:hover,
-.pluto-input--shadow:focus,
-.pluto-input--shadow:hover > *,
-.pluto-input--shadow:focus > * {
+.pluto-input--shadow:hover > * {
     border-color: var(--pluto-border-color);
+}
+.pluto-input--shadow:focus,
+.pluto-input--shadow:focus > * {
+    border-color: var(--pluto-primary-z);
 }
 
 .pluto-input--shadow,
 .pluto-input--shadow > * {
-    background: none !important;
+    background: var(--pluto-gray-l0) !important;
 }
 
 input[type="number"]::-webkit-inner-spin-button {
@@ -65,4 +102,5 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .pluto-input--placeholder-centered::placeholder {
     text-align: center;
+
 }

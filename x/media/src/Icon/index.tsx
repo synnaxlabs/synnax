@@ -9,7 +9,8 @@
 
 import { type FC } from "react";
 
-import { type OS } from "@synnaxlabs/x";
+import { type runtime } from "@synnaxlabs/x";
+import clsx from "clsx";
 import {
   AiFillCaretDown,
   AiFillCaretLeft,
@@ -26,7 +27,10 @@ import {
   AiOutlineExpand,
   AiFillGithub,
   AiFillLinkedin,
+  AiOutlineLoading,
+  AiOutlineSync,
 } from "react-icons/ai";
+import { BiRename } from "react-icons/bi";
 import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
@@ -70,13 +74,16 @@ import {
   MdKeyboardControlKey,
   MdPerson,
   MdPause,
+  MdPictureInPicture,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
 
-const IconOS: Record<OS, IconFC> = {
+import "@/Icon/Icon.css";
+
+const IconOS: Record<runtime.OS, IconFC> = {
   Linux: FaLinux,
   MacOS: FaApple,
   Windows: FaWindows,
@@ -104,6 +111,9 @@ export const Icon: IconType = {
   Visualize: MdAreaChart,
   Expand: AiOutlineExpand,
   Cluster: HiSquare3Stack3D,
+  Loading: (p) => (
+    <AiOutlineLoading {...p} className={clsx(p.className, "media--spin")} />
+  ),
   PID: FaStream,
   Caret: {
     Right: AiFillCaretRight,
@@ -166,6 +176,10 @@ export const Icon: IconType = {
   Pan: GrPan,
   Rule: MdSquareFoot,
   User: MdPerson,
+  Rename: BiRename,
+  Snapshot: MdPictureInPicture,
+  Sync: AiOutlineSync,
+  Search: PiMagnifyingGlassBold,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -214,7 +228,7 @@ export interface IconType {
   Resources: IconFC;
   Group: IconFC;
   Workspace: IconFC;
-  OS: Record<OS, IconFC>;
+  OS: Record<runtime.OS, IconFC>;
   Box: IconFC;
   Python: IconFC;
   Typescript: IconFC;
@@ -253,4 +267,9 @@ export interface IconType {
   Annotate: IconFC;
   Rule: IconFC;
   User: IconFC;
+  Rename: IconFC;
+  Snapshot: IconFC;
+  Loading: IconFC;
+  Sync: IconFC;
+  Search: IconFC;
 }

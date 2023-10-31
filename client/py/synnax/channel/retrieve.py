@@ -11,17 +11,17 @@ from __future__ import annotations
 
 from typing import Protocol, cast
 
-from alamos import Instrumentation, trace, NOOP
+from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
 from synnax.channel.payload import (
-    normalize_channel_params,
-    ChannelPayload,
-    ChannelParams,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    normalize_channel_params,
 )
 
 
@@ -62,8 +62,11 @@ class ClusterChannelRetriever:
     @trace("debug")
     def retrieve(self, params: ChannelParams) -> list[ChannelPayload]:
         normal = normalize_channel_params(params)
+        if len(normal.params) == 0:
+            return list()
         return self.__execute(
-            _Request(**{normal.variant: normal.params}))  # type: ignore
+            _Request(**{normal.variant: normal.params})
+        )  # type: ignore
 
     def __execute(
         self,
@@ -127,8 +130,7 @@ class CacheChannelRetriever:
 
 
 def retrieve_required(
-    r: ChannelRetriever,
-    params: ChannelParams
+    r: ChannelRetriever, params: ChannelParams
 ) -> list[ChannelPayload]:
     normal = normalize_channel_params(params)
     results = r.retrieve(params)

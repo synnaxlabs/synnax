@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -28,8 +29,7 @@ var _ = Describe("getAttributes", Ordered, func() {
 		Expect(builder.Close()).To(Succeed())
 		Expect(builder.Cleanup()).To(Succeed())
 	})
-	Describe("RetrieveP", func() {
-
+	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func() {
 			ch1 := channel.Channel{
 				Rate:     25 * telem.Hz,
@@ -93,6 +93,53 @@ var _ = Describe("getAttributes", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
+		})
+		It("Should correctly retrieve a channel by its name", func() {
+			n := uuid.New().String()
+			created := []channel.Channel{
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32T,
+					Name:     n,
+				},
+			}
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			Expect(err).ToNot(HaveOccurred())
+			var resChannels []channel.Channel
+
+			err = services[1].
+				NewRetrieve().
+				WhereNames(n).
+				Entries(&resChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(1))
+			Expect(resChannels[0].Name).To(Equal(n))
+		})
+		It("Should correctly retrieve channels by regex expression", func() {
+			created := []channel.Channel{
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32T,
+					Name:     "SG222",
+				},
+				{
+					Rate:     25 * telem.Hz,
+					DataType: telem.Float32T,
+					Name:     "SG223",
+				},
+			}
+			err := services[1].NewWriter(nil).CreateMany(ctx, &created)
+			Expect(err).ToNot(HaveOccurred())
+			var resChannels []channel.Channel
+
+			err = services[1].
+				NewRetrieve().
+				WhereNames("SG22.*").
+				Entries(&resChannels).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resChannels).To(HaveLen(2))
 		})
 	})
 	Describe("Exists", func() {

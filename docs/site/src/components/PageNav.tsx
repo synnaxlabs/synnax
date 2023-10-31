@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
@@ -35,9 +35,20 @@ export const useDocumentSize = (): number | null => {
 
 export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const width = useDocumentSize();
+  // split the current page into its parts
+  let parts = currentPage.split("/").filter((part) => part !== "");
   const { visible, toggle, ref } = Dropdown.use({ initialVisible: false });
-  const treeProps = Tree.use();
-  const tree = <Tree.Tree nodes={pages} {...treeProps} selected={[currentPage]} />;
+  if (parts.length === 0) parts = pages.map((p) => p.key);
+  const treeProps = Tree.use({ nodes: pages, initialExpanded: parts, sort: false });
+  const tree = (
+    <Tree.Tree
+      {...treeProps}
+      itemHeight={35}
+      virtual={false}
+      selected={[currentPage]}
+      useMargin
+    />
+  );
   if (width == null) return null;
   if (width > 700) return tree;
   return (
@@ -49,7 +60,6 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
         onClick={() => toggle(!visible)}
         size="large"
         style={{
-          height: "40px",
           border: "none",
         }}
       >

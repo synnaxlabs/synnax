@@ -12,37 +12,47 @@ import { z } from "zod";
 import { color } from "@/color/core";
 import { specZ } from "@/text/types";
 
+const grayScaleZ = z.object({
+  l0: color.Color.z,
+  l1: color.Color.z,
+  l2: color.Color.z,
+  l3: color.Color.z,
+  l4: color.Color.z,
+  l5: color.Color.z,
+  l6: color.Color.z,
+  l7: color.Color.z,
+  l8: color.Color.z,
+  l9: color.Color.z,
+  l10: color.Color.z,
+});
+
+type GrayScale = z.input<typeof grayScaleZ>;
+
 export const themeZ = z.object({
   name: z.string(),
   key: z.string(),
   colors: z.object({
     border: color.Color.z,
     primary: z.object({
-      m1: color.Color.z,
-      z: color.Color.z,
-      p1: color.Color.z,
-    }),
-    gray: z.object({
-      m3: color.Color.z,
       m2: color.Color.z,
       m1: color.Color.z,
-      m0: color.Color.z,
-      p0: color.Color.z,
+      z: color.Color.z,
       p1: color.Color.z,
       p2: color.Color.z,
-      p3: color.Color.z,
     }),
+    gray: grayScaleZ,
     error: z.object({
+      m2: color.Color.z,
       m1: color.Color.z,
       z: color.Color.z,
       p1: color.Color.z,
+      p2: color.Color.z,
     }),
     visualization: z.object({
       palettes: z.record(z.array(color.Color.z)),
     }),
     white: color.Color.z,
     black: color.Color.z,
-    background: color.Color.z,
     text: color.Color.z,
     textContrast: color.Color.z,
     logo: z.string(),
@@ -72,35 +82,59 @@ export const themeZ = z.object({
 export type ThemeSpec = z.input<typeof themeZ>;
 export type Theme = z.output<typeof themeZ>;
 
-const white: string = "#FFFFFF";
-const black: string = "#121212";
 const fontFamily = "'Inter Variable', sans-serif";
 const baseSize: number = 6;
+
+const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
+  color[0],
+  color[1],
+  lightness,
+  color[3],
+];
+
+// Error
+
+const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
+
+// Grayscale
+
+const LIGHT_SCALE = [
+  "#FCFCFC",
+  "#F9F9F9",
+  "#F4F4F4",
+  "#ededed",
+  "#d9d9d9",
+  "#ADADAD",
+  "#878787",
+  "#616161",
+  "#404040",
+  "#1C1C1C",
+  "#050505",
+];
+
+const lightGrayScale: GrayScale = Object.fromEntries(
+  LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
+) as GrayScale;
 
 const synnaxBase: ThemeSpec = {
   key: "synnax-base",
   name: "Synnax Base",
   colors: {
     primary: {
-      m1: "#3363BE",
+      m2: "#041B3D",
+      m1: "#164FA0",
       z: "#3774D0",
-      p1: "#3b84e5",
+      p1: "#5E94EE",
+      p2: "#8AB8FF",
     },
-    gray: {
-      p3: "#1D1D1C",
-      p2: "#2c2c2c",
-      p1: "#474744",
-      p0: "#676762",
-      m0: "#94938D",
-      m1: "#C8C7BF",
-      m2: "#eceaea",
-      m3: "#FEFEFD",
-    },
-    border: "#C8C7BF",
+    gray: lightGrayScale,
+    border: lightGrayScale.l3,
     error: {
-      m1: "#CF1322",
-      z: "#F5222D",
-      p1: "#FF4547",
+      m2: color.fromHSLA(setLightness(ERROR_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(ERROR_HSLA, 40)),
+      z: color.fromHSLA(ERROR_HSLA),
+      p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
+      p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
     },
     visualization: {
       palettes: {
@@ -123,11 +157,10 @@ const synnaxBase: ThemeSpec = {
       },
     },
     logo: "url(#synnax-linear-gradient)",
-    white,
-    black,
-    background: white,
-    text: new color.Color(black).setAlpha(0.85).hex,
-    textContrast: new color.Color(white).setAlpha(0.85).hex,
+    white: "#FFFFFF",
+    black: "#000000",
+    text: lightGrayScale.l9,
+    textContrast: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -159,7 +192,7 @@ const synnaxBase: ThemeSpec = {
     h4: {
       size: 2.5,
       weight: "medium",
-      lineHeight: 3.25,
+      lineHeight: 3,
     },
     h5: {
       size: 2.25,
@@ -175,7 +208,7 @@ const synnaxBase: ThemeSpec = {
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2.5,
+      lineHeight: 2.3,
     },
   },
 };
@@ -186,27 +219,35 @@ export const synnaxLight: ThemeSpec = {
   name: "Synnax Light",
 };
 
+const DARK_SCALE = [
+  "#020202",
+  "#080808",
+  "#141414",
+  "#1a1a1a",
+  "#242424",
+  "#515151",
+  "#7f7f7f",
+  "#9D9D9D",
+  "#BFBFBF",
+  "#E2E2E2",
+  "#FDFDFD",
+];
+
+const darkGrayScale: GrayScale = Object.fromEntries(
+  DARK_SCALE.map((color, index) => [`l${index}`, color]),
+) as GrayScale;
+
 export const synnaxDark: ThemeSpec = {
   ...synnaxBase,
   key: "synnax-dark",
   name: "Synnax Dark",
   colors: {
     ...synnaxBase.colors,
-    gray: {
-      m3: synnaxBase.colors.gray.p3,
-      m2: synnaxBase.colors.gray.p2,
-      m1: synnaxBase.colors.gray.p1,
-      m0: synnaxBase.colors.gray.p0,
-      p0: synnaxBase.colors.gray.m0,
-      p1: synnaxBase.colors.gray.m1,
-      p2: synnaxBase.colors.gray.m2,
-      p3: synnaxBase.colors.gray.m3,
-    },
+    gray: darkGrayScale,
     logo: "var(--pluto-text-color)",
-    border: synnaxBase.colors.gray.p1,
-    background: synnaxBase.colors.black,
-    text: new color.Color(synnaxBase.colors.white).setAlpha(0.9).hex,
-    textContrast: new color.Color(synnaxBase.colors.black).setAlpha(0.9).hex,
+    border: darkGrayScale.l3,
+    text: darkGrayScale.l9,
+    textContrast: darkGrayScale.l0,
   },
 };
 

@@ -11,8 +11,7 @@ package cdc
 
 import (
 	"context"
-	"io"
-
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -27,18 +26,21 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"io"
 )
 
 // ObservableConfig is the configuration for opening a CDC pipeline that subscribes
 // to the provided observable and writes changes to the provided channels. Higher
 // level CDC pipeline should be preferred, such as the SubscribeToGorp.
 type ObservableConfig struct {
-	// Set is the channel used to propagate set operations. Only Name and DataType
+	// Name is an optional name for the CDC pipeline, used for debugging purposes.
+	Name string
+	// Set is the channel used to propagate set operations. Only Name and SetDataType
 	// need to be provided. The config will automatically set Leaseholder to Free
 	// and Virtual to true.
 	Set channel.Channel
 	// Delete is the channel used to propagate delete operations. Only Name and
-	// DataType need to be provided. The config will automatically set Leaseholder
+	// SetDataType need to be provided. The config will automatically set Leaseholder
 	// to Free and Virtual to true.
 	Delete channel.Channel
 	// Observable is the observable used to subscribe to changes. This observable should
@@ -73,6 +75,7 @@ func (c ObservableConfig) Validate() error {
 
 // Override implements config.Config.
 func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
+	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.Set = override.If(c.Set, other.Set, c.Set.Name == "")
 	c.Delete = override.If(c.Delete, other.Delete, c.Delete.Name == "")
 	c.Observable = override.Nil(c.Observable, other.Observable)
@@ -92,7 +95,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	channels := []channel.Channel{cfg.Set, cfg.Delete}
-	if err := s.Channel.RetrieveByNameOrCreate(ctx, &channels); err != nil {
+	if err := s.Channel.CreateManyIfNamesDontExist(ctx, &channels); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
@@ -151,7 +154,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
-	sCtx, cancel := signal.Isolated()
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.Set.Name))))
 	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return signal.NewShutdown(sCtx, cancel), nil
 }

@@ -9,7 +9,7 @@
 
 import { type DependencyList, useRef } from "react";
 
-import { Compare, deep } from "@synnaxlabs/x";
+import { compare, deep } from "@synnaxlabs/x";
 import type { Primitive } from "@synnaxlabs/x";
 
 export const useMemoCompare = <V, D extends DependencyList>(
@@ -24,9 +24,9 @@ export const useMemoCompare = <V, D extends DependencyList>(
 };
 
 export const compareArrayDeps = <T extends Primitive>(
-  [a]: readonly [T[]],
-  [b]: readonly [T[]],
-): boolean => Compare.primitiveArrays(a, b) === 0;
+  [a]: readonly [T[]] | [T[]],
+  [b]: readonly [T[]] | [T[]],
+): boolean => compare.primitiveArrays(a, b) === 0;
 
 export const useMemoDeepEqualProps = <T extends Record<string, unknown>>(
   props: T,

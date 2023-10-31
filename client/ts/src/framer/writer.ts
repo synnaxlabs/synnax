@@ -82,7 +82,7 @@ export interface WriterConfig {
  * The protocol is as follows:
  *
  * 1. The writer is opened with a starting timestamp and a list of channel keys. The
- * writer will fail to open if hte starting timstamp overlaps with any existing telemetry
+ * writer will fail to open if the starting timstamp overlaps with any existing telemetry
  * for any channels specified. If the writer opens successfuly, the caller is then
  * free to write frames to the writer.
  *
@@ -119,15 +119,6 @@ export class Writer {
     this.adapter = adapter;
   }
 
-  /**
-   * Opens the writer to wirte a range of telemetry starting at the given time.
-   *
-   * @param start -  The starting timestamp of the new range to write to. If start overlaps
-   * with existing telemetry, the writer will fail to open.
-   *
-   * @param keys - A list of keys representing the channels the writer will write to. All
-   * frames written to the writer must have channel keys in this list.
-   */
   static async _open(
     retriever: Retriever,
     client: StreamClient,

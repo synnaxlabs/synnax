@@ -1,4 +1,4 @@
-// Copyrght 2023 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,6 +26,7 @@ export interface FormProps<P extends object = UnknownRecord> extends Input.Contr
 export interface Spec<P extends object = UnknownRecord> {
   type: string;
   title: string;
+  zIndex?: number;
   initialProps: (theme: Theming.Theme) => P;
   Element: FC<Props<P>>;
   Form: FC<FormProps<P>>;

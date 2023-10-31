@@ -54,7 +54,7 @@ export class Value
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
-    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.p2;
+    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.l8;
     else this.internal.textColor = this.state.color;
     const [t, cleanupTelem] = telem.use<telem.NumericSource>(
       this.ctx,

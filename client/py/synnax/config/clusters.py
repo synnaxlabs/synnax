@@ -10,8 +10,8 @@
 import keyring
 from pydantic import BaseModel
 
-from synnax.options import SynnaxOptions
 from synnax.config.file import ConfigFile
+from synnax.options import SynnaxOptions
 
 
 class ClusterConfig(BaseModel):

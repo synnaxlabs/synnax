@@ -61,3 +61,7 @@ func WithClosables(closables ...Closable) Option {
 func Defer(fn func(), opts ...signal.RoutineOption) Option {
 	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.Defer(fn, opts...)) }
 }
+
+func DeferErr(fn func() error, opts ...signal.RoutineOption) Option {
+	return func(fo *Options) { fo.Signal = append(fo.Signal, signal.DeferErr(fn, opts...)) }
+}

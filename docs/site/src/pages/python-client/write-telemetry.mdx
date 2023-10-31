@@ -1,0 +1,210 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Write Telemetry"
+heading: "Write Telemetry"
+description: "Use the Python client to write to a Synnax cluster"
+---
+
+Synnax supports multiple methods for writing data to a cluster. We can write directly
+to a channel, fetch a named range and set its data, or leverage writers for writing large
+volumes of telemetry.
+
+Writes in Synnax are more complicated than reads, and, as such, we recommend checking out
+our [concepts](/docs/concepts/write-domains) page to learn more about the best practices
+for writing data to Synnax.
+
+## Writing to a Channel
+
+### The simplest write - fixed rate
+
+Writing to a fixed rate channel is as simple as calling the channels `write` method.
+We'll create the following fixed rate channel as an example:
+
+```python
+import synnax as sy
+
+# Create the channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=np.float32,
+    rate=1 * sy.HZ,
+)
+```
+
+Then, we'll provide our data and a timestamp marking the first sample to the `write` 
+method:
+
+```python
+from datetime import datetime
+
+# Our temperature data. 
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3, 59.4]
+
+# The timestamp of the first sample. All other samples will be spaced at the rate
+# of the channel.
+start = datetime.utcnow()
+
+my_precise_tc.write(start, temperatures)
+```
+
+If we had multiple channels, we would pass the same timestamp to each channel's `write`
+method. This would ensure that the data is aligned across all channels.
+
+```python
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3, 59.4]
+pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3, 104.4]
+
+start = datetime.utcnow()
+
+my_precise_tc.write(start, temperatures)
+my_precise_pt.write(start, pressures)
+```
+
+### Writing to a variable rate channel
+
+Writing to a variable rate channel requires us to write to a channel's index before 
+we write it's data. We'll create the following index-indexed pair as an example:
+
+```python
+import synnax as sy
+
+# Create the index
+timestamps = client.indexes.create(
+    name="timestamps",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True
+)
+
+# Create the temperature channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=np.float32,
+    index=timestamps
+)
+```
+
+Then, we'll make sure to write timestamps to the index before we write the data to the
+channel:
+
+```python
+from datetime import datetime
+
+# Our temperature data.
+temperatures = [55, 55.1, 55.7, 57.2, 58.1]
+first = sy.TimeStamp.now()
+timestamps = [
+    first,
+    first + 1 * sy.TimeSpan.HOUR,
+    first + 2 * sy.TimeSpan.HOUR,
+    first + 3 * sy.TimeSpan.HOUR,
+    first + 4 * sy.TimeSpan.HOUR,
+]
+
+# Write the timestamps to the index
+timestamps.write(first, timestamps)
+
+# Write the data to the channel
+my_precise_tc.write(first, temperatures)
+```
+
+Notice how we align the two arrays using the common `first` timestamp. This tells Synnax
+that the first sample in the `temperatures` array is associated with the first timestamp
+in the `timestamps` array.
+
+Synnax will raise a `ValidationError` if the index does not contain a corresponding 
+timestamp for every sample in the data array. After all, it wouldn't make sense to have
+a temperature reading without an associated timestamp.
+
+## Writing to a Named Range
+
+Writing to a named range takes away the burden of needing to correctly align the data
+from different channels.
+
+We'll create the following named range as an example:
+
+```python
+import synnax as sy
+
+# Create the named range
+burst_test = client.ranges.create(
+    name="burst_test",
+    time_range=sy.TimeRange(
+        start=sy.TimeStamp.now(),
+        end=sy.TimeStamp.now() + 1 * sy.TimeSpan.HOUR
+    )
+)
+```
+
+Then, we'll write to the named range using the `write` method:
+
+```python
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3, 59.4]
+pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3, 104.4]
+
+# This call to write will assume that the timestamp of the first sample is the start
+# of the range.
+burst_test.write({
+    "my_precise_tc": temperatures,
+    "my_precise_pt": pressures,
+})
+```
+
+## Using a Writer
+
+While the above methods are great for writing static, existing data, Synnax provides 
+first-class support for writing large volumes of data over long periods of time. Writers 
+are also essential for streaming telemetry to control sequences and live dashboards.
+
+Writer's are a bit more complicated to operate that the above methods, so we recommend
+reading the [concepts](/concepts/write-domains#transactions) page to learn more about
+how they work.
+
+### Opening a writer
+
+We'll create the following index-indexed pair to use with our writer.
+
+```python
+import synnax as sy
+
+# Create the index
+timestamps = client.indexes.create(
+    name="timestamps",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True
+)
+
+# Create the temperature channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=np.float32,
+    index=timestamps
+)
+```
+
+We recommend using writer's within a context manager to automatically close the writer,
+ensuring that resources have been freed and sockets are closed. To open the writer,
+we use the `new_writer` method on the clinet and provde a starting timestamp for the 
+first sample and a list of channels we'd like to write to.
+
+```python
+import time
+
+with client.new_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as w:
+    for i in range(100):
+        w.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+    w.commit()
+```
+
+The above example will write 100 samples to the `my_precise_tc` channel, each spaced
+roughly 0.1 seconds apart, and will commit all writes when finished. 
+
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is persisted to the cluster.
+

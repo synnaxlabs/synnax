@@ -29,9 +29,9 @@ import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { type axis } from "@/vis/axis";
 import { LinePlot as Core } from "@/vis/lineplot";
+import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
-import { Tooltip } from "@/vis/tooltip";
 
 import "@/channel/LinePlot.css";
 
@@ -43,6 +43,7 @@ export interface AxisProps {
   color: Color.Crude;
   showGrid?: boolean;
   type: axis.TickType;
+  tickSpacing?: number;
 }
 
 export interface BaseLineProps {

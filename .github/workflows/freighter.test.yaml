@@ -5,7 +5,6 @@ on:
       - main
   push:
     paths:
-      - "freighter/**"
       - ".github/workflows/freighter.test.yaml"
   workflow_dispatch:
 jobs:

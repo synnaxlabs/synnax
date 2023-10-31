@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, box, scale, xy, dimensions } from "@synnaxlabs/x";
+import { type Destructor, box, scale, xy, dimensions, runtime } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
+import { clear } from "@/vis/render/clear";
 import { Queue } from "@/vis/render/queue";
 
 export type CanvasVariant = "upper2d" | "lower2d" | "gl";
@@ -50,6 +51,11 @@ export class Context {
   /** queue render transitions onto the stack */
   readonly queue: Queue;
 
+  /** See the @link{clear.Program} for why this is necessary. */
+  private readonly clearProg: clear.Program;
+
+  private readonly os: runtime.OS;
+
   private static readonly CONTEXT_KEY = CSS.B("render-context");
 
   static create(
@@ -57,8 +63,9 @@ export class Context {
     glCanvas: OffscreenCanvas,
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
+    os: runtime.OS,
   ): Context {
-    const render = new Context(glCanvas, lower2dCanvas, upper2dCanvas);
+    const render = new Context(glCanvas, lower2dCanvas, upper2dCanvas, os);
     ctx.set(Context.CONTEXT_KEY, render);
     return render;
   }
@@ -67,11 +74,13 @@ export class Context {
     glCanvas: OffscreenCanvas,
     lower2dCanvas: OffscreenCanvas,
     upper2dCanvas: OffscreenCanvas,
+    os: runtime.OS,
   ) {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.queue = new Queue();
+    this.os = os;
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
@@ -90,6 +99,8 @@ export class Context {
 
     this.region = box.ZERO;
     this.dpr = 1;
+
+    this.clearProg = new clear.Program(this);
   }
 
   static useOptional(ctx: aether.Context): Context | null {
@@ -218,7 +229,9 @@ export class Context {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverscan(box, overscan));
     gl.clearColor(...color.ZERO.rgba1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    // See the documentation for the clear program for why this is necessary.
+    if (this.os === "Windows") this.clearProg.exec();
     removeScissor();
   }
 

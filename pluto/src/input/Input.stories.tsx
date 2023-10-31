@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import type { Meta } from "@storybook/react";
+import { Icon } from "@synnaxlabs/media";
 import { TimeStamp } from "@synnaxlabs/x";
 
 import { Input } from "@/input";
@@ -22,7 +23,7 @@ const story: Meta<typeof Input.Text> = {
 
 export const Basic = (): ReactElement => {
   const [value, setValue] = useState("");
-  return <Input.Text value={value} onChange={setValue} />;
+  return <Input.Text value={value} onChange={setValue} placeholder={<Icon.Add />} />;
 };
 
 export const Time = (): ReactElement => {

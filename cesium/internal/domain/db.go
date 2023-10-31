@@ -152,5 +152,5 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 		return nil, err
 	}
 	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{ptr: ptr, ReaderAt: reader, Closer: internal}, nil
+	return &Reader{ptr: ptr, ReaderAt: reader}, nil
 }

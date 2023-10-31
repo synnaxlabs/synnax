@@ -31,9 +31,6 @@ export const Link = <L extends Text.Level = "h1">({
   target,
   ...props
 }: LinkProps<L>): ReactElement => {
-  return (
-    <form action={href} target={target} rel={target}>
-      <Button {...props} />
-    </form>
-  );
+  // @ts-expect-error
+  return <Button<"a"> el="a" href={href} {...props} />;
 };

@@ -31,6 +31,14 @@ type Entry[K Key] interface {
 	SetOptions() []interface{}
 }
 
+type nopEntry []struct{}
+
+var _ Entry[string] = nopEntry{}
+
+func (nopEntry) GorpKey() string { return "" }
+
+func (nopEntry) SetOptions() []interface{} { return nil }
+
 const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or

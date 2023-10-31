@@ -64,7 +64,6 @@ func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t Relationsh
 		return ErrCycle
 	}
 	return gorp.NewCreate[string, Relationship]().Entry(&rel).Exec(ctx, d.tx)
-
 }
 
 // DeleteRelationship implements the Writer interface.

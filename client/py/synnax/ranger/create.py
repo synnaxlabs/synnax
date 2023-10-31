@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from alamos import Instrumentation, NOOP, trace
-from freighter import UnaryClient, Payload
+from alamos import NOOP, Instrumentation, trace
+from freighter import Payload, UnaryClient
+
 from synnax.ranger.payload import RangePayload
 
 

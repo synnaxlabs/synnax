@@ -12,28 +12,28 @@ from typing import overload
 
 from numpy import ndarray
 from pydantic import PrivateAttr
-from synnax.exceptions import ValidationError
+
 from synnax.channel.create import ChannelCreator
 from synnax.channel.payload import (
-    normalize_channel_params,
-    ChannelPayload,
-    ChannelParams,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
+    ChannelParams,
+    ChannelPayload,
+    normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.exceptions import QueryError
+from synnax.exceptions import NoResultsError, MultipleResultsError, ValidationError
 from synnax.framer.client import Client
 from synnax.telem import (
-    Rate,
     CrudeDataType,
     CrudeRate,
-    DataType,
-    TimeRange,
-    Series,
     CrudeTimeStamp,
+    DataType,
+    Rate,
+    Series,
+    TimeRange,
 )
 
 
@@ -191,19 +191,13 @@ class ChannelClient:
 
     @overload
     def create(
-        self, 
-        channels: Channel, 
-        *, 
-        retrieve_if_name_exists: bool = False
+        self, channels: Channel, *, retrieve_if_name_exists: bool = False
     ) -> Channel:
         ...
 
     @overload
     def create(
-        self, 
-        channels: list[Channel],
-        *,
-        retrieve_if_name_exists: bool = False
+        self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
     ) -> list[Channel]:
         ...
 
@@ -264,9 +258,13 @@ class ChannelClient:
 
         created = list()
         if retrieve_if_name_exists:
-            created = self.__sugar(self._retriever.retrieve([ch.name for ch in _channels]))
-            _channels = [c for c in _channels if c.name not in [ch.name for ch in created]]
-        
+            created = self.__sugar(
+                self._retriever.retrieve([ch.name for ch in _channels])
+            )
+            _channels = [
+                c for c in _channels if c.name not in [ch.name for ch in created]
+            ]
+
         created.extend(self.__sugar(self._creator.create(_channels)))
         return created if isinstance(channels, list) else created[0]
 
@@ -314,11 +312,36 @@ class ChannelClient:
         if not normal.single:
             return sug
 
-        if len(res) == 0:
-            raise QueryError(f"Channel matching {channel} not found.")
-        elif len(res) > 1:
-            raise QueryError(f"Multiple channels matching {channel} found.")
-        return sug[0]
+        if len(res) == 1:
+            return sug[0]
+
+        if len(res) > 1:
+            raise _multiple_results_error(channel, res)
+
+        raise NoResultsError(f"Channel matching '{channel}' not found.")
 
     def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
         return [Channel(**c.dict(), _frame_client=self._frame_client) for c in channels]
+
+
+def _multiple_results_error(
+    channel: ChannelParams,
+    results: list[ChannelPayload],
+) -> MultipleResultsError:
+    msg = f"""
+
+Multiple channels matching '{channel}' found. If you'd like to retrieve all
+of them, pass in '{channel}' as an array i.e. ['{channel}'] instead of {channel}.
+
+The channels found were:
+    """
+
+    # append a max of five results to the error message. If we have more than five,
+    # we'll just say "and x more" at the end.
+    for i in range(min(5, len(results))):
+        msg += f"{str(results[i])}, "
+
+    if len(results) > 5:
+        msg += f"and {len(results) - 5} more."
+
+    return MultipleResultsError(msg)

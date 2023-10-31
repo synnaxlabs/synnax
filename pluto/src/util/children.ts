@@ -30,7 +30,7 @@ export const isValidElement = <
     | string
     | React.JSXElementConstructor<any>,
 >(
-  child: ReactElement<P, T> | string | number | null | undefined,
+  child: unknown,
 ): child is ReactElement<P, T> =>
   // The hydrate props check lets us avoid considering Astro slots as valid react
   // elements.

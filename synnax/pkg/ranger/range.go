@@ -10,14 +10,23 @@
 package ranger
 
 import (
+	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"regexp"
 )
 
 // Range (short for time range) is an interesting, user defined regions of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
+	tx  gorp.Tx
+	otg *ontology.Ontology
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
 	// will be generated.
 	Key uuid.UUID `json:"key" msgpack:"key"`
@@ -34,3 +43,99 @@ func (r Range) GorpKey() uuid.UUID { return r.Key }
 
 // SetOptions implements gorp.Entry.
 func (r Range) SetOptions() []interface{} { return nil }
+
+func (r Range) UseTx(tx gorp.Tx) Range { r.tx = tx; return r }
+
+func (r Range) setOntology(otg *ontology.Ontology) Range { r.otg = otg; return r }
+
+func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
+	var (
+		res = keyValue{Range: r.Key, Key: key}
+		err = gorp.NewRetrieve[[]byte, keyValue]().
+			WhereKeys(res.GorpKey()).
+			Entry(&res).
+			Exec(ctx, r.tx)
+	)
+	return res.Value, err
+}
+
+func (r Range) Set(ctx context.Context, key, value []byte) error {
+	return gorp.NewCreate[[]byte, keyValue]().
+		Entry(&keyValue{Range: r.Key, Key: key, Value: value}).
+		Exec(ctx, r.tx)
+}
+
+func (r Range) Delete(ctx context.Context, key []byte) error {
+	return gorp.NewDelete[[]byte, keyValue]().
+		WhereKeys(keyValue{Range: r.Key, Key: key}.GorpKey()).
+		Exec(ctx, r.tx)
+}
+
+func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
+	exists, err := gorp.NewRetrieve[channel.Key, channel.Channel]().WhereKeys(ch).Exists(ctx, r.tx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.Wrapf(query.NotFound, "[range] - cannot alias non-existent channel %s", ch)
+	}
+	if err := gorp.NewCreate[string, alias]().
+		Entry(&alias{Range: r.Key, Channel: ch, Alias: al}).
+		Exec(ctx, r.tx); err != nil {
+		return err
+	}
+	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
+}
+
+func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
+	var res alias
+	matcher := func(a *alias) bool { return a.Range == r.Key && a.Alias == al }
+	rxp, err := regexp.Compile(al)
+	if err == nil {
+		matcher = func(a *alias) bool { return a.Range == r.Key && rxp.MatchString(a.Alias) }
+	}
+	err = gorp.NewRetrieve[string, alias]().
+		Where(matcher).
+		Entry(&res).
+		Exec(ctx, r.tx)
+	return res.Channel, err
+}
+
+func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
+	ids, err := r.otg.SearchIDs(ctx, search.Request{Term: term, Type: aliasOntologyType})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]channel.Key, 0)
+	for _, id := range ids {
+		rangeKey, chKey, err := parseAliasKey(id.Key)
+		if err != nil {
+			return nil, err
+		}
+		if rangeKey == r.Key {
+			res = append(res, chKey)
+		}
+	}
+	return res, nil
+}
+
+func (r Range) DeleteAlias(ctx context.Context, ch channel.Key) error {
+	return gorp.NewDelete[string, alias]().
+		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+		Exec(ctx, r.tx)
+}
+
+func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) {
+	res := make([]alias, 0)
+	if err := gorp.NewRetrieve[string, alias]().
+		Where(func(a *alias) bool { return a.Range == r.Key }).
+		Entries(&res).
+		Exec(ctx, r.tx); err != nil {
+		return nil, err
+	}
+	aliases := make(map[channel.Key]string, len(res))
+	for _, a := range res {
+		aliases[a.Channel] = a.Alias
+	}
+	return aliases, nil
+}

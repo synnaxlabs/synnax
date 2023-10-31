@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 	"testing"
 )
 
@@ -30,6 +31,8 @@ func TestOntology(t *testing.T) {
 type emptyService struct {
 	observe.Noop[iter.Nexter[schema.Change]]
 }
+
+var _ ontology.Service = (*emptyService)(nil)
 
 const emptyType ontology.Type = "empty"
 
@@ -46,7 +49,7 @@ func (s *emptyService) Schema() *ontology.Schema {
 	}
 }
 
-func (s *emptyService) RetrieveResource(ctx context.Context, key string) (ontology.Resource, error) {
+func (s *emptyService) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	e := schema.NewResource(s.Schema(), newEmptyID(key), "empty")
 	schema.Set(e, "key", key)
 	return e, nil
@@ -66,10 +69,8 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	var err error
 	db = gorp.Wrap(memkv.New())
-	otg, err = ontology.Open(ctx, ontology.Config{DB: db})
-	Expect(err).ToNot(HaveOccurred())
+	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	otg.RegisterService(&emptyService{})
 })
 

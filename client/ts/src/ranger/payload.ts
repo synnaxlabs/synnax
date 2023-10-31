@@ -24,10 +24,10 @@ export const payloadZ = z.object({
 });
 export type Payload = z.infer<typeof payloadZ>;
 
-export const newPayload = payloadZ.extend({
+export const newPayloadZ = payloadZ.extend({
   key: z.string().uuid().optional(),
 });
-export type NewPayload = z.infer<typeof newPayload>;
+export type NewPayload = z.infer<typeof newPayloadZ>;
 
 export type ParamAnalsysisResult =
   | {

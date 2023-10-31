@@ -24,7 +24,7 @@ export interface UseEvent {
 
 export type UseHandler = (e: UseEvent) => void;
 
-export type UseTriggers = Triggers.Config<TriggerMode>;
+export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 
 export interface UseProps {
   triggers?: UseTriggers;
@@ -134,7 +134,7 @@ export const use = ({
           Triggers.flattenConfig(mouseTriggers),
         ];
       },
-      Triggers.compareConfigs,
+      Triggers.compareModeConfigs,
       [initialTriggers],
     );
 

@@ -9,9 +9,8 @@
 
 from __future__ import annotations
 
-from typing import Literal, cast
-
 from dataclasses import dataclass
+from typing import Literal, cast
 
 from freighter import Payload
 
@@ -39,7 +38,7 @@ class ChannelPayload(Payload):
     index: ChannelKey = 0
 
     def __str__(self):
-        return f"Channel {self.name}"
+        return f"Channel({self.key}, {self.name})"
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -65,7 +64,7 @@ def normalize_channel_params(
     """Determine if a list of keys or names is a single key or name."""
     normalized = normalize(params)
     if len(normalized) == 0:
-        raise ValueError("no keys or names provided")
+        return NormalizedChannelKeyResult(single=False, variant="keys", params=[])
     single = isinstance(params, (ChannelKey, ChannelName))
     if isinstance(normalized[0], str):
         return NormalizedChannelNameResult(

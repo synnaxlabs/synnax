@@ -1,4 +1,4 @@
-#  Copyright 2023 sy Labs, Inc.
+#  Copyright 2023 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -84,7 +84,7 @@ class TestChannelClient:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
-        with pytest.raises(sy.QueryError):
+        with pytest.raises(sy.NoResultsError):
             client.channels.retrieve("1-100000")
 
     def test_retrieve_by_list_of_names(
@@ -101,3 +101,31 @@ class TestChannelClient:
         fake_names = ["fake1", "fake2", "fake3"]
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
+
+    def test_retrieve_single_multiple_found(
+        self,
+        client: sy.Synnax,
+        two_channels: list[sy.Channel],
+    ):
+        """Should raise QueryError when retrieving a single channel with
+        multiple matches"""
+        with pytest.raises(sy.MultipleResultsError):
+            client.channels.retrieve("test.*")
+
+    def test_retrieve_by_regex(self, client: sy.Synnax):
+        """Should retrieve channels test1 and test2 using a regex"""
+        ch1 = client.channels.create(
+            [sy.Channel(
+                name="strange_channel_regex_1",
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
+                sy.Channel(
+                    name="strange_channel_regex_2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        res_channels = client.channels.retrieve(["^strange_channel_regex_"])
+        assert len(res_channels) >= 2

@@ -68,10 +68,10 @@ type change = changex.Change[uuid.UUID, Range]
 func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string) (schema.Resource, error) {
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
 	var r Range
-	err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, nil)
+	err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx)
 	return newResource(r), err
 }
 

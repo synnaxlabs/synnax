@@ -19,7 +19,7 @@ const _FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors";
 
 const APIErrorPayloadSchema = z.object({
   type: z.string(),
-  error: z.record(z.unknown()),
+  error: z.record(z.unknown()).or(z.array(z.unknown())),
 });
 
 type APIErrorPayload = z.infer<typeof APIErrorPayloadSchema>;
@@ -110,25 +110,27 @@ export class RouteError extends BaseError {
  */
 export class ContiguityError extends BaseError {}
 
+const messageErrorZ = z.object({ message: z.string() });
+const routeErrorZ = z.object({ path: z.string(), message: z.string() });
+
 const parsePayload = (payload: APIErrorPayload): Error | null => {
   switch (payload.type) {
     case APIErrorType.General:
-      return new GeneralError(payload.error.message as string);
+      return new GeneralError(messageErrorZ.parse(payload.error).message);
     case APIErrorType.Parse:
-      return new ParseError(payload.error.message as string);
+      return new ParseError(messageErrorZ.parse(payload.error).message);
     case APIErrorType.Auth:
-      return new AuthError(payload.error.message as string);
+      return new AuthError(messageErrorZ.parse(payload.error).message);
     case APIErrorType.Unexpected:
       return new UnexpectedError(JSON.stringify(payload.error));
     case APIErrorType.Validation:
-      return new ValidationError(payload.error.fields as string | Field[]);
+      return new ValidationError(payload.error as string | Field[]);
     case APIErrorType.Query:
-      return new QueryError(payload.error.message as string);
-    case APIErrorType.Route:
-      return new RouteError(
-        payload.error.path as string,
-        payload.error.message as string,
-      );
+      return new QueryError(messageErrorZ.parse(payload.error).message);
+    case APIErrorType.Route: {
+      const err = routeErrorZ.parse(payload.error);
+      return new RouteError(err.message, err.path);
+    }
     default:
       return null;
   }

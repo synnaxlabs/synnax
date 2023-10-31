@@ -1,4 +1,4 @@
-// Copyrght 2023 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,6 +44,10 @@ export const ValueLabeled = ({
   textColor,
   color,
   zoom = 1,
+  telem,
+  units,
+  precision,
+  width,
   ...props
 }: ValueLabeledProps): ReactElement => {
   const font = Theming.useTypography(level);
@@ -78,7 +82,15 @@ export const ValueLabeled = ({
         }}
       >
         {children}
-        <Core color={textColor} level={level} {...props} box={adjustedBox} />
+        <Core
+          color={textColor}
+          level={level}
+          box={adjustedBox}
+          telem={telem}
+          units={units}
+          precision={precision}
+          width={width}
+        />
       </div>
     </Align.Space>
   );
