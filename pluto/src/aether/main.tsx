@@ -20,6 +20,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useLayoutEffect,
 } from "react";
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
@@ -27,7 +28,6 @@ import { compare, type SenderHandler } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";
-import { useUnmount } from "@/hooks/useMount";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { state } from "@/state";
@@ -185,10 +185,14 @@ const useLifecycle = <S extends z.ZodTypeAny>({
     };
   }, [type, path, onReceive, setState]);
 
-  useUnmount(() => {
-    comms.current?.delete();
-    comms.current = null;
-  });
+  // Destroy the component on unmount.
+  useLayoutEffect(
+    () => () => {
+      comms.current?.delete();
+      comms.current = null;
+    },
+    [],
+  );
 
   return useMemo(() => ({ setState, path }), [setState, key, path]);
 };

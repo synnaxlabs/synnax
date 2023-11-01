@@ -17,7 +17,7 @@ import {
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
 
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
 import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";

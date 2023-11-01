@@ -16,7 +16,7 @@ import {
   Synnax,
   useAsyncEffect,
   Haul,
-  useStateRef,
+  useStateRef as useRefAsState,
   useCombinedStateAndRef,
   componentRenderProp,
   type state,
@@ -171,7 +171,7 @@ export const Tree = (): ReactElement => {
 
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
-  const [resourcesRef, setResources] = useStateRef<ontology.Resource[]>([]);
+  const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
 
   const menuProps = Menu.useContextMenu();
 
