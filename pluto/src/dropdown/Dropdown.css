@@ -12,6 +12,10 @@
 .pluto-dropdown {
     :is(button, input, .pluto-input):first-child:is(:focus,:focus-within,:hover) {
         z-index: 5;
+
+        & .pluto-input__placeholder {
+            z-index: 6;
+        }
     }
 }
 

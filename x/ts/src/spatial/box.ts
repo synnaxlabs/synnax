@@ -240,6 +240,8 @@ export const x = (b: Box): number => (b.root.x === "left" ? left(b) : right(b));
 
 export const y = (b: Box): number => (b.root.y === "top" ? top(b) : bottom(b));
 
+export const root = (b: Box): xy.XY => ({x: x(b), y: y(b)});
+
 export const xBounds = (b: Box): bounds.Bounds => ({ lower: b.one.x, upper: b.two.x });
 
 export const yBounds = (b: Box): bounds.Bounds => ({ lower: b.one.y, upper: b.two.y });

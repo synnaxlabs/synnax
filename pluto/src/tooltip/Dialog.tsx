@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   useId,
+  isValidElement,
 } from "react";
 
 import {
@@ -30,6 +31,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
+import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
 
@@ -217,7 +219,7 @@ export const Dialog = ({
               "--el-width": CSS.px(state.triggerDims.width),
             }}
           >
-            {isRenderProp(tip) ? tip(state) : tip}
+            {isRenderProp(tip) ? tip(state) : formatTip(tip)}
           </div>,
           root,
         )}
@@ -228,4 +230,11 @@ export const Dialog = ({
       })}
     </>
   );
+};
+
+export const formatTip = (tip: ReactNode): ReactNode => {
+  if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip)) {
+    return <Text.Text level="small">{tip as string | number}</Text.Text>;
+  }
+  return tip;
 };

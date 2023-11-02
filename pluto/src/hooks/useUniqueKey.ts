@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useId, useRef } from "react";
+import { useRef } from "react";
+
+import { nanoid } from "nanoid";
 
 /**
  * @returns a unique key that persists for the lifetime of the component.
@@ -16,7 +18,6 @@ import { useId, useRef } from "react";
  * */
 export const useUniqueKey = (override?: string): string => {
   const gen = useRef<string | null>(null);
-  const id = useId();
-  if (gen.current === null) gen.current = override ?? id;
+  if (gen.current === null) gen.current = override ?? nanoid();
   return gen.current;
 };

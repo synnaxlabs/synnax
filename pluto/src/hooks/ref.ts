@@ -32,10 +32,9 @@ export const useStateRef = <T extends state.State>(
   initialValue: state.Initial<T>,
 ): [MutableRefObject<T>, state.Set<T>] => {
   const ref = useRef<T>(state.executeInitialSetter(initialValue));
-  const setValue: state.Set<T> = useCallback(
-    (setter) => (ref.current = state.executeSetter(setter, ref.current)),
-    [],
-  );
+  const setValue: state.Set<T> = useCallback((setter) => {
+    ref.current = state.executeSetter(setter, ref.current);
+  }, []);
   return [ref, setValue];
 };
 

@@ -13,9 +13,24 @@
     box-sizing: border-box;
 }
 
-:is(button, input):is(:focus,:active,:hover) {
+button:is(:focus,:focus-within,:active,:hover) {
     z-index: 3;
+
+    
 }
+
+.pluto-input:is(:focus-within,:active,:hover) {
+    & input {
+        z-index: 3;
+    }
+
+     & .pluto-input__placeholder {
+        z-index: 4;
+    }
+}
+
+
+
 
 html {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);

@@ -15,6 +15,7 @@ import { type Range } from "@/range/range";
 
 export interface SliceState {
   activeRange: string | null;
+  editBuffer: Partial<Range> | null;
   ranges: Record<string, Range>;
 }
 
@@ -31,7 +32,7 @@ export const initialState: SliceState = {
       key: "recent",
       variant: "dynamic",
       name: "Recent",
-      span: Number(TimeSpan.minutes(60)),
+      span: Number(TimeSpan.seconds(30)),
     },
   },
 };
@@ -39,9 +40,15 @@ export const initialState: SliceState = {
 interface AddPayload {
   ranges: Range[];
 }
+
+interface SetEditBufferPayload {
+  range: Partial<Range> | null;
+}
+
 interface RemovePayload {
   keys: string[];
 }
+
 type SetActivePayload = string | null;
 
 type PA<P> = PayloadAction<P>;
@@ -63,9 +70,12 @@ export const { actions, reducer } = createSlice({
     setActive: (state, { payload }: PA<SetActivePayload>) => {
       state.activeRange = payload;
     },
+    setEditBuffer: (state, { payload: { range } }: PA<SetEditBufferPayload>) => {
+      state.editBuffer = range;
+    },
   },
 });
-export const { add, remove, setActive } = actions;
+export const { add, remove, setActive, setEditBuffer } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

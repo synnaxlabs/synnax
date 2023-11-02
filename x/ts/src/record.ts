@@ -36,3 +36,10 @@ export const unknownRecordZ = z.record(
   z.union([z.number(), z.string(), z.symbol()]),
   z.unknown(),
 );
+
+export type Entries<T> = {
+  [K in keyof T]: [K, T[K]];
+}[keyof T][];
+
+export const getEntries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
+  Object.entries(obj) as Entries<T>;

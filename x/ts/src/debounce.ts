@@ -24,3 +24,22 @@ export const debounce = <F extends (...args: any[]) => void>(
 
   return debounced as F;
 };
+
+export const throttle = <F extends (...args: any[]) => void>(
+  func: F,
+  waitFor: number
+): F => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  if (waitFor === 0) return func;
+
+  const throttled = (...args: Parameters<F>): void => {
+    if (timeout === null) {
+      timeout = setTimeout(() => {
+        func(...args);
+        timeout = null;
+      }, waitFor);
+    }
+  };
+
+  return throttled as F;
+}

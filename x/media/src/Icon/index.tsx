@@ -75,6 +75,7 @@ import {
   MdPerson,
   MdPause,
   MdPictureInPicture,
+  MdAutoAwesome,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -180,6 +181,7 @@ export const Icon: IconType = {
   Snapshot: MdPictureInPicture,
   Sync: AiOutlineSync,
   Search: PiMagnifyingGlassBold,
+  Auto: MdAutoAwesome,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -272,4 +274,5 @@ export interface IconType {
   Loading: IconFC;
   Sync: IconFC;
   Search: IconFC;
+  Auto: IconFC, 
 }
