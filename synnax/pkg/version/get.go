@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/git"
 	"go.uber.org/zap"
 	"io"
+	"strings"
 )
 
 //go:embed VERSION
@@ -33,7 +34,10 @@ func Prod() string {
 		zap.S().Errorw(errorMsg, "error", err)
 		return unknown
 	}
-	return string(v)
+	vString := string(v)
+	vString = strings.TrimSpace(vString)
+	vString = strings.ReplaceAll(vString, "\n", "")
+	return vString
 }
 
 func Dev() (string, error) {

@@ -5,7 +5,6 @@ on:
       - main
   push:
     paths:
-      - "drift/**"
       - ".github/workflows/drift.test.yaml"
   workflow_dispatch:
 

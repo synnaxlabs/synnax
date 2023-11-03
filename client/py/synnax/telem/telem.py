@@ -194,7 +194,7 @@ class TimeSpan(int):
     * TimeSpan - Creates a copy of the TimeSpan.
     * TimeStamp - The difference between the TimeStamp and the Unix epoch
     * timedelta - The duration of the timedelta.
-    * pands.Timedelta - The duration of the Timedelta.
+    * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
     """
 

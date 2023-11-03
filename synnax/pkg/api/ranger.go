@@ -239,7 +239,9 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 		if err != nil {
 			return res, errors.MaybeQuery(err)
 		}
-		aliases[alias] = ch
+		if ch != 0 {
+			aliases[alias] = ch
+		}
 	}
 	return RangeAliasResolveResponse{Aliases: aliases}, errors.Nil
 }

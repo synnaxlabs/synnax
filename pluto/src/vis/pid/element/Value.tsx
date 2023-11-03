@@ -137,7 +137,7 @@ const Preview = ({ color }: ElementProps): ReactElement => {
 
 export const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Value",
-  color: th.colors.gray.p2.hex,
+  color: th.colors.gray.l8.hex,
   telem: {
     channel: 0,
   },

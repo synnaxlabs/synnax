@@ -27,7 +27,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
-	info, err := o.fs.List()
+	info, err := o.fs.List("")
 	if err != nil {
 		return nil, err
 	}

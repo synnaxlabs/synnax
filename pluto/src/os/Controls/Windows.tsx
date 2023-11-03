@@ -28,10 +28,17 @@ export const Windows = ({
   ...props
 }: InternalControlsProps): ReactElement => (
   <Align.Pack {...props}>
-    <Button onClick={onMinimize} disabled={disabled.includes("minimize")}>
+    <Button 
+      className={CSS.BM("windows-control", "minimize")}
+      onClick={onMinimize} 
+      disabled={disabled.includes("minimize")}
+    >
       <Icon.Subtract />
     </Button>
-    <Button onClick={onMaximize} disabled={disabled.includes("maximize")}>
+    <Button 
+      className={CSS.BM("windows-control", "maximize")}
+      onClick={onMaximize} disabled={disabled.includes("maximize")}
+    >
       <Icon.Box />
     </Button>
     <Button

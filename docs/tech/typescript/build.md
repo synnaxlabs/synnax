@@ -18,7 +18,7 @@ Synnax is organized as a monorepo. Our front end software consists of five diffe
 
 We have two main applications:
 
-- `@synnaxlabs/delta` - path `delta` - The expolatory data analysis, cluster management, and
+- `@synnaxlabs/console` - path `console` - The expolatory data analysis, cluster management, and
   control application.
 - `@synnaxlabs/docs` - path `docs/site` - The Synnax documentation website.
 
@@ -62,12 +62,12 @@ run tests, and start development servers.
 
 ## Turbo Repo
 
-If we refer back to the dependency graph above, we can see that `@synnaxlabs/delta`
+If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
 depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x`
 and `@synnaxlabs/client`. This has two implications:
 
-1. If we make a change to `x` that we want reflected in `delta`, we'd need to rebuild
-   `x` and all of it's downstream dependencies (`pluto` and `delta`).
+1. If we make a change to `x` that we want reflected in `console`, we'd need to rebuild
+   `x` and all of it's downstream dependencies (`pluto` and `console`).
 2. We need to have built versions of all upstream dependencies before we can build the
    downstream dependency.
 
@@ -99,7 +99,7 @@ pnpm build:pluto
 This will build `pluto` and all of its dependencies. If we want to build all packages,
 
 Generally speaking, you'll be building `pluto` and `x` most often. We almost never build
-`delta` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
+`console` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
 these applications for us.
 
 ## Important Caveats - Running Tests and Development Servers
@@ -110,10 +110,10 @@ manually build depencies whose changes we want reflected in our tests or develop
 servers.
 
 The most common case here is when we're developing `pluto` and want to see our changes
-reflected in `delta`. To start the delta dev server, we run:
+reflected in `console`. To start the console dev server, we run:
 
 ```bash
-pnpm dev:delta
+pnpm dev:console
 ```
 
 If we make a change to the `Input` component in `pluto`, we need to make sure we run

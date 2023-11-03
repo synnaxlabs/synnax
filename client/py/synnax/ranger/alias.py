@@ -12,6 +12,7 @@ import uuid
 from freighter import Payload, UnaryClient
 
 from synnax.channel import ChannelKey
+from synnax.util.normalize import normalize
 
 
 class _ResolveRequest(Payload):
@@ -51,21 +52,20 @@ class Aliaser:
 
     def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
         to_fetch = []
+        aliases = normalize(aliases)
         is_single = isinstance(aliases, str)
-        if is_single:
-            cached = self.__cache.get(aliases, None)
-            if cached is not None:
-                return cached
-            to_fetch = [aliases]
-        else:
-            cached = {}
-            for alias in aliases:
-                if alias in self.__cache:
-                    cached[alias] = self.__cache[alias]
-                else:
-                    to_fetch.append(alias)
-            if len(to_fetch) == 0:
-                return cached
+
+        results = {}
+        for alias in aliases:
+            key = self.__cache.get(alias, None)
+            if key is not None:
+                results[alias] = key
+            else:
+                to_fetch.append(alias)
+
+        if len(to_fetch) == 0:
+            return results
+
         req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
         res, exc = self.__client.send(self.__RESOLVE_ENDPOINT, req, _ResolveResponse)
         if exc is not None:
@@ -76,7 +76,7 @@ class Aliaser:
 
         if is_single:
             return res.aliases[aliases]
-        return {**cached, **res.aliases}
+        return {**results, **res.aliases}
 
     def set(self, aliases: dict[ChannelKey, str]) -> None:
         req = _SetRequest(range=self.__rng, aliases=aliases)

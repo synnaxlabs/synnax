@@ -27,8 +27,8 @@
 }
 
 .pluto-macos-controls--blurred .pluto-macos-control {
-    background-color: var(--pluto-gray-m2);
-    border-color: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
+    border-color: var(--pluto-gray-l3);
 }
 
 .pluto-macos-control svg {
@@ -44,24 +44,24 @@
 .pluto-macos-control--close,
 .pluto-macos-control--close:hover {
     border-color: #df4744;
-    background-color: #fc5753;
+    background: #fc5753;
 }
 
 .pluto-macos-control--minimize,
 .pluto-macos-control--minimize:hover {
     border-color: #de9f34;
-    background-color: #fdbc40;
+    background: #fdbc40;
 }
 
 .pluto-macos-control--maximize,
 .pluto-macos-control--maximize:hover {
     border-color: #27aa35;
-    background-color: #36c84b;
+    background: #36c84b;
 }
 
 .pluto-macos-control--disabled {
-    background-color: var(--pluto-gray-m2);
-    border-color: var(--pluto-gray-m2);
+    background: var(--pluto-gray-l3);
+    border-color: var(--pluto-gray-l3);
 }
 
 .pluto-macos-control:active {

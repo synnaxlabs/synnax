@@ -19,3 +19,5 @@ rng = client.ranges.create(
     name="COPV Test",
     time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
 )
+
+rng.kv.set()

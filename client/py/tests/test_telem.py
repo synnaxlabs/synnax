@@ -287,7 +287,7 @@ class TestTimeSpan:
         """Should return the number of seconds in the timespan"""
         assert TimeSpan.SECOND.seconds == 1
 
-    def test_delta(self):
+    def test_timedelta(self):
         """Should return a timedelta"""
         assert TimeSpan.SECOND.timedelta == timedelta(seconds=1)
 

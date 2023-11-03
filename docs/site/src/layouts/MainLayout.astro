@@ -6,14 +6,22 @@ import { ViewTransitions } from "astro:transitions";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
-import { Align } from "@synnaxlabs/pluto/align"
+import { Align } from "@synnaxlabs/pluto/align";
 import { Icon } from "@synnaxlabs/media";
-import { Search } from "@/components/Search"
+import { Search } from "@/components/Search";
 const {
   headings,
   frontmatter: { title, heading, description },
 } = Astro.props;
 ---
+
+<script>
+  import { getVersion } from "@/util/fetchVersion";
+
+  getVersion().then((version) => {
+    document.querySelector(".version").innerHTML = version;
+  });
+</script>
 
 <html transition:animate="none">
   <head>
@@ -39,19 +47,25 @@ const {
     />
     <ViewTransitions />
   </head>
-  <header
-    class="pluto--bordered-bottom"
-  >
-    <Align.Space className="header-content" direction="x" justify="spaceBetween" align="center">
+  <header class="pluto--bordered-bottom">
+    <Align.Space
+      className="header-content"
+      direction="x"
+      justify="spaceBetween"
+      align="center"
+    >
       <a href="/">
-        <Logo style={{ height: "5rem" }} variant="title"/>
+        <Logo style={{ height: "5rem" }} variant="title" />
       </a>
-      <Search client:only="react"/>
+      <Search client:only="react" />
       <Align.Space direction="x" align="center">
+        <p class="version" transition:persist></p>
         <a href="https://github.com/synnaxlabs/synnax">
-          <Icon.Logo.Github style={{height:"3rem", width: "3rem"}} fill="var(--pluto-text-color)" />
+          <Icon.Logo.Github
+            style={{ height: "3rem", width: "3rem" }}
+            fill="var(--pluto-text-color)"
+          />
         </a>
-      <p class="version" transition:persist></p>
       </Align.Space>
     </Align.Space>
   </header>
@@ -72,12 +86,12 @@ const {
   <script>
     import { startThemeDriver } from "@/util/theme";
     import { startUpdatingIframeHref } from "@/util/iframe";
-      startThemeDriver();
-      startUpdatingIframeHref();
+    startThemeDriver();
+    startUpdatingIframeHref();
     document.addEventListener("astro:after-swap", () => {
       startThemeDriver();
       startUpdatingIframeHref();
-    })
+    });
   </script>
 
   <style is:global>
@@ -85,8 +99,55 @@ const {
       margin: 0;
     }
 
+    .chip {
+      text-decoration: none !important;
+      flex-grow: 1;
+      min-width: 275px;
+      flex-basis: 275px;
+      & div {
+        height: 100%;
+        transition: all 0.1s ease-in-out;
+        border: var(--pluto-border-l4);
+                padding: 1rem 3rem;
+        border-radius: var(--pluto-border-radius);
+        &:hover {
+          border-color: var(--pluto-primary-z);
+          cursor: pointer;
+
+          & h4 {
+            color: var(--pluto-primary-z);
+          }
+          & p {
+            color: var(--pluto-gray-l9);
+          }
+        }
+      }
+      & h4 {
+        color: var(--pluto-primary-p1);
+      }
+      & p {
+        color: var(--pluto-gray-l7);
+      }
+    }
+
+    .info {
+      padding: 0.1rem 3rem;
+      margin: 4rem 0;
+      background: var(--pluto-primary-z-20);
+      border: var(--pluto-border);
+      border-color: var(--pluto-primary-z-30);
+      border-radius: var(--pluto-border-radius);
+      & > * {
+        font-size: var(--pluto-small-size);
+        font-family: var(--pluto-font-family);
+        font-weight: var(--pluto-small-weight);
+        line-height: calc(var(--pluto-small-line-height) * 1.2);
+      }
+    }
+
     nav {
-      & p, small {
+      & p,
+      small {
         white-space: normal !important;
       }
       & small {
@@ -96,7 +157,6 @@ const {
 
     .docs-get-started-chip {
       overflow: hidden;
-       
 
       & .text-container {
         transition: all 0.15s ease-in-out;
@@ -105,7 +165,7 @@ const {
       }
 
       & p {
-        color: var(--pluto-gray-p1);
+        color: var(--pluto-gray-l7);
       }
 
       :hover {
@@ -119,78 +179,88 @@ const {
       }
     }
 
-    
-
     .table-of-contents {
       & h5 {
         font-weight: 500;
       }
 
+      .heading {
+        border-bottom: none;
+      }
+
       & .pluto-menu-item {
-        margin: 1rem 0;
         white-space: normal;
         height: fit-content;
+        padding: 0.75rem 2rem;
+        border-right: 2px solid transparent;
         & small {
-          color: var(--pluto-gray-p2) !important;
+          color: var(--pluto-gray-l6) !important;
         }
 
-        &.pluto--selected {
-          background: none !important;
+        &:is(.pluto--selected, :hover) {
+          background: none;
+          border-right: 2px solid var(--pluto-text-color);
+          border-radius: 0 !important;
           & small {
-            font-weight: 600 !important;
+            font-weight: 500 !important;
+            color: var(--pluto-text-color) !important;
           }
         }
       }
     }
 
     .search-box {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 1000;
       & .pluto-input {
         width: 50vw;
         max-width: 700px;
       }
 
-      --box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
-
-
       &.pluto--visible {
         position: fixed;
-          left: 50%;
-          transform: translateX(-50%);
-          box-shadow: var(--box-shadow);
+        left: 50%;
+        transform: translateX(-50%);
+        box-shadow: var(--box-shadow);
 
-          & .pluto-input  {
-            width: 80vw;
-            max-width: 900px;
-            height: 40px;
-          }
+        & .pluto-input {
+          width: 80vw;
+          max-width: 900px;
+          height: 40px;
+        }
       }
 
       .pluto-dropdown__dialog {
-          position: absolute;
-          left: 0 !important;
-          top: 40px !important;
-          box-shadow: var(--box-shadow);
-          background-color: var(--pluto-background-color);
+        position: absolute;
+        left: 0 !important;
+        top: 40px !important;
+        box-shadow: var(--box-shadow);
+        background: var(--pluto-gray-l1);
 
-          .hovered {
-            background-color: var(--pluto-gray-m3);
+        .hovered {
+          background: var(--pluto-gray-l3);
+        }
+
+        & .search-result {
+          padding: 2rem;
+          &:hover {
+            background: var(--pluto-gray-l3);
           }
 
-          & .search-result {
-            &:hover {
-              background-color: var(--pluto-gray-m3);
-            }
-            padding: 2rem;
+          & b {
+            background: var(--pluto-primary-z-30);
+          }
 
-            & b {
-              background-color: var(--pluto-primary-z-30);
-            }
+          & small {
+            color: var(--pluto-gray-l7);
           }
-          
-          & a:hover {
-            text-decoration: none;
-          }
+        }
+
+        & a:hover {
+          text-decoration: none;
+        }
       }
     }
 
@@ -199,12 +269,12 @@ const {
       text-decoration: none;
     }
 
-  :root {
+    :root {
       --nav-height: 10rem;
-      --max-width: 1300px;
+      --max-width: 1400px;
       --astro-code-color-text: var(--pluto-text-color);
-      --astro-code-color-background: var(--pluto-gray-m4);
-      --astro-code-token-comment: var(--pluto-gray-m0);
+      --astro-code-color-background: var(--pluto-gray-l1);
+      --astro-code-token-comment: var(--pluto-gray-l5);
       --astro-code-token-string-expression: #00b023;
       --astro-code-token-function: #20a4f3;
       --astro-code-token-punctuation: var(--pluto-text-color);
@@ -218,14 +288,13 @@ const {
 
     .pluto-tree {
       .pluto-text {
-        color: var(--pluto-gray-p2);
+        color: var(--pluto-gray-l6);
         font-size: var(--pluto-small-size);
         line-height: var(--pluto-small-line-height);
         font-weight: var(--pluto-small-weight);
       }
 
-      overflow: hidden;
-
+      overflow-x: hidden;
 
       .pluto-btn {
         padding-top: 1rem;
@@ -234,17 +303,18 @@ const {
         height: auto;
 
         &:hover {
-            & .pluto-text {
-              color: var(--pluto-text-color);
-            }
+          & .pluto-text {
+            font-weight: 500;
+            color: var(--pluto-text-color);
+          }
 
-            & path:is(:not([fill="none"]), [stroke="#000"]) {
-              fill: var(--pluto-text-color) !important;
-            }
+          & path:is(:not([fill="none"]), [stroke="#000"]) {
+            fill: var(--pluto-text-color) !important;
+          }
         }
-      
+
         &:not(.pluto--has-children) {
-          border-left: 1px solid var(--pluto-gray-m2);
+          border-left: 1px solid var(--pluto-gray-l3);
           border-radius: 0 !important;
 
           &.pluto--selected {
@@ -252,6 +322,7 @@ const {
             background: none;
             .pluto-text {
               color: var(--pluto-text-color);
+              font-weight: 500;
             }
           }
 
@@ -262,19 +333,16 @@ const {
         }
       }
 
-
       .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-m0) !important;
+        fill: var(--pluto-gray-l5) !important;
       }
-
-      
     }
 
     .copy-code {
       position: absolute;
       top: 25%;
       right: 20px;
-      border-color: var(--pluto-gray-m1);
+      border-color: var(--pluto-gray-l4);
       opacity: 0;
       transition: all 0.15s ease-in-out;
     }
@@ -284,11 +352,11 @@ const {
     }
 
     .copy-code svg > * {
-      fill: var(--pluto-gray-m1);
+      fill: var(--pluto-gray-l4);
     }
 
     .copy-code:hover svg > * {
-      fill: var(--pluto-gray-m0);
+      fill: var(--pluto-gray-l5);
     }
 
     header h1,
@@ -324,10 +392,16 @@ const {
       margin: 1.5rem 0;
     }
 
-    article video {
+    article :is(video, img) {
       width: 100%;
       border-radius: 1rem !important;
-      box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+      border: var(--pluto-border);
+      box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+      border-radius: calc(var(--pluto-border-radius) * 2);
+
+      @media (prefers-color-scheme: dark) {
+        box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+      }
     }
 
     article img {
@@ -336,7 +410,7 @@ const {
 
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
-      background-color: var(--pluto-gray-m4); */
+      background: var(--pluto-gray-l3);
     }
 
     code {
@@ -363,6 +437,7 @@ const {
     .astro-code {
       padding: 3rem;
       position: relative;
+      border: var(--pluto-border);
       border-radius: var(--pluto-border-radius);
       margin: 3rem 1rem;
       overflow-x: auto !important;
@@ -389,13 +464,6 @@ const {
       border-radius: var(--pluto-border-radius);
     }
 
-    @media (prefers-color-scheme: dark) {
-      html {
-        --pluto-background-color: #121212;
-        --pluto-text-color: #ffffff;
-      }
-    }
-
     table > :not(caption) > * {
       border-width: 1px 0;
       border-color: var(--pluto-border-color);
@@ -417,7 +485,6 @@ const {
     table thead th {
       padding: 1.5rem 1.5rem;
       font-weight: 600;
-
     }
 
     table thead tr {
@@ -431,7 +498,7 @@ const {
     table {
       width: calc(100% - 4px);
       border-spacing: 0;
-      background-color: transparent;
+      background: transparent;
       border-collapse: collapse;
       overflow-x: auto;
       border-style: hidden;
@@ -442,7 +509,7 @@ const {
 
   <style>
     :root {
-      --max-width: 1440px;
+      --max-width: 1500px;
     }
 
     .article-title {
@@ -455,11 +522,11 @@ const {
       width: 100px;
       margin-top: 2rem;
       height: 2px;
-      background-color: var(--pluto-primary-p1);
+      background: var(--pluto-primary-p1);
     }
 
     .article-description {
-      color: var(--pluto-gray-p2);
+      color: var(--pluto-gray-l8);
       font-weight: 350;
     }
 
@@ -502,7 +569,7 @@ const {
       }
     }
 
-    @media (min-width: 1440px) {
+    @media (min-width: 1500px) {
       section {
         width: var(--max-width);
       }
@@ -541,7 +608,7 @@ const {
 
     nav {
       padding: 3rem 0;
-      flex-basis: 235px;
+      flex-basis: 210px;
       overflow-y: auto;
     }
 

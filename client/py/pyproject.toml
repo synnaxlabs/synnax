@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.12.1"
+version = "0.13.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -9,6 +9,9 @@ homepage = "https://synnaxlabs.com"
 packages = [
 	{ include = "synnax/**/*.py" }
 ]
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.0.7"
+
 
 [tool.isort]
 profile = "black"

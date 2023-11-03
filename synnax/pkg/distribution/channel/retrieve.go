@@ -12,13 +12,14 @@ package channel
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
-	"github.com/synnaxlabs/x/query"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+	"regexp"
+	"strings"
 )
 
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
@@ -54,7 +55,15 @@ func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 
 // WhereNames filters for channels whose Key attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(names, ch.Name) })
+	matchers := make([]func(string) bool, len(names))
+	for i, name := range names {
+		matchers[i] = formatNameMatcher(name)
+	}
+	r.gorp.Where(func(ch *Channel) bool {
+		return lo.SomeBy(matchers, func(matcher func(string) bool) bool {
+			return matcher(ch.Name)
+		})
+	})
 	return r
 }
 
@@ -116,4 +125,16 @@ func (r Retrieve) maybeEnrichError(err error) error {
 		return errors.Wrapf(query.NotFound, "channels with keys %v not found", diff)
 	}
 	return err
+}
+
+func formatNameMatcher(name string) func(name string) bool {
+	if !strings.HasPrefix(name, "^") && !strings.HasSuffix(name, "$") {
+		name = "^" + name + "$"
+	}
+	rx, err := regexp.Compile(name)
+	if err != nil {
+		return func(s string) bool { return s == name }
+	} else {
+		return rx.MatchString
+	}
 }

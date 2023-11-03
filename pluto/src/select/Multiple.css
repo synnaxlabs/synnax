@@ -20,13 +20,13 @@
 }
 
 .pluto-select-multiple.pluto-haul-drop-region > * {
-    background-color: var(--haul-background-color) !important;
+    background: var(--haul-l0) !important;
     border-color: var(--haul-border-color) !important;
 }
 
 .pluto-select-multiple__tags {
+    background: var(--pluto-gray-l2);
     padding: 0.25rem 1rem;
-    background-color: var(--pluto-gray-m4);
     overflow-x: scroll;
     flex-wrap: wrap;
 }

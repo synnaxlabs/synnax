@@ -11,7 +11,7 @@
 
 .pluto-indicator {
     height: 1.25rem;
-    transition: background-color 1s;
+    transition: l0 1s;
     background-size: 200% 100%;
     border-radius: var(--pluto-border-radius);
 }

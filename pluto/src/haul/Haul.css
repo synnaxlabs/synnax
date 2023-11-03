@@ -10,6 +10,6 @@
  */
 
 html {
-    --haul-background-color: var(--pluto-primary-z-40);
+    --haul-background: var(--pluto-primary-z-40);
     --haul-border-color: var(--pluto-primary-z-80);
 }

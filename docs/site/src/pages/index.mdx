@@ -8,69 +8,83 @@ import { Icon } from "@synnaxlabs/media";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Align } from "@synnaxlabs/pluto/align";
 
-import { GetStartedChip } from "@/components/GetStartedChip";
+## What is Synnax?
 
-## Analyze Data
+Synnax is an platform for acquiring, controlling, and analyzing data from hardware 
+systems. It delivers:
 
-<GetStartedChip
-    title="Python"
-    href="/deploy/get-started"
-    description="Start a single node cluster for learning."
->
-<Icon.Cluster slot="icon" />
-</GetStartedChip>
+* Fast, distributed telemetry storage and streaming, 
+* First-class exploratory and automated analysis using industry standard tools.
+* A performant framework for manual and programatic control.
 
-## Automate with Control Sequences
+## How to Use These Docs
 
-## Use the Synnax Console
+This documentation is divided into two categories. The first is a set of workflow oriented
+guides that walk you through using Synnax to accomplish a task. 
 
-<Align.Space direction="x" wrap>
-    <GetStartedChip
-        title="Start a Cluster"
-        href="/deploy/get-started"
-        description="Start a single node cluster for learning."
-    >
-    <Icon.Cluster slot="icon" />
-    </GetStartedChip>
-    <GetStartedChip
-    title="Learn the Fundamentals"
-    href="/concepts/overview"
-    description="Learn the fundamentals of Synnax and how to use it."
-    >
-    <Icon.Concepts slot="icon" />
-    </GetStartedChip>
-    <GetStartedChip
-    title="Acquire Data"
-    href="/acquire/get-started"
-    description="Configure channels and read data from a file, or write directly to a cluster
-        using your programming language of choice."
-    >
-    <Icon.Acquire slot="icon" />
-    </GetStartedChip>
+The second is a set of references that document specific features of the platform. If 
+you're new to Synnax, we recommend starting with our guides, and using the references
+to answer targeted questions when they arise.
 
-    <GetStartedChip
-    title="Perform Analysis"
-    href="/analyze/get-started"
-    description="Retrieve, analyze, and post-process relevant data."
-    >
-    <Icon.Analyze slot="icon" />
-    </GetStartedChip>
+### Navigation
 
-    <GetStartedChip
-    title="Create Visualizations"
-    description="Use the Synnax UI to visualize and
-        explore a cluster's telemetry."
-    href="/console/get-started"
-    >
-    <Icon.Visualize slot="icon" />
-    </GetStartedChip>
+The navigation bar on the left side of the page contains links to every page in the
+documentation. You can also use the search bar at the top of the page to search for
+specific topics.
 
-    <GetStartedChip
-        title="Browse the Reference"
-        href="/reference/overview"
-        description="Learn more about the Synnax CLI, Client Libraries, API, and User Interface."
-    >
-        <Icon.Reference slot="icon" />
-    </GetStartedChip>
+## Guides
 
+<Align.Space direction="x" wrap size="large">
+<a class="chip" href="/guides/exploratory-analysis-in-python">
+<div>
+<h4>Exploratory Analysis in Python</h4>
+<p>
+Use Python to import, query, and perform analysis on a data set in Synnax.
+</p>
+</div>
+</a>
 </Align.Space>
+
+## References
+
+<Align.Space direction="x" wrap size="large">
+<a class="chip" href="/concepts/overview">
+<div>
+<h4>Concepts</h4>
+<p>
+Learn about the core concepts that make up the Synnax platform.
+</p>
+</div>
+</a>
+<a class="chip" href="/deployment/get-started">
+<div>
+<h4>Deployment</h4>
+<p>
+Learn how to deploy Synnax in a variety of environments.
+</p>
+</div>
+</a>
+<a class="chip" href="/python-client/get-started">
+<div>
+<h4>Python Cient</h4>
+<p>
+Use our Python client to programatically interact
+with a Synnax cluster.
+</p>
+</div>
+</a>
+<a class="chip" href="/console/get-started">
+<div>
+<h4>Console</h4>
+<p>
+The Synnax console is a desktop application for exploratory analysis, cluster management,
+and manual control.
+</p>
+</div>
+</a>
+</Align.Space>
+
+
+
+
+

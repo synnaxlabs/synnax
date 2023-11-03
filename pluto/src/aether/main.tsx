@@ -204,6 +204,32 @@ export type UseReturn<S extends z.ZodTypeAny> = [
   (state: state.SetArg<z.input<S>>, transfer?: Transferable[]) => void,
 ];
 
+/**
+ * Use creates a new aether component with a unique key and type.
+ *
+ * @param props.type - The type of the component. Aether will use this to instantiate
+ * the correct component type on the worker thread. A constructor for this type must
+ * exist on the registry passed into aether.render on the worker thread.
+ * @param props.aetherKey - A unique key for the component that is used to identify it
+ * in the aether component tree. We recommend using `Aether.wrap` to generate unique keys.
+ * @param props.schema - The zod schema for the component's state. Used to validate state
+ * changes on transfer to and from the worker thread.
+ * @param props.initialState - The initial state for the component. Note that this state
+ * is only used on the first render, and any changes to this value will not be reflected
+ * in the component's state. To alter the component's state, use the setState function
+ * returned by the hook.
+ * @returns A triplet with the following values:
+ * 1. An object containing metadata about the generated component. This object contains
+ * a path property, which is an array of strings representing the path to the component
+ * in the aether component tree.
+ * 2. The component's current state. This is synchronised with the worker thread, and
+ * can be updated by both the worker and the main thread.
+ * 3. A function that can be used to update the component's state. This function takes
+ * in both the next state and an optional array of transferable objects. The next state
+ * can be either a new state, or a function that takes in the current state and returns
+ * the next state. This function is impure, and will update the component's state on the
+ * worker thread.
+ */
 export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> => {
   const { type, schema, initialState } = props;
 
@@ -258,6 +284,14 @@ export interface CompositeProps extends PropsWithChildren {
   path: string[];
 }
 
+/**
+ * Composite establishes all children as child components of the current component. The
+ * provide path should match the path returned by the {@link use} hook. Any children
+ * of this component will be added to the `children` property of the component on the
+ * worker tree.
+ *
+ * Naturally, composites can be nested within each other. Child components that are
+ */
 export const Composite = memo(({ children, path }: CompositeProps): JSX.Element => {
   const ctx = useAetherContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
@@ -265,6 +299,15 @@ export const Composite = memo(({ children, path }: CompositeProps): JSX.Element 
 });
 Composite.displayName = "AetherComposite";
 
+/**
+ * Wrap wraps a component to generate a unique key that persists across re-renders. This
+ * hook is necessary to create an aether enhanced component when using React.StrictMode.
+ *
+ * @param displayName - The display name of the component. Used or react devtools.
+ * @param Component - The component to wrap. This component receives an additional
+ * aetherKey prop along with its normal props.
+ * @returns A wrapped component that is behaviorally identical to the original component.
+ */
 export const wrap = <P extends {}>(
   displayName: string,
   Component: ComponentType<P & { aetherKey: string }>,

@@ -4,7 +4,6 @@ title: "Connect a Cluster"
 description: "Learn how to connect a cluster using the Synnax console."
 ---
 
-import { DeltaDownloadButton } from "@/components/OSDownloadButton";
 import { Video } from "@/components/Media";
 import { Table } from "@/components/Table";
 
@@ -12,8 +11,8 @@ import { Table } from "@/components/Table";
 
 This page assumes you've already:
 
-1. [Started a cluster](/deploy/get-started)
-2. [Installed the Synnax console](/console/get-started)
+- [Started a cluster](/deploy/get-started)
+- [Installed the Synnax console](/console/get-started)
 
 ## Adding a New Cluster
 
@@ -21,10 +20,10 @@ Adding a new cluster is as simple as clicking the **Add Cluster** button in the 
 right corner of the cluster toolbar and entering your connection parameters, as shown
 below.
 
-<Video client:only="react" id="visualize/connect-a-cluster" />
+<Video client:only="react" id="console/connect-a-cluster" />
 
-This will add a new cluster to the list and set it as active. Delta continuously monitors
-the connection to the cluster and displays it in the bottom right corner of the UI.
+This will add a new cluster to the list and set it as active. The console continuously 
+monitors the connection to the cluster and displays it in the bottom right corner of the UI.
 
 ### Parameters
 
@@ -73,4 +72,4 @@ the connection to the cluster and displays it in the bottom right corner of the 
 If you have multiple clusters, you can switch between them by double clicking on the
 cluster you'd like to to connect in the toolbar.
 
-<Video client:only="react" id="visualize/switch-clusters" />
+<Video client:only="react" id="console/switch-clusters" />
