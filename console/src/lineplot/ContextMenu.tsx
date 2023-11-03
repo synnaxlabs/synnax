@@ -58,7 +58,7 @@ export const ContextMenuContent = ({
       {!box.isZero(selection) && (
         <>
           <Core.Item itemKey="iso" startIcon={<Icon.Range />}>
-            Create range from selection
+            Copy time range as ISO
           </Core.Item>
           <Core.Item itemKey="python" startIcon={<Icon.Python />}>
             Copy time range as Python

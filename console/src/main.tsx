@@ -87,7 +87,7 @@ const MainUnderContext = (): ReactElement => {
       haul={{ useState: useHaulState }}
       alamos={{
         level: "debug",
-        include: ["line"],
+        include: [],
       }}
     >
       <Vis.Canvas>

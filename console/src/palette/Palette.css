@@ -38,7 +38,7 @@
     border-left: 2px var(--pluto-primary-z) solid !important;
 }
 
-.console-palette .pluto-input__internal.pluto-haul-drop-region {
+.console-palette__input.pluto-haul-drop-region .pluto-input__internal {
     background: var(--haul-background) !important;
     border-color: var(--haul-border-color) !important;
 }

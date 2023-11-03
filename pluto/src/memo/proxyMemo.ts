@@ -11,7 +11,6 @@ import { runtime } from "@synnaxlabs/x";
 import memoize from "proxy-memoize";
 
 export const proxyMemo: typeof memoize = (fn, opts) => {
-  console.log(runtime.RUNTIME);
   if (runtime.RUNTIME === "browser") return memoize(fn, opts);
   return fn;
 };

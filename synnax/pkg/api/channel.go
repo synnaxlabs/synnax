@@ -124,7 +124,7 @@ func (s *ChannelService) Retrieve(
 	if req.SearchRangeKey != uuid.Nil {
 		var resRng ranger.Range
 		err := s.ranger.NewRetrieve().WhereKeys(req.SearchRangeKey).Entry(&resRng).Exec(ctx, nil)
-		isNotFound := roacherrors.Is(query.NotFound, err)
+		isNotFound := roacherrors.Is(err, query.NotFound)
 		if err != nil && !isNotFound {
 			return ChannelRetrieveResponse{}, errors.Auto(err)
 		}
