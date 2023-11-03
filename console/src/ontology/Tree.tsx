@@ -215,12 +215,14 @@ export const Tree = (): ReactElement => {
       const dropped = Haul.filterByType(Core.HAUL_TYPE, items);
       const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
       if (!isValidDrop) return [];
+      const otgID = new ontology.ID(key);
+      const svc = services[otgID.type];
+      if (!svc.canDrop({ source, items })) return [];
+      // Find the parent where the node is being dropped.
+      const parent = Core.findNodeParent(nodesSnapshot, source.key as string);
+      if (parent == null) return [];
       void (async () => {
         if (client == null) return;
-        const otgID = new ontology.ID(key);
-        // Find the parent where the node is being dropped.
-        const parent = Core.findNodeParent(nodesSnapshot, source.key as string);
-        if (parent == null) return;
         // Move the children in the ontology.
         await client.ontology.moveChildren(
           new ontology.ID(parent.key),

@@ -32,6 +32,10 @@
         background: var(--pluto-primary-z-20);
     }
 
+    .pluto--selected:hover {
+        background: var(--pluto-primary-z-10) !important;
+    }
+
     .pluto-loading-indicator {
         margin-left: auto;
     }

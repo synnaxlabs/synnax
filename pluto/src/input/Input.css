@@ -10,15 +10,19 @@
  */
 
 .pluto-input {
-    position: relative;
     color: var(--pluto-text-color);
     margin: 0;
     width: 100%;
 
-    & input {
+    & .pluto-input__internal {
+        position: relative;
         background: var(--pluto-gray-l2);
-        border: var(--pluto-border-l4);
-        border-radius: var(--pluto-border-radius);
+        flex-grow: 1;
+    }
+
+    & input {
+        border: none;
+        background: none;
         width: 100%;
         height: 100%;
         padding: 0 1.5rem;
@@ -32,12 +36,10 @@
         }
     }
 
-    
-
-    &:focus-within {
+    & > .pluto-input__internal:focus-within{
+        border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
-            border-color: var(--pluto-primary-z) !important;
         }
     }
 
@@ -60,10 +62,12 @@
 
 .pluto-input__placeholder {
     position: absolute;
+    top: 0;
+    left: 0;
     height: 100%;
     /* z-index of placeholder is above that of input, so we move it a bit to the right
     to make sure the cursor doesn't look weird. */
-    padding-left: calc(2rem + 2px);
+    padding-left: 1.5rem;
     width: 100%;
     display: flex;
     align-items: center;

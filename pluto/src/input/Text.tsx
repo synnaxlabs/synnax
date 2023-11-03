@@ -62,28 +62,30 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       )}
       align="center"
     >
-      <input
-        ref={ref}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={(e) => {
-          if (selectOnFocus) e.target.select();
-          onFocus?.(e);
-        }}
-        placeholder={placeholder as string}
-        className={CSS.visible(false)}
-        {...props}
-      />
-      {(value == null || value.length === 0) && (
-        <div
-          className={CSS(
-            CSS.BE("input", "placeholder"),
-            centerPlaceholder && CSS.M("centered"),
-          )}
-        >
-          {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
-        </div>
-      )}
+      <div className={CSS.BE("input", "internal")}>
+        {(value == null || value.length === 0) && (
+          <div
+            className={CSS(
+              CSS.BE("input", "placeholder"),
+              centerPlaceholder && CSS.M("centered"),
+            )}
+          >
+            {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
+          </div>
+        )}
+        <input
+          ref={ref}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={(e) => {
+            if (selectOnFocus) e.target.select();
+            onFocus?.(e);
+          }}
+          placeholder={placeholder as string}
+          className={CSS.visible(false)}
+          {...props}
+        />
+      </div>
       {children}
     </Align.Pack>
   ),

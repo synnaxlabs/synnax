@@ -15,17 +15,11 @@
 
 button:is(:focus,:focus-within,:active,:hover) {
     z-index: 3;
-
-    
 }
 
 .pluto-input:is(:focus-within,:active,:hover) {
-    & input {
+    & .pluto-input__internal {
         z-index: 3;
-    }
-
-     & .pluto-input__placeholder {
-        z-index: 4;
     }
 }
 

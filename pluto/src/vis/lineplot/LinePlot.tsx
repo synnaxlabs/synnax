@@ -144,12 +144,14 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     const setViewport: Viewport.UseHandler = useCallback(
       (args) => {
-        const { mode, box } = args;
-        setState((prev) => {
-          if (["pan", "zoom", "zoomReset"].includes(mode as string))
-            return { ...prev, viewport: box };
-          return prev;
-        });
+        const { mode, box, stage } = args;
+        if (
+          (mode === "pan" && stage !== "start") ||
+          mode === "zoom" ||
+          (mode === "zoomReset" && stage === "start")
+        ) {
+          setState((prev) => ({ ...prev, viewport: box }));
+        }
         viewportHandlers.current.forEach((_, handler) => handler(args));
       },
       [setState],

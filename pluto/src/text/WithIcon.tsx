@@ -79,8 +79,9 @@ const formatIcons = (
   color?: string,
 ): ReactElement[] => {
   if (icon === false) return [];
-  return (Children.toArray(icon) as ReactElement[]).map((icon) =>
+  return (Children.toArray(icon) as ReactElement[]).map((icon, i) =>
     cloneElement(icon, {
+      key: i,
       ...icon.props,
       color,
       style: { ...icon.props.style },
@@ -92,7 +93,7 @@ export const formatChildren = <L extends Level>(
   level: L,
   children: ReactNode = [],
   color?: string,
-): ReactElement[] => {
+): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];
   let buff: Array<string | number | boolean | Iterable<ReactNode>> = [];
@@ -124,5 +125,6 @@ export const formatChildren = <L extends Level>(
         {buff}
       </Text>,
     );
+  if (o.length === 1) return o[0];
   return o;
 };

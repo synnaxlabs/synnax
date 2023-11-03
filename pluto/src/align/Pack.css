@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pack {
+ .pluto-pack {
     --t: var(--pluto-pack-br) var(--pluto-pack-br) 0 0;
     --b: 0 0 var(--pluto-pack-br) var(--pluto-pack-br);
     --l: var(--pluto-pack-br) 0 0 var(--pluto-pack-br);
@@ -24,6 +24,8 @@
     &.pluto--rounded {
         --pluto-pack-br: var(--pluto-border-radius);
     }
+
+
 
     &.pluto--bordered {
         border: none !important;
@@ -150,7 +152,7 @@
 
         > .pluto-pack.pluto--x {
             &:first-child:not(:only-child) {
-                > *:only-child {
+                &:not(:has(+ .pluto--hidden)) > *:only-child {
                     border-radius: var(--pluto-pack--y-first-x-only);
                 }
 
@@ -187,7 +189,7 @@
         border-radius: var(--pluto-pack--middle);
     }
 
-    > :first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
+    > *:first-child:not(:only-child):not(:has(+ .pluto--hidden)) {
         border-radius: var(--pluto-pack--first);
     }
 

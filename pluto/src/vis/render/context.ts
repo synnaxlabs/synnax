@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, box, scale, xy, dimensions, runtime } from "@synnaxlabs/x";
+import {
+  type Destructor,
+  box,
+  scale,
+  xy,
+  dimensions,
+  type runtime,
+} from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
@@ -52,7 +59,7 @@ export class Context {
   readonly queue: Queue;
 
   /** See the @link{clear.Program} for why this is necessary. */
-  private readonly clearProg: clear.Program;
+  private readonly clearProgram?: clear.Program;
 
   private readonly os: runtime.OS;
 
@@ -100,7 +107,7 @@ export class Context {
     this.region = box.ZERO;
     this.dpr = 1;
 
-    this.clearProg = new clear.Program(this);
+    if (this.os === "Windows") this.clearProgram = new clear.Program(this);
   }
 
   static useOptional(ctx: aether.Context): Context | null {
@@ -231,7 +238,7 @@ export class Context {
     gl.clearColor(...color.ZERO.rgba1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
-    if (this.os === "Windows") this.clearProg.exec();
+    if (this.os === "Windows") this.clearProgram?.exec();
     removeScissor();
   }
 

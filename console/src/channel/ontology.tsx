@@ -13,6 +13,7 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu, Tree, Channel } from "@synnaxlabs/pluto";
 
+import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -121,6 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+      <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
       {activeRange != null && (
         <>

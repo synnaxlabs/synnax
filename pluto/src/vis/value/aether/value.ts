@@ -93,7 +93,8 @@ export class Value
 
     canvas.font = this.state.font;
     const dims = dimensions(valueStr, this.state.font, canvas);
-    renderCtx.erase(box.construct(this.prevState.box));
+    if (this.internal.requestRender == null)
+      renderCtx.erase(box.construct(this.prevState.box));
 
     if (this.state.width < dims.width)
       this.setState((p) => ({ ...p, width: dims.width }));

@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
@@ -29,8 +31,9 @@ export const linePlotStateZ = z.object({
 });
 
 interface InternalState {
+  instrumentation: Instrumentation;
   aggregate: status.Aggregate;
-  render: render.Context;
+  renderCtx: render.Context;
 }
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
@@ -46,14 +49,15 @@ export class LinePlot extends aether.Composite<
   schema = linePlotStateZ;
 
   afterUpdate(): void {
+    this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "lineplot");
     this.internal.aggregate = status.useAggregate(this.ctx);
-    this.internal.render = render.Context.use(this.ctx);
+    this.internal.renderCtx = render.Context.use(this.ctx);
     render.Controller.control(this.ctx, (r) => this.requestRender("low", r));
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
   afterDelete(): void {
-    this.internal.render = render.Context.use(this.ctx);
+    this.internal.renderCtx = render.Context.use(this.ctx);
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
@@ -115,20 +119,36 @@ export class LinePlot extends aether.Composite<
   }
 
   private async render(canvases: render.CanvasVariant[]): Promise<render.Cleanup> {
-    if (this.deleted) return async () => {};
+    const { instrumentation } = this.internal;
+    if (this.deleted) {
+      instrumentation.L.debug("deleted, skipping render", { key: this.key });
+      return async () => {};
+    }
+
     const plot = this.calculatePlot();
-    const { render: ctx } = this.internal;
+
+    instrumentation.L.debug("rendering", {
+      key: this.key,
+      viewport: this.state.viewport,
+      container: this.state.container,
+      grid: this.state.grid,
+      plot,
+      canvases,
+    });
+
+    const { renderCtx } = this.internal;
     const os = xy.construct(this.state.clearOverscan);
-    const removeCanvasScissor = ctx.scissor(
+    const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
       canvases.filter((c) => c !== "gl"),
     );
-    const removeGLScissor = ctx.scissor(
+    const removeGLScissor = renderCtx.scissor(
       plot,
       xy.ZERO,
       canvases.filter((c) => c === "gl"),
     );
+
     try {
       await this.renderAxes(plot, canvases);
       await this.renderTooltips(plot, canvases);
@@ -141,7 +161,7 @@ export class LinePlot extends aether.Composite<
     }
     return async ({ canvases }) => {
       this.eraser.erase(
-        ctx,
+        renderCtx,
         this.state.container,
         this.prevState.container,
         xy.construct(this.state.clearOverscan),
@@ -151,7 +171,7 @@ export class LinePlot extends aether.Composite<
   }
 
   requestRender(priority: render.Priority, reason: string): void {
-    const { render: ctx } = this.internal;
+    const { renderCtx: ctx } = this.internal;
     let canvases: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.

@@ -211,7 +211,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     clear?.();
   };
 
-  const input = (
+  return (
     <Input.Text
       className={CSS.BE("select", "input")}
       value={internalValue}
@@ -219,17 +219,8 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       onFocus={handleFocus}
       style={{ flexGrow: 1 }}
       {...props}
-    />
+    >
+      {allowClear && <ClearButton onClick={handleClear} />}
+    </Input.Text>
   );
-
-  if (allowClear) {
-    return (
-      <Align.Pack direction="x" className={CSS(className, CSS.B("select-input"))}>
-        {input}
-        <ClearButton onClick={handleClear} />
-      </Align.Pack>
-    );
-  }
-
-  return input;
 };

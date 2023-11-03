@@ -36,7 +36,7 @@ export const coreAxisStateZ = axis.axisStateZ
         upper: z.boolean().optional().default(true),
       })
       .or(z.boolean().optional().default(true)),
-    autoBoundPadding: z.number().optional().default(0.1),
+    autoBoundPadding: z.number().optional(),
     autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(1)),
     size: z.number().optional().default(0),
     label: z.string().optional().default(""),
@@ -100,6 +100,9 @@ interface InternalState {
   updateBounds?: (bounds: bounds.Bounds) => void;
 }
 
+const DEFAULT_X_BOUND_PADDING = 0.01;
+const DEFAULT_Y_BOUND_PADDING = 0.1;
+
 export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
@@ -107,6 +110,10 @@ export class CoreAxis<
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
+    this.state.autoBoundPadding ??=
+      direction.construct(this.state.location) === "x"
+        ? DEFAULT_Y_BOUND_PADDING
+        : DEFAULT_X_BOUND_PADDING;
     this.internal.core = new axis.Canvas(this.internal.render, {
       color: theme.colors.gray.l8,
       font: fontString(theme, "small"),

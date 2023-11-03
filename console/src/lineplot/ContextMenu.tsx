@@ -55,15 +55,19 @@ export const ContextMenuContent = ({
   return (
     <Core.Menu onChange={handleSelect} size="small" iconSpacing="small">
       <Menu.Item.HardReload />
-      <Core.Item itemKey="iso" startIcon={<Icon.Range />}>
-        Create range from selection
-      </Core.Item>
-      <Core.Item itemKey="python" startIcon={<Icon.Python />}>
-        Copy time range as Python
-      </Core.Item>
-      <Core.Item itemKey="typescript" startIcon={<Icon.Typescript />}>
-        Copy time range as Typescript
-      </Core.Item>
+      {!box.isZero(selection) && (
+        <>
+          <Core.Item itemKey="iso" startIcon={<Icon.Range />}>
+            Create range from selection
+          </Core.Item>
+          <Core.Item itemKey="python" startIcon={<Icon.Python />}>
+            Copy time range as Python
+          </Core.Item>
+          <Core.Item itemKey="typescript" startIcon={<Icon.Typescript />}>
+            Copy time range as Typescript
+          </Core.Item>
+        </>
+      )}
     </Core.Menu>
   );
 };

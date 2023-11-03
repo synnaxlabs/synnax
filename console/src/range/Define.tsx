@@ -12,17 +12,23 @@ import { useRef, type ReactElement, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Header, Nav, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
+import {
+  Align,
+  Button,
+  Header,
+  Input,
+  Nav,
+  Synnax,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
-import { useMemoSelect } from "@/hooks";
 import { type Layout } from "@/layout";
-import { select, selectEditBuffer } from "@/range/selectors";
-import { type StoreState, add } from "@/range/slice";
+import { useSelect } from "@/range/selectors";
+import { add } from "@/range/slice";
 
 const formSchema = z.object({
   name: z.string().min(2),
@@ -31,8 +37,6 @@ const formSchema = z.object({
   endDate: z.number().int(),
   endTime: z.number().int(),
 });
-
-type FormSchema = z.infer<typeof formSchema>;
 
 const RANGE_WINDOW_KEY = "defineRange";
 
@@ -52,30 +56,32 @@ export const defineWindowLayout: Layout.LayoutState = {
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
-const useSelectFormValues = (layoutKey: string): FormSchema => {
-  const now = TimeStamp.now().valueOf();
-  const baseDefaultValues = {
-    name: "",
-    startDate: now,
-    startTime: now,
-    endDate: now,
-    endTime: now,
-  };
-  return useMemoSelect(
-    (state: StoreState) => {
-      if (layoutKey === RANGE_WINDOW_KEY)
-        return { ...baseDefaultValues, ...selectEditBuffer(state) };
-      return select(state, layoutKey);
-    },
-    [layoutKey],
-  );
-};
-
 export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
-  const defaultValues = useSelectFormValues(layoutKey);
+  const now = TimeStamp.now().valueOf();
+  const range = useSelect(layoutKey);
   const [loading, setLoading] = useState(false);
   const client = Synnax.use();
+  let defaultValues;
   const isCreate = layoutKey === RANGE_WINDOW_KEY;
+  const isRemoteEdit = client != null && !isCreate && range != null;
+
+  if (isCreate)
+    defaultValues = {
+      name: "",
+      startDate: now,
+      startTime: now,
+      endDate: now,
+      endTime: now,
+    };
+  else if (range != null && range.variant === "static")
+    defaultValues = {
+      name: range.name,
+      startDate: range.timeRange.start,
+      startTime: range.timeRange.start,
+      endDate: range.timeRange.end,
+      endTime: range.timeRange.end,
+      savePermanent: true,
+    };
 
   const { control, handleSubmit, reset } = useForm({
     defaultValues,

@@ -69,7 +69,7 @@ const MainUnderContext = (): ReactElement => {
       (state: Haul.DraggingState) => {
         dispatch(Layout.setHauled(state));
       },
-      [dispatch]
+      [dispatch],
     );
     return [hauled, onHauledChange];
   };
@@ -87,7 +87,7 @@ const MainUnderContext = (): ReactElement => {
       haul={{ useState: useHaulState }}
       alamos={{
         level: "debug",
-        include: [],
+        include: ["line"],
       }}
     >
       <Vis.Canvas>

@@ -201,20 +201,19 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   };
 
   return (
-    <Align.Pack
-      align="stretch"
+    <Input.Text
+      ref={ref}
+      className={CSS(
+        CSS.BE("select-multiple", "input"),
+        CSS.visible(visible),
+        className,
+      )}
+      placeholder={placeholder}
+      value={value}
+      onChange={handleChange}
+      onFocus={onFocus}
       {...props}
-      grow
-      className={CSS(CSS.B("select-multiple"), className)}
     >
-      <Input.Text
-        ref={ref}
-        className={CSS(CSS.BE("select-multiple", "input"), CSS.visible(visible))}
-        placeholder={placeholder}
-        value={value}
-        onChange={handleChange}
-        onFocus={onFocus}
-      />
       <Align.Space
         direction="x"
         className={CSS.BE("select-multiple", "tags")}
@@ -234,7 +233,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         })}
       </Align.Space>
       <ClearButton onClick={clear} />
-    </Align.Pack>
+    </Input.Text>
   );
 };
 
