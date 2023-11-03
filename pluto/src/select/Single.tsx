@@ -213,7 +213,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   return (
     <Input.Text
-      className={CSS.BE("select", "input")}
+      className={CSS(CSS.BE("select", "input"), className)}
       value={internalValue}
       onChange={handleChange}
       onFocus={handleFocus}
