@@ -22,13 +22,15 @@ import { TelemMeta } from "@/telem/core/base";
 
 export const numericProps = z.object({
   channel: z.number(),
+  units: z.string().optional().default(""),
+  precision: z.number().optional().default(2),
 });
 
 export type NumericSourceProps = z.infer<typeof numericProps>;
 
 export class NumericSource
   extends TelemMeta<typeof numericProps>
-  implements telem.NumericSource
+  implements telem.NumericSource, telem.StringSource
 {
   removeStreamHandler: Destructor | null = null;
 
@@ -43,6 +45,11 @@ export class NumericSource
   constructor(key: string, client: Client) {
     super("numericSource", key);
     this.client = client;
+  }
+
+  async string(): Promise<string> {
+    const v = (await this.number()).toFixed(this.props.precision);
+    return `${v} ${this.props.units}`;
   }
 
   cleanup(): void {

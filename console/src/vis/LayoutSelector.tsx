@@ -10,12 +10,14 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Eraser, Button, Align, Text } from "@synnaxlabs/pluto";
+import { Eraser, Button, Text } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto/align";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
+import { Table } from "@/table";
 
 import "@/vis/LayoutSelector.css";
 
@@ -55,6 +57,13 @@ export const LayoutSelector = ({
             startIcon={<Icon.PID />}
           >
             PID
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            startIcon={<Icon.Table />}
+            onClick={() => place(Table.create({ key: layoutKey }))}
+          >
+            Table
           </Button.Button>
         </Align.Space>
       </Align.Center>

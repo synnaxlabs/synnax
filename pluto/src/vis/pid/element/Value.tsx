@@ -41,7 +41,7 @@ const Element = ({
   className,
   ...props
 }: Props<ElementProps>): ReactElement => {
-  const telem = Remote.useNumericSource(pTelem);
+  const telem = Remote.useNumericStringSource(pTelem);
   const onLabelChange = (label: string): void => {
     onChange({ ...props, label, telem: pTelem });
   };
@@ -71,7 +71,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   };
 
   const handleUnitsChange = (units: string): void => {
-    onChange({ ...value, units });
+    onChange({ ...value, telem: { ...value.telem, units } });
   };
 
   const handleDirectionChange = (direction: direction.Direction): void => {
@@ -117,7 +117,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
-        <Remote.NumericSourceForm
+        <Remote.NumericStringSourceForm
           value={value.telem}
           onChange={handleTelemChange}
           grow
@@ -139,9 +139,10 @@ export const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Value",
   color: th.colors.gray.l8.hex,
   telem: {
+    units: "",
     channel: 0,
+    precision: 2,
   },
-  units: "psi",
   level: "p",
 });
 

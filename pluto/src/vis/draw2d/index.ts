@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { box, direction, xy, type dimensions } from "@synnaxlabs/x";
-import { positionInCenter } from "@synnaxlabs/x/dist/spatial/box";
 
 import { type color } from "@/color/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
@@ -188,10 +187,8 @@ export class Draw2D {
   drawTextInCenter({ text, box: b, level = "p" }: DrawTextInCenterProps): void {
     this.canvas.font = fontString(this.theme, level);
     this.canvas.fillStyle = this.theme.colors.text.hex;
-    this.canvas.textBaseline = "middle";
-    this.canvas.textAlign = "center";
     const dims = textDimensions(text, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
-    this.canvas.fillText(text, box.left(pos), box.top(pos));
+    this.canvas.fillText(text, box.left(pos), box.bottom(pos));
   }
 }

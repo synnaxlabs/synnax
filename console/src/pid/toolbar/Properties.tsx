@@ -31,13 +31,12 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 
-  if (elements.length === 0) {
+  if (elements.length === 0)
     return (
       <Status.Text.Centered variant="disabled" hideIcon>
         Select a PID element to configure its properties.
       </Status.Text.Centered>
     );
-  }
 
   if (elements.length > 1) {
     const groups: Record<string, ElementInfo[]> = {};

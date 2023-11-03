@@ -38,11 +38,21 @@ export const useDynamicXYSource = (
 };
 
 export const useNumericSource = (
-  props: RemoteTelemNumericProps,
+  props: Omit<RemoteTelemNumericProps, "units">,
 ): telem.NumericSourceSpec => {
   return {
     type: NumericSource.TYPE,
     props,
     variant: "numeric-source",
+  };
+};
+
+export const useNumericStringSource = (
+  props: RemoteTelemNumericProps,
+): telem.StringSourceSpec => {
+  return {
+    type: NumericSource.TYPE,
+    props,
+    variant: "string-source",
   };
 };

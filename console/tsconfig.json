@@ -4,5 +4,5 @@
     "baseUrl": ".",
     "declaration": false,
   },
-  "include": ["src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx"],
+  "include": ["src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx", "../pluto/src/vis/table/element"],
 }

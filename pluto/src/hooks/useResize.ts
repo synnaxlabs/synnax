@@ -25,6 +25,8 @@ export interface UseResizeOpts {
   enabled?: boolean;
 }
 
+export type UseResizeHandler = <E extends HTMLElement>(box: box.Box, el: E) => void;
+
 /**
  * Tracks the dimensions of an element and executes a callback when they change.
  *
@@ -35,7 +37,7 @@ export interface UseResizeOpts {
  * @returns a ref callback to attach to the desire element.
  */
 export const useResize = <E extends HTMLElement>(
-  onResize: (box: box.Box, el: E) => void,
+  onResize: UseResizeHandler,
   opts: UseResizeOpts = {},
 ): RefCallback<E> => {
   const { triggers = [], debounce = 0, enabled = true } = opts;

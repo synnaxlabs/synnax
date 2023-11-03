@@ -22,8 +22,7 @@ import { render } from "@/vis/render";
 
 const valueState = z.object({
   box: box.box,
-  telem: telem.numericSourceSpecZ.optional().default(noop.numericSourceSpec),
-  units: z.string(),
+  telem: telem.stringSpecZ.optional().default(noop.stringSourceSpec),
   font: z.string().optional().default(""),
   color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
@@ -36,7 +35,7 @@ export interface ValueProps {
 
 interface InternalState {
   render: render.Context;
-  telem: telem.NumericSource;
+  telem: telem.StringSource;
   cleanupTelem: Destructor;
   requestRender: render.RequestF | null;
   textColor: color.Color;
@@ -56,7 +55,7 @@ export class Value
     if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
     if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.l8;
     else this.internal.textColor = this.state.color;
-    const [t, cleanupTelem] = telem.use<telem.NumericSource>(
+    const [t, cleanupTelem] = telem.use<telem.StringSource>(
       this.ctx,
       this.key,
       this.state.telem,
@@ -87,12 +86,9 @@ export class Value
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
     const canvas = renderCtx.lower2d.applyScale(s);
-
-    const value = (await telem.number()).toFixed(this.state.precision);
-    const valueStr = `${value} ${this.state.units}`;
-
+    const value = await telem.string();
     canvas.font = this.state.font;
-    const dims = dimensions(valueStr, this.state.font, canvas);
+    const dims = dimensions(value, this.state.font, canvas);
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
@@ -114,7 +110,7 @@ export class Value
     );
 
     canvas.fillStyle = this.internal.textColor.hex;
-    canvas.fillText(valueStr, ...labelPosition);
+    canvas.fillText(value, ...labelPosition);
   }
 }
 

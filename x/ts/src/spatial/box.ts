@@ -287,11 +287,11 @@ export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner
  * or not.
  */
 export const positionSoVisible = (
-  target: HTMLElement | Box,
-  bound: HTMLElement | Box,
+  target_: Crude,
+  bound_: Crude,
 ): [Box, boolean] => {
-  if (target instanceof HTMLElement) target = construct(target);
-  if (bound instanceof HTMLElement) bound = construct(bound);
+  const target = construct(target_);
+  const bound = construct(bound_);
   if (contains(bound, target)) return [target, false];
   let nextPos: xy.XY;
   if (right(target) > width(target))
@@ -308,11 +308,11 @@ export const positionSoVisible = (
  * @returns the repsoitioned box
  */
 export const positionInCenter = (
-  target: HTMLElement | Box,
-  bound: HTMLElement | Box,
+  target_: Crude,
+  bound_: Crude,
 ): Box => {
-  if (target instanceof HTMLElement) target = construct(target);
-  if (bound instanceof HTMLElement) bound = construct(bound);
+  const target = construct(target_);
+  const bound = construct(bound_);
   const x_ = x(bound) + (width(bound) - width(target)) / 2;
   const y_ = y(bound) + (height(bound) - height(target)) / 2;
   return construct({ x: x_, y: y_ }, dims(target));

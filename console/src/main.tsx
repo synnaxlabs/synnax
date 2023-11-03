@@ -24,6 +24,7 @@ import { PID } from "@/pid";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
+import { Table } from "@/table";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -45,6 +46,7 @@ const layoutRenderers = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
+  [Table.LAYOUT_TYPE]: Table.Table,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
