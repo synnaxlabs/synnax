@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/vis/table/element/element";
-export * from "@/vis/table/element/label";
-export * from "@/vis/table/element/registry";
+export * from "@/vis/table/cell/element";
+export * from "@/vis/table/cell/Label";
+export * from "@/vis/table/cell/registry";

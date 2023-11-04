@@ -41,6 +41,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const toolbar = useSelectToolbar();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
+      console.log("CONTENT", tabKey);
       switch (tabKey) {
         case "properties":
           return <Properties layoutKey={layoutKey} />;
@@ -72,6 +73,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
           <ToolbarTitle icon={<Icon.PID />}>{name}</ToolbarTitle>
           <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
         </ToolbarHeader>
+        <Tabs.Content />
       </Tabs.Provider>
     </Align.Space>
   );

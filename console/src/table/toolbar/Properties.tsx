@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Align, Status, TableElement } from "@synnaxlabs/pluto";
+import { Align, Status, TableCell } from "@synnaxlabs/pluto";
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
@@ -23,6 +23,8 @@ export interface PropertiesProps {
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const cells = useSelectSelectedCells(layoutKey);
   const d = useDispatch();
+  console.log("PROPERTIES");
+  console.log(cells);
 
   if (cells.length === 0)
     return (
@@ -32,7 +34,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
     );
 
   const f = cells[0];
-  const Spec = TableElement.REGISTRY[f.type];
+  const Spec = TableCell.REGISTRY[f.type];
 
   const handleChange = (p: UnknownRecord): void => {
     d(
@@ -42,6 +44,8 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
       }),
     );
   };
+
+  console.log(Spec);
 
   return (
     <Align.Space size="small">

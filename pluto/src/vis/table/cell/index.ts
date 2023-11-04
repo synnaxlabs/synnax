@@ -7,11 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ValueSpec } from "@/vis/pid/element/Value";
-import { type Spec } from "@/vis/table/element/element";
-import { LabelSpec } from "@/vis/table/element/label";
-
-export const REGISTRY: Record<string, Spec<any>> = {
-  [ValueSpec.type]: ValueSpec,
-  [LabelSpec.type]: LabelSpec,
-};
+export * as Cell from "@/vis/table/cell/external";

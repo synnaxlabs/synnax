@@ -3,21 +3,17 @@ import { type ReactElement } from "react";
 import { Remote } from "@/telem/remote";
 import { type Theming } from "@/theming";
 import { Table } from "@/vis/table";
-import {
-  type Spec,
-  type FormProps,
-  type ElementProps,
-} from "@/vis/table/element/element";
+import { type Spec, type FormProps, type CellProps } from "@/vis/table/cell/element";
 
 export interface ValueProps extends Omit<Table.StringTDProps, "telem"> {
   telem: Remote.NumericSourceProps;
 }
 
-const Element = ({
+const Cell = ({
   onChange,
   telem: propsTelem,
   ...props
-}: ElementProps<ValueProps>): ReactElement => {
+}: CellProps<ValueProps>): ReactElement => {
   const telem = Remote.useNumericStringSource(propsTelem);
   return <Table.StringTD {...props} telem={telem} />;
 };
@@ -44,6 +40,6 @@ export const ValueSpec: Spec<ValueProps> = {
   type: "value",
   title: "Value",
   initialProps,
-  Element,
+  Cell,
   Form,
 };

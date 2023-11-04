@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { TableElement, Theming } from "@synnaxlabs/pluto";
+import { TableCell, Theming } from "@synnaxlabs/pluto";
 import { type dimensions, type xy } from "@synnaxlabs/x";
 import { v4 as uuidV4 } from "uuid";
 
@@ -25,8 +25,8 @@ export interface CellState {
 }
 
 const ZERO_CELL_STATE: CellState = {
-  type: TableElement.REGISTRY.label.type,
-  props: TableElement.REGISTRY.label.initialProps(Theming.themes.synnaxDark),
+  type: TableCell.REGISTRY.label.type,
+  props: TableCell.REGISTRY.label.initialProps(Theming.themes.synnaxDark),
 };
 
 const TOOLBAR_TABS = ["shape", "properties"] as const;
@@ -73,12 +73,18 @@ export interface SetActiveToolbarTabPayload {
 }
 
 export interface SetCellPropsPayload {
+  key: string;
   positions: xy.XY[];
   props: Array<Record<string, any>>;
 }
 
 export interface CreatePayload extends State {
   key: string;
+}
+
+export interface SetSelectedPayload {
+  key: string;
+  selected: xy.XY[];
 }
 
 export const { actions, reducer } = createSlice({
@@ -91,19 +97,24 @@ export const { actions, reducer } = createSlice({
     create: (state, action: PayloadAction<CreatePayload>) => {
       state.tables[action.payload.key] = action.payload;
     },
+    setSelected: (state, action: PayloadAction<SetSelectedPayload>) => {
+      state.tables[action.payload.key].selected = action.payload.selected;
+    },
     setCellProps: (
       state,
-      { payload: { positions, props } }: PayloadAction<SetCellPropsPayload>,
+      { payload: { key, positions, props } }: PayloadAction<SetCellPropsPayload>,
     ) => {
-      positions.forEach((pos) => {
-        const cell = state.tables[""].rows[pos.y].cells[pos.x];
-        cell.props = { ...cell.props, ...props };
+      const t = state.tables[key];
+      positions.forEach((pos, i) => {
+        const cell = t.rows[pos.y].cells[pos.x];
+        cell.props = { ...cell.props, ...props[i] };
+        console.log(cell.props, props);
       });
     },
   },
 });
 
-export const { setActiveToolbarTab, setCellProps } = actions;
+export const { setSelected, setActiveToolbarTab, setCellProps } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

@@ -49,7 +49,6 @@ export class Table extends aether.Composite<
   }
 
   async render(): Promise<render.Cleanup> {
-    console.log(this.state.region);
     let accumulatedHeight = box.top(this.state.region);
     for (const c of this.children) {
       await c.render({

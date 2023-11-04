@@ -11,7 +11,7 @@
 
 
 .pluto-table {
-    width: calc(100% - 4px);
+    width: 100%;
     border-spacing: 0;
     background: transparent;
     border-collapse: collapse;
@@ -37,6 +37,5 @@
       border-width: 0 1px;
       border-color: var(--pluto-border-color);
       border-style: solid;
-      padding: 1.25rem 1.5rem;
     }
 }
