@@ -9,15 +9,15 @@
 
 package cesium
 
-func (db *DB) DeleteChannel(channel_to_remove string) (bool, error) {
-	if db.controlStates().Transfers == nil {
-		// Someone is writing!
-		return false, nil
-	}
+import (
+	"github.com/cockroachdb/errors"
+	"strconv"
+)
 
-	if err := db.options.fs.Remove(channel_to_remove); err != nil {
-		return false, err
+func (db *DB) DeleteChannel(channel ChannelKey) error {
+	// need to also check for virtual
+	if db.unaryDBs[channel].Open_writers == 0 {
+		return db.fs.Remove(strconv.Itoa(int(channel)))
 	}
-
-	return true, nil
+	return errors.New("Channel being written to")
 }

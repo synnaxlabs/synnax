@@ -19,7 +19,7 @@ import (
 )
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, db: db}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -55,6 +55,7 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 
 type Writer struct {
 	Channel core.Channel
+	db      *DB
 	control *controller.Gate[*controlEntity]
 	WriterConfig
 }
@@ -76,5 +77,6 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	_, t := w.control.Release()
+	w.db.Open_writers -= 1
 	return t, nil
 }

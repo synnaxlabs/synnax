@@ -28,9 +28,10 @@ func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type DB struct {
 	Config
-	Domain     *domain.DB
-	Controller *controller.Controller[controlledWriter]
-	_idx       index.Index
+	Domain       *domain.DB
+	Controller   *controller.Controller[controlledWriter]
+	_idx         index.Index
+	Open_writers int64
 }
 
 func (db *DB) Index() index.Index {
@@ -89,7 +90,12 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
+	db.Open_writers += 1
 	return i
+}
+
+func (db *DB) IsWrittenTo() bool {
+	return db.Open_writers == 0
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

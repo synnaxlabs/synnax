@@ -27,7 +27,8 @@ func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	Config
-	controller *controller.Controller[*controlEntity]
+	controller   *controller.Controller[*controlEntity]
+	Open_writers int64
 }
 
 type Config struct {
@@ -47,4 +48,8 @@ func Open(cfg Config) (db *DB, err error) {
 
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
+}
+
+func (db *DB) IsWrittenTo() bool {
+	return db.Open_writers == 0
 }
