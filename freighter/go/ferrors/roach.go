@@ -15,12 +15,12 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-type roachProvider struct{}
-
-var _ Provider = roachProvider{}
+func init() {
+	Register(roachEncode, roachDecode)
+}
 
 // Encode implements Provider.
-func (r roachProvider) Encode(ctx context.Context, err error) (Payload, bool) {
+func roachEncode(ctx context.Context, err error) (Payload, bool) {
 	var tErr Error
 	// Case where the error is typed and not of type roach, so it's the responsibility
 	// of another provider to encode it.
@@ -41,7 +41,7 @@ func (r roachProvider) Encode(ctx context.Context, err error) (Payload, bool) {
 }
 
 // Decode implements Provider.
-func (r roachProvider) Decode(ctx context.Context, pld Payload) (error, bool) {
+func roachDecode(ctx context.Context, pld Payload) (error, bool) {
 	if pld.Type != TypeRoach {
 		return nil, false
 	}

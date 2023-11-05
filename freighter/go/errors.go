@@ -28,8 +28,8 @@ var (
 )
 
 func encodeErr(_ context.Context, err error) (ferrors.Payload, bool) {
-	var tErr ferrors.Error
-	if errors.As(err, &tErr) && tErr.FreighterType() != freighterError {
+	tErr, ok := err.(ferrors.Error)
+	if !ok || tErr.FreighterType() != freighterError {
 		return ferrors.Payload{}, false
 	}
 	return ferrors.Payload{Type: freighterError, Data: err.Error()}, true
