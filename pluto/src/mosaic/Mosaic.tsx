@@ -26,7 +26,7 @@ export interface MosaicProps
   root: Node;
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
-  onCreate?: (key: number, loc: location.Location, tabKey?: string) => void;
+  onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
 }
 
 /***
@@ -123,8 +123,8 @@ const TabLeaf = memo(
         }
         const created = Haul.filterByType(HAUL_CREATE_TYPE, items);
         if (created.length > 0) {
-          const tabKey = created.map(({ key }) => key)[0];
-          onCreate?.(key, loc, tabKey as string);
+          const tabKey = created.map(({ key }) => key);
+          onCreate?.(key, loc, tabKey as string[]);
         }
         return dropped;
       },

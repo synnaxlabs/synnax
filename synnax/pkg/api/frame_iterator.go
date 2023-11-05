@@ -34,7 +34,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 		return err
 	}
 
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_iterator")))
 	// Cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or iterator internal) and we need to free all
 	// resources, OR the client executed the close command on the iterator (in

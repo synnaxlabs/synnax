@@ -57,6 +57,17 @@ func (w Writer) CreateMany(
 	return err
 }
 
+func (w Writer) Rename(
+	ctx context.Context,
+	key uuid.UUID,
+	name string,
+) error {
+	return gorp.NewUpdate[uuid.UUID, Range]().WhereKeys(key).Change(func(r Range) Range {
+		r.Name = name
+		return r
+	}).Exec(ctx, w.tx)
+}
+
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	if err := gorp.NewDelete[uuid.UUID, Range]().WhereKeys(key).Exec(ctx, w.tx); err != nil {
 		return err

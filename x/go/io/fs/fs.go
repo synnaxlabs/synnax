@@ -10,51 +10,87 @@
 package fs
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/cockroachdb/pebble/vfs"
+	"io"
 	"os"
 	"path"
-
-	"github.com/spf13/afero"
+	"sort"
 )
 
 type File interface {
-	afero.File
+	io.Closer
+	io.Reader
+	io.ReaderAt
+	io.Writer
+	io.WriterAt
+
+	Stat() (os.FileInfo, error)
+	Sync() error
 }
 
 const defaultPerm = 0755
 
 type FS interface {
-	Open(name string, flag int) (File, error)
-	Sub(name string) (FS, error)
-	List() ([]os.FileInfo, error)
-	Exists(name string) (bool, error)
-	Remove(name string) error
+	Open(pth string, flag int) (File, error)
+	Sub(pth string) (FS, error)
+	List(pth string) ([]os.FileInfo, error)
+	Exists(pth string) (bool, error)
+	Remove(pth string) error
+}
+
+type subFS struct {
+	dir string
+	FS
+}
+
+func (s *subFS) Open(name string, flag int) (File, error) {
+	return s.FS.Open(path.Join(s.dir, name), flag)
+}
+
+func (s *subFS) Sub(name string) (FS, error) {
+	return s.FS.Sub(path.Join(s.dir, name))
+}
+
+func (s *subFS) Exists(name string) (bool, error) {
+	return s.FS.Exists(path.Join(s.dir, name))
+}
+
+func (s *subFS) List(name string) ([]os.FileInfo, error) {
+	return s.FS.List(path.Join(s.dir, name))
+}
+
+func (s *subFS) Remove(name string) error {
+	return s.FS.Remove(path.Join(s.dir, name))
 }
 
 type defaultFS struct {
-	dir  string
 	perm os.FileMode
 }
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
-func (d *defaultFS) Open(name string, flag int) (File, error) {
-	return os.OpenFile(path.Join(d.dir, name), flag, d.perm)
+func (d *defaultFS) Open(pth string, flag int) (File, error) {
+	return os.OpenFile(pth, flag, d.perm)
 }
 
-func (d *defaultFS) Sub(name string) (FS, error) {
-	return OSDirFS(path.Join(d.dir, name))
+func (d *defaultFS) Sub(pth string) (FS, error) {
+	if err := os.MkdirAll(pth, d.perm); err != nil {
+		return nil, err
+	}
+	return &subFS{dir: pth, FS: d}, nil
 }
 
-func (d *defaultFS) Exists(name string) (bool, error) {
-	_, err := os.Stat(path.Join(d.dir, name))
+func (d *defaultFS) Exists(pth string) (bool, error) {
+	_, err := os.Stat(pth)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return true, err
 }
 
-func (d *defaultFS) List() ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(d.dir)
+func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(pth)
 	if err != nil {
 		return nil, err
 	}
@@ -68,46 +104,95 @@ func (d *defaultFS) List() ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (d *defaultFS) Remove(name string) error {
-	return os.Remove(path.Join(d.dir, name))
+func (d *defaultFS) Remove(pth string) error {
+	if e, err := d.Exists(pth); err != nil || !e {
+		return errors.New("Invalid file path")
+	}
+	return os.RemoveAll(pth)
 }
 
 func OSDirFS(dir string) (FS, error) {
-	err := os.MkdirAll(dir, defaultPerm)
-	return &defaultFS{dir: dir, perm: defaultPerm}, err
+	return (&defaultFS{perm: defaultPerm}).Sub(dir)
 }
 
 func NewMem() FS {
 	return &memFS{
-		Fs:   afero.NewMemMapFs(),
+		FS:   vfs.NewMem(),
 		perm: defaultPerm,
 	}
 }
 
 type memFS struct {
-	afero.Fs
+	vfs.FS
 	perm os.FileMode
 }
 
 func (m *memFS) Open(name string, flag int) (File, error) {
-	return m.Fs.OpenFile(name, flag, m.perm)
+	if flag&os.O_CREATE != 0 {
+		// create
+		if flag&os.O_EXCL == 0 {
+			return m.FS.Create(name)
+		} else {
+			if e, err := m.Exists(name); err != nil || e {
+				if err != nil {
+					return nil, err
+				} else {
+					return nil, nil
+				}
+			} else {
+				return m.FS.Create(name)
+			}
+
+		}
+	} else if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
+		// not readonly
+		return m.FS.OpenReadWrite(name)
+	} else {
+		// readonly
+		return m.FS.Open(name)
+	}
 }
 
-func (m *memFS) Sub(name string) (FS, error) {
-	if err := m.Fs.MkdirAll(name, m.perm); err != nil {
+func (m *memFS) Sub(pth string) (FS, error) {
+	if err := m.FS.MkdirAll(path.Clean(pth), m.perm); err != nil {
 		return nil, err
 	}
-	return &memFS{Fs: afero.NewBasePathFs(m.Fs, name)}, nil
+	return &subFS{dir: pth, FS: m}, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
-	return afero.Exists(m.Fs, name)
+	_, err := m.FS.Stat(name)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
-func (m *memFS) List() ([]os.FileInfo, error) {
-	return afero.ReadDir(m.Fs, ".")
+func (m *memFS) List(pth string) ([]os.FileInfo, error) {
+	entries, err := m.FS.List(pth)
+	if err != nil {
+		return nil, err
+	}
+	infos := make([]os.FileInfo, len(entries))
+	for i, e := range entries {
+		infos[i], err = m.FS.Stat(path.Join(pth, e))
+		if err != nil {
+			return nil, err
+		}
+	}
+	sort.Slice(infos, func(i, j int) bool {
+		return infos[i].Name() < infos[j].Name()
+	})
+
+	return infos, nil
 }
 
-func (m *memFS) Remove(name string) error {
-	return m.Remove(name)
+func (m *memFS) Remove(pth string) error {
+	if e, err := m.Exists(pth); err != nil || !e {
+		return errors.New("Invalid file path")
+	}
+	return m.RemoveAll(pth)
 }

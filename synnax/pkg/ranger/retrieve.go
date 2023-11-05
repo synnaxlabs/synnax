@@ -57,6 +57,7 @@ func (r Retrieve) WhereOverlapsWith(tr telem.TimeRange) Retrieve {
 }
 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+	tx = gorp.OverrideTx(r.baseTX, tx)
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
 			Type: ontologyType,
@@ -71,5 +72,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+	if err := r.gorp.Exec(ctx, tx); err != nil {
+		return err
+	}
+	entries := gorp.GetEntries[uuid.UUID, Range](r.gorp.Params)
+	for i, e := range entries.All() {
+		entries.Set(i, e.UseTx(tx).setOntology(r.otg))
+	}
+	return nil
 }

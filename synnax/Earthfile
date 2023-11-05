@@ -3,11 +3,11 @@ FROM golang:1.21-bullseye
 WORKDIR /synnax
 
 deps:
+    COPY ../freighter/go+source/* /freighter/go
     COPY ../alamos/go+source/* /alamos/go
     COPY ../x/go+source/* /x/go
     COPY ../cesium+source/* /cesium
     COPY ../aspen+source/* /aspen
-    COPY ../freighter/go+source/* /freighter/go
     COPY go.mod go.sum ./
     RUN go mod download
 

@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-import pandas as pd
-import numpy as np
 import time
+
+import numpy as np
+import pandas as pd
+
+import synnax as sy
 
 client = sy.Synnax()
 
@@ -59,8 +61,7 @@ rate = (sy.Rate.HZ * 20).period.seconds
 i = 0
 with client.new_streamer([valve_en_cmd.key]) as streamer:
     with client.new_writer(
-        sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key],
-        name="DAQ"
+        sy.TimeStamp.now(), [valve_en_time.key, valve_en.key, data_ch.key], name="DAQ"
     ) as writer:
         enabled = np.float32(0)
         press = 0
@@ -75,9 +76,11 @@ with client.new_streamer([valve_en_cmd.key]) as streamer:
                 press += 10
             else:
                 press -= 10
-            ok = writer.write({
+            ok = writer.write(
+                {
                     valve_en_time: sy.TimeStamp.now(),
                     valve_en: np.float32(enabled),
                     data_ch: np.float32(press),
-            })
+                }
+            )
             i += 1

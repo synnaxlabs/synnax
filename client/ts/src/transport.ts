@@ -19,10 +19,10 @@ import { binary, type URL } from "@synnaxlabs/x";
 const baseAPIEndpoint = "/api/v1/";
 
 export class Transport {
-  url: URL;
-  unary: UnaryClient;
-  stream: StreamClient;
-  secure: boolean;
+  readonly url: URL;
+  readonly unary: UnaryClient;
+  readonly stream: StreamClient;
+  readonly secure: boolean;
 
   constructor(url: URL, secure: boolean = false) {
     this.secure = secure;

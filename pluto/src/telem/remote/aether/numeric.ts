@@ -41,7 +41,7 @@ export class NumericSource
   private readonly client: Client;
 
   constructor(key: string, client: Client) {
-    super(key);
+    super("numericSource", key);
     this.client = client;
   }
 
@@ -55,6 +55,9 @@ export class NumericSource
 
   invalidate(): void {
     this.valid = false;
+    this.removeStreamHandler?.();
+    this.leadingBuffer = null;
+    this.removeStreamHandler = null;
     this.notify?.();
   }
 

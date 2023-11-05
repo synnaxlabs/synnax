@@ -15,11 +15,11 @@ import {
   useState,
 } from "react";
 
-import { box, Compare, runtime, unique, xy } from "@synnaxlabs/x";
+import { box, compare, unique, type xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/useStateRef";
 import { useMemoCompare } from "@/memo";
-import { useContext } from "@/triggers/Context";
+import { useContext } from "@/triggers/Provider";
 import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface UseEvent {
@@ -33,20 +33,13 @@ export interface UseProps {
   callback?: (e: UseEvent) => void;
   region?: RefObject<HTMLElement>;
   loose?: boolean;
-  os?: runtime.OS;
 }
 
-export const use = ({
-  triggers,
-  callback: f,
-  region,
-  loose,
-  os: propsOS,
-}: UseProps): void => {
+export const use = ({ triggers, callback: f, region, loose }: UseProps): void => {
   const { listen } = useContext();
   const memoTriggers = useMemoCompare(
     () => triggers,
-    ([a], [b]) => Compare.primitiveArrays(a.flat(), b.flat()) === Compare.EQUAL,
+    ([a], [b]) => compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL,
     [triggers],
   );
 
@@ -55,12 +48,13 @@ export const use = ({
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
       let [added, removed] = diff(nextMatches, prevMatches);
+      if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
       if (added.length > 0) f?.({ stage: "start", triggers: added, cursor: e.cursor });
       if (removed.length > 0)
         f?.({ stage: "end", triggers: removed, cursor: e.cursor });
     });
-  }, [f, memoTriggers, listen, loose]);
+  }, [f, memoTriggers, listen, loose, region]);
 };
 
 const filterInRegion = (
@@ -116,20 +110,14 @@ export const useHeldRef = ({
 };
 
 export const useHeld = ({ triggers, loose }: UseHeldProps): UseHeldReturn => {
-  const [held, setHeld] = useState<UseHeldReturn>({
-    triggers: [],
-    held: false,
-  });
+  const [held, setHeld] = useState<UseHeldReturn>({ triggers: [], held: false });
   use({
     triggers,
     callback: useCallback((e: UseEvent) => {
       setHeld((prev) => {
         let next: Trigger[] = [];
-        if (e.stage === "start") {
-          next = unique([...prev.triggers, ...e.triggers]);
-        } else {
-          next = purge(prev.triggers, e.triggers);
-        }
+        if (e.stage === "start") next = unique([...prev.triggers, ...e.triggers]);
+        else next = purge(prev.triggers, e.triggers);
         return { triggers: next, held: next.length > 0 };
       });
     }, []),

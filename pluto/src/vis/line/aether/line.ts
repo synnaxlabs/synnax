@@ -16,6 +16,7 @@ import {
   xy,
   type Series,
   type direction,
+  type SeriesDigest,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -153,7 +154,7 @@ export class Context extends render.GLProgram {
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
-    this.ctx.gl.vertexAttribDivisor(loc, 1);
+    gl.vertexAttribDivisor(loc, 1);
     return translationBuffer.length / 2;
   }
 }
@@ -296,6 +297,11 @@ interface DrawOperation {
   downsample: number;
 }
 
+interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
+  x: SeriesDigest;
+  y: SeriesDigest;
+}
+
 const buildDrawOperations = (
   x: Series[],
   y: Series[],
@@ -311,6 +317,12 @@ const buildDrawOperations = (
       bounds.overlapsWith(b, bounds.construct(y.alignment, y.alignment + y.length)),
     );
     ySeries.forEach((ys) => {
+      if (
+        ys._timeRange != null &&
+        xs._timeRange != null &&
+        !ys.timeRange.overlapsWith(xs.timeRange)
+      )
+        return;
       let xOffset = 0;
       let yOffset = 0;
       if (xs.alignment < ys.alignment) xOffset = ys.alignment - xs.alignment;
@@ -331,3 +343,10 @@ const buildDrawOperations = (
 
   return ops;
 };
+
+const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
+  ops.map((op) => ({
+    ...op,
+    x: op.x.digest,
+    y: op.y.digest,
+  }));

@@ -7,16 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Iterator
-
 from pathlib import Path
+from typing import Iterator
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
-from synnax.exceptions import ValidationError
 
+from synnax.exceptions import ValidationError
 from synnax.io.matcher import new_extension_matcher
-from synnax.io.protocol import ChannelMeta, ReaderType, RowFileReader, FileWriter
+from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
 
 CSVMatcher = new_extension_matcher(["csv"])
 
@@ -96,7 +95,9 @@ class CSVReader(CSVMatcher):  # type: ignore
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
             cols = pd.read_csv(self._path, nrows=0).columns
-            self._channels = [ChannelMeta(name=name, meta_data=dict()) for name in cols]
+            self._channels = [ChannelMeta(name=name.strip(), meta_data=dict()) for name
+                              in
+                              cols]
         return self._channels
 
     def set_chunk_size(self, chunk_size: int):

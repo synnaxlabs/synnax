@@ -18,6 +18,7 @@ from freighter import (
     Payload,
     UnaryClient,
 )
+
 from synnax.user.payload import UserPayload
 
 

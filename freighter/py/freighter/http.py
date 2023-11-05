@@ -9,19 +9,19 @@
 
 from __future__ import annotations
 
-import urllib3
 from typing import Type
+
+import urllib3
 from urllib3 import PoolManager
 from urllib3.exceptions import HTTPError, MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.context import Context, Role
 from freighter.encoder import EncoderDecoder
-from freighter.exceptions import ExceptionPayload, decode_exception, Unreachable
-from freighter.transport import MiddlewareCollector
-from freighter.transport import RQ, RS
-from freighter.url import URL
+from freighter.exceptions import ExceptionPayload, Unreachable, decode_exception
+from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.unary import UnaryClient
+from freighter.url import URL
 
 
 class HTTPClient(MiddlewareCollector):

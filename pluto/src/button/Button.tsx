@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { FC, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { type Optional } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/media";
+import { type Optional, toArray } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
+import { type SpaceElementType } from "@/align/Space";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
@@ -27,6 +29,7 @@ export interface ButtonExtensionProps {
   variant?: Variant;
   size?: ComponentSize;
   sharp?: boolean;
+  loading?: boolean;
 }
 
 /** The base props accepted by all button types in this directory. */
@@ -35,13 +38,16 @@ export interface BaseProps
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
-export interface ButtonProps
-  extends Optional<Omit<Text.WithIconProps<"button">, "size">, "level">,
-    ButtonExtensionProps {
-  startIcon?: ReactElement | ReactElement[];
-  endIcon?: ReactElement | ReactElement[];
-  iconSpacing?: Align.SpaceProps["size"];
-}
+export type ButtonProps<E extends SpaceElementType = "button"> = Optional<
+  Omit<Text.WithIconProps<E>, "size" | "startIcon" | "endIcon">,
+  "level"
+> &
+  ButtonExtensionProps & {
+    startIcon?: ReactElement | ReactElement[];
+    endIcon?: ReactElement | ReactElement[];
+    iconSpacing?: Align.SpaceProps["size"];
+    disabled?: boolean;
+  };
 
 /**
  * Button is a basic button component.
@@ -57,8 +63,8 @@ export interface ButtonProps
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
  */
-export const Button = Tooltip.wrap(
-  ({
+export const Core = Tooltip.wrap(
+  <E extends SpaceElementType>({
     size = "medium",
     variant = "filled",
     className,
@@ -66,28 +72,40 @@ export const Button = Tooltip.wrap(
     iconSpacing,
     sharp = false,
     disabled = false,
+    loading = false,
     level,
+    startIcon = [] as ReactElement[],
     onClick,
     ...props
-  }: ButtonProps): ReactElement => (
-    <Text.WithIcon
-      el="button"
-      className={CSS(
-        CSS.B("btn"),
-        CSS.size(size),
-        CSS.sharp(sharp),
-        CSS.disabled(disabled),
-        CSS.BM("btn", variant),
-        className,
-      )}
-      level={level ?? Text.ComponentSizeLevels[size]}
-      size={iconSpacing}
-      onClick={!disabled ? onClick : undefined}
-      noWrap
-      color={color(variant, disabled, props.color)}
-      {...props}
-    >
-      {children}
-    </Text.WithIcon>
-  ),
+  }: ButtonProps<E>): ReactElement => {
+    if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
+    if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+    return (
+      // @ts-expect-error
+      <Text.WithIcon<E, any>
+        el="button"
+        className={CSS(
+          CSS.B("btn"),
+          CSS.size(size),
+          CSS.sharp(sharp),
+          CSS.disabled(disabled),
+          CSS.BM("btn", variant),
+          className,
+        )}
+        level={level ?? Text.ComponentSizeLevels[size]}
+        size={iconSpacing}
+        onClick={!disabled ? onClick : undefined}
+        noWrap
+        color={color(variant, disabled, props.color)}
+        startIcon={startIcon}
+        {...props}
+      >
+        {children}
+      </Text.WithIcon>
+    );
+  },
 );
+
+export const Button = Core as <E extends SpaceElementType = "button">(
+  props: ButtonProps<E>,
+) => ReactElement;

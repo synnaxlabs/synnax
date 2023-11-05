@@ -9,3 +9,4 @@
 
 export * from "@/channel/LinePlot";
 export * from "@/channel/Select";
+export * from "@/channel/AliasProvider";

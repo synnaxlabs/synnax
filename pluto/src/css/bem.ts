@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSSProperties } from "react";
+import { type CSSProperties } from "react";
 
-import clsx, { ClassValue } from "clsx";
+import clsx, { type ClassValue } from "clsx";
 
 const CoreBEM = clsx;
 

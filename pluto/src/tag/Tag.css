@@ -19,5 +19,5 @@
 }
 
 .pluto-tag__close {
-    height: 100%;
+    height: var(--pluto-height-small) !important;
 }

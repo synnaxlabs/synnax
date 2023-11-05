@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package version
 
 import (
@@ -5,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/git"
 	"go.uber.org/zap"
 	"io"
+	"strings"
 )
 
 //go:embed VERSION
@@ -24,7 +34,10 @@ func Prod() string {
 		zap.S().Errorw(errorMsg, "error", err)
 		return unknown
 	}
-	return string(v)
+	vString := string(v)
+	vString = strings.TrimSpace(vString)
+	vString = strings.ReplaceAll(vString, "\n", "")
+	return vString
 }
 
 func Dev() (string, error) {

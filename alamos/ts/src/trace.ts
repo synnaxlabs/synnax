@@ -8,15 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Span as OtelSpan,
-  Tracer as OtelTracer,
+  type Span as OtelSpan,
+  type Tracer as OtelTracer,
   context,
   SpanStatusCode,
   propagation,
-  AttributeValue,
+  type AttributeValue,
 } from "@opentelemetry/api";
 
-import { Environment, EnvironmentFilter, envThresholdFilter } from "@/environment";
+import {
+  type Environment,
+  type EnvironmentFilter,
+  envThresholdFilter,
+} from "@/environment";
 import { Meta } from "@/meta";
 
 /** Carrier is an entitty that can carry trace meta-data across process bounds */
@@ -36,7 +40,7 @@ export class Tracer {
 
   constructor(
     tracer?: OtelTracer,
-    filter: EnvironmentFilter = envThresholdFilter("debug")
+    filter: EnvironmentFilter = envThresholdFilter("debug"),
   ) {
     this.tracer = tracer as OtelTracer;
     this.filter = filter;

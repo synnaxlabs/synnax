@@ -37,7 +37,7 @@ func newOperationSender(cfg Config) segment {
 }
 
 func (g *operationSender) send(_ context.Context, sync TxRequest) (TxRequest, bool, error) {
-	// If we have no NewReader to propagate, it's best to avoid the network chatter.
+	// If we have no NewStreamer to propagate, it's best to avoid the network chatter.
 	if sync.empty() {
 		return sync, false, nil
 	}

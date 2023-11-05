@@ -15,20 +15,20 @@ import pytest
 from pytz import timezone as pytz_timezone
 
 from synnax import (
-    TimeStamp,
-    TimeSpan,
-    Density,
-    DataType,
-    CrudeDataType,
-    CrudeTimeStamp,
-    TimeRange,
     ContiguityError,
-    Rate,
-    CrudeTimeSpan,
-    Size,
+    CrudeDataType,
     CrudeRate,
-    convert_time_units,
+    CrudeTimeSpan,
+    CrudeTimeStamp,
+    DataType,
+    Density,
+    Rate,
+    Size,
+    TimeRange,
+    TimeSpan,
     TimeSpanUnits,
+    TimeStamp,
+    convert_time_units,
 )
 
 _now = TimeStamp.now()
@@ -287,7 +287,7 @@ class TestTimeSpan:
         """Should return the number of seconds in the timespan"""
         assert TimeSpan.SECOND.seconds == 1
 
-    def test_delta(self):
+    def test_timedelta(self):
         """Should return a timedelta"""
         assert TimeSpan.SECOND.timedelta == timedelta(seconds=1)
 

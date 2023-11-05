@@ -1,6 +1,8 @@
 name: "Synnax Build"
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 jobs:
   docker:
@@ -20,7 +22,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -54,24 +56,27 @@ jobs:
             echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build Image and Push to Github Container Registry
+      - name: Build Image
         if: steps.filter.outputs.changed == 'true'
         run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
         working-directory: ./synnax
 
-      - name: Rename Image
+      - name: Push to Github Container Registry
         if: steps.filter.outputs.changed == 'true'
         run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
+          docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
+            docker push ghcr.io/synnaxlabs/synnax:latest
           fi
 
       - name: Push to Docker Hub
         if: steps.filter.outputs.changed == 'true'
         run: |
+          docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           docker push synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:latest
             docker push synnaxlabs/synnax:latest
           fi
 
@@ -91,7 +96,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -106,7 +111,7 @@ jobs:
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: synnax/v${{ steps.version.outputs.VERSION }}
+          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
           name: Synnax v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
@@ -116,7 +121,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
+        platform: [ macos-latest, ubuntu-latest, windows-latest ]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -144,7 +149,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'delta/**'
+              - 'console/**'
               - 'freighter/go/**'
               - '.github/workflows/synnax.build.yaml'
 
@@ -178,4 +183,4 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax/v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}

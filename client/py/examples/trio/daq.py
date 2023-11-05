@@ -7,10 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-import pandas as pd
-import numpy as np
 import time
+
+import numpy as np
+import pandas as pd
+
+import synnax as sy
 
 client = sy.Synnax()
 
@@ -102,8 +104,9 @@ state = {
 i = 0
 with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
     with client.new_writer(
-        sy.TimeStamp.now(), [daq_time.key, press_en.key, vent_en.key, data_ch.key],
-        name="Writer"
+        sy.TimeStamp.now(),
+        [daq_time.key, press_en.key, vent_en.key, data_ch.key],
+        name="Writer",
     ) as writer:
         press = 0
         while True:
@@ -119,10 +122,18 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
                 if press > 0:
                     press -= 10
 
-            ok = writer.write({
-                daq_time: sy.TimeStamp.now(),
-                press_en: state[press_en_cmd.key],
-                vent_en: state[vent_en_cmd.key],
-                data_ch: np.float32(press),
-            })
+            ok = writer.write(
+                {
+                    daq_time: sy.TimeStamp.now(),
+                    press_en: state[press_en_cmd.key],
+                    vent_en: state[vent_en_cmd.key],
+                    data_ch: np.float32(press),
+                }
+            )
+            if not ok:
+                print("Write failed")
+                print(writer.error())
             i += 1
+            if (i % 500) == 0:
+                print(f"Committing {i} samples")
+                writer.commit()

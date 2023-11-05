@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, direction, xy, type dimensions } from "@synnaxlabs/x";
 
 import { type color } from "@/color/core";
+import { dimensions as textDimensions } from "@/text/dimensions";
 import { type Level } from "@/text/types";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { box, direction, xy, dimensions} from "@synnaxlabs/x";
-import { dimensions as textDimensions } from "@/text/dimensions";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -117,7 +117,7 @@ export class Draw2D {
     backgroundColor,
   }: Draw2DContainerProps): void {
     if (borderColor == null) borderColor = this.theme.colors.border;
-    if (backgroundColor == null) backgroundColor = this.theme.colors.gray.m3;
+    if (backgroundColor == null) backgroundColor = this.theme.colors.gray.l1;
     if (borderRadius == null) borderRadius = this.theme.sizes.border.radius;
     if (borderWidth == null) borderWidth = 1;
 
@@ -128,7 +128,11 @@ export class Draw2D {
     ctx.lineWidth = 1;
     ctx.beginPath();
     if (rounded)
-      ctx.roundRect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)), borderRadius);
+      ctx.roundRect(
+        ...xy.couple(box.topLeft(region)),
+        ...xy.couple(box.dims(region)),
+        borderRadius,
+      );
     else ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
     ctx.fill();
     if (bordered) ctx.stroke();
@@ -153,11 +157,12 @@ export class Draw2D {
     const font = fontString(this.theme, level);
     const textDims = text.map((t) => textDimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
-    const offset = Math.max(...textDims.map((td) => td[direction.dimension(d)])) + spacingPx;
+    const offset =
+      Math.max(...textDims.map((td) => td[direction.dimension(d)])) + spacingPx;
     return [
       {
         [direction.dimension(direction.swap(d)) as "width"]: Math.max(
-          ...textDims.map((td) => td[direction.dimension(direction.swap(d))])
+          ...textDims.map((td) => td[direction.dimension(direction.swap(d))]),
         ),
         [direction.dimension(d) as "height"]: offset * text.length - spacingPx,
       },

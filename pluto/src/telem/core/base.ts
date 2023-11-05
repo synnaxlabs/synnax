@@ -14,20 +14,22 @@ import { type z } from "zod";
 import { prettyParse } from "@/util/zod";
 
 export class TelemMeta<P extends z.ZodTypeAny> {
-  key: string;
+  readonly type: string;
+  readonly key: string;
   _props: z.output<P> | null = null;
   _prevProps: z.output<P> | null = null;
   schema: P | undefined = undefined;
   notify: (() => void) | null = null;
 
-  constructor(key: string) {
+  constructor(type: string, key: string) {
+    this.type = type;
     this.key = key;
   }
 
   get props(): z.output<P> {
     if (this._props == null)
       throw new UnexpectedError(
-        "[TelemMeta] - props is not defined. Please call setProps",
+        `[TelemMeta] - props is not defined. Please call setProps on ${this.type}:${this.key}`,
       );
     return this._props;
   }
@@ -35,7 +37,7 @@ export class TelemMeta<P extends z.ZodTypeAny> {
   get prevProps(): z.output<P> {
     if (this._prevProps == null)
       throw new UnexpectedError(
-        "[TelemMeta] - prevProps is not defined. Please call setProps",
+        `[TelemMeta] - prevProps is not defined. Please call setProps on ${this.type}:${this.key}`,
       );
     return this._prevProps;
   }

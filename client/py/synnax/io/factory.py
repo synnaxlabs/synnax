@@ -10,7 +10,7 @@
 from pathlib import Path
 
 from synnax.io.csv import CSVReader, CSVWriter
-from synnax.io.protocol import RowFileReader, FileWriter
+from synnax.io.protocol import FileWriter, RowFileReader
 
 READERS: list[type[RowFileReader]] = [
     CSVReader,

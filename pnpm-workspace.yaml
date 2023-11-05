@@ -1,7 +1,7 @@
 packages:
   - "freighter/ts"
   - "client/ts"
-  - "delta"
+  - "console"
   - "pluto"
   - "drift"
   - "configs/ts"

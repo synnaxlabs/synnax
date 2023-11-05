@@ -2,54 +2,28 @@
 import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
-import { Theming } from "@synnaxlabs/pluto/theming";
-import { DARK, LIGHT } from "@/util/theme";
+import { ViewTransitions } from "astro:transitions";
 import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Icon } from "@synnaxlabs/media";
+import { Search } from "@/components/Search";
 const {
   headings,
   frontmatter: { title, heading, description },
 } = Astro.props;
-
-const url = Astro.request.url;
-if (url.includes("noHeader")) {
-  const header = url.split("noHeader=")[1].split("&")[0];
-  Astro.cookies.set("noHeader", header);
-}
-if (url.includes("theme")) {
-  const theme = url.split("theme=")[1].split("&")[0];
-  Astro.cookies.set("theme", theme);
-}
-
-const noHeader = Astro.cookies.get("noHeader");
-let vars: Record<string, any> = {};
-if (noHeader.value == "true") {
-  vars["--docs-header-display"] = "none";
-}
-const theme = Astro.cookies.get("theme");
-vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 ---
 
 <script>
-  const updateHref = () => {
-    const url = window.location.href;
-    const path = url
-      .replace(window.location.origin, "")
-      .split("?")[0]
-      .split("#")[0];
-    const maybeHeading = url.split("#");
-    let heading = "";
-    if (maybeHeading.length > 1) {
-      heading = maybeHeading[1].split("&")[0];
-    }
-    window.parent.postMessage({ path, heading }, "*");
-  };
-  window.addEventListener("popstate", updateHref);
-  updateHref();
+  import { getVersion } from "@/util/fetchVersion";
+
+  getVersion().then((version) => {
+    document.querySelector(".version").innerHTML = version;
+  });
 </script>
 
-<html style={vars}>
+<html transition:animate="none">
   <head>
     <SEO
       title={title}
@@ -71,35 +45,53 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
         ],
       }}
     />
+    <ViewTransitions />
   </head>
-  <header
-    class="pluto--bordered-bottom"
-    style={{
-      display: vars["--docs-header-display"],
-    }}
-  >
-    <div class="header-content">
+  <header class="pluto--bordered-bottom">
+    <Align.Space
+      className="header-content"
+      direction="x"
+      justify="spaceBetween"
+      align="center"
+    >
       <a href="/">
-        <Logo style={{ height: "6.5rem" }} />
+        <Logo style={{ height: "5rem" }} variant="title" />
       </a>
-    </div>
+      <Search client:only="react" />
+      <Align.Space direction="x" align="center">
+        <p class="version" transition:persist></p>
+        <a href="https://github.com/synnaxlabs/synnax">
+          <Icon.Logo.Github
+            style={{ height: "3rem", width: "3rem" }}
+            fill="var(--pluto-text-color)"
+          />
+        </a>
+      </Align.Space>
+    </Align.Space>
   </header>
   <section>
     <nav class="docs-nav">
       <PageNav client:idle currentPage={Astro.url.pathname} />
     </nav>
-    <article>
-      <h1 class="pluto--bordered-bottom">{heading ?? title}</h1>
+    <article transition:animate="fade">
+      <h1 class="article-title">{heading ?? title}</h1>
+      <h3 class="article-description">{description}</h3>
       <slot />
     </article>
     <nav class="docs-toc pluto--bordered-left">
-      <TableOfContents client:only="react" headings={headings} />
+      <TableOfContents client:idle headings={headings} />
     </nav>
   </section>
 
   <script>
     import { startThemeDriver } from "@/util/theme";
+    import { startUpdatingIframeHref } from "@/util/iframe";
     startThemeDriver();
+    startUpdatingIframeHref();
+    document.addEventListener("astro:after-swap", () => {
+      startThemeDriver();
+      startUpdatingIframeHref();
+    });
   </script>
 
   <style is:global>
@@ -107,20 +99,250 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       margin: 0;
     }
 
+    .chip {
+      text-decoration: none !important;
+      flex-grow: 1;
+      min-width: 275px;
+      flex-basis: 275px;
+      & div {
+        height: 100%;
+        transition: all 0.1s ease-in-out;
+        border: var(--pluto-border-l4);
+                padding: 1rem 3rem;
+        border-radius: var(--pluto-border-radius);
+        &:hover {
+          border-color: var(--pluto-primary-z);
+          cursor: pointer;
+
+          & h4 {
+            color: var(--pluto-primary-z);
+          }
+          & p {
+            color: var(--pluto-gray-l9);
+          }
+        }
+      }
+      & h4 {
+        color: var(--pluto-primary-p1);
+      }
+      & p {
+        color: var(--pluto-gray-l7);
+      }
+    }
+
+    .info {
+      padding: 0.1rem 3rem;
+      margin: 4rem 0;
+      background: var(--pluto-primary-z-20);
+      border: var(--pluto-border);
+      border-color: var(--pluto-primary-z-30);
+      border-radius: var(--pluto-border-radius);
+      & > * {
+        font-size: var(--pluto-small-size);
+        font-family: var(--pluto-font-family);
+        font-weight: var(--pluto-small-weight);
+        line-height: calc(var(--pluto-small-line-height) * 1.2);
+      }
+    }
+
+    nav {
+      & p,
+      small {
+        white-space: normal !important;
+      }
+      & small {
+        margin-top: 2px !important;
+      }
+    }
+
+    .docs-get-started-chip {
+      overflow: hidden;
+
+      & .text-container {
+        transition: all 0.15s ease-in-out;
+        position: relative;
+        top: 45px;
+      }
+
+      & p {
+        color: var(--pluto-gray-l7);
+      }
+
+      :hover {
+        & p {
+          opacity: 1;
+        }
+
+        & .text-container {
+          top: 0px;
+        }
+      }
+    }
+
+    .table-of-contents {
+      & h5 {
+        font-weight: 500;
+      }
+
+      .heading {
+        border-bottom: none;
+      }
+
+      & .pluto-menu-item {
+        white-space: normal;
+        height: fit-content;
+        padding: 0.75rem 2rem;
+        border-right: 2px solid transparent;
+        & small {
+          color: var(--pluto-gray-l6) !important;
+        }
+
+        &:is(.pluto--selected, :hover) {
+          background: none;
+          border-right: 2px solid var(--pluto-text-color);
+          border-radius: 0 !important;
+          & small {
+            font-weight: 500 !important;
+            color: var(--pluto-text-color) !important;
+          }
+        }
+      }
+    }
+
+    .search-box {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      & .pluto-input {
+        width: 50vw;
+        max-width: 700px;
+      }
+
+      &.pluto--visible {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        box-shadow: var(--box-shadow);
+
+        & .pluto-input {
+          width: 80vw;
+          max-width: 900px;
+          height: 40px;
+        }
+      }
+
+      .pluto-dropdown__dialog {
+        position: absolute;
+        left: 0 !important;
+        top: 40px !important;
+        box-shadow: var(--box-shadow);
+        background: var(--pluto-gray-l1);
+
+        .hovered {
+          background: var(--pluto-gray-l3);
+        }
+
+        & .search-result {
+          padding: 2rem;
+          &:hover {
+            background: var(--pluto-gray-l3);
+          }
+
+          & b {
+            background: var(--pluto-primary-z-30);
+          }
+
+          & small {
+            color: var(--pluto-gray-l7);
+          }
+        }
+
+        & a:hover {
+          text-decoration: none;
+        }
+      }
+    }
+
     a {
-      color: var(--pluto-primary-m1);
+      color: var(--pluto-primary-p1);
       text-decoration: none;
     }
 
-    a:hover {
+    :root {
+      --nav-height: 10rem;
+      --max-width: 1400px;
+      --astro-code-color-text: var(--pluto-text-color);
+      --astro-code-color-background: var(--pluto-gray-l1);
+      --astro-code-token-comment: var(--pluto-gray-l5);
+      --astro-code-token-string-expression: #00b023;
+      --astro-code-token-function: #20a4f3;
+      --astro-code-token-punctuation: var(--pluto-text-color);
+      --astro-code-token-keyword: #dc136c;
+      --astro-code-token-constant: var(--astro-code-token-string-expression);
+    }
+
+    a:hover:not(.pluto-btn) {
       text-decoration: underline;
+    }
+
+    .pluto-tree {
+      .pluto-text {
+        color: var(--pluto-gray-l6);
+        font-size: var(--pluto-small-size);
+        line-height: var(--pluto-small-line-height);
+        font-weight: var(--pluto-small-weight);
+      }
+
+      overflow-x: hidden;
+
+      .pluto-btn {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        background: none !important;
+        height: auto;
+
+        &:hover {
+          & .pluto-text {
+            font-weight: 500;
+            color: var(--pluto-text-color);
+          }
+
+          & path:is(:not([fill="none"]), [stroke="#000"]) {
+            fill: var(--pluto-text-color) !important;
+          }
+        }
+
+        &:not(.pluto--has-children) {
+          border-left: 1px solid var(--pluto-gray-l3);
+          border-radius: 0 !important;
+
+          &.pluto--selected {
+            border-left: 2px solid var(--pluto-primary-p1);
+            background: none;
+            .pluto-text {
+              color: var(--pluto-text-color);
+              font-weight: 500;
+            }
+          }
+
+          &:hover {
+            background: none;
+            border-left: 2px solid var(--pluto-text-color);
+          }
+        }
+      }
+
+      .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+        fill: var(--pluto-gray-l5) !important;
+      }
     }
 
     .copy-code {
       position: absolute;
       top: 25%;
       right: 20px;
-      border-color: var(--pluto-gray-m1);
+      border-color: var(--pluto-gray-l4);
       opacity: 0;
       transition: all 0.15s ease-in-out;
     }
@@ -130,11 +352,11 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     }
 
     .copy-code svg > * {
-      fill: var(--pluto-gray-m1);
+      fill: var(--pluto-gray-l4);
     }
 
     .copy-code:hover svg > * {
-      fill: var(--pluto-gray-m0);
+      fill: var(--pluto-gray-l5);
     }
 
     header h1,
@@ -148,7 +370,6 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     }
 
     article h1,
-    article h2,
     article h3,
     article h4,
     article h5,
@@ -159,6 +380,10 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       margin: 2.5rem 0;
     }
 
+    article h2 {
+      margin: 4rem 0;
+    }
+
     article img {
       margin: 2rem -2rem;
     }
@@ -167,10 +392,16 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       margin: 1.5rem 0;
     }
 
-    article video {
+    article :is(video, img) {
       width: 100%;
       border-radius: 1rem !important;
-      box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+      border: var(--pluto-border);
+      box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+      border-radius: calc(var(--pluto-border-radius) * 2);
+
+      @media (prefers-color-scheme: dark) {
+        box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+      }
     }
 
     article img {
@@ -179,12 +410,24 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
     code:not(.astro-code code) {
       padding: 0.25rem 1rem;
-      background-color: var(--pluto-gray-m2);
-      color: var(--pluto-text-color);
+      background: var(--pluto-gray-l3);
     }
 
-    .pluto-tabs-selector__button p {
-      margin: 1rem 0;
+    code {
+      font-size: var(--pluto-small-size);
+      line-height: var(--pluto-small-line-height);
+    }
+
+    .pluto-tabs-selector__btn--uneditable {
+      padding: 0 3rem;
+
+      .pluto-text-icon {
+        gap: 1.5rem;
+      }
+
+      .pluto-text {
+        margin: 0 !important;
+      }
     }
 
     li {
@@ -194,8 +437,9 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     .astro-code {
       padding: 3rem;
       position: relative;
+      border: var(--pluto-border);
       border-radius: var(--pluto-border-radius);
-      margin: 2rem 1rem;
+      margin: 3rem 1rem;
       overflow-x: auto !important;
       overflow-y: visible !important;
     }
@@ -217,16 +461,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     }
 
     code {
-      background: #0d1117;
-      color: rgba(255, 255, 255, 0.9);
       border-radius: var(--pluto-border-radius);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      html {
-        --pluto-background-color: #121212;
-        --pluto-text-color: #ffffff;
-      }
     }
 
     table > :not(caption) > * {
@@ -240,7 +475,20 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       border-width: 0 1px;
       border-color: var(--pluto-border-color);
       border-style: solid;
-      padding: 0.75rem 1.25rem;
+      padding: 1.25rem 1.5rem;
+    }
+
+    table td {
+      font-size: var(--pluto-small-size);
+    }
+
+    table thead th {
+      padding: 1.5rem 1.5rem;
+      font-weight: 600;
+    }
+
+    table thead tr {
+      border-width: 2px;
     }
 
     table th {
@@ -250,7 +498,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
     table {
       width: calc(100% - 4px);
       border-spacing: 0;
-      background-color: transparent;
+      background: transparent;
       border-collapse: collapse;
       overflow-x: auto;
       border-style: hidden;
@@ -261,7 +509,25 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
 
   <style>
     :root {
-      --max-width: 1440px;
+      --max-width: 1500px;
+    }
+
+    .article-title {
+      width: fit-content;
+    }
+
+    .article-title::after {
+      content: "";
+      display: block;
+      width: 100px;
+      margin-top: 2rem;
+      height: 2px;
+      background: var(--pluto-primary-p1);
+    }
+
+    .article-description {
+      color: var(--pluto-gray-l8);
+      font-weight: 350;
     }
 
     h1 {
@@ -303,7 +569,7 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       }
     }
 
-    @media (min-width: 1440px) {
+    @media (min-width: 1500px) {
       section {
         width: var(--max-width);
       }
@@ -336,16 +602,20 @@ vars = { ...vars, ...Theming.toCSSVars(theme.value === "dark" ? DARK : LIGHT) };
       height: calc(100% - 10rem);
     }
 
+    nav:first-child {
+      flex-basis: 210px;
+    }
+
     nav {
-      padding: 20px 0px;
-      flex-basis: 200px;
+      padding: 3rem 0;
+      flex-basis: 210px;
       overflow-y: auto;
     }
 
     article {
       flex-basis: 0;
       flex-grow: 9999;
-      padding: 5rem;
+      padding: 5rem 8rem;
       overflow-y: auto;
     }
   </style>

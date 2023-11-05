@@ -25,12 +25,27 @@
         --pluto-pack-br: var(--pluto-border-radius);
     }
 
+
+
     &.pluto--bordered {
         border: none !important;
 
-        > * {
-            border: var(--pluto-border-width) solid var(--pluto-gray-m1);
+        &:not(.pluto-pack--shadow) > * {
+            border: var(--pluto-border-l4);
         }
+
+
+        &.pluto-pack--shadow {
+            &:is(:hover, :focus-within) > * {
+                border: var(--pluto-border-l4);
+                opacity: 1 !important;
+            }
+
+            & > .pluto-btn {
+                opacity: 0;
+            }
+        }
+
     }
 
     &.pluto--x {

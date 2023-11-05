@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"io"
+	"sync"
 
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -26,7 +27,7 @@ type relay struct {
 func newRelay(o *options) *relay {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
 	delta := confluence.NewDynamicDeltaMultiplier[Frame]()
-	frames := confluence.NewStream[Frame](1)
+	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)
 	delta.Flow(sCtx)
 	return &relay{
@@ -38,13 +39,20 @@ func newRelay(o *options) *relay {
 
 func (r *relay) connect(buffer int) (confluence.Outlet[Frame], func()) {
 	frames := confluence.NewStream[Frame](buffer)
-	frames.SetInletAddress(address.Rand())
+	frames.SetInletAddress(address.Newf("%s-storage", address.Rand().String()))
 	r.delta.Connect(frames)
 	return frames, func() {
+		var wg sync.WaitGroup
+		// NOTE: This area is a source of concurrency bugs. BE CAREFUL. We need to make
+		// sure we drain the frames in a SEPARATE goroutine. This prevents deadlocks
+		// inside the relay.
+		wg.Add(1)
+		go func() {
+			confluence.Drain[Frame](frames)
+			wg.Done()
+		}()
 		r.delta.Disconnect(frames)
-		// We need to make sure we drain any remaining frames before exiting to
-		// avoid blocking the relay.
-		confluence.Drain[Frame](frames)
+		wg.Wait()
 	}
 }
 

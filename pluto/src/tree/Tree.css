@@ -18,7 +18,7 @@
         width: 100%;
 
         & .pluto-caret path {
-            fill: var(--pluto-gray-p0) !important;
+            fill: var(--pluto-gray-l6) !important;
         }
     }
 
@@ -30,5 +30,9 @@
 
     .pluto--selected {
         background: var(--pluto-primary-z-20);
+    }
+
+    .pluto-loading-indicator {
+        margin-left: auto;
     }
 }

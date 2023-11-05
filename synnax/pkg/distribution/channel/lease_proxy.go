@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -50,24 +51,27 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 
 func (lp *leaseProxy) handle(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
 	txn := lp.ClusterDB.OpenTx()
-	err := lp.create(ctx, txn, &msg.Channels)
+	err := lp.create(ctx, txn, &msg.Channels, msg.RetrieveIfNameExists)
 	if err != nil {
 		return CreateMessage{}, err
 	}
 	return CreateMessage{Channels: msg.Channels}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel) error {
+func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, retrieveIfNameExists bool) error {
 	channels := *_channels
-	for i := range channels {
-		if channels[i].Leaseholder == 0 {
+	for i, ch := range channels {
+		if ch.LocalKey != 0 {
+			channels[i].LocalKey = 0
+		}
+		if ch.Leaseholder == 0 {
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
 	}
 	batch := lp.router.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
-		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries)
+		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries, retrieveIfNameExists)
 		if err != nil {
 			return err
 		}
@@ -75,7 +79,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free)
+			remoteChannels, err := lp.createRemote(ctx, core.Bootstrapper, batch.Free, retrieveIfNameExists)
 			if err != nil {
 				return err
 			}
@@ -88,7 +92,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			oChannels = append(oChannels, batch.Free...)
 		}
 	}
-	err := lp.createLocal(ctx, tx, &batch.Gateway)
+	err := lp.createGateway(ctx, tx, &batch.Gateway, retrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -107,36 +111,50 @@ func (lp *leaseProxy) createFreeVirtual(ctx context.Context, tx gorp.Tx, channel
 	return lp.maybeSetResources(ctx, tx, *channels)
 }
 
-func (lp *leaseProxy) createLocal(ctx context.Context, tx gorp.Tx, channels *[]Channel) error {
-	if err := lp.assignLocalKeys(channels); err != nil {
-		return err
-	}
-	for i, ch := range *channels {
-		if ch.IsIndex {
-			ch.LocalIndex = ch.LocalKey
-			(*channels)[i] = ch
+func (lp *leaseProxy) createGateway(ctx context.Context, tx gorp.Tx, channels *[]Channel, retrieveIfNameExists bool) error {
+	incCounterBy := uint16(len(*channels))
+	if retrieveIfNameExists {
+		names := NamesFromChannels(*channels)
+		if err := gorp.NewRetrieve[Key, Channel]().Where(func(c *Channel) bool {
+			v := lo.IndexOf(names, c.Name)
+			exists := v != -1
+			if exists {
+				(*channels)[v] = *c
+				if incCounterBy != 0 {
+					incCounterBy--
+				}
+			}
+			return exists
+		}).Exec(ctx, tx); err != nil {
+			return err
 		}
 	}
-	storageChannels := toStorage(*channels)
-	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
-		return err
-	}
-	if err := gorp.NewCreate[Key, Channel]().Entries(channels).Exec(ctx, tx); err != nil {
-		return err
-	}
-	return lp.maybeSetResources(ctx, tx, *channels)
-}
 
-func (lp *leaseProxy) assignLocalKeys(channels *[]Channel) error {
-	v, err := lp.leasedCounter.Add(uint16(len(*channels)))
+	if incCounterBy == 0 {
+		return nil
+	}
+	v, err := lp.leasedCounter.Add(incCounterBy)
 	if err != nil {
 		return err
 	}
+	toCreate := make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
-		ch.LocalKey = v - uint16(i)
+		if ch.LocalKey == 0 {
+			ch.LocalKey = v - incCounterBy + uint16(i) + 1
+			toCreate = append(toCreate, ch)
+		} else if ch.IsIndex {
+			ch.LocalIndex = ch.LocalKey
+		}
 		(*channels)[i] = ch
 	}
-	return nil
+	storageChannels := toStorage(toCreate)
+	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+		return err
+	}
+	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
+		return err
+	}
+	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
 func (lp *leaseProxy) assignVirtualKeys(channels *[]Channel) error {
@@ -186,12 +204,18 @@ func (lp *leaseProxy) maybeSetResources(
 	return nil
 }
 
-func (lp *leaseProxy) createRemote(ctx context.Context, target core.NodeKey, channels []Channel) ([]Channel, error) {
+func (lp *leaseProxy) createRemote(
+	ctx context.Context,
+	target core.NodeKey,
+	channels []Channel,
+	retrieveIfNameExists bool,
+) ([]Channel, error) {
 	addr, err := lp.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err
 	}
-	res, err := lp.Transport.CreateClient().Send(ctx, addr, CreateMessage{Channels: channels})
+	cm := CreateMessage{Channels: channels, RetrieveIfNameExists: retrieveIfNameExists}
+	res, err := lp.Transport.CreateClient().Send(ctx, addr, cm)
 	if err != nil {
 		return nil, err
 	}

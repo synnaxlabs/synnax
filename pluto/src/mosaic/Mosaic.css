@@ -12,7 +12,7 @@
 .pluto-mosaic__mask {
     position: absolute;
     pointer-events: none;
-    background-color: rgb(0 0 0 / 50%);
+    background: rgb(0 0 0 / 50%);
     z-index: 1;
 }
 

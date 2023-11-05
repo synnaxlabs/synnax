@@ -74,6 +74,7 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 // exist in the database. If Where is set on the query, Retrieve will return a query.NotFound
 // if NO keys pass the Where filter.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Retriever.Exec", tx)
 	_, ok := getWhereKeys[K](r.Params)
 	f := lo.Ternary(ok, keysRetrieve[K, E], filterRetrieve[K, E])
 	return f(ctx, r.Params, tx)

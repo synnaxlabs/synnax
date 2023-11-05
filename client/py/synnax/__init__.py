@@ -9,7 +9,6 @@
 
 __version__ = "0.3.0"
 
-from synnax.ranger import Range
 from synnax.channel import Channel
 from synnax.exceptions import (
     AuthError,
@@ -18,36 +17,34 @@ from synnax.exceptions import (
     GeneralError,
     ParseError,
     QueryError,
+    MultipleResultsError,
+    NoResultsError,
     RouteError,
     UnexpectedError,
     ValidationError,
 )
+from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer
 from synnax.options import SynnaxOptions
+from synnax.ranger import Range
 from synnax.synnax import Synnax
 from synnax.telem import (
-    DataType,
-    Density,
-    Rate,
-    Size,
-    TimeRange,
-    TimeSpan,
-    TimeStamp,
+    Authority,
+    Bounds,
+    CrudeAuthority,
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
     CrudeTimeSpan,
     CrudeTimeStamp,
+    DataType,
+    Density,
+    Rate,
     Series,
-    convert_time_units,
+    Size,
+    TimeRange,
+    TimeSpan,
     TimeSpanUnits,
-    Authority,
-    CrudeAuthority,
-    Bounds,
-)
-from synnax.framer import (
-    Frame,
-    BufferedWriter,
-    Writer,
-    Iterator,
-    Streamer,
+    TimeStamp,
+    convert_time_units,
+    elapsed_seconds,
 )

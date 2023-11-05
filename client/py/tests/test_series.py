@@ -6,10 +6,11 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+import numpy as np
 import pandas as pd
 import pytest
-import numpy as np
-from synnax.telem import Series, DataType, TimeStamp
+
+from synnax.telem import DataType, Series, TimeStamp
 
 
 @pytest.mark.telem
@@ -113,3 +114,13 @@ class TestSeries:
         """Should correctly convert the series to a builtin list"""
         s = Series([1, 2, 3], data_type=DataType.INT8)
         assert list(s) == [1, 2, 3]
+
+    def test_greater_than(self):
+        """Should correctly compare the series to a scalar"""
+        s = Series([1, 2, 3], data_type=DataType.INT8)
+        assert all(s > 2) == all([False, False, True])
+
+    def test_less_than(self):
+        """Should correctly compare the series to a scalar"""
+        s = Series([1, 2, 3], data_type=DataType.INT8)
+        assert all(s < 2) == all([True, False, False])

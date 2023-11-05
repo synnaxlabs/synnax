@@ -2,13 +2,7 @@
 
 # 0 - Positioning Statement
 
-Synnax is for real-time hardware operations teams dissatisfied with the long,
-inefficient cycles between acquiring data and using it to make actionable decisions.
-Unlike traditional systems that disregard data handling beyond writing to a file, Synnax
-considers the entire data lifecycle; its modular, open architecture delivers locality
-aware distributed data storage and transport, extensible interfaces for integrating
-analysis tools, and a performant pipeline for manual and programmatic control at any
-scale.
+Synnax is for real-time hardware operations teams dissatisfied with the long, inefficient cycles between acquiring data and using it to make actionable decisions.Unlike traditional systems that disregard data handling beyond writing to a file, Synnax considers the entire data lifecycle; its modular, open architecture delivers locality aware distributed data storage and transport, extensible interfaces for integrating analysis tools, and a performant pipeline for manual and programmatic control at any scale.
 
 # 1 - Mantras
 

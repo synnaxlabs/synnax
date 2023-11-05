@@ -14,20 +14,20 @@ import click
 import numpy as np
 
 from synnax import Synnax
-from synnax.cli.connect import connect_client
+from synnax.channel import Channel
+from synnax.cli import default
 from synnax.cli.channel import (
-    prompt_group_channel_names,
     channel_name_table,
     maybe_select_channel,
+    prompt_group_channel_names,
 )
-from synnax.ingest.row import RowIngestionEngine
-from synnax.io import ChannelMeta, ReaderType, RowFileReader, IO_FACTORY, IOFactory
-from synnax.telem import DataType, Rate, TimeStamp, TimeRange
-from synnax.channel import Channel
+from synnax.cli.connect import connect_client
 from synnax.cli.flow import Context, Flow
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
-from synnax.cli import default
+from synnax.ingest.row import RowIngestionEngine
+from synnax.io import IO_FACTORY, ChannelMeta, IOFactory, ReaderType, RowFileReader
+from synnax.telem import DataType, Rate, TimeRange, TimeStamp
 
 # A shorthand grouping to represent all values in a set.
 GROUP_ALL = "__all__"

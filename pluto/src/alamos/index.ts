@@ -7,9 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AlamosProvider, useInstrumentation } from "@/alamos/AlamosContext";
-
-export const Alamos = {
-  Provider: AlamosProvider,
-  useInstrumentation,
-};
+export * as Alamos from "@/alamos/Provider";

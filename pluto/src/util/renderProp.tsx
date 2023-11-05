@@ -20,3 +20,7 @@ export const componentRenderProp =
   <P extends Record<string, any>>(Component: React.ComponentType<P>): RenderProp<P> =>
   // eslint-disable-next-line react/display-name
   (props) => <Component {...props} />;
+
+export const isRenderProp = <P extends Record<string, any>>(
+  children: React.ReactNode | RenderProp<P>,
+): children is RenderProp<P> => typeof children === "function";

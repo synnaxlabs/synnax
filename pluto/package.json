@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/pluto",
   "private": false,
-  "version": "0.7.0",
+  "version": "0.10.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -15,74 +15,73 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.0.8",
-    "@hookform/resolvers": "^3.3.0",
+    "@fontsource-variable/inter": "^5.0.14",
+    "@hookform/resolvers": "^3.3.2",
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
-    "@tanstack/react-virtual": "3.0.0-beta.54",
+    "@tanstack/react-virtual": "3.0.0-alpha.0",
     "async-mutex": "^0.4.0",
     "clsx": "^2.0.0",
     "d3-scale": "^4.0.2",
     "fuse.js": "^6.6.2",
-    "mathjs": "^11.9.1",
-    "nanoid": "^4.0.2",
+    "nanoid": "^5.0.2",
     "proxy-memoize": "1.2.0",
     "react": "^18.2.0",
     "react-color": "^2.19.3",
     "react-dom": "^18.2.0",
-    "react-hook-form": "^7.45.4",
-    "reactflow": "^11.8.3",
-    "zod": "3.22.2"
+    "react-hook-form": "^7.47.0",
+    "reactflow": "^11.9.4",
+    "zod": "3.22.4"
   },
   "devDependencies": {
-    "@babel/core": "^7.22.10",
+    "@babel/core": "^7.23.2",
     "@juggle/resize-observer": "^3.4.0",
-    "@storybook/addon-actions": "^7.3.2",
-    "@storybook/addon-backgrounds": "^7.3.2",
-    "@storybook/addon-docs": "^7.3.2",
-    "@storybook/addon-essentials": "^7.3.2",
-    "@storybook/addon-interactions": "^7.3.2",
-    "@storybook/addon-links": "^7.3.2",
-    "@storybook/addon-measure": "^7.3.2",
-    "@storybook/addon-outline": "^7.3.2",
-    "@storybook/addons": "^7.3.2",
-    "@storybook/channel-postmessage": "^7.3.2",
-    "@storybook/channel-websocket": "^7.3.2",
-    "@storybook/client-api": "^7.3.2",
-    "@storybook/client-logger": "^7.3.2",
-    "@storybook/core-common": "^7.3.2",
-    "@storybook/preview-web": "^7.3.2",
-    "@storybook/react": "^7.3.2",
-    "@storybook/react-vite": "^7.3.2",
+    "@storybook/addon-actions": "^7.5.1",
+    "@storybook/addon-backgrounds": "^7.5.1",
+    "@storybook/addon-docs": "^7.5.1",
+    "@storybook/addon-essentials": "^7.5.1",
+    "@storybook/addon-interactions": "^7.5.1",
+    "@storybook/addon-links": "^7.5.1",
+    "@storybook/addon-measure": "^7.5.1",
+    "@storybook/addon-outline": "^7.5.1",
+    "@storybook/addons": "^7.5.1",
+    "@storybook/channel-postmessage": "^7.5.1",
+    "@storybook/channel-websocket": "^7.5.1",
+    "@storybook/client-api": "^7.5.1",
+    "@storybook/client-logger": "^7.5.1",
+    "@storybook/core-common": "^7.5.1",
+    "@storybook/preview-web": "^7.5.1",
+    "@storybook/react": "^7.5.1",
+    "@storybook/react-vite": "^7.5.1",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@testing-library/react": "^14.0.0",
-    "@testing-library/user-event": "^14.4.3",
-    "@types/d3": "^7.4.0",
-    "@types/d3-scale": "^4.0.4",
-    "@types/offscreencanvas": "^2019.7.0",
-    "@types/react": "^18.2.21",
-    "@types/react-color": "^3.0.6",
-    "@types/react-dom": "^18.2.7",
-    "@types/uuid": "^9.0.2",
-    "@types/webgl2": "^0.0.7",
-    "@vitejs/plugin-react": "^4.0.4",
-    "@vitest/coverage-v8": "^0.34.2",
-    "@vitest/ui": "^0.34.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/d3": "^7.4.2",
+    "@types/d3-scale": "^4.0.6",
+    "@types/offscreencanvas": "^2019.7.2",
+    "@types/react": "^18.2.31",
+    "@types/react-color": "^3.0.9",
+    "@types/react-dom": "^18.2.14",
+    "@types/uuid": "^9.0.6",
+    "@types/webgl2": "^0.0.9",
+    "@vitejs/plugin-react": "^4.1.0",
+    "@vitest/coverage-v8": "^0.34.6",
+    "@vitest/ui": "^0.34.6",
     "babel-loader": "^9.1.3",
-    "eslint": "^8.47.0",
+    "eslint": "^8.52.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "jsdom": "^22.1.0",
-    "prettier": "3.0.2",
-    "react-icons": "^4.10.1",
-    "storybook": "^7.3.2",
+    "prettier": "3.0.3",
+    "react-icons": "^4.11.0",
+    "storybook": "^7.5.1",
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.2.2",
-    "vite": "4.4.9",
-    "vite-tsconfig-paths": "^4.2.0",
-    "vitest": "^0.34.2"
+    "vite": "^4.5.0",
+    "vite-tsconfig-paths": "^4.2.1",
+    "vitest": "^0.34.6"
   },
   "files": [
     "dist"
@@ -100,6 +99,71 @@
       "import": "./dist/aether.js",
       "require": "./dist/aether.cjs",
       "types": "./dist/aetherIndex.d.ts"
+    },
+    "./align": {
+      "import": "./dist/align.js",
+      "require": "./dist/align.cjs",
+      "types": "./dist/align/index.d.ts"
+    },
+    "./button": {
+      "import": "./dist/button.js",
+      "require": "./dist/button.cjs",
+      "types": "./dist/button/index.d.ts"
+    },
+    "./tabs": {
+      "import": "./dist/tabs.js",
+      "require": "./dist/tabs.cjs",
+      "types": "./dist/tabs/index.d.ts"
+    },
+    "./theming": {
+      "import": "./dist/theming.js",
+      "require": "./dist/theming.cjs",
+      "types": "./dist/theming/index.d.ts"
+    },
+    "./menu": {
+      "import": "./dist/menu.js",
+      "require": "./dist/menu.cjs",
+      "types": "./dist/menu.d.ts"
+    },
+    "./header": {
+      "import": "./dist/header.js",
+      "require": "./dist/header.cjs",
+      "types": "./dist/header/index.d.ts"
+    },
+    "./tree": {
+      "import": "./dist/tree.js",
+      "require": "./dist/tree.cjs",
+      "types": "./dist/tree/index.d.ts"
+    },
+    "./dropdown": {
+      "import": "./dist/dropdown.js",
+      "require": "./dist/dropdown.cjs",
+      "types": "./dist/dropdown/index.d.ts"
+    },
+    "./video": {
+      "import": "./dist/video.js",
+      "require": "./dist/video.cjs",
+      "types": "./dist/video/index.d.ts"
+    },
+    "./text": {
+      "import": "./dist/text.js",
+      "require": "./dist/text.cjs",
+      "types": "./dist/text/index.d.ts"
+    },
+    "./input": {
+      "import": "./dist/input.js",
+      "require": "./dist/input.cjs",
+      "types": "./dist/input/index.d.ts"
+    },
+    "./triggers": {
+      "import": "./dist/triggers.js",
+      "require": "./dist/triggers.cjs",
+      "types": "./dist/triggers/index.d.ts"
+    },
+    "./list": {
+      "import": "./dist/list.js",
+      "require": "./dist/list.cjs",
+      "types": "./dist/list/index.d.ts"
     },
     "./dist/*": "./dist/*"
   },

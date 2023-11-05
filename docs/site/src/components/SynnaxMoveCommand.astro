@@ -9,5 +9,6 @@ const version = await (await fetch(VERSION)).text();
 
 <Code
   lang="bash"
-  code={`sudo mv synnax-v${version.trim()}-${os.toLowerCase()} /usr/local/bin`}
+  code={`sudo mv synnax-v${version.trim()}-${os.toLowerCase()} /usr/local/bin/synnax`}
+  theme="css-variables"
 />

@@ -24,7 +24,7 @@
     &.pluto-haul-drop-region {
         border: var(--pluto-border) !important;
         border-color: var(--haul-border-color) !important;
-        background-color: var(--haul-background-color) !important;
+        background: var(--haul-l0) !important;
     }
 }
 

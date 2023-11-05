@@ -9,16 +9,28 @@
 
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 import uuid
 from datetime import datetime
 
+import numpy as np
+import pandas as pd
 from freighter import Payload
-from synnax.telem.telem import TimeRange, DataType, CrudeDataType, Size, TimeStamp
+
+from synnax.telem.telem import (
+    CrudeDataType,
+    DataType,
+    Size,
+    TimeRange,
+    TimeStamp,
+    TimeSpan,
+)
+from synnax.util.interop import overload_comparison_operators
 
 
 class Series(Payload):
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(overload_comparison_operators(cls, "__array__"))
+
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffers. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -78,7 +90,6 @@ class Series(Payload):
                 )
             data_type = DataType(data_type)
             data_ = data
-
         super().__init__(
             data_type=data_type, data=data_, time_range=time_range, alignment=alignment
         )
@@ -129,3 +140,12 @@ class Series(Payload):
 
 TypedCrudeSeries = Series | pd.Series | np.ndarray
 CrudeSeries = Series | bytes | pd.Series | np.ndarray | list | float | int | TimeStamp
+
+
+def elapsed_seconds(d: np.ndarray) -> np.ndarray:
+    """Converts a Series of timestamps to elapsed seconds since the first timestamp.
+
+    :param d: A Series of timestamps.
+    :returns: A Series of elapsed seconds.
+    """
+    return (d - d[0]) / TimeSpan.SECOND

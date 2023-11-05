@@ -159,7 +159,7 @@ const ContextMenuCore = (
 
   return (
     <div
-      className={CSS(CONTEXT_MENU_CONTAINER, className)}
+      className={CSS(CONTEXT_MENU_CONTAINER, className, CSS.inheritDims())}
       onContextMenu={open}
       {...props}
     >

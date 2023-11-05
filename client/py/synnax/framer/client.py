@@ -9,28 +9,28 @@
 
 from typing import overload
 
+from alamos import NOOP, Instrumentation
+from freighter import AsyncStreamClient, StreamClient
 from numpy import ndarray
-from freighter import StreamClient, AsyncStreamClient
 
-from alamos import Instrumentation, NOOP
-from synnax.exceptions import QueryError
-from synnax.framer.frame import Frame
-from synnax.framer.adapter import WriteFrameAdapter, ReadFrameAdapter
-from synnax.framer.writer import Writer
-from synnax.framer.iterator import Iterator
 from synnax.channel.payload import (
-    ChannelParams,
     ChannelKey,
-    ChannelName,
     ChannelKeys,
+    ChannelName,
     ChannelNames,
+    ChannelParams,
     ChannelPayload,
+    normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
-from synnax.channel.payload import normalize_channel_params
-from synnax.framer.streamer import Streamer, AsyncStreamer
-from synnax.telem import TimeRange, CrudeTimeStamp, Series, TimeStamp
-from synnax.telem.authority import Authority, CrudeAuthority
+from synnax.exceptions import QueryError
+from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
+from synnax.framer.frame import Frame
+from synnax.framer.iterator import Iterator
+from synnax.framer.streamer import AsyncStreamer, Streamer
+from synnax.framer.writer import Writer
+from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeStamp
+from synnax.telem.control import Authority, CrudeAuthority
 
 
 class Client:
@@ -92,7 +92,7 @@ class Client:
             strict=strict,
             suppress_warnings=suppress_warnings,
             authorities=authorities,
-            name=name
+            name=name,
         )
 
     def new_iterator(

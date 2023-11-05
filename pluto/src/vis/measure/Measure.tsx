@@ -19,7 +19,7 @@ import { measure } from "@/vis/measure/aether";
 
 type ClickMode = "one" | "two" | "clear" | "empty";
 
-const MEASURE_TRIGGERS: Triggers.Config<ClickMode> = {
+const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
   defaultMode: "empty",
   one: [["1"]],
   two: [["2"]],

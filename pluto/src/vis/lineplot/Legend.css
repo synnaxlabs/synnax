@@ -13,8 +13,8 @@
     position: absolute;
     cursor: grabbing;
     padding: 1rem;
-    z-index: 100;
-    background-color: var(--pluto-background-color);
+    z-index: 2;
+    background: var(--pluto-gray-l0);
     max-height: 50%;
     overflow-y: auto;
     overflow-x: hidden;

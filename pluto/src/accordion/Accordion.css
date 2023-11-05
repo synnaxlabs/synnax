@@ -20,7 +20,7 @@
 
     .pluto-header {
         position: relative;
-        background: var(--pluto-background-color);
+        background: var(--pluto-gray-l0);
 
         &.pluto--collapsed {
             border-bottom: none !important;

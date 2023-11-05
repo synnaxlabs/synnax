@@ -7,16 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
+import matplotlib.pyplot as plt
 from alamos.dev import instrumentation
 
-import matplotlib.pyplot as plt
+import synnax as sy
 
-client = sy.Synnax(
-)
+client = sy.Synnax()
 
 
 rng = client.ranges.create(
     name="COPV Test",
     time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
 )
+
+rng.kv.set()

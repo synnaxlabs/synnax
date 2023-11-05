@@ -9,13 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-windows-control--close:hover {
-    background-color: var(--pluto-error-z);
-    border-color: var(--pluto-error-z);
+.pluto-windows-control--close {
+    &:hover {
+        background: var(--pluto-error-z) !important;
+        border-color: var(--pluto-error-z) !important;
 
-    & svg {
-        fill: var(--pluto-white);
-        transition: none;
+
+        & svg {
+            fill: var(--pluto-white);
+            transition: none;
+        }
+    }
+
+    &:active {
+        background: var(--pluto-error-m1) !important;
+        border-color: var(--pluto-error-m1) !important;
     }
 }
 
@@ -24,6 +32,14 @@
     width: 7rem;
 }
 
-.pluto-windows-control > svg {
-    width: 35%;
+.pluto-windows-control--maximize > svg {
+    width: 40% !important;
+    height: 40% !important;
+}
+
+.pluto-windows-control--close, .pluto-windows-control--minimize {
+    & > svg {
+        width: 45% !important;
+        height: 45% !important;
+    }
 }

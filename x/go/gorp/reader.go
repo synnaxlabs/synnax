@@ -160,7 +160,7 @@ func (k *Iterator[E]) Valid() bool {
 //	tx := db.OpenTx()
 //	defer tx.Close()
 //
-//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
+//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewStreamer(), tx)
 //
 //	r, ok, err := r.Nexter(ctx)
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
@@ -179,6 +179,8 @@ type TxReader[K Key, E Entry[K]] struct {
 	tools  Tools
 	prefix lazyPrefix[K, E]
 }
+
+var _ iter.Nexter[change.Change[string, nopEntry]] = TxReader[string, nopEntry]{}
 
 // Count returns the number of key-value operations in the reader. NOTE: This includes
 // operations that may not match the entry type of the reader. Caveat emptor.

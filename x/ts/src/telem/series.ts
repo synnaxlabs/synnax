@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Compare } from "@/compare";
+import { type z } from "zod";
+
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -20,6 +21,7 @@ import {
   type TimeStamp,
   type CrudeDataType,
 } from "@/telem/telem";
+import { compare } from "@/compare";
 
 export type SampleValue = number | bigint;
 
@@ -34,6 +36,14 @@ interface GL {
   buffer: WebGLBuffer | null;
   prevBuffer: number;
   bufferUsage: GLBufferUsage;
+}
+
+export interface SeriesDigest {
+  dataType: string;
+  sampleOffset: SampleValue;
+  alignment: number;
+  timeRange?: string;
+  length: number;
 }
 
 const FULL_BUFFER = -1;
@@ -102,6 +112,18 @@ export class Series {
 
   get refCount(): number {
     return this._refCount;
+  }
+
+  static fromStrings(data: string[], timeRange?: TimeRange): Series {
+    const buffer = new TextEncoder().encode(data.join("\n") + "\n");
+    return new Series(buffer, DataType.STRING, timeRange);
+  }
+
+  static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
+    const buffer = new TextEncoder().encode(
+      data.map((d) => JSON.stringify(d)).join("\n") + "\n",
+    );
+    return new Series(buffer, DataType.JSON, timeRange);
   }
 
   constructor(
@@ -174,6 +196,22 @@ export class Series {
   get data(): NativeTypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
     return new this.dataType.Array(this._data, 0, this.writePos);
+  }
+
+  toStrings(): string[] {
+    if (!this.dataType.equals(DataType.STRING))
+      throw new Error("cannot convert non-string series to strings");
+    return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
+  }
+
+  parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
+    if (!this.dataType.equals(DataType.JSON))
+      throw new Error("cannot convert non-string series to strings");
+    return new TextDecoder()
+      .decode(this.buffer)
+      .split("\n")
+      .slice(0, -1)
+      .map((s) => schema.parse(JSON.parse(s)));
   }
 
   /** @returns the time range of this array. */
@@ -311,10 +349,10 @@ export class Series {
   binarySearch(value: SampleValue): number {
     let left = 0;
     let right = this.length - 1;
-    const compare = Compare.newF(value);
+    const cf = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = compare(this.at(mid), value);
+      const cmp = cf(this.at(mid), value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;
@@ -357,6 +395,16 @@ export class Series {
     }
   }
 
+  get digest(): SeriesDigest {
+    return {
+      dataType: this.dataType.toString(),
+      sampleOffset: this.sampleOffset,
+      alignment: this.alignment,
+      timeRange: this._timeRange?.toString(),
+      length: this.length,
+    };
+  }
+
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
     if (this.gl.buffer == null) return;
     gl.deleteBuffer(this.gl.buffer);
@@ -372,7 +420,25 @@ export class Series {
 
   slice(start: number, end?: number): Series {
     const d = this.data.slice(start, end);
-    return new Series(d, this.dataType, TimeRange.ZERO, this.sampleOffset);
+    return new Series(
+      d,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      this.gl.bufferUsage,
+      this.alignment + start,
+    );
+  }
+
+  reAlign(alignment: number): Series {
+    return new Series(
+      this.buffer,
+      this.dataType,
+      TimeRange.ZERO,
+      this.sampleOffset,
+      "static",
+      alignment,
+    );
   }
 }
 

@@ -9,3 +9,4 @@
 
 export * from "@/ontology/client";
 export * from "@/ontology/payload";
+export * from "@/ontology/cdc";

@@ -65,7 +65,7 @@ func openFileController(cfg Config) (*fileController, error) {
 	return fc, nil
 }
 
-func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.OffsetWriteCloser, error) {
+func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.TrackedWriteCloser, error) {
 	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
 	// attempt to pull a writer from the pool of open writers
@@ -113,13 +113,13 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 	if err != nil {
 		return nil, span.Error(err)
 	}
-	base, err := xio.NewOffsetWriteCloser(file, io.SeekEnd)
+	base, err := xio.NewTrackedWriteCloser(file)
 	if err != nil {
 		return nil, span.Error(err)
 	}
 	w := controlledWriter{
-		OffsetWriteCloser: base,
-		controllerEntry:   newPoolEntry(nextKey, fc.writers.release),
+		TrackedWriteCloser: base,
+		controllerEntry:    newPoolEntry(nextKey, fc.writers.release),
 	}
 	fc.writers.Lock()
 	fc.writers.open = append(fc.writers.open, w)
@@ -206,7 +206,7 @@ func (fc *fileController) gcWriters() (bool, error) {
 		if w.tryAcquire() {
 			fc.writers.RUnlock()
 			fc.writers.Lock()
-			err := w.OffsetWriteCloser.Close()
+			err := w.TrackedWriteCloser.Close()
 			fc.writers.open = append(fc.writers.open[:i], fc.writers.open[i+1:]...)
 			fc.writers.Unlock()
 			return true, err
@@ -220,7 +220,7 @@ func (fc *fileController) close() error {
 	defer fc.writers.Unlock()
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, w := range fc.writers.open {
-		c.Exec(w.OffsetWriteCloser.Close)
+		c.Exec(w.TrackedWriteCloser.Close)
 	}
 	for _, v := range fc.readers.open {
 		for _, r := range v {
@@ -233,13 +233,13 @@ func (fc *fileController) close() error {
 
 type controlledWriter struct {
 	controllerEntry
-	xio.OffsetWriteCloser
+	xio.TrackedWriteCloser
 }
 
 func (c *controlledWriter) tryAcquire() bool {
 	acquired := c.controllerEntry.tryAcquire()
 	if acquired {
-		c.OffsetWriteCloser.Reset()
+		c.TrackedWriteCloser.Reset()
 	}
 	return acquired
 }

@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package api
 
 import (
@@ -62,8 +71,7 @@ type PIDSetDataRequest struct {
 
 func (s *PIDService) SetData(ctx context.Context, req PIDSetDataRequest) (res types.Nil, err errors.Typed) {
 	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-		return errors.MaybeQuery(err)
+		return errors.Auto(s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data))
 	})
 }
 
@@ -89,5 +97,21 @@ func (s *PIDService) Delete(ctx context.Context, req PIDDeleteRequest) (res type
 	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
 		err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 		return errors.MaybeQuery(err)
+	})
+}
+
+type PIDCopyRequest struct {
+	Key      uuid.UUID `json:"key" msgpack:"key"`
+	Name     string    `json:"name" msgpack:"name"`
+	Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
+}
+
+type PIDCopyResponse struct {
+	PID pid.PID `json:"pid" msgpack:"pid"`
+}
+
+func (s *PIDService) Copy(ctx context.Context, req PIDCopyRequest) (res PIDCopyResponse, err errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		return errors.Auto(s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.PID))
 	})
 }

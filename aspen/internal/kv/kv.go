@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/observe"
 	"io"
 
@@ -243,7 +244,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		SinkTarget:   observableAddr,
 		// Setting the capacity higher here allows us to unclog the pipeline in case
 		// we have a slow observer.
-		Capacity: 10,
+		Capacity: 1,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
@@ -258,8 +259,8 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 }
 
 func (d *DB) Close() error {
-	if err := d.DB.Close(); err != nil {
-		return err
-	}
-	return d.shutdown.Close()
+	c := errutil.NewCatch(errutil.WithAggregation())
+	c.Exec(d.shutdown.Close)
+	c.Exec(d.DB.Close)
+	return c.Error()
 }

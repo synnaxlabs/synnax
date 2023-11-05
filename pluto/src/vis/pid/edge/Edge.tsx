@@ -29,7 +29,8 @@ import {
 } from "@/vis/pid/edge/edgeUtils";
 
 import "@/vis/pid/edge/Edge.css";
-import { box, direction, xy } from "@synnaxlabs/x";
+
+import { type box, direction, xy } from "@synnaxlabs/x";
 
 interface CurrentlyDragging {
   root: xy.XY;
@@ -59,7 +60,7 @@ export const Edge = ({
   color,
   ...props
 }: EdgeProps): ReactElement => {
-  const [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints)
+  const [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints);
 
   const { zoom } = useViewport();
 
@@ -110,7 +111,7 @@ export const Edge = ({
           <Fragment key={i}>
             <rect
               className={CSS.BE("pid-edge-handle", "background")}
-              fill="var(--pluto-background-color)"
+              fill="var(--pluto-gray-l0)"
               stroke="var(--pluto-primary-z)"
               {...dims}
               {...pos}

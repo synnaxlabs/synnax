@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import typing
-from typing import TypeAlias, TypeVar, Protocol
+from typing import Protocol, TypeAlias, TypeVar
 
 from pydantic import BaseModel
 

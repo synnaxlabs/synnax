@@ -11,13 +11,13 @@ from pathlib import Path
 
 import click
 
-from synnax.io import BaseReader
-from synnax.io.factory import IO_FACTORY
-from synnax.telem import convert_time_units, TimeSpanUnits
+from synnax.cli import default
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_new_reader
 from synnax.cli.telem import ask_time_units_select
-from synnax.cli import default
+from synnax.io import BaseReader
+from synnax.io.factory import IO_FACTORY
+from synnax.telem import TimeSpanUnits, convert_time_units
 
 OUTPUT_PATH_ARG = "--output-path"
 OUTPUT_PATH_ARG_SHORT = "-o"

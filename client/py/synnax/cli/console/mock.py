@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from typing import Generic, TextIO, Type
+
 from pydantic import BaseModel
 
 from synnax.cli.console.protocol import (

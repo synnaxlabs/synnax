@@ -39,7 +39,7 @@ describe("Group", () => {
       const g = await client.ontology.groups.create(ontology.Root, name);
       await client.ontology.groups.delete(g.key);
       await expect(
-        async () => await client.ontology.retrieve(g.ontologyID)
+        async () => await client.ontology.retrieve(g.ontologyID),
       ).rejects.toThrow(QueryError);
     });
   });

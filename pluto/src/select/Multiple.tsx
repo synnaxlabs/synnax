@@ -21,7 +21,7 @@ import {
   type Key,
   type KeyedRenderableRecord,
   type AsyncTermSearcher,
-  Compare,
+  compare,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
@@ -48,7 +48,7 @@ export interface MultipleProps<
     Pick<Input.TextProps, "placeholder"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
-  tagKey?: keyof E;
+  tagKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
@@ -100,7 +100,7 @@ export const Multiple = <
   useAsyncEffect(async () => {
     const selectedKeys = selected.map((v) => v.key);
     if (value.length === 0) return setSelected([]);
-    if (Compare.primitiveArrays(selectedKeys, value) === Compare.EQUAL) return;
+    if (compare.primitiveArrays(selectedKeys, value) === compare.EQUAL) return;
     const e = searchMode
       ? await searcher.retrieve(value)
       : data?.filter((v) => value.includes(v.key)) ?? [];
@@ -129,7 +129,6 @@ export const Multiple = <
         {...props}
         matchTriggerWidth
       >
-        {/* @ts-expect-error - searcher is undefined when List is List.Filter  */}
         <InputWrapper searcher={searcher}>
           {({ onChange }) => (
             <MultipleInput<K, E>
@@ -162,7 +161,7 @@ export const Multiple = <
 interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<Input.TextProps, "value"> {
   selected: readonly E[];
-  tagKey: keyof E;
+  tagKey: keyof E | ((e: E) => string | number);
   visible: boolean;
   renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
@@ -222,8 +221,8 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         align="center"
         grow
       >
-        {selected.map((e, i) =>
-          renderTag({
+        {selected.map((e, i) => {
+          return renderTag({
             key: e.key,
             tagKey,
             entry: e,
@@ -231,8 +230,8 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             onClose: () => onSelect?.(e.key),
             onDragStart: (ev) => onTagDragStart?.(ev, e.key),
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
-          }),
-        )}
+          });
+        })}
       </Align.Space>
       <ClearButton onClick={clear} />
     </Align.Pack>
@@ -241,7 +240,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
 interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   key: K;
-  tagKey: keyof E;
+  tagKey: keyof E | ((e: E) => string | number);
   entry: E;
   color: Color.Crude;
   onClose?: () => void;
@@ -253,8 +252,11 @@ const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>
   tagKey,
   entry,
   ...props
-}: SelectMultipleTagProps<K, E>): ReactElement => (
-  <Tag.Tag size="small" variant="outlined" draggable {...props}>
-    {convertRenderV(entry[tagKey])}
-  </Tag.Tag>
-);
+}: SelectMultipleTagProps<K, E>): ReactElement => {
+  const v = typeof tagKey === "function" ? tagKey(entry) : entry[tagKey];
+  return (
+    <Tag.Tag size="small" variant="outlined" draggable {...props} key={v.toString()}>
+      {convertRenderV(v)}
+    </Tag.Tag>
+  );
+};

@@ -74,8 +74,15 @@ func start(cmd *cobra.Command) {
 		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")
 		verbose  = viper.GetBool("verbose")
+		autoCert = viper.GetBool("auto-cert")
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
+
+	if autoCert {
+		if err := generateAutoCerts(ins); err != nil {
+			ins.L.Fatal("failed to generate auto certs", zap.Error(err))
+		}
+	}
 
 	ins.L.Info("starting Synnax node", zap.String("version", v))
 

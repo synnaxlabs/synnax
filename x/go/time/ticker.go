@@ -30,7 +30,7 @@ func NewScaledTicker(d time.Duration, scale float64) *ScaledTicker {
 	return t
 }
 
-// Stop stops the ticker
+// Stop stops the ticker.
 func (s *ScaledTicker) Stop() { close(s.stop) }
 
 func (s *ScaledTicker) tick(c chan time.Duration) {

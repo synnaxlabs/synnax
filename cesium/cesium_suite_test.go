@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/x/testutil"
-	"os"
 	"testing"
 )
 
@@ -32,8 +31,3 @@ func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
-
-var _ = AfterSuite(func() {
-	Expect(os.RemoveAll("./testdata/DB")).To(Succeed())
-	Expect(os.RemoveAll("./testdata/kv")).To(Succeed())
-})

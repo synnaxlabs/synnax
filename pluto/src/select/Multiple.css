@@ -11,21 +11,21 @@
 
 .pluto-select-multiple {
     width: 100%;
-    background-color: var(--pluto-background-color);
+
+    & .pluto-input {
+        width: 200px;
+        flex-shrink: 0;
+        flex-grow: 0 !important;
+    }
 }
 
 .pluto-select-multiple.pluto-haul-drop-region > * {
-    background-color: var(--haul-background-color) !important;
+    background: var(--haul-l0) !important;
     border-color: var(--haul-border-color) !important;
 }
 
-.pluto-select-multiple__input {
-    width: 20%;
-    flex-shrink: 0;
-    flex-grow: 0 !important;
-}
-
 .pluto-select-multiple__tags {
+    background: var(--pluto-gray-l2);
     padding: 0.25rem 1rem;
     overflow-x: scroll;
     flex-wrap: wrap;

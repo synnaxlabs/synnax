@@ -51,6 +51,13 @@ func (r Retrieve) Where(filter func(r *Resource) bool) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereTypes(types ...Type) Retrieve {
+	r.query.Current().Where(func(r *Resource) bool {
+		return lo.Contains(types, r.ID.Type)
+	})
+	return r
+}
+
 // Limit limits the number of results returned.
 func (r Retrieve) Limit(limit int) Retrieve {
 	r.query.Current().Limit(limit)
@@ -153,7 +160,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 			return err
 		}
 		atLast := len(r.query.Clauses) == i+1
-		resources, err := r.retrieveEntities(ctx, clause)
+		resources, err := r.retrieveEntities(ctx, clause, tx)
 		if err != nil || len(resources) == 0 || atLast {
 			return err
 		}
@@ -210,6 +217,7 @@ func getIncludeSchema(q query.Parameters) bool {
 func (r Retrieve) retrieveEntities(
 	ctx context.Context,
 	clause gorp.Retrieve[ID, Resource],
+	tx gorp.Tx,
 ) ([]Resource, error) {
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
 	includeFieldData := getIncludeFieldData(clause.Params)
@@ -218,7 +226,7 @@ func (r Retrieve) retrieveEntities(
 		if res.ID.IsZero() {
 			return nil, query.NotFound
 		}
-		res, err := r.registrar.retrieveResource(ctx, res.ID)
+		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
 		if err != nil {
 			return nil, err
 		}

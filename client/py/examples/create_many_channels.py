@@ -18,7 +18,7 @@ for i in range(NUM_CHANNELS):
     ch = sy.Channel(
         name=f"Channel {i}",
         data_type=sy.DataType.FLOAT32,
-        rate=1*sy.Rate.HZ,
+        rate=1 * sy.Rate.HZ,
     )
     channels.append(ch)
 

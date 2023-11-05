@@ -7,16 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, type Series } from "@synnaxlabs/x";
+import { TimeRange, type Series, type Destructor } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 
 import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
+
+export interface DirtyReadResult {
+  series: Series[];
+  gaps: TimeRange[];
+}
+
+export interface DirtyReadForWriteResult {
+  series: Series[];
+  gaps: TimeRange[];
+  done: Destructor;
+}
 
 /**
  * A cache for channel data that only accepts pre-written arrays i.e. it performs
  * no allocatio, buffering, or modification of new arrays.
  */
 export class Static {
-  private readonly entries: Read[];
+  private readonly mu = new Mutex();
+  private readonly entries: CachedRead[];
 
   constructor() {
     this.entries = [];
@@ -40,8 +53,11 @@ export class Static {
   }
 
   write(tr: TimeRange, series: Series[]): void {
+    if (series.length === 0) return;
+    if (series.length === 0 || this.entries.some((e) => e.timeRange.overlapsWith(tr)))
+      return;
     series = series.map((s) => convertSeriesFloat32(s));
-    const read = new Read(tr, series);
+    const read = new CachedRead(tr, series);
     const i = this.getInsertionIndex(tr);
     if (i !== this.entries.length) {
       read.gap = new TimeRange(this.entries[i].timeRange.end, tr.end);
@@ -50,7 +66,7 @@ export class Static {
       const prev = this.entries[i - 1];
       prev.gap = new TimeRange(prev.timeRange.end, tr.start);
     }
-    this.entries.splice(i, 0, new Read(tr, series));
+    this.entries.splice(i, 0, new CachedRead(tr, series));
   }
 
   private getInsertionIndex(tr: TimeRange): number {
@@ -59,9 +75,17 @@ export class Static {
     return i;
   }
 
-  dirtyRead(tr: TimeRange): [Series[], TimeRange[]] {
+  async dirtyReadForWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
+    const done = await this.mu.acquire();
+    return {
+      ...this.dirtyRead(tr),
+      done,
+    };
+  }
+
+  dirtyRead(tr: TimeRange): DirtyReadResult {
     const reads = this.entries.filter((r) => r.timeRange.overlapsWith(tr));
-    if (reads.length === 0) return [[], [tr]];
+    if (reads.length === 0) return { series: [], gaps: [tr] };
     const gaps = reads
       .map((r) => r.gap)
       .filter((t, i) => i !== reads.length - 1 && !t.isZero);
@@ -69,14 +93,14 @@ export class Static {
     const trailingGap = new TimeRange(reads[reads.length - 1].timeRange.end, tr.end);
     if (leadingGap.isValid && !leadingGap.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.isZero) gaps.push(trailingGap);
-    return [
-      reads.flatMap((r) => r.data).filter((d) => d.timeRange.overlapsWith(tr)),
+    return {
+      series: reads.flatMap((r) => r.data).filter((d) => d.timeRange.overlapsWith(tr)),
       gaps,
-    ];
+    };
   }
 }
 
-class Read {
+class CachedRead {
   timeRange: TimeRange;
   data: Series[];
   gap: TimeRange;

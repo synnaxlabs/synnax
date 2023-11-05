@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"runtime"
 
 	"github.com/synnaxlabs/cesium"
 )
@@ -97,7 +98,7 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 		})
 	})
 	Describe("Control Updates", func() {
-		It("Should forward initial control updates to the streamer", func() {
+		It("Should forward control updates to the streamer", func() {
 			var (
 				controlKey cesium.ChannelKey = 5
 				basic3     cesium.ChannelKey = 6
@@ -107,11 +108,6 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 				ctx,
 				cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels:       []cesium.ChannelKey{basic3},
-				ControlSubject: control.Subject{Name: "Writer"},
-				Start:          10 * telem.SecondTS,
-			}))
 			streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 				Channels: []cesium.ChannelKey{controlKey},
 			}))
@@ -119,6 +115,13 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
 			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
+			// Do a best effort schedule for the streamer to boot up
+			runtime.Gosched()
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels:       []cesium.ChannelKey{basic3},
+				ControlSubject: control.Subject{Name: "Writer"},
+				Start:          10 * telem.SecondTS,
+			}))
 			var r cesium.StreamerResponse
 			Eventually(o.Outlet()).Should(Receive(&r))
 			Expect(r.Frame.Keys).To(HaveLen(1))

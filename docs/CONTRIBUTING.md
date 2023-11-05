@@ -9,13 +9,6 @@ Thanks for your interest in Synnax! We'd love to have you contribute!
 >
 > ― Antoine de Saint-Exupéry, Wind, Sand and Stars
 
-# 0 - Read About the Product
-
-Making meaningful contributions to Synnax starts with having a clear understanding of
-the product we're building. The best place to start is by reading our
-[thesis](product/thesis.md). This document defines the problem with the status quo and
-the approach we're taking to solve it.
-
 # 1 - Find Something to Work On
 
 The next best step is to start thinking about the area or feature you'd like to

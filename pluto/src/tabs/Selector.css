@@ -12,36 +12,58 @@
 .pluto-tabs-selector__btn {
     margin-bottom: -1px;
     cursor: pointer;
-}
 
+    border-bottom: var(--pluto-border);
+    border-color: transparent;
 
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon,
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon:hover {
-    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
-}
+    .pluto-btn-icon {
+        opacity: 0;
+        > svg {
+            fill: var(--pluto-gray-l6);
+        }
+    }
 
-.pluto-tabs-selector__btn .pluto-btn-icon {
-    opacity: 0;
-}
+    .pluto-text {
+        margin: 0 2rem;
+        padding: 0 0.25rem;
+        color: var(--pluto-gray-l6);
+    }
 
-.pluto-tabs-selector__btn:hover .pluto-btn-icon,
-.pluto-tabs-selector__btn.pluto--selected .pluto-btn-icon {
-    opacity: 1;
-}
+    &:not(.pluto--selected) path:is(:not([fill="none"]), [stroke="#000"]) {
+        fill: var(--pluto-gray-l6);
+    }
 
-.pluto-tabs-selector__btn .pluto-btn-icon > svg {
-    fill: var(--pluto-gray-p0);
+    &:hover, &.pluto--selected {
+        .pluto-btn-icon {
+            opacity: 1;
+        }
+    }
+
+    &:hover:not(.pluto--selected) {
+        background: var(--pluto-gray-l2);
+        border-color: var(--pluto-border-color);
+    }
+
+    &:active:not(.pluto--selected) {
+        background: var(--pluto-gray-l3);
+        border-color: var(--pluto-border-color);
+    }
+
+    /* Sets the nice blue underline. */
+    &.pluto--selected {
+        .pluto-text {
+            color: var(--pluto-text-color);
+        }
+        box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+        .pluto-btn-icon, .pluto-btn-icon:hover {
+            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+        }
+    }
 }
 
 .pluto-tabs-selector__btn--closable .pluto-text {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
-}
-
-.pluto-tabs-selector__btn .pluto-text {
-    margin: 0 2rem;
-    padding: 0 0.25rem;
-    color: var(--pluto-gray-p0);
 }
 
 .pluto-tabs-selector__btn.pluto--selected .pluto-text {
@@ -50,17 +72,29 @@
 
 .pluto-tabs-selector__btn--uneditable {
     user-select: none;
-}
-
-.pluto-tabs-selector__btn.pluto--selected {
-    box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+    padding: 0 1rem;
 }
 
 .pluto-tabs-selector {
     border-bottom: var(--pluto-border);
-    z-index: 7;
+    z-index: 3;
 }
 
 .pluto-header .pluto-tabs-selector {
-    margin-top: 2px;
+    margin-top: 1px;
+    /* add 2 px to small, medium, and large in height so we get the selected underline
+     to highlight nicely */
+    .pluto-tabs-selector__btn {
+        &.pluto-pack--small {
+            height: calc(var(--pluto-height-small) + 1px);
+        }
+        &.pluto-pack--medium {
+            height: calc(var(--pluto-height-medium) + 1px);
+        }
+        &.pluto-pack--large {
+            height: calc(var(--pluto-height-large) + 1px);
+        }
+
+
+    }
 }

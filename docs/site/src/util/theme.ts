@@ -11,28 +11,48 @@ import { Theming } from "@synnaxlabs/pluto/theming";
 
 export const applyCSSVars = (
   element: HTMLElement,
-  vars: Record<string, string | number | undefined>
+  vars: Record<string, string | number | undefined>,
 ): void =>
   Object.entries(vars).forEach(
-    ([key, value]) => value != null && element.style.setProperty(key, `${value}`)
+    ([key, value]) => value != null && element.style.setProperty(key, `${value}`),
   );
 
 const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   const m = { ...theme };
-  m.sizes.base = 6.5;
-  m.typography.p.lineHeight = 3.5;
+  m.sizes.base = 7;
+  m.typography.small.lineHeight = m.typography.small.size * 1.3;
+  m.typography.p.lineHeight = m.typography.p.size * 1.7;
+  m.typography.small.weight = 350;
+  m.typography.p.weight = 350;
   m.typography.h1 = {
     ...m.typography.h1,
     lineHeight: 8,
     size: 7,
+    weight: 450,
   };
+  m.typography.h2 = {
+    ...m.typography.h2,
+    weight: 550,
+  };
+  m.typography.h3 = {
+    ...m.typography.h3,
+    lineHeight: m.typography.h3.size * 1.5,
+    weight: 500,
+  };
+  m.typography.h4 = {
+    ...m.typography.h4,
+    lineHeight: m.typography.h4.size * 1.5,
+    weight: 500,
+  };
+
+  m.typography.h5.textTransform = "none";
   return m;
 };
 
 export const DARK = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxDark));
 export const LIGHT = Theming.themeZ.parse(modifyTheme(Theming.themes.synnaxLight));
 
-export const DEFAULT_THEME = Theming.themes.synnaxLight;
+export const DEFAULT_THEME = modifyTheme(Theming.themes.synnaxDark);
 
 export const startThemeDriver = (): void => {
   applyTheme(getPreferredTheme());
@@ -40,12 +60,12 @@ export const startThemeDriver = (): void => {
 };
 
 export const toggleTheme = (): void => {
-  const theme = THEME_ALTERNATES[localStorage.getItem("theme") ?? "synnaxLight"];
+  const theme = THEME_ALTERNATES[localStorage.getItem("theme") ?? "synnaxDark"];
   applyTheme(theme);
 };
 
 export const getCurrentTheme = (): Theming.ThemeSpec => {
-  const theme = localStorage.getItem("theme") ?? "synnaxLight";
+  const theme = localStorage.getItem("theme") ?? "synnaxDark";
   return Theming.themes[theme as keyof typeof Theming.themes];
 };
 
@@ -57,7 +77,7 @@ const THEME_ALTERNATES: Record<string, Theming.ThemeSpec> = {
 const applyTheme = (theme: Theming.ThemeSpec): void => {
   applyCSSVars(
     window.document.documentElement,
-    Theming.toCSSVars(Theming.themeZ.parse(theme))
+    Theming.toCSSVars(Theming.themeZ.parse(theme)),
   );
   localStorage.setItem("theme", theme.key);
 };
