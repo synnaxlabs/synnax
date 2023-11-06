@@ -19,7 +19,8 @@ cc_test(
     srcs = ["channel_test.cpp"],
     deps = [
         "//synnax",
-        "//synnax/testutil",
+        "//synnax/testutil:testutil",
+        ":channel",
         "@com_google_googletest//:gtest_main",
     ],
 )

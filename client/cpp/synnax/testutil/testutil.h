@@ -15,11 +15,16 @@
 //// internal
 #include "synnax/synnax.h"
 
+const synnax::Config test_client_config = {
+    "localhost",
+    9090,
+    "synnax",
+    "seldon"};
 
 /// @brief instantiates a new client for testing purposes. The cluster
 /// is expected to be running on localhost:9090 in insecure mode.
-synnax::Synnax new_test_client();
+extern synnax::Synnax new_test_client();
 
 /// @brief creates a new random generator for a test suite, and
 /// outputs the seed to stdout for reproducibility.
-std::mt19937 random_generator(std::string &suite_name);
+extern std::mt19937 random_generator(std::string suite_name);
