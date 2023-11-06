@@ -1,4 +1,3 @@
-
 // Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -15,6 +14,7 @@
 /// internal
 #include "synnax/ranger/ranger.h"
 #include "synnax/telem/telem.h"
+#include "synnax/errors/errors.h"
 
 using namespace synnax;
 
@@ -44,22 +44,26 @@ void Range::to_proto(api::v1::Range *rng) const {
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
 
-std::pair<Range, freighter::Error> RangeClient::retrieveOne(api::v1::RangeRetrieveRequest &req) const {
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (err) return {Range(), err};
-    return {Range(res.ranges(0)), err};
-}
-
 std::pair<Range, freighter::Error> RangeClient::retrieveByKey(const std::string &key) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_keys(key);
-    return retrieveOne(req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    if (err) return {Range(), err};
+    auto rng = Range(res.ranges(0));
+    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
+    return {rng, err};
 }
 
 std::pair<Range, freighter::Error> RangeClient::retrieveByName(const std::string &name) const {
     auto req = api::v1::RangeRetrieveRequest();
     req.add_names(name);
-    return retrieveOne(req);
+    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    if (err) return {Range(), err};
+    if (res.ranges_size() == 0) return {Range(), freighter::Error(synnax::NO_RESULTS, "no ranges found matching " + name)};
+    if (res.ranges_size() > 1) return {Range(), freighter::Error(synnax::MULTIPLE_RESULTS, "multiple ranges found matching " + name)};
+    auto rng = Range(res.ranges(0));
+    rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
+    return {rng, err};
 }
 
 std::pair<Range, freighter::Error> RangeClient::activeRange() {

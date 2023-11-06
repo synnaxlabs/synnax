@@ -17,9 +17,10 @@
 /// internal.
 #include "synnax/synnax.h"
 #include "synnax/testutil/testutil.h"
+#include "synnax/errors/errors.h"
 
 
-std::mt19937 mt = random_generator((std::string &) "Range Tests");
+std::mt19937 mt = random_generator(std::move("Ranger Tests"));
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
@@ -75,6 +76,14 @@ TEST(RangerTests, testRetrieveByName) {
     ASSERT_FALSE(got.key.length() == 0);
     ASSERT_EQ(got.time_range.start, synnax::TimeStamp(10));
     ASSERT_EQ(got.time_range.end, synnax::TimeStamp(100));
+}
+
+/// @brief test retrieve by name not found
+TEST(RangerTests, testRetrieveByNameNotFound) {
+    auto client = new_test_client();
+    auto [got, err] = client.ranges.retrieveByName("not_found");
+    ASSERT_TRUE(err);
+    ASSERT_EQ(err.type, synnax::NO_RESULTS);
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -167,6 +176,27 @@ TEST(RangerTests, testGet) {
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(val, "test");
 }
+
+/// @brief it should retrieve a key-value pair from a retrieved range.
+TEST(RangerTests, testGetFromRetrieved) {
+    auto client = new_test_client();
+    auto [range, err] = client.ranges.create(
+            "test",
+            synnax::TimeRange(
+                    synnax::TimeStamp(30),
+                    synnax::TimeStamp(100)
+            )
+    );
+    ASSERT_FALSE(err) << err.message();
+    err = range.kv.set("test", "test");
+    ASSERT_FALSE(err) << err.message();
+    auto [got, err2] = client.ranges.retrieveByKey(range.key);
+    ASSERT_FALSE(err2) << err2.message();
+    auto [val, err3] = got.kv.get("test");
+    ASSERT_FALSE(err3) << err3.message();
+    ASSERT_EQ(val, "test");
+}
+
 
 /// @brief it should delete a key-value pair on the range.
 TEST(RangerTests, testKVDeelete) {

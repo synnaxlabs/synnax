@@ -4,6 +4,7 @@ cc_library(
     hdrs = ["ranger.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//synnax/errors",
         "//synnax/telem",
         "@Freighter//freighter/gRPC",
         "@api_protos//v1:api_grpc",
@@ -17,6 +18,7 @@ cc_test(
     srcs = ["ranger_test.cpp"],
     deps = [
         "//synnax",
+        "//synnax/errors",
         "//synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],

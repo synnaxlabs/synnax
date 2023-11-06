@@ -111,12 +111,7 @@ std::pair<Channel, freighter::Error> ChannelClient::retrieve(ChannelKey key) con
     auto req = api::v1::ChannelRetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
-    if (err)
-        return {Channel(), err};
-    if (res.channels_size() == 0)
-        return {Channel(), freighter::Error(synnax::NO_RESULTS, "no channels found matching key " + std::to_string(key))};
-    if (res.channels_size() > 1)
-        return {Channel(), freighter::Error(synnax::QUERY_ERROR, "multiple channels found matching key " + std::to_string(key))};
+    if (err) return {Channel(), err};
     return {Channel(res.channels(0)), err};
 }
 

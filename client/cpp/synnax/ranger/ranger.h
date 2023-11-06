@@ -227,9 +227,6 @@ private:
     /// @brief range kv delete transport.
     std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
 
-    /// @brief retrieves a single range.
-    std::pair<Range, freighter::Error> retrieveOne(api::v1::RangeRetrieveRequest &req) const;
-
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, freighter::Error> retrieveMany(api::v1::RangeRetrieveRequest &req) const;
 
