@@ -15,14 +15,17 @@ std::string STREAM_ENDPOINT = "/frame/stream";
 
 using namespace synnax;
 
-void StreamerConfig::toProto(api::v1::FrameStreamerRequest *f) const {
+void StreamerConfig::toProto(api::v1::FrameStreamerRequest *f) const
+{
     f->mutable_keys()->Add(channels.begin(), channels.end());
     f->set_start(start.value);
 }
 
-std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerConfig &config) {
+std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerConfig &config)
+{
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
-    if (exc) return {Streamer(), exc};
+    if (exc)
+        return {Streamer(), exc};
     auto req = new api::v1::FrameStreamerRequest();
     config.toProto(req);
     auto exc2 = s->send(*req);
@@ -30,23 +33,28 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerCo
     return {Streamer(std::move(s)), exc2};
 }
 
-Streamer::Streamer(std::unique_ptr<StreamerStream> s): stream(std::move(s)) {}
+Streamer::Streamer(std::unique_ptr<StreamerStream> s) : stream(std::move(s)) {}
 
-std::pair<Frame, freighter::Error> Streamer::read() {
+std::pair<Frame, freighter::Error> Streamer::read()
+{
     assertOpen();
     auto [fr, exc] = stream->receive();
     return {Frame(fr.frame()), exc};
 }
 
-freighter::Error Streamer::close() {
+freighter::Error Streamer::close()
+{
     auto exc = stream->closeSend();
-    if (exc) return exc;
+    if (exc)
+        return exc;
     auto [res, recExc] = stream->receive();
-    if (recExc.type == freighter::EOF_.type) return freighter::NIL;
+    if (recExc.type == freighter::EOF_.type)
+        return freighter::NIL;
     return recExc;
 }
 
-freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) {
+freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels)
+{
     assertOpen();
     auto req = new api::v1::FrameStreamerRequest();
     req->mutable_keys()->Add(channels.begin(), channels.end());
@@ -55,6 +63,8 @@ freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) {
     return exc;
 }
 
-void Streamer::assertOpen() const {
-    if (closed) throw std::runtime_error("streamer is closed");
+void Streamer::assertOpen() const
+{
+    if (closed)
+        throw std::runtime_error("streamer is closed");
 }

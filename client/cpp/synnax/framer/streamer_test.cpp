@@ -17,53 +17,50 @@
 #include "synnax/synnax.h"
 
 const synnax::Config cfg = {
-        .host =  "localhost",
-        .port =  9090,
-        .username =  "synnax",
-        .password =  "seldon"
-};
+    .host = "localhost",
+    .port = 9090,
+    .username = "synnax",
+    .password = "seldon"};
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
-TEST(FramerTests, testStreamBasic) {
-    auto client = synnax::Synnax(cfg);
-    auto [data, cErr] = client.channels.create(
+TEST(FramerTests, testStreamBasic)
+{
+        auto client = synnax::Synnax(cfg);
+        auto [data, cErr] = client.channels.create(
             "data",
             synnax::FLOAT32,
-            1 * synnax::HZ
-    );
-    ASSERT_FALSE(cErr) << cErr.message();
-    auto now = synnax::TimeStamp::now();
-    std::vector<synnax::ChannelKey> channels = {data.key};
-    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+            1 * synnax::HZ);
+        ASSERT_FALSE(cErr) << cErr.message();
+        auto now = synnax::TimeStamp::now();
+        std::vector<synnax::ChannelKey> channels = {data.key};
+        auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
             .channels = channels,
             .start = now,
             .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE},
-            .subject = synnax::Subject{.name = "test_writer"}
-    });
-    ASSERT_FALSE(wErr) << wErr.message();
+            .subject = synnax::Subject{.name = "test_writer"}});
+        ASSERT_FALSE(wErr) << wErr.message();
 
-    auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+        auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
             .channels = channels,
-    });
-    ASSERT_FALSE(sErr) << sErr.message();
+        });
+        ASSERT_FALSE(sErr) << sErr.message();
 
-    // Sleep for 10 milliseconds to allow for the streamer to bootstrap.
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        // Sleep for 10 milliseconds to allow for the streamer to bootstrap.
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(1);
-    frame.add(
+        auto frame = synnax::Frame(1);
+        frame.add(
             data.key,
-            synnax::Series(std::vector<std::float_t>{1.0})
-    );
-    ASSERT_TRUE(writer.write(std::move(frame)));
-    auto [res_frame, recErr] = streamer.read();
-    ASSERT_FALSE(recErr) << recErr.message();
+            synnax::Series(std::vector<std::float_t>{1.0}));
+        ASSERT_TRUE(writer.write(std::move(frame)));
+        auto [res_frame, recErr] = streamer.read();
+        ASSERT_FALSE(recErr) << recErr.message();
 
-    ASSERT_EQ(res_frame.size(), 1);
-    ASSERT_EQ(res_frame.series->at(0).float32()[0], 1.0);
+        ASSERT_EQ(res_frame.size(), 1);
+        ASSERT_EQ(res_frame.series->at(0).float32()[0], 1.0);
 
-    auto wcErr = writer.close();
-    ASSERT_FALSE(cErr) << cErr.message();
-    auto wsErr = streamer.close();
-    ASSERT_FALSE(wsErr) << wsErr.message();
+        auto wcErr = writer.close();
+        ASSERT_FALSE(cErr) << cErr.message();
+        auto wsErr = streamer.close();
+        ASSERT_FALSE(wsErr) << wsErr.message();
 }
