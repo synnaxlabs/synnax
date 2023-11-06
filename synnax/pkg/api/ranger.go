@@ -291,8 +291,8 @@ type RangeSetActiveRequest struct {
 	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
-func (s *RangeService) SetActive(ctx context.Context, req RangeSetActiveRequest) (res types.Nil, _ errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+func (s *RangeService) SetActive(ctx context.Context, req RangeSetActiveRequest) (res types.Nil, _ error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return errors.Auto(s.internal.SetActiveRange(ctx, req.Range, tx))
 	})
 }
@@ -301,14 +301,13 @@ type RangeRetrieveActiveResponse struct {
 	Range ranger.Range `json:"range" msgpack:"range"`
 }
 
-func (s *RangeService) RetrieveActive(ctx context.Context, _ types.Nil) (res RangeRetrieveActiveResponse, _ errors.Typed) {
+func (s *RangeService) RetrieveActive(ctx context.Context, _ types.Nil) (res RangeRetrieveActiveResponse, _ error) {
 	rng, err := s.internal.RetrieveActiveRange(ctx, nil)
-	return RangeRetrieveActiveResponse{Range: rng}, errors.MaybeQuery(err)
+	res.Range = rng
+	return res, err
 }
 
-func (s *RangeService) ClearActive(ctx context.Context, _ types.Nil) (res types.Nil, _ errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		s.internal.ClearActiveRange()
-		return errors.Nil
-	})
+func (s *RangeService) ClearActive(ctx context.Context, _ types.Nil) (res types.Nil, _ error) {
+	s.internal.ClearActiveRange()
+	return res, nil
 }

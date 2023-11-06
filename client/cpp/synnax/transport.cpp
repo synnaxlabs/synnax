@@ -104,6 +104,24 @@ Transport::Transport(
             v1::RangeKVSetRequest,
             v1::RangeKVSetService
     >>(pool, base_target);
+
+    range_set_active = std::make_unique<GRPCUnaryClient<
+            google::protobuf::Empty,
+            v1::RangeSetActiveRequest,
+            v1::RangeSetActiveService
+    >>(pool, base_target);
+
+    range_retrieve_active = std::make_unique<GRPCUnaryClient<
+            v1::RangeRetrieveActiveResponse,
+            google::protobuf::Empty,
+            v1::RangeRetrieveActiveService
+    >>(pool, base_target);
+
+    range_clear_active = std::make_unique<GRPCUnaryClient<
+            google::protobuf::Empty,
+            google::protobuf::Empty,
+            v1::RangeClearActiveService
+    >>(pool, base_target);
 }
 
 void Transport::use(const std::shared_ptr<freighter::Middleware>& mw) const {
@@ -116,4 +134,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware>& mw) const {
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);
+    range_set_active->use(mw);
+    range_retrieve_active->use(mw);
+    range_clear_active->use(mw);
 }

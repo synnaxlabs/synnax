@@ -35,36 +35,53 @@ using namespace synnax;
 namespace synnax {
 
 /// @brief type alias for the transport used to retrieve ranges.
-typedef freighter::UnaryClient<
-        api::v1::RangeRetrieveResponse,
-        api::v1::RangeRetrieveRequest
+typedef freighter::UnaryClient <
+api::v1::RangeRetrieveResponse,
+api::v1::RangeRetrieveRequest
 > RangeRetrieveClient;
 
 /// @brief type alias for the transport used to create ranges.
-typedef freighter::UnaryClient<
-        api::v1::RangeCreateResponse,
-        api::v1::RangeCreateRequest
+typedef freighter::UnaryClient <
+api::v1::RangeCreateResponse,
+api::v1::RangeCreateRequest
 > RangeCreateClient;
 
 
 /// @brief type alias for the transport used to get range-scoped key-values.
-typedef freighter::UnaryClient<
-        api::v1::RangeKVGetResponse,
-        api::v1::RangeKVGetRequest
+typedef freighter::UnaryClient <
+api::v1::RangeKVGetResponse,
+api::v1::RangeKVGetRequest
 > RangeKVGetClient;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-typedef freighter::UnaryClient<
-        google::protobuf::Empty,
-        api::v1::RangeKVSetRequest
+typedef freighter::UnaryClient <
+google::protobuf::Empty,
+api::v1::RangeKVSetRequest
 > RangeKVSetClient;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
-typedef freighter::UnaryClient<
-        google::protobuf::Empty,
-        api::v1::RangeKVDeleteRequest
+typedef freighter::UnaryClient <
+google::protobuf::Empty,
+api::v1::RangeKVDeleteRequest
 > RangeKVDeleteClient;
 
+/// @brief type alias for the transport used to set the active range.
+typedef freighter::UnaryClient <
+google::protobuf::Empty,
+api::v1::RangeSetActiveRequest
+> RangeSetActiveClient;
+
+/// @brief type alias for the transport used to retrieve the active range.
+typedef freighter::UnaryClient <
+api::v1::RangeRetrieveActiveResponse,
+google::protobuf::Empty
+> RangeRetrieveActiveClient;
+
+/// @brief type alias for the transport used to clear the active range.
+typedef freighter::UnaryClient <
+google::protobuf::Empty,
+google::protobuf::Empty
+> RangeClearActiveClient;
 
 /// @brief a range-scoped key-value store for storing meta-data and configuration
 /// about a range.
@@ -148,13 +165,20 @@ public:
             std::unique_ptr<RangeRetrieveClient> retrieve_client,
             std::unique_ptr<RangeCreateClient> create_client,
             std::shared_ptr<RangeKVGetClient> kv_get_client,
-                std::shared_ptr<RangeKVSetClient> kv_set_client,
-                std::shared_ptr<RangeKVDeleteClient> kv_delete_client) :
+            std::shared_ptr<RangeKVSetClient> kv_set_client,
+            std::shared_ptr<RangeKVDeleteClient> kv_delete_client,
+            std::unique_ptr<RangeSetActiveClient> set_active_client,
+            std::unique_ptr<RangeRetrieveActiveClient> retrieve_active_client,
+            std::unique_ptr<RangeClearActiveClient> clear_active_client
+    ) :
             retrieve_client(std::move(retrieve_client)),
             create_client(std::move(create_client)),
             kv_get_client(kv_get_client),
             kv_set_client(kv_set_client),
-            kv_delete_client(kv_delete_client) {}
+            kv_delete_client(kv_delete_client),
+            set_active_client(std::move(set_active_client)),
+            retrieve_active_client(std::move(retrieve_active_client)),
+            clear_active_client(std::move(clear_active_client)) {}
 
     /// @brief retrieves the currently active range in the cluster.
     /// @returns a pair containing the currently active range and an error. error.ok()
@@ -215,6 +239,23 @@ public:
     /// message or err.type to get the error type.
     [[nodiscard]] std::pair<Range, freighter::Error> create(std::string name, synnax::TimeRange time_range) const;
 
+    /// @brief sets the range with the given key as the active range in the cluster.
+    /// @param key - the key of the range to set as active.
+    /// @returns an error where ok() is false if the range could not be set as active.
+    /// Use err.message() to get the error message or err.type to get the error type.
+    [[nodiscard]] freighter::Error setActive(const std::string &key) const;
+
+    /// @brief retrieves the active range in the cluster.
+    /// @returns a pair containing the active range and an error where ok() is false
+    /// if the active range could not be retrieved. If no range is active, ok() will be
+    /// false and the error type will be synnax::NO_RESULTS.
+    [[nodiscard]] std::pair<Range, freighter::Error> retrieveActive() const;
+
+    /// @brief clears the active range in the cluster.
+    /// @returns an error where ok() is false if the active range could not be cleared.
+    /// Use err.message() to get the error message or err.type to get the error type.
+    [[nodiscard]] freighter::Error clearActive() const;
+
 private:
     /// @brief range retrieval transport.
     std::unique_ptr<RangeRetrieveClient> retrieve_client;
@@ -226,6 +267,12 @@ private:
     std::shared_ptr<RangeKVSetClient> kv_set_client;
     /// @brief range kv delete transport.
     std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
+    /// @brief range set active transport.
+    std::unique_ptr<RangeSetActiveClient> set_active_client;
+    /// @brief range retrieve active transport.
+    std::unique_ptr<RangeRetrieveActiveClient> retrieve_active_client;
+    /// @brief range clear active transport.
+    std::unique_ptr<RangeClearActiveClient> clear_active_client;
 
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, freighter::Error> retrieveMany(api::v1::RangeRetrieveRequest &req) const;
