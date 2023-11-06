@@ -51,9 +51,7 @@ export class Observable<K, V>
   }
 
   async stream(): Promise<void> {
-    console.log("STREAMING");
     for await (const frame of this.streamer) {
-      console.log("FRAME");
       const changes: Array<change.Change<K, V>> = [];
       if (this.deleteChannel != null) {
         const deletes = frame.get(this.deleteChannel);
