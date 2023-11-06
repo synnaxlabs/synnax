@@ -77,7 +77,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, tran
 		})
 	}
 	w.control = g
-	db.Open_writers += 1
+	db.openWriters.Add(1)
 	return w, transfer, err
 }
 
@@ -174,10 +174,10 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
+	w.db.openWriters.Add(-1)
 	dw, t := w.control.Release()
 	if t.IsRelease() {
 		return t, dw.Close()
 	}
-	w.db.Open_writers -= 1
 	return t, nil
 }

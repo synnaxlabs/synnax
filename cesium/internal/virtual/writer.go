@@ -39,6 +39,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 		g, transfer, err = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
 	}
 	w.control = g
+	db.openWriters.Add(1)
 	return w, transfer, err
 }
 
@@ -77,6 +78,6 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	_, t := w.control.Release()
-	w.db.Open_writers -= 1
+	w.db.openWriters.Add(-1)
 	return t, nil
 }

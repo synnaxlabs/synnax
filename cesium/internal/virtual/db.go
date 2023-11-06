@@ -14,6 +14,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -27,13 +29,14 @@ func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	Config
-	controller   *controller.Controller[*controlEntity]
-	Open_writers int64
+	controller  *controller.Controller[*controlEntity]
+	openWriters *atomic.Int32Counter
 }
 
 type Config struct {
 	alamos.Instrumentation
 	Channel core.Channel
+	FS      fs.FS
 }
 
 func Open(cfg Config) (db *DB, err error) {
@@ -41,8 +44,9 @@ func Open(cfg Config) (db *DB, err error) {
 		return nil, errors.Wrap(validate.Error, "channel is not virtual")
 	}
 	return &DB{
-		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
+		Config:      cfg,
+		controller:  controller.New[*controlEntity](cfg.Channel.Concurrency),
+		openWriters: &atomic.Int32Counter{},
 	}, nil
 }
 
@@ -50,6 +54,12 @@ func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
 
-func (db *DB) IsWrittenTo() bool {
-	return db.Open_writers == 0
+func (db *DB) TryClose() error {
+	if db.openWriters.Value() > 0 {
+		return errors.New("[unary] channel being written to")
+	} else {
+		return db.Close()
+	}
 }
+
+func (db *DB) Close() error { return nil }

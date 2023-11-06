@@ -21,7 +21,7 @@ import (
 var _ = Describe("Writer Behavior", Ordered, func() {
 	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	//AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Happy Path", func() {
 		Context("Indexed", func() {
 			Specify("Basic Write", func() {
@@ -40,6 +40,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Start:    10 * telem.SecondTS,
 				}))
 
+				Expect(db.DeleteChannel(basic1)).ToNot(Succeed())
+				Expect(db.DeleteChannel(basic1Index)).ToNot(Succeed())
+
 				By("Writing data to the channel")
 				ok := w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{basic1Index, basic1},
@@ -52,6 +55,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				end, ok := w.Commit()
 				Expect(ok).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
+
 				Expect(end).To(Equal(13*telem.SecondTS + 1))
 
 				By("Reading the data back")
@@ -59,6 +63,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(frame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 				tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 				Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
+
+				Expect(db.DeleteChannel(basic1)).To(Succeed())
+				Expect(db.DeleteChannel(basic1Index)).To(Succeed())
 			})
 		})
 		Context("Multiple Indexes", func() {
@@ -83,6 +90,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Start:    10 * telem.SecondTS,
 				}))
 
+				Expect(db.DeleteChannel(basic1)).ToNot(Succeed())
+				Expect(db.DeleteChannel(basicIdx1)).ToNot(Succeed())
+				Expect(db.DeleteChannel(basic2)).ToNot(Succeed())
+				Expect(db.DeleteChannel(basicIdx2)).ToNot(Succeed())
+
 				By("Writing data to the first index")
 				ok := w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{basicIdx1, basic1},
@@ -106,6 +118,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(ok).To(BeTrue())
 				Expect(end).To(Equal(14*telem.SecondTS + 1))
 				Expect(w.Close()).To(Succeed())
+
+				Expect(db.DeleteChannel(basic1)).To(Succeed())
+				Expect(db.DeleteChannel(basicIdx1)).To(Succeed())
+				Expect(db.DeleteChannel(basic2)).To(Succeed())
+				Expect(db.DeleteChannel(basicIdx2)).To(Succeed())
 			})
 
 		})

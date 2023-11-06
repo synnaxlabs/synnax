@@ -85,6 +85,7 @@ func (w *Writer) Error() error {
 }
 
 func (w *Writer) Close() (err error) {
+	w.requests.Close()
 	for range w.responses.Outlet() {
 	}
 	return w.wg.Wait()

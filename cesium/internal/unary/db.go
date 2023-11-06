@@ -11,10 +11,12 @@ package unary
 
 import (
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -28,10 +30,10 @@ func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type DB struct {
 	Config
-	Domain       *domain.DB
-	Controller   *controller.Controller[controlledWriter]
-	_idx         index.Index
-	Open_writers int64
+	Domain      *domain.DB
+	Controller  *controller.Controller[controlledWriter]
+	_idx        index.Index
+	openWriters *atomic.Int32Counter
 }
 
 func (db *DB) Index() index.Index {
@@ -90,12 +92,15 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		IteratorConfig: cfg,
 	}
 	i.SetBounds(cfg.Bounds)
-	db.Open_writers += 1
 	return i
 }
 
-func (db *DB) IsWrittenTo() bool {
-	return db.Open_writers == 0
+func (db *DB) TryClose() error {
+	if db.openWriters.Value() > 0 {
+		return errors.New("[unary] channel being written to")
+	} else {
+		return db.Close()
+	}
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

@@ -14,10 +14,25 @@ import (
 	"strconv"
 )
 
-func (db *DB) DeleteChannel(channel ChannelKey) error {
-	// need to also check for virtual
-	if db.unaryDBs[channel].Open_writers == 0 {
-		return db.fs.Remove(strconv.Itoa(int(channel)))
+func (db *DB) DeleteChannel(ch ChannelKey) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	udb, uok := db.unaryDBs[ch]
+	if uok {
+		if err := udb.TryClose(); err == nil {
+			return db.fs.Remove(strconv.Itoa(int(ch)))
+		} else {
+			return err
+		}
 	}
-	return errors.New("Channel being written to")
+	vdb, vok := db.virtualDBs[ch]
+	if vok {
+		if err := vdb.TryClose(); err == nil {
+			return db.fs.Remove(strconv.Itoa(int(ch)))
+		} else {
+			return errors.New("[cesium] Channel being written to")
+		}
+	}
+
+	return errors.New("[cesium] Channel does not exist")
 }

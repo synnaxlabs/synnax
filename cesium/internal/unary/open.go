@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -66,9 +67,10 @@ func Open(configs ...Config) (*DB, error) {
 		Instrumentation: cfg.Instrumentation,
 	})
 	db := &DB{
-		Config:     cfg,
-		Domain:     rangerDB,
-		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
+		Config:      cfg,
+		Domain:      rangerDB,
+		Controller:  controller.New[controlledWriter](cfg.Channel.Concurrency),
+		openWriters: &atomic.Int32Counter{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
