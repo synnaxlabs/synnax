@@ -6,23 +6,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+/// std
+#include <thread>
+
 /// GTest
 #include <include/gtest/gtest.h>
 
 /// Internal
 #include "synnax/synnax.h"
-#include <thread>
+#include "synnax/testutil/testutil.h"
 
-const synnax::Config cfg = {
-        .host =  "localhost",
-        .port =  9090,
-        .username =  "synnax",
-        .password =  "seldon"
-};
 
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(FramerTests, testWriteBasic) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [time, tErr] = client.channels.create(
             "time",
             synnax::TIMESTAMP,

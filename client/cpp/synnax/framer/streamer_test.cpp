@@ -15,17 +15,12 @@
 
 /// Internal
 #include "synnax/synnax.h"
-
-const synnax::Config cfg = {
-    .host = "localhost",
-    .port = 9090,
-    .username = "synnax",
-    .password = "seldon"};
+#include "synnax/testutil/testutil.h"
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(FramerTests, testStreamBasic)
 {
-        auto client = synnax::Synnax(cfg);
+        auto client = new_test_client();
         auto [data, cErr] = client.channels.create(
             "data",
             synnax::FLOAT32,
@@ -45,7 +40,7 @@ TEST(FramerTests, testStreamBasic)
         });
         ASSERT_FALSE(sErr) << sErr.message();
 
-        // Sleep for 10 milliseconds to allow for the streamer to bootstrap.
+        // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
         auto frame = synnax::Frame(1);

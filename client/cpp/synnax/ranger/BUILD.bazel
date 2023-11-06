@@ -17,6 +17,7 @@ cc_test(
     srcs = ["ranger_test.cpp"],
     deps = [
         "//synnax",
+        "//synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -28,6 +28,7 @@ cc_test(
     ],
     deps = [
         "//synnax",
+        "//synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )

@@ -16,31 +16,14 @@
 
 /// internal.
 #include "synnax/synnax.h"
+#include "synnax/testutil/testutil.h"
 
 
-const synnax::Config cfg = {
-        "localhost",
-        9090,
-        "synnax",
-        "seldon"
-};
-
-/// @brief creates a pseudo-random number generator from a random seed request
-/// from the OS. Logs the seed to stdout for reproducibility.
-std::mt19937 rand_gen() {
-    std::random_device rd;
-    auto rand_seed = rd();
-    std::cout << "Range tests seed - " << rand_seed << std::endl;
-    std::mt19937 mt(rand_seed);
-    std::uniform_real_distribution<double> dist(0, 1);
-    return mt;
-}
-
-std::mt19937 mt = rand_gen();
+std::mt19937 mt = random_generator((std::string &) "Range Tests");
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -57,7 +40,7 @@ TEST(RangerTests, testCreate) {
 
 /// @brief it should retrieve a range by its key.
 TEST(RangerTests, testRetrieveByKey) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -76,7 +59,7 @@ TEST(RangerTests, testRetrieveByKey) {
 
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto rand_name = std::to_string(mt());
     auto [range, err] = client.ranges.create(
             rand_name,
@@ -96,7 +79,7 @@ TEST(RangerTests, testRetrieveByName) {
 
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto rand_name = std::to_string(mt());
     auto [range, err] = client.ranges.create(
             rand_name,
@@ -129,7 +112,7 @@ TEST(RangerTests, testRetrieveMultipleByName) {
 
 /// @brief it should retrieve multiple ranges by their keys.
 TEST(RangerTests, testRetrieveMultipleByKey) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto tr = synnax::TimeRange(
             synnax::TimeStamp(10 * synnax::SECOND),
             synnax::TimeStamp(100 * synnax::SECOND)
@@ -154,7 +137,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
 
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -169,7 +152,7 @@ TEST(RangerTests, testSet) {
 
 /// @brief it should get a key-value pair on the range.
 TEST(RangerTests, testGet) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(
@@ -187,7 +170,7 @@ TEST(RangerTests, testGet) {
 
 /// @brief it should delete a key-value pair on the range.
 TEST(RangerTests, testKVDeelete) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [range, err] = client.ranges.create(
             "test",
             synnax::TimeRange(

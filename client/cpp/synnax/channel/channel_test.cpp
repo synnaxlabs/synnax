@@ -17,30 +17,14 @@
 /// internal
 #include "synnax/synnax.h"
 #include "synnax/errors/errors.h"
+#include "synnax/testutil/testutil.h"
 
-const synnax::Config cfg = {
-        .host = "localhost",
-        .port = 9090,
-        .username = "synnax",
-        .password = "seldon",
-};
 
-/// @brief creates a pseudo-random number generator from a random seed request
-/// from the OS. Logs the seed to stdout for reproducibility.
-std::mt19937 rand_gen() {
-    std::random_device rd;
-    auto rand_seed = rd();
-    std::cout << "Channel tests seed - " << rand_seed << std::endl;
-    std::mt19937 mt(rand_seed);
-    std::uniform_real_distribution<double> dist(0, 1);
-    return mt;
-}
-
-std::mt19937 mt = rand_gen();
+std::mt19937 mt = random_generator((std::string &) "Channel Tests");
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreate) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [channel, err] = client.channels.create(
             "test",
             synnax::FLOAT64,
@@ -53,7 +37,7 @@ TEST(ChannelTests, testCreate) {
 /// @brief it should return a validation error when an index channel has the
 /// wrong data type.
 TEST(ChannelTests, testCreateValidation) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [channel, err] = client.channels.create(
             "validation",
             synnax::FLOAT64,
@@ -65,7 +49,7 @@ TEST(ChannelTests, testCreateValidation) {
 
 /// @brief it should create an index based channel and assign it a non-zero key.
 TEST(ChannelTests, testCreateIndex) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [index, err] = client.channels.create(
             "test",
             synnax::TIMESTAMP,
@@ -87,7 +71,7 @@ TEST(ChannelTests, testCreateIndex) {
 
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(ChannelTests, testCreateMany) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
             {"test1", synnax::FLOAT64, 2 * synnax::HZ},
             {"test2", synnax::FLOAT64, 4 * synnax::HZ},
@@ -100,7 +84,7 @@ TEST(ChannelTests, testCreateMany) {
 
 /// @brief it should retrieve a channel by key.
 TEST(ChannelTest, testRetrieve) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [channel, err] = client.channels.create(
             "test",
             synnax::FLOAT64,
@@ -119,7 +103,7 @@ TEST(ChannelTest, testRetrieve) {
 
 /// @brief it should return a query error when the channel cannot be found.
 TEST(ChannelTest, testRetrieveNotFound) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(22);
     ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err.type, synnax::QUERY_ERROR);
@@ -127,7 +111,7 @@ TEST(ChannelTest, testRetrieveNotFound) {
 
 /// @brief it should correctly retrieve a channel by name.
 TEST(ChannelTest, testRetrieveByName) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto rand_name = std::to_string(mt());
     auto [channel, err] = client.channels.create(
             rand_name,
@@ -148,7 +132,7 @@ TEST(ChannelTest, testRetrieveByName) {
 
 /// @brief it should return the correct error when a channel cannot be found by name.
 TEST(ChannelTest, testRetrieveByNameNotFound) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_TRUE(err) << err.message();
     ASSERT_EQ(err.type, synnax::NO_RESULTS);
@@ -156,7 +140,7 @@ TEST(ChannelTest, testRetrieveByNameNotFound) {
 
 /// @brief it should retrieve many channels by their key.
 TEST(ChannelTest, testRetrieveMany) {
-    auto client = synnax::Synnax(cfg);
+    auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
             {"test1", synnax::FLOAT64, 5 * synnax::HZ},
             {"test2", synnax::FLOAT64, 10 * synnax::HZ},
