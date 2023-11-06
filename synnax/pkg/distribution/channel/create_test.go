@@ -141,6 +141,6 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
-		y	)
+		})
 	})
 })

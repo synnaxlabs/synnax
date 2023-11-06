@@ -29,12 +29,15 @@ import { Range } from "@/ranger/range";
 import { type Retriever } from "@/ranger/retriever";
 import { type Writer } from "@/ranger/writer";
 
+import { Active } from "./active";
+
 export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
   private readonly channels: ChannelRetriever;
+  private readonly active: Active;
 
   constructor(
     frameClient: framer.Client,
@@ -48,6 +51,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     this.writer = writer;
     this.unaryClient = unary;
     this.channels = channels;
+    this.active = new Active(unary);
   }
 
   async create(range: NewPayload): Promise<Range>;
@@ -88,6 +92,20 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     if (res.length > 1)
       throw new QueryError(`multiple ranges matching ${actual} found`);
     return res[0];
+  }
+
+  async setActive(range: Key): Promise<void> {
+    await this.active.setActive(range);
+  }
+
+  async retrieveActive(): Promise<Range | null> {
+    const res = await this.active.retrieveActive();
+    if (res == null) return null;
+    return this.sugar([res])[0];
+  }
+
+  async clearActive(range: Key): Promise<void> {
+    await this.active.clearActive(range);
   }
 
   private sugar(payloads: Payload[]): Range[] {

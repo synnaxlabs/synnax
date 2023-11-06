@@ -171,3 +171,30 @@ class TestRangeAlias:
         )
         with pytest.raises(sy.exceptions.QueryError):
             rng.set_alias("not_found", "test")
+
+
+@pytest.mark.ranger
+class TestActiveRanges:
+    def test_set_active(self, client: sy.Synnax):
+        """It should correctly create a range and set it as active"""
+        rng = client.ranges.create(
+            name="test",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        client.ranges.set_active(rng.key)
+
+        assert client.ranges.retrieve_active().key == rng.key
+
+    def test_clear_active(self, client: sy.Synnax):
+        """It should correctly create a range and set it as active"""
+        rng = client.ranges.create(
+            name="test",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        client.ranges.set_active(rng.key)
+        client.ranges.clear_active()
+
+        assert client.ranges.retrieve_active() is None
+
+
+
