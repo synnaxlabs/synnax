@@ -10,11 +10,9 @@
 import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { QueryError } from "@/errors";
+import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
-
-import { QueryError } from "..";
-
-import { type NewPayload } from "./payload";
 
 const client = newClient();
 
