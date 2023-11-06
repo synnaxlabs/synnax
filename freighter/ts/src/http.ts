@@ -17,9 +17,10 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 
-const resolveFetchAPI = (): typeof fetch => {
+const resolveFetchAPI = (protocol: "http" | "https"): typeof fetch => {
   if (runtime.RUNTIME !== "node") return fetch;
   const _fetch: typeof fetch = require("node-fetch");
+  if (protocol === "http") return _fetch;
   const https = require("https");
   const agent = new https.Agent({ rejectUnauthorized: false });
   // @ts-expect-error - TS doesn't know about qhis option
@@ -42,7 +43,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
-    this.fetch = resolveFetchAPI();
+    this.fetch = resolveFetchAPI(this.endpoint.protocol as "http" | "https");
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -70,7 +71,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     request.body = this.encoder.encode(req ?? {});
 
     const [, err] = await this.executeMiddleware(
-      { target: url.toString(), protocol: "http", params: {}, role: "client" },
+      { target: url.toString(), protocol: this.endpoint.protocol, params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {
@@ -79,7 +80,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         };
         let httpRes: Response;
         try {
-          const f = resolveFetchAPI();
+          const f = resolveFetchAPI(ctx.protocol as "http" | "https");
           httpRes = await f(ctx.target, request);
         } catch (err_) {
           let err = err_ as Error;

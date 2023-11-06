@@ -37,7 +37,7 @@ class _InternalRangeChannel(ChannelPayload):
     """The frame client for executing read operations."""
     __aliaser: Aliaser | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
-    __cache: Series
+    __cache: Series | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
 
     def __new__(cls, *args, **kwargs):

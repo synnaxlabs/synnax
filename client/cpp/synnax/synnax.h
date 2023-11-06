@@ -47,10 +47,6 @@ struct Config {
     std::string client_key_file;
 };
 
-const std::string ERROR_PREFIX = "sy.api.";
-const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
-const std::string QUERY_ERROR = ERROR_PREFIX + "query";
-
 /// @brief Client to perform operations against a Synnax cluster.
 class Synnax {
 public:

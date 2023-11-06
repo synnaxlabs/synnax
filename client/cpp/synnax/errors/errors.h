@@ -7,19 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package domain_test
+/// std
+#include <string>
 
-import (
-	"context"
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var ctx = context.Background()
-
-func TestRanger(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "TimeRange Suite")
+namespace synnax {
+const std::string ERROR_PREFIX = "sy.api.";
+const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
+const std::string QUERY_ERROR = ERROR_PREFIX + "query";
+const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";
+const std::string NO_RESULTS = QUERY_ERROR + ".no_results";
 }

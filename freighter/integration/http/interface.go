@@ -37,8 +37,7 @@ type TestError struct {
 
 func (t TestError) Error() string {
 	return t.Message
-}:w
-
+}
 
 func (t TestError) FreighterType() ferrors.Type {
 	return "integration.error"

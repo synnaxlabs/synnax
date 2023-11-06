@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -89,6 +90,9 @@ func Auto(err error) error {
 	}
 	if errors.Is(err, validate.Error) {
 		return Validation(err)
+	}
+	if errors.Is(err, auth.Error) {
+		return Auth(err)
 	}
 	return General(err)
 }

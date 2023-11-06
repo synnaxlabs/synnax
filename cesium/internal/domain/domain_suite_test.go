@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package errors_test
+package domain_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func TestErrors(t *testing.T) {
+var ctx = context.Background()
+
+func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Errors Suite")
+	RunSpecs(t, "Domain Suite")
 }

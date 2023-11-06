@@ -70,11 +70,11 @@ func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr
 	}
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
-			return errors.General(err)
+			return errors.Auto(err)
 		}
 		u := &user.User{Username: req.Username}
 		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
-			return errors.General(err)
+			return errors.Auto(err)
 		}
 		tr, err = s.tokenResponse(*u)
 		return err
@@ -109,7 +109,7 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 	if err := s.Validate(&cur); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
+	return types.Nil{}, errors.Auto(s.WithTx(ctx, func(txn gorp.Tx) error {
 		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
 			return err
@@ -123,7 +123,7 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 		}
 		u.Username = cur.NewUsername
 		return s.user.NewWriter(txn).Update(ctx, u)
-	})
+	}))
 }
 
 // TokenResponse is a response containing a valid JWT along with details about the user
