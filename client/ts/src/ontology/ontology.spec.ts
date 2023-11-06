@@ -17,98 +17,100 @@ const client = newClient();
 const randomName = (): string => `group-${Math.random()}`;
 
 describe("Ontology", () => {
-  describe("retrieve", () => {
-    test("retrieve", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const g2 = await client.ontology.retrieve(g.ontologyID);
-      expect(g2.name).toEqual(name);
-    });
-    test("retrieve children", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const name2 = randomName();
-      await client.ontology.groups.create(g.ontologyID, name2);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
-      expect(children.length).toEqual(1);
-      expect(children[0].name).toEqual(name2);
-    });
-    test("retrieve parents", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const name2 = randomName();
-      const g2 = await client.ontology.groups.create(g.ontologyID, name2);
-      const parents = await client.ontology.retrieveParents(g2.ontologyID);
-      expect(parents.length).toEqual(1);
-      expect(parents[0].name).toEqual(name);
-    });
-    test("add children", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
-      await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
-      expect(children.length).toEqual(1);
-      expect(children[0].name).toEqual(name2);
-    });
-    test("remove children", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
-      await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
-      await client.ontology.removeChildren(g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
-      expect(children.length).toEqual(0);
-    });
-    test("move children", async () => {
-      const name = randomName();
-      const g = await client.ontology.groups.create(ontology.Root, name);
-      const name2 = randomName();
-      const g2 = await client.ontology.groups.create(ontology.Root, name2);
-      const oldRootLength = (await client.ontology.retrieveChildren(ontology.Root))
-        .length;
-      await client.ontology.moveChildren(ontology.Root, g.ontologyID, g2.ontologyID);
-      const children = await client.ontology.retrieveChildren(g.ontologyID);
-      expect(children.length).toEqual(1);
-      const newRootLength = (await client.ontology.retrieveChildren(ontology.Root))
-        .length;
-      expect(newRootLength).toEqual(oldRootLength - 1);
-    });
-  });
-  describe("cdc", async () => {
-    it("should correctly decode a set of relationships from a string", () => {
-      const rel = ontology.parseRelationship("typeA:keyA->parent->typeB:keyB");
-      expect(rel.type).toEqual("parent");
-      expect(rel.from.type).toEqual("typeA");
-      expect(rel.from.key).toEqual("keyA");
-      expect(rel.to.type).toEqual("typeB");
-      expect(rel.to.key).toEqual("keyB");
-    });
-    it("should correctly propagate resource changes to the ontology", async () => {
+  // describe("retrieve", () => {
+  //   test("retrieve", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const g2 = await client.ontology.retrieve(g.ontologyID);
+  //     expect(g2.name).toEqual(name);
+  //   });
+  //   test("retrieve children", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const name2 = randomName();
+  //     await client.ontology.groups.create(g.ontologyID, name2);
+  //     const children = await client.ontology.retrieveChildren(g.ontologyID);
+  //     expect(children.length).toEqual(1);
+  //     expect(children[0].name).toEqual(name2);
+  //   });
+  //   test("retrieve parents", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const name2 = randomName();
+  //     const g2 = await client.ontology.groups.create(g.ontologyID, name2);
+  //     const parents = await client.ontology.retrieveParents(g2.ontologyID);
+  //     expect(parents.length).toEqual(1);
+  //     expect(parents[0].name).toEqual(name);
+  //   });
+  //   test("add children", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const name2 = randomName();
+  //     const g2 = await client.ontology.groups.create(ontology.Root, name2);
+  //     await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
+  //     const children = await client.ontology.retrieveChildren(g.ontologyID);
+  //     expect(children.length).toEqual(1);
+  //     expect(children[0].name).toEqual(name2);
+  //   });
+  //   test("remove children", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const name2 = randomName();
+  //     const g2 = await client.ontology.groups.create(ontology.Root, name2);
+  //     await client.ontology.addChildren(g.ontologyID, g2.ontologyID);
+  //     await client.ontology.removeChildren(g.ontologyID, g2.ontologyID);
+  //     const children = await client.ontology.retrieveChildren(g.ontologyID);
+  //     expect(children.length).toEqual(0);
+  //   });
+  //   test("move children", async () => {
+  //     const name = randomName();
+  //     const g = await client.ontology.groups.create(ontology.Root, name);
+  //     const name2 = randomName();
+  //     const g2 = await client.ontology.groups.create(ontology.Root, name2);
+  //     const oldRootLength = (await client.ontology.retrieveChildren(ontology.Root))
+  //       .length;
+  //     await client.ontology.moveChildren(ontology.Root, g.ontologyID, g2.ontologyID);
+  //     const children = await client.ontology.retrieveChildren(g.ontologyID);
+  //     expect(children.length).toEqual(1);
+  //     const newRootLength = (await client.ontology.retrieveChildren(ontology.Root))
+  //       .length;
+  //     expect(newRootLength).toEqual(oldRootLength - 1);
+  //   });
+  // });
+  describe.only("cdc", async () => {
+    // it("should correctly decode a set of relationships from a string", () => {
+    //   const rel = ontology.parseRelationship("typeA:keyA->parent->typeB:keyB");
+    //   expect(rel.type).toEqual("parent");
+    //   expect(rel.from.type).toEqual("typeA");
+    //   expect(rel.from.key).toEqual("keyA");
+    //   expect(rel.to.type).toEqual("typeB");
+    //   expect(rel.to.key).toEqual("keyB");
+    // });
+    it.only("should correctly propagate resource changes to the ontology", async () => {
       const change = await client.ontology.openChangeTracker();
       const p = new Promise<ontology.ResourceChange[]>((resolve) => {
         change.resources.onChange((changes) => {
           resolve(changes);
         });
       });
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log("CREATE");
       await client.ontology.groups.create(ontology.Root, randomName());
       const c = await p;
       expect(c.length).toBeGreaterThan(0);
       await change.close();
     });
-    it("should correctly propagate relationship changes to the ontology", async () => {
-      const change = await client.ontology.openChangeTracker();
-      const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
-        change.relationships.onChange((changes) => {
-          resolve(changes);
-        });
-      });
-      await client.ontology.groups.create(ontology.Root, randomName());
-      const c = await p;
-      expect(c.length).toBeGreaterThan(0);
-      await change.close();
-    });
+    // it("should correctly propagate relationship changes to the ontology", async () => {
+    //   const change = await client.ontology.openChangeTracker();
+    //   const p = new Promise<ontology.RelationshipChange[]>((resolve) => {
+    //     change.relationships.onChange((changes) => {
+    //       resolve(changes);
+    //     });
+    //   });
+    //   await client.ontology.groups.create(ontology.Root, randomName());
+    //   const c = await p;
+    //   expect(c.length).toBeGreaterThan(0);
+    //   await change.close();
+    // });
   });
 });

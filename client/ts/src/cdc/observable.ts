@@ -28,11 +28,11 @@ export class Observable<K, V>
   private readonly setChannel?: channel.Key | channel.Name;
 
   private constructor(
-    streamer: framer.Streamer, 
+    streamer: framer.Streamer,
     ecd: Decoder<K, V>,
     setChannel?: channel.Key | channel.Name,
     deleteChannel?: channel.Key | channel.Name,
-    ) {
+  ) {
     this.streamer = streamer;
     this.decoder = ecd;
     this.base = new observe.Observer<Array<change.Change<K, V>>>();
@@ -51,7 +51,9 @@ export class Observable<K, V>
   }
 
   async stream(): Promise<void> {
+    console.log("STREAMING");
     for await (const frame of this.streamer) {
+      console.log("FRAME");
       const changes: Array<change.Change<K, V>> = [];
       if (this.deleteChannel != null) {
         const deletes = frame.get(this.deleteChannel);

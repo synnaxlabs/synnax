@@ -56,7 +56,9 @@ export class ChangeTracker {
   }
 
   private async start(): Promise<void> {
+    console.log("START", this.streamer.keys);
     for await (const frame of this.streamer) {
+      console.log("FRAME");
       await this.update(frame);
     }
   }
@@ -124,12 +126,14 @@ export class ChangeTracker {
   }
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
+    console.log("HELLO");
     const streamer = await client.newStreamer([
       RESOURCE_SET_NAME,
       RESOURCE_DELETE_NAME,
       RELATIONSHIP_SET_NAME,
       RELATIONSHIP_DELETE_NAME,
     ]);
+    console.log("HELLO");
     return new ChangeTracker(streamer, retriever);
   }
 }

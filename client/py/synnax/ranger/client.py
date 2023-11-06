@@ -16,6 +16,7 @@ from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.create import RangeCreator
+from synnax.ranger.active import Active
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
     RangeKey,
@@ -37,6 +38,7 @@ class RangeClient:
     __retriever: RangeRetriever
     __creator: RangeCreator
     __unary_client: UnaryClient
+    __active: Active
 
     def __init__(
         self,
@@ -51,6 +53,7 @@ class RangeClient:
         self.__creator = creator
         self.__retriever = retriever
         self.__channel_retriever = channel_retriever
+        self.__active = Active(self.__unary_client)
 
     @overload
     def create(
@@ -121,6 +124,16 @@ class RangeClient:
         elif len(sug) > 1:
             raise QueryError(f"Multiple ranges matching {normal} found")
         return sug[0]
+
+    def set_active(self, key: RangeKey):
+        self.__active.set(key)
+
+    def clear_active(self):
+        self.__active.clear()
+
+    def retrieve_active(self) -> Range | None:
+        rng = self.__active.retrieve()
+        return None if rng is None else self.__sugar([rng])[0]
 
     def search(
         self,

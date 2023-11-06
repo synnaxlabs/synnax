@@ -40,6 +40,9 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
 	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
 	a.RangeAliasDelete = fnoop.UnaryServer[api.RangeAliasDeleteRequest, types.Nil]{}
+	a.RangeSetActive = fnoop.UnaryServer[api.RangeSetActiveRequest, types.Nil]{}
+	a.RangeRetrieveActive = fnoop.UnaryServer[types.Nil, api.RangeRetrieveActiveResponse]{}
+	a.RangeClearActive = fnoop.UnaryServer[types.Nil, types.Nil]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}
