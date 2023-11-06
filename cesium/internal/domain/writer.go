@@ -80,7 +80,7 @@ type Writer struct {
 	prevCommit telem.TimeStamp
 	idx        *index
 	fileKey    uint16
-	internal   xio.OffsetWriteCloser
+	internal   xio.TrackedWriteCloser
 	presetEnd  bool
 }
 

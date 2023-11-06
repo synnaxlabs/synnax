@@ -7,27 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cesium_test
+package queue_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
-	. "github.com/synnaxlabs/x/testutil"
-	"testing"
 )
 
 var ctx = context.Background()
 
-func openMemDB() *cesium.DB {
-	return MustSucceed(cesium.Open(
-		"./testdata",
-		cesium.MemBacked(),
-	))
-}
-
-func TestCesium(t *testing.T) {
+func TestCalc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Suite")
+	RunSpecs(t, "Queue Suite")
 }

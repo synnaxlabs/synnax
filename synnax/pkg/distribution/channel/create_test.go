@@ -107,4 +107,40 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			})
 		})
 	})
+	Context("Creating if name doesn't exist", func() {
+		var ch channel.Channel
+		BeforeEach(func() {
+			ch.Rate = 5 * telem.Hz
+			ch.Name = "SG0001"
+			ch.DataType = telem.Float64T
+			ch.Leaseholder = 1
+		})
+		It("Should create the channel without error", func() {
+			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+			Expect(ch.Key().LocalKey()).To(Not(Equal(uint16(0))))
+		})
+		It("Should not create the channel if it already exists by name", func() {
+			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			k := ch.Key()
+			ch.Leaseholder = 0
+			ch.LocalKey = 0
+			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).To(Equal(k))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+		})
+		It("Should not create a free channel if it already exists by name", func() {
+			ch.Name = "SG0002"
+			ch.Virtual = true
+			ch.Leaseholder = core.Free
+			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			k := ch.Key()
+			ch.LocalKey = 0
+			ch.Leaseholder = 0
+			Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).To(Equal(k))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+		})
+	})
 })

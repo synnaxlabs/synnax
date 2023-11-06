@@ -10,11 +10,9 @@
 import { DataType, Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { QueryError } from "@/errors";
+import { type NewPayload } from "@/ranger/payload";
 import { newClient } from "@/setupspecs";
-
-import { QueryError } from "..";
-
-import { type NewPayload } from "./payload";
 
 const client = newClient();
 
@@ -138,6 +136,31 @@ describe("Ranger", () => {
         await rng.setAlias(ch.key, "myalias");
         const aliases = await rng.listAliases();
         expect(aliases).toEqual({ [ch.key]: "myalias" });
+      });
+    });
+  });
+
+  describe("Active", () => {
+    describe("setActive", () => {
+      it("should create and set a range as active", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await client.ranges.setActive(rng.key);
+        const retrieved = await client.ranges.retrieveActive();
+        expect(retrieved).not.toBeNull();
+        expect(retrieved?.key).toEqual(rng.key);
+      });
+      it("should clear the active range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await client.ranges.setActive(rng.key);
+        await client.ranges.clearActive(rng.key);
+        const retrieved = await client.ranges.retrieveActive();
+        expect(retrieved).toBeNull();
       });
     });
   });

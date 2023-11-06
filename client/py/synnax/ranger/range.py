@@ -66,9 +66,10 @@ class _InternalRangeChannel(ChannelPayload):
     def __array__(self) -> np.ndarray:
         return self.read().__array__()
 
-    @memo("__cache")
     def read(self) -> Series:
-        return self.__frame_client.read(self.time_range, self.key)
+        if self.__cache is None:
+            self.__cache = self.__frame_client.read(self.time_range, self.key)
+        return self.__cache
 
     def set_alias(self, alias: str):
         self.__range.set_alias(self.key, alias)
