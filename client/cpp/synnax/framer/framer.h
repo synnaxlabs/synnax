@@ -133,6 +133,12 @@ public:
     /// methods.
     freighter::Error close();
 
+    /// @brief closes the sending end of the streamer. Subsequence calls to receive()
+    /// will exhaust the stream and eventually return an EOF.
+    /// @note closeSend() is safe to call concurrently with read(), but not with any
+    /// other DB methods.
+    freighter::Error closeSend();
+
 private:
     Streamer() = default;
 

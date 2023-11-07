@@ -42,6 +42,10 @@ std::pair<Frame, freighter::Error> Streamer::read()
     return {Frame(fr.frame()), exc};
 }
 
+freighter::Error Streamer::closeSend() {
+    return stream->closeSend();
+}
+
 freighter::Error Streamer::close()
 {
     auto exc = stream->closeSend();
