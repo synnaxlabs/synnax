@@ -23,11 +23,12 @@ var _ = Describe("Keys", func() {
 			It("Should create a new key with the given node Name and cesium key", func() {
 				k := channel.NewKey(core.NodeKey(1), 2)
 				Expect(k.Leaseholder()).To(Equal(core.NodeKey(1)))
+				Expect(k.LocalKey()).To(Equal(uint16(2)))
 			})
 		})
 		Describe("Lease", func() {
 			It("Should return the leaseholder node Name", func() {
-				k := channel.NewKey(core.NodeKey(1), 2)
+				k := channel.NewKey(core.NodeKey(1), 1)
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})

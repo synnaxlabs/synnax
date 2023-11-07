@@ -124,17 +124,20 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
 	// RANGE
-	RangeCreate       freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
-	RangeRetrieve     freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
-	RangeDelete       freighter.UnaryServer[RangeDeleteRequest, types.Nil]
-	RangeKVGet        freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
-	RangeKVSet        freighter.UnaryServer[RangeKVSetRequest, types.Nil]
-	RangeKVDelete     freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
-	RangeAliasSet     freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
-	RangeAliasResolve freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
-	RangeAliasList    freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
-	RangeRename       freighter.UnaryServer[RangeRenameRequest, types.Nil]
-	RangeAliasDelete  freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
+	RangeCreate         freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
+	RangeRetrieve       freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
+	RangeDelete         freighter.UnaryServer[RangeDeleteRequest, types.Nil]
+	RangeKVGet          freighter.UnaryServer[RangeKVGetRequest, RangeKVGetResponse]
+	RangeKVSet          freighter.UnaryServer[RangeKVSetRequest, types.Nil]
+	RangeKVDelete       freighter.UnaryServer[RangeKVDeleteRequest, types.Nil]
+	RangeAliasSet       freighter.UnaryServer[RangeAliasSetRequest, types.Nil]
+	RangeAliasResolve   freighter.UnaryServer[RangeAliasResolveRequest, RangeAliasResolveResponse]
+	RangeAliasList      freighter.UnaryServer[RangeAliasListRequest, RangeAliasListResponse]
+	RangeRename         freighter.UnaryServer[RangeRenameRequest, types.Nil]
+	RangeAliasDelete    freighter.UnaryServer[RangeAliasDeleteRequest, types.Nil]
+	RangeSetActive      freighter.UnaryServer[RangeSetActiveRequest, types.Nil]
+	RangeRetrieveActive freighter.UnaryServer[types.Nil, RangeRetrieveActiveResponse]
+	RangeClearActive    freighter.UnaryServer[types.Nil, types.Nil]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[OntologyRetrieveRequest, OntologyRetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[OntologyAddChildrenRequest, types.Nil]
@@ -243,6 +246,9 @@ func (a *API) BindTo(t Transport) {
 		t.RangeAliasList,
 		t.RangeRename,
 		t.RangeAliasDelete,
+		t.RangeSetActive,
+		t.RangeRetrieveActive,
+		t.RangeClearActive,
 
 		// WORKSPACE
 		t.WorkspaceDelete,
@@ -306,6 +312,9 @@ func (a *API) BindTo(t Transport) {
 	t.RangeAliasResolve.BindHandler(typedUnaryWrapper(a.Range.AliasResolve))
 	t.RangeAliasList.BindHandler(typedUnaryWrapper(a.Range.AliasList))
 	t.RangeAliasDelete.BindHandler(typedUnaryWrapper(a.Range.AliasDelete))
+	t.RangeSetActive.BindHandler(typedUnaryWrapper(a.Range.SetActive))
+	t.RangeRetrieveActive.BindHandler(typedUnaryWrapper(a.Range.RetrieveActive))
+	t.RangeClearActive.BindHandler(typedUnaryWrapper(a.Range.ClearActive))
 
 	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(typedUnaryWrapper(a.Workspace.Create))

@@ -37,7 +37,7 @@ class _InternalRangeChannel(ChannelPayload):
     """The frame client for executing read operations."""
     __aliaser: Aliaser | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
-    __cache: Series
+    __cache: Series | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
 
     def __new__(cls, *args, **kwargs):
@@ -66,9 +66,10 @@ class _InternalRangeChannel(ChannelPayload):
     def __array__(self) -> np.ndarray:
         return self.read().__array__()
 
-    @memo("__cache")
     def read(self) -> Series:
-        return self.__frame_client.read(self.time_range, self.key)
+        if self.__cache is None:
+            self.__cache = self.__frame_client.read(self.time_range, self.key)
+        return self.__cache
 
     def set_alias(self, alias: str):
         self.__range.set_alias(self.key, alias)

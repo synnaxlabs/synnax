@@ -288,3 +288,29 @@ func (s *RangeService) AliasList(ctx context.Context, req RangeAliasListRequest)
 	aliases, err := r.ListAliases(ctx)
 	return RangeAliasListResponse{Aliases: aliases}, errors.MaybeQuery(err)
 }
+
+type RangeSetActiveRequest struct {
+	Range uuid.UUID `json:"range" msgpack:"range"`
+}
+
+func (s *RangeService) SetActive(ctx context.Context, req RangeSetActiveRequest) (res types.Nil, _ errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		return errors.Auto(s.internal.SetActiveRange(ctx, req.Range, tx))
+	})
+}
+
+type RangeRetrieveActiveResponse struct {
+	Range ranger.Range `json:"range" msgpack:"range"`
+}
+
+func (s *RangeService) RetrieveActive(ctx context.Context, _ types.Nil) (res RangeRetrieveActiveResponse, _ errors.Typed) {
+	rng, err := s.internal.RetrieveActiveRange(ctx, nil)
+	return RangeRetrieveActiveResponse{Range: rng}, errors.MaybeQuery(err)
+}
+
+func (s *RangeService) ClearActive(ctx context.Context, _ types.Nil) (res types.Nil, _ errors.Typed) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+		s.internal.ClearActiveRange()
+		return errors.Nil
+	})
+}
