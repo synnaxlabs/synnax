@@ -308,6 +308,6 @@ func (s *RangeService) RetrieveActive(ctx context.Context, _ types.Nil) (res Ran
 }
 
 func (s *RangeService) ClearActive(ctx context.Context, _ types.Nil) (res types.Nil, _ error) {
-	s.internal.ClearActiveRange()
+	s.internal.ClearActiveRange(ctx)
 	return res, nil
 }
