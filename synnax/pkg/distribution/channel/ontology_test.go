@@ -35,6 +35,7 @@ var _ = Describe("Ontology", Ordered, func() {
 			v, ok = n.Next(ctx)
 			Expect(ok).To(BeTrue())
 			Expect(v.Name).To(Equal("SG03"))
+			Expect(n.Close()).To(Succeed())
 		})
 	})
 
