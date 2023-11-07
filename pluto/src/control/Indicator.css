@@ -15,6 +15,7 @@
 
  .pluto--x > .pluto-indicator {
     height: 1.25rem;
+    width: 40px;
     transition: l0 1s;
  }
 

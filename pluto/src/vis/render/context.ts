@@ -86,8 +86,8 @@ export class Context {
     this.upper2dCanvas = upper2dCanvas;
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
-    this.queue = new Queue();
     this.os = os;
+    this.queue = new Queue();
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
@@ -99,7 +99,7 @@ export class Context {
 
     const gl = this.glCanvas.getContext("webgl2", {
       preserveDrawingBuffer: true,
-      antialias: true,
+      depth: false,
     });
     if (gl == null) throw new Error("Could not get WebGL context");
     this.gl = gl;
@@ -236,7 +236,7 @@ export class Context {
     const { gl } = this;
     const removeScissor = this.scissorGL(applyOverscan(box, overscan));
     gl.clearColor(...color.ZERO.rgba1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT);
     // See the documentation for the clear program for why this is necessary.
     if (this.os === "Windows") this.clearProgram?.exec();
     removeScissor();

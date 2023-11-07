@@ -229,7 +229,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const xData = await telem.x(prog.ctx.gl);
     const yData = await telem.y(prog.ctx.gl);
     const ops = buildDrawOperations(xData, yData, downsample);
-    prog.setAsActive();
     this.internal.instrumentation.L.debug("render", {
       key: this.key,
       downsample,
@@ -237,12 +236,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       props: props.region,
       ops: digests(ops),
     });
+    const clearProg = prog.setAsActive();
     ops.forEach((op) => {
       const { x, y } = op;
       const p = { ...props, dataToDecimalScale: offsetScale(dataToDecimalScale, x, y) };
       const instances = prog.bindPropsAndState(p, this.state);
       prog.draw(op, instances);
     });
+    clearProg();
   }
 
   private async xyValue(series: number, index: number): Promise<xy.XY> {
