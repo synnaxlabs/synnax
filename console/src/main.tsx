@@ -87,10 +87,6 @@ const MainUnderContext = (): ReactElement => {
       workerURL={WorkerURL}
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
-      alamos={{
-        level: "debug",
-        include: ["line"],
-      }}
     >
       <Vis.Canvas>
         <Layout.Window />

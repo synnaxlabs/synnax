@@ -58,13 +58,6 @@ export const LayoutSelector = ({
           >
             PID
           </Button.Button>
-          <Button.Button
-            variant="outlined"
-            startIcon={<Icon.Table />}
-            onClick={() => place(Table.create({ key: layoutKey }))}
-          >
-            Table
-          </Button.Button>
         </Align.Space>
       </Align.Center>
     </Eraser.Eraser>
