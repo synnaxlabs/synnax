@@ -40,8 +40,8 @@ export const DECIMAL = { lower: 0, upper: 1 };
 
 export const CLIP = { lower: -1, upper: 1 };
 
-export const equals = (a: Bounds, b: Bounds): boolean =>
-  a.lower === b.lower && a.upper === b.upper;
+export const equals = (a?: Bounds, b?: Bounds): boolean =>
+  a?.lower === b?.lower && a?.upper === b?.upper;
 
 export const makeValid = (a: Bounds): Bounds => {
   if (a.lower > a.upper) return { lower: a.upper, upper: a.lower };

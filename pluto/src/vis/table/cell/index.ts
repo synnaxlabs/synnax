@@ -7,14 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MutableRefObject, useRef } from "react";
-
-import { type Primitive } from "zod";
-
-export const useSyncedRef = <T extends Primitive | object>(
-  value: T,
-): MutableRefObject<T> => {
-  const ref = useRef<T>(value);
-  ref.current = value;
-  return ref;
-};
+export * as Cell from "@/vis/table/cell/external";

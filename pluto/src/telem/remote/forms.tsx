@@ -16,13 +16,17 @@ import { Input } from "@/input";
 import { type remote } from "@/telem/remote/aether";
 import { componentRenderProp } from "@/util/renderProp";
 
-export interface NumericFormProps extends Input.ItemProps<remote.NumericSourceProps> {}
+export interface NumericSourceFormProps
+  extends Omit<
+    Input.ItemProps<Omit<remote.NumericSourceProps, "units" | "precision">>,
+    "children"
+  > {}
 
 export const NumericSourceForm = ({
   value,
   onChange,
   ...props
-}: NumericFormProps): ReactElement => {
+}: NumericSourceFormProps): ReactElement => {
   const handleChannelChange = (channel: channel.Key): void =>
     onChange({ ...value, channel });
 
@@ -35,5 +39,36 @@ export const NumericSourceForm = ({
     >
       {componentRenderProp(Channel.SelectSingle)}
     </Input.Item>
+  );
+};
+
+export interface NumericStringSourceFormProps
+  extends Input.ItemProps<remote.NumericSourceProps> {}
+
+export const NumericStringSourceForm = ({
+  value,
+  onChange,
+  ...props
+}: NumericStringSourceFormProps): ReactElement => {
+  const handleBaseChange = (props: Pick<remote.NumericSourceProps, "channel">): void =>
+    onChange({ ...value, ...props });
+
+  return (
+    <>
+      <NumericSourceForm {...props} value={value} onChange={handleBaseChange} />
+      <Input.Item<string>
+        label="Units"
+        value={value.units}
+        onChange={(units): void => onChange({ ...value, units })}
+      />
+      <Input.Item<number, number, Input.NumericProps>
+        label="Precision"
+        value={value.precision}
+        onChange={(precision: number): void => onChange({ ...value, precision })}
+        bounds={{ lower: 0, upper: 10 }}
+      >
+        {componentRenderProp(Input.Numeric)}
+      </Input.Item>
+    </>
   );
 };

@@ -23,7 +23,7 @@ import {
 } from "@/environment";
 import { Meta } from "@/meta";
 
-/** Carrier is an entitty that can carry trace meta-data across process bounds */
+/** Carrier is an entitty that can carry trace metadata across process bounds */
 export type Carrier = Record<string, string>;
 
 /** Function that executes under the given span */
@@ -113,11 +113,11 @@ export class Tracer {
   }
 
   /**
-   * Injects meta-data about the current trace into the provided carrier. This
-   * meta-data can be paresed on teh other side of a network or IPC request to
+   * Injects metadata about the current trace into the provided carrier. This
+   * metadata can be paresed on teh other side of a network or IPC request to
    * allow the trace to proapgate across services.
    *
-   * @param carrier - The carrier to inject the meta-data into.
+   * @param carrier - The carrier to inject the metadata into.
    */
   propagate(carrier: Carrier): void {
     if (this.meta.noop) return;

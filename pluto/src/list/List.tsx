@@ -19,7 +19,7 @@ import {
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useTransforms } from "@/hooks";
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
 import { Provider } from "@/list/Context";
 import { type ColumnSpec } from "@/list/types";
 

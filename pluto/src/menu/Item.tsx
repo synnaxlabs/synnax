@@ -22,7 +22,10 @@ const menuItemFactory =
   ): FunctionComponent<E & { itemKey: string }> =>
   // eslint-disable-next-line react/display-name
   (props): ReactElement => {
-    const { itemKey, className, onClick, ...rest } = { ...defaultProps, ...props };
+    const { itemKey, className, onClick, size, ...rest } = {
+      ...defaultProps,
+      ...props,
+    };
 
     const { onClick: ctxOnClick, selected, level, iconSpacing } = useMenuContext();
 
@@ -39,6 +42,7 @@ const menuItemFactory =
         onClick={handleClick}
         variant="text"
         className={CSS(CSS.B("menu-item"), CSS.selected(_selected), className)}
+        size={size ?? iconSpacing}
       />
     );
   };

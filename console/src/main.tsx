@@ -24,6 +24,7 @@ import { PID } from "@/pid";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
+import { Table } from "@/table";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -45,6 +46,7 @@ const layoutRenderers = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
+  [Table.LAYOUT_TYPE]: Table.Table,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -69,7 +71,7 @@ const MainUnderContext = (): ReactElement => {
       (state: Haul.DraggingState) => {
         dispatch(Layout.setHauled(state));
       },
-      [dispatch]
+      [dispatch],
     );
     return [hauled, onHauledChange];
   };
@@ -85,10 +87,6 @@ const MainUnderContext = (): ReactElement => {
       workerURL={WorkerURL}
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
-      alamos={{
-        level: "debug",
-        include: [],
-      }}
     >
       <Vis.Canvas>
         <Layout.Window />

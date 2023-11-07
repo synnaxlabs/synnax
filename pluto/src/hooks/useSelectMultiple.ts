@@ -13,11 +13,17 @@ import { type Key, type KeyedRecord, unique } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 
+/**
+ * Extra information passed as an additional argument to the `onChange` callback.
+ * of the {@link useSelectMultiple} hook.
+ */
 export interface UseSelectMultipleOnChangeExtra<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
+  /** The key of the entry that was last clicked. */
   clicked: K | null;
+  /** The entries that are currently selected. */
   entries: E[];
 }
 

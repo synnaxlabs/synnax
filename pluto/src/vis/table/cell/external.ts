@@ -7,14 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutEffect, useRef } from "react";
-
-export const useMount = (fn: () => void): void => {
-  const ref = useRef(false);
-  if (!ref.current) {
-    fn();
-    ref.current = true;
-  }
-};
-
-export const useUnmount = (fn: () => void): void => useLayoutEffect(() => fn, []);
+export * from "@/vis/table/cell/element";
+export * from "@/vis/table/cell/Label";
+export * from "@/vis/table/cell/registry";

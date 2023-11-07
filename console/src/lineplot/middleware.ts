@@ -10,7 +10,6 @@
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/lineplot/selectors";
 import {
-  type AddYChannelPayload,
   type CreatePayload,
   type RemovePayload,
   type StoreState,
@@ -26,14 +25,11 @@ import {
   setYChannels,
 } from "@/lineplot/slice";
 import { type MiddlewareEffect, effectMiddleware } from "@/middleware";
+import { Range } from "@/range";
 
 export const assignColorsEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  | CreatePayload
-  | SetRangesPayload
-  | SetXChannelPayload
-  | SetYChannelsPayload
-  | AddYChannelPayload,
+  CreatePayload | SetRangesPayload | SetXChannelPayload | SetYChannelsPayload,
   SetLinePayload
 > = ({ getState, action, dispatch }) => {
   const s = getState();
@@ -49,10 +45,29 @@ export const assignColorsEffect: MiddlewareEffect<
             key: l.key,
             color: colors[p.lines.indexOf(l) % colors.length].hex,
           },
-        })
+        }),
       );
     }
   });
+};
+
+export const assignActiveRangeEffect: MiddlewareEffect<
+  Range.StoreState & StoreState,
+  CreatePayload | SetXChannelPayload | SetYChannelsPayload,
+  SetRangesPayload
+> = ({ getState, action, dispatch }) => {
+  const s = getState();
+  const p = select(s, action.payload.key);
+  const range = Range.selectActiveKey(s);
+  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0 && range != null) {
+    dispatch(
+      setRanges({
+        key: p.key,
+        axisKey: "x1",
+        ranges: [range],
+      }),
+    );
+  }
 };
 
 export const deleteEffect: MiddlewareEffect<
@@ -65,7 +80,7 @@ export const deleteEffect: MiddlewareEffect<
   const layout = Layout.selectSliceState(state);
   const keys = "keys" in action.payload ? action.payload.keys : [];
   const toRemove = Object.keys(lineState.plots).filter(
-    (p) => layout.layouts[p] == null || keys.includes(p)
+    (p) => layout.layouts[p] == null || keys.includes(p),
   );
   if (toRemove.length > 0) dispatch(remove({ keys: toRemove }));
 };
@@ -79,7 +94,11 @@ export const MIDDLEWARE = [
       setRanges.type,
       setYChannels.type,
     ],
-    [assignColorsEffect]
+    [assignColorsEffect],
+  ),
+  effectMiddleware(
+    [actions.create.type, setXChannel.type, setYChannels.type],
+    [assignActiveRangeEffect],
   ),
   effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
 ];

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useMemoCompare } from "@/hooks";
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
 
 export interface UseEvent {

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   DataType,
   bounds,
@@ -21,6 +22,7 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { alamos } from "@/alamos/aether";
 import { color } from "@/color/core";
 import { telem } from "@/telem/core";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
@@ -160,6 +162,7 @@ export class Context extends render.GLProgram {
 }
 
 interface InternalState {
+  instrumentation: Instrumentation;
   prog: Context;
   telem: telem.XYSource;
   cleanupTelem: Destructor;
@@ -176,6 +179,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       this.key,
       this.state.telem,
     );
+    this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "line");
     this.internal.telem = t;
     this.internal.cleanupTelem = cleanupTelem;
     this.internal.prog = Context.use(this.ctx);
@@ -221,17 +225,25 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   async render(props: LineProps): Promise<void> {
     const { downsample } = this.state;
     const { telem, prog } = this.internal;
-    const { dataToDecimalScale: scale } = props;
-    prog.setAsActive();
+    const { dataToDecimalScale } = props;
     const xData = await telem.x(prog.ctx.gl);
     const yData = await telem.y(prog.ctx.gl);
     const ops = buildDrawOperations(xData, yData, downsample);
+    this.internal.instrumentation.L.debug("render", {
+      key: this.key,
+      downsample,
+      scale: scale.xyScaleToTransform(dataToDecimalScale),
+      props: props.region,
+      ops: digests(ops),
+    });
+    const clearProg = prog.setAsActive();
     ops.forEach((op) => {
       const { x, y } = op;
-      const p = { ...props, dataToDecimalScale: offsetScale(scale, x, y) };
+      const p = { ...props, dataToDecimalScale: offsetScale(dataToDecimalScale, x, y) };
       const instances = prog.bindPropsAndState(p, this.state);
       prog.draw(op, instances);
     });
+    clearProg();
   }
 
   private async xyValue(series: number, index: number): Promise<xy.XY> {

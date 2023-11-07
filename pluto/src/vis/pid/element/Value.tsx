@@ -41,7 +41,7 @@ const Element = ({
   className,
   ...props
 }: Props<ElementProps>): ReactElement => {
-  const telem = Remote.useNumericSource(pTelem);
+  const telem = Remote.useNumericStringSource(pTelem);
   const onLabelChange = (label: string): void => {
     onChange({ ...props, label, telem: pTelem });
   };
@@ -71,7 +71,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   };
 
   const handleUnitsChange = (units: string): void => {
-    onChange({ ...value, units });
+    onChange({ ...value, telem: { ...value.telem, units } });
   };
 
   const handleDirectionChange = (direction: direction.Direction): void => {
@@ -85,23 +85,6 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   return (
     <>
       <Align.Space direction="x" grow align="stretch">
-        <Input.Item<string, string, Channel.AliasInputProps>
-          label="Label"
-          value={value.label}
-          onChange={handleLabelChange}
-          channelKey={value.telem.channel}
-          grow
-        >
-          {componentRenderProp(Channel.AliasInput)}
-        </Input.Item>
-        <Input.Item<string, string>
-          label="Units"
-          value={value.units}
-          onChange={handleUnitsChange}
-          grow
-        />
-      </Align.Space>
-      <Align.Space direction="x">
         <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
           label="Color"
           value={value.color ?? Color.ZERO.setAlpha(1)}
@@ -117,7 +100,18 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
         >
           {componentRenderProp(Select.Direction)}
         </Input.Item>
-        <Remote.NumericSourceForm
+        <Input.Item<string, string, Channel.AliasInputProps>
+          label="Label"
+          value={value.label}
+          onChange={handleLabelChange}
+          channelKey={value.telem.channel}
+          grow
+        >
+          {componentRenderProp(Channel.AliasInput)}
+        </Input.Item>
+      </Align.Space>
+      <Align.Space direction="x">
+        <Remote.NumericStringSourceForm
           value={value.telem}
           onChange={handleTelemChange}
           grow
@@ -138,10 +132,12 @@ const Preview = ({ color }: ElementProps): ReactElement => {
 export const initialProps = (th: Theming.Theme): ElementProps => ({
   label: "Value",
   color: th.colors.gray.l8.hex,
+  direction: "y",
   telem: {
+    units: "",
     channel: 0,
+    precision: 2,
   },
-  units: "psi",
   level: "p",
 });
 

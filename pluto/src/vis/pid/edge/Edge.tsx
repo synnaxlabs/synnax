@@ -15,11 +15,12 @@ import {
   useRef,
 } from "react";
 
+import { type box, direction, xy } from "@synnaxlabs/x";
 import { BaseEdge, type EdgeProps as RFEdgeProps, useViewport } from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
+import { useCombinedStateAndRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
 import {
@@ -29,8 +30,6 @@ import {
 } from "@/vis/pid/edge/edgeUtils";
 
 import "@/vis/pid/edge/Edge.css";
-
-import { type box, direction, xy } from "@synnaxlabs/x";
 
 interface CurrentlyDragging {
   root: xy.XY;

@@ -43,13 +43,17 @@ export const Editable = <L extends Level = "h1">({
   value,
   useEditableState = useState,
   allowDoubleClick = true,
+  onDoubleClick,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
 
-  const handleDoubleClick = (): void => {
+  const handleDoubleClick = (
+    e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
+  ): void => {
     if (allowDoubleClick) setEditable(true);
+    onDoubleClick?.(e);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {

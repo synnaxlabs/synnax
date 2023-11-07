@@ -21,6 +21,7 @@ import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { PID } from "@/pid";
 import { Range } from "@/range";
+import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -39,6 +40,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Table.SLICE_NAME]: Table.reducer,
 });
 
 export interface RootState {
@@ -51,6 +53,7 @@ export interface RootState {
   [PID.SLICE_NAME]: PID.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Table.SLICE_NAME]: Table.SliceState;
 }
 
 export type RootAction =
@@ -61,7 +64,8 @@ export type RootAction =
   | LinePlot.Action
   | PID.Action
   | Range.Action
-  | Workspace.Action;
+  | Workspace.Action
+  | Table.Action;
 
 export type Payload = RootAction["payload"];
 

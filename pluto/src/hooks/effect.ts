@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { type DependencyList, type EffectCallback, useEffect } from "react";
+
+import { useMemoCompare } from "@/memo";
 
 /* An async version of React.Destructor */
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
@@ -31,4 +33,13 @@ export const useAsyncEffect = (effect: AsyncEffectCallback, deps?: unknown[]): v
       p.then((d) => d?.()).catch((e) => console.error(e));
     };
   }, deps);
+};
+
+export const useEffectCompare = <D extends DependencyList>(
+  cbk: EffectCallback,
+  areEqual: (prevDeps: D, nextDeps: D) => boolean,
+  deps: D,
+): void => {
+  const memoDeps = useMemoCompare(() => deps, areEqual, deps);
+  useEffect(cbk, [memoDeps]);
 };

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-y-axis__label.pluto--y {
+.pluto-axis__label.pluto--y {
     white-space: nowrap;
     writing-mode: vertical-rl;
     transform: rotate(180deg);

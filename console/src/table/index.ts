@@ -7,15 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ForwardedRef, type RefCallback, useCallback } from "react";
-
-export const useCombinedRefs = <T>(...refs: Array<ForwardedRef<T>>): RefCallback<T> =>
-  useCallback(
-    (el) =>
-      refs.forEach((r) => {
-        if (r == null) return;
-        if (typeof r === "function") r(el);
-        else r.current = el;
-      }, el),
-    [],
-  );
+export * as Table from "@/table/external";

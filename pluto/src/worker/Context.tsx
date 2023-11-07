@@ -18,7 +18,7 @@ import {
 
 import { type TypedWorker, RoutedWorker, type SenderHandler } from "@synnaxlabs/x";
 
-import { useEffectCompare } from "@/hooks/useEffectCompare";
+import { useEffectCompare } from "@/hooks";
 import { useMemoCompare } from "@/memo";
 
 export type ContextValue =

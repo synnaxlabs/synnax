@@ -26,21 +26,11 @@ export type CoreProps = z.input<typeof corePropsZ>;
 
 export const Core = Aether.wrap<CoreProps>(
   "ValueCore",
-  ({
-    aetherKey,
-    box,
-    telem,
-    units,
-    color,
-    precision,
-    width,
-    level,
-  }): ReactElement | null => {
+  ({ aetherKey, box, telem, color, precision, width, level }): ReactElement | null => {
     const font = Theming.useTypography(level);
     const memoProps = useMemoDeepEqualProps({
       box,
       telem,
-      units,
       color,
       precision,
       width,
