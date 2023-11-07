@@ -133,7 +133,7 @@ export const Search = <
       if (term.length === 0) setEmptyContent(NO_TERM);
       else debounced(term);
     },
-    [setInternvalValue],
+    [setInternvalValue, debounced],
   );
 
   return children({ value: internalValue, onChange: handleChange });
