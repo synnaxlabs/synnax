@@ -23,7 +23,11 @@ import { Range } from "@/range";
 
 const canDrop = (): boolean => false;
 
-const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): void => {
+const handleSelect: Ontology.HandleSelect = ({
+  store,
+  placeLayout,
+  selection,
+}): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicTab(state);
   if (selection.length === 0) return;
@@ -160,7 +164,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename,
   onRename: handleRename,
   canDrop,
-  onSelect,
+  onSelect: handleSelect,
   haulItems,
   Item,
   TreeContextMenu,

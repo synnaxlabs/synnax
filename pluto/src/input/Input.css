@@ -16,7 +16,7 @@
 
     & .pluto-input__internal {
         position: relative;
-        background: var(--pluto-gray-l2);
+        background: var(--pluto-gray-l1);
         flex-grow: 1;
     }
 
@@ -84,24 +84,21 @@
     }
 }
 
-.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover),
-.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover) > * {
-    border-color: transparent;
+.pluto-input--shadow {
+    /* When not focused or hovered, hide the border */
+    &:not(:focus):not(:focus-within):not(:hover) {
+        & > * {
+            border-color: transparent;
+        }
+        & > *:not(.pluto-input__internal) {
+            opacity: 0;
+        }
+    }
+    & .pluto-input__internal {
+        background: var(--pluto-gray-l0) !important;
+    }
 }
 
-.pluto-input--shadow:hover,
-.pluto-input--shadow:hover > * {
-    border-color: var(--pluto-border-color);
-}
-.pluto-input--shadow:focus,
-.pluto-input--shadow:focus > * {
-    border-color: var(--pluto-primary-z);
-}
-
-.pluto-input--shadow,
-.pluto-input--shadow > * {
-    background: var(--pluto-gray-l0) !important;
-}
 
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */

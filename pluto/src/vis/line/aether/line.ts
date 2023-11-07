@@ -226,10 +226,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { downsample } = this.state;
     const { telem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    prog.setAsActive();
     const xData = await telem.x(prog.ctx.gl);
     const yData = await telem.y(prog.ctx.gl);
     const ops = buildDrawOperations(xData, yData, downsample);
+    prog.setAsActive();
     this.internal.instrumentation.L.debug("render", {
       key: this.key,
       downsample,

@@ -31,12 +31,12 @@
     color: var(--pluto-white);
 
 
-    &:hover {
+    &:hover:not(.pluto--disabled) {
         background: var(--pluto-primary-p1);
         border-color: var(--pluto-primary-p1) !important;
     }
 
-    &:active {
+    &:active:not(.pluto--disabled) {
         background: var(--pluto-primary-m1);
         border-color: var(--pluto-primary-m1) !important;
     }
@@ -53,12 +53,12 @@
     background: none;
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
-    &:hover {
-        background: var(--pluto-gray-l2);
+    &:hover:not(.pluto--disabled) {
+        background: var(--pluto-gray-l1);
         border-color: var(--pluto-gray-l3) !important;
     }
 
-    &:active {
+    &:active:not(.pluto--disabled) {
         background: var(--pluto-gray-l3);
         border-color: var(--pluto-gray-l5) !important;
     }
@@ -73,7 +73,6 @@
 .pluto-btn--outlined {
     &.pluto--disabled {
         background: var(--pluto-gray-l2);
-        border-color: var(--pluto-gray-l2) !important;
         color: var(--pluto-gray-l5);
     }
 }

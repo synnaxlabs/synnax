@@ -98,10 +98,10 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       <Text
         ref={ref}
         type="number"
-        variant={showDragHandle ? "outlined" : variant}
+        variant={variant}
         value={value_.toString()}
         onChange={handleChange}
-        style={showDragHandle ? undefined : style}
+        style={style}
         selectOnFocus={selectOnFocus}
         {...props}
       >
@@ -117,16 +117,6 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         {children}
       </Text>
     );
-
-    // if (!showDragHandle) return input;
-    // return (
-    //   <Align.Pack
-    //     className={CSS(className, CSS.BM("input", variant), CSS.BE("input", "wrapper"))}
-    //     style={style}
-    //   >
-    //     {input}
-    //   </Align.Pack>
-    // );
   },
 );
 Numeric.displayName = "InputNumber";

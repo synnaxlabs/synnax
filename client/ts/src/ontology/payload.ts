@@ -16,6 +16,7 @@ const resourceTypeZ = z.union([
   z.literal("node"),
   z.literal("group"),
   z.literal("range"),
+  z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),
   z.literal("pid"),

@@ -85,6 +85,7 @@ export interface AxisState {
 
 export interface AxesState {
   renderTrigger: number;
+  hasHadChannelSet: boolean;
   axes: Record<Vis.AxisKey, AxisState>;
 }
 
@@ -193,6 +194,7 @@ export const ZERO_AXIS_STATE: AxisState = {
 
 export const ZERO_AXES_STATE: AxesState = {
   renderTrigger: 0,
+  hasHadChannelSet: false,
   axes: {
     y1: { ...ZERO_AXIS_STATE, key: "y1" },
     y2: { ...ZERO_AXIS_STATE, key: "y2" },
@@ -292,12 +294,6 @@ export interface SetYChannelsPayload {
   axisKey: Vis.YAxisKey;
   channels: channel.Key[];
   mode?: "set" | "add";
-}
-
-export interface AddYChannelPayload {
-  key: string;
-  axisKey: Vis.YAxisKey;
-  channels: channel.Key[];
 }
 
 export interface SetXChannelPayload {
@@ -475,6 +471,7 @@ export const { actions, reducer } = createSlice({
       const nextShouldDisplay = shouldDisplayAxis(axisKey, p);
       p.lines = updateLines(p);
       p.viewport = deep.copy(ZERO_VIEWPORT_STATE);
+      p.axes.hasHadChannelSet = true;
       if (prevShouldDisplay !== nextShouldDisplay) p.axes.renderTrigger += 1;
     },
     setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
@@ -482,6 +479,7 @@ export const { actions, reducer } = createSlice({
       const p = state.plots[layoutKey];
       p.channels[axisKey] = channel;
       p.axes.renderTrigger += 1;
+      p.axes.hasHadChannelSet = true;
       p.lines = updateLines(p);
     },
     setRanges: (state, { payload }: PayloadAction<SetRangesPayload>) => {
