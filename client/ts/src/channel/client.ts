@@ -196,6 +196,7 @@ class SearcherUnderRange implements AsyncTermSearcher<string, Key, Channel> {
   }
 
   async search(term: string): Promise<Channel[]> {
+    console.log(this.rangeKey)
     return await this.client.search(term, this.rangeKey);
   }
 

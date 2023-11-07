@@ -98,6 +98,7 @@ export const SelectMultiple = ({
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  console.log(activeRange);
   const searcher = useMemo(
     () => client?.channels.newSearcherUnderRange(activeRange),
     [client, activeRange],

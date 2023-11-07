@@ -19,7 +19,6 @@ import {
 import { type channel, type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
