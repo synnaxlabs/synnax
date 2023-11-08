@@ -20,6 +20,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	udb, uok := db.unaryDBs[ch]
 	if uok {
 		if err := udb.TryClose(); err == nil {
+			delete(db.unaryDBs, ch)
 			return db.fs.Remove(strconv.Itoa(int(ch)))
 		} else {
 			return err
@@ -28,11 +29,12 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
 		if err := vdb.TryClose(); err == nil {
+			delete(db.virtualDBs, ch)
 			return db.fs.Remove(strconv.Itoa(int(ch)))
 		} else {
 			return errors.New("[cesium] Channel being written to")
 		}
 	}
 
-	return errors.New("[cesium] Channel does not exist")
+	return ChannelNotFound
 }

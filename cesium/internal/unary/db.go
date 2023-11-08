@@ -90,8 +90,10 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		Channel:        db.Channel,
 		internal:       iter,
 		IteratorConfig: cfg,
+		db:             db,
 	}
 	i.SetBounds(cfg.Bounds)
+	db.openWriters.Add(1)
 	return i
 }
 

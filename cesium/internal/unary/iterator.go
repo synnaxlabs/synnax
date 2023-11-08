@@ -24,6 +24,7 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
+	db       *DB
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
@@ -187,6 +188,7 @@ func (i *Iterator) Error() error { return i.err }
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() error {
+	i.db.openWriters.Add(-1)
 	return i.internal.Close()
 }
 

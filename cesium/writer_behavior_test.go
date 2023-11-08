@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -21,7 +22,7 @@ import (
 var _ = Describe("Writer Behavior", Ordered, func() {
 	var db *cesium.DB
 	BeforeAll(func() { db = openMemDB() })
-	//AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Happy Path", func() {
 		Context("Indexed", func() {
 			Specify("Basic Write", func() {
@@ -40,8 +41,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Start:    10 * telem.SecondTS,
 				}))
 
-				Expect(db.DeleteChannel(basic1)).ToNot(Succeed())
-				Expect(db.DeleteChannel(basic1Index)).ToNot(Succeed())
+				Expect(db.DeleteChannel(basic1).Error()).To(ContainSubstring("written to"))
+				Expect(db.DeleteChannel(basic1Index).Error()).To(ContainSubstring("written to"))
 
 				By("Writing data to the channel")
 				ok := w.Write(cesium.NewFrame(
@@ -66,6 +67,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 				Expect(db.DeleteChannel(basic1)).To(Succeed())
 				Expect(db.DeleteChannel(basic1Index)).To(Succeed())
+
+				Expect(db.DeleteChannel(basic1)).To(MatchError(query.Error))
+				Expect(db.DeleteChannel(basic1Index)).To(MatchError(query.Error))
 			})
 		})
 		Context("Multiple Indexes", func() {
