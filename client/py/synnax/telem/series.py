@@ -97,11 +97,19 @@ class Series(Payload):
     class Config:
         arbitrary_types_allowed = True
 
-    def __array__(self) -> np.ndarray:
+    def __array__(self, *args, **kwargs) -> np.ndarray:
         """Implemented to that the Series can be passed around as a numpy array. See
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
-        return np.frombuffer(self.data, dtype=self.data_type.np)
+        if len(args) > 0:
+            return np.array(self.__array__(), *args, **kwargs)
+        return np.frombuffer(self.data, dtype=self.data_type.np, **kwargs)
+
+    def to_numpy(self, *args, **kwargs) -> np.ndarray:
+        """Converts the Series to a numpy array. This is necessary for matplotlib
+        interop.
+        """
+        return self.__array__(*args, **kwargs)
 
     def __getitem__(self, index: int) -> float:
         if self.data_type == DataType.UUID:
