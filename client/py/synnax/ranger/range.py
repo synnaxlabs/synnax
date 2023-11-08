@@ -30,7 +30,7 @@ from synnax.util.interop import overload_comparison_operators
 from synnax.util.memo import memo
 
 
-class _InternalRangeChannel(ChannelPayload):
+class _InternalScopedChannel(ChannelPayload):
     __range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     __frame_client: Client | None = PrivateAttr(None)
@@ -63,8 +63,16 @@ class _InternalRangeChannel(ChannelPayload):
     def time_range(self) -> TimeRange:
         return self.__range.time_range
 
-    def __array__(self) -> np.ndarray:
-        return self.read().__array__()
+    def __array__(self, *args, **kwargs) -> np.ndarray:
+        """Converts the channel to a numpy array. This method is necessary
+        for numpy interop."""
+        return self.read().__array__(*args, **kwargs)
+
+    def to_numpy(self) -> np.ndarray:
+        """Converts the channel to a numpy array. This method is necessary
+        for matplotlib interop.
+        """
+        return self.read().to_numpy()
 
     def read(self) -> Series:
         if self.__cache is None:
@@ -79,7 +87,18 @@ class _InternalRangeChannel(ChannelPayload):
 
 
 class ScopedChannel:
-    __internal: list[_InternalRangeChannel]
+    """A channel that is scoped to a particular range. This class is returned when
+    accessing the channel as a key or property on a range. This channel has direct
+    interoperability with numpy arrays, meaning that it can be passed as an argument
+    to any function/method that accepts a numpy array.
+
+    It's very important to note that if the property accessor matches multiple channels,
+    this class will contain all of them, and, as a result, single channel operations
+    will fail. However, you can use the __iter__ method to iterate over the channels
+    in the returned values. This is particularly relevant when using regex to match
+    multiple channels.
+    """
+    __internal: list[_InternalScopedChannel]
     __query: str
 
     def __new__(cls, *args, **kwargs):
@@ -89,7 +108,7 @@ class ScopedChannel:
     def __init__(
         self,
         query: str,
-        internal: list[_InternalRangeChannel],
+        internal: list[_InternalScopedChannel],
     ):
         self.__internal = internal
         self.__query = query
@@ -101,9 +120,16 @@ class ScopedChannel:
             {[str(ch) for ch in self.__internal]}
             """)
 
-    def __array__(self):
+    def __array__(self, *args, **kwargs):
+        """Converts the scoped channel to a numpy array. This method is necessary
+        for numpy interop."""
         self.__guard()
-        return self.__internal[0].__array__()
+        return self.__internal[0].__array__(*args, **kwargs)
+
+    def to_numpy(self) -> np.ndarray:
+        """Converts the scoped channel to a numpy array. This method is necessary
+        for matplotlib interop."""
+        return self.__array__()
 
     @property
     def key(self) -> ChannelKey:
@@ -169,7 +195,7 @@ class Range(RangePayload):
     """Key-value store for storing metadata about the range."""
     __aliaser: Aliaser | None = PrivateAttr(None)
     """For setting and resolving aliases."""
-    __cache: dict[ChannelKey, _InternalRangeChannel] = PrivateAttr(dict())
+    __cache: dict[ChannelKey, _InternalScopedChannel] = PrivateAttr(dict())
     """A cache to hold resolved channels so we don't execute repeated reads."""
 
     class Config:
@@ -226,12 +252,12 @@ class Range(RangePayload):
     def __splice_cached(
         self,
         channels: list[ChannelPayload],
-    ) -> list[_InternalRangeChannel]:
+    ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
             cached = self.__cache.get(pld.key, None)
             if cached is None:
-                cached = _InternalRangeChannel(
+                cached = _InternalScopedChannel(
                     rng=self,
                     frame_client=self._frame_client,
                     payload=pld,
