@@ -312,7 +312,7 @@ class Range(RangePayload):
                 res = self._channel_retriever.retrieve(ch)
                 if len(res) == 0:
                     raise QueryError(f"Channel {ch} not found")
-                corrected[res.key] = alias
+                corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
