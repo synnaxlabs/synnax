@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -33,6 +34,8 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 			It("Should delete a channel when we delete it", func() {
 				Expect(db.DeleteChannel(1)).To(Succeed())
+				_, err := db.RetrieveChannel(ctx, 1)
+				Expect(err).To(MatchError(query.Error))
 			})
 		})
 		DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
@@ -81,6 +84,8 @@ var _ = Describe("Channel", Ordered, func() {
 			})
 			It("Should delete the virtual channel", func() {
 				Expect(db.DeleteChannel(100)).To(Succeed())
+				_, err := db.RetrieveChannel(ctx, 100)
+				Expect(err).To(MatchError(query.Error))
 			})
 		})
 	})
