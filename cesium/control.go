@@ -63,6 +63,7 @@ func (db *DB) updateControlDigests(
 
 func (db *DB) closeControlDigests() {
 	if db.digests.key != 0 {
+		db.digests.key = 0
 		db.digests.inlet.Close()
 		confluence.Drain(db.digests.outlet)
 	}

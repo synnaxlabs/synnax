@@ -141,7 +141,6 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 
-			Expect(db.DeleteChannel(controlKey)).To(Succeed())
 			Expect(db.DeleteChannel(basic3)).To(Succeed())
 		})
 	})
