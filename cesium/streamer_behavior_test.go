@@ -142,6 +142,7 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			Expect(sCtx.Wait()).To(Succeed())
 
 			Expect(db.DeleteChannel(basic3)).To(Succeed())
+			Expect(db.DeleteChannel(controlKey).Error()).To(ContainSubstring("digest"))
 		})
 	})
 })

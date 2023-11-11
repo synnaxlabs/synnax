@@ -100,6 +100,10 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	}
 }
 
+func (db *DB) GetDigestKey() ChannelKey {
+	return db.digests.key
+}
+
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
 	s.DataType = telem.StringT
 	s.Data, err = (&binary.JSONEncoderDecoder{}).Encode(ctx, u)

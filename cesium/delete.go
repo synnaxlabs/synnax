@@ -28,11 +28,14 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
+		if db.GetDigestKey() == ch {
+			return errors.New("[cesium] cannot delete update digest channel")
+		}
 		if err := vdb.TryClose(); err == nil {
 			delete(db.virtualDBs, ch)
 			return db.fs.Remove(strconv.Itoa(int(ch)))
 		} else {
-			return errors.New("[cesium] Channel being written to")
+			return errors.New("[cesium] channel being written to")
 		}
 	}
 
