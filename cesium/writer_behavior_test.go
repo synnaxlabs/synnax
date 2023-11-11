@@ -331,4 +331,30 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
 		})
 	})
+
+	Describe("Virtual Channels", func() {
+		It("Should write to virtual channel", func() {
+			var virtual1 cesium.ChannelKey = 101
+			By("Creating a channel")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: virtual1, DataType: telem.Int64T, Virtual: true},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{virtual1},
+				Start:    10 * telem.SecondTS,
+			}))
+
+			Expect(w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{virtual1},
+				[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+			))).To(BeTrue())
+
+			Expect(db.DeleteChannel(virtual1)).ToNot(Succeed())
+
+			Expect(w.Close()).To(Succeed())
+
+			Expect(db.DeleteChannel(virtual1)).To(Succeed())
+		})
+	})
 })

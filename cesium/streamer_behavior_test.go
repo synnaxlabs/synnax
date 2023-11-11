@@ -62,6 +62,8 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
+
+			Expect(db.DeleteChannel(basic1)).To(Succeed())
 		})
 	})
 	Describe("Virtual Channels", func() {
@@ -95,6 +97,8 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
+
+			Expect(db.DeleteChannel(basic2)).To(Succeed())
 		})
 	})
 	Describe("Control Updates", func() {
@@ -136,6 +140,9 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			Expect(r.Frame.Keys).To(HaveLen(1))
 			i.Close()
 			Expect(sCtx.Wait()).To(Succeed())
+
+			Expect(db.DeleteChannel(controlKey)).To(Succeed())
+			Expect(db.DeleteChannel(basic3)).To(Succeed())
 		})
 	})
 })

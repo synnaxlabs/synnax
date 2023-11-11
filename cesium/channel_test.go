@@ -31,6 +31,9 @@ var _ = Describe("Channel", Ordered, func() {
 				Expect(db.CreateChannel(ctx, ch)).To(Succeed())
 				Expect(ch.Key).To(Equal(core.ChannelKey(1)))
 			})
+			It("Should delete a channel when we delete it", func() {
+				Expect(db.DeleteChannel(1)).To(Succeed())
+			})
 		})
 		DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
 			Expect(db.CreateChannel(ctx, channels...)).To(HaveOccurredAs(expected))
@@ -67,5 +70,18 @@ var _ = Describe("Channel", Ordered, func() {
 				cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 			),
 		)
+	})
+
+	Describe("Delete virtual", func() {
+		Describe("Creating a virtual Channel", func() {
+			It("Should create a virtual channel", func() {
+				ch := cesium.Channel{Key: 100, DataType: telem.Float64T, Virtual: true}
+				Expect(db.CreateChannel(ctx, ch)).To(Succeed())
+				Expect(ch.Key).To(Equal(core.ChannelKey(100)))
+			})
+			It("Should delete the virtual channel", func() {
+				Expect(db.DeleteChannel(100)).To(Succeed())
+			})
+		})
 	})
 })

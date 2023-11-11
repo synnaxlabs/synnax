@@ -77,7 +77,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
-	_, t := w.control.Release()
 	w.db.openWriters.Add(-1)
+	_, t := w.control.Release()
 	return t, nil
 }
