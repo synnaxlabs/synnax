@@ -188,7 +188,7 @@ func (i *Iterator) Error() error { return i.err }
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() error {
-	i.db.openWriters.Add(-1)
+	i.db.openIteratorWriters.Add(-1)
 	return i.internal.Close()
 }
 

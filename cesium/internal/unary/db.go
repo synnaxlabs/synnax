@@ -30,10 +30,10 @@ func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type DB struct {
 	Config
-	Domain      *domain.DB
-	Controller  *controller.Controller[controlledWriter]
-	_idx        index.Index
-	openWriters *atomic.Int32Counter
+	Domain              *domain.DB
+	Controller          *controller.Controller[controlledWriter]
+	_idx                index.Index
+	openIteratorWriters *atomic.Int32Counter
 }
 
 func (db *DB) Index() index.Index {
@@ -93,12 +93,12 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		db:             db,
 	}
 	i.SetBounds(cfg.Bounds)
-	db.openWriters.Add(1)
+	db.openIteratorWriters.Add(1)
 	return i
 }
 
 func (db *DB) TryClose() error {
-	if db.openWriters.Value() > 0 {
+	if db.openIteratorWriters.Value() > 0 {
 		return errors.New("[unary] channel being written to")
 	} else {
 		return db.Close()

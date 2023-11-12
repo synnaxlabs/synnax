@@ -67,10 +67,10 @@ func Open(configs ...Config) (*DB, error) {
 		Instrumentation: cfg.Instrumentation,
 	})
 	db := &DB{
-		Config:      cfg,
-		Domain:      rangerDB,
-		Controller:  controller.New[controlledWriter](cfg.Channel.Concurrency),
-		openWriters: &atomic.Int32Counter{},
+		Config:              cfg,
+		Domain:              rangerDB,
+		Controller:          controller.New[controlledWriter](cfg.Channel.Concurrency),
+		openIteratorWriters: &atomic.Int32Counter{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}
