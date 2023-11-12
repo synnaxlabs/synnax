@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/atomic"
-	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -37,7 +36,6 @@ type DB struct {
 type Config struct {
 	alamos.Instrumentation
 	Channel core.Channel
-	FS      fs.FS
 }
 
 func Open(cfg Config) (db *DB, err error) {
@@ -58,9 +56,8 @@ func (db *DB) LeadingControlState() *controller.State {
 func (db *DB) TryClose() error {
 	if db.openWriters.Value() > 0 {
 		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers accessing it", db.openWriters.Value()))
-	} else {
-		return db.Close()
 	}
+	return db.Close()
 }
 
 func (db *DB) Close() error { return nil }

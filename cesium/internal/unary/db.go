@@ -87,11 +87,11 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
-		idx:            db.index(),
-		Channel:        db.Channel,
-		internal:       iter,
-		IteratorConfig: cfg,
-		incrementFunc:  func(inc int32) { db.openIteratorWriters.Add(inc) },
+		idx:              db.index(),
+		Channel:          db.Channel,
+		internal:         iter,
+		IteratorConfig:   cfg,
+		decrementCounter: func() { db.openIteratorWriters.Add(-1) },
 	}
 	i.SetBounds(cfg.Bounds)
 	db.openIteratorWriters.Add(1)

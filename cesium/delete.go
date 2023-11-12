@@ -19,24 +19,22 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if uok {
-		if err := udb.TryClose(); err == nil {
-			delete(db.unaryDBs, ch)
-			return db.fs.Remove(strconv.Itoa(int(ch)))
-		} else {
+		if err := udb.TryClose(); err != nil {
 			return err
 		}
+		delete(db.unaryDBs, ch)
+		return db.fs.Remove(strconv.Itoa(int(ch)))
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
 		if db.digests.key == ch {
 			return errors.New("[cesium] - cannot delete update digest channel")
 		}
-		if err := vdb.TryClose(); err == nil {
-			delete(db.virtualDBs, ch)
-			return db.fs.Remove(strconv.Itoa(int(ch)))
-		} else {
+		if err := vdb.TryClose(); err != nil {
 			return err
 		}
+		delete(db.virtualDBs, ch)
+		return db.fs.Remove(strconv.Itoa(int(ch)))
 	}
 
 	return ChannelNotFound

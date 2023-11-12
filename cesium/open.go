@@ -67,7 +67,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		v, err := virtual.Open(virtual.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation})
+		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.Instrumentation})
 		if err != nil {
 			return err
 		}
