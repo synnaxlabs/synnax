@@ -13,6 +13,7 @@ import (
 	"go/ast"
 	"go/token"
 	"math"
+	"regexp"
 	"strconv"
 
 	"github.com/cockroachdb/errors"
@@ -49,35 +50,12 @@ type Resolver interface {
 	Resolve(string) (float64, error)
 }
 
-func findTokens(s string) (tokens []string) {
-	currToken := ""
-	for _, c := range s {
-		previousToken := ""
-		if len(tokens) > 0 {
-			previousToken = tokens[len(tokens)-1]
-		}
-		_, previousTokenIsOperator := operatorTokens[previousToken]
-		_, currTokenInOperator := operatorTokens[string(c)]
-		if c == ' ' && currToken != "" {
-			tokens = append(tokens, currToken)
-			currToken = ""
-		} else if c == '-' && currToken == "" && (len(tokens) == 0 || previousToken == "(" || previousTokenIsOperator) {
-			//	Check if token is a negative number
-			currToken += string(c)
-		} else if currTokenInOperator || c == '(' || c == ')' {
-			if currToken != "" {
-				tokens = append(tokens, currToken)
-				currToken = ""
-			}
-			tokens = append(tokens, string(c))
-		} else if c != ' ' {
-			currToken += string(c)
-		}
+func findTokens(s string) (tokens []string, err error) {
+	re, err := regexp.Compile("[0-9]+(\\.[0-9]*)?|[\\w]+|[+\\-*\\/^()]|[><!=]=|[<>]")
+	if err != nil {
+		return nil, err
 	}
-	if currToken != "" {
-		tokens = append(tokens, currToken)
-	}
-	return
+	return re.FindAllString(s, -1), nil
 }
 
 func makeBinaryExpr(output *stack.Stack[interface{}], operators *stack.Stack[string]) error {
@@ -93,13 +71,34 @@ func makeBinaryExpr(output *stack.Stack[interface{}], operators *stack.Stack[str
 
 // Build builds an AST from a string
 func (e *Expression) Build(s string) error {
-	tokens := findTokens(s)
+	tokens, tokenError := findTokens(s)
+	if tokenError != nil {
+		return errors.Wrap(InvalidExpressionError, "Invalid expression: invalid token")
+	}
 	output := stack.Stack[interface{}]{}
 	operators := stack.Stack[string]{}
 	//	Use shunting-yard algorithm
-	for _, t := range tokens {
+	for i := 0; i < len(tokens); i++ {
+		t := tokens[i]
 		switch t {
-		case "+", "-", "*", "/":
+		case "-":
+			var tokenInDict bool
+			if i > 0 {
+				_, tokenInDict = precedence[tokens[i-1]]
+			}
+			if i == 0 || (tokenInDict) {
+				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: "-1"})
+				operators.Push("*")
+			} else {
+				for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
+					err := makeBinaryExpr(&output, &operators)
+					if err != nil {
+						return err
+					}
+				}
+				operators.Push(t)
+			}
+		case "+", "*", "/":
 			for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
 				err := makeBinaryExpr(&output, &operators)
 				if err != nil {
