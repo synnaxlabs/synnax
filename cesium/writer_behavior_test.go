@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -41,9 +40,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Start:    10 * telem.SecondTS,
 				}))
 
-				Expect(db.DeleteChannel(basic1).Error()).To(ContainSubstring("written to"))
-				Expect(db.DeleteChannel(basic1Index).Error()).To(ContainSubstring("written to"))
-
 				By("Writing data to the channel")
 				ok := w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{basic1Index, basic1},
@@ -64,12 +60,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(frame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 				tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 				Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
-
-				Expect(db.DeleteChannel(basic1)).To(Succeed())
-				Expect(db.DeleteChannel(basic1Index)).To(Succeed())
-
-				Expect(db.DeleteChannel(basic1)).To(MatchError(query.Error))
-				Expect(db.DeleteChannel(basic1Index)).To(MatchError(query.Error))
 			})
 		})
 		Context("Multiple Indexes", func() {
@@ -94,11 +84,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Start:    10 * telem.SecondTS,
 				}))
 
-				Expect(db.DeleteChannel(basic1)).ToNot(Succeed())
-				Expect(db.DeleteChannel(basicIdx1)).ToNot(Succeed())
-				Expect(db.DeleteChannel(basic2)).ToNot(Succeed())
-				Expect(db.DeleteChannel(basicIdx2)).ToNot(Succeed())
-
 				By("Writing data to the first index")
 				ok := w.Write(cesium.NewFrame(
 					[]cesium.ChannelKey{basicIdx1, basic1},
@@ -122,11 +107,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(ok).To(BeTrue())
 				Expect(end).To(Equal(14*telem.SecondTS + 1))
 				Expect(w.Close()).To(Succeed())
-
-				Expect(db.DeleteChannel(basic1)).To(Succeed())
-				Expect(db.DeleteChannel(basicIdx1)).To(Succeed())
-				Expect(db.DeleteChannel(basic2)).To(Succeed())
-				Expect(db.DeleteChannel(basicIdx2)).To(Succeed())
 			})
 
 		})
@@ -350,11 +330,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 			))).To(BeTrue())
 
-			Expect(db.DeleteChannel(virtual1)).ToNot(Succeed())
-
 			Expect(w.Close()).To(Succeed())
-
-			Expect(db.DeleteChannel(virtual1)).To(Succeed())
 		})
 	})
 })

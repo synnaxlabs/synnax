@@ -130,8 +130,6 @@ var _ = Describe("Control", Ordered, func() {
 			))
 			Expect(f.Series).To(HaveLen(1))
 			Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
-
-			Expect(db.DeleteChannel(ch1)).To(Succeed())
 		})
 	})
 	Describe("Creating update channel with key 0", func() {

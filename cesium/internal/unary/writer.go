@@ -39,10 +39,10 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 type Writer struct {
 	WriterConfig
-	Channel core.Channel
-	db      *DB
-	control *controller.Gate[controlledWriter]
-	idx     index.Index
+	Channel       core.Channel
+	incrementFunc func(inc int32)
+	control       *controller.Gate[controlledWriter]
+	idx           index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
@@ -51,7 +51,7 @@ type Writer struct {
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), db: db}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), incrementFunc: func(inc int32) { db.openIteratorWriters.Add(inc) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
@@ -174,7 +174,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
-	w.db.openIteratorWriters.Add(-1)
+	w.incrementFunc(-1)
 	dw, t := w.control.Release()
 	if t.IsRelease() {
 		return t, dw.Close()

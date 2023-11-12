@@ -26,7 +26,7 @@ type ControlUpdate struct {
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
 	if key == 0 {
-		return errors.New("[cesium] update channel key cannot be 0")
+		return errors.New("[cesium] - update channel key cannot be 0")
 	}
 	ch, err := db.RetrieveChannel(ctx, key)
 	if errors.Is(err, ChannelNotFound) {
@@ -101,10 +101,6 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 		Keys:   []ChannelKey{db.digests.key},
 		Series: []telem.Series{d},
 	}
-}
-
-func (db *DB) GetDigestKey() ChannelKey {
-	return db.digests.key
 }
 
 func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {

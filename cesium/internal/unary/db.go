@@ -83,6 +83,7 @@ func (db *DB) LeadingControlState() *controller.State {
 }
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
+
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
@@ -90,7 +91,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		Channel:        db.Channel,
 		internal:       iter,
 		IteratorConfig: cfg,
-		db:             db,
+		incrementFunc:  func(inc int32) { db.openIteratorWriters.Add(inc) },
 	}
 	i.SetBounds(cfg.Bounds)
 	db.openIteratorWriters.Add(1)
@@ -99,7 +100,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 
 func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return errors.New("[unary] channel being written to")
+		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
 	} else {
 		return db.Close()
 	}

@@ -10,6 +10,7 @@
 package virtual
 
 import (
+	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -56,7 +57,7 @@ func (db *DB) LeadingControlState() *controller.State {
 
 func (db *DB) TryClose() error {
 	if db.openWriters.Value() > 0 {
-		return errors.New("[unary] channel being written to")
+		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers accessing it", db.openWriters.Value()))
 	} else {
 		return db.Close()
 	}

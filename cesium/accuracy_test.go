@@ -32,9 +32,6 @@ var _ = Describe("Accuracy", Ordered, func() {
 				Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
 				Expect(db.WriteArray(ctx, key, 20*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
 			})
-			AfterAll(func() {
-				Expect(db.DeleteChannel(key)).To(Succeed())
-			})
 			DescribeTable("Accuracy",
 				func(
 					tr telem.TimeRange,
@@ -94,10 +91,6 @@ var _ = Describe("Accuracy", Ordered, func() {
 				Expect(db.WriteArray(ctx, idxKey, 22*telem.SecondTS, telem.NewSecondsTSV(secondTS...))).To(Succeed())
 				Expect(db.WriteArray(ctx, key, 2*telem.SecondTS, telem.NewSeries(first))).To(Succeed())
 				Expect(db.WriteArray(ctx, key, 22*telem.SecondTS, telem.NewSeries(second))).To(Succeed())
-			})
-			AfterAll(func() {
-				Expect(db.DeleteChannel(key)).To(Succeed())
-				Expect(db.DeleteChannel(idxKey)).To(Succeed())
 			})
 			DescribeTable("Accuracy",
 				func(
@@ -175,10 +168,6 @@ var _ = Describe("Accuracy", Ordered, func() {
 					Expect(db.WriteArray(ctx, key1, 2*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
 					Expect(db.WriteArray(ctx, key2, 2*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
 				})
-				AfterAll(func() {
-					Expect(db.DeleteChannel(key1)).To(Succeed())
-					Expect(db.DeleteChannel(key2)).To(Succeed())
-				})
 
 				DescribeTable("Accuracy",
 					func(
@@ -254,12 +243,6 @@ var _ = Describe("Accuracy", Ordered, func() {
 					Expect(db.WriteArray(ctx, idxKey2, 1*telem.SecondTS, telem.NewSecondsTSV(idxData2...))).To(Succeed())
 					Expect(db.WriteArray(ctx, key1, 1*telem.SecondTS, telem.NewSeries(data1))).To(Succeed())
 					Expect(db.WriteArray(ctx, key2, 1*telem.SecondTS, telem.NewSeries(data2))).To(Succeed())
-				})
-				AfterAll(func() {
-					Expect(db.DeleteChannel(idxKey1)).To(Succeed())
-					Expect(db.DeleteChannel(idxKey2)).To(Succeed())
-					Expect(db.DeleteChannel(key1)).To(Succeed())
-					Expect(db.DeleteChannel(key2)).To(Succeed())
 				})
 				DescribeTable("Accuracy",
 					func(

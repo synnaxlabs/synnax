@@ -23,14 +23,14 @@ import (
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
-	Channel  core.Channel
-	db       *DB
-	internal *domain.Iterator
-	view     telem.TimeRange
-	frame    core.Frame
-	idx      index.Index
-	bounds   telem.TimeRange
-	err      error
+	Channel       core.Channel
+	incrementFunc func(inc int32)
+	internal      *domain.Iterator
+	view          telem.TimeRange
+	frame         core.Frame
+	idx           index.Index
+	bounds        telem.TimeRange
+	err           error
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -188,7 +188,7 @@ func (i *Iterator) Error() error { return i.err }
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() error {
-	i.db.openIteratorWriters.Add(-1)
+	i.incrementFunc(-1)
 	return i.internal.Close()
 }
 
