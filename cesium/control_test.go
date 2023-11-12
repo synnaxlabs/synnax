@@ -29,6 +29,7 @@ var _ = Describe("Control", Ordered, func() {
 	var db *cesium.DB
 	BeforeAll(func() {
 		db = openMemDB()
+		Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("cannot be 0"))
 		Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32)).To(Succeed())
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
