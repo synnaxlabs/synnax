@@ -115,11 +115,12 @@ class TestChannelClient:
     def test_retrieve_by_regex(self, client: sy.Synnax):
         """Should retrieve channels test1 and test2 using a regex"""
         ch1 = client.channels.create(
-            [sy.Channel(
-                name="strange_channel_regex_1",
-                rate=1 * sy.Rate.HZ,
-                data_type=sy.DataType.FLOAT64,
-            ),
+            [
+                sy.Channel(
+                    name="strange_channel_regex_1",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
                 sy.Channel(
                     name="strange_channel_regex_2",
                     rate=1 * sy.Rate.HZ,

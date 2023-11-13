@@ -18,7 +18,7 @@ from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
 from synnax.framer import Client
 from synnax.options import SynnaxOptions
-from synnax.ranger import RangeCreator, RangeRetriever
+from synnax.ranger import RangeWriter, RangeRetriever
 from synnax.ranger.client import RangeClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
@@ -101,12 +101,12 @@ class Synnax(Client):
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
-        range_creator = RangeCreator(self._transport.unary, instrumentation)
+        range_creator = RangeWriter(self._transport.unary, instrumentation)
         self.ranges = RangeClient(
             unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
-            creator=range_creator,
+            writer=range_creator,
             retriever=range_retriever,
         )
         self.control = ControlClient(self, ch_retriever)

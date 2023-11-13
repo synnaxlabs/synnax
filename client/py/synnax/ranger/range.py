@@ -98,6 +98,7 @@ class ScopedChannel:
     in the returned values. This is particularly relevant when using regex to match
     multiple channels.
     """
+
     __internal: list[_InternalScopedChannel]
     __query: str
 
@@ -116,9 +117,11 @@ class ScopedChannel:
     def __guard(self):
         if len(self.__internal) > 1:
             print(self.__internal)
-            raise QueryError(f"""Multiple channels found for query '{self.__query}':
+            raise QueryError(
+                f"""Multiple channels found for query '{self.__query}':
             {[str(ch) for ch in self.__internal]}
-            """)
+            """
+            )
 
     def __array__(self, *args, **kwargs):
         """Converts the scoped channel to a numpy array. This method is necessary

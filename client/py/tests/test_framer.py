@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import time
 
 import numpy as np
 import pandas as pd
@@ -71,6 +72,7 @@ class TestAsyncStreamer:
     async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
         with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
             async with await client.new_async_streamer(channel.key) as s:
+                time.sleep(0.1)
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = await s.read()
