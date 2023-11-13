@@ -33,10 +33,17 @@ Make sure to check the box that says "Add Python to PATH" during the installatio
 This will ensure that the `python` command is available in your terminal.
 
 Alternatively, if you have [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10)
+<<<<<<< Updated upstream
 and plan to use Synnax inside WSL, follow the instructions for Linux instead.
 
 
 ## Incorrect Python Version or Command Not Found
+=======
+installed and plan to use Synnax inside WSL, follow the instructions for Linux instead.
+
+
+## Incorrect Python version or Command Not Found
+>>>>>>> Stashed changes
 
 Synnax requires Python 3.10 or higher to work correctly. You can check your Python
 version by running:
@@ -48,7 +55,11 @@ python --version
 If you get an output saying `Python 3.10.x` or higher, you're good to go! If the output
 is a different version, or just says `command not found`, keep reading.
 
+<<<<<<< Updated upstream
 ### Python Command is under a Different Name
+=======
+### Python command is under a different name
+>>>>>>> Stashed changes
 
 Some systems have multiple Python versions installed, and the `python` command may point
 to an older version than the most recent one available. Try running the following
@@ -100,10 +111,13 @@ version, your `PATH` variable may have multiple Python installations listed, whe
 earlier version overrides the newer one. Try searching through your `PATH` variable for
 any other Python installations and remove them.
 
+<<<<<<< Updated upstream
 ## Synnax Command Not Found
 
 ## Virtual Environments
 
+=======
+>>>>>>> Stashed changes
 </Fragment>
 <Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
@@ -111,10 +125,17 @@ any other Python installations and remove them.
 ## Installing Python
 
 On MacOS we recommend using [homebrew](https://brew.sh/) to install Python. Homebrew
+<<<<<<< Updated upstream
 and configuring newer Python versions much easier than through the installer. 
 
 To install Python, make sure you have homebrew installed and run the following
 command:
+=======
+makes configuring newer Python versions much easier than using the installer. 
+
+To install Python, make sure you have [homebrew](https://brew.sh/) installed and run 
+the following command:
+>>>>>>> Stashed changes
 
 ```bash
 brew install python
@@ -153,8 +174,11 @@ commands to see if you have a newer version of Python installed under a differen
 python3 --version
 python3.10 --version
 python3.11 --version
+<<<<<<< Updated upstream
 python3.12 --version
 python3.13 --version
+=======
+>>>>>>> Stashed changes
 ```
 
 If any of these commands output a version number at or above `3.10`, you can use that
@@ -162,7 +186,11 @@ command instead of `python` to work with Synnax.
 
 ### Python is not available on your PATH
 
+<<<<<<< Updated upstream
 If you've checked for alternative commands and still get an older version or `command
+=======
+If you've checked for alternative commands and still get an older version or a `command
+>>>>>>> Stashed changes
 not found` error, it's likely that Python is not available on your `PATH`.
 
 #### Find where Python is installed
@@ -171,6 +199,11 @@ To fix this issue, you'll first need to find where Python is installed on your s
 If you've used homebrew, it's likely that Python is installed in `/opt/homebrew/bin/python{version}`
 where `{version}` is the version of Python you have installed. 
 
+<<<<<<< Updated upstream
+=======
+If you used Anaconda or the official installer, Python may be installed elsewhere.
+
+>>>>>>> Stashed changes
 #### Add Python to your PATH
 
 Once you've found where Python is installed, you'll need to modify your `PATH` variable
@@ -200,7 +233,16 @@ Finally, retry the command listed above to check your Python version.
 If you've followed the steps above and still can't get Python to display the correct
 version, your `PATH` variable may have multiple Python installations listed, where an
 earlier version overrides the newer one. Try searching through your `PATH` variable for
+<<<<<<< Updated upstream
 any other Python installations and remove them. 
+=======
+any other Python installations and remove them. You can check the contents of your `PATH`
+variable by running:
+
+```bash
+echo $PATH
+```
+>>>>>>> Stashed changes
 
 ## Synnax Command Not Found
 
@@ -215,9 +257,15 @@ The first culprit may be an incorrect version of pip. To check your version, run
 pip --version
 ```
 
+<<<<<<< Updated upstream
 At the end of the output, you should see `(python3.10)` or higher in parenthesis. If 
 you have python 3.10 or higher installed, but the version in parenthesis is lower,
 yoru `PATH` variable may be pointing to the wrong version of `pip`.
+=======
+At the end of the output, you should see `(python3.10.x)` or higher in parenthesis. If 
+you have Python 3.10 or higher installed, but the version in parenthesis is lower,
+your `PATH` variable may be pointing to the wrong version of `pip`.
+>>>>>>> Stashed changes
 
 If you installed Python using homebrew, `pip` should be installed in 
 `/opt/homebrew/bin/pip{version}` where `{version}` is the version of Python you have 
@@ -239,6 +287,134 @@ before running the `synnax` command.
 </Fragment>
 <Icon.OS.Linux slot="linux-icon" />
 <Fragment slot="linux">
+<<<<<<< Updated upstream
+=======
+
+## Installing Python
+
+Ubuntu 22.04 comes with Python 3.10 pre-installed. If you're using an older version of
+Ubuntu or want the latest version of Python, we recommend using the `deadsnakes` PPA
+along with `apt`.
+
+First we need to update the local package index:
+
+```bash
+sudo apt update
+```
+
+Then we need to install common dependencies tha require python:
+
+```bash
+sudo apt install build-essential software-properties-common -y
+```
+
+Next, we need to add the `deadsnakes` PPA:
+
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa
+```
+
+Then we need to re-update the local package index:
+
+```bash
+sudo apt update
+```
+
+Finally, we can install Python 3.11:
+
+```bash
+sudo apt install python3.11 -y
+```
+
+We can check that Python 3.11 is installed by running:
+
+```bash
+python3.11 --version
+```
+
+<div class="info">
+<b>Note - </b> If you have multiple versions of Python installed, running the `python`
+command may point to an older version than the most recent one available. 
+</div>
+
+## Incorrect Python Version or Command Not Found
+
+Synnax requires Python 3.10 or higher to work correctly. You can check your Python
+version by running:
+
+```bash
+python --version
+```
+
+If you get an output saying `Python 3.10.x` or higher, you're good to go! If the output
+is a different version, or just says `command not found`, keep reading.
+
+### Python command is under a different name
+
+Some systems have multiple Python versions installed, and the `python` command may point
+to an older version than the most recent one available. Try running the following
+commands to see if you have a newer version of Python installed under a different name:
+
+```bash
+python3 --version
+python3.10 --version
+python3.11 --version
+```
+
+If any of these commands output a version number at or above `3.10`, you can use that
+command instead of `python` to work with Synnax.
+
+### Python is not available on your PATH
+
+If you've checked for alternative commands and still get an older version or a `command
+not found` error, it's likely that Python is not available on your `PATH`.
+
+#### Find where Python is installed
+
+To fix this issue, you'll first need to find where Python is installed on your system.
+If you've used the `deadsnakes` PPA, it's likely that Python is installed in 
+`/usr/bin/python{version}` where `{version}` is the version of Python you have installed.
+
+If you used Anaconda or the official installer, Python may be installed elsewhere.
+
+#### Add Python to your PATH
+
+Once you've found where Python is installed, you'll need to modify your `PATH` variable
+to include it. To do this temporarily, run the following command:
+
+```bash
+export PATH="/usr/bin:$PATH"
+```
+
+To make this change permanent, you'll need to edit your `~/.zshrc` file or `~/.bashrc`
+file. To do this, run the following command:
+
+```bash
+echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
+```
+
+Then, you'll need to refresh your terminal by running:
+
+```bash
+source ~/.bashrc
+```
+
+Finally, retry the command listed above to check your Python version.
+
+#### Still not working?
+
+If you've followed the steps above and still can't get Python to display the correct
+version, your `PATH` variable may have multiple Python installations listed, where an
+earlier version overrides the newer one. Try searching through your `PATH` variable for
+any other Python installations and remove them. You can check the contents of your `PATH`
+variable by running:
+
+```bash
+echo $PATH
+```
+
+
+>>>>>>> Stashed changes
 </Fragment>
 </Tabs>
 

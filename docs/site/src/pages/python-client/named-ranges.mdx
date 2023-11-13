@@ -30,6 +30,25 @@ my_named_range = client.ranges.create(
 
 Synnax will automatically generate a unique `UUID` key for the range.
 
+### Creating a range if it doesn't exist
+
+If we want to create a range only if one with the same name doesn't already exist,
+we can pass in the `retrieve_if_name_exists` parameter:
+
+```python
+my_named_range = client.ranges.create(
+    name="My Named Range",
+    time_range=sy.TimeRange(
+        start = datetime.datetime("2023-2-12 12:30:00")
+        end = datetime.datetime("2023-2-12 14:30:00")
+    ),
+    retrieve_if_name_exists=True,
+)
+```
+
+If a range with the same name already exists, Synnax will return the existing range
+instead of creating a new one.
+
 ## Retrieving Named Ranges
 
 As with creating a range, we can retrieve one using the `client.ranges.retrieve`
@@ -37,7 +56,7 @@ method
 
 ### Retrieving a single range
 
-We can retrieve a named range by its name or key.
+We can retrieve a named range by it's name or key.
 
 ```python
 # By name
@@ -203,3 +222,26 @@ del burst_test.meta_data["part_number"]
 # Delete multiple keys
 burst_test.meta_data.delete(["part_number", "test_configuration"])
 ```
+
+## Deleting Named Ranges
+
+Deleting a named range is as simple as passing in its name or key to the `delete` method.
+
+```python
+client.ranges.delete("My Named Range")
+client.ranges.delete(my_named_range.key)
+```
+
+<div class="info">
+<b>Note - </b> Deleting a range by name will delete <i>all</i> ranges with that name. Be careful!
+</div>
+
+We can also delete multiple ranges by passing a list of names or keys to the `delete`
+method.
+
+```python
+client.ranges.delete(["My Named Range", "My Other Range"])
+client.ranges.delete([my_named_range.key, my_other_range.key])
+```
+
+
