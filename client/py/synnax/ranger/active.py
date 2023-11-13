@@ -48,18 +48,21 @@ class Active:
         self.instrumentation = instrumentation
 
     def set(self, key: RangeKey) -> None:
-        self.__client.send(_SET_ENDPOINT, _SetActiveRequest(range=key),
-                           _SetActiveResponse)
+        self.__client.send(
+            _SET_ENDPOINT, _SetActiveRequest(range=key), _SetActiveResponse
+        )
 
     def clear(self) -> None:
-        _, exc = self.__client.send(_CLEAR_ENDPOINT, _ClearActiveRequest(),
-                                    _SetActiveResponse)
+        _, exc = self.__client.send(
+            _CLEAR_ENDPOINT, _ClearActiveRequest(), _SetActiveResponse
+        )
         if exc is not None:
             raise exc
 
     def retrieve(self) -> RangePayload | None:
-        res, exc = self.__client.send(_RETRIEVE_ENDPOINT, _RetrieveActiveRequest(),
-                                      _RetrieveActiveResponse)
+        res, exc = self.__client.send(
+            _RETRIEVE_ENDPOINT, _RetrieveActiveRequest(), _RetrieveActiveResponse
+        )
         if isinstance(exc, QueryError):
             return None
         if exc is not None:
