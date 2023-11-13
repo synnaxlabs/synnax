@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
 
-type State = Primitive | UnknownRecord;
+export type State = Primitive | UnknownRecord;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
 
 export const isSetter = <S extends State>(arg: SetArg<S>): arg is SetFunc<S> =>

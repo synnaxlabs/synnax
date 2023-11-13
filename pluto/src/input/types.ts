@@ -35,4 +35,5 @@ export interface BaseProps<I extends Value = Value, O extends Value = I>
   variant?: Variant;
   sharp?: boolean;
   placeholder?: ReactNode;
+  children?: ReactNode;
 }

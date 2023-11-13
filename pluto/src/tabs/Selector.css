@@ -40,7 +40,7 @@
     }
 
     &:hover:not(.pluto--selected) {
-        background: var(--pluto-gray-l2);
+        background: var(--pluto-gray-l1);
         border-color: var(--pluto-border-color);
     }
 

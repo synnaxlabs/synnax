@@ -25,7 +25,7 @@ import (
 //  1. Storage.TSChannel - A time-series storage engine for writing node-local telemetry
 //     frames.
 //  2. Storage.KV - An eventually consistent, key-value store for maintaining cluster
-//     wide meta-data and state.
+//     wide metadata and state.
 //  3. Cluster - An API for querying information about the Cluster topology.
 type Core struct {
 	Config

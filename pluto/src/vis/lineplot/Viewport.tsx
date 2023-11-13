@@ -14,13 +14,13 @@ import {
   useLayoutEffect,
 } from "react";
 
+import { box, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Viewport.css";
-import { box, xy } from "@synnaxlabs/x";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 

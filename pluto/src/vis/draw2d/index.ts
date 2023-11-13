@@ -52,6 +52,11 @@ export interface DrawTextProps {
   direction: direction.Direction;
 }
 
+export interface DrawTextInCenterProps
+  extends Omit<DrawTextProps, "position" | "direction"> {
+  box: box.Box;
+}
+
 export interface Draw2DMeasureTextContainerProps {
   text: string[];
   direction: direction.Direction;
@@ -177,5 +182,13 @@ export class Draw2D {
         });
       },
     ];
+  }
+
+  drawTextInCenter({ text, box: b, level = "p" }: DrawTextInCenterProps): void {
+    this.canvas.font = fontString(this.theme, level);
+    this.canvas.fillStyle = this.theme.colors.text.hex;
+    const dims = textDimensions(text, this.canvas.font, this.canvas);
+    const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
+    this.canvas.fillText(text, box.left(pos), box.bottom(pos));
   }
 }

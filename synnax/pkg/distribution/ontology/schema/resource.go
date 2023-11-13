@@ -94,7 +94,7 @@ type Change = change.Change[ID, Resource]
 
 // BleveType returns the type of the entity for use search indexing,
 // implementing the bleve.bleveClassifier interface.
-func (r Resource) BleveType() string { return string(r.Schema.Type) }
+func (r Resource) BleveType() string { return string(r.ID.Type) }
 
 var _ gorp.Entry[ID] = Resource{}
 

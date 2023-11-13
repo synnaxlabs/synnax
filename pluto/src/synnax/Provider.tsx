@@ -24,8 +24,7 @@ import {
 import { Case } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
-import { useAsyncEffect } from "@/hooks/useAsyncEffect";
-import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
+import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { Status } from "@/status";
 import { synnax } from "@/synnax/aether";
 

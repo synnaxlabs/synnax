@@ -11,8 +11,6 @@ import { type ReactElement, forwardRef, useCallback, useState } from "react";
 
 import { bounds } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
-import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
@@ -65,6 +63,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       style,
       variant = "outlined",
       className,
+      children,
       ...props
     },
     ref,
@@ -90,39 +89,33 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
 
     const value_ = isValueValid ? value : internalValue;
 
-    const input = (
-      <Text
-        ref={ref}
-        type="number"
-        variant={showDragHandle ? "outlined" : variant}
-        value={value_.toString()}
-        onChange={handleChange}
-        style={showDragHandle ? undefined : style}
-        selectOnFocus={selectOnFocus}
-        {...props}
-      />
-    );
-
     const onDragChange = useCallback(
       (value: number) => handleChange(Math.round(value)),
       [onChange],
     );
 
-    if (!showDragHandle) return input;
     return (
-      <Align.Pack
-        className={CSS(className, CSS.BM("input", variant), CSS.BE("input", "wrapper"))}
+      <Text
+        ref={ref}
+        type="number"
+        variant={variant}
+        value={value_.toString()}
+        onChange={handleChange}
         style={style}
+        selectOnFocus={selectOnFocus}
+        {...props}
       >
-        {input}
-        <DragButton
-          direction={dragDirection}
-          value={value}
-          onChange={onDragChange}
-          dragScale={dragScale}
-          resetValue={resetValue}
-        />
-      </Align.Pack>
+        {showDragHandle && (
+          <DragButton
+            direction={dragDirection}
+            value={value}
+            onChange={onDragChange}
+            dragScale={dragScale}
+            resetValue={resetValue}
+          />
+        )}
+        {children}
+      </Text>
     );
   },
 );

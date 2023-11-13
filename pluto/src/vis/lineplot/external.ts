@@ -12,5 +12,4 @@ export * from "@/vis/lineplot/Line";
 export * from "@/vis/lineplot/LinePlot";
 export * from "@/vis/lineplot/Title";
 export * from "@/vis/lineplot/Viewport";
-export * from "@/vis/lineplot/XAxis";
-export * from "@/vis/lineplot/YAxis";
+export * from "@/vis/lineplot/Axis";

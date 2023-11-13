@@ -22,8 +22,7 @@ import { box, location as loc, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useClickOutside, useResize } from "@/hooks";
-import { useCombinedRefs } from "@/hooks/useCombineRefs";
+import { useClickOutside, useResize, useCombinedRefs } from "@/hooks";
 import { Triggers } from "@/triggers";
 
 import "@/dropdown/Dropdown.css";

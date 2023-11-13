@@ -21,9 +21,7 @@ import {
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Dropdown,
   Input,
-  List,
   Triggers,
   componentRenderProp,
   Button,
@@ -38,13 +36,14 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { Dropdown } from "@synnaxlabs/pluto/dropdown";
+import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
-import { type Service } from "@/ontology/service";
 import { Notifications } from "@/palette/Notifications";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
@@ -159,7 +158,7 @@ export interface PaletteInputProps
 }
 
 const canDrop: Haul.CanDrop = ({ items }) =>
-  items.length === 1 && items[0].type === Mosaic.HAUL_TYPE;
+  items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
 const TYPE_TO_SEARCH = (
   <Status.Text.Centered level="h4" variant="disabled" hideIcon>
@@ -183,10 +182,6 @@ export const PaletteInput = ({
   const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
     List.useContext<Key, Entry>();
 
-  useEffect(() => {
-    if (!visible) inputRef.current?.blur();
-  }, [visible, setMode]);
-
   const handleBlur = useCallback(() => setValue(""), []);
 
   const updateMode = useCallback(
@@ -198,8 +193,14 @@ export const PaletteInput = ({
         setEmptyContent(TYPE_TO_SEARCH);
       }
     },
-    [setMode, setSourceData, commands],
+    [setMode, setSourceData, commands, setEmptyContent],
   );
+
+  useEffect(() => {
+    if (visible) return;
+    inputRef.current?.blur();
+    updateMode("resource");
+  }, [visible, setMode]);
 
   const handleSearch = useDebouncedCallback(
     (term: string) => {
@@ -301,7 +302,7 @@ export const PaletteInput = ({
       className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
       ref={inputRef}
       placeholder={
-        <Text.WithIcon level="p" startIcon={<Icon.Search />}>
+        <Text.WithIcon level="p" startIcon={<Icon.Search key="hello" />}>
           Search Synnax
         </Text.WithIcon>
       }

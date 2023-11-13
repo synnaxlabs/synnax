@@ -84,59 +84,41 @@ const Element = ({
   );
 
   return (
-    <Tooltip.Dialog location={location.TOP_CENTER} hide={selected}>
-      {(p) => (
-        <PIDTooltip
-          {...p}
-          position={position}
-          sources={[
-            {
-              key: "commandName",
-              valueSource: commandName,
-            },
-            {
-              key: "enabledName",
-              valueSource: enabledName,
-            },
-          ]}
-        />
+    <Align.Space
+      justify="center"
+      align="center"
+      size="small"
+      className={CSS(
+        CSS.B("valve-pid-element"),
+        CSS.selected(selected),
+        CSS.editable(editable),
       )}
+      direction={direction.swap(dir)}
+    >
+      <Text.Editable level="p" value={label} onChange={handleLabelChange} />
+      <div className={CSS.BE("valve-pid-element", "valve-container")}>
+        <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
+        <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
+        <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
+      </div>
       <Align.Space
-        justify="center"
+        direction={dir}
+        style={{ marginTop: "-1rem", paddingRight: "1rem" }}
         align="center"
-        size="small"
-        className={CSS(
-          CSS.B("valve-pid-element"),
-          CSS.selected(selected),
-          CSS.editable(editable),
-        )}
-        direction={direction.swap(dir)}
+        empty
       >
-        <Text.Editable level="p" value={label} onChange={handleLabelChange} />
-        <div className={CSS.BE("valve-pid-element", "valve-container")}>
-          <Handle position={dir === "x" ? Left : Top} id="a" type="source" />
-          <Handle position={dir === "x" ? Right : Bottom} id="b" type="source" />
-          <Valve source={sourceB} sink={sinkB} direction={dir} {...props} />
-        </div>
-        <Align.Space
-          direction="x"
-          style={{ width: "100%", marginTop: "-1rem", paddingRight: "1rem" }}
-          align="center"
-          empty
-        >
-          <Chip
-            size="small"
-            source={authoritySource}
-            sink={authoritySink}
-            variant="text"
-          />
-          <Control.Indicator
-            statusSource={authoritySource}
-            colorSource={authorityColorSource}
-          />
-        </Align.Space>
+        <Chip
+          size="small"
+          source={authoritySource}
+          sink={authoritySink}
+          variant="text"
+        />
+        <Control.Indicator
+          statusSource={authoritySource}
+          colorSource={authorityColorSource}
+        />
       </Align.Space>
-    </Tooltip.Dialog>
+    </Align.Space>
   );
 };
 

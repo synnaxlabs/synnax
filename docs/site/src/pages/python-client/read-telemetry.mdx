@@ -5,7 +5,7 @@ description: "Use the Python client to read from a Synnax cluster"
 ---
 
 Synnax supports several different ways of reading data from a cluster. We can read 
-directly from a channel, fetch a namd range and access it's data, or leverage server
+directly from a channel, fetch a named range and access its data, or leverage server
 side iterators for processing large queries.
 
 ## Reading from a Channel
@@ -25,7 +25,7 @@ data = channel.read(start, end)
 ```
 
 The returned data is an instance of the `Series` class, but for all intensive purposes
-can be treated exactly like a `numpy.ndarray`. For example, we cna perform vectorized
+can be treated exactly like a `numpy.ndarray`. For example, we can perform vectorized
 operations on the data.
 
 ```python

@@ -11,7 +11,6 @@ import { forwardRef, useEffect } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
@@ -51,7 +50,15 @@ const DRAG_SCALE = {
  */
 export const Date = forwardRef<HTMLInputElement, DateProps>(
   (
-    { size = "medium", onChange, value, className, showDragHandle = true, ...props },
+    {
+      size = "medium",
+      onChange,
+      value,
+      className,
+      showDragHandle = true,
+      children,
+      ...props
+    },
     ref,
   ) => {
     const ts = new TimeStamp(value, "UTC");
@@ -87,7 +94,7 @@ export const Date = forwardRef<HTMLInputElement, DateProps>(
     // to view AND enter in local. This subtracts the
     // UTC offset from the timestamp.
     const inputValue = ts.fString("ISODate", "local");
-    const input = (
+    return (
       <Text
         ref={ref}
         value={inputValue}
@@ -95,15 +102,12 @@ export const Date = forwardRef<HTMLInputElement, DateProps>(
         onChange={handleChange}
         type="date"
         {...props}
-      />
-    );
-
-    if (!showDragHandle) return input;
-    return (
-      <Align.Pack>
-        {input}
-        <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
-      </Align.Pack>
+      >
+        {showDragHandle && (
+          <DragButton value={value} onChange={handleChange} dragScale={DRAG_SCALE} />
+        )}
+        {children}
+      </Text>
     );
   },
 );

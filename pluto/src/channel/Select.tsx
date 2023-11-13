@@ -12,6 +12,8 @@ import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "
 import { type channel } from "@synnaxlabs/client";
 import { unique } from "@synnaxlabs/x";
 
+import { useActiveRange, useAliases } from "@/channel/AliasProvider";
+import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
@@ -19,9 +21,6 @@ import { type List } from "@/list";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
-
-import { useActiveRange, useAliases } from "./AliasProvider";
-import { HAUL_TYPE } from "./types";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
   {
@@ -99,6 +98,7 @@ export const SelectMultiple = ({
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  console.log(activeRange);
   const searcher = useMemo(
     () => client?.channels.newSearcherUnderRange(activeRange),
     [client, activeRange],

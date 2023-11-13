@@ -47,6 +47,8 @@ export { PID } from "@/vis/pid";
 export { Regulator } from "@/vis/regulator";
 export { Rule } from "@/vis/rule";
 export { Tank } from "@/vis/tank";
+export { Table } from "@/vis/table";
+export { Cell as TableCell } from "@/vis/table/cell";
 export { Value } from "@/vis/value";
 export { Valve } from "@/vis/valve";
 export { Element as PIDElement } from "@/vis/pid/element";

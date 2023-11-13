@@ -1,7 +1,6 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Clusters and Nodes"
-description: "Clusters and Nodes"
 ---
 
 This page guides you throw how nodes communicate to form a cluster.
@@ -15,12 +14,12 @@ development, or be deployed in the cloud for high performance analysis.
 ## What is a Cluster?
 
 Multiple nodes join together to form a cluster. These nodes constantly communicate with
-each other to coordinate read and write operations across the cluster. Through this
-communication, the nodes expose the cluster as a monolithic data space. This means that
-a user can query any node and have access to all of the cluster's data and compute.
+each other to coordinate operations across the cluster. Through this communication, the 
+nodes expose the cluster as a monolithic data space. This means that a user can query 
+any node and have access to all of the cluster's data and compute.
 
 The smallest Synnax cluster contains a single node. This works well for testing and
-development, but we reccomend running a cluster of at least three nodes in production.
+development, but we recommend running a cluster of at least three nodes in production.
 
 ## Cluster Topology
 
@@ -37,15 +36,13 @@ leaves the cluster, it's ID will not be reassigned. Node ID's are used to genera
 cluster-wide unique ID's for components such as [channels](/concepts/channels) as well
 as synchronizing operations across the cluster.
 
-Along with heartbeats, reachable addresses and IDs form the core of the cluster topology.
-
 ### Heartbeats and Gossip
 
 Nodes use a [gossip protocol](https://en.wikipedia.org/wiki/Gossip_protocol#:~:text=A%20gossip%20protocol%20or%20epidemic,all%20members%20of%20a%20group.)
 to continuously exchange information about the cluster topology. Each node gossips
 with a pseudo-randomly chosen node, called a _peer_, on a one second interval. Each time
 a node gossips, it increments a counter, called a heartbeat, and sends it along with
-it's current view of the cluster topology. The node and it's peer then compare their
+its current view of the cluster topology. The node and its peer then compare their
 topologies and merge them.
 
-Heartbeats play an important role failure detection and response.
+Heartbeats play an important role in failure detection and response.

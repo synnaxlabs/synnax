@@ -7,55 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  compare,
-  TimeSpan,
-  TimeStamp,
-  bounds,
-  box,
-  direction,
-  location,
-  spatial,
-  xy,
-} from "@synnaxlabs/x";
+import { compare, box, direction, location, spatial, xy } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { type TickType } from "@/vis/axis/ticks";
-
-const AXIS_SIZE_UPADTE_UPPER_THRESHOLD = 2; // px;
-const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
-
-export const withinSizeThreshold = (prev: number, next: number): boolean =>
-  bounds.contains(
-    {
-      lower: prev - AXIS_SIZE_UPDATE_LOWER_THRESHOLD,
-      upper: prev + AXIS_SIZE_UPADTE_UPPER_THRESHOLD,
-    },
-    next,
-  );
-
-export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
-const now = TimeStamp.now();
-export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: now.valueOf(),
-  upper: now.add(TimeSpan.HOUR).valueOf(),
-};
-
-export const emptyBounds = (type: TickType): bounds.Bounds =>
-  type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
-
-export const autoBounds = (
-  b: bounds.Bounds[],
-  padding: number = 0.1,
-  type: TickType,
-): bounds.Bounds => {
-  const m = bounds.max(b);
-  if (!bounds.isFinite(m)) return emptyBounds(type);
-  const { lower, upper } = m;
-  if (upper === lower) return { lower: lower - 1, upper: upper + 1 };
-  const _padding = (upper - lower) * padding;
-  return { lower: lower - _padding, upper: upper + _padding };
-};
 
 export const gridPositionSpecZ = z.object({
   key: z.string(),

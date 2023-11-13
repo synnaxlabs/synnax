@@ -41,7 +41,7 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
     (key: number, tabKey: string, loc: location.Location): void => {
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 
   LinePlot.useTriggerHold({
@@ -54,21 +54,21 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
     (tabKey: string): void => {
       dispatch(remove({ keys: [tabKey] }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
       dispatch(selectMosaicTab({ tabKey }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
       dispatch(rename({ key: tabKey, name }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleResize = useDebouncedCallback(
@@ -76,7 +76,7 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
       dispatch(resizeMosaicTab({ key, size, windowKey }));
     },
     100,
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 
   return (

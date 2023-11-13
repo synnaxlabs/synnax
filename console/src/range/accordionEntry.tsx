@@ -44,7 +44,7 @@ export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
       const endTS = new TimeStamp(r.timeRange.end);
       return endTS.fString(
         endTS.span(startTS) < TimeSpan.DAY ? "time" : "dateTime",
-        "local"
+        "local",
       );
     },
   },
@@ -103,7 +103,7 @@ export const List = (): ReactElement => {
   return (
     <div style={{ flexGrow: 1 }}>
       <PMenu.ContextMenu menu={(props) => <ContextMenu {...props} />} {...menuProps}>
-        <Core.List data={ranges}>
+        <Core.List data={ranges.filter((r) => r.variant === "static")}>
           <Core.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
             onChange={([key]: string[]) => handleSelect(key)}

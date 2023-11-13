@@ -89,7 +89,13 @@ Mosaic.displayName = "Mosaic";
 
 interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
 
+/**
+ * This type should be used when the user wants to drop a tab in the mosaic.
+ * Dropping an item with this signature will call the {@link Mosaic} onDrop handler.
+ */
 export const HAUL_DROP_TYPE = "pluto-mosaic-tab-drop";
+/** This type should be used when the user wants to create a new tab in the mosaic. 
+Dropping an item with this signature will call the {@link Mosaic} onCreate handler. */
 export const HAUL_CREATE_TYPE = "pluto-mosaic-tab-create";
 
 /** Checks whether the tab can actually be dropped in this location or not */

@@ -16,7 +16,7 @@ graphically with the time-series engine.
 
 The time-series engine is the core of platform. It accepts stores writes, transports
 streams, and serves reads of time-series data. It also serves auxiliary roles such as
-user authentication, managing user interface configurations, and storing meta-data.
+user authentication, managing user interface configurations, and storing metadata.
 This engine, commonly referred to as "Synnax" or "Synnax Server", is written completely
 in go, and compiles to a single (~35mb) binary. The server is **horizontally scalable**,
 meaning that it can be run on multiple machines while still appearing as a single server
@@ -44,18 +44,18 @@ belong in it.
 ### 1.2 - Layer 1 - Storage
 
 The storage layer is the foundation of the engine, and is responsible for reading
-and writing [telemetry](telemetry.md) and corresponding meta-data to and from-disk.
+and writing [telemetry](telemetry.md) and corresponding metadata to and from-disk.
 It is, with few exceptions, the _only_ layer that interacts with the disk.
 
 The storage layer implements two types of storage engines: key-value and time-series.
-We use the key-value engine to store meta-data (channel definitions, users, etc.) and
+We use the key-value engine to store metadata (channel definitions, users, etc.) and
 the
 time-series engine to store telemetry.
 
 #### 1.2.1 - Pebble - Key-Value Engine
 
 Synnax's [key-value](https://www.mongodb.com/databases/key-value-database) engine stores
-binary key-value pairs. It is used to store meta-data such as channel definitions, user
+binary key-value pairs. It is used to store metadata such as channel definitions, user
 information, user interface configurations, etc. Anything that is not time-series data
 and takes a relatively small amount of space is stored in the key-value engine.
 
@@ -100,7 +100,7 @@ scalable system whose high level services are unaware of the underlying network
 complexity.
 
 The distribution layer exposes a similar interface to the storage layer, providing
-both an eventually consistent, cluster-wide meta-data store and a time-series engine. It
+both an eventually consistent, cluster-wide metadata store and a time-series engine. It
 also exposes information about the cluster, such as the number of nodes, the health of
 each node, and the addresses of reachable nodes.
 
@@ -123,7 +123,7 @@ gossip protocol to synchronize key-value operations. These operations are propag
 a configurable (default 1Hz) interval, meaning that Aspen's key-value store is
 **eventually** consistent. Each node in the cluster maintains a local copy of the
 key-value database, making Aspen heavily read-optimized. This suits our use-case well,
-as the key-value database is used primarily for meta-data storage that is read much more
+as the key-value database is used primarily for metadata storage that is read much more
 often than it is written. Aspen uses [pebble](#121---pebble---key-value-engine) as the
 underlying key-value store.
 

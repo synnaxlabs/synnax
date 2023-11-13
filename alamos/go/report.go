@@ -102,7 +102,7 @@ func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 	r.reports[key] = report
 }
 
-// Report is key-value Meta-data that can be attached to an Instrumentation. All values
+// Report is key-value Metadata that can be attached to an Instrumentation. All values
 // stores in a report must be JSON-serializable. Otherwise, it's up to the user to
 // decide what to do store. We recommend using snake_case for keys.
 type Report map[string]interface{}

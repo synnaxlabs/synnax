@@ -11,6 +11,7 @@ package ranger
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 	"io"
+	"sync"
 )
 
 type Config struct {
@@ -54,8 +56,10 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	group group.Group
-	cdc   io.Closer
+	group       group.Group
+	cdc         io.Closer
+	mu          sync.Mutex
+	activeRange uuid.UUID
 }
 
 const groupName = "Ranges"
@@ -106,4 +110,27 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.DB, s.Ontology)
+}
+
+func (s *Service) SetActiveRange(ctx context.Context, key uuid.UUID, tx gorp.Tx) error {
+	if err := s.NewRetrieve().WhereKeys(key).Exec(ctx, tx); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.activeRange = key
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *Service) RetrieveActiveRange(ctx context.Context, tx gorp.Tx) (r Range, err error) {
+	s.mu.Lock()
+	err = s.NewRetrieve().WhereKeys(s.activeRange).Entry(&r).Exec(ctx, tx)
+	s.mu.Unlock()
+	return r, err
+}
+
+func (s *Service) ClearActiveRange() {
+	s.mu.Lock()
+	s.activeRange = uuid.Nil
+	s.mu.Unlock()
 }
