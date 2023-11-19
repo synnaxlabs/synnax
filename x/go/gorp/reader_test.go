@@ -12,46 +12,47 @@ package gorp_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
-	kvx "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Reader", Ordered, func() {
 	var (
-		db   kvx.DB
-		ecdc binary.EncoderDecoder
-		tx   kvx.Tx
+		db *gorp.DB
+		tx gorp.Tx
 	)
 	BeforeAll(func() {
-		db = memkv.New()
-		ecdc = &binary.GobEncoderDecoder{}
+		db = gorp.Wrap(memkv.New())
+		tx = db.OpenTx()
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Iterator", func() {
-		BeforeEach(func() {
-			tx = db.OpenTx()
-			val := MustSucceed(ecdc.Encode(nil, map[string]string{"key1": "value1", "key2": "value2"}))
-			Expect(tx.Set(ctx, []byte("key1"), val)).To(Succeed())
-			Expect(tx.Set(ctx, []byte("key2"), val)).To(Succeed())
-		})
-		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
-		It("Should decode values before returning them to the caller", func() {
-			base := MustSucceed(db.OpenIterator(kvx.IterPrefix([]byte("key"))))
-			iter := gorp.WrapIterator[map[string]string](base, ecdc)
-			for iter.First(); iter.Valid(); iter.Next() {
-				Expect(iter.Value(ctx)).To(Equal(map[string]string{"key1": "value1", "key2": "value2"}))
-			}
-			Expect(iter.Error()).To(BeNil())
+		It("Should iterate over entries matching a type", func() {
+			Expect(gorp.NewCreate[int, entry]().
+				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
+				Exec(ctx, tx)).To(Succeed())
+			iter := MustSucceed(gorp.WrapReader[int, entry](tx).OpenIterator())
+			Expect(iter.First()).To(BeTrue())
+			Expect(iter.Value(ctx).Data).To(Equal("data"))
+			Expect(iter.Next()).To(BeTrue())
+			Expect(iter.Value(ctx).Data).To(Equal("data"))
+			Expect(iter.Next()).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
 	})
-	Describe("TxReader", func() {
-		It("Should wrap a kv.TXReader and correctly decode transaction operations", func() {
-			base := db.OpenTx()
-			Expect(base.Set(ctx, []byte("key1"), MustSucceed(ecdc.Encode(nil, "value1")))).To(Succeed())
+	Describe("Nexter", func() {
+		It("Should iterate over entries matching a type", func() {
+			Expect(gorp.NewCreate[int, entry]().
+				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
+				Exec(ctx, tx)).To(Succeed())
+			nexter := MustSucceed(gorp.WrapReader[int, entry](tx).OpenNexter())
+			v, ok := nexter.Next(ctx)
+			Expect(ok).To(BeTrue())
+			Expect(v.Data).To(Equal("data"))
+			v, ok = nexter.Next(ctx)
+			Expect(ok).To(BeTrue())
+			Expect(nexter.Close()).To(Succeed())
 		})
 	})
 })

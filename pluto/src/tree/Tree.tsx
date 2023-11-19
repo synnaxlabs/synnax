@@ -15,8 +15,7 @@ import { type Optional } from "@synnaxlabs/x";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useSyncedRef } from "@/hooks";
-import { useCombinedStateAndRef } from "@/hooks/useCombinedStateAndRef";
+import { useSyncedRef, useCombinedStateAndRef } from "@/hooks";
 import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
@@ -67,7 +66,7 @@ export interface UseReturn {
   selected: string[];
   expanded: string[];
   onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
-  flat: FlattenedNode[];
+  nodes: FlattenedNode[];
 }
 
 export const use = (props: UseProps): UseReturn => {
@@ -75,7 +74,10 @@ export const use = (props: UseProps): UseReturn => {
   const [expanded, setExpanded, ref] =
     useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = useState<string[]>([]);
-  const flat = useMemo(() => flatten(nodes, expanded, sort), [nodes, expanded, sort]);
+  const flat = useMemo(
+    () => flatten(nodes, expanded, undefined, sort),
+    [nodes, expanded, sort],
+  );
   const flatRef = useSyncedRef(flat);
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
@@ -104,6 +106,7 @@ export const use = (props: UseProps): UseReturn => {
   return {
     onSelect: handleSelect,
     selected,
+    expanded,
     nodes: flat,
   };
 };

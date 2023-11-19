@@ -28,7 +28,7 @@ const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
  */
 export const selectMultiple = (
   state: StoreState,
-  keys?: string[] | string[]
+  keys?: string[] | string[],
 ): Range[] => {
   const all = Object.values(selectState(state).ranges);
   if (keys == null) return all;
@@ -56,7 +56,7 @@ export const selectActiveKey = (state: StoreState): string | null =>
  */
 export const select = (
   state: StoreState,
-  key?: string | null
+  key?: string | null,
 ): Range | null | undefined =>
   selectByKey(selectState(state).ranges, key, selectActiveKey(state));
 
@@ -79,3 +79,6 @@ export const useSelect = (key?: string): Range | null | undefined =>
  */
 export const useSelectMultiple = (keys?: string[]): Range[] =>
   useMemoSelect((state: StoreState) => selectMultiple(state, keys), [keys]);
+
+export const selectEditBuffer = (state: StoreState): Partial<Range> | null =>
+  selectState(state).editBuffer;

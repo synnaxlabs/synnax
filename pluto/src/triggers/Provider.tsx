@@ -19,7 +19,7 @@ import {
 
 import { TimeStamp, TimeSpan, type Destructor, xy } from "@synnaxlabs/x";
 
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
 import {
   type MouseKey,
   MOUSE_KEYS,

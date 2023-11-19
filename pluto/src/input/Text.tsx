@@ -9,6 +9,7 @@
 
 import { forwardRef } from "react";
 
+import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
 import { Text as CoreText } from "@/text";
@@ -45,11 +46,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       placeholder,
       variant = "outlined",
       sharp = false,
+      children,
       ...props
     },
     ref,
   ) => (
-    <div
+    <Align.Pack
       style={style}
       className={CSS(
         CSS.B("input"),
@@ -58,29 +60,34 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         CSS.sharp(sharp),
         className,
       )}
+      align="center"
     >
-      {(value == null || value.length === 0) && (
-        <div
-          className={CSS(
-            CSS.BE("input", "placeholder"),
-            centerPlaceholder && CSS.M("centered"),
-          )}
-        >
-          {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
-        </div>
-      )}
-      <input
-        ref={ref}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={(e) => {
-          if (selectOnFocus) e.target.select();
-          onFocus?.(e);
-        }}
-        placeholder={placeholder as string}
-        {...props}
-      />
-    </div>
+      <div className={CSS.BE("input", "internal")}>
+        {(value == null || value.length === 0) && (
+          <div
+            className={CSS(
+              CSS.BE("input", "placeholder"),
+              centerPlaceholder && CSS.M("centered"),
+            )}
+          >
+            {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
+          </div>
+        )}
+        <input
+          ref={ref}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={(e) => {
+            if (selectOnFocus) e.target.select();
+            onFocus?.(e);
+          }}
+          placeholder={placeholder as string}
+          className={CSS.visible(false)}
+          {...props}
+        />
+      </div>
+      {children}
+    </Align.Pack>
   ),
 );
 Text.displayName = "Input";

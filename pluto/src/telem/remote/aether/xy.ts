@@ -190,6 +190,14 @@ export class DynamicXYSource
     return await super.y(gl);
   }
 
+  async xBounds(): Promise<bounds.Bounds> {
+    const dataBounds = await super.xBounds();
+    return {
+      upper: dataBounds.upper,
+      lower: Math.max(dataBounds.lower, dataBounds.upper - this.props.span.valueOf()),
+    };
+  }
+
   async read(gl?: GLBufferController): Promise<void> {
     const { x, y, span } = this.props;
     const tr = TimeStamp.now().spanRange(-span);

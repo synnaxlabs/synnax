@@ -70,7 +70,8 @@ _NP_COMPARISON_OPERATORS = [
     "__matmul__",
     "__rmatmul__",
     "__imatmul__",
-    "__len__"
+    "__getitem__",
+    "__len__",
 ]
 
 

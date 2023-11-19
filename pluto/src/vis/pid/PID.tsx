@@ -46,7 +46,7 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useMemoCompare, useResize } from "@/hooks";
+import { useCombinedRefs, useMemoCompare, useResize } from "@/hooks";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
@@ -322,11 +322,14 @@ const Core = Aether.wrap<PIDProps>(
     );
 
     const { fitView } = useReactFlow();
+    const triggerRef = useRef<HTMLElement>(null);
     Triggers.use({
       triggers: triggers.zoomReset,
       callback: useCallback(
-        ({ stage }: Triggers.UseEvent) => {
-          if (stage === "end") fitView();
+        ({ stage, cursor }: Triggers.UseEvent) => {
+          const reg = triggerRef.current;
+          if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
+          fitView();
         },
         [fitView],
       ),
@@ -343,6 +346,8 @@ const Core = Aether.wrap<PIDProps>(
       zoomActivationKeyCode: zoomTriggers,
     };
 
+    const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
+
     return (
       <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
         <Aether.Composite path={path}>
@@ -353,7 +358,7 @@ const Core = Aether.wrap<PIDProps>(
             edges={edges_}
             nodeTypes={nodeTypes}
             edgeTypes={EDGE_TYPES}
-            ref={resizeRef}
+            ref={combinedRefs}
             fitView={true}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}

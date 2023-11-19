@@ -21,11 +21,7 @@ export class Eraser {
     overscan: xy.XY,
     canvases: CanvasVariant[],
   ): void {
-    if (
-      !box.isZero(prev) &&
-      !box.equals(prev, next) &&
-      !box.equals(this.prevErase, prev)
-    ) {
+    if (!box.equals(prev, next) && !box.equals(this.prevErase, prev)) {
       ctx.erase(prev, overscan, ...canvases);
       this.prevErase = prev;
     } else ctx.erase(next, overscan, ...canvases);

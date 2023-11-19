@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DependencyList, type EffectCallback, useEffect } from "react";
+import { ValueSpec } from "@/vis/pid/element/Value";
+import { type Spec } from "@/vis/table/cell/element";
+import { LabelSpec } from "@/vis/table/cell/Label";
 
-import { useMemoCompare } from "@/memo";
-
-export const useEffectCompare = <D extends DependencyList>(
-  cbk: EffectCallback,
-  areEqual: (prevDeps: D, nextDeps: D) => boolean,
-  deps: D,
-): void => {
-  const memoDeps = useMemoCompare(() => deps, areEqual, deps);
-  useEffect(cbk, [memoDeps]);
+export const REGISTRY: Record<string, Spec<any>> = {
+  [ValueSpec.type]: ValueSpec,
+  [LabelSpec.type]: LabelSpec,
 };

@@ -22,13 +22,13 @@ const story: Meta<typeof LinePlot> = {
 
 const AXES: AxisProps[] = [
   {
-    id: "x",
+    key: "x",
     location: "bottom",
     label: "Time",
     type: "time",
   },
   {
-    id: "y",
+    key: "y",
     location: "left",
     label: "Value",
     type: "linear",
@@ -37,7 +37,7 @@ const AXES: AxisProps[] = [
 
 const LINES: LineProps[] = [
   {
-    id: "0",
+    key: "0",
     variant: "dynamic",
     span: TimeSpan.seconds(5),
     axes: {

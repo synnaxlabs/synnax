@@ -16,3 +16,7 @@
 .pluto-valve-pid-element__valve-container {
     position: relative;
 }
+
+.pluto-valve-pid-element .pluto-text {
+    max-width: 125px;
+}

@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefCallback, useCallback, useEffect, useRef, useState } from "react";
+import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
-import { box, debounce as debounceF, direction } from "@synnaxlabs/x";
+import { box, debounce as debounceF, type direction } from "@synnaxlabs/x";
 
 import { compareArrayDeps, useMemoCompare } from "@/hooks";
-
-/** A list of events that can trigger a resize. */
-export type DirectionTrigger = "moveX" | "moveY" | "resizeX" | "resizeY";
 
 export interface UseResizeOpts {
   /**
    * A list of triggers that should cause the callback to be called.
    */
-  triggers?: Array<DirectionTrigger | direction.Direction>;
+  triggers?: direction.Direction[];
   /**  Debounce the resize event by this many milliseconds.
   Useful for preventing expensive renders until rezizing has stopped. */
   debounce?: number;
   /** If false, the hook wont observe the element. Defaults to true. */
   enabled?: boolean;
 }
+
+export type UseResizeHandler = <E extends HTMLElement>(box: box.Box, el: E) => void;
 
 /**
  * Tracks the dimensions of an element and executes a callback when they change.
@@ -38,18 +37,16 @@ export interface UseResizeOpts {
  * @returns a ref callback to attach to the desire element.
  */
 export const useResize = <E extends HTMLElement>(
-  onResize: (box: box.Box, el: E) => void,
+  onResize: UseResizeHandler,
   opts: UseResizeOpts = {},
 ): RefCallback<E> => {
-  const { triggers: _triggers = [], debounce = 0, enabled = true } = opts;
+  const { triggers = [], debounce = 0, enabled = true } = opts;
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
-  const triggers = useMemoCompare(
-    () => normalizeTriggers(_triggers),
-    compareArrayDeps,
-    [_triggers] as const,
-  );
+  const memoTriggers = useMemoCompare(() => triggers, compareArrayDeps, [
+    triggers,
+  ] as const);
 
   const startObserving = useCallback(
     (el: HTMLElement) => {
@@ -57,7 +54,7 @@ export const useResize = <E extends HTMLElement>(
       if (prev.current == null) prev.current = box.ZERO;
       const deb = debounceF(() => {
         const next = box.construct(el);
-        if (shouldResize(triggers, prev.current, next)) {
+        if (shouldResize(memoTriggers, prev.current, next)) {
           prev.current = next;
           onResize(next, ref.current as E);
         }
@@ -65,7 +62,7 @@ export const useResize = <E extends HTMLElement>(
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [triggers, onResize, debounce],
+    [memoTriggers, onResize, debounce],
   );
 
   useEffect(() => {
@@ -82,47 +79,13 @@ export const useResize = <E extends HTMLElement>(
   );
 };
 
-export type UseSizeOpts = UseResizeOpts;
-
-/**
- * Tracks the size of an element and returns it.
- *
- * @param opts - Options for the hook. See UseSizeOpts.
- *
- * @returns A Box representing the size of the element and a ref callback to attach to
- * the element.
- */
-export const useSize = <E extends HTMLElement>(
-  opts: UseSizeOpts,
-): [box.Box, RefCallback<E>] => {
-  const [size, onResize] = useState<box.Box>(box.ZERO);
-  const ref = useResize<E>(onResize, opts);
-  return [size, ref];
-};
-
-const normalizeTriggers = (
-  triggers: Array<direction.Direction | DirectionTrigger>,
-): DirectionTrigger[] =>
-  triggers
-    .map((t): DirectionTrigger | DirectionTrigger[] => {
-      if (direction.isDirection(t))
-        return direction.construct(t) === "x"
-          ? ["moveX", "resizeX"]
-          : ["moveY", "resizeY"];
-      return t;
-    })
-    .flat();
-
 const shouldResize = (
-  triggers: Array<DirectionTrigger | direction.Direction>,
+  triggers: direction.Direction[],
   prev: box.Box,
   next: box.Box,
 ): boolean => {
   if (triggers.length === 0) return !box.equals(next, prev);
-  if (triggers.includes("resizeX") && box.width(prev) !== box.width(next)) return true;
-  if (triggers.includes("resizeY") && box.height(prev) !== box.height(next))
-    return true;
-  if (triggers.includes("moveX") && box.left(prev) !== box.left(next)) return true;
-  if (triggers.includes("moveY") && box.top(prev) !== box.top(next)) return true;
+  if (triggers.includes("x") && box.width(prev) !== box.width(next)) return true;
+  if (triggers.includes("y") && box.height(prev) !== box.height(next)) return true;
   return false;
 };

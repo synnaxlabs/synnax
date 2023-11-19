@@ -18,8 +18,11 @@ import Fuse from "fuse.js";
 
 import { proxyMemo } from "@/memo";
 
-/** Props for the {@link createFilterTransform} hook. */
-export interface UseSearchTransformProps<K extends Key, E extends KeyedRecord<K, E>> {
+/** Props for the {@link createFilterTransform} function. */
+export interface CreateFilterTransformProps<
+  K extends Key,
+  E extends KeyedRecord<K, E>,
+> {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
@@ -28,7 +31,7 @@ const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
   threshold: 0.3,
 };
 
-export const fuseSearcher =
+export const fuseFilter =
   (opts?: Fuse.IFuseOptions<UnknownRecord>) =>
   <K extends Key, E extends KeyedRecord<K, E>>(
     data: E[],
@@ -39,12 +42,14 @@ export const fuseSearcher =
       ...opts,
     });
     return {
+      page: (page: number, perPage: number) =>
+        data.slice(page * perPage, (page + 1) * perPage),
       search: (term: string) => fuse.search(term).map(({ item }) => item),
       retrieve: (keys: K[]) => data.filter((item) => keys.includes(item.key)),
     };
   };
 
-const defaultSearcher = fuseSearcher();
+const defaultFilter = fuseFilter();
 
 /**
  * @returns a transform that can be used to filter an array of objects in memory
@@ -61,8 +66,8 @@ const defaultSearcher = fuseSearcher();
  */
 export const createFilterTransform = <K extends Key, E extends KeyedRecord<K, E>>({
   term,
-  searcher = defaultSearcher<K, E>,
-}: UseSearchTransformProps<K, E>): ArrayTransform<E> =>
+  searcher = defaultFilter<K, E>,
+}: CreateFilterTransformProps<K, E>): ArrayTransform<E> =>
   proxyMemo((data) => {
     if (typeof searcher === "function") {
       if (term.length === 0 || data?.length === 0) return data;

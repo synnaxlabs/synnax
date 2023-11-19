@@ -18,6 +18,7 @@ import {
   unique,
   deep,
   toArray,
+  box,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
@@ -49,30 +50,44 @@ const ZERO_LEGEND_STATE = {
 // |||||| VIEWPORT ||||||
 
 export interface ViewportState {
-  counter: number;
+  renderTrigger: number;
   zoom: dimensions.Dimensions;
   pan: xy.XY;
 }
 
 export const ZERO_VIEWPORT_STATE: ViewportState = {
-  counter: 0,
+  renderTrigger: 0,
   zoom: dimensions.DECIMAL,
   pan: xy.ZERO,
+};
+
+// ||||||| SELECTION |||||||
+
+export interface SelectionState {
+  box: box.Box;
+}
+
+export const ZERO_SELECTION_STATE: SelectionState = {
+  box: box.ZERO,
 };
 
 // |||||| AXES ||||||
 
 export interface AxisState {
   key: Vis.AxisKey;
-  label?: string;
+  label: string;
   labelDirection: direction.Direction;
   bounds: bounds.Bounds;
-  driven: boolean;
+  autoBounds: { lower: boolean; upper: boolean };
   tickSpacing: number;
   labelLevel: Text.Level;
 }
 
-export type AxesState = Record<Vis.AxisKey, AxisState>;
+export interface AxesState {
+  renderTrigger: number;
+  hasHadChannelSet: boolean;
+  axes: Record<Vis.AxisKey, AxisState>;
+}
 
 // |||| LINE ||||||
 
@@ -104,7 +119,7 @@ export interface RuleState {
   lineWidth: number;
   lineDash: number;
   units: string;
-  position?: number;
+  position: number;
 }
 
 export type RulesState = RuleState[];
@@ -116,6 +131,7 @@ const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
   lineWidth: 2,
   lineDash: 3,
   units: "",
+  position: 0,
 };
 
 export const ZERO_RULES_STATE: RulesState = [];
@@ -163,6 +179,7 @@ export interface State {
   axes: AxesState;
   lines: LinesState;
   rules: RulesState;
+  selection: SelectionState;
 }
 
 export const ZERO_AXIS_STATE: AxisState = {
@@ -170,18 +187,22 @@ export const ZERO_AXIS_STATE: AxisState = {
   label: "",
   labelDirection: "x",
   labelLevel: "small",
-  driven: true,
   bounds: bounds.ZERO,
+  autoBounds: { lower: true, upper: true },
   tickSpacing: 75,
 };
 
 export const ZERO_AXES_STATE: AxesState = {
-  y1: { ...ZERO_AXIS_STATE, key: "y1" },
-  y2: { ...ZERO_AXIS_STATE, key: "y2" },
-  y3: { ...ZERO_AXIS_STATE, key: "y3" },
-  y4: { ...ZERO_AXIS_STATE, key: "y4" },
-  x1: { ...ZERO_AXIS_STATE, key: "x1" },
-  x2: { ...ZERO_AXIS_STATE, key: "x2" },
+  renderTrigger: 0,
+  hasHadChannelSet: false,
+  axes: {
+    y1: { ...ZERO_AXIS_STATE, key: "y1" },
+    y2: { ...ZERO_AXIS_STATE, key: "y2" },
+    y3: { ...ZERO_AXIS_STATE, key: "y3" },
+    y4: { ...ZERO_AXIS_STATE, key: "y4" },
+    x1: { ...ZERO_AXIS_STATE, key: "x1" },
+    x2: { ...ZERO_AXIS_STATE, key: "x2" },
+  },
 };
 
 export const ZERO_LINE_VIS: State = {
@@ -195,6 +216,7 @@ export const ZERO_LINE_VIS: State = {
   lines: ZERO_LINES_STATE,
   axes: ZERO_AXES_STATE,
   rules: ZERO_RULES_STATE,
+  selection: ZERO_SELECTION_STATE,
 };
 
 // |||||| TOOLBAR ||||||
@@ -254,11 +276,16 @@ export interface RemovePayload {
   keys: string[];
 }
 
-export interface SetViewportPayload extends Partial<Omit<ViewportState, "counter">> {
+export interface SetViewportPayload
+  extends Partial<Omit<ViewportState, "renderTrigger">> {
   key: string;
 }
 
-export interface StoreViewportPayload extends Omit<ViewportState, "counter"> {
+export interface StoreViewportPayload extends Omit<ViewportState, "renderTrigger"> {
+  key: string;
+}
+
+export interface SetSelectionPayload extends SelectionState {
   key: string;
 }
 
@@ -267,12 +294,6 @@ export interface SetYChannelsPayload {
   axisKey: Vis.YAxisKey;
   channels: channel.Key[];
   mode?: "set" | "add";
-}
-
-export interface AddYChannelPayload {
-  key: string;
-  axisKey: Vis.YAxisKey;
-  channels: channel.Key[];
 }
 
 export interface SetXChannelPayload {
@@ -309,6 +330,7 @@ export interface SetAxisPayload {
   key: string;
   axisKey: Vis.AxisKey;
   axis: Partial<AxisState>;
+  triggerRender?: boolean;
 }
 
 export interface SetRulePayload {
@@ -418,30 +440,46 @@ export const { actions, reducer } = createSlice({
       });
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
-      state.plots[payload.key].viewport = {
+      const p = state.plots[payload.key];
+      p.viewport = {
         ...deep.copy(ZERO_VIEWPORT_STATE),
         ...payload,
-        counter: state.plots[payload.key].viewport.counter + 1,
+        renderTrigger: p.viewport.renderTrigger + 1,
       };
+      p.selection = { ...ZERO_SELECTION_STATE };
     },
     storeViewport: (state, { payload }: PayloadAction<StoreViewportPayload>) => {
-      state.plots[payload.key].viewport = {
+      const p = state.plots[payload.key];
+      p.viewport = {
         ...state.plots[payload.key].viewport,
+        ...payload,
+      };
+      p.selection = { ...ZERO_SELECTION_STATE };
+    },
+    setSelection: (state, { payload }: PayloadAction<SetSelectionPayload>) => {
+      state.plots[payload.key].selection = {
+        ...state.plots[payload.key].selection,
         ...payload,
       };
     },
     setYChannels: (state, { payload }: PayloadAction<SetYChannelsPayload>) => {
       const { key: layoutKey, axisKey, channels, mode = "set" } = payload;
       const p = state.plots[layoutKey];
+      const prevShouldDisplay = shouldDisplayAxis(axisKey, p);
       if (mode === "set") p.channels[axisKey] = channels;
       else p.channels[axisKey] = unique([...p.channels[axisKey], ...channels]);
+      const nextShouldDisplay = shouldDisplayAxis(axisKey, p);
       p.lines = updateLines(p);
       p.viewport = deep.copy(ZERO_VIEWPORT_STATE);
+      p.axes.hasHadChannelSet = true;
+      if (prevShouldDisplay !== nextShouldDisplay) p.axes.renderTrigger += 1;
     },
     setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
       const { key: layoutKey, axisKey, channel } = payload;
       const p = state.plots[layoutKey];
       p.channels[axisKey] = channel;
+      p.axes.renderTrigger += 1;
+      p.axes.hasHadChannelSet = true;
       p.lines = updateLines(p);
     },
     setRanges: (state, { payload }: PayloadAction<SetRangesPayload>) => {
@@ -450,6 +488,7 @@ export const { actions, reducer } = createSlice({
       if (mode === "set") p.ranges[axisKey] = ranges;
       else if (mode === "add")
         p.ranges[axisKey] = unique([...p.ranges[axisKey], ...ranges]);
+      p.axes.renderTrigger += 1;
       p.lines = updateLines(p);
     },
     setLine: (state, { payload }: PayloadAction<SetLinePayload>) => {
@@ -461,9 +500,10 @@ export const { actions, reducer } = createSlice({
       });
     },
     setAxis: (state, { payload }: PayloadAction<SetAxisPayload>) => {
-      const { key: layoutKey, axisKey, axis } = payload;
+      const { key: layoutKey, axisKey, axis, triggerRender = true } = payload;
       const plot = state.plots[layoutKey];
-      plot.axes[axisKey] = { ...plot.axes[axisKey], ...axis, key: axisKey };
+      plot.axes.axes[axisKey] = { ...plot.axes.axes[axisKey], ...axis, key: axisKey };
+      if (triggerRender) plot.axes.renderTrigger += 1;
     },
     setTitle: (state, { payload }: PayloadAction<SetTitlePayload>) => {
       const { key: layoutKey, title } = payload;
@@ -533,6 +573,7 @@ export const {
   storeViewport,
   setViewportMode,
   setRemoteCreated,
+  setSelection,
   create: internalCreate,
 } = actions;
 

@@ -15,7 +15,7 @@ from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.ranger.alias import Aliaser
-from synnax.ranger.create import RangeCreator
+from synnax.ranger.writer import RangeWriter
 from synnax.ranger.active import Active
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
@@ -36,7 +36,7 @@ class RangeClient:
     __frame_client: Client
     __channel_retriever: ChannelRetriever
     __retriever: RangeRetriever
-    __creator: RangeCreator
+    __writer: RangeWriter
     __unary_client: UnaryClient
     __active: Active
 
@@ -44,13 +44,13 @@ class RangeClient:
         self,
         unary_client: UnaryClient,
         frame_client: Client,
-        creator: RangeCreator,
+        writer: RangeWriter,
         retriever: RangeRetriever,
         channel_retriever: ChannelRetriever,
     ) -> None:
         self.__unary_client = unary_client
         self.__frame_client = frame_client
-        self.__creator = creator
+        self.__writer = writer
         self.__retriever = retriever
         self.__channel_retriever = channel_retriever
         self.__active = Active(self.__unary_client)
@@ -61,21 +61,50 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
+        retrieve_if_name_exists: bool = False,
     ) -> Range:
+        """Creates a named range spanning a region of time. This range is persisted
+        to the cluster and is visible to all clients.
+
+        :param name: The name of the range
+        :param time_range: The time range of the range. This time range must be valid
+        i.e. its start time must be less than or equal to its end time.
+        :param retrieve_if_name_exists: If true, this method will retrieve the range
+        if it already exists. This method will throw a ValidationError
+        if the range already exists and has a DIFFERENT time range.
+        """
         ...
 
     @overload
     def create(
         self,
         ranges: Range,
+        retrieve_if_name_exists: bool = False,
     ) -> Range:
+        """Creates the given range. This range is persisted to the cluster and is
+        visible to all clients.
+
+        :param ranges: The range to create
+        :param retrieve_if_name_exists: If true, this method will retrieve the range
+        if it already exists. This method will throw a ValidationError if the range
+        already exists and has a DIFFERENT time range.
+        """
         ...
 
     @overload
     def create(
         self,
         ranges: list[Range],
+        retrieve_if_name_exists: bool = False,
     ) -> list[Range]:
+        """Creates the given ranges. These ranges are persisted to the cluster and are
+        visible to all clients.
+
+        :param ranges: The ranges to create
+        :param retrieve_if_name_exists: If true, this method will retrieve the range
+        if it already exists. This method will throw a ValidationError if the range
+        already exists and has a DIFFERENT time range.
+        """
         ...
 
     def create(
@@ -84,16 +113,45 @@ class RangeClient:
         *,
         name: str = "",
         time_range: TimeRange | None = None,
+        retrieve_if_name_exists: bool = False,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
-            _ranges = [RangePayload(name=name, time_range=time_range)]
+            to_create = [RangePayload(name=name, time_range=time_range)]
         elif isinstance(ranges, Range):
-            _ranges = [ranges.to_payload()]
+            to_create = [ranges.to_payload()]
         else:
             is_single = False
-            _ranges = [r.to_payload() for r in ranges]
-        res = self.__sugar(self.__creator.create(_ranges))
+            to_create = [r.to_payload() for r in ranges]
+
+        res: list[Range] = list()
+        if retrieve_if_name_exists:
+            res = self.retrieve([r.name for r in to_create])
+            if is_single and len(res) > 1:
+                filtered = [r for r in res if r.time_range == time_range]
+                if len(filtered) == 0:
+                    raise QueryError(
+                        f"""
+                        retrieve_if_name_exists was set to true, but {len(res)} ranges
+                        were found matching {name} but none had the same time range as
+                        passed to create. Synnax can't figure out which one you want!
+                        """
+                    )
+                if len(filtered) > 1:
+                    raise QueryError(
+                        f"""
+                    retrieve_if_name_exists was set to true, but {len(res)} ranges were
+                    found that matched {name} and had time range {time_range}. Synnax
+                    can't figure out which one you want!
+                    """
+                    )
+                res = [filtered[0]]
+            existing_names = {r.name for r in res}
+            to_create = [r for r in to_create if r.name not in existing_names]
+
+        if len(to_create) > 0:
+            res.extend(self.__sugar(self.__writer.create(to_create)))
+
         return res if not is_single else res[0]
 
     @overload
@@ -124,6 +182,13 @@ class RangeClient:
         elif len(sug) > 1:
             raise QueryError(f"Multiple ranges matching {normal} found")
         return sug[0]
+
+    def delete(
+        self,
+        params: RangeParams,
+    ) -> None:
+        _ranges = self.__retriever.retrieve(params)
+        self.__writer.delete([r.key for r in _ranges])
 
     def set_active(self, key: RangeKey):
         self.__active.set(key)

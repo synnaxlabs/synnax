@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Viewport } from "@synnaxlabs/pluto";
+import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -17,6 +18,7 @@ import {
   SLICE_NAME,
   type ToolbarState,
   type ControlState,
+  type SelectionState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { type Vis } from "@/vis";
@@ -41,7 +43,7 @@ export const selectRanges = (key: string): Vis.XAxisRecord<Range.Range[]> => {
         x2: Range.selectMultiple(state, p.ranges.x2),
       };
     },
-    [key]
+    [key],
   );
 };
 
@@ -61,3 +63,24 @@ export const selectViewportMode = (state: StoreState): Viewport.Mode =>
 
 export const useSelectViewportMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
+
+export const selectSelection = (state: StoreState, key: string): SelectionState =>
+  select(state, key).selection;
+
+export const useSelectSelection = (key: string): SelectionState =>
+  useMemoSelect((state: StoreState) => selectSelection(state, key), [key]);
+
+export const selectAxisBounds = (
+  state: StoreState,
+  key: string,
+  axisKey: Vis.AxisKey,
+): bounds.Bounds => {
+  const p = select(state, key);
+  return p.axes.axes[axisKey].bounds;
+};
+
+export const useSelectAxisBounds = (key: string, axisKey: Vis.AxisKey): bounds.Bounds =>
+  useMemoSelect(
+    (state: StoreState) => selectAxisBounds(state, key, axisKey),
+    [key, axisKey],
+  );

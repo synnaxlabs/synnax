@@ -13,6 +13,7 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { type Haul, Menu, Tree, Channel } from "@synnaxlabs/pluto";
 
+import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -22,7 +23,11 @@ import { Range } from "@/range";
 
 const canDrop = (): boolean => false;
 
-const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): void => {
+const handleSelect: Ontology.HandleSelect = ({
+  store,
+  placeLayout,
+  selection,
+}): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicTab(state);
   if (selection.length === 0) return;
@@ -121,6 +126,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+      <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
       {activeRange != null && (
         <>
@@ -158,7 +164,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename,
   onRename: handleRename,
   canDrop,
-  onSelect,
+  onSelect: handleSelect,
   haulItems,
   Item,
   TreeContextMenu,

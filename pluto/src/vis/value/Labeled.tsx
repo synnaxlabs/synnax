@@ -45,7 +45,6 @@ export const ValueLabeled = ({
   color,
   zoom = 1,
   telem,
-  units,
   precision,
   width,
   ...props
@@ -87,7 +86,6 @@ export const ValueLabeled = ({
           level={level}
           box={adjustedBox}
           telem={telem}
-          units={units}
           precision={precision}
           width={width}
         />

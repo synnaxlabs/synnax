@@ -104,7 +104,7 @@ considered _invalid_ if it:
 1. Has accumulated an error. This typically happens when the iterator is unable to reach
    the cluster.
 2. Is not pointing at a valid sample. This can occur if the iterator has:
-   1. Exhausted it's data, meaning the end of the range is reached during forward iteration,
+   1. Exhausted its data, meaning the end of the range is reached during forward iteration,
       or the start of the range is reached during reverse iteration.
    2. Has not been positioned yet with a seeking call.
 
@@ -113,7 +113,7 @@ you must call a seeking operation.
 
 ### Seeking
 
-Seeking move's the iterator to a new position in the range. All seeking calls return a
+Seeking moves the iterator to a new position in the range. All seeking calls return a
 `boolean` indicating the validity state after executing the operation.
 
 <table>
@@ -144,12 +144,16 @@ Seeking move's the iterator to a new position in the range. All seeking calls re
     <tr>
       <td>`seek-first`</td>
       <td>None</td>
-      <td>Seeks to the first sample in the range.</td>
+      <td>
+        Seeks to the first sample in the range.
+      </td>
     </tr>
     <tr>
       <td>`seek-last`</td>
       <td>None</td>
-      <td>Seeks to the last sample in the range.</td>
+      <td>
+        Seeks to the last sample in the range.
+      </td>
     </tr>
   </tbody>
 </table>
@@ -217,4 +221,3 @@ but not yet read from, the frame will be empty.
 To illustrate how an iterator can be used, we'll walk through several common patterns.
 We'll use the following table as an example:
 
-### Performance Considerations

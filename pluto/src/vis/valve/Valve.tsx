@@ -13,7 +13,7 @@ import { dimensions, direction } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { type Color } from "@/color";
+import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
 import { valve } from "@/vis/valve/aether";
@@ -67,7 +67,7 @@ export const Valve = Aether.wrap<ValveProps>(
     const dims = dir_ === "y" ? dimensions.swap(BASE_VALVE_DIMS) : BASE_VALVE_DIMS;
 
     // @ts-expect-error -- React css doesn't recognize variables
-    // if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
+    if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
     return (
       <button
         className={CSS(

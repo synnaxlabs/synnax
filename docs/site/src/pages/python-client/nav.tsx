@@ -38,5 +38,10 @@ export const pythonClientNav: PageNavNode = {
       href: "/python-client/write-telemetry",
       name: "Write Telemetry",
     },
+    {
+      key: "/python-client/troubleshooting",
+      href: "/python-client/troubleshooting",
+      name: "Troubleshooting",
+    },
   ],
 };

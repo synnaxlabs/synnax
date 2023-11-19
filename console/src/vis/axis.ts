@@ -27,7 +27,7 @@ export const axisLabel = (key: AxisKey): string => key.toUpperCase();
 export const axisDirection = (key: AxisKey): direction.Direction =>
   key[0] as direction.Direction;
 
-export const axisLocation = (key: AxisKey): location.Location => AXIS_LOCATIONS[key];
+export const axisLocation = (key: AxisKey): location.Outer => AXIS_LOCATIONS[key];
 
 export const AXIS_LOCATIONS: Record<AxisKey, location.Outer> = {
   y1: "left",

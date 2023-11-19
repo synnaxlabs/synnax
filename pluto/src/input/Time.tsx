@@ -11,7 +11,6 @@ import { forwardRef, useCallback } from "react";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
@@ -62,6 +61,7 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
       dragDirection,
       showDragHandle = true,
       className,
+      children,
       ...props
     }: TimeProps,
     ref,
@@ -91,7 +91,7 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
     );
 
     const inputValue = ts.fString("time", tzInfo);
-    const input = (
+    return (
       <Text
         ref={ref}
         value={inputValue}
@@ -100,20 +100,17 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
         step="1"
         onChange={handleChange as BaseProps["onChange"]}
         {...props}
-      />
-    );
-
-    if (!showDragHandle) return input;
-    return (
-      <Align.Pack {...props}>
-        {input}
-        <DragButton
-          direction={dragDirection}
-          value={ts.valueOf()}
-          onChange={handleChange as BaseProps["onChange"]}
-          dragScale={DRAG_SCALE}
-        />
-      </Align.Pack>
+      >
+        {showDragHandle && (
+          <DragButton
+            direction={dragDirection}
+            value={ts.valueOf()}
+            onChange={handleChange as BaseProps["onChange"]}
+            dragScale={DRAG_SCALE}
+          />
+        )}
+        {children}
+      </Text>
     );
   },
 );

@@ -10,18 +10,29 @@
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import RangePayload
+from synnax.ranger.payload import RangePayload, RangeKey
 
 
-class _Request(Payload):
+class _CreateRequest(Payload):
     ranges: list[RangePayload]
 
 
-_Response = _Request
+_CreateResponse = _CreateRequest
 
 
-class RangeCreator:
-    __ENDPOINT = "/range/create"
+class _DeleteRequest(Payload):
+    keys: list[RangeKey]
+
+
+class _DeleteResponse(Payload):
+    ...
+
+
+_CREATE_ENDPOINT = "/range/create"
+_DELETE_ENDPOINT = "/range/delete"
+
+
+class RangeWriter:
     __client: UnaryClient
     instrumentation: Instrumentation
 
@@ -35,8 +46,15 @@ class RangeCreator:
 
     @trace("debug", "range.create")
     def create(self, ranges: list[RangePayload]) -> list[RangePayload]:
-        req = _Request(ranges=ranges)
-        res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
+        req = _CreateRequest(ranges=ranges)
+        res, exc = self.__client.send(_CREATE_ENDPOINT, req, _CreateResponse)
         if exc is not None:
             raise exc
         return res.ranges
+
+    @trace("debug", "range.delete")
+    def delete(self, keys: list[RangeKey]):
+        req = _DeleteRequest(keys=keys)
+        res, exc = self.__client.send(_DELETE_ENDPOINT, req, _DeleteResponse)
+        if exc is not None:
+            raise exc

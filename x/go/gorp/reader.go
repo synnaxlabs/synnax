@@ -215,13 +215,21 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	return
 }
 
-type next[E any] struct{ *Iterator[E] }
+type next[E any] struct {
+	afterFirst bool
+	*Iterator[E]
+}
 
 var _ iter.NexterCloser[any] = (*next[any])(nil)
 
 // Next implements iter.Nexter.
 func (n *next[E]) Next(ctx context.Context) (e E, ok bool) {
-	ok = n.Iterator.Next()
+	if !n.afterFirst {
+		ok = n.First()
+		n.afterFirst = true
+	} else {
+		ok = n.Iterator.Next()
+	}
 	if !ok {
 		return e, ok
 	}

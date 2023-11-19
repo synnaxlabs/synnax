@@ -176,11 +176,11 @@ class Tracer:
 
     @noopd
     def propagate(self, carrier: Carrier) -> None:
-        """Injects meta-data about the current trace into the provided carrier.
-        This meta-data can be parsed on the other side of a network or IPC request using
+        """Injects metadata about the current trace into the provided carrier.
+        This metadata can be parsed on the other side of a network or IPC request using
         allowing the trace to propagate across services.
 
-        :param carrier: The carrier to set the trace meta-data on.
+        :param carrier: The carrier to set the trace metadata on.
         """
         self._otel_propagator.inject(carrier, setter=Tracer._Setter)
 

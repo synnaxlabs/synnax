@@ -44,14 +44,14 @@ Using this information, the database validates the following:
 1. That all channels exist in the database.
 2. That no existing domain overlaps with the provided timestamp. If any domains overlap,
    the new domain is invalid and cannot be committed.
-3. That all channels share the same rate or index. ELABORATE ON THIS SECTION.
+3. That all channels share the same rate or index. 
 
 ### Write Phase
 
 After all validation checks pass, the transaction enters the write phase. During this
 period, a user can write continuous frames of telemetry to the domain. These frames must
-be vertical i.e. all channels must have a single array specified, and all arrays must have
-the same number of samples. You can read more about frame alignment here.
+be vertical (i.e. all channels must have a single array specified), and all arrays must 
+have the same number of samples. You can read more about frame alignment here.
 
 These frames are assumed to be continuous by the database. To illustrate this, imagine
 we write the following frame:

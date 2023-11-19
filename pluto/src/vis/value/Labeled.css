@@ -11,8 +11,6 @@
 
 .pluto-value-labeled {
     width: fit-content;
-    min-width: 100px;
-    max-width: 125px;
 
     .pluto-text {
         white-space: normal;
@@ -21,16 +19,26 @@
         padding: 0 1rem;
     }
 
+    &.pluto--y .pluto-text {
+        min-width: 100px;
+        max-width: 125px;
+    }
+
+    &.pluto--x .pluto-text {
+        max-width: 175px;
+    }
+
     &.pluto--x {
         .pluto-value {
             width: 100px;
         }
     }
+
+    .pluto-value {
+        border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
+        border-radius: var(--pluto-border-radius);
+        position: relative;
+        min-width: 100px;
+    }
 }
 
-.pluto-value {
-    border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
-    border-radius: var(--pluto-border-radius);
-    position: relative;
-    width: 100%;
-}

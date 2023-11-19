@@ -39,6 +39,8 @@ export type Box = z.infer<typeof box>;
 export type CSS = z.infer<typeof cssBox>;
 export type DOMRect = z.infer<typeof domRect>;
 
+type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
+
 /** A box centered at (0,0) with a width and height of 0. */
 export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
 
@@ -119,19 +121,20 @@ export const construct = (
  * @param value - The point or box to check.
  * @returns true if the box inclusively contains the point or box and false otherwise.
  */
-export const contains = (b: Box, value: Box | xy.XY): boolean => {
+export const contains = (b: Crude, value: Box | xy.XY): boolean => {
+  const b_ = construct(b);
   if ("one" in value)
     return (
-      left(value) >= left(b) &&
-      right(value) <= right(b) &&
-      top(value) >= top(b) &&
-      bottom(value) <= bottom(b)
+      left(value) >= left(b_) &&
+      right(value) <= right(b_) &&
+      top(value) >= top(b_) &&
+      bottom(value) <= bottom(b_)
     );
   return (
-    value.x >= left(b) &&
-    value.x <= right(b) &&
-    value.y >= top(b) &&
-    value.y <= bottom(b)
+    value.x >= left(b_) &&
+    value.x <= right(b_) &&
+    value.y >= top(b_) &&
+    value.y <= bottom(b_)
   );
 };
 
@@ -171,28 +174,36 @@ export const css = (b: Box): CSS => ({
   height: height(b),
 });
 
-export const dim = (b: Box, dir: direction.Crude, signed: boolean = false): number => {
+export const dim = (
+  b: Crude,
+  dir: direction.Crude,
+  signed: boolean = false,
+): number => {
   const dim: number =
     direction.construct(dir) === "y" ? signedHeight(b) : signedWidth(b);
   return signed ? dim : Math.abs(dim);
 };
 
 /** @returns the pont corresponding to the given corner of the box. */
-export const xyLoc = (b: Box, l: location.XY): xy.XY => ({
-  x: l.x === "center" ? center(b).x : loc(b, l.x),
-  y: l.y === "center" ? center(b).y : loc(b, l.y),
-});
+export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
+  const b_ = construct(b);
+  return {
+    x: l.x === "center" ? center(b_).x : loc(b_, l.x),
+    y: l.y === "center" ? center(b_).y : loc(b_, l.y),
+  };
+};
 
 /**
  * @returns a one dimensional coordinate corresponding to the location of the given
  * side of the box i.e. the x coordinate of the left side, the y coordinate of the
  * top side, etc.
  */
-export const loc = (b: Box, loc: location.Location): number => {
-  const f = location.xyCouple(b.root).includes(loc) ? Math.min : Math.max;
+export const loc = (b: Crude, loc: location.Location): number => {
+  const b_ = construct(b);
+  const f = location.xyCouple(b_.root).includes(loc) ? Math.min : Math.max;
   return location.X_LOCATIONS.includes(loc as location.X)
-    ? f(b.one.x, b.two.x)
-    : f(b.one.y, b.two.y);
+    ? f(b_.one.x, b_.two.x)
+    : f(b_.one.y, b_.two.y);
 };
 
 export const locPoint = (b: Box, loc_: location.Location): xy.XY => {
@@ -206,43 +217,63 @@ export const isZero = (b: Box): boolean => {
   return b.one.x === b.two.x && b.one.y === b.two.y;
 };
 
-export const width = (b: Box): number => dim(b, "x");
+export const width = (b: Crude): number => dim(b, "x");
 
-export const height = (b: Box): number => dim(b, "y");
+export const height = (b: Crude): number => dim(b, "y");
 
-export const signedWidth = (b: Box): number => b.two.x - b.one.x;
+export const signedWidth = (b: Crude): number => {
+  const b_ = construct(b);
+  return b_.two.x - b_.one.x;
+};
 
-export const signedHeight = (b: Box): number => b.two.y - b.one.y;
+export const signedHeight = (b: Crude): number => {
+  const b_ = construct(b);
+  return b_.two.y - b_.one.y;
+};
 
-export const topLeft = (b: Box): xy.XY => xyLoc(b, location.TOP_LEFT);
+export const topLeft = (b: Crude): xy.XY => xyLoc(b, location.TOP_LEFT);
 
-export const topRight = (b: Box): xy.XY => xyLoc(b, location.TOP_RIGHT);
+export const topRight = (b: Crude): xy.XY => xyLoc(b, location.TOP_RIGHT);
 
-export const bottomLeft = (b: Box): xy.XY => xyLoc(b, location.BOTTOM_LEFT);
+export const bottomLeft = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_LEFT);
 
-export const bottomRight = (b: Box): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
+export const bottomRight = (b: Crude): xy.XY => xyLoc(b, location.BOTTOM_RIGHT);
 
-export const right = (b: Box): number => loc(b, "right");
+export const right = (b: Crude): number => loc(b, "right");
 
-export const bottom = (b: Box): number => loc(b, "bottom");
+export const bottom = (b: Crude): number => loc(b, "bottom");
 
-export const left = (b: Box): number => loc(b, "left");
+export const left = (b: Crude): number => loc(b, "left");
 
-export const top = (b: Box): number => loc(b, "top");
+export const top = (b: Crude): number => loc(b, "top");
 
-export const center = (b: Box): xy.XY =>
+export const center = (b: Crude): xy.XY =>
   xy.translate(topLeft(b), {
     x: signedWidth(b) / 2,
     y: signedHeight(b) / 2,
   });
 
-export const x = (b: Box): number => (b.root.x === "left" ? left(b) : right(b));
+export const x = (b: Crude): number => {
+  const b_ = construct(b);
+  return b_.root.x === "left" ? left(b_) : right(b_);
+};
 
-export const y = (b: Box): number => (b.root.y === "top" ? top(b) : bottom(b));
+export const y = (b: Crude): number => {
+  const b_ = construct(b);
+  return b_.root.y === "top" ? top(b_) : bottom(b_);
+};
 
-export const xBounds = (b: Box): bounds.Bounds => ({ lower: b.one.x, upper: b.two.x });
+export const root = (b: Crude): xy.XY => ({ x: x(b), y: y(b) });
 
-export const yBounds = (b: Box): bounds.Bounds => ({ lower: b.one.y, upper: b.two.y });
+export const xBounds = (b: Crude): bounds.Bounds => {
+  const b_ = construct(b);
+  return { lower: b_.one.x, upper: b_.two.x };
+};
+
+export const yBounds = (b: Crude): bounds.Bounds => {
+  const b_ = construct(b);
+  return { lower: b_.one.y, upper: b_.two.y };
+};
 
 export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
 
@@ -256,11 +287,11 @@ export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner
  * or not.
  */
 export const positionSoVisible = (
-  target: HTMLElement | Box,
-  bound: HTMLElement | Box,
+  target_: Crude,
+  bound_: Crude,
 ): [Box, boolean] => {
-  if (target instanceof HTMLElement) target = construct(target);
-  if (bound instanceof HTMLElement) bound = construct(bound);
+  const target = construct(target_);
+  const bound = construct(bound_);
   if (contains(bound, target)) return [target, false];
   let nextPos: xy.XY;
   if (right(target) > width(target))
@@ -277,11 +308,11 @@ export const positionSoVisible = (
  * @returns the repsoitioned box
  */
 export const positionInCenter = (
-  target: HTMLElement | Box,
-  bound: HTMLElement | Box,
+  target_: Crude,
+  bound_: Crude,
 ): Box => {
-  if (target instanceof HTMLElement) target = construct(target);
-  if (bound instanceof HTMLElement) bound = construct(bound);
+  const target = construct(target_);
+  const bound = construct(bound_);
   const x_ = x(bound) + (width(bound) - width(target)) / 2;
   const y_ = y(bound) + (height(bound) - height(target)) / 2;
   return construct({ x: x_, y: y_ }, dims(target));
