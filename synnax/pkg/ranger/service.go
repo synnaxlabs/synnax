@@ -133,10 +133,12 @@ func (s *Service) SetActiveRange(ctx context.Context, key uuid.UUID, tx gorp.Tx)
 	}
 	s.mu.Lock()
 	s.activeRange = key
-	s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
-		Variant: changex.Set,
-		Key:     key[:],
-	}})
+	if s.CDC != nil {
+		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
+			Variant: changex.Set,
+			Key:     key[:],
+		}})
+	}
 	s.mu.Unlock()
 	return nil
 }
@@ -151,10 +153,12 @@ func (s *Service) RetrieveActiveRange(ctx context.Context, tx gorp.Tx) (r Range,
 func (s *Service) ClearActiveRange(ctx context.Context) {
 	s.mu.Lock()
 	key := s.activeRange
-	s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
-		Variant: changex.Delete,
-		Key:     key[:],
-	}})
+	if s.CDC != nil {
+		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
+			Variant: changex.Delete,
+			Key:     key[:],
+		}})
+	}
 	s.activeRange = uuid.Nil
 	s.mu.Unlock()
 }

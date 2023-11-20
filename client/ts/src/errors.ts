@@ -113,7 +113,7 @@ const decode = (payload: ErrorPayload): Error | null => {
       return new AuthError(payload.data);
     case APIErrorType.Unexpected:
       return new UnexpectedError(payload.data);
-    case APIErrorType.Validation:
+    case APIErrorType.Validation: 
       return new ValidationError(payload.data);
     case APIErrorType.Query:
       return new QueryError(payload.data);

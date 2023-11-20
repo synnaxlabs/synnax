@@ -31,7 +31,7 @@ var (
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "channel Suite")
+	RunSpecs(t, "Channel Suite")
 }
 
 func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
