@@ -10,6 +10,7 @@
 package freighter
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"io"
@@ -26,18 +27,27 @@ var (
 	StreamClosed = ferrors.Typed(errors.New("[freighter] - stream closed"), freighterError)
 )
 
-func encodeErr(err error) string { return err.Error() }
+func encodeErr(_ context.Context, err error) (ferrors.Payload, bool) {
+	tErr, ok := err.(ferrors.Error)
+	if !ok || tErr.FreighterType() != freighterError {
+		return ferrors.Payload{}, false
+	}
+	return ferrors.Payload{Type: freighterError, Data: err.Error()}, true
+}
 
-func decodeErr(encoded string) error {
-	switch encoded {
+func decodeErr(ctx context.Context, pld ferrors.Payload) (error, bool) {
+	if pld.Type != freighterError {
+		return nil, false
+	}
+	switch pld.Data {
 	case EOF.Error():
-		return EOF
+		return EOF, true
 	case StreamClosed.Error():
-		return StreamClosed
+		return StreamClosed, true
 	}
 	panic("unknown error")
 }
 
 func init() {
-	ferrors.Register(freighterError, encodeErr, decodeErr)
+	ferrors.Register(encodeErr, decodeErr)
 }

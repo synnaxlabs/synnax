@@ -8,19 +8,25 @@ package api.v1;
 
 message Frame {
     repeated uint32 keys = 1;
-    repeated telem.Series series = 2;
+    repeated telempb.Series series = 2;
 }
 
-service FrameService {
-    rpc Iterate(stream FrameIteratorRequest) returns (stream FrameIteratorResponse) {}
-    rpc Write(stream FrameWriterRequest) returns (stream FrameWriterResponse) {}
-    rpc Stream(stream FrameStreamerRequest) returns (stream FrameStreamerResponse) {}
+service FrameIteratorService {
+    rpc Exec(stream FrameIteratorRequest) returns (stream FrameIteratorResponse) {}
+}
+
+service FrameWriterService {
+    rpc Exec(stream FrameWriterRequest) returns (stream FrameWriterResponse) {}
+}
+
+service FrameStreamerService {
+    rpc Exec(stream FrameStreamerRequest) returns (stream FrameStreamerResponse) {}
 }
 
 message FrameIteratorRequest {
     int32 command = 1;
     int64 span = 2;
-    telem.TimeRange range = 3;
+    telempb.TimeRange range = 3;
     int64 stamp = 4;
     repeated uint32 keys = 5;
 }

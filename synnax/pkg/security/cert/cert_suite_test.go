@@ -18,5 +18,5 @@ import (
 
 func TestCert(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cert Suite")
+	RunSpecs(t, "Security Cert Suite")
 }

@@ -137,10 +137,12 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
 	anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != s.controlStateKey })
-	if anyLeased {
+	now := telem.Now()
+	if anyLeased && !cfg.Start.IsZero() && cfg.Start.Before(now) {
 		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
-			Keys:   cfg.Keys,
-			Bounds: cfg.Start.Range(telem.Now().Add(5 * telem.Second)),
+			Keys: cfg.Keys,
+			// Read from just after now so we make sure we get all data.
+			Bounds: cfg.Start.Range(now.Add(5 * telem.Second)),
 		})
 		if err != nil {
 			return nil, err

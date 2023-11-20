@@ -38,7 +38,7 @@ const setResZ = z.unknown();
 
 const deleteReqZ = z.object({
   range: keyZ,
-  aliases: channelKeyZ.array(),
+  channels: channelKeyZ.array(),
 });
 
 const deleteResZ = z.unknown();
@@ -130,7 +130,7 @@ export class Aliaser {
       Aliaser.DELETE_ENDPOINT,
       {
         range: this.rangeKey,
-        aliases,
+        channels: aliases,
       },
       deleteResZ,
     );

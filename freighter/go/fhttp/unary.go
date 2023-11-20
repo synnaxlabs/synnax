@@ -60,7 +60,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	)
 	setResponseCtx(c, oMD)
 	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.Nil {
+	if fErr.Type == ferrors.TypeNil {
 		return encodeAndWrite(c, ecd, res)
 	}
 	c.Status(fiber.StatusBadRequest)

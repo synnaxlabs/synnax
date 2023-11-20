@@ -29,8 +29,8 @@ export class BaseTypedError extends Error implements TypedError {
   }
 }
 
-type ErrorDecoder = (encoded: string) => Error | null;
-type ErrorEncoder = (error: TypedError) => string;
+type ErrorDecoder = (encoded: ErrorPayload) => Error | null;
+type ErrorEncoder = (error: TypedError) => ErrorPayload | null;
 
 export const isTypedError = (error: unknown): error is TypedError => {
   if (error == null || typeof error !== "object") return false;
@@ -61,7 +61,7 @@ export const FREIGHTER = "freighter";
 
 export const errorZ = z.object({ type: z.string(), data: z.string() });
 
-export type ErrorZ = z.infer<typeof errorZ>;
+export type ErrorPayload = z.infer<typeof errorZ>;
 
 interface errorProvider {
   encode: ErrorEncoder;
@@ -69,33 +69,31 @@ interface errorProvider {
 }
 
 class Registry {
-  private readonly entries: Record<string, errorProvider>;
+  private readonly providers: errorProvider[] = [];
 
-  constructor() {
-    this.entries = {};
+  register(provider: errorProvider): void {
+    this.providers.push(provider);
   }
 
-  register(_type: string, provider: errorProvider): void {
-    if (_type in this.entries) {
-      throw new Error(`Error type ${_type} is already registered`);
-    }
-    this.entries[_type] = provider;
-  }
-
-  encode(error: unknown): ErrorZ {
+  encode(error: unknown): ErrorPayload {
     if (error == null) return { type: NONE, data: "" };
-    if (isTypedError(error) && this.entries[error.type] !== null)
-      return { type: error.type, data: this.entries[error.type].encode(error) };
+    if (isTypedError(error)) {
+      for (const provider of this.providers) {
+        const payload = provider.encode(error);
+        if (payload != null) return payload;
+      }
+    }
     return { type: UNKNOWN, data: JSON.stringify(error) };
   }
 
-  decode(payload?: ErrorZ | null): Error | null {
+  decode(payload?: ErrorPayload | null): Error | null {
     if (payload == null || payload.type === NONE) return null;
     if (payload.type === UNKNOWN) return new UnknownError(payload.data);
-    const provider = this.entries[payload.type];
-    return provider == null
-      ? new UnknownError(payload.data)
-      : provider.decode(payload.data);
+    for (const provider of this.providers) {
+      const error = provider.decode(payload);
+      if (error != null) return error;
+    }
+    return new UnknownError(payload.data);
   }
 }
 
@@ -110,14 +108,12 @@ const REGISTRY = new Registry();
  * @param decode - A function that decodes the error from a string.
  */
 export const registerError = ({
-  type,
   encode,
   decode,
 }: {
-  type: string;
   encode: ErrorEncoder;
   decode: ErrorDecoder;
-}): void => REGISTRY.register(type, { encode, decode });
+}): void => REGISTRY.register({ encode, decode });
 
 /**
  * Encodes an error into a payload that can be sent between a freighter server
@@ -125,7 +121,7 @@ export const registerError = ({
  * @param error - The error to encode.
  * @returns The encoded error.
  */
-export const encodeError = (error: unknown): ErrorZ => {
+export const encodeError = (error: unknown): ErrorPayload => {
   return REGISTRY.encode(error);
 };
 
@@ -137,7 +133,7 @@ export const encodeError = (error: unknown): ErrorZ => {
  * @param payload - The encoded error payload.
  * @returns The decoded error.
  */
-export const decodeError = (payload: ErrorZ): Error | null => {
+export const decodeError = (payload: ErrorPayload): Error | null => {
   return REGISTRY.decode(payload);
 };
 
@@ -177,15 +173,21 @@ export class Unreachable extends BaseTypedError implements TypedError {
   }
 }
 
+const FREIGHTER_ERROR_TYPE = "freighter";
+
 const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
-  if (error instanceof EOF) return "EOF";
-  if (error instanceof StreamClosed) return "StreamClosed";
-  if (error instanceof Unreachable) return "Unreachable";
+  if (error.type !== FREIGHTER) return null;
+  if (error instanceof EOF) return { type: FREIGHTER_ERROR_TYPE, data: "EOF" };
+  if (error instanceof StreamClosed)
+    return { type: FREIGHTER_ERROR_TYPE, data: "StreamClosed" };
+  if (error instanceof Unreachable)
+    return { type: FREIGHTER_ERROR_TYPE, data: "Unreachable" };
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
-const freighterErrorDecoder: ErrorDecoder = (encoded: string) => {
-  switch (encoded) {
+const freighterErrorDecoder: ErrorDecoder = (encoded: ErrorPayload) => {
+  if (encoded.type !== FREIGHTER_ERROR_TYPE) return null;
+  switch (encoded.data) {
     case "EOF":
       return new EOF();
     case "StreamClosed":
@@ -193,12 +195,11 @@ const freighterErrorDecoder: ErrorDecoder = (encoded: string) => {
     case "Unreachable":
       return new Unreachable();
     default:
-      throw new Error(`Unknown error type: ${encoded}`);
+      throw new Error(`Unknown error type: ${encoded.data}`);
   }
 };
 
 registerError({
-  type: FREIGHTER,
   encode: freighterErrorEncoder,
   decode: freighterErrorDecoder,
 });

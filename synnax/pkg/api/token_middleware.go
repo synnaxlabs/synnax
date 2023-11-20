@@ -28,21 +28,21 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
-	) (oMD freighter.Context, err error) {
+	) (freighter.Context, error) {
 		tk, _err := tryParseToken(ctx.Params)
-		if _err.Occurred() {
-			return oMD, _err
+		if _err != nil {
+			return ctx, _err
 		}
 		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
 		if err != nil {
-			return oMD, apierrors.Auth(err)
+			return ctx, apierrors.Auth(err)
 		}
 		setSubject(ctx.Params, user.OntologyID(userKey))
-		oMD, err = next(ctx)
+		oCtx, err := next(ctx)
 		if newTK != "" {
-			oMD.Params.Set(tokenRefreshHeader, newTK)
+			oCtx.Params.Set(tokenRefreshHeader, newTK)
 		}
-		return oMD, err
+		return oCtx, err
 	})
 }
 
@@ -56,10 +56,14 @@ var (
 	noAuthenticationParam = apierrors.Auth(errors.New("no authentication token provided"))
 )
 
-func tryParseToken(p freighter.Params) (string, apierrors.Typed) {
+func tryParseToken(p freighter.Params) (string, error) {
 	tkParam, ok := p.Get(fiber.HeaderAuthorization)
 	if !ok {
-		return "", noAuthenticationParam
+		// GRPC sends a lowercase header
+		tkParam, ok = p.Get(strings.ToLower(fiber.HeaderAuthorization))
+		if !ok {
+			return "", noAuthenticationParam
+		}
 	}
 	tkStr, ok := tkParam.(string)
 	if !ok {
@@ -72,7 +76,7 @@ func tryParseToken(p freighter.Params) (string, apierrors.Typed) {
 	if !ok {
 		return "", apierrors.Auth(errors.New("token not found"))
 	}
-	return tkStr, apierrors.Nil
+	return tkStr, nil
 }
 
 const subjectKey = "Subject"

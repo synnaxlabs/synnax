@@ -22,6 +22,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newFramer(&a))
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
+	transports = append(transports, newRanger(&a))
 
 	// AUTH
 	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
@@ -29,20 +30,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.AuthRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
 
 	// RANGE
-	a.RangeCreate = fnoop.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse]{}
-	a.RangeRetrieve = fnoop.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse]{}
-	a.RangeDelete = fnoop.UnaryServer[api.RangeDeleteRequest, types.Nil]{}
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
-	a.RangeKVGet = fnoop.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse]{}
-	a.RangeKVSet = fnoop.UnaryServer[api.RangeKVSetRequest, types.Nil]{}
-	a.RangeKVDelete = fnoop.UnaryServer[api.RangeKVDeleteRequest, types.Nil]{}
-	a.RangeAliasSet = fnoop.UnaryServer[api.RangeAliasSetRequest, types.Nil]{}
-	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
-	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
-	a.RangeAliasDelete = fnoop.UnaryServer[api.RangeAliasDeleteRequest, types.Nil]{}
-	a.RangeSetActive = fnoop.UnaryServer[api.RangeSetActiveRequest, types.Nil]{}
-	a.RangeRetrieveActive = fnoop.UnaryServer[types.Nil, api.RangeRetrieveActiveResponse]{}
-	a.RangeClearActive = fnoop.UnaryServer[types.Nil, types.Nil]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}

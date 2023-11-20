@@ -11,11 +11,12 @@ package password
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/synnax/pkg/auth/base"
 )
 
 var (
-	Invalid     = errors.New("[synnax] - invalid credentials")
-	InvalidHash = errors.New("[synnax] - invalid hash")
+	Invalid     = errors.Wrap(base.AuthError, "invalid credentials")
+	InvalidHash = errors.Wrap(base.AuthError, "invalid hash")
 )
 
 // Raw represents a raw password. It is not safe to store the raw password on disk.

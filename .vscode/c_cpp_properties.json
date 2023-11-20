@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Mac",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/freighter/cpp/freighter/**",
+                "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/client/cpp/synnax/**",
+                "/Users/emilianobonilla/Desktop/synnaxlabs/synnax/synnax/pkg/api/grpc/gen/",
+                "/Users/emilianobonilla/Desktop/Microsoft/vcpkg/installed/arm64-osx/include"
+            ],
+            "defines": [],
+            "macFrameworkPath": [
+                "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "macos-clang-arm64"
+        }
+    ],
+    "version": 4
+}

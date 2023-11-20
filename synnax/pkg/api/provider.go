@@ -10,7 +10,6 @@
 package api
 
 import (
-	"context"
 	"github.com/go-playground/validator/v10"
 	"github.com/synnaxlabs/synnax/pkg/access"
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
@@ -38,7 +37,7 @@ type Provider struct {
 func NewProvider(cfg Config) Provider {
 	p := Provider{Config: cfg}
 	p.Validation = validationProvider{validator: newValidator()}
-	p.db = dbProvider{db: gorp.Wrap(cfg.Storage.KV)}
+	p.db = dbProvider{DB: gorp.Wrap(cfg.Storage.KV)}
 	p.user = userProvider{user: cfg.User}
 	p.access = AccessProvider{enforcer: cfg.Enforcer}
 	p.auth = authProvider{token: cfg.Token, authenticator: cfg.Authenticator}
@@ -54,31 +53,16 @@ type validationProvider struct {
 
 // Validate validates the provided struct. If Validation is successful, returns errors.Nil,
 // otherwise, returns an errors.Validation error containing the fields that failed Validation.
-func (vp *validationProvider) Validate(v any) errors.Typed {
-	return errors.MaybeValidation(vp.validator.Struct(v))
+func (vp *validationProvider) Validate(v any) error {
+	if err := vp.validator.Struct(v); err != nil {
+		return errors.Validation(err)
+	}
+	return nil
 }
 
 // dbProvider provides exposes the cluster-wide key-value store to API services.
 type dbProvider struct {
-	db *gorp.DB
-}
-
-// WithTx wraps the provided function in a gorp transaction. If the function returns
-// errors.Nil, the transaction is committed. Otherwise, the transaction is aborted.
-// Returns errors.Nil if the commit process is successful. Returns an unexpected
-// error if the abort process fails; otherwise, returns the error returned by the provided
-// function.
-func (db dbProvider) WithTx(ctx context.Context, f func(tx gorp.Tx) errors.Typed) (tErr errors.Typed) {
-	return errors.MaybeUnexpected(db.db.WithTx(
-		ctx,
-		func(txn gorp.Tx) error {
-			tErr = f(txn)
-			if tErr == errors.Nil {
-				return nil
-			}
-			return tErr
-		},
-	))
+	*gorp.DB
 }
 
 // userProvider provides user information to services.

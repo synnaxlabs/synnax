@@ -10,6 +10,7 @@
 package ferrors_test
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,37 +26,35 @@ const (
 var (
 	MyCustomErrorOne = ferrors.Typed(errors.New("one"), MyCustomErrorType)
 	MyCustomErrorTwo = ferrors.Typed(errors.New("two"), MyCustomErrorType)
-	MyCustomNil      = ferrors.Typed(errors.New("nil"), MyCustomErrorType)
 )
 
-func encodeMyCustomError(err error) string {
-	return err.Error()
+func encodeMyCustomError(ctx context.Context, err error) (ferrors.Payload, bool) {
+	v, ok := err.(ferrors.Error)
+	if !ok || v.FreighterType() != MyCustomErrorType {
+		return ferrors.Payload{}, false
+	}
+	return ferrors.Payload{
+		Type: MyCustomErrorType,
+		Data: v.Error(),
+	}, true
 }
 
-func decodeMyCustomError(encoded string) error {
-	switch encoded {
+func decodeMyCustomError(ctx context.Context, encoded ferrors.Payload) (error, bool) {
+	if encoded.Type != MyCustomErrorType {
+		return nil, false
+	}
+	switch encoded.Data {
 	case MyCustomErrorOne.Error():
-		return MyCustomErrorOne
+		return MyCustomErrorOne, true
 	case MyCustomErrorTwo.Error():
-		return MyCustomErrorTwo
-	case MyCustomNil.Error():
-		return MyCustomNil
+		return MyCustomErrorTwo, true
 	}
 	panic("unknown error")
 }
 
-var _ = Describe("Ferrors", func() {
-	Describe("Name", func() {
-		It("Should register a custom error type correctly", func() {
-			Expect(func() {
-				ferrors.Register(MyCustomErrorType, encodeMyCustomError, decodeMyCustomError)
-			}).ToNot(Panic())
-		})
-		It("Should panic if the error type is already registered", func() {
-			Expect(func() {
-				ferrors.Register(MyCustomErrorType, encodeMyCustomError, decodeMyCustomError)
-			}).To(Panic())
-		})
+var _ = Describe("Ferrors", Ordered, func() {
+	BeforeAll(func() {
+		ferrors.Register(encodeMyCustomError, decodeMyCustomError)
 	})
 	Describe("Encode", func() {
 		It("Should encode a custom error type into a payload", func() {
@@ -63,23 +62,13 @@ var _ = Describe("Ferrors", func() {
 			Expect(pld.Type).To(Equal(MyCustomErrorType))
 			Expect(pld.Data).To(Equal(MyCustomErrorOne.Error()))
 		})
-		It("Should encode a nil error into a Nil typed payload", func() {
-			pld := ferrors.Encode(nil)
-			Expect(pld.Type).To(Equal(ferrors.Nil))
-			Expect(pld.Data).To(BeEmpty())
-		})
-		It("Should encode a custom nil type into a Nil typed payload", func() {
-			pld := ferrors.Encode(MyCustomNil)
-			Expect(pld.Type).To(Equal(ferrors.Nil))
-			Expect(pld.Data).To(BeEmpty())
-		})
 		It("Should encode an unknown error using cockroachdb's errors package", func() {
 			pld := ferrors.Encode(errors.New("unknown"))
-			Expect(pld.Type).To(Equal(ferrors.Roach))
+			Expect(pld.Type).To(Equal(ferrors.TypeRoach))
 		})
 		It("Should return an unknown error type if the error type is not registered", func() {
 			pld := ferrors.Encode(ferrors.Typed(errors.New("unknown"), UnregisteredErrorType))
-			Expect(pld.Type).To(Equal(ferrors.Unknown))
+			Expect(pld.Type).To(Equal(ferrors.TypeUnknown))
 		})
 	})
 	Describe("Decode", func() {
@@ -88,14 +77,16 @@ var _ = Describe("Ferrors", func() {
 			err := ferrors.Decode(pld)
 			Expect(err).To(Equal(MyCustomErrorOne))
 		})
-		It("Should decode a nil error from a Nil typed payload", func() {
+		It("Should decode a nil error from a TypeNil typed payload", func() {
 			pld := ferrors.Encode(nil)
 			err := ferrors.Decode(pld)
 			Expect(err).To(BeNil())
 		})
 		It("Should decode an unknown error using cockroachdb's errors package", func() {
 			pld := ferrors.Encode(errors.New("unknown"))
-			err := ferrors.Decode(pld)
+			pld2 := &ferrors.Payload{}
+			pld2.Unmarshal(pld.Error())
+			err := ferrors.Decode(*pld2)
 			Expect(err).To(HaveOccurredAs(errors.New("unknown")))
 		})
 	})

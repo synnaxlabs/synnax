@@ -18,5 +18,5 @@ import (
 
 func TestToken(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "token Suite")
+	RunSpecs(t, "Token Suite")
 }

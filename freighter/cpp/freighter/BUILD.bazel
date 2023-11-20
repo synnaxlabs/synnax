@@ -1,0 +1,11 @@
+cc_library(
+    name = "freighter",
+    srcs = [
+        "url.cpp",
+    ],
+    hdrs = ["freighter.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+    ],
+)
