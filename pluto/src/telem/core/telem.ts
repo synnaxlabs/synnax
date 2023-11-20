@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type bounds, type GLBufferController, type Series } from "@synnaxlabs/x";
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
+import { observe, type bounds, type Series, type UnknownRecord } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type color } from "@/color/core";
-import { type Status } from "@/status";
+import { type status } from "@/status/aether";
+import { prettyParse } from "@/util/zod";
 
 const transferrable = z.union([z.instanceof(ArrayBuffer)]);
 
@@ -41,131 +44,76 @@ export const xySourceSpecZ = specZ.extend({
 export type XYSourceSpec = z.infer<typeof xySourceSpecZ>;
 
 export interface Telem {
-  key: string;
-  type: string;
-  setProps: (props: any) => void;
-  cleanup: () => void;
-  invalidate: () => void;
+  cleanup?: () => void;
 }
 
-/**
- * A telemetry source that provides X and Y correlated data.
- */
-export interface XYSource extends Telem {
-  /**
-   * Resolves data for the X axis.
-   *
-   * @param gl - The GLBufferController to use for buffering the data into
-   * the GPU. Data can be cached by the source and only updated when it changes.
-   * The GLBufferController identity does not change throughought the lifetime of the
-   * source, and it remains attached to the same rendering context.
-   *
-   * @returns - series expected to have the same topology as the Y axis
-   * data i.e. the same number of arrays and the same length for each array.
-   */
-  x: (gl: GLBufferController) => Promise<Series[]>;
-  /**
-   * Resolves data for the Y axis.
-   *
-   * @param gl - The GLBufferController to use for buffering the data into
-   * the GPU. Data can be cached by the source and only updated when it changes.
-   * The GLBufferController identity does not change throughought the lifetime of the
-   * source, and it remains attached to the same rendering context.
-   *
-   * @returns - lazy arrays that are expected to have the same topology as the X axis
-   * data i.e. the same number of arrays and the same length for each array.
-   */
-  y: (gl: GLBufferController) => Promise<Series[]>;
-  /**
-   * @returns the maximum possible bound of the X axis data. This is useful for
-   * automatically scaling the X axis of a plot.
-   */
-  xBounds: () => Promise<bounds.Bounds>;
-  /**
-   * @returns the maximum possible bound of the Y axis data. This is useful for
-   * automatically scaling the Y axis of a plot.
-   */
-  yBounds: () => Promise<bounds.Bounds>;
-  /**
-   * Binds the provided callback to the source, and calls the callback whenever
-   * x or y data changes.
-   *
-   * @param f - The callback to bind to the source.
-   */
-  onChange: (f: () => void) => void;
+export interface Source<V> extends Telem, observe.Observable<void> {
+  value: () => Promise<V>;
 }
 
-export const numericSourceSpecZ = specZ.extend({
-  variant: z.literal("numeric-source"),
+export interface Sink<V> extends Telem {
+  set: (value: V) => Promise<void>;
+}
+
+export type SeriesSource = Source<[bounds.Bounds, Series[]]>;
+export const seriesSourceSpecZ = specZ.extend({
+  variant: z.literal("series-source"),
 });
+export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 
-export type NumericSourceSpec = z.infer<typeof numericSourceSpecZ>;
-
-export interface NumericSource extends Telem {
-  number: () => Promise<number>;
-  onChange: (f: () => void) => void;
-}
-
-export const stringSpecZ = specZ.extend({
-  variant: z.literal("string-source"),
-});
-
-export type StringSourceSpec = z.infer<typeof stringSpecZ>;
-
-export interface StringSource extends Telem {
-  string: () => Promise<string>;
-  onChange: (f: () => void) => void;
-}
-
-export const colorSourceSpecZ = specZ.extend({
-  variant: z.literal("color-source"),
-});
-
-export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
-
-export interface ColorSource extends Telem {
-  color: () => Promise<color.Color>;
-  onChange: (f: () => void) => void;
-}
-
+export type BooleanSource = Source<boolean>;
 export const booleanSourceSpecZ = specZ.extend({
   variant: z.literal("boolean-source"),
 });
-
 export type BooleanSourceSpec = z.infer<typeof booleanSourceSpecZ>;
 
-export interface BooleanSource extends Telem {
-  boolean: () => Promise<boolean>;
-  onChange: (f: () => void) => void;
-}
-
+export type BooleanSink = Sink<boolean>;
 export const booleanSinkSpecZ = specZ.extend({
   variant: z.literal("boolean-sink"),
 });
-
-export interface BooleanSink extends Telem {
-  setBoolean: (value: boolean) => Promise<void>;
-}
-
 export type BooleanSinkSpec = z.infer<typeof booleanSinkSpecZ>;
 
-export interface NumericSink extends Telem {
-  setNumber: (value: number) => Promise<void>;
-}
+export type NumericSource = Source<number>;
+export const numericSourceSpecZ = specZ.extend({
+  variant: z.literal("numeric-source"),
+});
+export type NumericSourceSpec = z.infer<typeof numericSourceSpecZ>;
 
+export type NumericSink = Sink<number>;
 export const numericSinkSpecZ = specZ.extend({
   variant: z.literal("numeric-sink"),
 });
-
 export type NumericSinkSpec = z.infer<typeof numericSinkSpecZ>;
 
+export type ColorSource = Source<color.Color>;
+export const colorSourceSpecZ = specZ.extend({
+  variant: z.literal("color-source"),
+});
+export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
+
+export type StatusSource = Source<status.Spec>;
 export const statusSourceSpecZ = specZ.extend({
   variant: z.literal("status-source"),
 });
-
 export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
 
-export interface StatusSource extends Telem {
-  status: () => Promise<Status.Spec>;
-  onChange: (f: () => void) => void;
+export class Base<P extends z.ZodTypeAny> extends observe.Observer<void> {
+  readonly props: z.output<P>;
+  schema: P | undefined = undefined;
+
+  constructor(props: unknown) {
+    super();
+    this.props = prettyParse(this._schema, props);
+  }
+
+  private get _schema(): P {
+    if (this.schema == null)
+      throw new ValidationError(
+        `[BaseTelem] - expected subclass to define props schema, but none was found.
+    Make sure to define a property 'schema' on the class.`,
+      );
+    return this.schema;
+  }
 }
+
+export class AbstractSource<P extends z.ZodTypeAny> extends Base<P> {}

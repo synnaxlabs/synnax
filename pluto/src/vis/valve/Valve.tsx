@@ -16,12 +16,12 @@ import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
-import { valve } from "@/vis/valve/aether";
+import { Toggle } from "@/vis/toggle";
 
 import "@/vis/valve/Valve.css";
 
 export interface ValveProps
-  extends Omit<z.input<typeof valve.valveStateZ>, "triggered" | "active">,
+  extends Toggle.UseProps,
     Omit<ComponentPropsWithoutRef<"button">, "color"> {
   color?: Color.Crude;
   label?: string;
@@ -34,7 +34,7 @@ const BASE_VALVE_DIMS: dimensions.Dimensions = {
 };
 
 export const Valve = Aether.wrap<ValveProps>(
-  valve.Valve.TYPE,
+  "Valve",
   ({
     aetherKey,
     color,
@@ -45,25 +45,14 @@ export const Valve = Aether.wrap<ValveProps>(
     direction: dir = "x",
     ...props
   }): ReactElement => {
-    const aetherProps = useMemoDeepEqualProps({ source, sink });
-
-    const [, { triggered, active }, setState] = Aether.use({
+    const { triggered, enabled, toggle } = Toggle.use({
+      source,
+      sink,
       aetherKey,
-      type: valve.Valve.TYPE,
-      schema: valve.valveStateZ,
-      initialState: {
-        triggered: false,
-        active: false,
-        ...aetherProps,
-      },
     });
-    useEffect(() => setState((state) => ({ ...state, ...aetherProps })), [aetherProps]);
-
-    const handleClick = (): void => {
-      setState((state) => ({ ...state, triggered: !state.triggered }));
-    };
 
     const dir_ = direction.construct(dir);
+
     const dims = dir_ === "y" ? dimensions.swap(BASE_VALVE_DIMS) : BASE_VALVE_DIMS;
 
     // @ts-expect-error -- React css doesn't recognize variables
@@ -74,10 +63,10 @@ export const Valve = Aether.wrap<ValveProps>(
           className,
           CSS.B("valve"),
           triggered && CSS.BM("valve", "triggered"),
-          active && CSS.BM("valve", "active"),
+          enabled && CSS.BM("valve", "active"),
           CSS.dir(dir_),
         )}
-        onClick={handleClick}
+        onClick={toggle}
         style={style}
         {...props}
       >

@@ -9,6 +9,7 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -33,7 +34,7 @@ export class Provider
   extends aether.Composite<typeof providerStateZ, InternalState>
   implements telem.Provider
 {
-  readonly telem = new Map<string, telem.Telem>();
+  equals: (other: telem.Provider) => boolean;
   client: client.Proxy = new client.Proxy();
   factory: CompoundTelemFactory = new CompoundTelemFactory([
     new bool.Factory(),
@@ -46,21 +47,14 @@ export class Provider
   static readonly stateZ = providerStateZ;
   schema = Provider.stateZ;
 
-  use<T>(key: string, spec: telem.Spec, extension?: Factory): telem.UseResult<T> {
+  create<T>(spec: telem.Spec): T {
     const { instrumentation: I } = this.internal;
-    let telem = this.telem.get(key);
-    if (telem != null) {
-      I.L.debug("updating telemetry source", { key, type: telem.type });
-      telem.setProps(spec.props);
-    } else telem = this.create(key, spec, extension);
-    return [telem as T, () => this.remove(key)];
-  }
-
-  private remove(key: string): void {
-    const { instrumentation: I } = this.internal;
-    const source = this.telem.get(key);
-    I.L.debug("removing telemetry source", { key, type: source?.type });
-    source?.cleanup();
+    I.L.debug("creating telem", { spec });
+    const telem = this.factory.create(spec);
+    if (telem == null)
+      throw new UnexpectedError(
+        `Telemetry service could not find a source for type ${spec.type}`,
+      );
   }
 
   afterUpdate(): void {
@@ -71,29 +65,7 @@ export class Provider
       I.L.info("swapping client", { client: client_ });
       this.client.swap(new client.Core(client_, this.internal.instrumentation));
     }
-    this.telem.forEach((t) => {
-      I.L.debug("invalidating telemetry source", { key: t.key, type: t.type });
-      t.invalidate();
-    });
     return telem.setProvider(this.ctx, this);
-  }
-
-  create<T>(key: string, spec: telem.Spec, extension?: Factory): T {
-    const { instrumentation: I } = this.internal;
-    I.L.debug("creating telemetry source", { key, spec });
-    // TODO: We might end up with a race condition here on concurrent creates.
-    if (extension != null) this.factory.factories.push(extension);
-    let telem = this.factory.create(key, spec, this.factory);
-    if (telem == null) {
-      telem = this.factory.create(key, spec, this.factory);
-      if (telem == null)
-        throw new UnexpectedError(
-          `Telemetry service could not find a source for type ${spec.type}`,
-        );
-    }
-    this.telem.set(key, telem);
-    if (extension != null) this.factory.factories = this.factory.factories.slice(0, -1);
-    return telem as T;
   }
 }
 

@@ -80,15 +80,15 @@ const Example = (): ReactElement => {
             location="right"
             showGrid
           >
-            <LinePlot.Line telem={telem} color="#F733FF" strokeWidth={2} label="Line" />
+            <LinePlot.Line x={telem} color="#F733FF" strokeWidth={2} label="Line" />
             <LinePlot.Line
-              telem={telem2}
+              x={telem2}
               color="#20e530"
               strokeWidth={2}
               label="Line 2"
             />
             <LinePlot.Line
-              telem={telem3}
+              x={telem3}
               color="#e54420"
               strokeWidth={2}
               label="Line 3"

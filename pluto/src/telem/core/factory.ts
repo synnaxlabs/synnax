@@ -10,7 +10,7 @@
 import { type telem } from "@/telem/core";
 
 export interface Factory {
-  create: (key: string, spec: telem.Spec, root: Factory) => telem.Telem | null;
+  create: (spec: telem.Spec) => telem.Telem | null;
 }
 
 export class CompoundTelemFactory {
@@ -22,9 +22,9 @@ export class CompoundTelemFactory {
     this.factories = factories;
   }
 
-  create(key: string, props: telem.Spec, root: Factory): telem.Telem | null {
+  create(props: telem.Spec): telem.Telem | null {
     for (const factory of this.factories) {
-      const telem = factory.create(key, props, root);
+      const telem = factory.create(props);
       if (telem != null) return telem;
     }
     return null;

@@ -39,7 +39,7 @@ const LINES: LineProps[] = [
   {
     key: "0",
     variant: "dynamic",
-    span: TimeSpan.seconds(5),
+    timeSpan: TimeSpan.seconds(5),
     axes: {
       x: "x",
       y: "y",

@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type Destructor, type Key, deep } from "@synnaxlabs/x";
+import { type Handler } from "@synnaxlabs/x/dist/observe/observe";
 
 import { type aether } from "@/aether/aether";
+import { type telem } from "@/telem/core";
 import { type Factory } from "@/telem/core/factory";
-import { type Spec } from "@/telem/core/telem";
+
+import { type Spec } from "./telem";
 
 export interface Provider {
   key: string;
-  use: <T>(key: string, props: Spec, extension?: Factory) => UseResult<T>;
+  equals: (other: Provider) => boolean;
+  create: <T>(props: Spec, extension?: Factory) => T;
 }
 
 const CONTEXT_KEY = "pluto-telem-context";
 
-export const getProvider = (ctx: aether.Context): Provider =>
+export const useProvider = (ctx: aether.Context): Provider =>
   ctx.get<Provider>(CONTEXT_KEY);
 
 export const setProvider = (ctx: aether.Context, prov: Provider): void =>
@@ -30,17 +34,99 @@ export const hijackProvider = (
   ctx: aether.Context,
   prov: Provider,
 ): Provider | null => {
-  const old = getProvider(ctx);
+  const old = useProvider(ctx);
   if (old.key === prov.key) return null;
   setProvider(ctx, prov);
   return old;
 };
 
-export const use = <T>(
+export const shouldUpdate = (
   ctx: aether.Context,
-  key: string,
-  props: Spec,
-  extension?: Factory,
-): UseResult<T> => getProvider(ctx).use<T>(key, props, extension);
+  prevProv: Provider,
+  spec: Spec,
+  prevSpec: Spec,
+): boolean => {
+  const nextProv = useProvider(ctx);
+  if (prevProv.key !== nextProv.key) return true;
+  if (prevProv.equals(nextProv)) return false;
+  if (deep.equal(spec, prevSpec)) return false;
+  return true;
+};
 
-export type UseResult<T> = [T, Destructor];
+class MemoizedSource<V> implements telem.Source<V> {
+  private readonly spec: Spec;
+  private readonly prov: Provider;
+  private readonly wrapped: telem.Source<V>;
+
+  constructor(wrapped: telem.Source<V>, prevProv: Provider, prevSpec: Spec) {
+    this.wrapped = wrapped;
+    this.spec = prevSpec;
+    this.prov = prevProv;
+  }
+
+  async value(): Promise<V> {
+    return await this.wrapped.value();
+  }
+
+  cleanup(): void {
+    this.wrapped.cleanup?.();
+  }
+
+  onChange(handler: Handler<void>): Destructor {
+    return this.wrapped.onChange(handler);
+  }
+
+  shouldUpdate(prov: Provider, spec: Spec): boolean {
+    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+  }
+}
+
+class MemoizedSink<V> implements telem.Sink<V> {
+  private readonly spec: Spec;
+  private readonly prov: Provider;
+  private readonly wrapped: telem.Sink<V>;
+
+  constructor(wrapped: telem.Sink<V>, prevProv: Provider, prevSpec: Spec) {
+    this.wrapped = wrapped;
+    this.spec = prevSpec;
+    this.prov = prevProv;
+  }
+
+  async set(value: V): Promise<void> {
+    return await this.wrapped.set(value);
+  }
+
+  cleanup(): void {
+    this.wrapped.cleanup?.();
+  }
+
+  shouldUpdate(prov: Provider, spec: Spec): boolean {
+    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+  }
+}
+
+export const useSource = <V>(
+  ctx: aether.Context,
+  spec: Spec,
+  prev: telem.Source<V>,
+): telem.Source<V> => {
+  const prov = useProvider(ctx);
+  if (prev instanceof MemoizedSource) {
+    if (!prev.shouldUpdate(prov, spec)) return prev;
+    prev.cleanup?.();
+  }
+  return new MemoizedSource<V>(prov.create(spec), prov, spec);
+};
+
+export const useSink = <V>(
+  ctx: aether.Context,
+  spec: Spec,
+  prev: telem.Sink<V>,
+): telem.Sink<V> => {
+  const prov = useProvider(ctx);
+  if (prev instanceof MemoizedSink) {
+    if (!prev.shouldUpdate(prov, spec)) return prev;
+    prev.cleanup?.();
+  }
+  return new MemoizedSink<V>(prov.create(spec), prov, spec);
+};

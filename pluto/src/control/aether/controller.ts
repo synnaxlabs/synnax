@@ -27,7 +27,8 @@ import { StateProvider } from "@/control/aether/state";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/core";
-import { TelemMeta } from "@/telem/core/base";
+
+import { Base } from "@/telem/core/base";
 
 export const STATUSES = ["acquired", "released", "overridden", "failed"] as const;
 export const statusZ = z.enum(STATUSES);
@@ -214,8 +215,8 @@ export class Controller
     }
   }
 
-  use<T>(key: string, spec: telem.Spec): telem.UseResult<T> {
-    return this.internal.parentTelemProv.use<T>(key, spec, this);
+  create<T>(key: string, spec: telem.Spec): telem.UseResult<T> {
+    return this.internal.parentTelemProv.create<T>(key, spec, this);
   }
 }
 
@@ -226,7 +227,7 @@ export const numericSinkProps = z.object({
 export type NumericSinkProps = z.infer<typeof numericSinkProps>;
 
 export class NumericSink
-  extends TelemMeta<typeof numericSinkProps>
+  extends Base<typeof numericSinkProps>
   implements telem.NumericSink, AetherControllerTelem
 {
   static readonly TYPE = "controlled-numeric-telem-sink";
@@ -274,7 +275,7 @@ export const acquireSinkPropsZ = z.object({
 export type AcquireSinkProps = z.infer<typeof acquireSinkPropsZ>;
 
 export class AcquireSink
-  extends TelemMeta<typeof acquireSinkPropsZ>
+  extends Base<typeof acquireSinkPropsZ>
   implements telem.BooleanSink, AetherControllerTelem
 {
   static readonly TYPE = "controlled-authority-sink";
@@ -314,7 +315,7 @@ export const authoritySourceProps = z.object({
 export type AuthoritySourceProps = z.infer<typeof authoritySourceProps>;
 
 export class AuthoritySource
-  extends TelemMeta<typeof authoritySourceProps>
+  extends Base<typeof authoritySourceProps>
   implements telem.StatusSource, telem.ColorSource, AetherControllerTelem
 {
   static readonly TYPE = "controlled-status-source";

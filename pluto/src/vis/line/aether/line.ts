@@ -32,7 +32,8 @@ import { render } from "@/vis/render";
 const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export const stateZ = z.object({
-  telem: telem.xySourceSpecZ,
+  x: telem.seriesSourceSpecZ,
+  y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
   color: color.Color.z,
   strokeWidth: z.number().default(1),
@@ -164,7 +165,8 @@ export class Context extends render.GLProgram {
 interface InternalState {
   instrumentation: Instrumentation;
   prog: Context;
-  telem: telem.XYSource;
+  xTelem: telem.SeriesSource;
+  yTelem: telem.SeriesSource;
   cleanupTelem: Destructor;
   requestRender: render.RequestF;
 }
@@ -174,17 +176,28 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
-    const [t, cleanupTelem] = telem.use<telem.XYSource>(
+    const [x, cleanupX] = telem.use<telem.SeriesSource>(
       this.ctx,
       this.key,
-      this.state.telem,
+      this.state.x,
     );
+    this.internal.xTelem = x;
+    const [y, cleanupY] = telem.use<telem.SeriesSource>(
+      this.ctx,
+      this.key,
+      this.state.y,
+    );
+    this.internal.yTelem = y;
+    this.internal.cleanupTelem = () => {
+      cleanupX();
+      cleanupY();
+    };
     this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "line");
-    this.internal.telem = t;
-    this.internal.cleanupTelem = cleanupTelem;
     this.internal.prog = Context.use(this.ctx);
     this.internal.requestRender = render.Controller.useRequest(this.ctx);
-    this.internal.telem.onChange(() => this.internal.requestRender(render.REASON_DATA));
+    this.internal.xTelem.onChange(() =>
+      this.internal.requestRender(render.REASON_DATA),
+    );
     this.internal.requestRender(render.REASON_LAYOUT);
   }
 
@@ -194,16 +207,18 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    return await this.internal.telem.xBounds();
+    const [b] = await this.internal.xTelem.value();
+    return b;
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    return await this.internal.telem.yBounds();
+    const [b] = await this.internal.yTelem.value();
+    return b;
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {
-    const { telem, prog } = this.internal;
-    const data = await telem.x(prog.ctx.gl);
+    const { xTelem } = this.internal;
+    const [, data] = await xTelem.value();
     let [index, series] = [-1, -1];
     data.find((x, i) => {
       const v = x.binarySearch(target);
@@ -224,10 +239,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   async render(props: LineProps): Promise<void> {
     const { downsample } = this.state;
-    const { telem, prog } = this.internal;
+    const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    const xData = await telem.x(prog.ctx.gl);
-    const yData = await telem.y(prog.ctx.gl);
+    const [, xData] = await xTelem.value();
+    xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
+    const [, yData] = await yTelem.value();
+    yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
     const ops = buildDrawOperations(xData, yData, downsample);
     this.internal.instrumentation.L.debug("render", {
       key: this.key,
@@ -247,9 +264,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   private async xyValue(series: number, index: number): Promise<xy.XY> {
-    const { telem, prog } = this.internal;
-    const x = await telem.x(prog.ctx.gl);
-    const y = await telem.y(prog.ctx.gl);
+    const { xTelem, yTelem } = this.internal;
+    const [, x] = await xTelem.value();
+    const [, y] = await yTelem.value();
     return xy.construct(
       this.getValue(series, index, x),
       this.getValue(series, index, y),

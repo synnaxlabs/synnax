@@ -56,12 +56,12 @@ export interface BaseLineProps {
 
 export interface StaticLineProps extends BaseLineProps {
   variant: "static";
-  range: TimeRange;
+  timeRange: TimeRange;
 }
 
 export interface DynamicLineProps extends BaseLineProps {
   variant: "dynamic";
-  span: TimeSpan;
+  timeSpan: TimeSpan;
 }
 
 export type LineProps = StaticLineProps | DynamicLineProps;
@@ -314,20 +314,26 @@ const Line = ({ line }: { line: LineProps }): ReactElement =>
 const DynamicLine = ({
   line: {
     key,
-    span,
+    timeSpan,
     channels: { x, y },
     ...props
   },
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const telem = Remote.useDynamicXYSource({ span, x, y });
-  return <Core.Line aetherKey={key} telem={telem} {...props} />;
+  const yTelem = Remote.dynamicSeriesSource({ timeSpan, channel: y });
+  const hasX = x != null && x !== 0;
+  const xTelem = Remote.dynamicSeriesSource({
+    timeSpan,
+    channel: hasX ? x : y,
+    index: !hasX,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };
 
 const StaticLine = ({
   line: {
-    range,
+    timeRange,
     key,
     channels: { x, y },
     ...props
@@ -335,6 +341,12 @@ const StaticLine = ({
 }: {
   line: StaticLineProps;
 }): ReactElement => {
-  const telem = Remote.useXYSource({ timeRange: range, x, y });
-  return <Core.Line aetherKey={key} telem={telem} {...props} />;
+  const yTelem = Remote.seriesSource({ timeRange, channel: y });
+  const hasX = x != null && x !== 0;
+  const xTelem = Remote.seriesSource({
+    timeRange,
+    channel: hasX ? x : y,
+    index: !hasX,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

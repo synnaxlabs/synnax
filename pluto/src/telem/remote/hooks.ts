@@ -13,27 +13,27 @@ import {
   type NumericSourceProps as RemoteTelemNumericProps,
 } from "@/telem/remote/aether/numeric";
 import {
-  type XYSourceProps as RemoteTelemXYProps,
-  type DynamicXYSourceProps as RemoteTelemDynamicXyProps,
-  XYSource,
-  DynamicXYSource,
-} from "@/telem/remote/aether/xy";
+  type DynamicSeriesSourceProps,
+  SeriesSource,
+  type SeriesSourceProps,
+  DynamicSeriesSource,
+} from "@/telem/remote/aether/series";
 
-export const useXYSource = (props: RemoteTelemXYProps): telem.XYSourceSpec => {
+export const seriesSource = (props: SeriesSourceProps): telem.SeriesSourceSpec => {
   return {
-    type: XYSource.TYPE,
+    type: SeriesSource.TYPE,
     props,
-    variant: "xy-source",
+    variant: "series-source",
   };
 };
 
-export const useDynamicXYSource = (
-  props: RemoteTelemDynamicXyProps,
-): telem.XYSourceSpec => {
+export const dynamicSeriesSource = (
+  props: DynamicSeriesSourceProps,
+): telem.SeriesSourceSpec => {
   return {
-    type: DynamicXYSource.TYPE,
+    type: DynamicSeriesSource.TYPE,
     props,
-    variant: "xy-source",
+    variant: "series-source",
   };
 };
 

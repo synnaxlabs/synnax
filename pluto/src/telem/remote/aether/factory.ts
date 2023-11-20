@@ -10,13 +10,13 @@
 import { type client } from "@/telem/client";
 import { type telem } from "@/telem/core";
 import { NumericSource } from "@/telem/remote/aether/numeric";
-import { DynamicXYSource, XYSource } from "@/telem/remote/aether/xy";
+import { DynamicSeriesSource, SeriesSource } from "@/telem/remote/aether/series";
 
-type Constructor = new (key: string, client: client.Client) => telem.Telem;
+type Constructor = new (client: client.Client, props: unknown) => telem.Telem;
 
 const REGISTRY: Record<string, Constructor> = {
-  [XYSource.TYPE]: XYSource,
-  [DynamicXYSource.TYPE]: DynamicXYSource,
+  [SeriesSource.TYPE]: SeriesSource,
+  [DynamicSeriesSource.TYPE]: DynamicSeriesSource,
   [NumericSource.TYPE]: NumericSource,
 };
 
@@ -26,10 +26,9 @@ export class Factory implements telem.Factory {
     this.client = client;
   }
 
-  create(key: string, props: telem.Spec): telem.Telem | null {
-    if (!(props.type in REGISTRY)) return null;
-    const t = new REGISTRY[props.type](key, this.client);
-    t.setProps(props.props);
+  create(spec: telem.Spec): telem.Telem | null {
+    if (!(spec.type in REGISTRY)) return null;
+    const t = new REGISTRY[spec.type](this.client, spec.props);
     return t;
   }
 }

@@ -17,20 +17,17 @@ import {
 import { z } from "zod";
 
 import { type Client, type StreamHandler } from "@/telem/client/client";
-import { type telem } from "@/telem/core";
-import { TelemMeta } from "@/telem/core/base";
+import { telem } from "@/telem/core";
 
 export const numericProps = z.object({
   channel: z.number(),
-  units: z.string().optional().default(""),
-  precision: z.number().optional().default(2),
 });
 
 export type NumericSourceProps = z.infer<typeof numericProps>;
 
 export class NumericSource
-  extends TelemMeta<typeof numericProps>
-  implements telem.NumericSource, telem.StringSource
+  extends telem.AbstractSource<typeof numericProps>
+  implements telem.NumericSource
 {
   removeStreamHandler: Destructor | null = null;
 
@@ -42,14 +39,9 @@ export class NumericSource
   private leadingBuffer: Series | null = null;
   private readonly client: Client;
 
-  constructor(key: string, client: Client) {
-    super("numericSource", key);
+  constructor(client: Client, props: unknown) {
+    super(props);
     this.client = client;
-  }
-
-  async string(): Promise<string> {
-    const v = (await this.number()).toFixed(this.props.precision);
-    return `${v} ${this.props.units}`;
   }
 
   cleanup(): void {
@@ -57,18 +49,9 @@ export class NumericSource
     this.valid = false;
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
-    super.cleanup();
   }
 
-  invalidate(): void {
-    this.valid = false;
-    this.removeStreamHandler?.();
-    this.leadingBuffer = null;
-    this.removeStreamHandler = null;
-    this.notify?.();
-  }
-
-  async number(): Promise<number> {
+  async value(): Promise<number> {
     if (this.props.channel === 0) return 0;
     if (!this.valid) await this.read();
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
@@ -87,7 +70,7 @@ export class NumericSource
     await this.updateStreamHandler();
   }
 
-  async updateStreamHandler(): Promise<void> {
+  private async updateStreamHandler(): Promise<void> {
     this.removeStreamHandler?.();
     const { channel } = this.props;
     const handler: StreamHandler = (data) => {
@@ -96,11 +79,5 @@ export class NumericSource
       this.notify?.();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);
-  }
-
-  setProps(props: any): void {
-    super.setProps(props);
-    if (this.propsDeepEqual) return;
-    this.invalidate();
   }
 }

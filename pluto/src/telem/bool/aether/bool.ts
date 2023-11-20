@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
+import { type Key, Destructor, type Key, bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { telem } from "@/telem/core";
-import { TelemMeta } from "@/telem/core/base";
+
+import { Base } from "@/telem/core/base";
 
 export class Factory implements telem.Factory {
   create(key: string, spec: telem.Spec, root: Factory): telem.Telem | null {
@@ -46,7 +47,7 @@ const numericConverterSinkProps = z.object({
 export type NumericConverterSinkProps = z.infer<typeof numericConverterSinkProps>;
 
 export class NumericConverterSink
-  extends TelemMeta<typeof numericConverterSinkProps>
+  extends Base<typeof numericConverterSinkProps>
   implements telem.BooleanSink
 {
   static readonly propsZ = numericConverterSinkProps;
@@ -59,7 +60,12 @@ export class NumericConverterSink
   constructor(key: string, wrap: telem.NumericSink) {
     super(NumericConverterSink.TYPE, key);
     this.wrapped = wrap;
+    set: (value: boolean) => Promise<void>;
+    props: Partial<Record<Key, unknown>>;
   }
+
+  set: (value: boolean) => Promise<void>;
+  props: Partial<Record<Key, unknown>>;
 
   invalidate(): void {
     this.wrapped.invalidate();
@@ -88,7 +94,7 @@ const numericConverterSourceProps = z.object({
 export type NumericConverterSourceProps = z.infer<typeof numericConverterSourceProps>;
 
 export class NumericConverterSource
-  extends TelemMeta<typeof numericConverterSourceProps>
+  extends Base<typeof numericConverterSourceProps>
   implements telem.BooleanSource
 {
   wrapped: telem.NumericSource;
@@ -106,7 +112,14 @@ export class NumericConverterSource
     this.wrapped.onChange(() => {
       void this.update();
     });
+    value: () => Promise<boolean>;
+    props: Partial<Record<Key, unknown>>;
+    onChange: (handler: Handler<void>) => Destructor;
   }
+
+  value: () => Promise<boolean>;
+  props: Partial<Record<Key, unknown>>;
+  onChange: (handler: Handler<void>) => Destructor;
 
   invalidate(): void {
     this.wrapped.invalidate();
