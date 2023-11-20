@@ -12,27 +12,19 @@ import {
   type Middleware,
   registerError,
   Unreachable,
+  type ErrorPayload,
 } from "@synnaxlabs/freighter";
-import { z } from "zod";
 
-const _FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors";
-
-const APIErrorPayloadSchema = z.object({
-  type: z.string(),
-  error: z.record(z.unknown()).or(z.array(z.unknown())),
-});
-
-type APIErrorPayload = z.infer<typeof APIErrorPayloadSchema>;
+const _FREIGHTER_EXCEPTION_PREFIX = "sy.api.";
 
 enum APIErrorType {
-  General = "general",
-  Nil = "nil",
-  Parse = "parse",
-  Auth = "auth",
-  Unexpected = "unexpected",
-  Validation = "validation",
-  Query = "query",
-  Route = "route",
+  General = _FREIGHTER_EXCEPTION_PREFIX + "general",
+  Parse = _FREIGHTER_EXCEPTION_PREFIX + "parse",
+  Auth = _FREIGHTER_EXCEPTION_PREFIX + "auth",
+  Unexpected = _FREIGHTER_EXCEPTION_PREFIX + "unexpected",
+  Validation = _FREIGHTER_EXCEPTION_PREFIX + "validation",
+  Query = _FREIGHTER_EXCEPTION_PREFIX + "query",
+  Route = _FREIGHTER_EXCEPTION_PREFIX + "route",
 }
 
 export interface Field {
@@ -42,7 +34,7 @@ export interface Field {
 
 class BaseError extends BaseTypedError {
   constructor(message: string) {
-    super(message, _FREIGHTER_EXCEPTION_TYPE);
+    super(message, _FREIGHTER_EXCEPTION_PREFIX);
   }
 }
 
@@ -110,41 +102,33 @@ export class RouteError extends BaseError {
  */
 export class ContiguityError extends BaseError {}
 
-const messageErrorZ = z.object({ message: z.string() });
-const routeErrorZ = z.object({ path: z.string(), message: z.string() });
-
-const parsePayload = (payload: APIErrorPayload): Error | null => {
+const decode = (payload: ErrorPayload): Error | null => {
+  if (!payload.type.startsWith(_FREIGHTER_EXCEPTION_PREFIX)) return null;
   switch (payload.type) {
     case APIErrorType.General:
-      return new GeneralError(messageErrorZ.parse(payload.error).message);
+      return new GeneralError(payload.data);
     case APIErrorType.Parse:
-      return new ParseError(messageErrorZ.parse(payload.error).message);
+      return new ParseError(payload.data);
     case APIErrorType.Auth:
-      return new AuthError(messageErrorZ.parse(payload.error).message);
+      return new AuthError(payload.data);
     case APIErrorType.Unexpected:
-      return new UnexpectedError(JSON.stringify(payload.error));
-    case APIErrorType.Validation:
-      return new ValidationError(payload.error as string | Field[]);
+      return new UnexpectedError(payload.data);
+    case APIErrorType.Validation: 
+      return new ValidationError(payload.data);
     case APIErrorType.Query:
-      return new QueryError(messageErrorZ.parse(payload.error).message);
-    case APIErrorType.Route: {
-      const err = routeErrorZ.parse(payload.error);
-      return new RouteError(err.message, err.path);
-    }
+      return new QueryError(payload.data);
+    case APIErrorType.Route:
+      return new RouteError(payload.data, payload.data);
     default:
-      return null;
+      return new UnexpectedError(payload.data);
   }
 };
 
-const decode = (encoded: string): Error | null => {
-  return parsePayload(APIErrorPayloadSchema.parse(JSON.parse(encoded)));
-};
-
-const encode = (): string => {
+const encode = (): ErrorPayload => {
   throw new Error("Not implemented");
 };
 
-registerError({ type: _FREIGHTER_EXCEPTION_TYPE, encode, decode });
+registerError({ encode, decode });
 
 export const validateFieldNotNull = (
   key: string,

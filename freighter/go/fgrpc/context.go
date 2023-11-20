@@ -71,6 +71,6 @@ func attachContext(ctx freighter.Context) freighter.Context {
 			toAppend = append(toAppend, k, vStr)
 		}
 	}
-	ctx.Context = metadata.AppendToOutgoingContext(ctx, toAppend...)
+	ctx.Context = metadata.AppendToOutgoingContext(ctx.Context, toAppend...)
 	return ctx
 }

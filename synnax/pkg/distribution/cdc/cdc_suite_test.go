@@ -19,9 +19,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCdc(t *testing.T) {
+func TestCDC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cdc Suite")
+	RunSpecs(t, "CDC Suite")
 }
 
 var (

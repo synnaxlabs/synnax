@@ -15,8 +15,11 @@ import { CONTENT_TYPE_HEADER_KEY } from "@/http";
 import { MiddlewareCollector, type Context } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
-const resolveWebSocketConstructor = (): typeof WebSocket =>
-  runtime.RUNTIME === "node" ? require("ws") : WebSocket;
+const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {
+  if (runtime.RUNTIME !== "node") return (t) => new WebSocket(t);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return (t) => new (require("ws").WebSocket)(t, { rejectUnauthorized: false });
+};
 
 const MessageSchema = z.object({
   type: z.union([z.literal("data"), z.literal("close")]),
@@ -158,7 +161,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     const [, error] = await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
       async (ctx: Context): Promise<[Context, Error | null]> => {
-        const ws = new SocketConstructor(this.buildURL(target, ctx));
+        const ws = SocketConstructor(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
         const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);

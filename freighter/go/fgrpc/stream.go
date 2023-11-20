@@ -57,7 +57,9 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 	oCtx, err := s.MiddlewareCollector.Exec(
 		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
-			return freighter.Context{Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
+			return freighter.Context{
+				Context:  md.Context,
+				Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
 		}),
 	)
 	oCtx = attachContext(oCtx)

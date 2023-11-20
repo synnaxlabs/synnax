@@ -265,7 +265,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
 
 					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))
-					if errPayload.Type == ferrors.Nil {
+					if errPayload.Type == ferrors.TypeNil {
 						errPayload = ferrors.Encode(freighter.EOF)
 					}
 
@@ -321,7 +321,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		}))
 	setResponseCtx(c, oCtx)
 	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.Nil {
+	if fErr.Type == ferrors.TypeNil {
 		return nil
 	}
 	c.Status(fiber.StatusBadRequest)

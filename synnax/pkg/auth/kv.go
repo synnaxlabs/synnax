@@ -114,7 +114,7 @@ func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {
 func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
 	exists, err := w.service.exists(ctx, w.tx, user)
 	if exists {
-		return errors.New("[auth] - username already registered")
+		return errors.Wrap(Error, "username already registered")
 	}
 	return err
 }

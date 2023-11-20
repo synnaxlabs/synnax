@@ -17,8 +17,13 @@ func TranslateTimeRangeForward(tr telem.TimeRange) *TimeRange {
 	return &TimeRange{Start: int64(tr.Start), End: int64(tr.End)}
 }
 
-func TranslateTimeRangeBackward(tr *TimeRange) telem.TimeRange {
-	return telem.TimeRange{Start: telem.TimeStamp(tr.Start), End: telem.TimeStamp(tr.End)}
+func TranslateTimeRangeBackward(tr *TimeRange) (otr telem.TimeRange) {
+	if tr == nil {
+		return otr
+	}
+	otr.Start = telem.TimeStamp(tr.Start)
+	otr.End = telem.TimeStamp(tr.End)
+	return
 }
 
 func TranslateSeriesForward(s telem.Series) *Series {

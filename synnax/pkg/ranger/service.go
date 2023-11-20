@@ -13,12 +13,16 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"io"
 	"sync"
@@ -56,10 +60,11 @@ func (c Config) Override(other Config) Config {
 
 type Service struct {
 	Config
-	group       group.Group
-	cdc         io.Closer
-	mu          sync.Mutex
-	activeRange uuid.UUID
+	group                 group.Group
+	cdc                   io.Closer
+	mu                    sync.Mutex
+	activeRange           uuid.UUID
+	activeRangeObservable observe.Observer[[]changex.Change[[]byte, struct{}]]
 }
 
 const groupName = "Ranges"
@@ -88,7 +93,17 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.cdc = xio.MultiCloser{rangeCDC, aliasCDC}
+		s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
+		activeRangeCDC, err := cfg.CDC.SubscribeToObservable(ctx, cdc.ObservableConfig{
+			Name:       "sy_active_range",
+			Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
+			Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
+			Observable: s.activeRangeObservable,
+		})
+		if err != nil {
+			return nil, err
+		}
+		s.cdc = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
 	}
 	return s, err
 }
@@ -118,6 +133,12 @@ func (s *Service) SetActiveRange(ctx context.Context, key uuid.UUID, tx gorp.Tx)
 	}
 	s.mu.Lock()
 	s.activeRange = key
+	if s.CDC != nil {
+		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
+			Variant: changex.Set,
+			Key:     key[:],
+		}})
+	}
 	s.mu.Unlock()
 	return nil
 }
@@ -129,8 +150,15 @@ func (s *Service) RetrieveActiveRange(ctx context.Context, tx gorp.Tx) (r Range,
 	return r, err
 }
 
-func (s *Service) ClearActiveRange() {
+func (s *Service) ClearActiveRange(ctx context.Context) {
 	s.mu.Lock()
+	key := s.activeRange
+	if s.CDC != nil {
+		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
+			Variant: changex.Delete,
+			Key:     key[:],
+		}})
+	}
 	s.activeRange = uuid.Nil
 	s.mu.Unlock()
 }

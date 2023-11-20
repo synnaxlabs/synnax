@@ -1,0 +1,13 @@
+cc_library(
+    name = "telem",
+    srcs = ["telem.cpp"],
+    hdrs = [
+        "control.h",
+        "series.h",
+        "telem.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@telem_protos//telempb:telem_grpc",
+    ],
+)

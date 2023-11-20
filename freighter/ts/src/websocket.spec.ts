@@ -11,8 +11,14 @@ import { URL, binary } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { BaseTypedError, EOF, TypedError, registerError } from "@/errors";
-import { Context } from "@/middleware";
+import {
+  BaseTypedError,
+  EOF,
+  type TypedError,
+  registerError,
+  type ErrorPayload,
+} from "@/errors";
+import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
 const url = new URL({
@@ -36,20 +42,20 @@ class MyCustomError extends BaseTypedError {
   }
 }
 
-const encodeTestError = (err: TypedError): string => {
+const encodeTestError = (err: TypedError): ErrorPayload => {
   if (!(err instanceof MyCustomError)) {
     throw new Error("Unexpected error type");
   }
-  return `${err.code},${err.message}`;
+  return { type: "integration.error", data: `${err.code},${err.message}` };
 };
 
-const decodeTestError = (encoded: string): TypedError => {
-  const [code, message] = encoded.split(",");
+const decodeTestError = (encoded: ErrorPayload): TypedError | null => {
+  if (encoded.type !== "integration.error") return null;
+  const [code, message] = encoded.data.split(",");
   return new MyCustomError(message, parseInt(code, 10));
 };
 
 registerError({
-  type: "integration.error",
   encode: encodeTestError,
   decode: decodeTestError,
 });
@@ -74,9 +80,9 @@ describe("websocket", () => {
     const stream = await client.stream(
       "stream/sendMessageAfterClientClose",
       MessageSchema,
-      MessageSchema
+      MessageSchema,
     );
-    await stream.closeSend();
+    stream.closeSend();
     let [response, error] = await stream.receive();
     expect(error).toBeNull();
     expect(response?.id).toEqual(0);
@@ -89,7 +95,7 @@ describe("websocket", () => {
     const stream = await client.stream(
       "stream/receiveAndExitWithErr",
       MessageSchema,
-      MessageSchema
+      MessageSchema,
     );
     stream.send({ id: 0, message: "hello" });
     const [response, error] = await stream.receive();

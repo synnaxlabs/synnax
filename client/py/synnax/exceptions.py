@@ -13,7 +13,7 @@ from enum import Enum
 
 import freighter
 
-_FREIGHTER_EXCEPTION_TYPE = "synnax.api.errors"
+_FREIGHTER_EXCEPTION_PREFIX = "sy.api."
 
 
 @dataclass
@@ -22,21 +22,14 @@ class Field:
     message: str
 
 
-@dataclass
-class APIExceptionPayload:
-    type: str | None
-    error: dict
-
-
 class APIErrorType(Enum):
-    GENERAL = "general"
-    NIL = "nil"
-    PARSE = "parse"
-    AUTH = "auth"
-    UNEXPECTED = "unexpected"
-    VALIDATION = "validation"
-    QUERY = "query"
-    ROUTE = "route"
+    GENERAL = _FREIGHTER_EXCEPTION_PREFIX + "general"
+    PARSE = _FREIGHTER_EXCEPTION_PREFIX + "parse"
+    AUTH = _FREIGHTER_EXCEPTION_PREFIX + "auth"
+    UNEXPECTED = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
+    VALIDATION = _FREIGHTER_EXCEPTION_PREFIX + "validation"
+    QUERY = _FREIGHTER_EXCEPTION_PREFIX + "query"
+    ROUTE = _FREIGHTER_EXCEPTION_PREFIX + "route"
 
 
 class ValidationError(Exception):
@@ -139,55 +132,37 @@ class RouteError(Exception):
         self.path = path
 
 
-def parse_payload(pld: APIExceptionPayload) -> Exception | None:
-    """
-    Parse an error from a dictionary response.
-    """
-
-    if type(pld) == dict:
-        raise UnexpectedError(f"Unknown error type {pld}")
-
-    if pld.type is None:
-        raise ValueError(f"{pld} is not a valid error payload")
-
-    if pld.type == APIErrorType.NIL.value:
+def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
+    print(encoded)
+    if not encoded.type.startswith(_FREIGHTER_EXCEPTION_PREFIX):
         return None
 
-    if pld.error is None:
-        raise ValueError(f"{pld} is not a valid error payload")
+    if encoded.type == APIErrorType.GENERAL.value:
+        return GeneralError(encoded.data)
 
-    if pld.type == APIErrorType.GENERAL.value:
-        return GeneralError(pld.error["message"])
+    if encoded.type == APIErrorType.PARSE.value:
+        return ParseError(encoded.data)
 
-    if pld.type == APIErrorType.PARSE.value:
-        return ParseError(pld.error["message"])
+    if encoded.type == APIErrorType.AUTH.value:
+        return AuthError(encoded.data)
 
-    if pld.type == APIErrorType.AUTH.value:
-        return AuthError(pld.error["message"])
+    if encoded.type == APIErrorType.UNEXPECTED.value:
+        return UnexpectedError(encoded.data)
 
-    if pld.type == APIErrorType.UNEXPECTED.value:
-        return UnexpectedError(pld.error)
+    if encoded.type == APIErrorType.VALIDATION.value:
+        return ValidationError(encoded.data)
 
-    if pld.type == APIErrorType.VALIDATION.value:
-        return ValidationError(pld.error)
+    if encoded.type == APIErrorType.QUERY.value:
+        return QueryError(encoded.data)
 
-    if pld.type == APIErrorType.QUERY.value:
-        return QueryError(pld.error["message"])
+    if encoded.type == APIErrorType.ROUTE.value:
+        return RouteError(encoded.data)
 
-    if pld.type == APIErrorType.ROUTE.value:
-        return RouteError(pld.error["path"], pld.error["message"])
-
-    return Exception("unable to parse error")
+    return UnexpectedError(encoded.data)
 
 
-def _decode(encoded: str) -> Exception | None:
-    dct = json.loads(encoded)
-    pld = APIExceptionPayload(**dct)
-    return parse_payload(pld)
-
-
-def _encode(err: Exception) -> str:
+def _encode(err: Exception) -> freighter.ExceptionPayload | None:
     raise NotImplemented
 
 
-freighter.register_exception(_FREIGHTER_EXCEPTION_TYPE, _encode, _decode)
+freighter.register_exception(_encode, _decode)

@@ -39,21 +39,21 @@ type WorkspaceCreateResponse struct {
 	Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
 }
 
-func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err errors.Typed) {
+func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
 	userKey, err_ := user.FromOntologyID(getSubject(ctx))
 	if err_ != nil {
 		return res, errors.Unexpected(err_)
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		for _, w := range req.Workspaces {
 			w.Author = userKey
 			err := s.internal.NewWriter(tx).Create(ctx, &w)
 			if err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 			res.Workspaces = append(res.Workspaces, w)
 		}
-		return errors.Nil
+		return nil
 	})
 }
 
@@ -62,10 +62,9 @@ type WorkspaceRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-		return errors.MaybeQuery(err)
+func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
 
@@ -74,10 +73,9 @@ type WorkspaceSetLayoutRequest struct {
 	Layout string    `json:"layout" msgpack:"layout"`
 }
 
-func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
-		return errors.MaybeQuery(err)
+func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
 	})
 }
 
@@ -96,7 +94,7 @@ type WorkspaceRetrieveResponse struct {
 func (s *WorkspaceService) Retrieve(
 	ctx context.Context,
 	req WorkspaceRetrieveRequest,
-) (res WorkspaceRetrieveResponse, err errors.Typed) {
+) (res WorkspaceRetrieveResponse, err error) {
 	q := s.internal.NewRetrieve().Search(req.Search)
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -110,7 +108,7 @@ func (s *WorkspaceService) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	err = errors.MaybeQuery(q.Entries(&res.Workspaces).Exec(ctx, nil))
+	err = q.Entries(&res.Workspaces).Exec(ctx, nil)
 	return res, err
 }
 
@@ -118,9 +116,8 @@ type WorkspaceDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err errors.Typed) {
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
-		err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-		return errors.MaybeQuery(err)
+func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }

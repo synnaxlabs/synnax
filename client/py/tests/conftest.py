@@ -23,6 +23,7 @@ def client() -> synnax.Synnax:
         port=9090,
         username="synnax",
         password="seldon",
+        secure=False,
     )
 
 

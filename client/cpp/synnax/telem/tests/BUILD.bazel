@@ -1,0 +1,12 @@
+cc_test(
+    name = "test_series",
+    size = "small",
+    srcs = [
+        "test_series.cpp",
+        "test_telem.cpp",
+    ],
+    deps = [
+        "//synnax/telem",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

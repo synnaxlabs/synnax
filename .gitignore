@@ -72,3 +72,6 @@ synnax-data/**
 **/.ijwb/
 **/.aswb/
 **/.clwb/
+
+# |||| TLS ||||
+**/certs*/**

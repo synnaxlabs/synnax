@@ -15,6 +15,7 @@ import { HTTPClient } from "@/http";
 
 const ENDPOINT = new URL({
   host: "127.0.0.1",
+  protocol: "http",
   port: 8080,
   pathPrefix: "unary",
 });
@@ -26,7 +27,7 @@ const messageZ = z.object({
   message: z.string().optional(),
 });
 
-describe("http", () => {
+describe.only("http", () => {
   test("echo", async () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/echo",

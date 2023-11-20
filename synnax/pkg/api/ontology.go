@@ -12,7 +12,6 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -54,17 +53,17 @@ type OntologyRetrieveResponse struct {
 func (o *OntologyService) Retrieve(
 	ctx context.Context,
 	req OntologyRetrieveRequest,
-) (res OntologyRetrieveResponse, err errors.Typed) {
+) (res OntologyRetrieveResponse, err error) {
 	res.Resources = []ontology.Resource{}
 	if req.Term != "" {
 		var _err error
 		res.Resources, _err = o.Ontology.Search(ctx, search.Request{
 			Term: req.Term,
 		})
-		return res, errors.MaybeQuery(_err)
+		return res, _err
 	}
 
-	if err := o.Validate(req); err.Occurred() {
+	if err := o.Validate(req); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
 	q := o.Ontology.NewRetrieve().
@@ -83,7 +82,7 @@ func (o *OntologyService) Retrieve(
 	}
 	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
 
-	return res, errors.MaybeQuery(q.Entries(&res.Resources).Exec(ctx, nil))
+	return res, q.Entries(&res.Resources).Exec(ctx, nil)
 }
 
 type OntologyCreateGroupRequest struct {
@@ -98,15 +97,15 @@ type OntologyCreateGroupResponse struct {
 func (o *OntologyService) CreateGroup(
 	ctx context.Context,
 	req OntologyCreateGroupRequest,
-) (res OntologyCreateGroupResponse, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res OntologyCreateGroupResponse, err error) {
+	if err = o.Validate(req); err != nil {
 		return OntologyCreateGroupResponse{}, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
 		g, err_ := w.Create(ctx, req.Name, req.Parent)
 		res.Group = g
-		return errors.MaybeQuery(err_)
+		return err_
 	})
 }
 
@@ -117,13 +116,13 @@ type OntologyDeleteGroupRequest struct {
 func (o *OntologyService) DeleteGroup(
 	ctx context.Context,
 	req OntologyDeleteGroupRequest,
-) (res types.Nil, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res types.Nil, err error) {
+	if err = o.Validate(req); err != nil {
 		return res, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
-		return errors.MaybeQuery(w.Delete(ctx, req.Keys...))
+		return w.Delete(ctx, req.Keys...)
 	})
 }
 
@@ -135,13 +134,13 @@ type OntologyRenameGroupRequest struct {
 func (o *OntologyService) RenameGroup(
 	ctx context.Context,
 	req OntologyRenameGroupRequest,
-) (res types.Nil, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res types.Nil, err error) {
+	if err = o.Validate(req); err != nil {
 		return res, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
-		return errors.MaybeQuery(w.Rename(ctx, req.Key, req.Name))
+		return w.Rename(ctx, req.Key, req.Name)
 	})
 }
 
@@ -153,18 +152,18 @@ type OntologyAddChildrenRequest struct {
 func (o *OntologyService) AddChildren(
 	ctx context.Context,
 	req OntologyAddChildrenRequest,
-) (res types.Nil, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res types.Nil, err error) {
+	if err = o.Validate(req); err != nil {
 		return res, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 		}
-		return errors.Nil
+		return nil
 	})
 }
 
@@ -176,18 +175,18 @@ type OntologyRemoveChildrenRequest struct {
 func (o *OntologyService) RemoveChildren(
 	ctx context.Context,
 	req OntologyRemoveChildrenRequest,
-) (res types.Nil, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res types.Nil, err error) {
+	if err = o.Validate(req); err != nil {
 		return res, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 		}
-		return errors.Nil
+		return nil
 	})
 }
 
@@ -200,20 +199,20 @@ type OntologyMoveChildrenRequest struct {
 func (o *OntologyService) MoveChildren(
 	ctx context.Context,
 	req OntologyMoveChildrenRequest,
-) (res types.Nil, err errors.Typed) {
-	if err = o.Validate(req); err.Occurred() {
+) (res types.Nil, err error) {
+	if err = o.Validate(req); err != nil {
 		return res, err
 	}
-	return res, o.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.Ontology.NewWriter(tx)
 		for _, child := range req.Children {
 			if err := w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 			if err := w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
-				return errors.MaybeQuery(err)
+				return err
 			}
 		}
-		return errors.Nil
+		return nil
 	})
 }

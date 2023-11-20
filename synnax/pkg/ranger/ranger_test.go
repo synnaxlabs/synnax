@@ -182,7 +182,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
-			svc.ClearActiveRange()
+			svc.ClearActiveRange(ctx)
 			_, err := svc.RetrieveActiveRange(ctx, tx)
 			Expect(err).To(HaveOccurred())
 		})
