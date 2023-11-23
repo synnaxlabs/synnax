@@ -35,6 +35,7 @@ export const crudeZ = z.union([
 /** A crude representation of a {@link XY} coordinate. */
 export type Crude = z.infer<typeof crudeZ>;
 
+
 /**
  * @constructs XY
  * @param x - A crude representation of the XY coordinate as a number, number couple,

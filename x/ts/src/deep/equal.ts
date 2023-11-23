@@ -15,8 +15,6 @@ type DeepEqualBaseRecord = UnknownRecord | {
 }
 
 export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[]>(a: T, b: T): boolean => {
-  if ("equals" in a) 
-    return (a.equals as (other: any) => boolean)(b);
   const aIsArray = Array.isArray(a);
   const bIsArray = Array.isArray(b);
   if (aIsArray !== bIsArray) return false;
@@ -30,6 +28,8 @@ export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Pr
     return true;
   }
   if (typeof a !== "object" || typeof b !== "object") return a === b;
+  if ("equals" in a) 
+    return (a.equals as (other: any) => boolean)(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;

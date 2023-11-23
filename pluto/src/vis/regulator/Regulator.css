@@ -10,10 +10,3 @@
  */
 
 
-.pluto-regulator {
-    width: 75px;
-
-    & * {
-        stroke-width: var(--pluto-pid-element-stroke-width);
-    }
-}

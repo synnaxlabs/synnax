@@ -27,7 +27,7 @@ import { type FieldValues, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { ConnectionStatusBadge, statusVariants } from "@/cluster/Badges";
+import { statusVariants } from "@/cluster/Badges";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
@@ -81,7 +81,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
         key: state.clusterKey,
         name,
         props: data as SynnaxProps,
-      })
+      }),
     );
     dispatch(setActive(state.clusterKey));
     onClose();
@@ -113,31 +113,40 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
               placeholder="My Synnax Cluster"
               control={c}
               autoFocus
-            />
+            >
+              {(p) => <Input.Text {...p} />}
+            </Input.ItemControlled>
             <Align.Space direction="x">
               <Input.ItemControlled
                 name="host"
                 placeholder="localhost"
                 control={c}
                 grow
-              />
+              >
+                {(p) => <Input.Text {...p} />}
+              </Input.ItemControlled>
               <Input.ItemControlled
                 name="port"
                 type="number"
                 placeholder="9090"
                 control={c}
                 className={CSS.BE("input", "port")}
-              />
+              >
+                {(p) => <Input.Text {...p} />}
+              </Input.ItemControlled>
             </Align.Space>
-            <Input.ItemControlled name="username" placeholder="Harry" control={c} />
+            <Input.ItemControlled name="username" placeholder="Harry" control={c}>
+              {(p) => <Input.Text {...p} />}
+            </Input.ItemControlled>
             <Align.Space direction="x">
               <Input.ItemControlled
                 name="password"
                 placeholder="Seldon"
-                type="password"
                 control={c}
                 className={CSS.BE("input", "password")}
-              />
+              >
+                {(p) => <Input.Text {...p} type="password" />}
+              </Input.ItemControlled>
               <Input.ItemControlled<boolean, boolean, Input.SwitchProps>
                 name="secure"
                 control={c}

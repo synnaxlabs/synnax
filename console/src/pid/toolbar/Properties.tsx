@@ -9,14 +9,29 @@
 
 import { type ReactElement } from "react";
 
-import { Status, Color, Input, Align, PIDElement } from "@synnaxlabs/pluto";
+import {
+  Status,
+  type PID,
+  Color,
+  Input,
+  Align,
+  PIDSymbols,
+  Button,
+} from "@synnaxlabs/pluto";
+import { box } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { type ElementInfo, useSelectSelectedElementsProps } from "@/pid/selectors";
-import { setElementProps } from "@/pid/slice";
+import {
+  type ElementInfo,
+  useSelectSelectedElementsProps,
+  type NodeElementInfo,
+} from "@/pid/selectors";
+import { setElementProps, setNodes } from "@/pid/slice";
 
 import "@/pid/toolbar/Properties.css";
+
+import { o } from "node_modules/@tauri-apps/api/dialog-20ff401c";
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -50,7 +65,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       groups[hex].push(e);
     });
     return (
-      <Align.Space className={CSS.B("pid-properties")} size="small">
+      <Align.Space className={CSS.B("pid-properties-multi")} size="small" align="start">
         <Input.Label>Selection Colors</Input.Label>
         {Object.entries(groups).map(([hex, elements]) => {
           return (
@@ -82,7 +97,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
     );
   }
 
-  const C = PIDElement.REGISTRY[selected.props.type];
+  const C = PIDSymbols.registry[selected.props.variant];
 
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">
@@ -92,4 +107,48 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       />
     </Align.Space>
   );
+};
+
+export const fromCSSTransform = (transform: string): XY => {
+  const [x, y] = transform
+    .replace("translate(", "")
+    .replace(")", "")
+    .split(",")
+    .map((s) => parseFloat(s));
+  return { x, y };
+};
+
+export const alignItems = (elements: ElementInfo[]): PID.Node[] => {
+  const nodes = elements.filter((e) => e.type === "node") as NodeElementInfo[];
+  const edges = elements.filter((e) => e.type === "edge");
+  const htmlElements = nodes
+    .map((n) => document.querySelector(`[data-id="${n.key}"]`))
+    .filter((e) => e !== null) as HTMLElement[];
+
+  const handlePositions = htmlElements.map((e, i) => {
+    const node = nodes[i];
+    console.log(nodes[i].node.position, box.top(box.construct(e)));
+    const right = e.querySelector(".react-flow__handle-right");
+    // const left = e.querySelector(".react-flow__handle-left");
+    const els = [right].filter((e) => e !== null) as HTMLElement[];
+    // reduce average box.center
+    const avg =
+      els.reduce((acc, handle) => acc + box.center(box.construct(handle)).y, 0) /
+        els.length -
+      box.top(box.construct(e));
+    return avg + node.node.position.y;
+  });
+  const overallAverage =
+    handlePositions.reduce((acc, y, i) => acc + y) / htmlElements.length;
+  return nodes.map((n, i) => {
+    const delta = handlePositions[i] - n.node.position.y;
+    const next = {
+      ...n.node,
+      position: {
+        ...n.node.position,
+        y: overallAverage - delta,
+      },
+    };
+    return next;
+  });
 };

@@ -22,7 +22,7 @@ import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { Remote } from "@/telem/remote";
+import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { LinePlot as Core } from "@/vis/lineplot";
@@ -321,9 +321,9 @@ const DynamicLine = ({
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const yTelem = Remote.dynamicSeriesSource({ timeSpan, channel: y });
+  const yTelem = telem.streamChannelData({ timeSpan, channel: y });
   const hasX = x != null && x !== 0;
-  const xTelem = Remote.dynamicSeriesSource({
+  const xTelem = telem.streamChannelData({
     timeSpan,
     channel: hasX ? x : y,
     index: !hasX,
@@ -341,9 +341,9 @@ const StaticLine = ({
 }: {
   line: StaticLineProps;
 }): ReactElement => {
-  const yTelem = Remote.seriesSource({ timeRange, channel: y });
+  const yTelem = telem.channelData({ timeRange, channel: y });
   const hasX = x != null && x !== 0;
-  const xTelem = Remote.seriesSource({
+  const xTelem = telem.channelData({
     timeRange,
     channel: hasX ? x : y,
     index: !hasX,

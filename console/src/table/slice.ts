@@ -108,7 +108,6 @@ export const { actions, reducer } = createSlice({
       positions.forEach((pos, i) => {
         const cell = t.rows[pos.y].cells[pos.x];
         cell.props = { ...cell.props, ...props[i] };
-        console.log(cell.props, props);
       });
     },
   },

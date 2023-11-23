@@ -21,12 +21,12 @@ const { Left, Right, Top, Bottom } = Position;
 
 interface ElementProps extends Omit<Button.ButtonProps, "children" | "sink"> {
   label: string;
-  sink: Control.NumericSinkProps;
+  sink: Control.SetChannelValueProps;
 }
 
 const Element = ({ label, sink, ...props }: Props<ElementProps>): ReactElement => {
   const sinkN = Control.useNumericSink(sink);
-  const sinkB = Bool.useNumericConverterSink({
+  const sinkB = Bool.setpoint({
     wrap: sinkN,
     truthy: 1,
     falsy: 0,

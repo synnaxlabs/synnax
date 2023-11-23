@@ -87,6 +87,9 @@ const MainUnderContext = (): ReactElement => {
       workerURL={WorkerURL}
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
+      alamos={{
+        include: ["provider"],
+      }}
     >
       <Vis.Canvas>
         <Layout.Window />

@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { dimensions, direction } from "@synnaxlabs/x";
-import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps } from "@/memo";
 import { Toggle } from "@/vis/toggle";
 
 import "@/vis/valve/Valve.css";
@@ -45,16 +43,9 @@ export const Valve = Aether.wrap<ValveProps>(
     direction: dir = "x",
     ...props
   }): ReactElement => {
-    const { triggered, enabled, toggle } = Toggle.use({
-      source,
-      sink,
-      aetherKey,
-    });
-
+    const { triggered, enabled, toggle } = Toggle.use({ source, sink, aetherKey });
     const dir_ = direction.construct(dir);
-
     const dims = dir_ === "y" ? dimensions.swap(BASE_VALVE_DIMS) : BASE_VALVE_DIMS;
-
     // @ts-expect-error -- React css doesn't recognize variables
     if (color != null) style[CSS.var("base-color")] = new Color.Color(color).rgbString;
     return (

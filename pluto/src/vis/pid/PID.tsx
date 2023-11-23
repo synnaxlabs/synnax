@@ -121,6 +121,7 @@ const EDITABLE_PROPS: ReactFlowProps = {
   nodesDraggable: true,
   nodesConnectable: true,
   elementsSelectable: true,
+  zoomOnDoubleClick: false,
 };
 
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
@@ -367,7 +368,7 @@ const Core = Aether.wrap<PIDProps>(
             defaultViewport={translateViewportForward(viewport)}
             snapToGrid={false}
             minZoom={0.5}
-            maxZoom={1}
+            maxZoom={1.1}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[5, 5]}
             proOptions={{
@@ -375,6 +376,10 @@ const Core = Aether.wrap<PIDProps>(
             }}
             {...editableProps}
             {...props}
+            style={{
+              [CSS.var("pid-zoom")]: viewport.zoom,
+              ...props.style,
+            }}
           >
             {children}
           </ReactFlow>

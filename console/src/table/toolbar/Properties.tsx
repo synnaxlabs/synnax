@@ -23,8 +23,6 @@ export interface PropertiesProps {
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const cells = useSelectSelectedCells(layoutKey);
   const d = useDispatch();
-  console.log("PROPERTIES");
-  console.log(cells);
 
   if (cells.length === 0)
     return (
@@ -44,8 +42,6 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
       }),
     );
   };
-
-  console.log(Spec);
 
   return (
     <Align.Space size="small">

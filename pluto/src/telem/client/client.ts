@@ -87,7 +87,7 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * set, all operations will throw an error.
  */
 export class Proxy implements Client {
-  private _client: Client | null = null;
+  readonly _client: Client | null = null;
 
   swap(client: Client | null): void {
     this._client?.close();

@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { useMemoDeepEqualProps } from "@/memo";
 import { toggle } from "@/vis/toggle/aether";
 
 export interface UseProps
@@ -24,7 +25,8 @@ export interface UseReturn
   toggle: () => void;
 }
 
-export const use = ({ aetherKey }: UseProps): UseReturn => {
+export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
+  const memoProps = useMemoDeepEqualProps({ source, sink });
   const [, { triggered, enabled }, setState] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,
@@ -32,8 +34,14 @@ export const use = ({ aetherKey }: UseProps): UseReturn => {
     initialState: {
       triggered: false,
       enabled: false,
+      ...memoProps,
     },
   });
+
+  useEffect(
+    () => setState((state) => ({ ...state, ...memoProps })),
+    [memoProps, setState],
+  );
 
   const handleToggle = useCallback(
     () =>

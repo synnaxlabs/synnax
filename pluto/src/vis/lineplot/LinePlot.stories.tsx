@@ -11,7 +11,7 @@ import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Static } from "@/telem/static";
+import { staticTelem } from "@/telem/aether/static";
 import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/lineplot/tooltip/Tooltip";
@@ -41,15 +41,15 @@ const yData3 = Float32Array.from(
   (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400,
 );
 const Example = (): ReactElement => {
-  const telem = Static.useStaticXY({
+  const telem = staticTelem.useStaticXY({
     x: [xData],
     y: [yData],
   });
-  const telem2 = Static.useStaticXY({
+  const telem2 = staticTelem.useStaticXY({
     x: [xData2],
     y: [yData2],
   });
-  const telem3 = Static.useStaticXY({
+  const telem3 = staticTelem.useStaticXY({
     x: [xData3],
     y: [yData3],
   });

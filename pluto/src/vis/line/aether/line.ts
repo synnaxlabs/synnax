@@ -11,7 +11,6 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
   DataType,
   bounds,
-  type Destructor,
   type box,
   scale,
   xy,
@@ -24,7 +23,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { color } from "@/color/core";
-import { telem } from "@/telem/core";
+import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import VERT_SHADER from "@/vis/line/aether/vert.glsl?raw";
 import { render } from "@/vis/render";
@@ -167,7 +166,6 @@ interface InternalState {
   prog: Context;
   xTelem: telem.SeriesSource;
   yTelem: telem.SeriesSource;
-  cleanupTelem: Destructor;
   requestRender: render.RequestF;
 }
 
@@ -176,44 +174,30 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
-    const [x, cleanupX] = telem.use<telem.SeriesSource>(
-      this.ctx,
-      this.key,
-      this.state.x,
-    );
-    this.internal.xTelem = x;
-    const [y, cleanupY] = telem.use<telem.SeriesSource>(
-      this.ctx,
-      this.key,
-      this.state.y,
-    );
-    this.internal.yTelem = y;
-    this.internal.cleanupTelem = () => {
-      cleanupX();
-      cleanupY();
-    };
-    this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "line");
-    this.internal.prog = Context.use(this.ctx);
-    this.internal.requestRender = render.Controller.useRequest(this.ctx);
-    this.internal.xTelem.onChange(() =>
-      this.internal.requestRender(render.REASON_DATA),
-    );
-    this.internal.requestRender(render.REASON_LAYOUT);
+    const { internal: i } = this;
+    i.xTelem = telem.useSource(this.ctx, this.state.x, i.xTelem);
+    i.yTelem = telem.useSource(this.ctx, this.state.y, i.yTelem);
+    i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
+    i.prog = Context.use(this.ctx);
+    i.requestRender = render.Controller.useRequest(this.ctx);
+    i.xTelem.onChange(() => i.requestRender(render.REASON_DATA));
+    i.yTelem.onChange(() => i.requestRender(render.REASON_DATA));
+    i.requestRender(render.REASON_LAYOUT);
   }
 
   afterDelete(): void {
-    this.internal.cleanupTelem();
-    this.internal.requestRender(render.REASON_LAYOUT);
+    const { internal: i } = this;
+    i.xTelem.cleanup?.();
+    i.yTelem.cleanup?.();
+    i.requestRender(render.REASON_LAYOUT);
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.xTelem.value();
-    return b;
+    return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.yTelem.value();
-    return b;
+    return (await this.internal.yTelem.value())[0];
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {
@@ -283,7 +267,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  if (strokeWidth <= 1) return new Float32Array([0, 0]);
   return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );

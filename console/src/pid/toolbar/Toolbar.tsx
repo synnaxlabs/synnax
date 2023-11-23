@@ -17,8 +17,8 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { useSelect, useSelectControlStatus, useSelectToolbar } from "@/pid/selectors";
 import { type ToolbarTab, setActiveToolbarTab, setEditable } from "@/pid/slice";
-import { Elements } from "@/pid/toolbar/Elements";
 import { PropertiesControls } from "@/pid/toolbar/Properties";
+import { Symbols } from "@/pid/toolbar/Symbols";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -26,8 +26,8 @@ export interface ToolbarProps {
 
 const TABS = [
   {
-    tabKey: "elements",
-    name: "Elements",
+    tabKey: "symbols",
+    name: "Symbols",
   },
   {
     tabKey: "properties",
@@ -69,8 +69,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     ({ tabKey }: Tabs.Tab): ReactElement => {
       if (!pid.editable) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
-        case "elements":
-          return <Elements layoutKey={layoutKey} />;
+        case "symbols":
+          return <Symbols layoutKey={layoutKey} />;
         default:
           return <PropertiesControls layoutKey={layoutKey} />;
       }
@@ -88,21 +88,19 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   if (pid == null) return null;
 
   return (
-    <Align.Space empty style={{ height: "100%" }}>
-      <Tabs.Provider
-        value={{
-          tabs: TABS,
-          selected: toolbar.activeTab,
-          onSelect: handleTabSelect,
-          content,
-        }}
-      >
-        <ToolbarHeader>
-          <ToolbarTitle icon={<Icon.PID />}>{name}</ToolbarTitle>
-          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
-        </ToolbarHeader>
-        <Tabs.Content />
-      </Tabs.Provider>
-    </Align.Space>
+    <Tabs.Provider
+      value={{
+        tabs: TABS,
+        selected: toolbar.activeTab,
+        onSelect: handleTabSelect,
+        content,
+      }}
+    >
+      <ToolbarHeader>
+        <ToolbarTitle icon={<Icon.PID />}>{name}</ToolbarTitle>
+        <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
+      </ToolbarHeader>
+      <Tabs.Content />
+    </Tabs.Provider>
   );
 };

@@ -11,12 +11,13 @@ import { type ReactElement } from "react";
 
 import { type Meta, type StoryFn } from "@storybook/react";
 
-import { Control } from "@/control";
-import { Controller } from "@/control/Controller";
-import { Bool } from "@/telem/bool";
-import { Remote } from "@/telem/remote";
+import { Control } from "@/telem/control";
+import { Controller } from "@/telem/control/Controller";
 import { Canvas } from "@/vis/canvas";
 import { Valve } from "@/vis/valve";
+
+import { Bool } from "@/telem/bool";
+import { Remote } from "@/telem/remote";
 
 const story: Meta<typeof Valve.Valve> = {
   title: "Valve",
@@ -27,14 +28,14 @@ const Example = (): ReactElement => {
   const numericSource = Remote.useNumericSource({
     channel: 65542,
   });
-  const booleanSource = Bool.useNumericConverterSource({
+  const booleanSource = Bool.withinBounds({
     wrap: numericSource,
     trueBound: { lower: 30, upper: 40 },
   });
   const numericSink = Control.useNumericSink({
     channel: 65541,
   });
-  const booleanSink = Bool.useNumericConverterSink({
+  const booleanSink = Bool.setpoint({
     wrap: numericSink,
     truthy: 1,
     falsy: 0,

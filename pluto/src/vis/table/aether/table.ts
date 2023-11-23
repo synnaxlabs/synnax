@@ -1,11 +1,10 @@
-import { box, xy, type Destructor } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { type Box } from "@synnaxlabs/x/dist/spatial/box";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/aetherIndex";
-import { telem } from "@/telem/core";
-import { noop } from "@/telem/noop";
+import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
@@ -106,14 +105,13 @@ export class TR extends aether.Composite<typeof trStateZ, InternalState, TD> {
 }
 
 export const stringTDStateZ = z.object({
-  stringSource: telem.stringSpecZ.optional().default(noop.stringSourceSpec),
+  stringSource: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
   level: z.string().optional().default("small"),
   color: color.Color.z.optional().default(color.ZERO),
 });
 
 interface InternalState {
   stringSource: telem.StringSource;
-  cleanupStringSource: Destructor;
   draw: Draw2D;
 }
 
@@ -125,17 +123,13 @@ export class StringTD
   schema = stringTDStateZ;
 
   afterUpdate(): void {
-    [this.internal.stringSource, this.internal.cleanupStringSource] =
-      telem.use<telem.StringSource>(this.ctx, this.key, this.state.stringSource);
-    this.internal.draw = new Draw2D(
-      render.Context.use(this.ctx).upper2d,
-      theming.use(this.ctx),
-    );
+    const { internal: i } = this;
+    i.stringSource = telem.useSource(this.ctx, this.state.stringSource, i.stringSource);
+    i.draw = new Draw2D(render.Context.use(this.ctx).upper2d, theming.use(this.ctx));
   }
 
   async render({ box: b }: TDRenderProps): Promise<void> {
-    const value = await this.internal.stringSource.string();
-    console.log(b);
+    const value = await this.internal.stringSource.value();
     this.internal.draw.drawTextInCenter({
       text: value,
       level: "small",

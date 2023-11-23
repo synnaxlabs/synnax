@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { telem } from "@/telem/core";
-import { noop } from "@/telem/noop";
+import { telem } from "@/telem/aether";
 
 export const toggleStateZ = z.object({
   triggered: z.boolean(),
   enabled: z.boolean(),
-  sink: telem.booleanSinkSpecZ.optional().default(noop.booleanSinkSpec),
-  source: telem.booleanSourceSpecZ.optional().default(noop.booleanSourceSpec),
+  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
+  source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
 });
 
 interface InternalState {
   source: telem.BooleanSource;
   sink: telem.BooleanSink;
+  stopListening: Destructor;
 }
 
 export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
@@ -39,17 +40,18 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
       this.internal.sink.set(!this.state.enabled).catch(console.error);
 
     void (async () => {
-      await this.pullValue();
-      this.internal.source.onChange(() => {
-        void this.pullValue();
+      await this.updateEnabledState();
+      this.internal.stopListening?.();
+      this.internal.stopListening = this.internal.source.onChange(() => {
+        void this.updateEnabledState();
       });
     })();
   }
 
-  private async pullValue(): Promise<void> {
+  private async updateEnabledState(): Promise<void> {
     const nextEnabled = await this.internal.source.value();
     if (nextEnabled !== this.state.enabled)
-      this.setState((p) => ({ ...p, active: nextEnabled, triggered: false }));
+      this.setState((p) => ({ ...p, enabled: nextEnabled, triggered: false }));
   }
 
   afterDelete(): void {

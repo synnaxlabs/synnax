@@ -1,0 +1,77 @@
+/*
+ * Copyright 2023 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+ .pluto-symbol {
+    position: relative;
+    display: inline-flex;
+    width: fit-content;
+    height: fit-content;
+
+    .react-flow__handle {
+        scale: calc( 1 / var(--pluto-pid-zoom, 1));
+        transform: translate(calc(var(--pluto-pid-zoom, 1) * -50%), calc(var(--pluto-pid-zoom, 1) * -50%));
+    }
+
+    & svg {
+        stroke-width: 2px;
+
+        &.pluto--bottom > g {
+            transform-origin: top left;
+            transform: translateX(100%) rotate(90deg);
+        }
+
+        &.pluto--top > g {
+            transform-origin: top left;
+            transform: translateY(100%) rotate(-90deg);
+        }
+
+        &.pluto--right > g {
+            transform-origin: top left;
+            transform: translate(100%, 100%) rotate(180deg);
+        }
+    }
+
+    &:not(.pluto-symbol-toggle) svg {
+        fill: none;
+    }
+}
+
+.pluto-symbol-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:hover {
+        filter: brightness(0.95);
+    }
+
+    &:active {
+        filter: brightness(1.05);
+    }
+
+    &:not(.pluto--enabled) svg {
+        fill: none;
+    }
+}
+
+.pluto-solenoid-valve:is(.pluto--enabled.pluto--normally-open, :not(.pluto--normally-open):not(.pluto--enabled)) .pluto-coil {
+    fill: none;
+}
+
+.pluto-tank {
+    border: var(--pluto-border);
+    border-width: 2px;
+}

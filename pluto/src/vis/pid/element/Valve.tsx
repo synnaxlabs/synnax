@@ -16,14 +16,12 @@ import { Handle, Position } from "reactflow";
 import { Align } from "@/align";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
-import { Control } from "@/control";
-import { Chip } from "@/control/chip";
+import { Control } from "@/telem/control";
+import { Chip } from "@/telem/control/chip";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { Bool } from "@/telem/bool";
-import { Remote } from "@/telem/remote";
-import { Static } from "@/telem/static";
+import { staticTelem } from "@/telem/aether/static";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
@@ -32,11 +30,14 @@ import { type FormProps, type Spec, type Props } from "@/vis/pid/element/element
 import { Tooltip as PIDTooltip } from "@/vis/pid/element/Tooltip";
 import { Valve, type ValveProps } from "@/vis/valve/Valve";
 
+import { Bool } from "@/telem/bool";
+import { Remote } from "@/telem/remote";
+
 import "@/vis/pid/element/Valve.css";
 
 interface ElementProps extends Omit<ValveProps, "telem" | "color" | "source" | "sink"> {
   source: Remote.NumericSourceProps;
-  sink: Control.NumericSinkProps;
+  sink: Control.SetChannelValueProps;
   label: string;
   color: Color.Crude;
   authority: number;
@@ -66,20 +67,20 @@ const Element = ({
   const authoritySink = Control.useAuthoritySink({ channel: sink.channel, authority });
   const sourceN = Remote.useNumericSource(source);
   const sinkN = Control.useNumericSink(sink);
-  const sourceB = Bool.useNumericConverterSource({
+  const sourceB = Bool.withinBounds({
     wrap: sourceN,
     trueBound: bounds.construct(0.9, 1.1),
   });
-  const sinkB = Bool.useNumericConverterSink({
+  const sinkB = Bool.setpoint({
     wrap: sinkN,
     truthy: 1,
     falsy: 0,
   });
 
-  const commandName = Static.useString(
+  const commandName = staticTelem.fixedString(
     `Output: ${Channel.useName(sink.channel, "None")}`,
   );
-  const enabledName = Static.useString(
+  const enabledName = staticTelem.fixedString(
     `Input: ${Channel.useName(source.channel, "None")}`,
   );
 
@@ -128,7 +129,7 @@ const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {
   const handleSourceChange = (source: Remote.NumericSourceProps): void =>
     onChange({ ...value, source });
 
-  const handleSinkChange = (sink: Control.NumericSinkProps): void =>
+  const handleSinkChange = (sink: Control.SetChannelValueProps): void =>
     onChange({ ...value, sink });
 
   const handleColorChange = (color: Color.Color): void =>

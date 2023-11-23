@@ -11,11 +11,11 @@ import { RoutedWorker } from "@synnaxlabs/x";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { control } from "@/control/aether";
-import { chip } from "@/control/chip/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
-import { provider } from "@/telem/provider/aether";
+import { telem } from "@/telem/aether";
+import { control } from "@/telem/control/aether";
+import { chip } from "@/telem/control/chip/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
@@ -27,8 +27,8 @@ import { measure } from "@/vis/measure/aether";
 import { pid } from "@/vis/pid/aether";
 import { rule } from "@/vis/rule/aether";
 import { table } from "@/vis/table/aether";
+import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
-import { valve } from "@/vis/valve/aether";
 
 export const render = (): void => {
   // @ts-expect-error - for some reason post-message can't type transfer correctly
@@ -39,10 +39,10 @@ export const render = (): void => {
     ...lineplot.REGISTRY,
     ...canvas.REGISTRY,
     ...synnax.REGISTRY,
-    ...provider.REGISTRY,
+    ...telem.REGISTRY,
     ...line.REGISTRY,
     ...value.REGISTRY,
-    ...valve.REGISTRY,
+    ...toggle.REGISTRY,
     ...pid.REGISTRY,
     ...rule.REGISTRY,
     ...tooltip.REGISTRY,

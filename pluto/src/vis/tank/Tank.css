@@ -9,7 +9,4 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tank {
-    border-radius: 30% / 10%;
-    border: var(--pluto-pid-element-stroke-width) solid var(--pluto-text-color);
-}
+

@@ -161,7 +161,11 @@ export const Content = (): ReactElement | null => {
   if (renderProp != null) content = renderProp(selectedTab);
   else if (selectedTab.content != null) content = selectedTab.content;
   return (
-    <div onClick={() => onSelect?.(selected)} style={{ width: "100%", height: "100%" }}>
+    <div
+      className={CSS.B("tabs-content")}
+      onClick={() => onSelect?.(selected)}
+      style={{ width: "100%", height: "100%" }}
+    >
       {content}
     </div>
   );

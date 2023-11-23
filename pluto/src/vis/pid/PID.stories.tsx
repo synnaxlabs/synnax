@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { useCallback, type ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { Canvas } from "@/vis/canvas";
 import { PID } from "@/vis/pid";
-import { Element } from "@/vis/pid/element";
+
+import {
+  AngledValve,
+  FourWayValve,
+  Pump,
+  Regulator,
+  SolenoidValve,
+  ThreeWayValve,
+  Valve,
+} from "./symbols/Symbols";
 
 const story: Meta<typeof PID.PID> = {
   title: "PID",
@@ -48,6 +57,14 @@ const Example = (): ReactElement => {
       },
     ],
   });
+
+  const S = useCallback(
+    (p) => (
+      <AngledValve {...p} color="black" orientation="top" label="Label" units="psi" />
+    ),
+    [],
+  );
+
   return (
     <Canvas.Canvas
       style={{
@@ -56,8 +73,8 @@ const Example = (): ReactElement => {
         position: "fixed",
       }}
     >
-      <PID.PID {...props}>
-        {(props) => <Element.ValueSpec.Element {...props} label="Label" units="psi" />}
+      <PID.PID {...props} editable>
+        <PID.NodeRenderer>{S}</PID.NodeRenderer>
       </PID.PID>
     </Canvas.Canvas>
   );

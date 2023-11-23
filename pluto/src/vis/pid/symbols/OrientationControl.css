@@ -1,0 +1,33 @@
+.pluto-orientation-control {
+    position: relative;
+    width: 100px;
+    aspect-ratio: 1;
+
+    .symbol {
+        height: 2px;
+        width: calc(100% - 1rem);
+        background-color: var(--pluto-gray-l8);
+        border-radius: var(--pluto-border-radius);
+    }
+    
+    .pluto-value {
+        border: var(--pluto-border);
+        border-radius: var(--pluto-border-radius);
+        padding: 0.5rem;
+    }
+
+    & button {
+        width: 3rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        &.pluto--selected {
+            background-color: var(--pluto-primary-z) !important;
+        }
+
+        &.pluto--y {
+            transform: rotate(90deg);
+        }
+    }
+}

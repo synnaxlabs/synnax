@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { type direction } from "@synnaxlabs/x";
-import { Handle, Position } from "reactflow";
+import { Position } from "reactflow";
 
 import { Align } from "@/align";
 import { Channel } from "@/channel";
@@ -18,12 +18,11 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Select } from "@/select";
-import { Remote } from "@/telem/remote";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { componentRenderProp } from "@/util/renderProp";
 import { type FormProps, type Props, type Spec } from "@/vis/pid/element/element";
-import { ValueLabeled, type ValueLabeledProps } from "@/vis/value/Labeled";
+import { type ValueLabeledProps } from "@/vis/value/Labeled";
 
 import "@/vis/pid/element/Value.css";
 
@@ -41,24 +40,7 @@ const Element = ({
   className,
   ...props
 }: Props<ElementProps>): ReactElement => {
-  const telem = Remote.useNumericStringSource(pTelem);
-  const onLabelChange = (label: string): void => {
-    onChange({ ...props, label, telem: pTelem });
-  };
-
-  return (
-    <ValueLabeled
-      className={CSS(className, CSS.B("value-pid-element"), CSS.selected(selected))}
-      {...props}
-      telem={telem}
-      onLabelChange={onLabelChange}
-    >
-      <Handle position={Top} type="source" id="top" />
-      <Handle position={Left} type="source" id="left" />
-      <Handle position={Right} type="source" id="right" />
-      <Handle position={Bottom} type="source" id="bottom" />
-    </ValueLabeled>
-  );
+  return <></>;
 };
 
 const Form = ({ value, onChange }: FormProps<ElementProps>): ReactElement => {

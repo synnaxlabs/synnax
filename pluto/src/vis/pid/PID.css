@@ -44,20 +44,26 @@
     }
 }
 
-
-
 .pluto-pid {
-
     &.pluto--editable {
         & .react-flow__handle {
             display: block !important;
-            border-color: var(--pluto-primary-z) !important;
-            background: var(--pluto-text-color) !important;
             border-width: 2px !important;
             min-width: 1.4rem !important;
             min-height: 1.4rem !important;
             width: 1.4rem !important;
             height: 1.4rem !important;
+        }
+        & .pluto-symbol {
+            &:hover {
+                .react-flow__handle {
+                    border-color: var(--pluto-primary-z) !important;
+                    background: var(--pluto-text-color) !important;
+                    &:hover {
+                        background: var(--pluto-primary-z) !important;
+                    }
+                }
+            }
         }
     } 
 }

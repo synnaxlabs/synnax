@@ -77,6 +77,12 @@ import {
   MdPictureInPicture,
   MdAutoAwesome,
   MdOutlineTableRows,
+  MdAlignHorizontalLeft,
+  MdAlignHorizontalRight,
+  MdAlignHorizontalCenter,
+  MdAlignVerticalCenter,
+  MdAlignVerticalTop,
+  MdAlignVerticalBottom,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -184,6 +190,14 @@ export const Icon: IconType = {
   Search: PiMagnifyingGlassBold,
   Auto: MdAutoAwesome,
   Table: MdOutlineTableRows,
+  Align: {
+    Right: MdAlignHorizontalRight,
+    Left: MdAlignHorizontalLeft,
+    XCenter: MdAlignHorizontalCenter,
+    YCenter: MdAlignVerticalCenter,
+    Top: MdAlignVerticalTop,
+    Bottom: MdAlignVerticalBottom,
+  }
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -278,4 +292,12 @@ export interface IconType {
   Sync: IconFC;
   Search: IconFC;
   Auto: IconFC, 
+  Align: {
+    Right: IconFC;
+    Left: IconFC;
+    XCenter: IconFC;
+    YCenter: IconFC;
+    Top: IconFC;
+    Bottom: IconFC;
+  };
 }

@@ -76,6 +76,7 @@ export const corner = z.object({ x: xLocation, y: yLocation });
 
 export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;
+export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
 export const TOP_LEFT: CornerXY = { x: "left", y: "top" };
 export const TOP_RIGHT: CornerXY = { x: "right", y: "top" };

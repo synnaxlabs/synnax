@@ -301,11 +301,11 @@ const buildLines = (
             range.variant === "dynamic"
               ? {
                   variant: "dynamic",
-                  span: range.span,
+                  timeSpan: range.span,
                 }
               : {
                   variant: "static",
-                  range: range.timeRange,
+                  timeRange: range.timeRange,
                 };
 
           return (yChannels as number[]).map((channel) => {

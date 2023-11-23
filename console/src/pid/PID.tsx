@@ -12,8 +12,8 @@ import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 import {
+  PIDSymbols,
   PID as Core,
-  PIDElement,
   Control,
   Button,
   Haul,
@@ -99,7 +99,7 @@ const ElementRenderer = ({
   const el = useSelectElementProps(layoutKey, elementKey);
   if (el == null) return null;
   const {
-    props: { type, ...props },
+    props: { variant, ...props },
   } = el;
   const dispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
@@ -109,18 +109,22 @@ const ElementRenderer = ({
   const handleChange = useCallback(
     (props: object) => {
       dispatch(
-        setElementProps({ layoutKey, key: elementKey, props: { type, ...props } }),
+        setElementProps({
+          layoutKey,
+          key: elementKey,
+          props: { variant, ...props },
+        }),
       );
     },
-    [dispatch, elementKey, layoutKey, type],
+    [dispatch, elementKey, layoutKey, variant],
   );
 
-  const C = PIDElement.REGISTRY[type];
+  const C = PIDSymbols.registry[variant];
 
   const refZoom = useRef(zoom);
 
   return (
-    <C.Element
+    <C.Symbol
       position={position}
       selected={selected}
       onChange={handleChange}
@@ -205,8 +209,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);
       const OFFSET = 20;
-      valid.forEach(({ key: type, data }, i) => {
-        const spec = PIDElement.REGISTRY[type];
+      valid.forEach(({ key: variant, data }, i) => {
+        const spec = PIDSymbols.registry[variant as PIDSymbols.Variant];
         if (spec == null) return;
         const zoomXY = xy.construct(pid.viewport.zoom);
         const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
@@ -224,11 +228,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 x: event.clientX + OFFSET * i,
                 y: event.clientY + OFFSET * i,
               }),
-              zIndex: spec.zIndex,
             },
             props: {
-              type,
-              ...spec.initialProps(theme),
+              variant,
+              ...spec.defaultProps(theme),
               ...(data ?? {}),
             },
           }),

@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
+import {
+  type PID,
+  type Control,
+  type Viewport,
+  type PIDSymbols,
+} from "@synnaxlabs/pluto";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
@@ -16,7 +21,7 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  type: string;
+  variant: PIDSymbols.Variant;
 };
 
 export interface State {
@@ -26,7 +31,7 @@ export interface State {
   viewport: PID.Viewport;
   nodes: PID.Node[];
   edges: PID.Edge[];
-  props: Record<string, object>;
+  props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
 }
@@ -35,7 +40,7 @@ interface CopyBuffer {
   pos: xy.Crude;
   nodes: PID.Node[];
   edges: PID.Edge[];
-  props: Record<string, object>;
+  props: Record<string, NodeProps>;
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
@@ -47,7 +52,7 @@ const ZERO_COPY_BUFFER: CopyBuffer = {
 
 // ||||| TOOLBAR |||||
 
-const TOOLBAR_TABS = ["elements", "properties"] as const;
+const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export type ToolbarTab = (typeof TOOLBAR_TABS)[number];
 
 export interface ToolbarState {
@@ -82,7 +87,7 @@ export const ZERO_STATE: State = {
 export const ZERO_PID_SLICE_STATE: SliceState = {
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "elements" },
+  toolbar: { activeTab: "symbols" },
   pids: {},
 };
 
@@ -106,6 +111,7 @@ export interface SetElementPropsPayload {
 
 export interface SetNodesPayload {
   layoutKey: string;
+  mode?: "replace" | "update";
   nodes: PID.Node[];
 }
 
@@ -259,7 +265,7 @@ export const { actions, reducer } = createSlice({
       pid.edges.forEach((edge) => {
         edge.selected = false;
       });
-      state.toolbar.activeTab = "elements";
+      state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { layoutKeys } = payload;
@@ -296,14 +302,18 @@ export const { actions, reducer } = createSlice({
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { layoutKey, nodes } = payload;
+      const { layoutKey, nodes, mode = "replace" } = payload;
       const pid = state.pids[layoutKey];
-      pid.nodes = nodes;
+      if (mode === "replace") pid.nodes = nodes;
+      else {
+        const keys = nodes.map((node) => node.key);
+        pid.nodes = [...pid.nodes.filter((node) => !keys.includes(node.key)), ...nodes];
+      }
       const anySelected = nodes.some((node) => node.selected);
       if (anySelected) {
         state.toolbar.activeTab = "properties";
         clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
@@ -324,7 +334,7 @@ export const { actions, reducer } = createSlice({
       if (anySelected) {
         state.toolbar.activeTab = "properties";
         clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
     },
     setActiveToolbarTab: (
       state,

@@ -41,7 +41,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const toolbar = useSelectToolbar();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab): ReactElement => {
-      console.log("CONTENT", tabKey);
       switch (tabKey) {
         case "properties":
           return <Properties layoutKey={layoutKey} />;

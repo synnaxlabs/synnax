@@ -11,7 +11,7 @@ import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Static } from "@/telem/static";
+import { staticTelem } from "@/telem/aether/static";
 import { Canvas } from "@/vis/canvas";
 import { Table } from "@/vis/table";
 
@@ -21,8 +21,8 @@ const story: Meta<typeof Table.Table> = {
 };
 
 const Example = (): ReactElement => {
-  const telem = Static.useString("One");
-  const telem2 = Static.useString("Two");
+  const telem = staticTelem.fixedString("One");
+  const telem2 = staticTelem.fixedString("Two");
 
   return (
     <Canvas.Canvas

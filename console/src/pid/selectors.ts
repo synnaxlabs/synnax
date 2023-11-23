@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type PID, type Viewport } from "@synnaxlabs/pluto";
+import {
+  type PIDSymbols,
+  type Control,
+  type PID,
+  type Viewport,
+} from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
+  type NodeProps,
   type SliceState,
   type State,
   type StoreState,
@@ -54,18 +60,22 @@ export const selectSelectedElementsProps = (
   return [...nodes, ...edges];
 };
 
-export type ElementInfo =
-  | {
-      key: string;
-      type: "node";
-      node: PID.Node;
-      props: object;
-    }
-  | {
-      key: string;
-      type: "edge";
-      edge: PID.Edge;
-    };
+export interface NodeElementInfo {
+  key: string;
+  type: "node";
+  node: PID.Node;
+  variant: PIDSymbols.Variant;
+  props: NodeProps;
+}
+
+export interface EdgeElementInfo {
+  key: string;
+  type: "edge";
+  edge: PID.Edge;
+  props: NodeProps;
+}
+
+export type ElementInfo = NodeElementInfo | EdgeElementInfo;
 
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
