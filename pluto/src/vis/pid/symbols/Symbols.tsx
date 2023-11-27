@@ -7,20 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
-import { type xy } from "@synnaxlabs/x";
+import { box, type xy, type location, type UnknownRecord } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
+import { type Color } from "@/color";
+import { CSS } from "@/css";
+import { useResize } from "@/hooks";
+import { telem } from "@/telem/aether";
+import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Primitives } from "@/vis/pid/symbols/primitives";
 import { Toggle } from "@/vis/toggle";
+import { Value as CoreValue } from "@/vis/value";
 
 import { Labeled, type LabelExtensionProps } from "./Labeled";
 
-export type SymbolProps<P extends object> = P & {
+export type SymbolProps<P extends object = UnknownRecord> = P & {
+  symbolKey: string;
   position: xy.XY;
   selected: boolean;
   editable: boolean;
+  zoom: number;
   onChange: (value: P) => void;
 };
 
@@ -32,16 +41,7 @@ export interface ThreeWayValveProps
 
 export const ThreeWayValve = Aether.wrap<SymbolProps<ThreeWayValveProps>>(
   "ThreeWayValve",
-  ({
-    aetherKey,
-    label,
-    editable: _,
-    selected,
-    onChange,
-    source,
-    sink,
-    ...props
-  }): ReactElement => {
+  ({ aetherKey, label, onChange, source, sink, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -49,7 +49,8 @@ export const ThreeWayValve = Aether.wrap<SymbolProps<ThreeWayValveProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
         />
       </Labeled>
     );
@@ -68,7 +69,7 @@ export interface ValveProps
 
 export const Valve = Aether.wrap<SymbolProps<ValveProps>>(
   "Valve",
-  ({ aetherKey, label, onChange, source, sink, ...props }): ReactElement => {
+  ({ aetherKey, label, onChange, source, sink, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -76,7 +77,8 @@ export const Valve = Aether.wrap<SymbolProps<ValveProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
         />
       </Labeled>
     );
@@ -95,7 +97,7 @@ export interface SolenoidValveProps
 
 export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
   "SolenoidValve",
-  ({ aetherKey, label, onChange, ...props }): ReactElement => {
+  ({ aetherKey, label, onChange, orientation, normallyOpen, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -103,7 +105,9 @@ export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
+          normallyOpen={normallyOpen}
         />
       </Labeled>
     );
@@ -122,7 +126,7 @@ export interface FourWayValveProps
 
 export const FourWayValve = Aether.wrap<SymbolProps<FourWayValveProps>>(
   "FourWayValve",
-  ({ aetherKey, label, onChange, ...props }): ReactElement => {
+  ({ aetherKey, label, onChange, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -130,7 +134,8 @@ export const FourWayValve = Aether.wrap<SymbolProps<FourWayValveProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
         />
       </Labeled>
     );
@@ -149,7 +154,7 @@ export interface AngledValveProps
 
 export const AngledValve = Aether.wrap<SymbolProps<AngledValveProps>>(
   "AngleValve",
-  ({ aetherKey, label, onChange, ...props }): ReactElement => {
+  ({ aetherKey, label, onChange, orientation, color, ...props }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -157,7 +162,8 @@ export const AngledValve = Aether.wrap<SymbolProps<AngledValveProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
         />
       </Labeled>
     );
@@ -176,7 +182,7 @@ export interface PumpProps
 
 export const Pump = Aether.wrap<SymbolProps<PumpProps>>(
   "Pump",
-  ({ aetherKey, label, onChange, ...props }): ReactElement => {
+  ({ aetherKey, label, onChange, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -184,7 +190,8 @@ export const Pump = Aether.wrap<SymbolProps<PumpProps>>(
           enabled={enabled}
           triggered={triggered}
           onClick={toggle}
-          {...props}
+          orientation={orientation}
+          color={color}
         />
       </Labeled>
     );
@@ -201,10 +208,15 @@ export interface TankProps extends Primitives.TankProps {
 
 export const Tank = Aether.wrap<SymbolProps<TankProps>>(
   "Tank",
-  ({ aetherKey, label, onChange, ...props }): ReactElement => {
+  ({ label, onChange, orientation, color, dimensions, borderRadius }): ReactElement => {
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.Tank {...props} />
+        <Primitives.Tank
+          orientation={orientation}
+          color={color}
+          dimensions={dimensions}
+          borderRadius={borderRadius}
+        />
       </Labeled>
     );
   },
@@ -221,11 +233,12 @@ export interface ReliefValveProps extends Primitives.ReliefValveProps {
 export const ReliefValve = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<ReliefValveProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.ReliefValve {...props} />
+      <Primitives.ReliefValve orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -241,11 +254,12 @@ export interface RegulatorProps extends Primitives.RegulatorProps {
 export const Regulator = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<RegulatorProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.Regulator {...props} />
+      <Primitives.Regulator orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -261,11 +275,12 @@ export interface BurstDiscProps extends Primitives.BurstDiscProps {
 export const BurstDisc = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<BurstDiscProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.BurstDisc {...props} />
+      <Primitives.BurstDisc orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -281,11 +296,12 @@ export interface CapProps extends Primitives.CapProps {
 export const Cap = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<CapProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.Cap {...props} />
+      <Primitives.Cap orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -301,11 +317,12 @@ export interface ManualValveProps extends Primitives.ManualValveProps {
 export const ManualValve = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<ManualValveProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.ManualValve {...props} />
+      <Primitives.ManualValve orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -321,11 +338,12 @@ export interface FilterProps extends Primitives.FilterProps {
 export const Filter = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<FilterProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.Filter {...props} />
+      <Primitives.Filter orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -341,11 +359,12 @@ export interface NeedleValveProps extends Primitives.NeedleValveProps {
 export const NeedleValve = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<NeedleValveProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.NeedleValve {...props} />
+      <Primitives.NeedleValve orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -361,11 +380,12 @@ export interface CheckValveProps extends Primitives.CheckValveProps {
 export const CheckValve = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<CheckValveProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.CheckValve {...props} />
+      <Primitives.CheckValve orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -381,11 +401,12 @@ export interface OrificeProps extends Primitives.OrificeProps {
 export const Orifice = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<OrificeProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.Orifice {...props} />
+      <Primitives.Orifice orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -401,11 +422,12 @@ export interface AngledReliefValveProps extends Primitives.AngledReliefValveProp
 export const AngledReliefValve = ({
   label,
   onChange,
-  ...props
+  orientation,
+  color,
 }: SymbolProps<AngledReliefValveProps>): ReactElement => {
   return (
     <Labeled {...label} onChange={onChange}>
-      <Primitives.AngledReliefValve {...props} />
+      <Primitives.AngledReliefValve orientation={orientation} color={color} />
     </Labeled>
   );
 };
@@ -413,3 +435,129 @@ export const AngledReliefValve = ({
 export const AngledReliefValvePreview = (
   props: Primitives.AngledReliefValveProps,
 ): ReactElement => <Primitives.AngledReliefValve {...props} />;
+
+export interface ValueProps
+  extends Omit<CoreValue.UseProps, "box" | "aetherKey">,
+    Primitives.ValueProps {
+  position?: xy.XY;
+  label?: LabelExtensionProps;
+  color?: Color.Crude;
+  textColor?: Color.Crude;
+}
+
+export const Value = Aether.wrap<SymbolProps<ValueProps>>(
+  "Value",
+  ({
+    aetherKey,
+    label,
+    level = "p",
+    position,
+    className,
+    children,
+    textColor,
+    color,
+    zoom = 1,
+    precision,
+    width,
+    onChange,
+  }): ReactElement => {
+    const font = Theming.useTypography(level);
+    const [box_, setBox] = useState<box.Box>(box.ZERO);
+
+    const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
+    const resizeRef = useResize(setBox, {});
+
+    const adjustedBox = adjustBox(
+      label?.orientation ?? "top",
+      zoom,
+      box_,
+      valueBoxHeight,
+      position,
+    );
+
+    CoreValue.use({
+      aetherKey,
+      color: textColor,
+      level,
+      box: adjustedBox,
+      telem: telem.fixedString("120 PSI"),
+      precision,
+      width,
+    });
+
+    return (
+      <Labeled
+        className={CSS(className, CSS.B("value-labeled"))}
+        align="center"
+        ref={resizeRef}
+        onChange={onChange}
+        {...label}
+      >
+        <Primitives.Value
+          className={CSS.B("value")}
+          color={color}
+          dimensions={{
+            height: valueBoxHeight,
+            width: 100,
+          }}
+        >
+          {children}
+        </Primitives.Value>
+      </Labeled>
+    );
+  },
+);
+
+const adjustBox = (
+  labelOrientation: location.Outer,
+  zoom: number,
+  b: box.Box,
+  valueBoxHeight: number,
+  position?: xy.XY,
+): box.Box => {
+  if (labelOrientation === "left") {
+    return box.construct(
+      (position?.x ?? box.left(b)) + box.width(b) / zoom - 100,
+      position?.y ?? box.top(b),
+      100,
+      valueBoxHeight,
+    );
+  }
+  if (labelOrientation === "right") {
+    return box.construct(
+      position?.x ?? box.left(b),
+      position?.y ?? box.top(b),
+      100,
+      valueBoxHeight,
+    );
+  }
+  if (labelOrientation === "bottom") {
+    return box.construct(
+      position?.x ?? box.left(b),
+      position?.y ?? box.top(b),
+      box.width(b) / zoom,
+      valueBoxHeight,
+    );
+  }
+
+  return box.construct(
+    position?.x ?? box.left(b),
+    (position?.y ?? box.top(b)) + box.height(b) / zoom - valueBoxHeight,
+    box.width(b) / zoom,
+    valueBoxHeight,
+  );
+};
+
+export const ValuePreview = ({ color }: ValueProps): ReactElement => {
+  return (
+    <Primitives.Value
+      color={color}
+      dimensions={{
+        width: 80,
+        height: 25,
+      }}
+    >
+      <Text.Text level="small">500 psi</Text.Text>
+    </Primitives.Value>
+  );
+};

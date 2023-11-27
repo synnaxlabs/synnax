@@ -11,18 +11,11 @@ import { useCallback, type ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
+import { telem } from "@/telem/aether";
 import { Canvas } from "@/vis/canvas";
 import { PID } from "@/vis/pid";
 
-import {
-  AngledValve,
-  FourWayValve,
-  Pump,
-  Regulator,
-  SolenoidValve,
-  ThreeWayValve,
-  Valve,
-} from "./symbols/Symbols";
+import { Value } from "./symbols/Symbols";
 
 const story: Meta<typeof PID.PID> = {
   title: "PID",
@@ -35,32 +28,42 @@ const Example = (): ReactElement => {
       {
         key: "1",
         position: {
-          x: 100,
-          y: 100,
+          x: 0,
+          y: 0,
         },
         data: {},
       },
-      {
-        key: "2",
-        position: {
-          x: 500,
-          y: 200,
-        },
-      },
+      // {
+      //   key: "2",
+      //   position: {
+      //     x: 500,
+      //     y: 200,
+      //   },
+      // },
     ],
     initialEdges: [
-      {
-        key: "dog",
-        source: "1",
-        target: "2",
-        points: [],
-      },
+      // {
+      //   key: "dog",
+      //   source: "1",
+      //   target: "2",
+      //   points: [],
+      // },
     ],
   });
 
   const S = useCallback(
     (p) => (
-      <AngledValve {...p} color="black" orientation="top" label="Label" units="psi" />
+      <Value
+        label={{
+          orientation: "top",
+          label: "Hello",
+          level: "small",
+        }}
+        level="small"
+        telem={telem.fixedString("120 PSI")}
+        color="black"
+        {...p}
+      />
     ),
     [],
   );

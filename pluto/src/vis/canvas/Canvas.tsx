@@ -15,11 +15,11 @@ import {
   useRef,
 } from "react";
 
-import { box, runtime } from "@synnaxlabs/x";
+import { box, runtime, scale, xy } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { type UseResizeHandler, useResize } from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 import "@/vis/canvas/Canvas.css";
@@ -33,7 +33,7 @@ export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
   resizeDebounce?: number;
 }
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1,os: runtime.getOS() as runtime.OS};
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -74,7 +74,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             bootstrapped: true,
             region,
             dpr: window.devicePixelRatio,
-            os: runtime.getOS({default: "Windows"}) as runtime.OS,
+            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
           }));
       },
       [setState],
@@ -109,7 +109,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             bootstrapped: false,
             region: box.construct(gl),
             dpr: window.devicePixelRatio,
-            os: runtime.getOS({default: "Windows"}) as runtime.OS,
+            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
           },
           [glCanvas, upper2dCanvas, lower2dCanvas],
         );
@@ -139,3 +139,17 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
   },
 );
+
+export const useRegion = (f: UseResizeHandler): React.RefCallback<HTMLElement> =>
+  useResize(
+    useCallback(
+      (b, el) => {
+        const canvas = document.querySelector(".pluto-canvas--lower2d");
+        if (canvas == null) return;
+        const b2 = box.construct(canvas);
+        b = scale.XY.translate(xy.scale(box.topLeft(b2), -1)).box(b);
+        f(b, el);
+      },
+      [f],
+    ),
+  );

@@ -44,10 +44,10 @@ export class Context {
   readonly gl: WebGL2RenderingContext;
 
   /** A 2D canvas that sits below the WebGL canvas. */
-  readonly lower2d: SugaredOffscreenCanvasRenderingContext2D;
+  lower2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** A 2D canvas that sits above the WebGL canvas. */
-  readonly upper2d: SugaredOffscreenCanvasRenderingContext2D;
+  upper2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** The region the canvas occupies in pixel space */
   region: box.Box;
@@ -213,8 +213,8 @@ export class Context {
     this.gl.enable(this.gl.SCISSOR_TEST);
     region = applyOverscan(region, overscan);
     this.gl.scissor(
-      (box.left(region) - box.left(this.region)) * this.dpr,
-      (box.bottom(this.region) - box.bottom(region)) * this.dpr,
+      box.left(region) * this.dpr,
+      (box.height(this.region) - box.bottom(region)) * this.dpr,
       box.width(region) * this.dpr,
       box.height(region) * this.dpr,
     );

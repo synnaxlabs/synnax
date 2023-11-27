@@ -88,15 +88,15 @@ const syncer: Syncer<
 
 export const HAUL_TYPE = "pid-element";
 
-const ElementRenderer = ({
-  elementKey,
+const SymbolRenderer = ({
+  symbolKey,
   position,
   selected,
   layoutKey,
   editable,
   zoom,
-}: Core.ElementProps & { layoutKey: string }): ReactElement | null => {
-  const el = useSelectElementProps(layoutKey, elementKey);
+}: Core.SymbolProps & { layoutKey: string }): ReactElement | null => {
+  const el = useSelectElementProps(layoutKey, symbolKey);
   if (el == null) return null;
   const {
     props: { variant, ...props },
@@ -111,12 +111,12 @@ const ElementRenderer = ({
       dispatch(
         setElementProps({
           layoutKey,
-          key: elementKey,
+          key: symbolKey,
           props: { variant, ...props },
         }),
       );
     },
-    [dispatch, elementKey, layoutKey, variant],
+    [dispatch, symbolKey, layoutKey, variant],
   );
 
   const C = PIDSymbols.registry[variant];
@@ -196,7 +196,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const elRenderer = useCallback(
     (props: Core.ElementProps) => {
-      return <ElementRenderer layoutKey={layoutKey} {...props} />;
+      return <SymbolRenderer layoutKey={layoutKey} {...props} />;
     },
     [layoutKey],
   );
@@ -286,6 +286,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     region: ref,
     callback: handleDoubleClick,
   });
+
+  console.log(JSON.stringify(pid));
 
   return (
     <div ref={ref} style={{ width: "inherit", height: "inherit" }}>

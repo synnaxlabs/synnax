@@ -57,5 +57,6 @@ export { Control } from "@/telem/control";
 export { telem } from "@/telem/aether";
 export { Telem } from "@/telem";
 export { Eraser } from "@/vis/eraser";
+export { LinePlot } from "@/vis/lineplot";
 export * from "@/hooks";
 export * from "@/util/renderProp";

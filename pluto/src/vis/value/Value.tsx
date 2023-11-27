@@ -19,10 +19,10 @@ import { box } from "@synnaxlabs/x";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { Theming } from "@/theming";
-import { Core, type CoreProps } from "@/vis/value/Core";
+import { use, type UseProps } from "@/vis/value/Core";
 
 export interface ValueProps
-  extends Omit<CoreProps, "box">,
+  extends Omit<UseProps, "box">,
     Omit<ComponentPropsWithoutRef<"span">, "color"> {}
 
 export const Value = memo(
@@ -41,7 +41,7 @@ export const Value = memo(
         }}
         {...props}
       >
-        {!box.isZero(b) && <Core box={b} color={color} level={level} {...props} />}
+        {!box.isZero(b) && <use box={b} color={color} level={level} {...props} />}
       </div>
     );
   },

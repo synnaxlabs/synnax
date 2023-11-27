@@ -46,11 +46,12 @@ import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useCombinedRefs, useMemoCompare, useResize } from "@/hooks";
+import { useCombinedRefs, useMemoCompare } from "@/hooks";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
+import { Canvas } from "@/vis/canvas";
 import { pid } from "@/vis/pid/aether";
 import { Edge as PlutoEdge } from "@/vis/pid/edge";
 import {
@@ -68,8 +69,8 @@ import {
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
 
-export interface ElementProps {
-  elementKey: string;
+export interface SymbolProps {
+  symbolKey: string;
   position: xy.XY;
   zoom: number;
   selected: boolean;
@@ -133,6 +134,9 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   zoomOnScroll: false,
   zoomOnDoubleClick: false,
   zoomOnPinch: false,
+  edgesFocusable: false,
+  edgesUpdatable: false,
+  nodesFocusable: false,
 };
 
 export interface PIDProps
@@ -144,19 +148,19 @@ export interface PIDProps
 interface ContextValue {
   editable: boolean;
   onEditableChange: (v: boolean) => void;
-  registerNodeRenderer: (renderer: RenderProp<ElementProps>) => void;
+  registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
 }
 
 const Context = createContext<ContextValue>({
   editable: true,
   onEditableChange: () => {},
-  registerNodeRenderer: (renderer: RenderProp<ElementProps>) => {},
+  registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => {},
 });
 
 export const useContext = (): ContextValue => reactUseContext(Context);
 
 export interface NodeRendererProps {
-  children: RenderProp<ElementProps>;
+  children: RenderProp<SymbolProps>;
 }
 
 export const NodeRenderer = memo(
@@ -202,12 +206,22 @@ const Core = Aether.wrap<PIDProps>(
       [pTriggers],
     );
 
-    const resizeRef = useResize(
-      (box) => {
-        setState((prev) => ({ ...prev, region: box }));
-      },
-      { debounce: 0 },
+    const { fitView } = useReactFlow();
+    const resizeRef = Canvas.useRegion(
+      useCallback(
+        (b) => {
+          fitView();
+          setState((prev) => ({ ...prev, region: b }));
+        },
+        [fitView, setState],
+      ),
     );
+
+    useEffect(() => {
+      setTimeout(() => {
+        fitView();
+      }, 10);
+    }, [fitView]);
 
     // For some reason, react flow repeatedly calls onViewportChange with the same
     // paramters, so we do a need equality check to prevent unnecessary re-renders.
@@ -228,12 +242,10 @@ const Core = Aether.wrap<PIDProps>(
       onEnd: handleViewport,
     });
 
-    const [renderer, setRenderer] = useState<RenderProp<ElementProps>>(
-      () => () => null,
-    );
+    const [renderer, setRenderer] = useState<RenderProp<SymbolProps>>(() => () => null);
 
     const registerNodeRenderer = useCallback(
-      (renderer: RenderProp<ElementProps>) => setRenderer(() => renderer),
+      (renderer: RenderProp<SymbolProps>) => setRenderer(() => renderer),
       [],
     );
 
@@ -242,7 +254,7 @@ const Core = Aether.wrap<PIDProps>(
         const { zoom } = useViewport();
         const { editable } = useContext();
         return renderer({
-          elementKey: id,
+          symbolKey: id,
           position: { x: xPos, y: yPos },
           zoom,
           selected,
@@ -253,6 +265,7 @@ const Core = Aether.wrap<PIDProps>(
     );
 
     const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
+
     const edgesRef = useRef(edges);
     const edges_ = useMemo(() => {
       edgesRef.current = edges;
@@ -322,7 +335,6 @@ const Core = Aether.wrap<PIDProps>(
       [handleEdgePointsChange],
     );
 
-    const { fitView } = useReactFlow();
     const triggerRef = useRef<HTMLElement>(null);
     Triggers.use({
       triggers: triggers.zoomReset,
@@ -360,17 +372,16 @@ const Core = Aether.wrap<PIDProps>(
             nodeTypes={nodeTypes}
             edgeTypes={EDGE_TYPES}
             ref={combinedRefs}
-            fitView={true}
+            fitView={false}
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
             onEdgeUpdate={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
-            snapToGrid={false}
-            minZoom={0.5}
-            maxZoom={1.1}
+            minZoom={0.2}
+            maxZoom={1}
             connectionMode={ConnectionMode.Loose}
-            snapGrid={[5, 5]}
+            snapGrid={[3, 3]}
             proOptions={{
               hideAttribution: true,
             }}

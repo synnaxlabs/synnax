@@ -76,6 +76,9 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
 export const iterativeSeriesPropsZ = fixedSeriesPropsZ.extend({
   rate: Rate.z,
   yOffset: z.number().optional().default(0),
+  scroll: z.number().optional().default(0),
+  startPosition: z.number().optional().default(0),
+  scrollBounds: z.boolean().optional().default(false),
 });
 
 export type IterativeArrayProps = z.input<typeof iterativeSeriesPropsZ>;
@@ -85,6 +88,7 @@ export class IterativeSeries
   implements SeriesSource
 {
   static readonly TYPE = "iterative-series";
+  schema = iterativeSeriesPropsZ;
 
   position: number;
   interval?: number;
@@ -92,7 +96,7 @@ export class IterativeSeries
 
   constructor(props: unknown) {
     super(props);
-    this.position = 0;
+    this.position = this.props.startPosition;
     this.start(this.props.rate);
     this.data = this.props.data.map(
       (x, i) =>
@@ -102,6 +106,18 @@ export class IterativeSeries
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
     const d = this.data.map((x) => x.slice(0, this.position));
+    if (this.props.scrollBounds) {
+      const lower =
+        d[0].data[
+          this.position - this.props.scroll < 0 ? 0 : this.position - this.props.scroll
+        ];
+      const upper = d[0].data[this.position - 1];
+      const b = {
+        lower: Number(lower),
+        upper: Number(upper),
+      };
+      return [b, d];
+    }
     const b = bounds.max(d.map((x) => x.bounds));
     return [b, d];
   }
@@ -142,6 +158,7 @@ export type FixedStringProps = z.infer<typeof fixedStringPropsZ>;
 
 export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
   static readonly TYPE = "static-string";
+  schema = fixedStringPropsZ;
 
   async value(): Promise<string> {
     return this.props;

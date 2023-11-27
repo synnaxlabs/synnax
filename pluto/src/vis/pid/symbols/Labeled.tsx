@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { useCallback, forwardRef } from "react";
 
 import { type location } from "@synnaxlabs/x";
 
@@ -26,44 +26,51 @@ export interface LabeledProps
   onChange: ({ label }: { label: LabelExtensionProps }) => void;
 }
 
-export const Labeled = ({
-  label: value = "",
-  onChange,
-  level = "p",
-  children,
-  orientation = "top",
-  style,
-  ...props
-}: LabeledProps): ReactElement => {
-  return (
-    <Align.Space
-      style={{
-        // You may be wondering, why do we do this here? Well it's because react flow
-        // uses a ResizeObserver to determine when to re-render edges. When we switch
-        // from 'left' to 'right' or 'top' to 'bottom', the width and height of the
-        // node remains the same, so the ResizeObserver doesn't fire. We need to redraw
-        // the edges, so we add a margin to trigger it.
-        marginRight: orientation === "right" ? 1 : 0,
-        marginTop: orientation === "top" ? 1 : 0,
-        ...style,
-      }}
-      align="center"
-      justify="center"
-      direction={orientation}
-      {...props}
-    >
-      <Text.Editable
-        value={value}
-        onChange={useCallback(
-          (label) =>
-            onChange({
-              label: { label, level, orientation },
-            }),
-          [onChange, level],
-        )}
-        level={level}
-      />
-      {children}
-    </Align.Space>
-  );
-};
+export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
+  (
+    {
+      label: value = "",
+      onChange,
+      level = "p",
+      children,
+      orientation = "top",
+      style,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <Align.Space
+        style={{
+          // You may be wondering, why do we do this here? Well it's because react flow
+          // uses a ResizeObserver to determine when to re-render edges. When we switch
+          // from 'left' to 'right' or 'top' to 'bottom', the width and height of the
+          // node remains the same, so the ResizeObserver doesn't fire. We need to redraw
+          // the edges, so we add a margin to trigger it.
+          marginRight: orientation === "right" ? 1 : 0,
+          marginTop: orientation === "top" ? 1 : 0,
+          ...style,
+        }}
+        align="center"
+        justify="center"
+        direction={orientation}
+        ref={ref}
+        {...props}
+      >
+        <Text.Editable
+          value={value}
+          onChange={useCallback(
+            (label) =>
+              onChange({
+                label: { label, level, orientation },
+              }),
+            [onChange, level],
+          )}
+          level={level}
+        />
+        {children}
+      </Align.Space>
+    );
+  },
+);
+Labeled.displayName = "Labeled";

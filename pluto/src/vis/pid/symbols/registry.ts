@@ -61,6 +61,9 @@ import {
   AngledReliefValve,
   AngledValvePreview,
   AngledReliefValvePreview,
+  type ValueProps,
+  Value,
+  ValuePreview,
 } from "@/vis/pid/symbols/Symbols";
 
 export interface Spec<P extends object> {
@@ -90,6 +93,7 @@ const VARIANTS = [
   "checkValve",
   "orifice",
   "angledReliefValve",
+  "value",
 ] as const;
 
 const typeZ = z.enum(VARIANTS);
@@ -417,7 +421,26 @@ const angledReliefValve: Spec<ReliefValveProps> = {
   Preview: AngledReliefValvePreview,
 };
 
+const value: Spec<ValueProps> = {
+  name: "Value",
+  variant: "value",
+  Form: CommonNonToggleForm,
+  Symbol: Value,
+  Preview: ValuePreview,
+  defaultProps: (t) => ({
+    color: t.colors.gray.l9.rgba255,
+    level: "small",
+    label: {
+      label: "Value",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+  }),
+};
+
 export const registry: Record<Variant, Spec<any>> = {
+  value,
   threeWayValve,
   valve,
   solenoidValve,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useLayoutEffect } from "react";
+import { useEffect } from "react";
 
 import { type z } from "zod";
 
@@ -20,37 +20,26 @@ import { Value } from "@/vis/value/aether/value";
 export const corePropsZ = Value.z
   .omit({ font: true })
   .partial({ color: true })
-  .extend({ level: Text.levelZ.optional() });
+  .extend({ level: Text.levelZ });
 
 export interface UseProps extends z.input<typeof corePropsZ> {
   aetherKey: string;
 }
 
-export const use = ({
-  aetherKey,
-  box,
-  telem,
-  color,
-  precision,
-  width,
-  level = "small",
-}: UseProps): ReactElement | null => {
+export const use = ({ aetherKey, box, telem, color, width, level }: UseProps): void => {
   const font = Theming.useTypography(level);
   const memoProps = useMemoDeepEqualProps({
     box,
     telem,
     color,
-    precision,
     width,
     font: font.toString(),
   });
-
   const [, , setState] = Aether.use({
     aetherKey,
     type: Value.TYPE,
     schema: Value.z,
     initialState: memoProps,
   });
-  useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return null;
+  useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 };

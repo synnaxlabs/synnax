@@ -193,11 +193,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.xTelem.value())[0];
+    const [b] = await this.internal.xTelem.value();
+    return b;
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    return (await this.internal.yTelem.value())[0];
+    const [b] = await this.internal.yTelem.value();
+    return b;
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {

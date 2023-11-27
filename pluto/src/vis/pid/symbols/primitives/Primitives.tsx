@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import {
+  useEffect,
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useRef,
+  type PropsWithChildren,
+} from "react";
 
 import { dimensions, type location, direction, xy } from "@synnaxlabs/x";
 import {
   type HandleProps as RFHandleProps,
   Handle as RFHandle,
   Position,
-  useReactFlow,
+  useUpdateNodeInternals,
 } from "reactflow";
 
 import { Color } from "@/color";
@@ -89,6 +95,38 @@ const adjustHandle = (top: number, left: number, orientation: location.Outer) =>
   return { top: left, left: 100 - top };
 };
 
+export interface SmartHandlesProps extends PropsWithChildren<{}>, OrientableProps {}
+
+const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElement => {
+  let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
+  try {
+    updateInternals = useUpdateNodeInternals();
+  } catch (e) {
+    return <></>;
+  }
+  const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
+  const first = useRef<boolean>(true);
+  useEffect(() => {
+    if (ref.current == null) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    first.current = false;
+    const node = ref.current.closest(".react-flow__node");
+    if (node == null) return;
+    const id = node.getAttribute("data-id");
+    if (id == null) return;
+    updateInternals?.(id);
+  }, [orientation]);
+  return (
+    <>
+      <span ref={ref} />
+      {children}
+    </>
+  );
+};
+
 const Handle = ({
   location,
   orientation,
@@ -97,23 +135,18 @@ const Handle = ({
   ...props
 }: HandleProps): ReactElement => {
   const adjusted = adjustHandle(top, left, orientation);
-  try {
-    useReactFlow();
-    return (
-      <RFHandle
-        position={smartPosition(location, orientation)}
-        {...props}
-        type="source"
-        className={(CSS.B("handle"), CSS.BE("handle", props.id))}
-        style={{
-          left: `${adjusted.left}%`,
-          top: `${adjusted.top}%`,
-        }}
-      />
-    );
-  } catch (e) {
-    return <></>;
-  }
+  return (
+    <RFHandle
+      position={smartPosition(location, orientation)}
+      {...props}
+      type="source"
+      className={(CSS.B("handle"), CSS.BE("handle", props.id))}
+      style={{
+        left: `${adjusted.left}%`,
+        top: `${adjusted.top}%`,
+      }}
+    />
+  );
 };
 
 interface ToggleValveButtonProps extends ToggleProps {}
@@ -123,7 +156,7 @@ const Toggle = ({
   enabled = false,
   triggered = false,
   color,
-  orientation,
+  orientation = "left",
   ...props
 }: ToggleValveButtonProps): ReactElement => {
   return (
@@ -141,13 +174,18 @@ const Toggle = ({
   );
 };
 
-const Div = ({ className, color, ...props }: DivProps): ReactElement => {
+const Div = ({
+  className,
+  orientation = "left",
+  color,
+  ...props
+}: DivProps): ReactElement => {
   return <div className={CSS(CSS.B("symbol"), className)} {...props} />;
 };
 
 export interface InternalSVGProps
   extends OrientableProps,
-    Omit<ComponentPropsWithoutRef<"svg">, "direction" | "color"> {
+    Omit<ComponentPropsWithoutRef<"svg">, "direction" | "color" | "orientation"> {
   dimensions: dimensions.Dimensions;
   color?: Color.Crude;
   scale?: number;
@@ -161,23 +199,27 @@ const InternalSVG = ({
   children,
   className,
   color,
+  style = {},
   scale = 1,
   ...props
 }: InternalSVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  color = Color.cssString(color);
+  const colorStr = Color.cssString(color);
+  // @ts-expect-error - css variables
+  if (color != null) style[CSS.var("symbol-color")] = new Color.Color(color).rgbString;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
       className={CSS(CSS.loc(orientation), className)}
-      fill={color}
-      stroke={color}
+      fill={colorStr}
+      stroke={colorStr}
       {...props}
       style={{
         aspectRatio: `${dims.width} / ${dims.height}`,
         ...dimensions.scale(dims, scale * BASE_SCALE),
+        ...style,
       }}
     >
       <g overflow="hidden">{children}</g>
@@ -189,15 +231,22 @@ export interface FourWayValveProps extends ToggleProps {}
 
 export const FourWayValve = ({
   className,
+  orientation,
+  color,
   ...props
 }: FourWayValveProps): ReactElement => {
-  const color = Color.cssString(props.color);
   return (
-    <Toggle {...props} className={CSS(CSS.B("four-way-valve"), className)}>
-      <Handle location="left" orientation="left" left={0} top={50} id="1" />
-      <Handle location="right" orientation="left" left={100} top={50} id="2" />
-      <Handle location="top" orientation="left" left={50} top={0} id="3" />
-      <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+    <Toggle
+      {...props}
+      orientation={orientation}
+      className={CSS(CSS.B("four-way-valve"), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={0} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+      </HandleBoundary>
       <InternalSVG dimensions={{ width: 84, height: 84 }} color={color}>
         <path d="M42 42L5.36763 23.2371C3.37136 22.2146 1 23.6643 1 25.9072V58.0928C1 60.3357 3.37136 61.7854 5.36763 60.7629L42 42ZM42 42L78.6324 23.2371C80.6286 22.2146 83 23.6643 83 25.9072V58.0928C83 60.3357 80.6286 61.7854 78.6324 60.7629L42 42Z" />
         <path d="M42 42L23.2371 78.6324C22.2146 80.6286 23.6643 83 25.9072 83H58.0928C60.3357 83 61.7854 80.6286 60.7629 78.6324L42 42ZM42 42L23.2371 5.36763C22.2146 3.37136 23.6643 1 25.9072 1H58.0928C60.3357 1 61.7854 3.37136 60.7629 5.36763L42 42Z" />
@@ -219,9 +268,17 @@ export const ThreeWayValve = ({
       className={CSS(CSS.B("three-way-valve"))}
       orientation={orientation}
     >
-      <Handle location="top" orientation={orientation} left={50} top={100} id="1" />
-      <Handle location="left" orientation={orientation} left={0} top={33} id="2" />
-      <Handle location="right" orientation={orientation} left={100} top={33} id="3" />
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="1"
+        />
+        <Handle location="left" orientation={orientation} left={0} top={33} id="2" />
+        <Handle location="right" orientation={orientation} left={100} top={33} id="3" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 64 }}
         color={color}
@@ -237,18 +294,20 @@ export const ThreeWayValve = ({
 export interface ValveProps extends ToggleProps, OrientableProps {}
 
 export const Valve = ({
-  orientation: direction = "x",
+  orientation = "left",
   color,
   ...props
 }: ValveProps): ReactElement => {
   return (
     <Toggle {...props}>
-      <Handle location="left" orientation={direction} left={0} top={50} id="1" />
-      <Handle location="right" orientation={direction} left={100} top={50} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 42 }}
         color={color}
-        orientation={direction}
+        orientation={orientation}
         overflow="hidden"
       >
         <path d="M42 21L5.41842 1.37088C3.41986 0.298479 0.999969 1.74626 0.999969 4.01436V37.9856C0.999969 40.2537 3.41986 41.7015 5.41843 40.6291L42 21ZM42 21L78.5815 1.37088C80.5801 0.29848 83 1.74626 83 4.01436V37.9856C83 40.2537 80.5801 41.7015 78.5815 40.6291L42 21Z" />
@@ -277,8 +336,10 @@ export const SolenoidValve = ({
       )}
       {...props}
     >
-      <Handle location="left" orientation={orientation} left={0} top={68} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={68} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={68} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={68} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 66 }}
         color={color}
@@ -311,9 +372,15 @@ export const ReliefValve = ({
   ...props
 }: ReliefValveProps): ReactElement => {
   return (
-    <Div className={CSS(CSS.B("relief-valve"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("relief-valve"), className)}
+      {...props}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 57 }}
         color={color}
@@ -338,9 +405,15 @@ export const CheckValve = ({
   ...props
 }: CheckValveProps): ReactElement => {
   return (
-    <Div className={CSS(CSS.B("check-valve"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("check-valve"), className)}
+      {...props}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 43, height: 43 }}
         color={color}
@@ -353,7 +426,7 @@ export const CheckValve = ({
   );
 };
 
-export interface AngledValveProps extends ToggleProps, OrientableProps {}
+export interface AngledValveProps extends ToggleProps {}
 
 export const AngledValve = ({
   color,
@@ -361,15 +434,22 @@ export const AngledValve = ({
   orientation = "left",
   ...props
 }: AngledValveProps): ReactElement => {
-  color = Color.cssString(color);
   return (
     <Toggle
       {...props}
       orientation={orientation}
       className={CSS(CSS.B("angled-valve"), className)}
     >
-      <Handle location="bottom" orientation={orientation} left={33} top={100} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={35} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={33}
+          top={100}
+          id="1"
+        />
+        <Handle location="right" orientation={orientation} left={100} top={35} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 60, height: 60 }}
         color={color}
@@ -395,16 +475,20 @@ export interface ReduceFittingProps extends DivProps, OrientableProps {
 
 export const ReduceFitting = ({
   className,
-  orientation: direction,
+  orientation,
   color,
   ...props
 }: ReduceFittingProps): ReactElement => {
   return (
-    <Div className={CSS(CSS.B("reduce-fitting"), className)} {...props}>
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("reduce-fitting"), className)}
+      {...props}
+    >
       <InternalSVG
         dimensions={{ width: 42, height: 43 }}
         color={color}
-        orientation={direction}
+        orientation={orientation}
       >
         <path d="M38.862 31.1414L4.86205 41.3414C2.93721 41.9189 1 40.4775 1 38.4679V21.8707V4.53209C1 2.5225 2.93721 1.08116 4.86204 1.65861L38.862 11.8586C40.131 12.2393 41 13.4073 41 14.7321V21.5V28.2679C41 29.5927 40.131 30.7607 38.862 31.1414Z" />
       </InternalSVG>
@@ -414,23 +498,38 @@ export const ReduceFitting = ({
 
 export interface PumpProps extends ToggleProps {}
 
-export const Pump = ({ className, ...props }: PumpProps): ReactElement => {
-  const color = Color.cssString(props.color);
+export const Pump = ({
+  color,
+  className,
+  orientation = "left",
+  ...props
+}: PumpProps): ReactElement => {
+  const colorStr = Color.cssString(color);
   return (
-    <Toggle {...props} className={CSS(CSS.B("pump"), className)}>
-      <Handle location="left" orientation="left" left={0} top={50} id="1" />
-      <Handle location="right" orientation="left" left={100} top={10} id="2" />
-      <InternalSVG dimensions={{ width: 66, height: 60 }} color={color}>
+    <Toggle
+      {...props}
+      className={CSS(CSS.B("pump"), className)}
+      orientation={orientation}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={10} id="2" />
+      </HandleBoundary>
+      <InternalSVG
+        dimensions={{ width: 66, height: 60 }}
+        color={color}
+        orientation={orientation}
+      >
         <circle cx="39" cy="30" r="23" />
         <path d="M54 46.5L60.7186 55.8314C61.6711 57.1544 60.7257 59 59.0955 59H18.9045C17.2743 59 16.3289 57.1544 17.2814 55.8314L24 46.5" />
         <path
           d="M42 30L32 24.2265V35.7735L42 30ZM0 31H33V29H0L0 31Z"
-          fill={color}
+          fill={colorStr}
           stroke="none"
         />
         <path
           d="M66 7L56 1.2265V12.7735L66 7ZM38 8L57 8V6L38 6V8Z"
-          fill={color}
+          fill={colorStr}
           stroke="none"
         />
       </InternalSVG>
@@ -448,10 +547,12 @@ export const BurstDisc = ({
   orientation = "left",
   ...props
 }: BurstDiscProps): ReactElement => {
-  color = Color.cssString(color);
+  const colorStr = Color.cssString(color);
   return (
     <Div {...props} className={CSS(CSS.B("symbol"), className)}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 42, height: 49 }}
         color={color}
@@ -459,7 +560,7 @@ export const BurstDisc = ({
       >
         <path
           d="M42 24.5L32 18.7265V30.2735L42 24.5ZM0.976746 25.5H33V23.5H0.976746V25.5Z"
-          fill={color}
+          fill={colorStr}
         />
         <path d="M1 45.413L1 3.54787C1 1.84611 2.92941 0.863804 4.30365 1.86753C29.418 20.2107 29.0408 28.7584 4.31799 47.0846C2.94482 48.1025 1 47.1223 1 45.413Z" />
       </InternalSVG>
@@ -477,7 +578,9 @@ export const Cap = ({
 }: CapProps): ReactElement => {
   return (
     <Div className={CSS(CSS.B("cap"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      </HandleBoundary>
       <InternalSVG
         color={color}
         dimensions={{ width: 24, height: 49 }}
@@ -499,8 +602,10 @@ export const ManualValve = ({
 }: ManualValveProps): ReactElement => {
   return (
     <Div className={CSS(CSS.B("manual-valve"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 49 }}
         color={color}
@@ -524,8 +629,10 @@ export const Filter = ({
 }: FilterProps): ReactElement => {
   return (
     <Div className={CSS(CSS.B("filter"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 80, height: 32 }}
         orientation={orientation}
@@ -603,38 +710,40 @@ export const Tank = ({
       }}
       {...props}
     >
-      <Handle location="top" orientation="left" left={50} top={0} id="1" />
-      <Handle
-        location="top"
-        orientation="left"
-        left={0}
-        top={detailedRadius.topLeft.y - 1}
-        id="2"
-      />
-      <Handle
-        location="top"
-        orientation="left"
-        left={100}
-        top={detailedRadius.topRight.y - 1}
-        id="3"
-      />
-      <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
-      <Handle
-        location="bottom"
-        orientation="left"
-        left={0}
-        top={100 - detailedRadius.bottomLeft.y + 1}
-        id="5"
-      />
-      <Handle
-        location="bottom"
-        orientation="left"
-        left={100}
-        top={100 - detailedRadius.bottomRight.y + 1}
-        id="6"
-      />
-      <Handle location="left" orientation="left" left={0} top={50} id="7" />
-      <Handle location="right" orientation="left" left={100} top={50} id="8" />
+      <HandleBoundary>
+        <Handle location="top" orientation="left" left={50} top={0} id="1" />
+        <Handle
+          location="top"
+          orientation="left"
+          left={0}
+          top={detailedRadius.topLeft.y - 1}
+          id="2"
+        />
+        <Handle
+          location="top"
+          orientation="left"
+          left={100}
+          top={detailedRadius.topRight.y - 1}
+          id="3"
+        />
+        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+        <Handle
+          location="bottom"
+          orientation="left"
+          left={0}
+          top={100 - detailedRadius.bottomLeft.y + 1}
+          id="5"
+        />
+        <Handle
+          location="bottom"
+          orientation="left"
+          left={100}
+          top={100 - detailedRadius.bottomRight.y + 1}
+          id="6"
+        />
+        <Handle location="left" orientation="left" left={0} top={50} id="7" />
+        <Handle location="right" orientation="left" left={100} top={50} id="8" />
+      </HandleBoundary>
     </Div>
   );
 };
@@ -649,8 +758,10 @@ export const Regulator = ({
 }: RegulatorProps): ReactElement => {
   return (
     <Div className={CSS(className, CSS.B("regulator"))} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 58 }}
         orientation={orientation}
@@ -673,8 +784,10 @@ export const Orifice = ({
 }: OrificeProps): ReactElement => {
   return (
     <Div className={CSS(CSS.B("orifice"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 68, height: 32 }}
         orientation={orientation}
@@ -697,8 +810,10 @@ export const NeedleValve = ({
 }: NeedleValveProps): ReactElement => {
   return (
     <Div className={CSS(CSS.B("needle-valve"), className)} {...props}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 84, height: 42.5 }}
         orientation={orientation}
@@ -723,9 +838,21 @@ export const AngledReliefValve = ({
   ...props
 }: AngledReliefValveProps): ReactElement => {
   return (
-    <Div className={CSS(CSS.B("angled-relief-valve"), className)} {...props}>
-      <Handle location="bottom" orientation={orientation} left={33} top={100} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={45} id="2" />
+    <Div
+      orientation={orientation}
+      className={CSS(CSS.B("angled-relief-valve"), className)}
+      {...props}
+    >
+      <HandleBoundary>
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={33}
+          top={100}
+          id="1"
+        />
+        <Handle location="right" orientation={orientation} left={100} top={45} id="2" />
+      </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 60, height: 76 }}
         orientation={orientation}
@@ -740,3 +867,31 @@ export const AngledReliefValve = ({
     </Div>
   );
 };
+
+export interface ValueProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+}
+
+export const Value = ({
+  className,
+  color,
+  dimensions,
+  ...props
+}: ValueProps): ReactElement => (
+  <Div
+    className={CSS(CSS.B("value"), className)}
+    {...props}
+    style={{
+      borderColor: Color.cssString(color),
+      ...dimensions,
+    }}
+  >
+    <HandleBoundary>
+      <Handle location="left" orientation="left" left={0} top={50} id="1" />
+      <Handle location="right" orientation="left" left={100} top={50} id="2" />
+      <Handle location="top" orientation="left" left={50} top={0} id="3" />
+      <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+    </HandleBoundary>
+    {props.children}
+  </Div>
+);
