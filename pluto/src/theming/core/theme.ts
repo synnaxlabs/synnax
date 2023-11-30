@@ -229,7 +229,7 @@ const DARK_SCALE = [
   "#7f7f7f",
   "#9D9D9D",
   "#BFBFBF",
-  "#E2E2E2",
+  "#EDEDED",
   "#FDFDFD",
 ];
 
