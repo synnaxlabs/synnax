@@ -95,15 +95,23 @@ export const translateY = (c: Crude, y: number): XY => {
   return { x: p.x, y: p.y + y };
 };
 
+type TranslateOverloadOne = (a: Crude, b: Crude, ...cb: Crude[]) => XY;
+type TranslateOverloadTwo = (a: Crude, direction: Direction, value: number) => XY;
+
 /**
  * @returns the given coordinate translated by an arbitrary number of translation
  * coordinates.
  */
-export const translate = (a: Crude, b: Crude, ...cb: Crude[]): XY =>
-  [a, b, ...cb].reduce((p: XY, c) => {
+export const translate: TranslateOverloadOne & TranslateOverloadTwo= (a, b, v, ...cb): XY => {
+  if (typeof b === "string" && typeof v === "number") {
+    if (b === "x") return translateX(a, v);
+    return translateY(a, v);
+  }
+  return [a, b, ...cb].reduce((p: XY, c) => {
     const xy = construct(c);
     return { x: p.x + xy.x, y: p.y + xy.y };
   }, ZERO);
+}
 
 /**
  * @returns the given coordinate the given direction set to the given value.

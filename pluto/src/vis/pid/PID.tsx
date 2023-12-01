@@ -69,6 +69,8 @@ import {
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
 
+import { CustomConnectionLine } from "./edge/Edge";
+
 export interface SymbolProps {
   symbolKey: string;
   position: xy.XY;
@@ -106,6 +108,9 @@ export const use = ({
     onEditableChange,
   };
 };
+
+const isValidConnection = (connection: RFConnection): boolean =>
+  connection.source !== connection.target;
 
 export interface UseReturn {
   edges: Edge[];
@@ -154,7 +159,7 @@ interface ContextValue {
 const Context = createContext<ContextValue>({
   editable: true,
   onEditableChange: () => {},
-  registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => {},
+  registerNodeRenderer: () => {},
 });
 
 export const useContext = (): ContextValue => reactUseContext(Context);
@@ -378,8 +383,10 @@ const Core = Aether.wrap<PIDProps>(
             onConnect={handleConnect}
             onEdgeUpdate={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
+            connectionLineComponent={CustomConnectionLine}
             minZoom={0.2}
             maxZoom={1}
+            isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
             proOptions={{

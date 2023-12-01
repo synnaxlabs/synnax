@@ -16,7 +16,7 @@
     height: fit-content;
 
     .react-flow__handle {
-        scale: calc( 1 / var(--pluto-pid-zoom, 1));
+        scale: calc( 1 / var(--pluto-pid-zoom, 1)); 
         transform: translate(calc(var(--pluto-pid-zoom, 1) * -50%), calc(var(--pluto-pid-zoom, 1) * -50%));
     }
 

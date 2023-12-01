@@ -36,7 +36,7 @@ var _ Branch = (*SecureHTTPBranch)(nil)
 func (b *SecureHTTPBranch) Routing() BranchRouting {
 	return BranchRouting{
 		Policy:   ServeAlwaysPreferSecure,
-		Matchers: []cmux.Matcher{cmux.HTTP1Fast()},
+		Matchers: []cmux.Matcher{cmux.HTTP1Fast(), cmux.HTTP2()},
 	}
 }
 

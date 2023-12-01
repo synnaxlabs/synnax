@@ -287,8 +287,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     callback: handleDoubleClick,
   });
 
-  console.log(JSON.stringify(pid));
-
   return (
     <div ref={ref} style={{ width: "inherit", height: "inherit" }}>
       <Control.Controller

@@ -27,7 +27,7 @@ const Example = (): ReactElement => {
     <Align.Space className="story">
       <ReactFlowProvider>
         <Align.Space direction="x" wrap size="large">
-          {/* <Primitives.SolenoidValve color={COLOR} normallyOpen enabled />
+          <Primitives.SolenoidValve color={COLOR} normallyOpen enabled />
           <Primitives.SolenoidValve color={COLOR} normallyOpen />
           <Primitives.SolenoidValve color={COLOR} enabled />
           <Primitives.SolenoidValve color={COLOR} />
@@ -105,7 +105,7 @@ const Example = (): ReactElement => {
           <Primitives.ManualValve color={COLOR} orientation="left" />
           <Primitives.ManualValve color={COLOR} orientation="right" />
           <Primitives.ManualValve color={COLOR} orientation="top" />
-          <Primitives.ManualValve color={COLOR} orientation="bottom" /> */}
+          <Primitives.ManualValve color={COLOR} orientation="bottom" />
           <Primitives.Tank
             dimensions={{ width: 300, height: 500 }}
             borderRadius={{ x: 50, y: 10 }}
@@ -122,7 +122,7 @@ const Example = (): ReactElement => {
   );
 };
 
-export const Primary: StoryFn<typeof Tank> = () => <Example />;
+export const Primary: StoryFn<typeof Primitives.Tank> = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

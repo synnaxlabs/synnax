@@ -118,11 +118,13 @@ export class LinePlot extends aether.Composite<
     return calculatePlotBox(this.state.grid, this.state.container);
   }
 
-  private async render(canvases: render.CanvasVariant[]): Promise<render.Cleanup> {
+  private async render(
+    canvases: render.CanvasVariant[],
+  ): Promise<render.Cleanup | undefined> {
     const { instrumentation } = this.internal;
     if (this.deleted) {
       instrumentation.L.debug("deleted, skipping render", { key: this.key });
-      return async () => {};
+      return;
     }
 
     const plot = this.calculatePlot();
@@ -160,7 +162,7 @@ export class LinePlot extends aether.Composite<
       removeCanvasScissor();
       removeGLScissor();
     }
-    return async ({ canvases }) => {
+    return ({ canvases }) => {
       this.eraser.erase(
         renderCtx,
         this.state.container,
@@ -177,7 +179,7 @@ export class LinePlot extends aether.Composite<
     // Optimization for tooltips, measures and other utilities. In this case, we only
     // need to render the upper2d canvas.
     if (reason === render.REASON_TOOL) canvases = ["upper2d"];
-    ctx.queue.push({
+    void ctx.queue.set({
       key: `${this.type}-${this.key}`,
       render: async () => await this.render(canvases),
       priority,

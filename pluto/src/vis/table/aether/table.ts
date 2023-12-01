@@ -39,7 +39,7 @@ export class Table extends aether.Composite<
 
   afterUpdate(): void {
     this.internal.renderCtx = render.Context.use(this.ctx);
-    this.internal.renderCtx.queue.push({
+    this.internal.renderCtx.queue.set({
       key: this.key,
       render: async () => await this.render(),
       canvases: ["upper2d"],

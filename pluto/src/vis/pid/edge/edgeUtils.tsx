@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, direction, xy } from "@synnaxlabs/x";
+import { Position } from "reactflow";
 
 export const calculateLineDirection = (
   source: xy.XY,
@@ -87,6 +88,19 @@ const newConnectorPoints = (source: xy.XY, target: xy.XY): xy.XY[] => [
   { x: (source.x + target.x) / 2, y: target.y },
   target,
 ];
+
+export const adjustToHandlePosition = (
+  points: xy.XY[],
+  sourcePos: Position,
+  targetPos: Position,
+): xy.XY[] => {
+  if (points.length === 0) return points;
+  if (sourcePos === Position.Bottom) {
+    // move the first point 5 px up
+    points[0] = xy.set(points[0], "y", points[0].y - 7);
+  }
+  return points;
+};
 
 export const adjustToSourceOrTarget = (
   sourceX: number,

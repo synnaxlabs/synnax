@@ -1,0 +1,342 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { xy, direction, location, box, direction } from "@synnaxlabs/x";
+
+export interface PrepareNodeProps {
+  sourceStumpTip: xy.XY;
+  sourceOrientation: location.Outer;
+  sourceBox: box.Box;
+  targetStumpTip: xy.XY;
+  targetOrientation: location.Outer;
+  targetBox: box.Box;
+}
+
+export const prepareNode = ({
+  sourceStumpTip: sourcePos,
+  sourceOrientation,
+  sourceBox,
+  targetStumpTip: targetPos,
+  targetOrientation,
+  targetBox,
+}: PrepareNodeProps): Segment | undefined => {
+  // This is the case where the final connection line will not overlap with the node,
+  // so we don't neeed to create an extra segment.
+  if (!needToGoAround({ sourcePos, sourceOrientation, targetPos })) return;
+
+  const sourceDirection = direction.construct(sourceOrientation);
+  const swappedSourceDirection = direction.swap(sourceDirection);
+
+  // This is the direction we need to travel in
+  let orientationToTravelIn = orientationFromLength(
+    swappedSourceDirection,
+    targetPos[swappedSourceDirection] - sourcePos[swappedSourceDirection],
+  );
+
+  // We need to grab the edge of the node in this direction
+  const nodeEdge = box.loc(sourceBox, orientationToTravelIn);
+
+  // If they are pointing in opposite directions, we need to check if we need to
+  // go completely around the node if there isn't enough space for a connector
+  // between the two nodes.
+  if (location.swap(sourceOrientation) === targetOrientation) {
+    // In this case we do need to go around the node.
+    const targetNodeEdge = box.loc(targetBox, location.swap(orientationToTravelIn));
+    if (Math.abs(nodeEdge - targetNodeEdge) < MIN_LENGTH)
+      orientationToTravelIn = location.swap(orientationToTravelIn) as location.Outer;
+  }
+  // We need to travel from the source to the edge of the node plus MIN_LENGTH
+  return {
+    direction: swappedSourceDirection,
+    length:
+      nodeEdge -
+      sourcePos[swappedSourceDirection] +
+      setOrientationOnLength(orientationToTravelIn, MIN_LENGTH),
+  };
+};
+
+export interface Segment {
+  direction: direction.Direction;
+  length: number;
+}
+
+export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => {
+  let current = source;
+  for (const segment of segments) {
+    current = xy.translate(current, segment.direction, segment.length);
+  }
+  return current;
+};
+
+export const segmentsToPoints = (
+  source: xy.XY,
+  segments: Segment[],
+  zoom: number,
+  applyTransform: boolean,
+): xy.XY[] => {
+  let current = source;
+  const points: xy.XY[] = [
+    source,
+    ...segments.map((s) => {
+      current = xy.translate(current, s.direction, s.length);
+      return current;
+    }),
+  ];
+  if (!applyTransform) return points;
+
+  const firstSeg = segments[0];
+  const firstSegOrientation = orientationFromLength(
+    firstSeg.direction,
+    firstSeg.length,
+  );
+  const firstMag = orientationMagnitude(firstSegOrientation);
+  points[0] = xy.translate(points[0], {
+    [firstSeg.direction]: -1 * firstMag * 4 * zoom,
+    [direction.swap(firstSeg.direction)]: 0,
+  } as const as xy.XY);
+  const lastSeg = segments[segments.length - 1];
+  const lastSegOrientation = orientationFromLength(lastSeg.direction, lastSeg.length);
+  const lastMag = orientationMagnitude(lastSegOrientation);
+  points[points.length - 1] = xy.translate(points[points.length - 1], {
+    [lastSeg.direction]: lastMag * 4 * zoom,
+    [direction.swap(lastSeg.direction)]: 0,
+  } as const as xy.XY);
+
+  return points;
+};
+
+export interface BuildNewConnectorProps {
+  sourceBox: box.Box;
+  targetBox: box.Box;
+  sourcePos: xy.XY;
+  targetPos: xy.XY;
+  sourceOrientation: location.Outer;
+  targetOrientation: location.Outer;
+}
+
+const MIN_LENGTH = 6;
+
+const orientationMagnitude = (or: location.Outer) =>
+  or === "top" || or === "left" ? -1 : 1;
+
+const setOrientationOnLength = (or: location.Outer, length: number) =>
+  or === "top" || or === "left" ? -length : length;
+
+const orientationFromLength = (
+  direction: direction.Direction,
+  length: number,
+): location.Outer => {
+  if (direction === "x") return length > 0 ? "right" : "left";
+  return length > 0 ? "bottom" : "top";
+};
+
+export interface NeedToGoAroundSourceProps {
+  sourcePos: xy.XY;
+  targetPos: xy.XY;
+  sourceOrientation: location.Outer;
+}
+
+export const needToGoAround = ({
+  sourcePos,
+  targetPos,
+  sourceOrientation,
+}: NeedToGoAroundSourceProps): boolean => {
+  const sourceDirection = direction.construct(sourceOrientation);
+  const delta = targetPos[sourceDirection] - sourcePos[sourceDirection];
+  return setOrientationOnLength(sourceOrientation, delta) < 0;
+};
+
+export const stump = (orientation: location.Outer): Segment => ({
+  direction: direction.construct(orientation),
+  length: setOrientationOnLength(orientation, MIN_LENGTH),
+});
+
+const STUMPS = {
+  top: stump("top"),
+  bottom: stump("bottom"),
+  left: stump("left"),
+  right: stump("right"),
+};
+
+export const compressSegments = (segments: Segment[]): Segment[] => {
+  const compressed: Segment[] = [];
+  let current: Segment | undefined;
+  for (const segment of segments) {
+    if (current == null || current.length === 0) {
+      current = segment;
+      continue;
+    }
+    if (current.direction === segment.direction) {
+      current.length += segment.length;
+      continue;
+    }
+    compressed.push(current);
+    current = segment;
+  }
+  if (current != null) compressed.push(current);
+  if (compressed.length === segments.length) return compressed;
+  return compressSegments(compressed);
+};
+
+export const newConnector = (props: BuildNewConnectorProps): Segment[] =>
+  compressSegments(internalNewConnector(props));
+
+const internalNewConnector = ({
+  sourceBox,
+  targetBox,
+  sourcePos,
+  targetPos,
+  targetOrientation,
+  sourceOrientation,
+}: BuildNewConnectorProps): Segment[] => {
+  let sourceStumpOrientation = sourceOrientation;
+  let targetStumpOrientation = targetOrientation;
+
+  let sourceStump = { ...STUMPS[sourceOrientation] };
+  let sourceStumpTip = travelSegments(sourcePos, sourceStump);
+
+  const targetStump = { ...STUMPS[targetOrientation] };
+  let targetStumpTip = travelSegments(targetPos, targetStump);
+
+  const segments = [sourceStump];
+  const extraSourceSeg = prepareNode({
+    sourceStumpTip,
+    sourceOrientation,
+    sourceBox,
+    targetStumpTip,
+    targetOrientation,
+    targetBox,
+  });
+  if (extraSourceSeg != null) {
+    segments.push(extraSourceSeg);
+    sourceStumpTip = travelSegments(sourceStumpTip, extraSourceSeg);
+    sourceStumpOrientation = orientationFromLength(
+      extraSourceSeg.direction,
+      extraSourceSeg.length,
+    );
+    sourceStump = extraSourceSeg;
+  }
+
+  const extraTargetSeg = prepareNode({
+    sourceStumpTip: targetStumpTip,
+    sourceOrientation: targetStumpOrientation,
+    sourceBox: targetBox,
+    targetStumpTip: sourceStumpTip,
+    targetOrientation: sourceStumpOrientation,
+    targetBox: sourceBox,
+  });
+
+  if (extraTargetSeg != null) {
+    targetStumpTip = travelSegments(targetStumpTip, extraTargetSeg);
+    targetStumpOrientation = orientationFromLength(
+      extraTargetSeg.direction,
+      extraTargetSeg.length,
+    );
+  }
+
+  const addTargetSegs = (): void => {
+    // We need to swap the orientations orientations of the target stumps so that
+    // they create the correct path when traversing the segments.
+    if (extraTargetSeg != null) {
+      extraTargetSeg.length *= -1;
+      segments.push(extraTargetSeg);
+    }
+    targetStump.length *= -1;
+    segments.push(targetStump);
+  };
+
+  // Here is where we draw the final connection line.
+  // In this case we split the delta in half and draw three lines.
+  if (location.swap(sourceStumpOrientation) === targetOrientation) {
+    const dir = direction.construct(sourceStumpOrientation);
+    // push three segments on
+    // first segment is in same direction as source stump orientation and half way to the
+    // target stump tip
+    const dist = (targetStumpTip[dir] - sourceStumpTip[dir]) / 2;
+    segments.push({ direction: dir, length: dist });
+    const swappedDir = direction.swap(dir);
+    // second segment is in the swapped direction of the source stump orientation and
+    // the distance between the source stump tip and the target stump tip
+    segments.push({
+      direction: swappedDir,
+      length: targetStumpTip[swappedDir] - sourceStumpTip[swappedDir],
+    });
+    // third segment is in the same direction as the source stump orientation and the
+    // remaining distance to the target stump tip
+    segments.push({ direction: dir, length: dist });
+    addTargetSegs();
+    return segments;
+  }
+
+  // In this case we draw two lines.
+  // Check the delta in the direction of the source stump
+  const delta =
+    targetStumpTip[sourceStump.direction] - sourceStumpTip[sourceStump.direction];
+  let swapped = direction.swap(sourceStump.direction);
+  const swappedDelta = sourceStumpTip[swapped] - targetStumpTip[swapped];
+  // Check if the delta is in the same direction as the source stump
+  let firstSeg: Segment;
+  if (
+    orientationFromLength(sourceStump.direction, delta) === sourceStumpOrientation &&
+    orientationFromLength(swapped, swappedDelta) === targetStumpOrientation
+  ) {
+    // This means we're good to go in this direction
+    firstSeg = {
+      direction: sourceStump.direction,
+      length: delta,
+    };
+  } else {
+    // This means we need to go orthogonally
+    firstSeg = {
+      direction: swapped,
+      length: targetStumpTip[swapped] - sourceStumpTip[swapped],
+    };
+    swapped = direction.swap(swapped);
+  }
+
+  segments.push(firstSeg);
+  // All we need to do next is draw a line
+  const secondSeg = {
+    direction: swapped,
+    length: targetStumpTip[swapped] - sourceStumpTip[swapped],
+  };
+  segments.push(secondSeg);
+  addTargetSegs();
+  return segments;
+};
+
+export interface MoveConnectorProps {
+  segments: Segment[];
+  index: number;
+  magnitude: number;
+}
+
+export const moveConnector = (props: MoveConnectorProps): Segment[] =>
+  compressSegments(internalMoveConnector(props));
+
+const internalMoveConnector = ({
+  segments,
+  index,
+  magnitude,
+}: MoveConnectorProps): Segment[] => {
+  const next = [...segments];
+  const seg = next[index];
+  const dir = direction.swap(seg.direction);
+  if (index === 0) {
+    next.unshift({ direction: dir, length: magnitude });
+    next.unshift({ direction: seg.direction, length: MIN_LENGTH });
+    next[index].length -= MIN_LENGTH;
+  } else next[index - 1].length += magnitude;
+  if (index === next.length - 1) {
+    next.push({ direction: dir, length: magnitude });
+    next.push({ direction: seg.direction, length: MIN_LENGTH });
+    next[index].length -= MIN_LENGTH;
+  } else next[index + 1].length -= magnitude;
+  return next;
+};

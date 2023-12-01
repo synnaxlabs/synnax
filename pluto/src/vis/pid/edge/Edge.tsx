@@ -16,18 +16,31 @@ import {
 } from "react";
 
 import { type box, direction, xy } from "@synnaxlabs/x";
-import { BaseEdge, type EdgeProps as RFEdgeProps, useViewport } from "reactflow";
+import {
+  BaseEdge,
+  type EdgeProps as RFEdgeProps,
+  useViewport,
+  useStore,
+  useReactFlow,
+  type ConnectionLineComponentProps,
+} from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Theming } from "@/theming";
 import { type Key } from "@/triggers/triggers";
 import {
   adjustToSourceOrTarget,
   handleDrag,
   calculateLineDirection,
+  adjustToHandlePosition,
 } from "@/vis/pid/edge/edgeUtils";
+
+import { selectNode, selectNodeBox } from "../util";
+
+import { newConnector, segmentsToPoints } from "./connector";
 
 import "@/vis/pid/edge/Edge.css";
 
@@ -41,7 +54,41 @@ export interface EdgeProps extends RFEdgeProps {
   points: xy.XY[];
   onPointsChange: (p: xy.XY[]) => void;
   color?: Color.Crude;
+  applyTransform?: boolean;
 }
+
+export const CustomConnectionLine = ({
+  fromX,
+  fromY,
+  toX,
+  toY,
+  fromPosition,
+  toPosition,
+  fromNode,
+  connectionLineStyle,
+}: ConnectionLineComponentProps): ReactElement => {
+  console.log(toPosition, fromNode);
+  const t = Theming.use();
+  return (
+    <Edge
+      sourceX={fromX}
+      sourceY={fromY}
+      targetX={toX}
+      targetY={toY}
+      sourcePosition={fromPosition}
+      targetPosition={toPosition}
+      color={t.colors.gray.l9}
+      editable={false}
+      points={[]}
+      onPointsChange={() => {}}
+      id="custom-connection"
+      source={fromNode?.id ?? ""}
+      target={fromNode?.id ?? ""}
+      style={{ strokeWidth: 2 }}
+      applyTransform={false}
+    />
+  );
+};
 
 export const Edge = ({
   id,
@@ -49,6 +96,8 @@ export const Edge = ({
   sourceY,
   targetX,
   targetY,
+  source,
+  target,
   sourcePosition,
   targetHandleId,
   targetPosition,
@@ -57,9 +106,10 @@ export const Edge = ({
   onPointsChange,
   editable,
   color,
+  applyTransform = true,
   ...props
 }: EdgeProps): ReactElement => {
-  const [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints);
+  let [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints);
 
   const { zoom } = useViewport();
 
@@ -88,11 +138,32 @@ export const Edge = ({
     onEnd: useCallback(() => onPointsChange(pointsRef.current), [onPointsChange]),
   });
 
+  // points = adjustToHandlePosition(points, sourcePosition, targetPosition);
+
+  const flow = useReactFlow();
+
+  const segments = newConnector({
+    sourcePos: xy.construct(sourceX, sourceY),
+    targetPos: xy.construct(targetX, targetY),
+    sourceOrientation: sourcePosition,
+    targetOrientation: targetPosition,
+    sourceBox: selectNodeBox(flow, source),
+    targetBox: selectNodeBox(flow, target),
+  });
+
+  const points = segmentsToPoints(
+    { x: sourceX, y: sourceY },
+    segments,
+    flow.getZoom(),
+    applyTransform,
+  );
+
   return (
     <>
       <BaseEdge
         path={calcPath(points)}
         style={{ ...style, stroke: Color.cssString(color) }}
+        interactionWidth={6}
         {...props}
       />
       {calcMidPoints(points).map((p, i) => {
@@ -122,7 +193,7 @@ export const Edge = ({
                 id={`handle-${i}`}
                 className={CSS(CSS.BE("pid-edge-handle", "dragger"), CSS.dir(dir))}
                 draggable
-                onDragStart={dragStart}
+                // onDragStart={dragStart}
               />
             </foreignObject>
           </Fragment>
@@ -132,11 +203,28 @@ export const Edge = ({
   );
 };
 
-export const calcPath = (points: xy.XY[]): string => {
-  if (points.length === 0) return "";
-  const [start, ...rest] = points;
-  // Generate a path string of lines between each point with a corner radius of 2px
-  return `M ${start.x} ${start.y} ${rest.map((p) => `L ${p.x} ${p.y}`).join(" ")}`;
+export const calcPath = (coords: xy.XY[]): string => {
+  let path = "";
+  const close = false;
+  const radius = 6;
+  const length = coords.length + (close ? 1 : -1);
+  for (let i = 0; i < length; i++) {
+    const a = coords[i % coords.length];
+    const b = coords[(i + 1) % coords.length];
+    const t = Math.min(radius / Math.hypot(b.x - a.x, b.y - a.y), 0.5);
+
+    if (i > 0)
+      path += `Q${a.x},${a.y} ${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
+
+    if (!close && i == 0) path += `M${a.x},${a.y}`;
+    else if (i == 0) path += `M${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
+
+    if (!close && i == length - 1) path += `L${b.x},${b.y}`;
+    else if (i < length - 1)
+      path += `L${a.x * t + b.x * (1 - t)},${a.y * t + b.y * (1 - t)}`;
+  }
+  if (close) path += "Z";
+  return path;
 };
 
 export const calcMidPoints = (points: xy.XY[]): xy.XY[] => {

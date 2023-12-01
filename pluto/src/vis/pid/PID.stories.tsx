@@ -15,7 +15,7 @@ import { telem } from "@/telem/aether";
 import { Canvas } from "@/vis/canvas";
 import { PID } from "@/vis/pid";
 
-import { Value } from "./symbols/Symbols";
+import { FourWayValve, SolenoidValve, ThreeWayValve, Value } from "./symbols/Symbols";
 
 const story: Meta<typeof PID.PID> = {
   title: "PID",
@@ -33,13 +33,13 @@ const Example = (): ReactElement => {
         },
         data: {},
       },
-      // {
-      //   key: "2",
-      //   position: {
-      //     x: 500,
-      //     y: 200,
-      //   },
-      // },
+      {
+        key: "2",
+        position: {
+          x: 500,
+          y: 200,
+        },
+      },
     ],
     initialEdges: [
       // {
@@ -53,15 +53,15 @@ const Example = (): ReactElement => {
 
   const S = useCallback(
     (p) => (
-      <Value
+      <FourWayValve
+        orientation="bottom"
         label={{
           orientation: "top",
           label: "Hello",
           level: "small",
         }}
         level="small"
-        telem={telem.fixedString("120 PSI")}
-        color="black"
+        color="#000000"
         {...p}
       />
     ),

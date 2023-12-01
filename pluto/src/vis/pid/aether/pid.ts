@@ -22,7 +22,7 @@ export const pidStateZ = z.object({
 });
 
 interface ElementProps {
-  s?: scale.XY;
+  xyScale?: scale.XY;
 }
 
 export interface Element extends aether.Component {
@@ -53,21 +53,17 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, Eleme
     this.requestRender();
   }
 
-  async render(): Promise<render.Cleanup> {
-    if (this.deleted) return async () => {};
+  async render(): Promise<render.Cleanup | undefined> {
+    if (this.deleted) return undefined;
     const { render: renderCtx } = this.internal;
     const region = box.construct(this.state.region);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
+    const xyScale = scale.XY.magnify(xy.construct(this.state.zoom))
+      .translate(box.topLeft(region))
+      .translate(this.state.position);
     try {
       await Promise.all(
-        this.children.map(
-          async (child) =>
-            await child.render({
-              s: scale.XY.magnify(xy.construct(this.state.zoom))
-                .translate(box.topLeft(region))
-                .translate(this.state.position),
-            }),
-        ),
+        this.children.map(async (child) => await child.render({ xyScale })),
       );
     } catch (e) {
       this.internal.aggregate({
@@ -78,7 +74,7 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, Eleme
       clearScissor();
     }
 
-    return async () =>
+    return () =>
       this.eraser.erase(
         this.internal.render,
         this.state.region,
@@ -90,7 +86,7 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, Eleme
 
   private requestRender(): void {
     const { render: renderCtx } = this.internal;
-    renderCtx.queue.push({
+    void renderCtx.queue.set({
       key: this.key,
       render: this.render.bind(this),
       priority: "high",

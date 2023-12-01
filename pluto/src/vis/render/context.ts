@@ -21,7 +21,7 @@ import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
-import { Queue } from "@/vis/render/queue";
+import { Loop } from "@/vis/render/loop";
 
 export type CanvasVariant = "upper2d" | "lower2d" | "gl";
 
@@ -56,7 +56,7 @@ export class Context {
   dpr: number;
 
   /** queue render transitions onto the stack */
-  readonly queue: Queue;
+  readonly queue: Loop;
 
   /** See the @link{clear.Program} for why this is necessary. */
   private readonly clearProgram?: clear.Program;
@@ -87,7 +87,7 @@ export class Context {
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.os = os;
-    this.queue = new Queue();
+    this.queue = new Loop();
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");

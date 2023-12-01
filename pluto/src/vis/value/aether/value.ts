@@ -74,11 +74,11 @@ export class Value
     else void this.render({});
   }
 
-  async render({ s = scale.XY.IDENTITY }): Promise<void> {
+  async render({ xyScale = scale.XY.IDENTITY }): Promise<void> {
     const { render: renderCtx, telem } = this.internal;
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
-    const canvas = renderCtx.lower2d.applyScale(s);
+    const canvas = renderCtx.lower2d.applyScale(xyScale);
     const value = await telem.value();
     canvas.font = this.state.font;
     const dims = dimensions(value, this.state.font, canvas);
