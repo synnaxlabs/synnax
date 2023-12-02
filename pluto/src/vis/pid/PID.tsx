@@ -317,7 +317,7 @@ const Core = Aether.wrap<PIDProps>(
         const next = [...edgesRef.current];
         const index = next.findIndex((e) => e.key === id);
         if (index === -1) return;
-        next[index] = { ...next[index], points };
+        next[index] = { ...next[index], segments: points };
         onEdgesChange(next);
       },
       [onEdgesChange],
@@ -331,9 +331,9 @@ const Core = Aether.wrap<PIDProps>(
           <PlutoEdge
             {...props}
             editable={props.data.editable}
-            points={props.data.points}
+            segments={props.data.points}
             color={props.data.color}
-            onPointsChange={(f) => handleEdgePointsChange(props.id, f)}
+            onSegmentsChange={(f) => handleEdgePointsChange(props.id, f)}
           />
         ),
       }),
@@ -384,6 +384,7 @@ const Core = Aether.wrap<PIDProps>(
             onEdgeUpdate={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
             connectionLineComponent={CustomConnectionLine}
+            elevateEdgesOnSelect
             minZoom={0.2}
             maxZoom={1}
             isValidConnection={isValidConnection}

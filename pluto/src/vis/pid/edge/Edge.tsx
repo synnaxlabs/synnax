@@ -15,7 +15,7 @@ import {
   useRef,
 } from "react";
 
-import { type box, direction, xy } from "@synnaxlabs/x";
+import { box, direction, xy } from "@synnaxlabs/x";
 import {
   BaseEdge,
   type EdgeProps as RFEdgeProps,
@@ -40,19 +40,24 @@ import {
 
 import { selectNode, selectNodeBox } from "../util";
 
-import { newConnector, segmentsToPoints } from "./connector";
+import {
+  type Segment,
+  newConnector,
+  segmentsToPoints,
+  moveConnector,
+} from "./connector";
 
 import "@/vis/pid/edge/Edge.css";
 
 interface CurrentlyDragging {
-  root: xy.XY;
+  segments: Segment[];
   index: number;
 }
 
 export interface EdgeProps extends RFEdgeProps {
   editable: boolean;
-  points: xy.XY[];
-  onPointsChange: (p: xy.XY[]) => void;
+  segments: Segment[];
+  onSegmentsChange: (p: xy.XY[]) => void;
   color?: Color.Crude;
   applyTransform?: boolean;
 }
@@ -79,8 +84,8 @@ export const CustomConnectionLine = ({
       targetPosition={toPosition}
       color={t.colors.gray.l9}
       editable={false}
-      points={[]}
-      onPointsChange={() => {}}
+      segments={[]}
+      onSegmentsChange={() => {}}
       id="custom-connection"
       source={fromNode?.id ?? ""}
       target={fromNode?.id ?? ""}
@@ -102,54 +107,57 @@ export const Edge = ({
   targetHandleId,
   targetPosition,
   style,
-  points: propsPoints,
-  onPointsChange,
+  segments: propsSegments,
+  onSegmentsChange: onPointsChange,
   editable,
   color,
   applyTransform = true,
   ...props
 }: EdgeProps): ReactElement => {
-  let [points, setPoints, pointsRef] = useCombinedStateAndRef<xy.XY[]>(propsPoints);
+  const flow = useReactFlow();
+  const [segments, setSegments, segRef] = useCombinedStateAndRef<Segment[]>(
+    propsSegments?.length > 0
+      ? propsSegments
+      : newConnector({
+          sourcePos: xy.construct(sourceX, sourceY),
+          targetPos: xy.construct(targetX, targetY),
+          sourceOrientation: sourcePosition,
+          targetOrientation: targetPosition,
+          sourceBox: selectNodeBox(flow, source),
+          targetBox: selectNodeBox(flow, target),
+        }),
+  );
 
-  const { zoom } = useViewport();
-
-  const adjusted = adjustToSourceOrTarget(sourceX, sourceY, targetX, targetY, points);
-  if (adjusted != null) setPoints(adjusted);
+  // const adjusted = adjustToSourceOrTarget(sourceX, sourceY, targetX, targetY, points);
+  // if (adjusted != null) setPoints(adjusted);
 
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({
     onStart: useCallback((_: xy.XY, __: Key, e: DragEvent) => {
-      const index = Number(e.currentTarget.id.split("-")[1]);
-      dragRef.current = { root: pointsRef.current[index], index };
+      dragRef.current = {
+        index: Number(e.currentTarget.id.split("-")[1]),
+        segments: [...segRef.current],
+      };
+      console.log(dragRef.current);
     }, []),
-    onMove: useCallback(
-      (b: box.Box) => {
-        setPoints((prev) => {
-          if (dragRef.current == null) return prev;
-          const { root, index } = dragRef.current;
-          const [nextIndex, next] = handleDrag(prev, b, root, index, zoom);
-          dragRef.current.index = nextIndex;
-          return next;
-        });
-      },
-      [zoom],
-    ),
+    onMove: useCallback((b: box.Box) => {
+      if (dragRef.current == null) return;
+      const next = moveConnector({
+        segments: dragRef.current.segments,
+        index: dragRef.current.index,
+        magnitude: box.dim(
+          b,
+          direction.swap(dragRef.current.segments[dragRef.current.index].direction),
+          true,
+        ),
+      });
+      setSegments(next);
+    }, []),
     onEnd: useCallback(() => onPointsChange(pointsRef.current), [onPointsChange]),
   });
 
   // points = adjustToHandlePosition(points, sourcePosition, targetPosition);
-
-  const flow = useReactFlow();
-
-  const segments = newConnector({
-    sourcePos: xy.construct(sourceX, sourceY),
-    targetPos: xy.construct(targetX, targetY),
-    sourceOrientation: sourcePosition,
-    targetOrientation: targetPosition,
-    sourceBox: selectNodeBox(flow, source),
-    targetBox: selectNodeBox(flow, target),
-  });
 
   const points = segmentsToPoints(
     { x: sourceX, y: sourceY },
@@ -193,7 +201,7 @@ export const Edge = ({
                 id={`handle-${i}`}
                 className={CSS(CSS.BE("pid-edge-handle", "dragger"), CSS.dir(dir))}
                 draggable
-                // onDragStart={dragStart}
+                onDragStart={dragStart}
               />
             </foreignObject>
           </Fragment>

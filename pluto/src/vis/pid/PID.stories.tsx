@@ -42,12 +42,11 @@ const Example = (): ReactElement => {
       },
     ],
     initialEdges: [
-      // {
-      //   key: "dog",
-      //   source: "1",
-      //   target: "2",
-      //   points: [],
-      // },
+      {
+        key: "dog",
+        source: "1",
+        target: "2",
+      },
     ],
   });
 

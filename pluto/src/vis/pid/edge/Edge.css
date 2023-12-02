@@ -29,6 +29,7 @@
 }
 
 .react-flow__edge.selected {
+    z-index: 10000;
     .pluto-pid-edge-handle__dragger {
         display: block;
     }

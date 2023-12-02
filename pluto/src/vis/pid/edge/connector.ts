@@ -167,7 +167,7 @@ const STUMPS = {
 export const compressSegments = (segments: Segment[]): Segment[] => {
   const compressed: Segment[] = [];
   let current: Segment | undefined;
-  for (const segment of segments) {
+  for (const segment of segments.filter((s) => s.length !== 0)) {
     if (current == null || current.length === 0) {
       current = segment;
       continue;
@@ -318,7 +318,7 @@ export interface MoveConnectorProps {
 }
 
 export const moveConnector = (props: MoveConnectorProps): Segment[] =>
-  compressSegments(internalMoveConnector(props));
+  internalMoveConnector(props);
 
 const internalMoveConnector = ({
   segments,
@@ -328,15 +328,33 @@ const internalMoveConnector = ({
   const next = [...segments];
   const seg = next[index];
   const dir = direction.swap(seg.direction);
+  const orientation = orientationFromLength(seg.direction, seg.length);
   if (index === 0) {
+    console.log("here");
     next.unshift({ direction: dir, length: magnitude });
-    next.unshift({ direction: seg.direction, length: MIN_LENGTH });
-    next[index].length -= MIN_LENGTH;
-  } else next[index - 1].length += magnitude;
+    next.unshift({
+      direction: seg.direction,
+      length: setOrientationOnLength(orientation, MIN_LENGTH),
+    });
+    index += 2;
+  } else
+    next[index - 1] = {
+      direction: next[index - 1].direction,
+      length: next[index - 1].length + magnitude,
+    };
   if (index === next.length - 1) {
-    next.push({ direction: dir, length: magnitude });
+    next.push({ direction: dir, length: -magnitude });
     next.push({ direction: seg.direction, length: MIN_LENGTH });
-    next[index].length -= MIN_LENGTH;
-  } else next[index + 1].length -= magnitude;
+    next[index] = {
+      direction: next[index].direction,
+      length: next[index].length - MIN_LENGTH,
+    };
+  } else {
+    next[index + 1] = {
+      direction: next[index + 1].direction,
+      length: next[index + 1].length - magnitude,
+    };
+  }
+  console.log(next);
   return next;
 };

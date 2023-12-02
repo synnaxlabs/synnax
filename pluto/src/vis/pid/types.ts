@@ -12,6 +12,8 @@ import type * as rf from "reactflow";
 
 import { type Color } from "@/color";
 
+import { type Segment } from "./edge/connector";
+
 export interface Viewport {
   position: xy.XY;
   zoom: number;
@@ -25,7 +27,7 @@ export interface Edge {
   color: Color.Crude;
   sourceHandle?: string | null;
   targetHandle?: string | null;
-  points: xy.XY[];
+  segments: Segment[];
 }
 
 export interface Node {
@@ -44,10 +46,10 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
   }));
 
 export const translateEdgesForward = (edges: Edge[]): rf.Edge[] =>
-  edges.map(({ points, color, ...edge }) => ({
+  edges.map(({ segments, color, ...edge }) => ({
     ...edge,
     id: edge.key,
-    data: { points, color },
+    data: { segments, color },
   }));
 
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
@@ -60,7 +62,7 @@ export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
 export const translateEdgesBackward = (edges: rf.Edge[]): Edge[] =>
   edges.map((edge) => ({
     key: edge.id,
-    points: edge.data?.points ?? [],
+    segments: edge.data?.segments ?? [],
     selected: edge.selected ?? false,
     color: edge.data?.color,
     ...edge,
