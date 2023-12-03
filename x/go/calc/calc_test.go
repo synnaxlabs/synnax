@@ -54,6 +54,12 @@ func treesEqual(t1, t2 ast.Expr) bool {
 			return false
 		}
 		return t1.Name == t2.Name
+	case *ast.UnaryExpr:
+		t2, ok := t2.(*ast.UnaryExpr)
+		if !ok {
+			return false
+		}
+		return t1.Op == t2.Op && treesEqual(t1.X, t2.X)
 	}
 	return false
 }
@@ -284,6 +290,111 @@ var _ = Describe("Calc", func() {
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
 			})
+			It("Should build with boolean expressions", func() {
+				e := calc.Expression{}
+				err := e.Build("token1*5 > 10")
+				Expect(err).ToNot(HaveOccurred())
+				expectedTree := &ast.BinaryExpr{
+					X: &ast.BinaryExpr{
+						X:  &ast.Ident{Name: "token1"},
+						Op: token.MUL,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "5"},
+					},
+					Op: token.GTR,
+					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "10"},
+				}
+				actualTree := e.Tree().(*ast.BinaryExpr)
+				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
+			})
+			It("Should build with multiple boolean expressions", func() {
+				e := calc.Expression{}
+				err := e.Build("token1*5 > 10 && token2*5 < 20")
+				Expect(err).ToNot(HaveOccurred())
+				expectedTree := &ast.BinaryExpr{
+					X: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.Ident{Name: "token1"},
+							Op: token.MUL,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "5"},
+						},
+						Op: token.GTR,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "10"},
+					},
+					Op: token.LAND,
+					Y: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.Ident{Name: "token2"},
+							Op: token.MUL,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "5"},
+						},
+						Op: token.LSS,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "20"},
+					},
+				}
+				actualTree := e.Tree().(*ast.BinaryExpr)
+				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
+			})
+			It("Should build boolean expressions with parenthesis", func() {
+				e := calc.Expression{}
+				err := e.Build("(23 >= 0 && 3 < 0) || 1 == 1")
+				Expect(err).ToNot(HaveOccurred())
+				expectedTree := &ast.BinaryExpr{
+					X: &ast.BinaryExpr{
+						X: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "23"},
+							Op: token.GEQ,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "0"},
+						},
+						Op: token.LAND,
+						Y: &ast.BinaryExpr{
+							X:  &ast.BasicLit{Kind: token.FLOAT, Value: "3"},
+							Op: token.LSS,
+							Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "0"},
+						},
+					},
+					Op: token.LOR,
+					Y: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+						Op: token.EQL,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					},
+				}
+				actualTree := e.Tree().(*ast.BinaryExpr)
+				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
+			})
+			It("Should build with negate operator", func() {
+				e := calc.Expression{}
+				err := e.Build("p || !q")
+				Expect(err).ToNot(HaveOccurred())
+				expectedTree := &ast.BinaryExpr{
+					X:  &ast.Ident{Name: "p"},
+					Op: token.LOR,
+					Y: &ast.UnaryExpr{
+						Op: token.NOT,
+						X:  &ast.Ident{Name: "q"},
+					},
+				}
+				actualTree := e.Tree().(*ast.BinaryExpr)
+				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
+			})
+			It("Should build complex unary expressions", func() {
+				e := calc.Expression{}
+				err := e.Build("!(p || !q)")
+				Expect(err).ToNot(HaveOccurred())
+				expectedTree := &ast.UnaryExpr{
+					Op: token.NOT,
+					X: &ast.BinaryExpr{
+						X:  &ast.Ident{Name: "p"},
+						Op: token.LOR,
+						Y: &ast.UnaryExpr{
+							Op: token.NOT,
+							X:  &ast.Ident{Name: "q"},
+						},
+					},
+				}
+				actualTree := e.Tree().(*ast.UnaryExpr)
+				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
+			})
 		})
 		Describe("Build with invalid expressions", func() {
 			It("Should return an error for 1+", func() {
@@ -299,6 +410,11 @@ var _ = Describe("Calc", func() {
 			It("Should return an error for 1+2*4)", func() {
 				e := calc.Expression{}
 				err := e.Build("1+2*4)")
+				Expect(err).To(HaveOccurred())
+			})
+			It("Should return an error for an unbalanced boolean expression", func() {
+				e := calc.Expression{}
+				err := e.Build("5 ==")
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -335,6 +451,134 @@ var _ = Describe("Calc", func() {
 			Expect(err).ToNot(HaveOccurred())
 			r := &mockResolver{vals: map[string]float64{"a": 3, "b": 4}}
 			Expect(e.Evaluate(r)).To(Equal(float64(5)))
+		})
+		It("Should evaluate boolean expressions", func() {
+			e := calc.Expression{}
+			err := e.Build("a > b")
+			Expect(err).ToNot(HaveOccurred())
+			r := &mockResolver{vals: map[string]float64{"a": 3, "b": 4}}
+			Expect(e.Evaluate(r)).To(Equal(float64(0)))
+		})
+		It("Should evaluate boolean expressions", func() {
+			e := calc.Expression{}
+			err := e.Build("45 + 23 > 0 && 12 - 3 < 10")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+		})
+		It("Should evaluate boolean expressions with parenthesis", func() {
+			e := calc.Expression{}
+			err := e.Build("(45 + 23 > 0 && 12 - 3 < 0) || 1 == 1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+		})
+	})
+	Describe("Boolean Logic Tests", func() {
+		Describe("&& Tests", func() {
+			It("1 && 1 == 1", func() {
+				e := calc.Expression{}
+				err := e.Build("1 && 1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+			})
+			It("1 && 0 == 0", func() {
+				e := calc.Expression{}
+				err := e.Build("1 && 0")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(0)))
+			})
+			It("0 && 1 == 0", func() {
+				e := calc.Expression{}
+				err := e.Build("0 && 1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(0)))
+			})
+			It("0 && 0 == 0", func() {
+				e := calc.Expression{}
+				err := e.Build("0 && 0")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(0)))
+			})
+		})
+		Describe("|| Tests", func() {
+			It("1 || 1 == 1", func() {
+				e := calc.Expression{}
+				err := e.Build("1 || 1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+			})
+			It("1 || 0 == 1", func() {
+				e := calc.Expression{}
+				err := e.Build("1 || 0")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+			})
+			It("0 || 1 == 1", func() {
+				e := calc.Expression{}
+				err := e.Build("0 || 1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+			})
+			It("0 || 0 == 0", func() {
+				e := calc.Expression{}
+				err := e.Build("0 || 0")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(0)))
+			})
+		})
+		Describe("! Tests", func() {
+			It("!1 == 0", func() {
+				e := calc.Expression{}
+				err := e.Build("!1")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(0)))
+			})
+			It("!0 == 1", func() {
+				e := calc.Expression{}
+				err := e.Build("!0")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(e.Evaluate(nil)).To(Equal(float64(1)))
+			})
+		})
+		Describe("DeMorgan's Law", func() {
+			It("!(a && b) == (!a || !b)", func() {
+				e := calc.Expression{}
+				err := e.Build("!(a && b) == (!a || !b)")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"a": 1, "b": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"a": 1, "b": 0}}
+				r3 := &mockResolver{vals: map[string]float64{"a": 0, "b": 1}}
+				r4 := &mockResolver{vals: map[string]float64{"a": 0, "b": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r3)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r4)).To(Equal(float64(1)))
+			})
+			It("!(a || b) == (!a && !b)", func() {
+				e := calc.Expression{}
+				err := e.Build("!(a || b) == (!a && !b)")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"a": 1, "b": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"a": 1, "b": 0}}
+				r3 := &mockResolver{vals: map[string]float64{"a": 0, "b": 1}}
+				r4 := &mockResolver{vals: map[string]float64{"a": 0, "b": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r3)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r4)).To(Equal(float64(1)))
+			})
+			It("!(a -> b) == (a && !b)", func() {
+				e := calc.Expression{}
+				err := e.Build("!(!a || b) == (a && !b)")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"a": 1, "b": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"a": 1, "b": 0}}
+				r3 := &mockResolver{vals: map[string]float64{"a": 0, "b": 1}}
+				r4 := &mockResolver{vals: map[string]float64{"a": 0, "b": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r3)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r4)).To(Equal(float64(1)))
+			})
 		})
 	})
 })
