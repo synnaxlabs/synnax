@@ -54,6 +54,7 @@ import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { pid } from "@/vis/pid/aether";
 import { Edge as PlutoEdge } from "@/vis/pid/edge";
+import { CustomConnectionLine } from "@/vis/pid/edge/Edge";
 import {
   type Edge,
   type Node,
@@ -69,7 +70,7 @@ import {
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
 
-import { CustomConnectionLine } from "./edge/Edge";
+import { type Segment } from "@/vis/pid/edge/connector";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -229,7 +230,7 @@ const Core = Aether.wrap<PIDProps>(
     }, [fitView]);
 
     // For some reason, react flow repeatedly calls onViewportChange with the same
-    // paramters, so we do a need equality check to prevent unnecessary re-renders.
+    // parameters, so we do a need equality check to prevent unnecessary re-renders.
     const vpRef = useRef<RFViewport | null>(null);
     const handleViewport = useCallback(
       (viewport: RFViewport): void => {
@@ -312,12 +313,12 @@ const Core = Aether.wrap<PIDProps>(
       [onEdgesChange],
     );
 
-    const handleEdgePointsChange = useCallback(
-      (id: string, points: xy.XY[]) => {
+    const handleEdgeSegmentsChange = useCallback(
+      (id: string, segments: Segment[]) => {
         const next = [...edgesRef.current];
         const index = next.findIndex((e) => e.key === id);
         if (index === -1) return;
-        next[index] = { ...next[index], segments: points };
+        next[index] = { ...next[index], segments };
         onEdgesChange(next);
       },
       [onEdgesChange],
@@ -331,13 +332,13 @@ const Core = Aether.wrap<PIDProps>(
           <PlutoEdge
             {...props}
             editable={props.data.editable}
-            segments={props.data.points}
+            segments={props.data.segments}
             color={props.data.color}
-            onSegmentsChange={(f) => handleEdgePointsChange(props.id, f)}
+            onSegmentsChange={(f) => handleEdgeSegmentsChange(props.id, f)}
           />
         ),
       }),
-      [handleEdgePointsChange],
+      [handleEdgeSegmentsChange],
     );
 
     const triggerRef = useRef<HTMLElement>(null);

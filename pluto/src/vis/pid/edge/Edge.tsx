@@ -19,32 +19,27 @@ import { box, direction, xy } from "@synnaxlabs/x";
 import {
   BaseEdge,
   type EdgeProps as RFEdgeProps,
-  useViewport,
-  useStore,
   useReactFlow,
   type ConnectionLineComponentProps,
 } from "reactflow";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { useCombinedStateAndRef } from "@/hooks";
+import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Theming } from "@/theming";
 import { type Key } from "@/triggers/triggers";
-import {
-  adjustToSourceOrTarget,
-  handleDrag,
-  calculateLineDirection,
-  adjustToHandlePosition,
-} from "@/vis/pid/edge/edgeUtils";
+import { calculateLineDirection } from "@/vis/pid/edge/edgeUtils";
 
-import { selectNode, selectNodeBox } from "../util";
+import { selectNodeBox } from "../util";
 
 import {
   type Segment,
   newConnector,
   segmentsToPoints,
   moveConnector,
+  handleMoveSource,
+  handleMoveTarget,
 } from "./connector";
 
 import "@/vis/pid/edge/Edge.css";
@@ -57,7 +52,7 @@ interface CurrentlyDragging {
 export interface EdgeProps extends RFEdgeProps {
   editable: boolean;
   segments: Segment[];
-  onSegmentsChange: (p: xy.XY[]) => void;
+  onSegmentsChange: (segments: Segment[]) => void;
   color?: Color.Crude;
   applyTransform?: boolean;
 }
@@ -71,65 +66,100 @@ export const CustomConnectionLine = ({
   toPosition,
   fromNode,
   connectionLineStyle,
+  connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
-  console.log(toPosition, fromNode);
-  const t = Theming.use();
+  const connector = newConnector({
+    sourcePos: xy.construct(fromX, fromY),
+    targetPos: xy.construct(toX, toY),
+    sourceOrientation: fromPosition,
+    targetOrientation: toPosition,
+    sourceBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
+    targetBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
+  });
+  const flow = useReactFlow();
+  const points = segmentsToPoints(
+    xy.construct(fromX, fromY),
+    connector,
+    flow.getZoom(),
+    false,
+  );
+
   return (
-    <Edge
-      sourceX={fromX}
-      sourceY={fromY}
-      targetX={toX}
-      targetY={toY}
-      sourcePosition={fromPosition}
-      targetPosition={toPosition}
-      color={t.colors.gray.l9}
-      editable={false}
-      segments={[]}
-      onSegmentsChange={() => {}}
-      id="custom-connection"
-      source={fromNode?.id ?? ""}
-      target={fromNode?.id ?? ""}
-      style={{ strokeWidth: 2 }}
-      applyTransform={false}
+    <BaseEdge
+      path={calcPath(points)}
+      style={{
+        ...connectionLineStyle,
+        stroke: Color.cssString(
+          connectionStatus === "invalid"
+            ? "var(--pluto-error-z)"
+            : "var(--pluto-gray-l9)",
+        ),
+        strokeWidth: 2,
+        fill: "none",
+      }}
     />
   );
 };
 
 export const Edge = ({
   id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
   source,
   target,
-  sourcePosition,
+  sourcePosition: sourceOrientation,
   targetHandleId,
-  targetPosition,
+  targetPosition: targetOrientation,
   style,
-  segments: propsSegments,
-  onSegmentsChange: onPointsChange,
+  segments: propsSegments = [],
+  onSegmentsChange,
   editable,
   color,
   applyTransform = true,
   ...props
 }: EdgeProps): ReactElement => {
+  const sourcePos = xy.construct(props.sourceX, props.sourceY);
+  const sourcePosRef = useRef(sourcePos);
+  const sourcePosEq = xy.equals(sourcePos, sourcePosRef.current);
+
+  const targetPos = xy.construct(props.targetX, props.targetY);
+  const targetPosRef = useRef(targetPos);
+  const targetPosEq = xy.equals(targetPos, targetPosRef.current);
+
   const flow = useReactFlow();
   const [segments, setSegments, segRef] = useCombinedStateAndRef<Segment[]>(
-    propsSegments?.length > 0
+    propsSegments.length > 0
       ? propsSegments
       : newConnector({
-          sourcePos: xy.construct(sourceX, sourceY),
-          targetPos: xy.construct(targetX, targetY),
-          sourceOrientation: sourcePosition,
-          targetOrientation: targetPosition,
+          sourcePos,
+          targetPos,
+          sourceOrientation,
+          targetOrientation,
           sourceBox: selectNodeBox(flow, source),
           targetBox: selectNodeBox(flow, target),
         }),
   );
 
-  // const adjusted = adjustToSourceOrTarget(sourceX, sourceY, targetX, targetY, points);
-  // if (adjusted != null) setPoints(adjusted);
+  const targetOrientationRef = useRef(targetOrientation);
+  const sourceOrientationRef = useRef(sourceOrientation);
+
+  const debouncedOnSegmentsChange = useDebouncedCallback(onSegmentsChange, 100, [
+    onSegmentsChange,
+  ]);
+
+  if (!sourcePosEq && !targetPosEq) {
+    // just adjust refs. path is still good
+    sourcePosRef.current = sourcePos;
+    targetPosRef.current = targetPos;
+  } else if (!sourcePosEq) {
+    const next = handleMoveSource(sourcePosRef.current, sourcePos, segments);
+    sourcePosRef.current = sourcePos;
+    setSegments(next);
+    debouncedOnSegmentsChange(next);
+  } else if (!targetPosEq) {
+    const next = handleMoveTarget(targetPos, targetPosRef.current, segments);
+    targetPosRef.current = targetPos;
+    setSegments(next);
+    debouncedOnSegmentsChange(next);
+  }
 
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
@@ -139,7 +169,6 @@ export const Edge = ({
         index: Number(e.currentTarget.id.split("-")[1]),
         segments: [...segRef.current],
       };
-      console.log(dragRef.current);
     }, []),
     onMove: useCallback((b: box.Box) => {
       if (dragRef.current == null) return;
@@ -154,17 +183,10 @@ export const Edge = ({
       });
       setSegments(next);
     }, []),
-    onEnd: useCallback(() => onPointsChange(pointsRef.current), [onPointsChange]),
+    onEnd: useCallback(() => onSegmentsChange(segRef.current), [onSegmentsChange]),
   });
 
-  // points = adjustToHandlePosition(points, sourcePosition, targetPosition);
-
-  const points = segmentsToPoints(
-    { x: sourceX, y: sourceY },
-    segments,
-    flow.getZoom(),
-    applyTransform,
-  );
+  const points = segmentsToPoints(sourcePos, segments, flow.getZoom(), applyTransform);
 
   return (
     <>
@@ -224,10 +246,10 @@ export const calcPath = (coords: xy.XY[]): string => {
     if (i > 0)
       path += `Q${a.x},${a.y} ${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
 
-    if (!close && i == 0) path += `M${a.x},${a.y}`;
-    else if (i == 0) path += `M${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
+    if (!close && i === 0) path += `M${a.x},${a.y}`;
+    else if (i === 0) path += `M${a.x * (1 - t) + b.x * t},${a.y * (1 - t) + b.y * t}`;
 
-    if (!close && i == length - 1) path += `L${b.x},${b.y}`;
+    if (!close && i === length - 1) path += `L${b.x},${b.y}`;
     else if (i < length - 1)
       path += `L${a.x * t + b.x * (1 - t)},${a.y * t + b.y * (1 - t)}`;
   }

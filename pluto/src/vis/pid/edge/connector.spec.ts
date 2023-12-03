@@ -482,4 +482,11 @@ describe("connector", () => {
       });
     }
   });
+
+  describe("removeShortSegments", () => {
+    interface Spec {
+      name: string;
+      props:
+    }
+  })
 });

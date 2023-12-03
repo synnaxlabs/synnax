@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy, direction, location, box, direction } from "@synnaxlabs/x";
+import { xy, location, box, direction } from "@synnaxlabs/x";
 
 export interface PrepareNodeProps {
   sourceStumpTip: xy.XY;
@@ -111,6 +111,19 @@ export const segmentsToPoints = (
   return points;
 };
 
+const handleSourceOrientationChange = (
+  segments: Segment[],
+  orientation: location.Outer,
+): Segment[] => {
+  const firstSeg = segments[0];
+  const firstSegOrientation = orientationFromLength(
+    firstSeg.direction,
+    firstSeg.length,
+  );
+  if (firstSegOrientation === orientation) return segments;
+  if (segments.length === 1) return;
+};
+
 export interface BuildNewConnectorProps {
   sourceBox: box.Box;
   targetBox: box.Box;
@@ -164,28 +177,65 @@ const STUMPS = {
   right: stump("right"),
 };
 
-export const compressSegments = (segments: Segment[]): Segment[] => {
-  const compressed: Segment[] = [];
-  let current: Segment | undefined;
-  for (const segment of segments.filter((s) => s.length !== 0)) {
-    if (current == null || current.length === 0) {
-      current = segment;
-      continue;
+const COMPRESSION_THRESHOLD = 4;
+const DIRECT_REMOVAL_THRESHOLD = 0.25;
+
+export const compressSegments = (segments: Segment[], prev: Segment[]): Segment[] => {
+  return removeSameDirectionSegments(
+    removeShortSegments(removeSameDirectionSegments(segments), prev),
+  );
+};
+
+const removeShortSegments = (segments: Segment[], prev: Segment[]): Segment[] => {
+  const next: Segment[] = [...segments];
+  const ok = segments.findIndex((seg, i) => {
+    // If it's below the compression threshold and the user is making it smaller,
+    // then we compress.
+    const mag = Math.abs(seg.length);
+    if (mag < COMPRESSION_THRESHOLD) {
+      if (mag < DIRECT_REMOVAL_THRESHOLD) return true;
+      if (segments.length <= 3 || i === 0 || i === segments.length - 1) return false;
+      if (i + 2 < segments.length) {
+        next[i + 2] = {
+          direction: next[i + 2].direction,
+          length: next[i + 2].length + seg.length,
+        };
+      } else {
+        next[i - 2] = {
+          direction: next[i - 2].direction,
+          length: next[i - 2].length + seg.length,
+        };
+      }
+      return true;
     }
-    if (current.direction === segment.direction) {
-      current.length += segment.length;
-      continue;
-    }
-    compressed.push(current);
-    current = segment;
+    return false;
+  });
+  if (ok !== -1) {
+    // splice out the short segment
+    next.splice(ok, 1);
+    return next;
   }
-  if (current != null) compressed.push(current);
-  if (compressed.length === segments.length) return compressed;
-  return compressSegments(compressed);
+  return next;
+};
+
+const removeSameDirectionSegments = (segments: Segment[]): Segment[] => {
+  const next: Segment[] = [...segments];
+  const idx = segments.findIndex(
+    (seg, i) => i !== 0 && seg.direction === segments[i - 1].direction,
+  );
+  if (idx !== -1) {
+    next[idx - 1] = {
+      direction: next[idx - 1].direction,
+      length: next[idx - 1].length + next[idx].length,
+    };
+    next.splice(idx, 1);
+    return removeSameDirectionSegments(next);
+  }
+  return next;
 };
 
 export const newConnector = (props: BuildNewConnectorProps): Segment[] =>
-  compressSegments(internalNewConnector(props));
+  removeSameDirectionSegments(internalNewConnector(props));
 
 const internalNewConnector = ({
   sourceBox,
@@ -240,8 +290,8 @@ const internalNewConnector = ({
     );
   }
 
-  const addTargetSegs = (): void => {
-    // We need to swap the orientations orientations of the target stumps so that
+  const addTargetSegments = (): void => {
+    // We need to swap the orientations of the target stumps so that
     // they create the correct path when traversing the segments.
     if (extraTargetSeg != null) {
       extraTargetSeg.length *= -1;
@@ -270,7 +320,7 @@ const internalNewConnector = ({
     // third segment is in the same direction as the source stump orientation and the
     // remaining distance to the target stump tip
     segments.push({ direction: dir, length: dist });
-    addTargetSegs();
+    addTargetSegments();
     return segments;
   }
 
@@ -307,7 +357,7 @@ const internalNewConnector = ({
     length: targetStumpTip[swapped] - sourceStumpTip[swapped],
   };
   segments.push(secondSeg);
-  addTargetSegs();
+  addTargetSegments();
   return segments;
 };
 
@@ -318,7 +368,7 @@ export interface MoveConnectorProps {
 }
 
 export const moveConnector = (props: MoveConnectorProps): Segment[] =>
-  internalMoveConnector(props);
+  compressSegments(internalMoveConnector(props), props.segments);
 
 const internalMoveConnector = ({
   segments,
@@ -356,5 +406,123 @@ const internalMoveConnector = ({
     };
   }
   console.log(next);
+  return next;
+};
+
+const findIndexBackwards = (
+  segments: Segment[],
+  cb: (seg: Segment, i: number) => boolean,
+): number => {
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (cb(segments[i], i)) return i;
+  }
+  return -1;
+};
+
+const findIndex = (
+  segments: Segment[],
+  cb: (seg: Segment, i: number) => boolean,
+  reverse = false,
+): number => (reverse ? findIndexBackwards(segments, cb) : segments.findIndex(cb));
+
+export const handleMoveSource = (
+  prevS: xy.XY,
+  nextS: xy.XY,
+  segments: Segment[],
+): Segment[] =>
+  compressSegments(handleMoveSourceInternal(prevS, nextS, segments), segments);
+
+export const handleMoveTarget = (
+  prevS: xy.XY,
+  nextS: xy.XY,
+  segments: Segment[],
+): Segment[] =>
+  compressSegments(handleMoveSourceInternal(prevS, nextS, segments, true), segments);
+
+const handleMoveSourceInternal = (
+  prevS: xy.XY,
+  nextS: xy.XY,
+  segments: Segment[],
+  reverse = false,
+): Segment[] => {
+  const delta = xy.translation(prevS, nextS);
+  const next = [...segments];
+
+  if (delta.x !== 0) {
+    // We want to find the first segment in the 'x' direction that still has a magnitude
+    // length greater than MIN_LENGTH after we apply the delta.
+    let idx = findIndex(
+      next,
+      (seg) => {
+        if (seg.direction !== "x") return false;
+        const newLength = seg.length - delta.x;
+        return Math.abs(newLength) > MIN_LENGTH * 2;
+      },
+      reverse,
+    );
+    if (idx === -1) {
+      // just use the first one in the correct direction
+      idx = findIndex(next, (seg) => seg.direction === "x", reverse);
+      if (idx === -1) {
+        // This means that there is only one segment in the 'y' direction in the whole
+        // connector, so we split it in half and add a new segment.
+        return [
+          {
+            direction: "y",
+            length: segments[0].length / 2,
+          },
+          {
+            direction: "x",
+            length: -delta.x,
+          },
+          {
+            direction: "y",
+            length: segments[0].length / 2,
+          },
+        ];
+      }
+    }
+    next[idx] = {
+      direction: next[idx].direction,
+      length: next[idx].length - delta.x,
+    };
+  }
+
+  // same theory applies here
+  if (delta.y !== 0) {
+    let idx = findIndex(
+      next,
+      (seg) => {
+        if (seg.direction !== "y") return false;
+        const newLength = seg.length - delta.y;
+        return Math.abs(newLength) > MIN_LENGTH;
+      },
+      reverse,
+    );
+    if (idx === -1) {
+      idx = findIndex(next, (seg) => seg.direction === "y", reverse);
+      if (idx === -1) {
+        return [
+          {
+            direction: "x",
+            length: segments[0].length / 2,
+          },
+          {
+            direction: "y",
+            length: -delta.y,
+          },
+          {
+            direction: "x",
+            length: segments[0].length / 2,
+          },
+        ];
+      }
+    }
+    next[idx] = {
+      direction: next[idx].direction,
+      length: next[idx].length - delta.y,
+    };
+  }
+
   return next;
 };
