@@ -417,6 +417,11 @@ var _ = Describe("Calc", func() {
 				err := e.Build("5 ==")
 				Expect(err).To(HaveOccurred())
 			})
+			It("Should return an error for an unbalanced unary expression", func() {
+				e := calc.Expression{}
+				err := e.Build("!")
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 	Describe("Evaluate", func() {
