@@ -52,10 +52,7 @@ type Resolver interface {
 
 func findTokens(s string) (tokens []string, err error) {
 	re, err := regexp.Compile("[0-9]+(\\.[0-9]*)?|[\\w]+|[+\\-*\\/^()]|[><!=]=|[<>]")
-	if err != nil {
-		return nil, err
-	}
-	return re.FindAllString(s, -1), nil
+	return re.FindAllString(s, -1), err
 }
 
 func makeBinaryExpr(output *stack.Stack[interface{}], operators *stack.Stack[string]) error {
@@ -91,8 +88,7 @@ func (e *Expression) Build(s string) error {
 				operators.Push("*")
 			} else {
 				for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
-					err := makeBinaryExpr(&output, &operators)
-					if err != nil {
+					if err := makeBinaryExpr(&output, &operators); err != nil {
 						return err
 					}
 				}
