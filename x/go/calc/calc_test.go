@@ -585,5 +585,61 @@ var _ = Describe("Calc", func() {
 				Expect(e.Evaluate(r4)).To(Equal(float64(1)))
 			})
 		})
+		Describe("Comparator Tests", func() {
+			It("==", func() {
+				e := calc.Expression{}
+				err := e.Build("p == 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(0)))
+			})
+			It("!=", func() {
+				e := calc.Expression{}
+				err := e.Build("p != 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(0)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+			})
+			It(">", func() {
+				e := calc.Expression{}
+				err := e.Build("p > 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(0)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(0)))
+			})
+			It(">=", func() {
+				e := calc.Expression{}
+				err := e.Build("p >= 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(0)))
+			})
+			It("<", func() {
+				e := calc.Expression{}
+				err := e.Build("p < 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(0)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+			})
+			It("<=", func() {
+				e := calc.Expression{}
+				err := e.Build("p <= 1")
+				Expect(err).ToNot(HaveOccurred())
+				r1 := &mockResolver{vals: map[string]float64{"p": 1}}
+				r2 := &mockResolver{vals: map[string]float64{"p": 0}}
+				Expect(e.Evaluate(r1)).To(Equal(float64(1)))
+				Expect(e.Evaluate(r2)).To(Equal(float64(1)))
+			})
+		})
 	})
 })
