@@ -102,6 +102,10 @@ export class SourcePipeline<V>
   onChange(handler: () => void): Destructor {
     return this.outlet.onChange(handler);
   }
+
+  cleanup(): void {
+    Object.values(this.sources).forEach((source) => source.cleanup?.());
+  }
 }
 
 export const sourcePipeline = <V extends string>(
@@ -163,6 +167,10 @@ export class SinkPipeline<V>
 
   async set(value: V): Promise<void> {
     return await this.inlet.set(value);
+  }
+
+  cleanup(): void {
+    Object.values(this.sinks).forEach((sink) => sink.cleanup?.());
   }
 }
 

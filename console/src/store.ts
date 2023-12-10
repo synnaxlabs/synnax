@@ -91,7 +91,7 @@ const newStore = async (): Promise<RootStore> => {
       persistMiddleware,
     ],
     reducer,
-    enablePrerender: true,
+    enablePrerender: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   })) as RootStore;
 };

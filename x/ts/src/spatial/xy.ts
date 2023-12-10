@@ -35,7 +35,6 @@ export const crudeZ = z.union([
 /** A crude representation of a {@link XY} coordinate. */
 export type Crude = z.infer<typeof crudeZ>;
 
-
 /**
  * @constructs XY
  * @param x - A crude representation of the XY coordinate as a number, number couple,
@@ -102,16 +101,21 @@ type TranslateOverloadTwo = (a: Crude, direction: Direction, value: number) => X
  * @returns the given coordinate translated by an arbitrary number of translation
  * coordinates.
  */
-export const translate: TranslateOverloadOne & TranslateOverloadTwo= (a, b, v, ...cb): XY => {
+export const translate: TranslateOverloadOne & TranslateOverloadTwo = (
+  a,
+  b,
+  v,
+  ...cb
+): XY => {
   if (typeof b === "string" && typeof v === "number") {
     if (b === "x") return translateX(a, v);
     return translateY(a, v);
   }
-  return [a, b, ...cb].reduce((p: XY, c) => {
+  return [a, b, v ?? ZERO, ...cb].reduce((p: XY, c) => {
     const xy = construct(c);
     return { x: p.x + xy.x, y: p.y + xy.y };
   }, ZERO);
-}
+};
 
 /**
  * @returns the given coordinate the given direction set to the given value.

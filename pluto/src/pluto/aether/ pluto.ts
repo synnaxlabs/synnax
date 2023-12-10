@@ -15,7 +15,6 @@ import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { chip } from "@/telem/control/chip/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
@@ -51,7 +50,6 @@ export const render = (): void => {
     ...theming.REGISTRY,
     ...status.REGISTRY,
     ...button.REGISTRY,
-    ...chip.REGISTRY,
     ...alamos.REGISTRY,
     ...eraser.REGISTRY,
     ...table.REGISTRY,

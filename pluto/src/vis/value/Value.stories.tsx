@@ -11,17 +11,17 @@ import { type ReactElement } from "react";
 
 import { type Meta, type StoryFn } from "@storybook/react";
 
-import { Remote } from "@/telem/remote";
+import { telem } from "@/telem/aether";
 import { Canvas } from "@/vis/canvas";
-import { Value } from "@/vis/value";
+import { Value } from "@/vis/pid/symbols/Symbols";
 
-const story: Meta<typeof Value.Value> = {
+const story: Meta<typeof Value> = {
   title: "Value",
-  component: Value.Value,
+  component: Value,
 };
 
 const Example = (): ReactElement => {
-  const telem = Remote.useNumericSource({ channel: 65538 });
+  const t = telem.fixedString("120 PSI");
   return (
     <Canvas.Canvas
       style={{
@@ -32,7 +32,17 @@ const Example = (): ReactElement => {
         left: 0,
       }}
     >
-      <Value.Value telem={telem} style={{ width: 100 }} units="psi" level="h4" />
+      <Value
+        orientation="bottom"
+        label={{
+          orientation: "top",
+          label: "Hello",
+          level: "small",
+        }}
+        level="small"
+        color="#000000"
+        telem={telem.fixedString("120 PSI")}
+      />
     </Canvas.Canvas>
   );
 };

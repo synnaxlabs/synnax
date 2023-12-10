@@ -241,7 +241,6 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
-          points: edge.points.map((point) => xy.translate(point, console)),
         };
       });
       pid.edges = [...pid.edges, ...nextEdges];
@@ -309,10 +308,12 @@ export const { actions, reducer } = createSlice({
         const keys = nodes.map((node) => node.key);
         pid.nodes = [...pid.nodes.filter((node) => !keys.includes(node.key)), ...nodes];
       }
-      const anySelected = nodes.some((node) => node.selected);
+      const anySelected =
+        nodes.some((node) => node.selected) || pid.edges.some((edge) => edge.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
       } else state.toolbar.activeTab = "symbols";
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
@@ -330,10 +331,12 @@ export const { actions, reducer } = createSlice({
         if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
       });
       pid.edges = edges;
-      const anySelected = edges.some((edge) => edge.selected);
+      const anySelected =
+        edges.some((edge) => edge.selected) || pid.nodes.some((node) => node.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
       } else state.toolbar.activeTab = "symbols";
     },
     setActiveToolbarTab: (
@@ -386,7 +389,7 @@ export const { actions, reducer } = createSlice({
 
 const clearOtherSelections = (state: SliceState, layoutKey: string) => {
   Object.keys(state.pids).forEach((key) => {
-    // If any of the nodes or edges in other PID slices are selected, deselct them.
+    // If any of the nodes or edges in other PID slices are selected, deselect them.
     if (key === layoutKey) return;
     clearSelections(state.pids[key]);
   });

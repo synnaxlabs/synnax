@@ -46,6 +46,10 @@
 
 .pluto-pid {
     &.pluto--editable {
+        & .pluto-symbol {
+            pointer-events: none;
+        }
+
         & .react-flow__handle {
             display: block !important;
             border-width: 2px !important;
@@ -65,5 +69,5 @@
                 }
             }
         }
-    } 
+    }
 }

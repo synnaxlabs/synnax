@@ -9,20 +9,58 @@
 
 import { useState, type ReactElement } from "react";
 
-import { box, type xy, type location, type UnknownRecord } from "@synnaxlabs/x";
+import {
+  box,
+  type xy,
+  type location,
+  type UnknownRecord,
+  direction,
+} from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
+import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
 import { telem } from "@/telem/aether";
+import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { Labeled, type LabelExtensionProps } from "@/vis/pid/symbols/Labeled";
 import { Primitives } from "@/vis/pid/symbols/primitives";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
-import { Labeled, type LabelExtensionProps } from "./Labeled";
+export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
+  showChip?: boolean;
+  showIndicator?: boolean;
+  chip?: Control.ChipProps;
+  indicator?: Control.IndicatorProps;
+  orientation?: location.Outer;
+}
+
+export const ControlState = ({
+  showChip = false,
+  showIndicator = false,
+  indicator,
+  orientation = "left",
+  chip,
+  className,
+  children,
+  ...props
+}: ControlStateProps): ReactElement => (
+  <Align.Space
+    direction={direction.construct(orientation)}
+    align="center"
+    className={CSS(CSS.B("control-state"), className)}
+    size="small"
+    {...props}
+  >
+    {showChip && <Control.Chip {...chip} />}
+    {showIndicator && <Control.Indicator {...indicator} />}
+    {children}
+  </Align.Space>
+);
 
 export type SymbolProps<P extends object = UnknownRecord> = P & {
   symbolKey: string;
@@ -65,11 +103,21 @@ export interface ValveProps
   extends Primitives.ValveProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const Valve = Aether.wrap<SymbolProps<ValveProps>>(
   "Valve",
-  ({ aetherKey, label, onChange, source, sink, orientation, color }): ReactElement => {
+  ({
+    control,
+    aetherKey,
+    label,
+    onChange,
+    source,
+    sink,
+    orientation,
+    color,
+  }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
@@ -80,6 +128,7 @@ export const Valve = Aether.wrap<SymbolProps<ValveProps>>(
           orientation={orientation}
           color={color}
         />
+        <ControlState {...control} orientation={orientation} />
       </Labeled>
     );
   },
@@ -97,8 +146,17 @@ export interface SolenoidValveProps
 
 export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
   "SolenoidValve",
-  ({ aetherKey, label, onChange, orientation, normallyOpen, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+  ({
+    aetherKey,
+    label,
+    onChange,
+    orientation,
+    normallyOpen,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <Primitives.SolenoidValve
@@ -223,7 +281,7 @@ export const Tank = Aether.wrap<SymbolProps<TankProps>>(
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
-  <Primitives.Tank {...props} dimensions={{ width: 30, height: 60 }} />
+  <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} />
 );
 
 export interface ReliefValveProps extends Primitives.ReliefValveProps {
@@ -459,6 +517,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     zoom = 1,
     precision,
     width,
+    telem,
     onChange,
   }): ReactElement => {
     const font = Theming.useTypography(level);
@@ -480,7 +539,7 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
       color: textColor,
       level,
       box: adjustedBox,
-      telem: telem.fixedString("120 PSI"),
+      telem,
       precision,
       width,
     });
@@ -553,7 +612,7 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => {
     <Primitives.Value
       color={color}
       dimensions={{
-        width: 80,
+        width: 60,
         height: 25,
       }}
     >

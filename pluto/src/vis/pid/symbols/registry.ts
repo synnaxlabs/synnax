@@ -11,6 +11,7 @@ import {
   SolenoidValveForm,
   TankForm,
   CommonNonToggleForm,
+  ValueForm,
 } from "@/vis/pid/symbols/Forms";
 import {
   type ThreeWayValveProps,
@@ -152,13 +153,14 @@ const valve: Spec<ValveProps> = {
   Form: CommonToggleForm,
   Symbol: Valve,
   defaultProps: (t) => ({
-    color: t.colors.gray.l9,
+    color: t.colors.gray.l9.rgba255,
     label: {
       label: "Valve",
       level: "p",
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: ValvePreview,
 };
@@ -176,6 +178,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: SolenoidValvePreview,
 };
@@ -424,7 +427,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
 const value: Spec<ValueProps> = {
   name: "Value",
   variant: "value",
-  Form: CommonNonToggleForm,
+  Form: ValueForm,
   Symbol: Value,
   Preview: ValuePreview,
   defaultProps: (t) => ({
@@ -436,6 +439,19 @@ const value: Spec<ValueProps> = {
       orientation: "top",
     },
     orientation: "left",
+    telem: telem.sourcePipeline("string", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "stringify",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: 0 }),
+        stringify: telem.stringifyNumber({ precision: 2 }),
+      },
+      outlet: "stringify",
+    }),
   }),
 };
 

@@ -10,6 +10,7 @@
 import { bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { status } from "@/status/aether";
 import { type Factory } from "@/telem/aether/factory";
 import {
   type Telem,
@@ -21,6 +22,7 @@ import {
   type BooleanSource,
   type BooleanSourceSpec,
   MultiSourceTransformer,
+  type StringSourceSpec,
 } from "@/telem/aether/telem";
 
 export class TransformerFactory implements Factory {
@@ -33,6 +35,10 @@ export class TransformerFactory implements Factory {
         return new WithinBounds(spec.props);
       case Mean.TYPE:
         return new Mean(spec.props);
+      case BooleanStatus.TYPE:
+        return new BooleanStatus(spec.props);
+      case StringifyNumber.TYPE:
+        return new StringifyNumber(spec.props);
     }
     return null;
   }
@@ -114,4 +120,62 @@ export const mean = (props: z.input<typeof meanProps>): BooleanSourceSpec => ({
   type: Mean.TYPE,
   variant: "source",
   valueType: "boolean",
+});
+
+export const booleanStatusProps = z.object({
+  trueVariant: status.variantZ.optional().default("success"),
+});
+
+export class BooleanStatus extends UnarySourceTransformer<
+  status.Spec,
+  boolean,
+  typeof booleanStatusProps
+> {
+  static readonly TYPE = "boolean-status";
+  static readonly propsZ = booleanStatusProps;
+  schema = BooleanStatus.propsZ;
+
+  protected transform(value: status.Spec): boolean {
+    return value.variant === this.props.trueVariant;
+  }
+}
+
+export const booleanStatus = (
+  props: z.input<typeof booleanStatusProps>,
+): BooleanSourceSpec => ({
+  props,
+  type: BooleanStatus.TYPE,
+  variant: "source",
+  valueType: "boolean",
+});
+
+export const stringifyNumberProps = z.object({
+  precision: z.number().optional().default(2),
+  prefix: z.string().optional().default(""),
+  suffix: z.string().optional().default(""),
+});
+
+export class StringifyNumber extends UnarySourceTransformer<
+  number,
+  string,
+  typeof stringifyNumberProps
+> {
+  static readonly TYPE = "stringify-number";
+  static readonly propsZ = stringifyNumberProps;
+  schema = StringifyNumber.propsZ;
+
+  protected transform(value: number): string {
+    return `${this.props.prefix}${value.toFixed(this.props.precision)}${
+      this.props.suffix
+    }`;
+  }
+}
+
+export const stringifyNumber = (
+  props: z.input<typeof stringifyNumberProps>,
+): StringSourceSpec => ({
+  props,
+  type: StringifyNumber.TYPE,
+  variant: "source",
+  valueType: "string",
 });

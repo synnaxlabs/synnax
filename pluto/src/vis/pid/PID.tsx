@@ -70,7 +70,7 @@ import {
 import "@/vis/pid/PID.css";
 import "reactflow/dist/style.css";
 
-import { type Segment } from "@/vis/pid/edge/connector";
+import { type Segment } from "@/vis/pid/edge/connector/connector";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -216,18 +216,11 @@ const Core = Aether.wrap<PIDProps>(
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
-          fitView();
           setState((prev) => ({ ...prev, region: b }));
         },
-        [fitView, setState],
+        [setState],
       ),
     );
-
-    useEffect(() => {
-      setTimeout(() => {
-        fitView();
-      }, 10);
-    }, [fitView]);
 
     // For some reason, react flow repeatedly calls onViewportChange with the same
     // parameters, so we do a need equality check to prevent unnecessary re-renders.
@@ -319,6 +312,7 @@ const Core = Aether.wrap<PIDProps>(
         const index = next.findIndex((e) => e.key === id);
         if (index === -1) return;
         next[index] = { ...next[index], segments };
+        edgesRef.current = next;
         onEdgesChange(next);
       },
       [onEdgesChange],
@@ -330,11 +324,15 @@ const Core = Aether.wrap<PIDProps>(
       () => ({
         default: (props: any) => (
           <PlutoEdge
+            key={props.id}
             {...props}
             editable={props.data.editable}
             segments={props.data.segments}
             color={props.data.color}
-            onSegmentsChange={(f) => handleEdgeSegmentsChange(props.id, f)}
+            onSegmentsChange={useCallback(
+              (segment) => handleEdgeSegmentsChange(props.id, segment),
+              [props.id],
+            )}
           />
         ),
       }),
@@ -378,7 +376,7 @@ const Core = Aether.wrap<PIDProps>(
             nodeTypes={nodeTypes}
             edgeTypes={EDGE_TYPES}
             ref={combinedRefs}
-            fitView={false}
+            fitView
             onNodesChange={handleNodesChange}
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
@@ -386,8 +384,8 @@ const Core = Aether.wrap<PIDProps>(
             defaultViewport={translateViewportForward(viewport)}
             connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
-            minZoom={0.2}
-            maxZoom={1}
+            minZoom={0.5}
+            maxZoom={1.1}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
@@ -436,8 +434,8 @@ export const ToggleEditControl = ({
     <Button.ToggleIcon
       onChange={() => onEditableChange(!editable)}
       value={editable}
-      checkedVariant="outlined"
-      uncheckedVariant="filled"
+      uncheckedVariant="outlined"
+      checkedVariant="filled"
       tooltipLocation={location.RIGHT_CENTER}
       tooltip={
         editable ? (

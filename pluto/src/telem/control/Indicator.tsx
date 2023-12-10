@@ -29,7 +29,7 @@ export const Indicator = Aether.wrap<IndicatorProps>(
   ({ aetherKey, colorSource, statusSource }): ReactElement => {
     const memoProps = useMemoDeepEqualProps({ colorSource, statusSource });
 
-    const [, { color }, setState] = Aether.use({
+    const [, { color, status }, setState] = Aether.use({
       aetherKey,
       type: control.Indicator.TYPE,
       initialState: {
@@ -49,11 +49,13 @@ export const Indicator = Aether.wrap<IndicatorProps>(
       setState((p) => ({ ...p, ...memoProps }));
     }, [memoProps, setState]);
 
+    console.log(status);
+
     return (
       <div
         className={CSS.B("indicator")}
         style={{
-          backgroundColor: Color.cssString(color),
+          backgroundColor: Color.cssString(status.data?.color ?? color),
           flexGrow: 1,
         }}
       />

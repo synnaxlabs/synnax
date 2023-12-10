@@ -319,6 +319,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
               <Button.ToggleIcon
                 value={pid.control === "acquired"}
                 onChange={acquireControl}
+                tooltipLocation={{ x: "right", y: "center" }}
+                variant="outlined"
                 tooltip={
                   <Text.Text level="small">
                     {pid.control === "acquired" ? "Release control" : "Acquire control"}

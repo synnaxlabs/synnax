@@ -12,7 +12,7 @@ import type * as rf from "reactflow";
 
 import { type Color } from "@/color";
 
-import { type Segment } from "./edge/connector";
+import { type Segment } from "./edge/connector/connector";
 
 export interface Viewport {
   position: xy.XY;

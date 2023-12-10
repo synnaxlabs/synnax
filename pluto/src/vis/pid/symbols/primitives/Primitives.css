@@ -16,7 +16,7 @@
     height: fit-content;
 
     .react-flow__handle {
-        scale: calc( 1 / var(--pluto-pid-zoom, 1)); 
+        scale: calc( 1 / var(--pluto-pid-zoom, 1));
         transform: translate(calc(var(--pluto-pid-zoom, 1) * -50%), calc(var(--pluto-pid-zoom, 1) * -50%));
     }
 
@@ -55,9 +55,14 @@
     }
 
     &:hover {
-        filter: brightness(0.95);
-        & svg {
+        &:not(.pluto--enabled) svg {
             fill: rgba(var(--pluto-symbol-color), 0.25);
+        }
+        &.pluto--enabled {
+            & svg {
+                stroke: rgba(var(--pluto-symbol-color), 0.85) !important;
+                fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+            }
         }
     }
 

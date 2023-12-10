@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware } from "@reduxjs/toolkit";
+import {
+  type AnyAction,
+  type Dispatch,
+  type Middleware,
+  type MiddlewareAPI,
+} from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
@@ -33,16 +38,20 @@ export const open = async <S extends RequiredState>({
   let state = (await db.get(PERSISTED_STATE_KEY)) ?? undefined;
   if (state != null) state = await reconcileVersions(state);
 
+  const persist = debounce((store: MiddlewareAPI<Dispatch<AnyAction>, S>) => {
+    if (appWindow.label !== MAIN_WINDOW) return;
+    // We need to make a deep copy here to make immer happy
+    // when we do exclusions.
+    const deepCopy = deep.copy(store.getState());
+    const filtered = deep.deleteD<S>(deepCopy, ...exclude);
+    void db.set(PERSISTED_STATE_KEY, filtered);
+  }, 1000);
+
   return [
     state,
     (store) => (next) => (action) => {
       const result = next(action);
-      if (appWindow.label !== MAIN_WINDOW) return result;
-      // We need to make a deep copy here to make immer happy
-      // when we do exclusions.
-      const deepCopy = deep.copy(store.getState());
-      const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-      void db.set(PERSISTED_STATE_KEY, filtered);
+      persist(store);
       return result;
     },
   ];
@@ -52,7 +61,7 @@ const noOpMiddleware: Middleware<UnknownRecord, any> = () => (next) => (action) 
   next(action);
 
 const reconcileVersions = async <S extends RequiredState>(
-  state: S
+  state: S,
 ): Promise<S | undefined> => {
   const storedVersion = state.version.version;
   const tauriVersion = await getVersion();

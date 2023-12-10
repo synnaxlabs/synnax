@@ -19,7 +19,7 @@ import { dimensions, type location, direction, xy } from "@synnaxlabs/x";
 import {
   type HandleProps as RFHandleProps,
   Handle as RFHandle,
-  Position,
+  Position as RFPosition,
   useUpdateNodeInternals,
 } from "reactflow";
 
@@ -35,17 +35,39 @@ const Path = ({ className, ...props }: PathProps): ReactElement => (
   <path vectorEffect="non-scaling-stroke" {...props} />
 );
 
+interface RectProps extends ComponentPropsWithoutRef<"rect"> {}
+
+const Rect = ({ className, ...props }: RectProps): ReactElement => (
+  <rect vectorEffect="non-scaling-stroke" {...props} />
+);
+
+interface CircleProps extends ComponentPropsWithoutRef<"circle"> {}
+
+const Circle = ({ className, ...props }: CircleProps): ReactElement => (
+  <circle vectorEffect="non-scaling-stroke" {...props} />
+);
+
+interface LineProps extends ComponentPropsWithoutRef<"line"> {}
+
+const Line = ({ className, ...props }: LineProps): ReactElement => (
+  <line vectorEffect="non-scaling-stroke" {...props} />
+);
+
 export interface OrientableProps {
   orientation?: location.Outer;
 }
-type DivProps = Omit<ComponentPropsWithoutRef<"div">, "color"> &
-  OrientableProps & {
-    color?: Color.Crude;
-  };
+
+export interface SVGBasedPrimitiveProps extends OrientableProps {
+  color?: Color.Crude;
+  scale?: number;
+}
+
+export interface DivProps
+  extends Omit<ComponentPropsWithoutRef<"div">, "color">,
+    OrientableProps {}
 
 interface ToggleProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value">,
-    OrientableProps {
+  extends Omit<ComponentPropsWithoutRef<"button">, "color" | "value"> {
   triggered?: boolean;
   enabled?: boolean;
   color?: Color.Crude;
@@ -59,42 +81,46 @@ interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
   id: string;
 }
 
-const orientationToPosittions: Record<
+const ORIENTATION_RF_POSITIONS: Record<
   location.Outer,
-  Record<location.Outer, Position>
+  Record<location.Outer, RFPosition>
 > = {
   left: {
-    left: Position.Left,
-    right: Position.Right,
-    top: Position.Top,
-    bottom: Position.Bottom,
+    left: RFPosition.Left,
+    right: RFPosition.Right,
+    top: RFPosition.Top,
+    bottom: RFPosition.Bottom,
   },
   right: {
-    left: Position.Right,
-    right: Position.Left,
-    top: Position.Bottom,
-    bottom: Position.Top,
+    left: RFPosition.Right,
+    right: RFPosition.Left,
+    top: RFPosition.Bottom,
+    bottom: RFPosition.Top,
   },
   top: {
-    left: Position.Bottom,
-    right: Position.Top,
-    top: Position.Left,
-    bottom: Position.Right,
+    left: RFPosition.Bottom,
+    right: RFPosition.Top,
+    top: RFPosition.Left,
+    bottom: RFPosition.Right,
   },
   bottom: {
-    left: Position.Top,
-    right: Position.Bottom,
-    top: Position.Right,
-    bottom: Position.Left,
+    left: RFPosition.Top,
+    right: RFPosition.Bottom,
+    top: RFPosition.Right,
+    bottom: RFPosition.Left,
   },
 };
 
 const smartPosition = (
   position: location.Outer,
   orientation: location.Outer,
-): Position => orientationToPosittions[orientation][position];
+): RFPosition => ORIENTATION_RF_POSITIONS[orientation][position];
 
-const adjustHandle = (top: number, left: number, orientation: location.Outer) => {
+const adjustHandle = (
+  top: number,
+  left: number,
+  orientation: location.Outer,
+): { left: number; top: number } => {
   if (orientation === "left") return { top, left };
   if (orientation === "right") return { top: 100 - top, left: 100 - left };
   if (orientation === "top") return { top: 100 - left, left: top };
@@ -113,15 +139,10 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
   const first = useRef<boolean>(true);
   useEffect(() => {
-    if (ref.current == null) return;
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (ref.current == null || first.current) return;
     first.current = false;
     const node = ref.current.closest(".react-flow__node");
-    if (node == null) return;
-    const id = node.getAttribute("data-id");
+    const id = node?.getAttribute("data-id");
     if (id == null) return;
     updateInternals?.(id);
   }, [orientation]);
@@ -155,7 +176,9 @@ const Handle = ({
   );
 };
 
-interface ToggleValveButtonProps extends ToggleProps {}
+interface ToggleValveButtonProps extends ToggleProps {
+  orientation?: location.Outer;
+}
 
 const Toggle = ({
   className,
@@ -164,33 +187,26 @@ const Toggle = ({
   color,
   orientation = "left",
   ...props
-}: ToggleValveButtonProps): ReactElement => {
-  return (
-    <button
-      className={CSS(
-        CSS.B("symbol"),
-        CSS.B("symbol-toggle"),
-        orientation != null && CSS.loc(orientation),
-        enabled && CSS.M("enabled"),
-        triggered && CSS.M("triggered"),
-        className,
-      )}
-      {...props}
-    />
-  );
-};
+}: ToggleValveButtonProps): ReactElement => (
+  <button
+    className={CSS(
+      CSS.B("symbol"),
+      CSS.B("symbol-toggle"),
+      orientation != null && CSS.loc(orientation),
+      enabled && CSS.M("enabled"),
+      triggered && CSS.M("triggered"),
+      className,
+    )}
+    {...props}
+  />
+);
 
-const Div = ({
-  className,
-  orientation = "left",
-  color,
-  ...props
-}: DivProps): ReactElement => {
-  return <div className={CSS(CSS.B("symbol"), className)} {...props} />;
-};
+const Div = ({ className, orientation = "left", ...props }: DivProps): ReactElement => (
+  <div className={CSS(CSS.B("symbol"), className)} {...props} />
+);
 
 export interface InternalSVGProps
-  extends OrientableProps,
+  extends SVGBasedPrimitiveProps,
     Omit<ComponentPropsWithoutRef<"svg">, "direction" | "color" | "orientation"> {
   dimensions: dimensions.Dimensions;
   color?: Color.Crude;
@@ -233,96 +249,88 @@ const InternalSVG = ({
   );
 };
 
-export interface FourWayValveProps extends ToggleProps {}
+export interface FourWayValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const FourWayValve = ({
   className,
   orientation,
+  scale,
   color,
   ...props
-}: FourWayValveProps): ReactElement => {
-  return (
-    <Toggle
-      {...props}
-      orientation={orientation}
-      className={CSS(CSS.B("four-way-valve"), className)}
-    >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle location="right" orientation="left" left={100} top={50} id="2" />
-        <Handle location="top" orientation="left" left={50} top={0} id="3" />
-        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
-      </HandleBoundary>
-      <InternalSVG dimensions={{ width: 84, height: 84 }} color={color}>
-        <Path d="M42 42L5.36763 23.2371C3.37136 22.2146 1 23.6643 1 25.9072V58.0928C1 60.3357 3.37136 61.7854 5.36763 60.7629L42 42ZM42 42L78.6324 23.2371C80.6286 22.2146 83 23.6643 83 25.9072V58.0928C83 60.3357 80.6286 61.7854 78.6324 60.7629L42 42Z" />
-        <Path d="M42 42L23.2371 78.6324C22.2146 80.6286 23.6643 83 25.9072 83H58.0928C60.3357 83 61.7854 80.6286 60.7629 78.6324L42 42ZM42 42L23.2371 5.36763C22.2146 3.37136 23.6643 1 25.9072 1H58.0928C60.3357 1 61.7854 3.37136 60.7629 5.36763L42 42Z" />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+}: FourWayValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("four-way-valve"), className)}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation="left" left={0} top={50} id="1" />
+      <Handle location="right" orientation="left" left={100} top={50} id="2" />
+      <Handle location="top" orientation="left" left={50} top={0} id="3" />
+      <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+    </HandleBoundary>
+    <InternalSVG dimensions={{ width: 87, height: 87 }} color={color} scale={scale}>
+      <Path d="M43.5 43.5L6.35453 24.7035C4.35901 23.6937 2 25.1438 2 27.3803V59.6197C2 61.8562 4.35901 63.3063 6.35453 62.2965L43.5 43.5ZM43.5 43.5L80.6455 24.7035C82.641 23.6937 85 25.1438 85 27.3803V59.6197C85 61.8562 82.641 63.3063 80.6455 62.2965L43.5 43.5Z" />
+      <Path d="M43.5 43.5L24.7035 80.6455C23.6937 82.641 25.1438 85 27.3803 85H59.6197C61.8562 85 63.3063 82.641 62.2965 80.6455L43.5 43.5ZM43.5 43.5L24.7035 6.35453C23.6937 4.35901 25.1438 2 27.3803 2H59.6197C61.8562 2 63.3063 4.35901 62.2965 6.35453L43.5 43.5Z" />
+    </InternalSVG>
+  </Toggle>
+);
 
-export interface ThreeWayValveProps extends ToggleProps, OrientableProps {}
+export interface ThreeWayValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const ThreeWayValve = ({
   color,
   orientation = "left",
+  scale,
   ...props
-}: ThreeWayValveProps): ReactElement => {
-  return (
-    <Toggle
-      {...props}
-      className={CSS(CSS.B("three-way-valve"))}
+}: ThreeWayValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("three-way-valve"))}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="bottom" orientation={orientation} left={50} top={100} id="1" />
+      <Handle location="left" orientation={orientation} left={0} top={33} id="2" />
+      <Handle location="right" orientation={orientation} left={100} top={33} id="3" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 64 }}
+      color={color}
       orientation={orientation}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle
-          location="bottom"
-          orientation={orientation}
-          left={50}
-          top={100}
-          id="1"
-        />
-        <Handle location="left" orientation={orientation} left={0} top={33} id="2" />
-        <Handle location="right" orientation={orientation} left={100} top={33} id="3" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 64 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M42 20.5L5.36763 1.73708C3.37136 0.714598 1 2.16432 1 4.40721V36.5928C1 38.8357 3.37136 40.2854 5.36763 39.2629L42 20.5ZM42 20.5L78.6324 1.73708C80.6286 0.714597 83 2.16432 83 4.40721V36.5928C83 38.8357 80.6286 40.2854 78.6324 39.2629L42 20.5Z" />
-        <Path d="M44.6394 23.9406C43.5383 21.7131 40.3617 21.7131 39.2606 23.9406L22.3401 58.1706C21.3545 60.1645 22.8053 62.5 25.0295 62.5L58.8705 62.5C61.0947 62.5 62.5455 60.1645 61.5599 58.1706L44.6394 23.9406Z" />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+      <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
+      <Path d="M44.3923 22.3611C44.0222 21.6298 42.9778 21.6298 42.6077 22.3611L24.7035 57.7433C23.6937 59.7388 25.1438 62.0978 27.3803 62.0978L59.6197 62.0978C61.8562 62.0978 63.3063 59.7388 62.2965 57.7433L44.3923 22.3611Z" />
+    </InternalSVG>
+  </Toggle>
+);
 
-export interface ValveProps extends ToggleProps, OrientableProps {}
+export interface ValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Valve = ({
   orientation = "left",
   color,
+  scale,
   ...props
-}: ValveProps): ReactElement => {
-  return (
-    <Toggle {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 43 }}
-        color={color}
-        orientation={orientation}
-        overflow="hidden"
-      >
-        <Path d="M42 21L5.41842 1.37088C3.41986 0.298479 0.999969 1.74626 0.999969 4.01436V37.9856C0.999969 40.2537 3.41986 41.7015 5.41843 40.6291L42 21ZM42 21L78.5815 1.37088C80.5801 0.29848 83 1.74626 83 4.01436V37.9856C83 40.2537 80.5801 41.7015 78.5815 40.6291L42 21Z" />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+}: ValveProps): ReactElement => (
+  <Toggle {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
+    </InternalSVG>
+  </Toggle>
+);
 
-export interface SolenoidValveProps extends ToggleProps, OrientableProps {
+export interface SolenoidValveProps extends ToggleProps, SVGBasedPrimitiveProps {
   normallyOpen?: boolean;
 }
 
@@ -331,323 +339,305 @@ export const SolenoidValve = ({
   color,
   orientation = "left",
   normallyOpen = false,
+  scale,
   ...props
-}: SolenoidValveProps): ReactElement => {
-  return (
-    <Toggle
-      className={CSS(
-        CSS.B("solenoid-valve"),
-        normallyOpen && CSS.M("normally-open"),
-        className,
-      )}
-      {...props}
+}: SolenoidValveProps): ReactElement => (
+  <Toggle
+    className={CSS(
+      CSS.B("solenoid-valve"),
+      normallyOpen && CSS.M("normally-open"),
+      className,
+    )}
+    {...props}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={69} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={69} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 69 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={69} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={69} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 87, height: 69 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z" />
-        <Path d="M43.4996 47L43.4996 24.6177" />
-        <rect
-          x="29"
-          y="2"
-          width="29"
-          height="22.5333"
-          rx="1"
-          fill={
-            normallyOpen && props.enabled === false ? Color.cssString(color) : "none"
-          }
-        />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+      <Path d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z" />
+      <Path d="M43.5 47L43.5 24.6177" />
+      <Rect
+        x="29"
+        y="2"
+        width="29"
+        height="22.5333"
+        rx="1"
+        fill={normallyOpen && props.enabled === false ? Color.cssString(color) : "none"}
+      />
+    </InternalSVG>
+  </Toggle>
+);
 
-export interface ReliefValveProps extends DivProps, OrientableProps {}
+export interface ReliefValveProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const ReliefValve = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: ReliefValveProps): ReactElement => {
-  return (
-    <Div
+}: ReliefValveProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("relief-valve"), className)}
+    {...props}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={66} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={66} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 58 }}
+      color={color}
       orientation={orientation}
-      className={CSS(CSS.B("relief-valve"), className)}
-      {...props}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 57 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M42 36L5.41845 16.3709C3.41989 15.2985 1 16.7463 1 19.0144V52.9856C1 55.2537 3.4199 56.7015 5.41846 55.6291L42 36ZM42 36L78.5815 16.3709C80.5801 15.2985 83 16.7463 83 19.0144V52.9856C83 55.2537 80.5801 56.7015 78.5815 55.6291L42 36Z" />
-        <line x1="42" y1="-4.37114e-08" x2="42" y2="36" />
-        <Path d="M30.3011 12.0802L53.6773 2.29611" />
-        <Path d="M30.3011 18.0802L53.6773 8.29611" />
-        <Path d="M30.3011 24.0802L53.6773 14.2961" />
-      </InternalSVG>
-    </Div>
-  );
-};
+      <Path d="M43.5 37L6.35453 18.2035C4.35901 17.1937 2 18.6438 2 20.8803V53.1197C2 55.3562 4.35901 56.8063 6.35453 55.7965L43.5 37ZM43.5 37L80.6455 18.2035C82.641 17.1937 85 18.6438 85 20.8803V53.1197C85 55.3562 82.641 56.8063 80.6455 55.7965L43.5 37Z" />
+      <Path d="M43.5 2L43.5 38" strokeLinecap="round" />
+      <Path d="M31.8011 14.0802L55.1773 4.29611" strokeLinecap="round" />
+      <Path d="M31.8011 20.0802L55.1773 10.2961" strokeLinecap="round" />
+      <Path d="M31.8011 26.0802L55.1773 16.2961" strokeLinecap="round" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface CheckValveProps extends DivProps, OrientableProps {}
+export interface CheckValveProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const CheckValve = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: CheckValveProps): ReactElement => {
-  return (
-    <Div
+}: CheckValveProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("check-valve"), className)}
+    {...props}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 45, height: 43 }}
+      color={color}
       orientation={orientation}
-      className={CSS(CSS.B("check-valve"), className)}
-      {...props}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 45, height: 43 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M41 0.5L41 42.5" />
-        <Path d="M39.583 24.1418C41.8094 23.0385 41.8062 19.8619 39.5777 18.7631L5.33075 1.87674C3.33589 0.893122 1.00181 2.34625 1.00403 4.57043L1.03783 38.4115C1.04005 40.6357 3.37703 42.0841 5.36992 41.0965L39.583 24.1418Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+      <Path d="M43 2L43 40" strokeLinecap="round" />
+      <Path d="M41.6607 21.8946C42.3917 21.5238 42.3906 20.4794 41.6589 20.1101L6.25889 2.2412C4.26237 1.23341 1.90481 2.68589 1.90704 4.92235L1.93925 37.1617C1.94148 39.3982 4.30194 40.846 6.29644 39.8342L41.6607 21.8946Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface AngledValveProps extends ToggleProps {}
+export interface AngledValveProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const AngledValve = ({
   color,
   className,
   orientation = "left",
+  scale,
   ...props
-}: AngledValveProps): ReactElement => {
-  return (
-    <Toggle
-      {...props}
+}: AngledValveProps): ReactElement => (
+  <Toggle
+    {...props}
+    orientation={orientation}
+    className={CSS(CSS.B("angled-valve"), className)}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="bottom" orientation={orientation} left={33} top={100} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={35} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 64 }}
+      color={color}
       orientation={orientation}
-      className={CSS(CSS.B("angled-valve"), className)}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle
-          location="bottom"
-          orientation={orientation}
-          left={33}
-          top={100}
-          id="1"
-        />
-        <Handle location="right" orientation={orientation} left={100} top={35} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 60, height: 60 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M20.1229 19.4889L38.909 54.6633C39.9376 56.6437 38.4854 59 36.2362 59H4.00953C1.76032 59 0.308076 56.6437 1.33675 54.6633L19.6722 19.3646C19.9651 18.8008 20.4293 18.3445 20.9981 18.0615L54.6454 1.32049C56.6441 0.326449 59 1.76507 59 3.97959V35.9901C59 38.2046 56.6441 39.6433 54.6454 38.6492L21.1247 18.497" />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+      <Path d="M22.3611 20.1077C21.6298 20.4778 21.6298 21.5222 22.3611 21.8923L57.7433 39.7965C59.7388 40.8063 62.0978 39.3562 62.0978 37.1197L62.0978 4.88029C62.0978 2.64384 59.7388 1.19372 57.7433 2.2035L22.3611 20.1077Z" />
+      <Path d="M21.8923 22.3611C21.5222 21.6298 20.4778 21.6298 20.1077 22.3611L2.20349 57.7433C1.19372 59.7388 2.64384 62.0978 4.8803 62.0978L37.1197 62.0978C39.3562 62.0978 40.8063 59.7388 39.7965 57.7433L21.8923 22.3611Z" />
+      <Path d="M24.3461 18.5709L21.7484 19.88C20.9998 20.2572 20.3887 20.8601 20.0012 21.6035L19.3383 22.8756" />
+    </InternalSVG>
+  </Toggle>
+);
 
-export const Tag = (): ReactElement => {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 25">
-      <Path d="M57.0945 1.83334H4.04767C2.39087 1.83334 1.45252 3.73241 2.45908 5.0484L7.42509 11.5411C7.96869 12.2518 7.97408 13.2371 7.43828 13.9538L2.94078 19.9691C1.95471 21.2879 2.89585 23.1667 4.54256 23.1667H57.2344C57.9298 23.1667 58.5752 22.8055 58.939 22.2128L64.2505 13.5584C64.6483 12.9102 64.644 12.0925 64.2395 11.4484L58.7881 2.76955C58.4222 2.18696 57.7825 1.83334 57.0945 1.83334Z" />
-    </svg>
-  );
-};
+export const Tag = (): ReactElement => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 25">
+    <Path d="M57.0945 1.83334H4.04767C2.39087 1.83334 1.45252 3.73241 2.45908 5.0484L7.42509 11.5411C7.96869 12.2518 7.97408 13.2371 7.43828 13.9538L2.94078 19.9691C1.95471 21.2879 2.89585 23.1667 4.54256 23.1667H57.2344C57.9298 23.1667 58.5752 22.8055 58.939 22.2128L64.2505 13.5584C64.6483 12.9102 64.644 12.0925 64.2395 11.4484L58.7881 2.76955C58.4222 2.18696 57.7825 1.83334 57.0945 1.83334Z" />
+  </svg>
+);
 
-export interface ReduceFittingProps extends DivProps, OrientableProps {
-  color?: Color.Crude;
-}
+export interface ReduceFittingProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const ReduceFitting = ({
   className,
   orientation,
   color,
+  scale,
   ...props
-}: ReduceFittingProps): ReactElement => {
-  return (
-    <Div
+}: ReduceFittingProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("reduce-fitting"), className)}
+    {...props}
+  >
+    <InternalSVG
+      dimensions={{ width: 42, height: 43 }}
+      color={color}
       orientation={orientation}
-      className={CSS(CSS.B("reduce-fitting"), className)}
-      {...props}
+      scale={scale}
     >
-      <InternalSVG
-        dimensions={{ width: 42, height: 43 }}
-        color={color}
-        orientation={orientation}
-      >
-        <Path d="M38.862 31.1414L4.86205 41.3414C2.93721 41.9189 1 40.4775 1 38.4679V21.8707V4.53209C1 2.5225 2.93721 1.08116 4.86204 1.65861L38.862 11.8586C40.131 12.2393 41 13.4073 41 14.7321V21.5V28.2679C41 29.5927 40.131 30.7607 38.862 31.1414Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+      <Path d="M38.862 31.1414L4.86205 41.3414C2.93721 41.9189 1 40.4775 1 38.4679V21.8707V4.53209C1 2.5225 2.93721 1.08116 4.86204 1.65861L38.862 11.8586C40.131 12.2393 41 13.4073 41 14.7321V21.5V28.2679C41 29.5927 40.131 30.7607 38.862 31.1414Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface PumpProps extends ToggleProps {}
+export interface PumpProps extends ToggleProps, SVGBasedPrimitiveProps {}
 
 export const Pump = ({
   color,
   className,
   orientation = "left",
+  scale,
   ...props
-}: PumpProps): ReactElement => {
-  const colorStr = Color.cssString(color);
-  return (
-    <Toggle
-      {...props}
-      className={CSS(CSS.B("pump"), className)}
+}: PumpProps): ReactElement => (
+  <Toggle
+    {...props}
+    className={CSS(CSS.B("pump"), className)}
+    orientation={orientation}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={39} id="1" />
+      <Handle location="right" orientation={orientation} left={95} top={3} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 68, height: 61 }}
+      color={color}
       orientation={orientation}
+      scale={scale}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle location="right" orientation="left" left={100} top={10} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 66, height: 60 }}
-        color={color}
-        orientation={orientation}
-      >
-        <circle cx="39" cy="30" r="23" />
-        <Path d="M54 46.5L60.7186 55.8314C61.6711 57.1544 60.7257 59 59.0955 59H18.9045C17.2743 59 16.3289 57.1544 17.2814 55.8314L24 46.5" />
-        <Path
-          d="M42 30L32 24.2265V35.7735L42 30ZM0 31H33V29H0L0 31Z"
-          fill={colorStr}
-          stroke="none"
-        />
-        <Path
-          d="M66 7L56 1.2265V12.7735L66 7ZM38 8L57 8V6L38 6V8Z"
-          fill={colorStr}
-          stroke="none"
-        />
-      </InternalSVG>
-    </Toggle>
-  );
-};
+      <Circle cx="35" cy="25" r="23" />
+      <Path d="M50 41.5L56.7186 50.8314C57.6711 52.1544 56.7257 54 55.0955 54H14.9045C13.2743 54 12.3289 52.1544 13.2814 50.8314L20 41.5" />
+      <Line x1="35" y1="2" x2="65.0167" y2="2" />
+      <Line x1="1" y1="24" x2="35" y2="24" />
+    </InternalSVG>
+  </Toggle>
+);
 
-export interface BurstDiscProps extends DivProps, OrientableProps {
-  color?: Color.Crude;
-}
+export interface BurstDiscProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const BurstDisc = ({
   className,
   color,
   orientation = "left",
+  scale,
   ...props
 }: BurstDiscProps): ReactElement => {
   const colorStr = Color.cssString(color);
   return (
     <Div {...props} className={CSS(CSS.B("symbol"), className)}>
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
       </HandleBoundary>
       <InternalSVG
-        dimensions={{ width: 42, height: 49 }}
+        dimensions={{ width: 40, height: 48 }}
         color={color}
         orientation={orientation}
+        scale={scale}
       >
+        <Path d="M24 24C24 35.1852 15.2546 44.4725 3.87626 45.8297C2.90571 45.9455 2 45.1407 2 44V4C2 2.85926 2.90571 2.0545 3.87626 2.17027C15.2546 3.52755 24 12.8148 24 24Z" />
         <Path
-          d="M42 24.5L32 18.7265V30.2735L42 24.5ZM0.976746 25.5H33V23.5H0.976746V25.5Z"
+          d="M37.9706 23.2076C38.4906 23.6079 38.4906 24.3921 37.9706 24.7924L33.86 27.9568C33.2024 28.463 32.25 27.9942 32.25 27.1644V20.8356C32.25 20.0058 33.2024 19.537 33.86 20.0432L37.9706 23.2076Z"
           fill={colorStr}
         />
-        <Path d="M1 45.413L1 3.54787C1 1.84611 2.92941 0.863804 4.30365 1.86753C29.418 20.2107 29.0408 28.7584 4.31799 47.0846C2.94482 48.1025 1 47.1223 1 45.413Z" />
+        <Path d="M33 24H3" strokeLinecap="round" />
       </InternalSVG>
     </Div>
   );
 };
 
-export interface CapProps extends OrientableProps, DivProps {}
+export interface CapProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const Cap = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: CapProps): ReactElement => {
-  return (
-    <Div className={CSS(CSS.B("cap"), className)} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      </HandleBoundary>
-      <InternalSVG
-        color={color}
-        dimensions={{ width: 24, height: 49 }}
-        orientation={orientation}
-      >
-        <Path d="M1 45.413L1 3.54787C1 1.84611 2.92941 0.863804 4.30365 1.86753C29.418 20.2107 29.0408 28.7584 4.31799 47.0846C2.94482 48.1025 1 47.1223 1 45.413Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: CapProps): ReactElement => (
+  <Div className={CSS(CSS.B("cap"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+    </HandleBoundary>
+    <InternalSVG
+      color={color}
+      dimensions={{ width: 26, height: 48 }}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Path d="M24 24C24 35.1852 15.2546 44.4725 3.87626 45.8297C2.90571 45.9455 2 45.1407 2 44V4C2 2.85926 2.90571 2.0545 3.87626 2.17027C15.2546 3.52755 24 12.8148 24 24Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface ManualValveProps extends OrientableProps, DivProps {}
+export interface ManualValveProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const ManualValve = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: ManualValveProps): ReactElement => {
-  return (
-    <Div className={CSS(CSS.B("manual-valve"), className)} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 49 }}
-        color={color}
-        orientation={orientation}
-      >
-        <line x1="41.84" y1="27.9872" x2="41.84" y2="0.910259" />
-        <Path d="M17.64 1.5L64.68 1.5" />
-        <Path d="M42 27.5L5.41845 7.87088C3.41989 6.79848 1 8.24626 1 10.5144V44.4856C1 46.7537 3.4199 48.2015 5.41846 47.1291L42 27.5ZM42 27.5L78.5815 7.87088C80.5801 6.79848 83 8.24626 83 10.5144V44.4856C83 46.7537 80.5801 48.2015 78.5815 47.1291L42 27.5Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: ManualValveProps): ReactElement => (
+  <Div className={CSS(CSS.B("manual-valve"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={58} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={58} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 48 }}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1="43.5" y1="27" x2="43.5" y2="1" />
+      <Path d="M19.64 2L66.68 2" strokeLinecap="round" />
+      <Path d="M43.5 27L6.35453 8.20349C4.35901 7.19372 2 8.64384 2 10.8803V43.1197C2 45.3562 4.35901 46.8063 6.35453 45.7965L43.5 27ZM43.5 27L80.6455 8.20349C82.641 7.19372 85 8.64384 85 10.8803V43.1197C85 45.3562 82.641 46.8063 80.6455 45.7965L43.5 27Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface FilterProps extends DivProps, OrientableProps {}
+export interface FilterProps extends SVGBasedPrimitiveProps, DivProps {}
 
 export const Filter = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: FilterProps): ReactElement => {
-  return (
-    <Div className={CSS(CSS.B("filter"), className)} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 80, height: 32 }}
-        orientation={orientation}
-        color={color}
-      >
-        <Path d="M20 16L38.8 1.9C39.5111 1.36667 40.4889 1.36667 41.2 1.9L60 16M20 16L38.8 30.1C39.5111 30.6333 40.4889 30.6333 41.2 30.1L60 16M20 16H0M60 16H80" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: FilterProps): ReactElement => (
+  <Div className={CSS(CSS.B("filter"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={2} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 52, height: 34 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17M6 17H1M46 17H51" />
+    </InternalSVG>
+  </Div>
+);
 
 type DetailedBorderRadius = Record<location.CornerXYString, xy.XY>;
 type BorderRadius =
@@ -720,14 +710,14 @@ export const Tank = ({
         <Handle
           location="top"
           orientation="left"
-          left={0}
+          left={-0.5}
           top={detailedRadius.topLeft.y - 1}
           id="2"
         />
         <Handle
           location="top"
           orientation="left"
-          left={100}
+          left={101}
           top={detailedRadius.topRight.y - 1}
           id="3"
         />
@@ -735,146 +725,143 @@ export const Tank = ({
         <Handle
           location="bottom"
           orientation="left"
-          left={0}
+          left={-0.5}
           top={100 - detailedRadius.bottomLeft.y + 1}
           id="5"
         />
         <Handle
           location="bottom"
           orientation="left"
-          left={100}
+          left={101}
           top={100 - detailedRadius.bottomRight.y + 1}
           id="6"
         />
-        <Handle location="left" orientation="left" left={0} top={50} id="7" />
-        <Handle location="right" orientation="left" left={100} top={50} id="8" />
+        <Handle location="left" orientation="left" left={-0.5} top={50} id="7" />
+        <Handle location="right" orientation="left" left={101} top={50} id="8" />
       </HandleBoundary>
     </Div>
   );
 };
 
-export interface RegulatorProps extends DivProps, OrientableProps {}
+export interface RegulatorProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const Regulator = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: RegulatorProps): ReactElement => {
-  return (
-    <Div className={CSS(className, CSS.B("regulator"))} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 58 }}
-        orientation={orientation}
-        color={color}
-      >
-        <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
-        <Path d="M40 1.5H27.1522C24.8526 1.5 23.4081 3.9809 24.5432 5.98082L41.1303 35.2058C41.6373 36.099 43 35.7392 43 34.7122V4.5C43 2.84315 41.6569 1.5 40 1.5Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: RegulatorProps): ReactElement => (
+  <Div className={CSS(className, CSS.B("regulator"))} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={66} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={66} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 84, height: 58 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path d="M42 36.5L5.41845 16.8709C3.41989 15.7985 1 17.2463 1 19.5144V53.4856C1 55.7537 3.4199 57.2015 5.41846 56.1291L42 36.5ZM42 36.5L78.5815 16.8709C80.5801 15.7985 83 17.2463 83 19.5144V53.4856C83 55.7537 80.5801 57.2015 78.5815 56.1291L42 36.5Z" />
+      <Path d="M40 1.5H27.1522C24.8526 1.5 23.4081 3.9809 24.5432 5.98082L41.1303 35.2058C41.6373 36.099 43 35.7392 43 34.7122V4.5C43 2.84315 41.6569 1.5 40 1.5Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface OrificeProps extends DivProps, OrientableProps {}
+export interface OrificeProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const Orifice = ({
   className,
   orientation = "left",
+  scale,
   color,
   ...props
-}: OrificeProps): ReactElement => {
-  return (
-    <Div className={CSS(CSS.B("orifice"), className)} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 68, height: 32 }}
-        orientation={orientation}
-        color={color}
-      >
-        <Path d="M1 1C26.451 19.8469 59.0915 10.5132 67 1" />
-        <Path d="M1 31C26.451 12.1531 59.0915 21.4868 67 31" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: OrificeProps): ReactElement => (
+  <Div className={CSS(CSS.B("orifice"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 70, height: 34 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path d="M2 2.5C27.451 21.3469 60.0915 12.0132 68 2.5" strokeLinecap="round" />
+      <Path d="M2 32.5C27.451 13.6531 60.0915 22.9868 68 32.5" strokeLinecap="round" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface NeedleValveProps extends DivProps, OrientableProps {}
+export interface NeedleValveProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const NeedleValve = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: NeedleValveProps): ReactElement => {
-  return (
-    <Div className={CSS(CSS.B("needle-valve"), className)} {...props}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 84, height: 42.5 }}
-        orientation={orientation}
-        color={color}
-      >
-        <Path
-          d="M42.4856 20.9156C42.3612 21.4236 41.6388 21.4236 41.5144 20.9156L36.7267 1.36895C36.6495 1.05396 36.888 0.75 37.2123 0.75L46.7877 0.75C47.112 0.75 47.3505 1.05396 47.2733 1.36895L42.4856 20.9156Z"
-          fill={Color.cssString(color)}
-        />
-        <Path d="M42 21L5.41845 1.37088C3.41989 0.298479 1 1.74626 1 4.01436V37.9856C1 40.2537 3.4199 41.7015 5.41846 40.6291L42 21ZM42 21L78.5815 1.37088C80.5801 0.29848 83 1.74626 83 4.01436V37.9856C83 40.2537 80.5801 41.7015 78.5815 40.6291L42 21Z" />
-      </InternalSVG>
-    </Div>
-  );
-};
+}: NeedleValveProps): ReactElement => (
+  <Div className={CSS(CSS.B("needle-valve"), className)} {...props}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={1} top={50} id="1" />
+      <Handle location="right" orientation={orientation} left={99} top={50} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 87, height: 42 }}
+      orientation={orientation}
+      color={color}
+      scale={scale}
+    >
+      <Path
+        d="M43.0152 21.5391L38.237 2.62245C38.1573 2.30658 38.396 2 38.7218 2L48.2782 2C48.604 2 48.8427 2.30658 48.763 2.62245L43.9848 21.5391C43.8576 22.0425 43.1424 22.0425 43.0152 21.5391Z"
+        fill={Color.cssString(color)}
+      />
+      <Path d="M43.5 21.5L6.35453 2.70349C4.35901 1.69372 2 3.14384 2 5.38029V37.6197C2 39.8562 4.35901 41.3063 6.35453 40.2965L43.5 21.5ZM43.5 21.5L80.6455 2.70349C82.641 1.69372 85 3.14384 85 5.3803V37.6197C85 39.8562 82.641 41.3063 80.6455 40.2965L43.5 21.5Z" />
+    </InternalSVG>
+  </Div>
+);
 
-export interface AngledReliefValveProps extends DivProps, OrientableProps {}
+export interface AngledReliefValveProps extends DivProps, SVGBasedPrimitiveProps {}
 
 export const AngledReliefValve = ({
   className,
   orientation = "left",
   color,
+  scale,
   ...props
-}: AngledReliefValveProps): ReactElement => {
-  return (
-    <Div
+}: AngledReliefValveProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("angled-relief-valve"), className)}
+    {...props}
+  >
+    <HandleBoundary>
+      <Handle location="bottom" orientation={orientation} left={33} top={100} id="1" />
+      <Handle location="right" orientation={orientation} left={100} top={45} id="2" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={{ width: 64, height: 79 }}
       orientation={orientation}
-      className={CSS(CSS.B("angled-relief-valve"), className)}
-      {...props}
+      color={color}
+      scale={scale}
     >
-      <HandleBoundary>
-        <Handle
-          location="bottom"
-          orientation={orientation}
-          left={33}
-          top={100}
-          id="1"
-        />
-        <Handle location="right" orientation={orientation} left={100} top={45} id="2" />
-      </HandleBoundary>
-      <InternalSVG
-        dimensions={{ width: 60, height: 76 }}
-        orientation={orientation}
-        color={color}
-      >
-        <line x1="21" y1="0.5" x2="21" y2="36.5" />
-        <Path d="M9.30106 12.5802L32.6773 2.79611" />
-        <Path d="M9.30106 18.5802L32.6773 8.79611" />
-        <Path d="M9.30106 24.5802L32.6773 14.7961" />
-        <Path d="M20.1229 34.9889L38.909 70.1633C39.9376 72.1437 38.4854 74.5 36.2362 74.5H4.00953C1.76032 74.5 0.308076 72.1437 1.33675 70.1633L19.6722 34.8646C19.9651 34.3008 20.4293 33.8445 20.9981 33.5615L54.6454 16.8205C56.6441 15.8264 59 17.2651 59 19.4796V51.4901C59 53.7046 56.6441 55.1433 54.6454 54.1492L21.1247 33.997" />
-      </InternalSVG>
-    </Div>
-  );
-};
+      <Path d="M20.75 2L20.75 38" strokeLinecap="round" />
+      <Path d="M9.05106 14.0802L32.4273 4.29611" strokeLinecap="round" />
+      <Path d="M9.05106 20.0802L32.4273 10.2961" strokeLinecap="round" />
+      <Path d="M9.05106 26.0802L32.4273 16.2961" strokeLinecap="round" />
+      <Path d="M22.3611 35.1077C21.6298 35.4778 21.6298 36.5222 22.3611 36.8923L57.7433 54.7965C59.7388 55.8063 62.0978 54.3562 62.0978 52.1197L62.0978 19.8803C62.0978 17.6438 59.7388 16.1937 57.7433 17.2035L22.3611 35.1077Z" />
+      <Path d="M21.8923 37.3611C21.5222 36.6298 20.4778 36.6298 20.1077 37.3611L2.20349 72.7433C1.19372 74.7388 2.64384 77.0978 4.8803 77.0978H37.1197C39.3562 77.0978 40.8063 74.7388 39.7965 72.7433L21.8923 37.3611Z" />
+      <Path d="M24.3461 33.5709L21.7484 34.88C20.9998 35.2572 20.3887 35.8601 20.0012 36.6035L19.3383 37.8756" />
+    </InternalSVG>
+  </Div>
+);
 
 export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
+  color?: Color.Crude;
 }
 
 export const Value = ({
@@ -892,10 +879,10 @@ export const Value = ({
     }}
   >
     <HandleBoundary>
-      <Handle location="left" orientation="left" left={0} top={50} id="1" />
-      <Handle location="right" orientation="left" left={100} top={50} id="2" />
-      <Handle location="top" orientation="left" left={50} top={0} id="3" />
-      <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+      <Handle location="left" orientation="left" left={-2} top={50} id="1" />
+      <Handle location="right" orientation="left" left={102} top={50} id="2" />
+      <Handle location="top" orientation="left" left={50} top={-2} id="3" />
+      <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
     </HandleBoundary>
     {props.children}
   </Div>

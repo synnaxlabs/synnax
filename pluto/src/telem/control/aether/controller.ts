@@ -56,7 +56,7 @@ export class Controller
   extends aether.Composite<typeof controllerStateZ, InternalState>
   implements telem.Factory
 {
-  private readonly registry = new Map<AetherControllerTelem, null>();
+  readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
 
   static readonly TYPE = "Controller";
@@ -180,11 +180,7 @@ export class Controller
         return sink as T;
       }
       case AuthoritySource.TYPE: {
-        const source = new AuthoritySource(
-          this.key,
-          this.internal.stateProv,
-          spec.props,
-        );
+        const source = new AuthoritySource(this, this.internal.stateProv, spec.props);
         this.registry.set(source, null);
         return source as T;
       }
@@ -220,7 +216,13 @@ export class SetChannelValue
 
   invalidate(): void {}
 
+  cleanup(): void {
+    console.log("cleanup");
+    this.controller.registry.delete(this);
+  }
+
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
+    if (this.props.channel === 0) return [];
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
@@ -235,7 +237,7 @@ export class SetChannelValue
     const frame = new framer.Frame(
       [ch.key, index.key],
       [
-        // @ts-expect-error - issues with BigInt vsumber.
+        // @ts-expect-error - issues with BigInt vs number.
         new Series(new ch.dataType.Array([value])),
         // @ts-expect-error - issues with BigInt vs number.
         new Series(new index.dataType.Array([BigInt(TimeStamp.now())])),
@@ -272,6 +274,10 @@ export class AcquireChannelControl
     this.controller = controller;
   }
 
+  cleanup(): void {
+    this.controller.registry.delete(this);
+  }
+
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
     const chan = await client.channels.retrieve(this.props.channel);
     const keys = [chan.key];
@@ -305,13 +311,13 @@ export class AuthoritySource
   private readonly prov: StateProvider;
   private valid = false;
   private stopListening?: Destructor;
-  private readonly controlKey: string;
+  private readonly controller: Controller;
   schema = authoritySourceProps;
 
-  constructor(controlKey: string, prov: StateProvider, props: unknown) {
+  constructor(controller: Controller, prov: StateProvider, props: unknown) {
     super(props);
     this.prov = prov;
-    this.controlKey = controlKey;
+    this.controller = controller;
   }
 
   async needsControlOf(): Promise<channel.Keys> {
@@ -333,24 +339,28 @@ export class AuthoritySource
     const c = this.prov.controlState;
     const state = c.get(this.props.channel);
     const time = TimeStamp.now();
+    const color = this.prov.getColor(this.props.channel);
 
     if (state == null)
       return {
-        key: this.controlKey,
+        key: this.controller.key,
         variant: "disabled",
         message: "Uncontrolled",
         time,
+        data: { color },
       };
 
     return {
       key: state.subject.key,
-      variant: state.subject.key === this.controlKey ? "success" : "error",
+      variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
+      data: { color },
     };
   }
 
   cleanup(): void {
+    this.controller.registry.delete(this);
     this.stopListening?.();
   }
 }

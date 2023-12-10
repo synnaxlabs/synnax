@@ -27,34 +27,24 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Theming } from "@/theming";
 import { type Key } from "@/triggers/triggers";
+import { connector } from "@/vis/pid/edge/connector";
 import { calculateLineDirection } from "@/vis/pid/edge/edgeUtils";
 
 import { selectNodeBox } from "../util";
 
-import {
-  type Segment,
-  newConnector,
-  segmentsToPoints,
-  moveConnector,
-  handleMoveSource,
-  handleMoveTarget,
-} from "./connector";
-
 import "@/vis/pid/edge/Edge.css";
 
 interface CurrentlyDragging {
-  segments: Segment[];
+  segments: connector.Segment[];
   index: number;
 }
 
 export interface EdgeProps extends RFEdgeProps {
   editable: boolean;
-  segments: Segment[];
-  onSegmentsChange: (segments: Segment[]) => void;
+  segments: connector.Segment[];
+  onSegmentsChange: (segments: connector.Segment[]) => void;
   color?: Color.Crude;
-  applyTransform?: boolean;
 }
 
 export const CustomConnectionLine = ({
@@ -68,7 +58,7 @@ export const CustomConnectionLine = ({
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
-  const connector = newConnector({
+  const conn = connector.buildNew({
     sourcePos: xy.construct(fromX, fromY),
     targetPos: xy.construct(toX, toY),
     sourceOrientation: fromPosition,
@@ -77,9 +67,9 @@ export const CustomConnectionLine = ({
     targetBox: selectNodeBox(useReactFlow(), fromNode?.id ?? ""),
   });
   const flow = useReactFlow();
-  const points = segmentsToPoints(
+  const points = connector.segmentsToPoints(
     xy.construct(fromX, fromY),
-    connector,
+    conn,
     flow.getZoom(),
     false,
   );
@@ -113,7 +103,7 @@ export const Edge = ({
   onSegmentsChange,
   editable,
   color,
-  applyTransform = true,
+  selected,
   ...props
 }: EdgeProps): ReactElement => {
   const sourcePos = xy.construct(props.sourceX, props.sourceY);
@@ -125,10 +115,10 @@ export const Edge = ({
   const targetPosEq = xy.equals(targetPos, targetPosRef.current);
 
   const flow = useReactFlow();
-  const [segments, setSegments, segRef] = useCombinedStateAndRef<Segment[]>(
+  const [segments, setSegments, segRef] = useCombinedStateAndRef<Segment[]>(() =>
     propsSegments.length > 0
       ? propsSegments
-      : newConnector({
+      : connector.buildNew({
           sourcePos,
           targetPos,
           sourceOrientation,
@@ -150,12 +140,56 @@ export const Edge = ({
     sourcePosRef.current = sourcePos;
     targetPosRef.current = targetPos;
   } else if (!sourcePosEq) {
-    const next = handleMoveSource(sourcePosRef.current, sourcePos, segments);
+    const delta = xy.translation(sourcePosRef.current, sourcePos);
+    let next = connector.moveSourceNode({ delta, segments });
+    if (sourceOrientationRef.current !== sourceOrientation) {
+      sourceOrientationRef.current = sourceOrientation;
+      next = connector.buildNew({
+        sourcePos,
+        targetPos,
+        sourceOrientation,
+        targetOrientation,
+        sourceBox: selectNodeBox(flow, source),
+        targetBox: selectNodeBox(flow, target),
+      });
+    }
+    if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+      next = connector.buildNew({
+        sourcePos,
+        targetPos,
+        sourceOrientation,
+        targetOrientation,
+        sourceBox: selectNodeBox(flow, source),
+        targetBox: selectNodeBox(flow, target),
+      });
+    }
     sourcePosRef.current = sourcePos;
     setSegments(next);
     debouncedOnSegmentsChange(next);
   } else if (!targetPosEq) {
-    const next = handleMoveTarget(targetPos, targetPosRef.current, segments);
+    const delta = xy.translation(targetPos, targetPosRef.current);
+    let next = connector.moveTargetNode({ delta, segments });
+    if (targetOrientationRef.current !== targetOrientation) {
+      targetOrientationRef.current = targetOrientation;
+      next = connector.buildNew({
+        sourcePos,
+        targetPos,
+        sourceOrientation,
+        targetOrientation,
+        sourceBox: selectNodeBox(flow, source),
+        targetBox: selectNodeBox(flow, target),
+      });
+    }
+    if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+      next = connector.buildNew({
+        sourcePos,
+        targetPos,
+        sourceOrientation,
+        targetOrientation,
+        sourceBox: selectNodeBox(flow, source),
+        targetBox: selectNodeBox(flow, target),
+      });
+    }
     targetPosRef.current = targetPos;
     setSegments(next);
     debouncedOnSegmentsChange(next);
@@ -172,21 +206,22 @@ export const Edge = ({
     }, []),
     onMove: useCallback((b: box.Box) => {
       if (dragRef.current == null) return;
-      const next = moveConnector({
+      const next = connector.dragSegment({
         segments: dragRef.current.segments,
         index: dragRef.current.index,
-        magnitude: box.dim(
-          b,
-          direction.swap(dragRef.current.segments[dragRef.current.index].direction),
-          true,
-        ),
+        magnitude:
+          box.dim(
+            b,
+            direction.swap(dragRef.current.segments[dragRef.current.index].direction),
+            true,
+          ) / flow.getZoom(),
       });
       setSegments(next);
     }, []),
     onEnd: useCallback(() => onSegmentsChange(segRef.current), [onSegmentsChange]),
   });
 
-  const points = segmentsToPoints(sourcePos, segments, flow.getZoom(), applyTransform);
+  const points = connector.segmentsToPoints(sourcePos, segments, flow.getZoom(), true);
 
   return (
     <>

@@ -102,6 +102,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">
       <C.Form
+        key={selected.key}
         value={selected.props}
         onChange={(props) => handleChange(selected.key, props)}
       />

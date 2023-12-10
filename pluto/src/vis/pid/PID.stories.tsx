@@ -33,26 +33,26 @@ const Example = (): ReactElement => {
         },
         data: {},
       },
-      {
-        key: "2",
-        position: {
-          x: 500,
-          y: 200,
-        },
-      },
+      // {
+      //   key: "2",
+      //   position: {
+      //     x: 500,
+      //     y: 200,
+      //   },
+      // },
     ],
     initialEdges: [
-      {
-        key: "dog",
-        source: "1",
-        target: "2",
-      },
+      // {
+      //   key: "dog",
+      //   source: "1",
+      //   target: "2",
+      // },
     ],
   });
 
   const S = useCallback(
     (p) => (
-      <FourWayValve
+      <Value
         orientation="bottom"
         label={{
           orientation: "top",
@@ -61,6 +61,7 @@ const Example = (): ReactElement => {
         }}
         level="small"
         color="#000000"
+        telem={telem.fixedString("120 PSI")}
         {...p}
       />
     ),

@@ -54,7 +54,7 @@ class Transport:
             open_timeout=open_timeout.seconds,
             ping_interval=keep_alive.seconds,
             close_timeout=read_timeout.seconds,
-            ping_timeout=read_timeout.seconds,
+            ping_timeout=180,
         )
         self.stream = SyncStreamClient(self.stream_async)
         self.unary = HTTPClient(

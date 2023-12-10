@@ -19,6 +19,8 @@ import {
   type ReliefValveProps,
   type TankProps,
   type SolenoidValveProps,
+  type ControlStateProps,
+  type ValueProps,
 } from "@/vis/pid/symbols/Symbols";
 import { type Toggle } from "@/vis/toggle";
 
@@ -31,7 +33,7 @@ export interface SymbolFormProps<P extends object> {
   onChange: (value: P) => void;
 }
 
-const TABS: Tabs.Tab[] = [
+const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   {
     tabKey: "style",
     name: "Style",
@@ -130,10 +132,11 @@ const ColorControl: PropertyInput<"color", Color.Crude> = ({
   </Input.Item>
 );
 
-export interface CommonToggleFormProps extends SymbolFormProps<ThreeWayValveProps> {}
+export interface CommonToggleFormProps
+  extends SymbolFormProps<ThreeWayValveProps & { control: ControlStateProps }> {}
 
 export const ToggleControlForm: MultiPropertyInput<
-  Omit<Toggle.UseProps, "aetherKey">
+  Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
 > = ({ value, onChange }): ReactElement => {
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
@@ -173,18 +176,53 @@ export const ToggleControlForm: MultiPropertyInput<
       },
       inlet: "setpoint",
     });
-    onChange({ ...value, sink: t });
+    const authSource = control.authoritySource({ channel: v });
+    const controlChipSource = telem.sourcePipeline("boolean", {
+      connections: [
+        {
+          from: "authSource",
+          to: "transformer",
+        },
+      ],
+      segments: {
+        authSource,
+        transformer: telem.booleanStatus({}),
+      },
+      outlet: "transformer",
+    });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        showChip: true,
+        chip: {
+          sink: controlChipSink,
+          source: controlChipSource,
+        },
+        showIndicator: true,
+        indicator: {
+          statusSource: authSource,
+        },
+      },
+    });
   };
 
   return (
-    <Align.Space direction="y">
+    <FormWrapper direction="y">
       <Input.Item label="Input Channel">
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Input.Item label="Output Channel">
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
-    </Align.Space>
+    </FormWrapper>
   );
 };
 
@@ -213,7 +251,7 @@ export const CommonToggleForm = ({
     [value, onChange],
   );
 
-  const props = Tabs.useStatic({ tabs: TABS, content });
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
 
@@ -250,7 +288,7 @@ export const SolenoidValveForm = ({
     [value, onChange],
   );
 
-  const props = Tabs.useStatic({ tabs: TABS, content });
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };
 
@@ -309,4 +347,73 @@ export const TankForm = ({
       <OrientationControl value={value} onChange={onChange} />
     </FormWrapper>
   );
+};
+
+export interface ValueFormProps extends SymbolFormProps<ValueProps> {}
+
+const VALUE_FORM_TABS: Tabs.Tab[] = [
+  {
+    tabKey: "style",
+    name: "Style",
+  },
+  {
+    tabKey: "telemetry",
+    name: "Telemetry",
+  },
+];
+
+const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
+  value,
+  onChange,
+}): ReactElement => {
+  const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
+  console.log(sourceP);
+  const source = telem.streamChannelValuePropsZ.parse(
+    sourceP.segments.valueStream.props,
+  );
+  const handleSourceChange = (v: channel.Key): void => {
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "stringifier",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: v }),
+        stringifier: telem.stringifyNumber({
+          precision: 2,
+          suffix: " psi",
+        }),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
+  return (
+    <FormWrapper direction="y">
+      <Input.Item label="Input Channel">
+        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+export const ValueForm = ({ value, onChange }: ValueFormProps): ReactElement => {
+  const content: TabRenderProp = useCallback(
+    ({ tabKey }) => {
+      switch (tabKey) {
+        case "telemetry":
+          return <ValueTelemetryForm value={value} onChange={onChange} />;
+        default: {
+          return <CommonNonToggleForm value={value} onChange={onChange} />;
+        }
+      }
+    },
+    [value, onChange],
+  );
+
+  const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
 };

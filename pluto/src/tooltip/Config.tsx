@@ -29,7 +29,7 @@ export interface ConfigProps
     Partial<Omit<ContextValue, "startAccelerating">> {
   accelerate?: boolean;
   acceleratedDelay?: CrudeTimeSpan;
-  accelartionDuration?: CrudeTimeSpan;
+  accelerationDelay?: CrudeTimeSpan;
 }
 
 const ZERO_TOOLTIP_CONFIG: ContextValue = {
@@ -57,10 +57,11 @@ export const useConfig = (): ContextValue => useContext(Context);
  * @default 10 seconds.
  */
 export const Config = ({
-  delay = TimeSpan.milliseconds(500),
+  delay = TimeSpan.milliseconds(700),
   accelerate = true,
-  acceleratedDelay = TimeSpan.milliseconds(50),
-  accelartionDuration = TimeSpan.seconds(5),
+  // Disabling this for now because it's annoying.
+  acceleratedDelay = TimeSpan.minutes(60),
+  accelerationDelay = TimeSpan.seconds(0),
   children,
 }: ConfigProps): ReactElement => {
   const [accelerating, setAccelerating] = useState(false);
@@ -70,8 +71,8 @@ export const Config = ({
     setAccelerating(true);
     timeoutRef.current = setTimeout(() => {
       setAccelerating(false);
-    }, new TimeSpan(accelartionDuration).milliseconds);
-  }, [accelerating, accelartionDuration]);
+    }, new TimeSpan(accelerationDelay).milliseconds);
+  }, [accelerating, accelerationDelay]);
   return (
     <Context.Provider
       value={{

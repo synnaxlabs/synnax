@@ -1,24 +1,22 @@
-import { box, type xy } from "@synnaxlabs/x";
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  type Segment,
-  type BuildNewConnectorProps,
-  newConnector,
-  type NeedToGoAroundSourceProps,
-  needToGoAround,
-  travelSegments,
-  type PrepareNodeProps,
-  prepareNode,
-  type MoveConnectorProps,
-  moveConnector,
-} from "./connector";
+import { connector } from "@/vis/pid/edge/connector";
 
 describe("connector", () => {
   describe("needToGoAroundSource", () => {
     interface spec {
       name: string;
-      props: NeedToGoAroundSourceProps;
+      props: connector.NeedToGoAroundSourceProps;
       expected: boolean;
     }
     const LEFT_TRUE: spec = {
@@ -158,7 +156,7 @@ describe("connector", () => {
 
     for (const spec of SPECS) {
       it(spec.name, () => {
-        const actual = needToGoAround(spec.props);
+        const actual = connector.needToGoAround(spec.props);
         expect(actual).toEqual(spec.expected);
       });
     }
@@ -168,7 +166,7 @@ describe("connector", () => {
     interface Spec {
       name: string;
       source: xy.XY;
-      segments: Segment[];
+      segments: connector.Segment[];
       expected: xy.XY;
     }
 
@@ -204,7 +202,7 @@ describe("connector", () => {
 
     for (const spec of SPECS) {
       it(spec.name, () => {
-        const actual = travelSegments(spec.source, ...spec.segments);
+        const actual = connector.travelSegments(spec.source, ...spec.segments);
         expect(actual).toEqual(spec.expected);
       });
     }
@@ -213,8 +211,8 @@ describe("connector", () => {
   describe("stump", () => {
     interface Spec {
       description: string;
-      props: PrepareNodeProps;
-      expected: Segment | undefined;
+      props: connector.PrepareNodeProps;
+      expected: connector.Segment | undefined;
     }
 
     const LEFT_LEFT_TRUE: Spec = {
@@ -228,7 +226,7 @@ describe("connector", () => {
         sourceOrientation: "left",
         targetOrientation: "left",
       },
-      expected: { direction: "y", length: -10 },
+      expected: { direction: "y", length: -connector.STUMP_LENGTH },
     };
 
     const LEFT_LEFT_FALSE: Spec = {
@@ -254,7 +252,7 @@ describe("connector", () => {
         sourceOrientation: "right",
         targetOrientation: "left",
       },
-      expected: { direction: "y", length: -10 },
+      expected: { direction: "y", length: -connector.STUMP_LENGTH },
     };
 
     const RIGHT_LEFT_TRUE_LONG_WAY: Spec = {
@@ -279,7 +277,7 @@ describe("connector", () => {
 
     for (const spec of SPECS) {
       it(spec.description, () => {
-        const actual = prepareNode(spec.props);
+        const actual = connector.prepareNode(spec.props);
         expect(actual).toEqual(spec.expected);
       });
     }
@@ -288,8 +286,8 @@ describe("connector", () => {
   describe("new connector formation", () => {
     interface Spec {
       name: string;
-      props: BuildNewConnectorProps;
-      expected: Segment[];
+      props: connector.BuildNew;
+      expected: connector.Segment[];
     }
     const SIMPLE_BOTTOM_TO_TOP: Spec = {
       name: "simple bottom to top",
@@ -444,19 +442,31 @@ describe("connector", () => {
 
     for (const spec of SPECS) {
       it(spec.name, () => {
-        const actual = newConnector(spec.props);
+        const actual = connector.buildNew(spec.props);
         expect(actual).toEqual(spec.expected);
+        // We also want to do a sanity check to make sure that the connector actually gets to the target from the
+        // source.
+        const target = connector.travelSegments(spec.props.sourcePos, ...actual);
+        expect(target).toEqual(spec.props.targetPos);
       });
     }
   });
 
-  describe("move", () => {
+  describe("dragging segments", () => {
     interface Spec {
       name: string;
-      props: MoveConnectorProps;
-      expected: Segment[];
+      props: connector.MoveConnectorProps;
+      expected: connector.Segment[];
     }
 
+    // Props:
+    // S---T
+    //
+    // Expected:
+    //
+    // S-| |-T
+    //   |-|
+    //
     const SINGLE_MOVE_UP: Spec = {
       name: "single move up",
       props: {
@@ -466,27 +476,405 @@ describe("connector", () => {
       },
       expected: [
         { direction: "x", length: 10 },
-        { direction: "y", length: -10 },
-        { direction: "x", length: 10 },
         { direction: "y", length: 10 },
+        { direction: "x", length: 10 },
+        { direction: "y", length: -10 },
         { direction: "x", length: 10 },
       ],
     };
 
-    const SPECS: Spec[] = [SINGLE_MOVE_UP];
+    // Props:
+    //      T
+    // S-|  |
+    //   |  |
+    //   |--|
+    //
+    // Expected:
+    //      T
+    // S-|  |
+    //   |--|
+    const U_SHAPED_DRAG_UP_NO_COMPRESSION: Spec = {
+      name: "u shaped drag up no compression",
+      props: {
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: 20 },
+          { direction: "x", length: 10 },
+          { direction: "y", length: -20 },
+        ],
+        index: 2,
+        magnitude: -10,
+      },
+      expected: [
+        { direction: "x", length: 10 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: 10 },
+        { direction: "y", length: -10 },
+      ],
+    };
+
+    // Props:
+    //      T
+    // S-|  |
+    //   |--|
+    //
+    // Expected:
+    //      T
+    // S----|
+    const U_SHAPED_DRAG_UP_COMPRESSION: Spec = {
+      name: "u shaped drag up compression",
+      props: {
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: 10 },
+          { direction: "x", length: 10 },
+          { direction: "y", length: -12 },
+        ],
+        index: 2,
+        magnitude: -10,
+      },
+      expected: [
+        { direction: "x", length: 20 },
+        { direction: "y", length: -2 },
+      ],
+    };
+
+    // Props:
+    //  |--S
+    //  |-----T
+    //
+    // Expected:
+    //     |-S
+    //   |-|
+    //   |-----T
+    //
+    const ADD_SOURCE_STUMP: Spec = {
+      name: "add source stump",
+      props: {
+        segments: [
+          { direction: "x", length: -20 },
+          { direction: "y", length: 20 },
+          { direction: "x", length: 30 },
+        ],
+        index: 0,
+        magnitude: 10,
+      },
+      expected: [
+        { direction: "x", length: -10 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: -10 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: 30 },
+      ],
+    };
+
+    // Props:
+    // |--S
+    // |-T
+    // Expected:
+    // |--S
+    // |T
+    const SPECS: Spec[] = [
+      SINGLE_MOVE_UP,
+      U_SHAPED_DRAG_UP_NO_COMPRESSION,
+      U_SHAPED_DRAG_UP_COMPRESSION,
+      ADD_SOURCE_STUMP,
+    ];
 
     for (const spec of SPECS) {
       it(spec.name, () => {
-        const actual = moveConnector(spec.props);
+        const actual = connector.dragSegment(spec.props);
+        const propsTarget = connector.travelSegments(xy.ZERO, ...spec.props.segments);
+        const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
+        const actualTarget = connector.travelSegments(xy.ZERO, ...actual);
+        expect(propsTarget).toEqual(expectedTarget);
         expect(actual).toEqual(spec.expected);
+        expect(propsTarget).toEqual(actualTarget);
       });
     }
   });
 
-  describe("removeShortSegments", () => {
+  describe("moving nodes", () => {
     interface Spec {
       name: string;
-      props:
+      props: connector.MoveNodeProps;
+      expected: connector.Segment[];
     }
-  })
+
+    // Props:
+    // S---T
+    //
+    // Expected:
+    //
+    // S-|
+    //   |-T
+    const SINGLE_MOVE_UP: Spec = {
+      name: "single move up",
+      props: {
+        delta: { x: 0, y: -10 },
+        segments: [{ direction: "x", length: 30 }],
+      },
+      expected: [
+        { direction: "x", length: 15 },
+        { direction: "y", length: 10 },
+        { direction: "x", length: 15 },
+      ],
+    };
+
+    // Props:
+    // S-|
+    //   |-T
+    //
+    // Expected:
+    // S---T
+    const SINGLE_COMPRESS_DOWN: Spec = {
+      name: "single compress down",
+      props: {
+        delta: { x: 0, y: 10 },
+        segments: [
+          { direction: "x", length: 15 },
+          { direction: "y", length: 10 },
+          { direction: "x", length: 15 },
+        ],
+      },
+      expected: [{ direction: "x", length: 30 }],
+    };
+
+    // Props:
+    // S---T
+    //
+    // Expected:
+    // S-----T
+    const SIMPLE_MOVE_LEFT: Spec = {
+      name: "simple move left",
+      props: {
+        delta: { x: -10, y: 0 },
+        segments: [{ direction: "x", length: 30 }],
+      },
+      expected: [{ direction: "x", length: 40 }],
+    };
+
+    // Props:
+    // S
+    // |
+    // T
+    //
+    // Expected:
+    // S
+    // |
+    // |
+    // T
+    const SIMPLE_MOVE_UP: Spec = {
+      name: "simple move up",
+      props: {
+        delta: { x: 0, y: -10 },
+        segments: [{ direction: "y", length: 30 }],
+      },
+      expected: [{ direction: "y", length: 40 }],
+    };
+
+    // Props:
+    // |--S
+    // |-----T
+    //
+    // Expected:
+    // -S---T
+    const OPPOSITE_ORIENTATION_COMPRESSION: Spec = {
+      name: "opposite orientation compression",
+      props: {
+        delta: { x: 0, y: 20 },
+        segments: [
+          { direction: "x", length: -20 },
+          { direction: "y", length: 20 },
+          { direction: "x", length: 30 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: -10 },
+        { direction: "x", length: 20 },
+      ],
+    };
+
+    // Props:
+    // -S---T
+    //
+    // Expected:
+    // |-----T
+    // |-S
+    const OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT: Spec = {
+      name: "opposite orientation compressed disconnect",
+      props: {
+        delta: { x: 0, y: 20 },
+        segments: [
+          { direction: "x", length: -20 },
+          { direction: "x", length: 30 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: -20 },
+        { direction: "y", length: -20 },
+        { direction: "x", length: 30 },
+      ],
+    };
+
+    // Props:
+    // |-S
+    // |---T-
+    //
+    // Expected:
+    // -S--T-
+    const DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION: Spec = {
+      name: "double opposite orientation compression",
+      props: {
+        delta: { x: 0, y: 20 },
+        segments: [
+          { direction: "x", length: -10 },
+          { direction: "y", length: 20 },
+          { direction: "x", length: 30 },
+          { direction: "x", length: -10 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: -10 },
+        { direction: "x", length: 30 },
+        { direction: "x", length: -10 },
+      ],
+    };
+
+    // Props:
+    // -S--T-
+    //
+    // Expected:
+    // |-S
+    // |---T-
+    const DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT: Spec = {
+      name: "double opposite orientation compression disconnect",
+      props: {
+        delta: { x: 0, y: -20 },
+        segments: [
+          { direction: "x", length: -10 },
+          { direction: "x", length: 30 },
+          { direction: "x", length: -10 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: -10 },
+        { direction: "y", length: 20 },
+        { direction: "x", length: 30 },
+        { direction: "x", length: -10 },
+      ],
+    };
+
+    const PARALLEL_ORIENTATION_COMPRESSION: Spec = {
+      name: "parallel orientation compression",
+      props: {
+        delta: { x: 1, y: 0 },
+        segments: [
+          { direction: "x", length: -10 },
+          { direction: "y", length: 20 },
+          { direction: "x", length: -10 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: -11 },
+        { direction: "y", length: 20 },
+        { direction: "x", length: -10 },
+      ],
+    };
+
+    const TIGHT_COMPRESSION: Spec = {
+      name: "tight compression",
+      props: {
+        delta: { x: 1, y: 0 },
+        segments: [
+          { direction: "x", length: 11 },
+          { direction: "y", length: 1 },
+          { direction: "x", length: 11 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: 10 },
+        { direction: "y", length: 1 },
+        { direction: "x", length: 11 },
+      ],
+    };
+
+    const TIGHT_SINGLE_COMPRESSION: Spec = {
+      name: "tight single compression",
+      props: {
+        delta: { x: 1, y: 0 },
+        segments: [{ direction: "x", length: 6 }],
+      },
+      expected: [{ direction: "x", length: 5 }],
+    };
+
+    const ORTHOGONAL_DOWN: Spec = {
+      name: "orthogonal down",
+      props: {
+        delta: { x: 0, y: 4 },
+        segments: [
+          { direction: "x", length: 30 },
+          { direction: "y", length: 10 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: 30 },
+        { direction: "y", length: 6 },
+      ],
+    };
+
+    // Props:
+    //   |
+    //   T
+    //   |
+    // S-|
+    //
+    // Expected:
+    //   |
+    //   T
+    //   |
+    //   |
+    //  S|
+    const ORTHOGONAL_REVERSE_STUMP: Spec = {
+      name: "orthogonal reverse stump",
+      props: {
+        delta: { x: 10, y: 0 },
+        segments: [
+          { direction: "x", length: 10 },
+          { direction: "y", length: 30 },
+          { direction: "y", length: -10 },
+        ],
+      },
+      expected: [
+        { direction: "x", length: 0 },
+        { direction: "y", length: 30 },
+        { direction: "y", length: -10 },
+      ],
+    };
+
+    const SPECS: Spec[] = [
+      SINGLE_MOVE_UP,
+      SINGLE_COMPRESS_DOWN,
+      SIMPLE_MOVE_LEFT,
+      SIMPLE_MOVE_UP,
+      OPPOSITE_ORIENTATION_COMPRESSION,
+      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION,
+      DOUBLE_OPPOSITE_ORIENTATION_COMPRESSION_DISCONNECT,
+      OPPOSITE_ORIENTATION_COMPRESSED_DISCONNECT,
+      PARALLEL_ORIENTATION_COMPRESSION,
+      TIGHT_COMPRESSION,
+      TIGHT_SINGLE_COMPRESSION,
+      ORTHOGONAL_DOWN,
+      ORTHOGONAL_REVERSE_STUMP,
+    ];
+    for (const spec of SPECS) {
+      it(spec.name, () => {
+        const actual = connector.moveSourceNode(spec.props);
+        const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
+        const actualTarget = connector.travelSegments(xy.ZERO, ...actual);
+        expect(actual).toEqual(spec.expected);
+        expect(actualTarget).toEqual(expectedTarget);
+      });
+    }
+  });
 });

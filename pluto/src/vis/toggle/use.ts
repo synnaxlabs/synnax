@@ -38,10 +38,10 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
     },
   });
 
-  useEffect(
-    () => setState((state) => ({ ...state, ...memoProps })),
-    [memoProps, setState],
-  );
+  useEffect(() => {
+    console.log("useEffect", memoProps);
+    setState((state) => ({ ...state, ...memoProps }));
+  }, [memoProps, setState]);
 
   const handleToggle = useCallback(
     () =>
