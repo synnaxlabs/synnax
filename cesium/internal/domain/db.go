@@ -138,6 +138,25 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
+	// 0: get information about where the timerange is
+	i := db.idx.searchGE(ctx, tr.Start)
+	ptr, ok := db.idx.get(i)
+	if !ok {
+		return false
+	}
+
+	// 1: delete pointer from the arrays
+	ok = db.idx.delete(ctx, ptr)
+	if !ok {
+		return false
+	}
+
+	// 2: handle deleting the tombstoned data
+
+	return true
+}
+
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())

@@ -21,7 +21,8 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
-		pointers []pointer
+		pointers   []pointer
+		tombstones []pointer
 	}
 	observe.Observer[indexUpdate]
 }
@@ -57,6 +58,14 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 	idx.mu.RUnlock()
 	idx.insertAt(ctx, insertAt, p)
 	return nil
+}
+
+func (idx *index) insertTombstone(ctx context.Context, p pointer) {
+	_, span := idx.T.Bench(ctx, "insert tombstone")
+	defer span.End()
+	idx.mu.Unlock()
+	defer idx.mu.Lock()
+	idx.mu.tombstones = append(idx.mu.tombstones, p)
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -157,6 +166,7 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 	return
 }
 
+// binary searches for a pointer overlapping a telem.TimeRange
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	if len(idx.mu.pointers) == 0 {
 		return -1, false
@@ -177,6 +187,7 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
+// get the i-th pointer
 func (idx *index) get(i int) (pointer, bool) {
 	idx.mu.RLock()
 	if i < 0 || i >= len(idx.mu.pointers) {
@@ -186,6 +197,37 @@ func (idx *index) get(i int) (pointer, bool) {
 	v := idx.mu.pointers[i]
 	idx.mu.RUnlock()
 	return v, true
+}
+
+// delete a pointer based on a range
+func (idx *index) delete(ctx context.Context, p pointer) bool {
+	idx.T.Bench(ctx, "delete")
+	idx.mu.RLock()
+	if len(idx.mu.pointers) == 0 {
+		idx.mu.RUnlock()
+		return false
+	}
+	deleteStart, ok := idx.unprotectedSearch(p.Start.SpanRange(0))
+	if !ok {
+		idx.mu.RUnlock()
+		return false
+	}
+	deleteEnd, ok := idx.unprotectedSearch(p.End.SpanRange(0))
+	if !ok {
+		idx.mu.RUnlock()
+		return false
+	}
+
+	idx.mu.Lock()
+	// first insert the deleted to the tombstone
+	for _, ptr := range idx.mu.pointers[deleteStart:deleteEnd] {
+		idx.insertTombstone(ctx, ptr)
+	}
+	// then remove the said pointer
+	idx.mu.pointers = append(idx.mu.pointers[:deleteStart], idx.mu.pointers[deleteEnd+1:]...)
+	idx.mu.Unlock()
+
+	return true
 }
 
 func (idx *index) read(f func()) {
