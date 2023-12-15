@@ -10,7 +10,9 @@
 package cesium
 
 import (
+	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/telem"
 	"strconv"
 )
 
@@ -38,4 +40,19 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	}
 
 	return ChannelNotFound
+}
+
+func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	udb, uok := db.unaryDBs[ch]
+	if !uok {
+		return ChannelNotFound
+	}
+
+	ok := udb.Domain.Delete(ctx, tr)
+	if !ok {
+		return errors.New("Could not delete time range")
+	}
+	return nil
 }
