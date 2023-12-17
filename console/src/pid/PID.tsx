@@ -35,7 +35,7 @@ import {
   select,
   useSelect,
   useSelectElementProps,
-  useSelectViewporMode,
+  useSelectViewportMode,
 } from "@/pid/selectors";
 import {
   toggleControl,
@@ -249,7 +249,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     onDrop: handleDrop,
   });
 
-  const mode = useSelectViewporMode();
+  const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
   Triggers.use({
@@ -288,7 +288,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   });
 
   return (
-    <div ref={ref} style={{ width: "inherit", height: "inherit" }}>
+    <div
+      ref={ref}
+      style={{ width: "inherit", height: "inherit", position: "relative" }}
+    >
       <Control.Controller
         name={name}
         authority={1}
@@ -332,6 +335,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
             )}
           </Core.Controls>
         </Core.PID>
+        <Control.Legend />
       </Control.Controller>
     </div>
   );

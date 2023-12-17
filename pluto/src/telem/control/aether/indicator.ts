@@ -18,7 +18,7 @@ export const indicatorStateZ = z.object({
   statusSource: telem.statusSourceSpecZ.optional().default(telem.noopStatusSourceSpec),
   colorSource: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
   status: status.specZ,
-  color: color.Color.z,
+  color: color.Color.z.optional(),
 });
 
 interface InternalState {

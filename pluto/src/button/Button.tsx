@@ -50,7 +50,7 @@ export type ButtonProps<E extends SpaceElementType = "button"> = Optional<
   };
 
 /**
- * Button is a basic button component.
+ * Use is a basic button component.
  *
  * @param props - Props for the component, which are passed down to the underlying button
  * element.

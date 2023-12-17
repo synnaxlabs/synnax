@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, useEffect } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  useEffect,
+  useContext as reactUseContext,
+} from "react";
 
+import { type channel } from "@synnaxlabs/client";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -16,17 +22,25 @@ import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
-  extends z.input<typeof control.controllerStateZ>,
+  extends Omit<z.input<typeof control.controllerStateZ>, "needsControlOf">,
     PropsWithChildren {
   onStatusChange?: (status: control.Status) => void;
   name: string;
 }
 
+export interface ContextValue {
+  needsControlOf: channel.Keys;
+}
+
+const Context = createContext<ContextValue>({ needsControlOf: [] });
+
+export const useContext = (): ContextValue => reactUseContext(Context);
+
 export const Controller = Aether.wrap<ControllerProps>(
   control.Controller.TYPE,
   ({ aetherKey, children, onStatusChange, ...props }) => {
     const memoProps = useMemoDeepEqualProps(props);
-    const [{ path }, { status }, setState] = Aether.use({
+    const [{ path }, { status, needsControlOf }, setState] = Aether.use({
       aetherKey,
       type: control.Controller.TYPE,
       schema: control.controllerStateZ,
@@ -36,9 +50,13 @@ export const Controller = Aether.wrap<ControllerProps>(
       if (status != null) onStatusChange?.(status);
     }, [status, onStatusChange]);
     useEffect(() => {
-      setState(memoProps);
+      setState((state) => ({ ...state, ...memoProps }));
     }, [memoProps, setState]);
 
-    return <Aether.Composite path={path}>{children}</Aether.Composite>;
+    return (
+      <Context.Provider value={{ needsControlOf }}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>;
+      </Context.Provider>
+    );
   },
 );

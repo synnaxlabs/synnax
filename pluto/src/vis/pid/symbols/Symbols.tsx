@@ -9,27 +9,23 @@
 
 import { useState, type ReactElement } from "react";
 
-import {
-  box,
-  type xy,
-  type location,
-  type UnknownRecord,
-  direction,
-} from "@synnaxlabs/x";
+import { box, type xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { useResize } from "@/hooks";
-import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { Button as CoreButton } from "@/vis/button";
 import { Labeled, type LabelExtensionProps } from "@/vis/pid/symbols/Labeled";
 import { Primitives } from "@/vis/pid/symbols/primitives";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
+
+import "@/vis/pid/symbols/Symbols.css";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showChip?: boolean;
@@ -39,25 +35,36 @@ export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   orientation?: location.Outer;
 }
 
+const swapXLocation = (l: location.Outer): location.Outer =>
+  direction.construct(l) === "x" ? (location.swap(l) as location.Outer) : l;
+const swapYLocation = (l: location.Outer): location.Outer =>
+  direction.construct(l) === "y" ? (location.swap(l) as location.Outer) : l;
+
 export const ControlState = ({
-  showChip = false,
-  showIndicator = false,
+  showChip = true,
+  showIndicator = true,
   indicator,
   orientation = "left",
   chip,
-  className,
   children,
   ...props
 }: ControlStateProps): ReactElement => (
   <Align.Space
-    direction={direction.construct(orientation)}
+    direction={location.rotate90(orientation)}
     align="center"
-    className={CSS(CSS.B("control-state"), className)}
-    size="small"
+    justify="center"
+    empty
     {...props}
   >
-    {showChip && <Control.Chip {...chip} />}
-    {showIndicator && <Control.Indicator {...indicator} />}
+    <Align.Space
+      direction={direction.construct(orientation)}
+      align="center"
+      className={CSS(CSS.B("control-state"))}
+      size="small"
+    >
+      {showChip && <Control.Chip size="small" {...chip} />}
+      {showIndicator && <Control.Indicator {...indicator} />}
+    </Align.Space>
     {children}
   </Align.Space>
 );
@@ -75,21 +82,37 @@ export interface ThreeWayValveProps
   extends Primitives.ThreeWayValveProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const ThreeWayValve = Aether.wrap<SymbolProps<ThreeWayValveProps>>(
   "ThreeWayValve",
-  ({ aetherKey, label, onChange, source, sink, orientation, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+  ({
+    aetherKey,
+    label,
+    onChange,
+    control,
+    source,
+    sink,
+    orientation = "left",
+    color,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({
+      aetherKey,
+      source,
+      sink,
+    });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.ThreeWayValve
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-        />
+        <ControlState {...control} orientation={swapXLocation(orientation)}>
+          <Primitives.ThreeWayValve
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -121,14 +144,15 @@ export const Valve = Aether.wrap<SymbolProps<ValveProps>>(
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.Valve
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-        />
-        <ControlState {...control} orientation={orientation} />
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.Valve
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -142,6 +166,7 @@ export interface SolenoidValveProps
   extends Primitives.SolenoidValveProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
@@ -155,18 +180,21 @@ export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
     color,
     source,
     sink,
+    control,
   }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.SolenoidValve
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-          normallyOpen={normallyOpen}
-        />
+        <ControlState {...control} orientation={swapYLocation(orientation)}>
+          <Primitives.SolenoidValve
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+            normallyOpen={normallyOpen}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -180,21 +208,24 @@ export interface FourWayValveProps
   extends Primitives.FourWayValveProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const FourWayValve = Aether.wrap<SymbolProps<FourWayValveProps>>(
   "FourWayValve",
-  ({ aetherKey, label, onChange, orientation, color }): ReactElement => {
+  ({ aetherKey, control, label, onChange, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.FourWayValve
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-        />
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.FourWayValve
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -208,21 +239,32 @@ export interface AngledValveProps
   extends Primitives.AngledValveProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const AngledValve = Aether.wrap<SymbolProps<AngledValveProps>>(
   "AngleValve",
-  ({ aetherKey, label, onChange, orientation, color, ...props }): ReactElement => {
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    ...props
+  }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.AngledValve
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-        />
+        <ControlState {...control} orientation={swapXLocation(orientation)}>
+          <Primitives.AngledValve
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -236,21 +278,24 @@ export interface PumpProps
   extends Primitives.PumpProps,
     Omit<Toggle.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
+  control?: ControlStateProps;
 }
 
 export const Pump = Aether.wrap<SymbolProps<PumpProps>>(
   "Pump",
-  ({ aetherKey, label, onChange, orientation, color }): ReactElement => {
+  ({ aetherKey, label, control, onChange, orientation, color }): ReactElement => {
     const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
     return (
       <Labeled {...label} onChange={onChange}>
-        <Primitives.Pump
-          enabled={enabled}
-          triggered={triggered}
-          onClick={toggle}
-          orientation={orientation}
-          color={color}
-        />
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.Pump
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
       </Labeled>
     );
   },
@@ -553,7 +598,6 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
         {...label}
       >
         <Primitives.Value
-          className={CSS.B("value")}
           color={color}
           dimensions={{
             height: valueBoxHeight,
@@ -620,3 +664,66 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => {
     </Primitives.Value>
   );
 };
+
+export interface SwitchProps
+  extends Primitives.SwitchProps,
+    Omit<Toggle.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const Switch = Aether.wrap<SymbolProps<SwitchProps>>(
+  "Switch",
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
+    return (
+      <Labeled {...label} onChange={onChange}>
+        <ControlState {...control} orientation={orientation}>
+          <Primitives.Switch
+            enabled={enabled}
+            triggered={triggered}
+            onClick={toggle}
+            orientation={orientation}
+            color={color}
+          />
+        </ControlState>
+      </Labeled>
+    );
+  },
+);
+
+export const SwitchPreview = (props: SwitchProps): ReactElement => (
+  <Primitives.Switch {...props} />
+);
+
+export interface ButtonProps
+  extends Omit<Primitives.ButtonProps, "label">,
+    Omit<CoreButton.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const Button = Aether.wrap<SymbolProps<ButtonProps>>(
+  "Button",
+  ({ aetherKey, label, orientation, sink, control }) => {
+    const { click } = CoreButton.use({ aetherKey, sink });
+    return (
+      <ControlState {...control} className={CSS.B("symbol")} orientation={orientation}>
+        <Primitives.Button label={label?.label} onClick={click} />
+      </ControlState>
+    );
+  },
+);
+
+export const ButtonPreview = ({ label: _, ...props }: SwitchProps): ReactElement => (
+  <Primitives.Button label="Button" {...props} />
+);

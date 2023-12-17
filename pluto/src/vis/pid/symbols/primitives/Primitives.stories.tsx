@@ -116,6 +116,7 @@ const Example = (): ReactElement => {
           <Primitives.AngledReliefValve color={COLOR} orientation="right" />
           <Primitives.AngledReliefValve color={COLOR} orientation="top" />
           <Primitives.AngledReliefValve color={COLOR} orientation="bottom" />
+          <Primitives.Switch color={COLOR} orientation="left" />
         </Align.Space>
       </ReactFlowProvider>
     </Align.Space>

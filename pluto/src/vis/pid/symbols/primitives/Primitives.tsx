@@ -23,33 +23,35 @@ import {
   useUpdateNodeInternals,
 } from "reactflow";
 
+import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Input } from "@/input";
 import { Theming } from "@/theming";
 
 import "@/vis/pid/symbols/primitives/Primitives.css";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
-const Path = ({ className, ...props }: PathProps): ReactElement => (
+const Path = (props: PathProps): ReactElement => (
   <path vectorEffect="non-scaling-stroke" {...props} />
 );
 
 interface RectProps extends ComponentPropsWithoutRef<"rect"> {}
 
-const Rect = ({ className, ...props }: RectProps): ReactElement => (
+const Rect = (props: RectProps): ReactElement => (
   <rect vectorEffect="non-scaling-stroke" {...props} />
 );
 
 interface CircleProps extends ComponentPropsWithoutRef<"circle"> {}
 
-const Circle = ({ className, ...props }: CircleProps): ReactElement => (
+const Circle = (props: CircleProps): ReactElement => (
   <circle vectorEffect="non-scaling-stroke" {...props} />
 );
 
 interface LineProps extends ComponentPropsWithoutRef<"line"> {}
 
-const Line = ({ className, ...props }: LineProps): ReactElement => (
+const Line = (props: LineProps): ReactElement => (
   <line vectorEffect="non-scaling-stroke" {...props} />
 );
 
@@ -139,8 +141,11 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
   const first = useRef<boolean>(true);
   useEffect(() => {
-    if (ref.current == null || first.current) return;
-    first.current = false;
+    if (ref.current == null) return;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
     const node = ref.current.closest(".react-flow__node");
     const id = node?.getAttribute("data-id");
     if (id == null) return;
@@ -167,6 +172,7 @@ const Handle = ({
       position={smartPosition(location, orientation)}
       {...props}
       type="source"
+      onClick={(e) => e.stopPropagation()}
       className={(CSS.B("handle"), CSS.BE("handle", props.id))}
       style={{
         left: `${adjusted.left}%`,
@@ -190,8 +196,8 @@ const Toggle = ({
 }: ToggleValveButtonProps): ReactElement => (
   <button
     className={CSS(
-      CSS.B("symbol"),
-      CSS.B("symbol-toggle"),
+      CSS.B("symbol-primitive"),
+      CSS.B("symbol-primitive-toggle"),
       orientation != null && CSS.loc(orientation),
       enabled && CSS.M("enabled"),
       triggered && CSS.M("triggered"),
@@ -202,7 +208,7 @@ const Toggle = ({
 );
 
 const Div = ({ className, orientation = "left", ...props }: DivProps): ReactElement => (
-  <div className={CSS(CSS.B("symbol"), className)} {...props} />
+  <div className={CSS(CSS.B("symbol-primitive"), className)} {...props} />
 );
 
 export interface InternalSVGProps
@@ -360,16 +366,12 @@ export const SolenoidValve = ({
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z" />
-      <Path d="M43.5 47L43.5 24.6177" />
-      <Rect
-        x="29"
-        y="2"
-        width="29"
-        height="22.5333"
-        rx="1"
-        fill={normallyOpen && props.enabled === false ? Color.cssString(color) : "none"}
+      <Path
+        className={CSS.B("body")}
+        d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z"
       />
+      <Path d="M43.5 47L43.5 24.6177" />
+      <Rect x="29" y="2" width="29" height="22.5333" rx="1" />
     </InternalSVG>
   </Toggle>
 );
@@ -868,6 +870,7 @@ export const Value = ({
   className,
   color,
   dimensions,
+  orientation,
   ...props
 }: ValueProps): ReactElement => (
   <Div
@@ -878,7 +881,7 @@ export const Value = ({
       ...dimensions,
     }}
   >
-    <HandleBoundary>
+    <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation="left" left={-2} top={50} id="1" />
       <Handle location="right" orientation="left" left={102} top={50} id="2" />
       <Handle location="top" orientation="left" left={50} top={-2} id="3" />
@@ -887,3 +890,52 @@ export const Value = ({
     {props.children}
   </Div>
 );
+
+export interface SwitchProps extends ToggleProps, DivProps {}
+
+export const Switch = ({
+  triggered,
+  enabled = false,
+  color,
+  onClick,
+  orientation = "left",
+  ...props
+}: SwitchProps): ReactElement => {
+  return (
+    <Div orientation={orientation}>
+      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} {...props} />
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+      </HandleBoundary>
+    </Div>
+  );
+};
+
+export interface ButtonProps extends DivProps {
+  label?: string;
+}
+
+export const Button = ({
+  onClick,
+  orientation = "left",
+  label = "",
+}: ButtonProps): ReactElement => {
+  return (
+    <Div orientation={orientation}>
+      <CoreButton.Button onClick={onClick}>{label}</CoreButton.Button>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </HandleBoundary>
+    </Div>
+  );
+};

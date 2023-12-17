@@ -10,7 +10,6 @@
  */
 
 .pluto-pid-edge-handle__dragger {
-    display: none;
     width: 100%;
     height: 100%;
     z-index: 1000000000;
@@ -24,18 +23,8 @@
     }
 }
 
-.pluto-pid-edge-handle__background {
-    display: none;
-}
-
 .react-flow__edge.selected {
     z-index: 10000;
-    .pluto-pid-edge-handle__dragger {
-        display: block;
-    }
-    .pluto-pid-edge-handle__background {
-        display: block;
-    }
 }
 
 

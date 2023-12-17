@@ -11,7 +11,6 @@ import { useCallback, type ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { telem } from "@/telem/aether";
 import { Canvas } from "@/vis/canvas";
 import { PID } from "@/vis/pid";
 
@@ -33,13 +32,13 @@ const Example = (): ReactElement => {
         },
         data: {},
       },
-      // {
-      //   key: "2",
-      //   position: {
-      //     x: 500,
-      //     y: 200,
-      //   },
-      // },
+      {
+        key: "2",
+        position: {
+          x: 500,
+          y: 200,
+        },
+      },
     ],
     initialEdges: [
       // {
@@ -50,23 +49,7 @@ const Example = (): ReactElement => {
     ],
   });
 
-  const S = useCallback(
-    (p) => (
-      <Value
-        orientation="bottom"
-        label={{
-          orientation: "top",
-          label: "Hello",
-          level: "small",
-        }}
-        level="small"
-        color="#000000"
-        telem={telem.fixedString("120 PSI")}
-        {...p}
-      />
-    ),
-    [],
-  );
+  const S = useCallback((p) => <Primitives.Switch />, []);
 
   return (
     <Canvas.Canvas

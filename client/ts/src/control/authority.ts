@@ -21,5 +21,6 @@ export class Authority extends Number {
       .min(0)
       .max(255)
       .transform((n) => new Authority(n)),
+    z.instanceof(Number).transform((n) => new Authority(n)),
   ]);
 }

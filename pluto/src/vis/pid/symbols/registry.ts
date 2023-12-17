@@ -12,6 +12,7 @@ import {
   TankForm,
   CommonNonToggleForm,
   ValueForm,
+  ButtonForm,
 } from "@/vis/pid/symbols/Forms";
 import {
   type ThreeWayValveProps,
@@ -65,6 +66,12 @@ import {
   type ValueProps,
   Value,
   ValuePreview,
+  type ButtonProps,
+  Button,
+  ButtonPreview,
+  Switch,
+  SwitchPreview,
+  type SwitchProps,
 } from "@/vis/pid/symbols/Symbols";
 
 export interface Spec<P extends object> {
@@ -95,6 +102,8 @@ const VARIANTS = [
   "orifice",
   "angledReliefValve",
   "value",
+  "button",
+  "switch",
 ] as const;
 
 const typeZ = z.enum(VARIANTS);
@@ -455,6 +464,52 @@ const value: Spec<ValueProps> = {
   }),
 };
 
+const button: Spec<ButtonProps> = {
+  name: "Button",
+  variant: "button",
+  Symbol: Button,
+  Form: ButtonForm,
+  Preview: ButtonPreview,
+  defaultProps: (t) => ({
+    label: {
+      label: "Button",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    sink: telem.sinkPipeline("boolean", {
+      connections: [
+        {
+          from: "setpoint",
+          to: "setter",
+        },
+      ],
+      segments: {
+        setter: control.setChannelValue({ channel: 0 }),
+        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
+      },
+      inlet: "setpoint",
+    }),
+  }),
+};
+
+const switch_: Spec<SwitchProps> = {
+  name: "Switch",
+  variant: "switch",
+  Symbol: Switch,
+  Preview: SwitchPreview,
+  Form: CommonToggleForm,
+  defaultProps: (t) => ({
+    label: {
+      label: "Switch",
+      level: "p",
+      orientation: "top",
+    },
+    orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
+  }),
+};
+
 export const registry: Record<Variant, Spec<any>> = {
   value,
   threeWayValve,
@@ -474,4 +529,6 @@ export const registry: Record<Variant, Spec<any>> = {
   checkValve,
   orifice,
   angledReliefValve,
+  button,
+  switch: switch_,
 };

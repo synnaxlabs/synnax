@@ -45,11 +45,11 @@ export const translateNodesForward = (nodes: Node[]): rf.Node[] =>
     data: {},
   }));
 
-export const translateEdgesForward = (edges: Edge[]): rf.Edge[] =>
+export const translateEdgesForward = (edges: Edge[], editable: boolean): rf.Edge[] =>
   edges.map(({ segments, color, ...edge }) => ({
     ...edge,
     id: edge.key,
-    data: { segments, color },
+    data: { segments, color, editable },
   }));
 
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>

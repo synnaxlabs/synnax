@@ -72,7 +72,7 @@ export interface ItemType extends CoreItemType {
 /**
  * Menu.Item renders a menu item.
  *
- * @param props - Props for the component. Identical props to those of Button except
+ * @param props - Props for the component. Identical props to those of Use except
  * for the ones listed below.
  * @param props.itemKey - The key of the item. This is used to identify the item and
  * is passed to the onChange callback of the Menu.

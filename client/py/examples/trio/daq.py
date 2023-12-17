@@ -118,7 +118,7 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
                     state[k] = f[k][0]
             if state[press_en_cmd.key] > 0.5:
                 press += 10
-            if state[vent_en_cmd.key] > 0.5:
+            if state[vent_en_cmd.key] < 0.5:
                 if press > 0:
                     press -= 10
 
@@ -126,7 +126,7 @@ with client.new_streamer([press_en_cmd.key, vent_en_cmd.key]) as streamer:
                 {
                     daq_time: sy.TimeStamp.now(),
                     press_en: state[press_en_cmd.key],
-                    vent_en: state[vent_en_cmd.key],
+                    vent_en: bool(state[vent_en_cmd.key]),
                     data_ch: np.float32(press),
                 }
             )

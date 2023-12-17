@@ -115,6 +115,11 @@ export interface SetNodesPayload {
   nodes: PID.Node[];
 }
 
+export interface SetNodePositionsPayload {
+  layoutKey: string;
+  positions: Record<string, xy.XY>;
+}
+
 export interface SetEdgesPayload {
   layoutKey: string;
   edges: PID.Edge[];
@@ -316,6 +321,15 @@ export const { actions, reducer } = createSlice({
         state.toolbar.activeTab = "properties";
       } else state.toolbar.activeTab = "symbols";
     },
+    setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
+      const { layoutKey, positions } = payload;
+      const pid = state.pids[layoutKey];
+      Object.entries(positions).forEach(([key, position]) => {
+        const node = pid.nodes.find((node) => node.key === key);
+        if (node == null) return;
+        node.position = position;
+      });
+    },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
       const pid = state.pids[layoutKey];
@@ -405,6 +419,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
+  setNodePositions,
   toggleControl,
   setControlStatus,
   addElement,

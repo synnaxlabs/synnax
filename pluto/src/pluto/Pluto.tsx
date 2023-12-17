@@ -13,6 +13,7 @@ import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
 import { Haul } from "@/haul";
+import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { Telem } from "@/telem";
@@ -24,7 +25,6 @@ import { Worker } from "@/worker";
 
 // // @ts-expect-error - unable to resolve valid vite import
 // // eslint-disable-next-line import/no-unresolved
-import DefaultWorkerURL from "@/pluto/defaultWorker.ts&url";
 
 import "@synnaxlabs/media/dist/style.css";
 

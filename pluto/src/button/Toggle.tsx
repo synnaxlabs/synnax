@@ -36,10 +36,10 @@ const toggleFactory =
   );
 
 /**
- * Button.Toggle renders a button that can be toggled on and off. It implements the
+ * Use.Toggle renders a button that can be toggled on and off. It implements the
  * InputControlProps interface, so it can be used as an input control in a form.
  *
- * @param props - Props for the component. Identical to the props for the Button
+ * @param props - Props for the component. Identical to the props for the Use
  * component, excluding 'variant', and  adding the following:
  * @param props.value - The boolean value of the button. If true, the button will be
  * rendered as "filled". If false, it will be rendered as "outlined".
@@ -52,11 +52,11 @@ export type ToggleProps = Omit<Parameters<typeof Toggle>[0], "value" | "onChange
 Toggle.displayName = "ButtonToggle";
 
 /**
- * Button.IconToggle renders a button that can be toggled on and off, and only
+ * Use.IconToggle renders a button that can be toggled on and off, and only
  * renders an icon. It implements the InputControlProps interface, so it can be used
  *  as an input control in a form.
  *
- * @param props - Props for the component. Identical to the props for the Button.Icon
+ * @param props - Props for the component. Identical to the props for the Use.Icon
  * component, excluding 'variant', and  adding the following:
  * @param props.value - The boolean value of the button. If true, the button will be
  * rendered as "filled". If false, it will be rendered as "outlined".

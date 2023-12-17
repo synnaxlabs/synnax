@@ -64,10 +64,11 @@ export const INFINITY = { x: Infinity, y: Infinity };
 export const NAN = { x: NaN, y: NaN };
 
 /** @returns true if the two XY coordinates are semntically equal. */
-export const equals = (a: Crude, b: Crude): boolean => {
+export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
   const a_ = construct(a);
   const b_ = construct(b);
-  return a_.x === b_.x && a_.y === b_.y;
+  if (threshold === 0) return a_.x === b_.x && a_.y === b_.y;
+  return Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold;
 };
 
 /** Is zero is true if the XY coordinate has a semantic x and y value of zero. */

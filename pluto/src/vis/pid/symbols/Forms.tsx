@@ -13,6 +13,7 @@ import { type TabRenderProp } from "@/tabs/Tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
+import { type Button as CoreButton } from "@/vis/button";
 import { type LabelExtensionProps } from "@/vis/pid/symbols/Labeled";
 import {
   type ThreeWayValveProps,
@@ -21,12 +22,15 @@ import {
   type SolenoidValveProps,
   type ControlStateProps,
   type ValueProps,
+  type ButtonProps,
 } from "@/vis/pid/symbols/Symbols";
 import { type Toggle } from "@/vis/toggle";
 
 import { SelectOrientation } from "./SelectOrientation";
 
 import "@/vis/pid/symbols/Forms.css";
+
+import { Core } from "@/telem/client/client";
 
 export interface SymbolFormProps<P extends object> {
   value: P;
@@ -172,24 +176,15 @@ export const ToggleControlForm: MultiPropertyInput<
       ],
       segments: {
         setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
+        setpoint: telem.setpoint({
+          truthy: 1,
+          falsy: 0,
+        }),
       },
       inlet: "setpoint",
     });
+
     const authSource = control.authoritySource({ channel: v });
-    const controlChipSource = telem.sourcePipeline("boolean", {
-      connections: [
-        {
-          from: "authSource",
-          to: "transformer",
-        },
-      ],
-      segments: {
-        authSource,
-        transformer: telem.booleanStatus({}),
-      },
-      outlet: "transformer",
-    });
 
     const controlChipSink = control.acquireChannelControl({
       channel: v,
@@ -204,7 +199,7 @@ export const ToggleControlForm: MultiPropertyInput<
         showChip: true,
         chip: {
           sink: controlChipSink,
-          source: controlChipSource,
+          source: authSource,
         },
         showIndicator: true,
         indicator: {
@@ -367,7 +362,6 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
   onChange,
 }): ReactElement => {
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
-  console.log(sourceP);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
@@ -415,5 +409,91 @@ export const ValueForm = ({ value, onChange }: ValueFormProps): ReactElement => 
   );
 
   const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
+  return <Tabs.Tabs {...props} />;
+};
+
+export const ButtonTelemetryForm: MultiPropertyInput<
+  Omit<CoreButton.UseProps, "aetherKey"> & { control: ControlStateProps }
+> = ({ value, onChange }): ReactElement => {
+  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
+  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+
+  const handleSinkChange = (v: channel.Key): void => {
+    const t = telem.sinkPipeline("boolean", {
+      connections: [
+        {
+          from: "setpoint",
+          to: "setter",
+        },
+      ],
+      segments: {
+        setter: control.setChannelValue({ channel: v }),
+        setpoint: telem.setpoint({
+          truthy: 1,
+          falsy: 0,
+        }),
+      },
+      inlet: "setpoint",
+    });
+
+    const authSource = control.authoritySource({ channel: v });
+
+    const controlChipSink = control.acquireChannelControl({
+      channel: v,
+      authority: 255,
+    });
+
+    onChange({
+      ...value,
+      sink: t,
+      control: {
+        ...value.control,
+        showChip: true,
+        chip: {
+          sink: controlChipSink,
+          source: authSource,
+        },
+        showIndicator: true,
+        indicator: {
+          statusSource: authSource,
+        },
+      },
+    });
+  };
+
+  return (
+    <FormWrapper direction="y">
+      <Input.Item label="Output Channel">
+        <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+      </Input.Item>
+    </FormWrapper>
+  );
+};
+
+export const ButtonForm = ({
+  value,
+  onChange,
+}: SymbolFormProps<ButtonProps>): ReactElement => {
+  const content: TabRenderProp = useCallback(
+    ({ tabKey }) => {
+      switch (tabKey) {
+        case "control":
+          return <ButtonTelemetryForm value={value} onChange={onChange} />;
+        default:
+          return (
+            <FormWrapper direction="x" align="stretch">
+              <Align.Space direction="y" grow>
+                <LabelControls value={value} onChange={onChange} />
+              </Align.Space>
+              <OrientationControl value={value} onChange={onChange} />
+            </FormWrapper>
+          );
+      }
+    },
+    [value, onChange],
+  );
+
+  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
+
   return <Tabs.Tabs {...props} />;
 };

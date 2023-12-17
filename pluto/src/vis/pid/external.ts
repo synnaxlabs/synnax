@@ -9,3 +9,5 @@
 
 export type { Node, Edge, Viewport } from "@/vis/pid/types";
 export * from "@/vis/pid/PID";
+export * from "@/vis/pid/util";
+export * from "@/vis/pid/align";

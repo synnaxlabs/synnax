@@ -67,7 +67,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
 CoreIcon.displayName = "ButtonIcon";
 
 /**
- * Button.Icon a button that only renders an icon without any text.
+ * Use.Icon a button that only renders an icon without any text.
  *
  * @param props - Props for the component, which are passed down to the underlying
  * element.

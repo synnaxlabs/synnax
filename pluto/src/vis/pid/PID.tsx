@@ -132,6 +132,7 @@ const EDITABLE_PROPS: ReactFlowProps = {
 };
 
 const NOT_EDITABLE_PROPS: ReactFlowProps = {
+  connectionRadius: 0,
   nodesDraggable: false,
   nodesConnectable: false,
   elementsSelectable: false,
@@ -143,6 +144,7 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   edgesFocusable: false,
   edgesUpdatable: false,
   nodesFocusable: false,
+  edgeUpdaterRadius: 0,
 };
 
 export interface PIDProps
@@ -268,7 +270,7 @@ const Core = Aether.wrap<PIDProps>(
     const edgesRef = useRef(edges);
     const edges_ = useMemo(() => {
       edgesRef.current = edges;
-      return translateEdgesForward(edges);
+      return translateEdgesForward(edges, editable);
     }, [edges]);
     const nodesRef = useRef(nodes);
     const nodes_ = useMemo(() => {
@@ -326,7 +328,6 @@ const Core = Aether.wrap<PIDProps>(
           <PlutoEdge
             key={props.id}
             {...props}
-            editable={props.data.editable}
             segments={props.data.segments}
             color={props.data.color}
             onSegmentsChange={useCallback(
@@ -392,12 +393,12 @@ const Core = Aether.wrap<PIDProps>(
             proOptions={{
               hideAttribution: true,
             }}
-            {...editableProps}
             {...props}
             style={{
               [CSS.var("pid-zoom")]: viewport.zoom,
               ...props.style,
             }}
+            {...editableProps}
           >
             {children}
           </ReactFlow>

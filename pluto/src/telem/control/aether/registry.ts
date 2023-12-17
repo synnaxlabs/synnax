@@ -8,12 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type aether } from "@/aether/aether";
+import { Chip } from "@/telem/control/aether/chip";
 import { Controller } from "@/telem/control/aether/controller";
 import { Indicator } from "@/telem/control/aether/indicator";
+import { Legend } from "@/telem/control/aether/legend";
 import { StateProvider } from "@/telem/control/aether/state";
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Controller.TYPE]: Controller,
   [StateProvider.TYPE]: StateProvider,
   [Indicator.TYPE]: Indicator,
+  [Chip.TYPE]: Chip,
+  [Legend.TYPE]: Legend,
 };

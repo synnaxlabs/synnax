@@ -29,9 +29,10 @@ import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
 import { connector } from "@/vis/pid/edge/connector";
-import { calculateLineDirection } from "@/vis/pid/edge/edgeUtils";
 
 import { selectNodeBox } from "../util";
+
+import { calculateLineDirection } from "@/vis/pid/edge/edgeUtils";
 
 import "@/vis/pid/edge/Edge.css";
 
@@ -41,7 +42,6 @@ interface CurrentlyDragging {
 }
 
 export interface EdgeProps extends RFEdgeProps {
-  editable: boolean;
   segments: connector.Segment[];
   onSegmentsChange: (segments: connector.Segment[]) => void;
   color?: Color.Crude;
@@ -58,6 +58,11 @@ export const CustomConnectionLine = ({
   connectionLineStyle,
   connectionStatus,
 }: ConnectionLineComponentProps): ReactElement => {
+  // select an element with 'react-flow__handle-connecting' class
+  const connectedHandle = document.querySelector(".react-flow__handle-connecting");
+  const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
+  if (toNodeHandle != null) toPosition = toNodeHandle[1];
+
   const conn = connector.buildNew({
     sourcePos: xy.construct(fromX, fromY),
     targetPos: xy.construct(toX, toY),
@@ -101,9 +106,8 @@ export const Edge = ({
   style,
   segments: propsSegments = [],
   onSegmentsChange,
-  editable,
   color,
-  selected,
+  selected = false,
   ...props
 }: EdgeProps): ReactElement => {
   const sourcePos = xy.construct(props.sourceX, props.sourceY);
@@ -135,64 +139,66 @@ export const Edge = ({
     onSegmentsChange,
   ]);
 
-  if (!sourcePosEq && !targetPosEq) {
-    // just adjust refs. path is still good
-    sourcePosRef.current = sourcePos;
-    targetPosRef.current = targetPos;
-  } else if (!sourcePosEq) {
-    const delta = xy.translation(sourcePosRef.current, sourcePos);
-    let next = connector.moveSourceNode({ delta, segments });
-    if (sourceOrientationRef.current !== sourceOrientation) {
-      sourceOrientationRef.current = sourceOrientation;
-      next = connector.buildNew({
-        sourcePos,
-        targetPos,
-        sourceOrientation,
-        targetOrientation,
-        sourceBox: selectNodeBox(flow, source),
-        targetBox: selectNodeBox(flow, target),
-      });
+  if (!sourcePosEq || !targetPosEq) {
+    let next: connector.Segment[] = segments;
+    const sourceDelta = xy.translation(sourcePosRef.current, sourcePos);
+    const targetDelta = xy.translation(targetPos, targetPosRef.current);
+    if (xy.equals(sourceDelta, xy.scale(targetDelta, -1), 0.001)) {
+      sourcePosRef.current = sourcePos;
+      targetPosRef.current = targetPos;
+    } else {
+      if (!sourcePosEq) {
+        next = connector.moveSourceNode({ delta: sourceDelta, segments: next });
+        if (sourceOrientationRef.current !== sourceOrientation) {
+          sourceOrientationRef.current = sourceOrientation;
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation,
+            targetOrientation,
+            sourceBox: selectNodeBox(flow, source),
+            targetBox: selectNodeBox(flow, target),
+          });
+        }
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation,
+            targetOrientation,
+            sourceBox: selectNodeBox(flow, source),
+            targetBox: selectNodeBox(flow, target),
+          });
+        }
+        sourcePosRef.current = sourcePos;
+      } else if (!targetPosEq) {
+        next = connector.moveTargetNode({ delta: targetDelta, segments: next });
+        if (targetOrientationRef.current !== targetOrientation) {
+          targetOrientationRef.current = targetOrientation;
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation,
+            targetOrientation,
+            sourceBox: selectNodeBox(flow, source),
+            targetBox: selectNodeBox(flow, target),
+          });
+        }
+        if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
+          next = connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation,
+            targetOrientation,
+            sourceBox: selectNodeBox(flow, source),
+            targetBox: selectNodeBox(flow, target),
+          });
+        }
+        targetPosRef.current = targetPos;
+      }
+      debouncedOnSegmentsChange(next);
+      setSegments(next);
     }
-    if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
-      next = connector.buildNew({
-        sourcePos,
-        targetPos,
-        sourceOrientation,
-        targetOrientation,
-        sourceBox: selectNodeBox(flow, source),
-        targetBox: selectNodeBox(flow, target),
-      });
-    }
-    sourcePosRef.current = sourcePos;
-    setSegments(next);
-    debouncedOnSegmentsChange(next);
-  } else if (!targetPosEq) {
-    const delta = xy.translation(targetPos, targetPosRef.current);
-    let next = connector.moveTargetNode({ delta, segments });
-    if (targetOrientationRef.current !== targetOrientation) {
-      targetOrientationRef.current = targetOrientation;
-      next = connector.buildNew({
-        sourcePos,
-        targetPos,
-        sourceOrientation,
-        targetOrientation,
-        sourceBox: selectNodeBox(flow, source),
-        targetBox: selectNodeBox(flow, target),
-      });
-    }
-    if (!connector.checkIntegrity({ sourcePos, targetPos, next, prev: segments })) {
-      next = connector.buildNew({
-        sourcePos,
-        targetPos,
-        sourceOrientation,
-        targetOrientation,
-        sourceBox: selectNodeBox(flow, source),
-        targetBox: selectNodeBox(flow, target),
-      });
-    }
-    targetPosRef.current = targetPos;
-    setSegments(next);
-    debouncedOnSegmentsChange(next);
   }
 
   const dragRef = useRef<CurrentlyDragging | null>(null);
@@ -231,39 +237,40 @@ export const Edge = ({
         interactionWidth={6}
         {...props}
       />
-      {calcMidPoints(points).map((p, i) => {
-        const dir = calculateLineDirection(points[i], points[i + 1]);
-        const swapped = direction.swap(dir);
-        const dims = {
-          [direction.dimension(dir)]: "18px",
-          [direction.dimension(swapped)]: "4px",
-        };
-        const pos = {
-          [dir]: p[dir] - 9,
-          [swapped]: p[swapped] - 2,
-        };
-        return (
-          <Fragment key={i}>
-            <rect
-              className={CSS.BE("pid-edge-handle", "background")}
-              fill="var(--pluto-gray-l0)"
-              stroke="var(--pluto-primary-z)"
-              {...dims}
-              {...pos}
-              rx="2px"
-              ry="2px"
-            />
-            <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
-              <div
-                id={`handle-${i}`}
-                className={CSS(CSS.BE("pid-edge-handle", "dragger"), CSS.dir(dir))}
-                draggable
-                onDragStart={dragStart}
+      {selected &&
+        calcMidPoints(points).map((p, i) => {
+          const dir = segments[i].direction;
+          const swapped = direction.swap(dir);
+          const dims = {
+            [direction.dimension(dir)]: "18px",
+            [direction.dimension(swapped)]: "4px",
+          };
+          const pos = {
+            [dir]: p[dir] - 9,
+            [swapped]: p[swapped] - 2,
+          };
+          return (
+            <Fragment key={i}>
+              <rect
+                className={CSS.BE("pid-edge-handle", "background")}
+                fill="var(--pluto-gray-l0)"
+                stroke="var(--pluto-primary-z)"
+                {...dims}
+                {...pos}
+                rx="2px"
+                ry="2px"
               />
-            </foreignObject>
-          </Fragment>
-        );
-      })}
+              <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
+                <div
+                  id={`handle-${i}`}
+                  className={CSS(CSS.BE("pid-edge-handle", "dragger"), CSS.dir(dir))}
+                  draggable
+                  onDragStart={dragStart}
+                />
+              </foreignObject>
+            </Fragment>
+          );
+        })}
     </>
   );
 };

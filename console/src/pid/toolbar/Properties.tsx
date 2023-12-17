@@ -9,16 +9,17 @@
 
 import { type ReactElement } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import {
   Status,
-  type PID,
+  PID,
   Color,
   Input,
   Align,
   PIDSymbols,
   Button,
 } from "@synnaxlabs/pluto";
-import { box } from "@synnaxlabs/x";
+import { box, location, xy } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -26,12 +27,11 @@ import {
   type ElementInfo,
   useSelectSelectedElementsProps,
   type NodeElementInfo,
+  useSelectViewport,
 } from "@/pid/selectors";
-import { setElementProps, setNodes } from "@/pid/slice";
+import { setElementProps, setNodePositions, setNodes } from "@/pid/slice";
 
 import "@/pid/toolbar/Properties.css";
-
-import { o } from "node_modules/@tauri-apps/api/dialog-20ff401c";
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -39,6 +39,7 @@ export interface PropertiesProps {
 
 export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement => {
   const elements = useSelectSelectedElementsProps(layoutKey);
+  const viewport = useSelectViewport(layoutKey);
 
   const dispatch = useDispatch();
 
@@ -64,22 +65,97 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(e);
     });
-    return (
-      <Align.Space className={CSS.B("pid-properties-multi")} size="small" align="start">
-        <Input.Label>Selection Colors</Input.Label>
-        {Object.entries(groups).map(([hex, elements]) => {
-          return (
-            <Color.Swatch
-              key={elements[0].key}
-              value={hex}
-              onChange={(color) => {
-                elements.forEach((e) => {
-                  handleChange(e.key, { color: color.hex });
-                });
-              }}
-            />
+
+    const layouts = elements
+      .map((el) => {
+        if (el.type !== "node") return null;
+        // grab all child elements with the class 'react-flow__handle'
+        try {
+          const nodeEl = PID.selectNode(el.key);
+          const nodeBox = box.construct(
+            el.node.position,
+            box.dims(box.construct(nodeEl)),
           );
-        })}
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+          const nodeElBox = box.construct(nodeEl);
+          const handles = Array.from(handleEls).map((el) => {
+            const pos = box.center(box.construct(el));
+            const dist = xy.scale(
+              xy.translation(box.topLeft(nodeElBox), pos),
+              1 / viewport.zoom,
+            );
+            const match = el.className.match(/react-flow__handle-(\w+)/);
+            if (match == null)
+              throw new Error(`[pid] - cannot find handle orientation`);
+            const orientation = location.construct(match[1]) as location.Outer;
+            return new PID.HandleLayout(dist, orientation);
+          });
+          return new PID.NodeLayout(el.key, nodeBox, handles);
+        } catch (e) {
+          console.log(e);
+        }
+      })
+      .filter((el) => el !== null) as PID.NodeLayout[];
+
+    return (
+      <Align.Space
+        className={CSS.B("pid-properties-multi")}
+        align="start"
+        direction="x"
+      >
+        <Input.Item label="Selection Colors" align="start">
+          <Align.Space direction="y">
+            {Object.entries(groups).map(([hex, elements]) => {
+              return (
+                <Color.Swatch
+                  key={elements[0].key}
+                  value={hex}
+                  onChange={(color) => {
+                    elements.forEach((e) => {
+                      handleChange(e.key, { color: color.hex });
+                    });
+                  }}
+                />
+              );
+            })}
+          </Align.Space>
+        </Input.Item>
+        <Input.Item label="Align">
+          <Align.Space direction="x">
+            <Button.Icon
+              tooltip="Align nodes vertically"
+              onClick={() => {
+                const newPositions = PID.alignNodes(layouts, "x");
+                dispatch(
+                  setNodePositions({
+                    layoutKey,
+                    positions: Object.fromEntries(
+                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    ),
+                  }),
+                );
+              }}
+            >
+              <Icon.Align.YCenter />
+            </Button.Icon>
+            <Button.Icon
+              tooltip="Align nodes horizontally"
+              onClick={() => {
+                const newPositions = PID.alignNodes(layouts, "y");
+                dispatch(
+                  setNodePositions({
+                    layoutKey,
+                    positions: Object.fromEntries(
+                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    ),
+                  }),
+                );
+              }}
+            >
+              <Icon.Align.XCenter />
+            </Button.Icon>
+          </Align.Space>
+        </Input.Item>
       </Align.Space>
     );
   }
@@ -119,7 +195,9 @@ export const fromCSSTransform = (transform: string): XY => {
   return { x, y };
 };
 
-export const alignItems = (elements: ElementInfo[]): PID.Node[] => {
+export const alignItems = (elements: ElementInfo[]): void => {};
+
+export const alignItemsLeg = (elements: ElementInfo[]): PID.Node[] => {
   const nodes = elements.filter((e) => e.type === "node") as NodeElementInfo[];
   const edges = elements.filter((e) => e.type === "edge");
   const htmlElements = nodes

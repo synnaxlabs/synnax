@@ -146,12 +146,7 @@ export const LinePlot = ({
           />
         );
       })}
-      {showLegend && (
-        <Core.Legend
-          onLabelChange={(key, label) => onLineChange?.({ key, label })}
-          onColorChange={(key, color) => onLineChange?.({ key, color })}
-        />
-      )}
+      {showLegend && <Core.Legend onLineChange={onLineChange} />}
       {showTitle && (
         <Core.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}

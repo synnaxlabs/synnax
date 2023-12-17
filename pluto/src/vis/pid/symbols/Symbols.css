@@ -9,4 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-control-state.pluto--x {
+    padding: 1rem 1rem 1rem 0;
+}
+
+.pluto-control-state.pluto--y {
+    padding: 0 1rem 1rem;
+}
 

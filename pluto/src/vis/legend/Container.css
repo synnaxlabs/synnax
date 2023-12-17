@@ -9,4 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
-
+.pluto-legend {
+    position: absolute;
+    cursor: grabbing;
+    padding: 1rem;
+    z-index: 100;
+    background: var(--pluto-gray-l0);
+    max-height: 50%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: fit-content;
+    .pluto-color-swatch {
+        width: 3rem;
+        height: 2rem;
+    }
+}

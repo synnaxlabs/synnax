@@ -92,7 +92,7 @@ export const selectElementProps = (
   const node = pid.nodes.find((node) => node.key === key);
   return {
     key,
-    node: node as PID.Node,
+    node: node!,
     props: pid.props[key],
   };
 };
@@ -117,16 +117,22 @@ export const useSelectEditable = (key: string): boolean =>
 export const selectViewportMode = (state: StoreState): Viewport.Mode =>
   selectSliceState(state).mode;
 
-export const useSelectViewporMode = (): Viewport.Mode =>
+export const useSelectViewportMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
 
-export const selecControlStatus = (
+export const selectViewport = (state: StoreState, key: string): PID.Viewport =>
+  select(state, key).viewport;
+
+export const useSelectViewport = (key: string): PID.Viewport =>
+  useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
+
+export const selectControlStatus = (
   state: StoreState,
   layoutKey: string,
 ): Control.Status => select(state, layoutKey).control;
 
 export const useSelectControlStatus = (layoutKey: string): Control.Status =>
   useMemoSelect(
-    (state: StoreState) => selecControlStatus(state, layoutKey),
+    (state: StoreState) => selectControlStatus(state, layoutKey),
     [layoutKey],
   );

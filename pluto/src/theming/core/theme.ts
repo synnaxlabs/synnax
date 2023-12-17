@@ -48,6 +48,13 @@ export const themeZ = z.object({
       p1: color.Color.z,
       p2: color.Color.z,
     }),
+    secondary: z.object({
+      m2: color.Color.z,
+      m1: color.Color.z,
+      z: color.Color.z,
+      p1: color.Color.z,
+      p2: color.Color.z,
+    }),
     visualization: z.object({
       palettes: z.record(z.array(color.Color.z)),
     }),
@@ -126,6 +133,13 @@ const synnaxBase: ThemeSpec = {
       z: "#3774D0",
       p1: "#5E94EE",
       p2: "#8AB8FF",
+    },
+    secondary: {
+      m2: "#2D8F4E",
+      m1: "#38B261",
+      z: "#50C878",
+      p1: "#73D393",
+      p2: "#96DEAE",
     },
     gray: lightGrayScale,
     border: lightGrayScale.l3,

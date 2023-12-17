@@ -8,13 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type Synnax, control, type channel } from "@synnaxlabs/client";
-import { observe, type Destructor } from "@synnaxlabs/x";
+import {
+  type Synnax,
+  control,
+  type channel,
+  UnexpectedError,
+} from "@synnaxlabs/client";
+import { observe, type Destructor, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { type color } from "@/color/core";
+import { color } from "@/color/core";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
 
@@ -29,6 +34,26 @@ interface InternalState {
 
 const CONTEXT_KEY = "control-state-provider";
 
+/**
+ * An extension of the Synnax client's control state that allows us to assign a unique
+ * color to each control subject for user identification.
+ */
+export const sugaredStateZ = control.stateZ.extend({
+  subjectColor: color.Color.z,
+});
+
+/**
+ * An extension of the Synnax client's control state that allows us to assign a unique
+ * color to each control subject for user identification.
+ */
+export interface SugaredState extends control.State {
+  subjectColor: color.Color;
+}
+
+/**
+ * StateProvider tracks the control state for the channels in a Synnax cluster, listening
+ * for updates and providing a way to get the current state for a channel.
+ */
 export class StateProvider extends aether.Composite<
   typeof stateProviderStateZ,
   InternalState
@@ -36,14 +61,23 @@ export class StateProvider extends aether.Composite<
   static readonly TYPE = "StateProvider";
   schema = stateProviderStateZ;
 
-  private readonly defaultState = new Map<channel.Key, control.State>();
+  /** Tracks the colors we assign to a particular control subject. */
   private readonly colors = new Map<string, color.Color>();
 
-  tracker?: control.StateTracker;
+  /** Tracks the current control state for each channel and allows us to access it */
+  private tracker?: control.StateTracker;
+  /** Stop listening for changes to the tracker */
   private disconnectTrackerChange?: Destructor;
 
+  /** An observer that lets external subscribers know when the control state changes */
   private readonly obs: observe.Observer<control.Transfer[]> = new observe.Observer();
 
+  /**
+   * Grabs the state provider from the current aether context.
+   *
+   * @param ctx - The component's current aether context.
+   * @throws {Error} if the state provider is not in the context.
+   */
   static use(ctx: aether.Context): StateProvider {
     return ctx.get(CONTEXT_KEY);
   }
@@ -68,21 +102,35 @@ export class StateProvider extends aether.Composite<
 
   afterDelete(): void {
     this.disconnectTrackerChange?.();
-    this.tracker?.close().catch(this.internal.instrumentation.L.error);
+    this.tracker
+      ?.close()
+      .catch((e) => this.internal.instrumentation.L.error("error", { error: e }));
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {
     return this.obs.onChange(cb);
   }
 
-  get controlState(): Map<channel.Key, control.State> {
-    return this.tracker?.states ?? this.defaultState;
+  get(key: channel.Key): SugaredState | undefined;
+
+  get(keys: channel.Key[]): SugaredState[];
+
+  get(key: channel.Key | channel.Key[]): SugaredState | SugaredState[] | undefined {
+    if (Array.isArray(key))
+      return unique(key)
+        .map((k) => this.getOne(k))
+        .filter((s) => s != null) as SugaredState[];
+    return this.getOne(key);
   }
 
-  getColor(channel: channel.Key): color.Color {
-    const df = this.internal.defaultColor;
-    const state = this.controlState.get(channel);
-    return state == null ? df : this.colors.get(state.subject.key) ?? df;
+  private getOne(key: channel.Key): SugaredState | undefined {
+    if (this.tracker == null) return undefined;
+    const s = this.tracker.states.get(key);
+    if (s == null) return undefined;
+    return {
+      ...s,
+      subjectColor: this.colors.get(s.subject.key) ?? this.internal.defaultColor,
+    };
   }
 
   private async startUpdating(client: Synnax): Promise<void> {
@@ -95,7 +143,9 @@ export class StateProvider extends aether.Composite<
     }
     this.disconnectTrackerChange = this.tracker.onChange((t) => {
       i.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
-      this.updateColors(this.tracker as control.StateTracker);
+      if (this.tracker == null)
+        throw new UnexpectedError("tracker is null inside it's own onChange callback!");
+      this.updateColors(this.tracker);
       this.obs.notify(t);
     });
   }

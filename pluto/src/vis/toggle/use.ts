@@ -39,7 +39,6 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   });
 
   useEffect(() => {
-    console.log("useEffect", memoProps);
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 

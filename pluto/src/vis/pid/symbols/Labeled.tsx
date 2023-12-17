@@ -12,6 +12,7 @@ import { useCallback, forwardRef } from "react";
 import { type location } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
+import { CSS } from "@/css";
 import { Text } from "@/text";
 
 export interface LabelExtensionProps {
@@ -35,6 +36,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
       children,
       orientation = "top",
       style,
+      className,
       ...props
     },
     ref,
@@ -55,6 +57,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
         justify="center"
         direction={orientation}
         ref={ref}
+        className={CSS(CSS.B("symbol"), className)}
         {...props}
       >
         <Text.Editable

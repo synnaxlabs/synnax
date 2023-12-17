@@ -52,6 +52,14 @@ const SWAPPED: Record<Location, Location> = {
   center: "center",
 };
 
+const ROTATE_90: Record<Location, Location> = {
+  top: "left",
+  right: "top",
+  bottom: "right",
+  left: "bottom",
+  center: "center",
+};
+
 export const crude = crudeLocation;
 
 export type Crude = CrudeLocation;
@@ -64,6 +72,8 @@ export const construct = (cl: Crude): Location => {
 };
 
 export const swap = (cl: Crude): Location => SWAPPED[construct(cl)];
+
+export const rotate90 = (cl: Crude): Location => ROTATE_90[construct(cl)];
 
 export const direction = (cl: Crude): Direction => {
   const l = construct(cl);

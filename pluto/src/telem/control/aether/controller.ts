@@ -9,14 +9,16 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
-  type channel,
+  channel,
   Series,
   type Synnax,
   TimeStamp,
   framer,
   Authority,
+  UnexpectedError,
+  control,
 } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { type Destructor, compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -37,6 +39,7 @@ export const controllerStateZ = z.object({
   authority: z.number().default(0),
   acquireTrigger: z.number(),
   status: statusZ.optional(),
+  needsControlOf: channel.keyZ.array().optional().default([]),
 });
 
 interface InternalState {
@@ -52,15 +55,20 @@ interface AetherControllerTelem extends telem.Telem {
   needsControlOf: (client: Synnax) => Promise<channel.Keys>;
 }
 
+/**
+ * @summary Acquires control over a set of channels by opening a writer to a Synnax
+ * cluster, and then acts as a factory for telemetry that can be used to send commands
+ * to that writer.
+ */
 export class Controller
   extends aether.Composite<typeof controllerStateZ, InternalState>
   implements telem.Factory
 {
-  readonly registry = new Map<AetherControllerTelem, null>();
-  private writer?: framer.Writer;
-
   static readonly TYPE = "Controller";
   schema = controllerStateZ;
+
+  private readonly registry = new Map<AetherControllerTelem, null>();
+  private writer?: framer.Writer;
 
   afterUpdate(): void {
     this.internal.instrumentation = alamos.useInstrumentation(this.ctx);
@@ -93,13 +101,24 @@ export class Controller
     void this.release();
   }
 
-  private async channelKeys(): Promise<channel.Keys> {
+  private async updateNeedsControlOf(): Promise<void> {
+    if (this.internal.client == null) {
+      throw new UnexpectedError("No cluster connected but channelKeys were requested");
+    }
+
     const keys = new Set<channel.Key>([]);
     for (const telem of this.registry.keys()) {
-      const telemKeys = await telem.needsControlOf(this.internal.client as Synnax);
-      for (const key of telemKeys) if (key !== 0) keys.add(key);
+      const telemKeys = await telem.needsControlOf(this.internal.client);
+      telemKeys.forEach((k) => k !== 0 && keys.add(k));
     }
-    return Array.from(keys);
+    const nextKeys = Array.from(keys);
+    if (
+      compare.unorderedPrimitiveArrays(this.state.needsControlOf, nextKeys) ===
+      compare.EQUAL
+    )
+      return;
+
+    this.setState((p) => ({ ...p, needsControlOf: nextKeys }));
   }
 
   private async acquire(): Promise<void> {
@@ -111,8 +130,9 @@ export class Controller
       });
 
     try {
-      const keys = await this.channelKeys();
-      if (keys.length === 0)
+      await this.updateNeedsControlOf();
+      const needsControlOf = this.state.needsControlOf;
+      if (needsControlOf.length === 0)
         return addStatus({
           message: `Cannot acquire control on ${this.state.name} - no channels to control!`,
           variant: "warning",
@@ -120,7 +140,7 @@ export class Controller
 
       this.writer = await client.telem.newWriter({
         start: TimeStamp.now(),
-        channels: keys,
+        channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
       });
@@ -171,26 +191,36 @@ export class Controller
     );
   }
 
+  deleteTelem(t: AetherControllerTelem): void {
+    this.registry.delete(t);
+    void this.updateNeedsControlOf();
+  }
+
   /** @implements telem.Factory to create telemetry that is bound to this controller. */
   create<T>(spec: telem.Spec): T | null {
-    switch (spec.type) {
-      case SetChannelValue.TYPE: {
-        const sink = new SetChannelValue(this, spec.props);
-        this.registry.set(sink, null);
-        return sink as T;
+    const f = (): T | null => {
+      switch (spec.type) {
+        case SetChannelValue.TYPE: {
+          const sink = new SetChannelValue(this, spec.props);
+          this.registry.set(sink, null);
+          return sink as T;
+        }
+        case AuthoritySource.TYPE: {
+          const source = new AuthoritySource(this, this.internal.stateProv, spec.props);
+          this.registry.set(source, null);
+          return source as T;
+        }
+        case AcquireChannelControl.TYPE: {
+          const sink = new AcquireChannelControl(this, spec.props);
+          return sink as T;
+        }
+        default:
+          return null;
       }
-      case AuthoritySource.TYPE: {
-        const source = new AuthoritySource(this, this.internal.stateProv, spec.props);
-        this.registry.set(source, null);
-        return source as T;
-      }
-      case AcquireChannelControl.TYPE: {
-        const sink = new AcquireChannelControl(this, spec.props);
-        return sink as T;
-      }
-      default:
-        return null;
-    }
+    };
+    const t = f();
+    if (t != null) void this.updateNeedsControlOf();
+    return t;
   }
 }
 
@@ -217,8 +247,7 @@ export class SetChannelValue
   invalidate(): void {}
 
   cleanup(): void {
-    console.log("cleanup");
-    this.controller.registry.delete(this);
+    this.controller.deleteTelem(this);
   }
 
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
@@ -275,7 +304,7 @@ export class AcquireChannelControl
   }
 
   cleanup(): void {
-    this.controller.registry.delete(this);
+    this.controller.deleteTelem(this);
   }
 
   async needsControlOf(client: Synnax): Promise<channel.Keys> {
@@ -285,7 +314,16 @@ export class AcquireChannelControl
     return keys;
   }
 
-  async set(acquire: boolean): Promise<void> {}
+  async set(acquire: boolean): Promise<void> {
+    const { controller } = this;
+    const { client } = controller.internal;
+    if (client == null) return;
+    const ch = await client.channels.retrieve(this.props.channel);
+    const keys = [ch.key];
+    if (ch.index !== 0) keys.push(ch.index);
+    if (!acquire) await this.controller.releaseAuthority(keys);
+    else await this.controller.setAuthority(keys, this.props.authority);
+  }
 }
 
 export const acquireChannelControl = (
@@ -327,19 +365,19 @@ export class AuthoritySource
   private maybeRevalidate(): void {
     if (this.valid) return;
     const { channel: ch } = this.props;
+    this.stopListening?.();
+    const filter = control.filterTransfersByChannelKey(ch);
     this.stopListening = this.prov.onChange((t) => {
-      if (t.some(({ from, to }) => from?.resource === ch || to?.resource === ch))
-        this.notify?.();
+      if (filter(t).length === 0) return;
+      this.notify?.();
     });
     this.valid = true;
   }
 
   async value(): Promise<status.Spec> {
     this.maybeRevalidate();
-    const c = this.prov.controlState;
-    const state = c.get(this.props.channel);
+    const state = this.prov.get(this.props.channel);
     const time = TimeStamp.now();
-    const color = this.prov.getColor(this.props.channel);
 
     if (state == null)
       return {
@@ -347,7 +385,6 @@ export class AuthoritySource
         variant: "disabled",
         message: "Uncontrolled",
         time,
-        data: { color },
       };
 
     return {
@@ -355,12 +392,12 @@ export class AuthoritySource
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      data: { color },
+      data: { color: state.subjectColor, authority: state.authority },
     };
   }
 
   cleanup(): void {
-    this.controller.registry.delete(this);
+    this.controller.deleteTelem(this);
     this.stopListening?.();
   }
 }

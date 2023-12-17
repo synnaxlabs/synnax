@@ -17,6 +17,8 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/hooks";
 import { control } from "@/telem/control/aether";
+import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
 
 import "@/telem/control/Indicator.css";
 
@@ -40,7 +42,6 @@ export const Indicator = Aether.wrap<IndicatorProps>(
           message: "No chip connected.",
           time: TimeStamp.now(),
         },
-        color: "#000000",
       },
       schema: control.indicatorStateZ,
     });
@@ -49,16 +50,22 @@ export const Indicator = Aether.wrap<IndicatorProps>(
       setState((p) => ({ ...p, ...memoProps }));
     }, [memoProps, setState]);
 
-    console.log(status);
+    let parsedColor: Color.Crude;
+    if (status.data?.color != null) parsedColor = status.data.color;
+    else if (color != null && !color.isZero) parsedColor = color;
+    else parsedColor = "var(--pluto-gray-l8)";
 
     return (
-      <div
-        className={CSS.B("indicator")}
-        style={{
-          backgroundColor: Color.cssString(status.data?.color ?? color),
-          flexGrow: 1,
-        }}
-      />
+      <Tooltip.Dialog location={{ x: "center", y: "right" }}>
+        <Text.Text level="p">{status.message}</Text.Text>
+        <div
+          className={CSS.B("indicator")}
+          style={{
+            backgroundColor: Color.cssString(parsedColor),
+            flexGrow: 1,
+          }}
+        />
+      </Tooltip.Dialog>
     );
   },
 );

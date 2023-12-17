@@ -18,7 +18,7 @@ export interface ButtonTitleProps
   extends Omit<Button.ButtonProps, "variant" | "size"> {}
 
 /**
- * Header.Title.Button renders a clickable header title.
+ * Header.Title.Use renders a clickable header title.
  *
  * @param props - The comonent props. The props for this component are identical
  * to {@link Button}, except the variant is always 'outlined' and that the component size

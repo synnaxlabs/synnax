@@ -10,8 +10,6 @@
 export * from "@/telem/control/Controller";
 export * from "@/telem/control/StateProvider";
 export * from "@/telem/control/Indicator";
-export type {
-  SetChannelValueProps as NumericSinkProps,
-  Status,
-} from "@/telem/control/aether/controller";
+export type { Status } from "@/telem/control/aether/controller";
 export * from "@/telem/control/Chip";
+export * from "@/telem/control/Legend";

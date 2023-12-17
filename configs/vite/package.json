@@ -16,10 +16,10 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.2.2",
-    "vite": "^4.5.0",
-    "vite-plugin-dts": "^3.6.0",
-    "vite-tsconfig-paths": "^4.2.1"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-dts": "^3.6.4",
+    "vite-tsconfig-paths": "^4.2.2"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",
