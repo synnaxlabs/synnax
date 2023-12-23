@@ -138,23 +138,75 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
-	// 0: get information about where the timerange is
-	i := db.idx.searchGE(ctx, tr.Start)
-	ptr, ok := db.idx.get(i)
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int, endOffset int) bool {
+	db.idx.mu.RLock()
+	deleteStart, ok := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
 	if !ok {
+		db.idx.mu.RUnlock()
 		return false
 	}
-
-	// 1: delete pointer from the arrays
-	ok = db.idx.delete(ctx, ptr)
+	deleteEnd, ok := db.idx.unprotectedSearch(tr.End.SpanRange(0))
 	if !ok {
+		db.idx.mu.RUnlock()
 		return false
 	}
+	db.idx.mu.RUnlock()
 
-	// 2: handle deleting the tombstoned data
+	db.idx.mu.Lock()
+	defer db.idx.mu.Lock()
 
+	start, _ := db.idx.get(deleteStart)
+	end, _ := db.idx.get(deleteEnd)
+
+	// add to tombstones
+	for _, p := range db.idx.mu.pointers[deleteStart+1 : deleteEnd] {
+		db.idx.insertTombstone(ctx, p)
+	}
+	db.idx.insertTombstone(ctx, pointer{
+		TimeRange: telem.TimeRange{
+			Start: tr.Start,
+			End:   start.End,
+		},
+		fileKey: start.fileKey,
+		offset:  start.offset,
+		length:  uint32(startOffset), // length of {tr.Start, start.End}
+	})
+
+	db.idx.insertTombstone(ctx, pointer{
+		TimeRange: telem.TimeRange{
+			Start: end.Start,
+			End:   tr.End,
+		},
+		fileKey: end.fileKey,
+		offset:  uint32(endOffset),
+		length:  end.length - uint32(endOffset), // length of {end.Start, tr.End}
+	})
+
+	// remove whole pointers
+	db.idx.mu.pointers = append(db.idx.mu.pointers[:deleteStart], db.idx.mu.pointers[deleteEnd+1:]...)
+
+	// make a new pointer for the first half of start pointer
+	db.idx.mu.pointers = append(append(db.idx.mu.pointers[:deleteStart], pointer{
+		TimeRange: telem.TimeRange{
+			Start: start.Start,
+			End:   tr.Start,
+		},
+		fileKey: start.fileKey,
+		offset:  start.offset,
+		length:  uint32(startOffset), // length from start.Start to tr.Start
+	}), db.idx.mu.pointers[deleteStart+1:]...)
+	// make a new pointer for the second half of end pointer
+	db.idx.mu.pointers = append(append(db.idx.mu.pointers[:deleteStart+1], pointer{
+		TimeRange: telem.TimeRange{
+			Start: tr.End,
+			End:   end.End,
+		},
+		fileKey: end.fileKey,
+		offset:  end.offset + uint32(endOffset), // end.offset + length of from tr.End to tr.End
+		length:  end.length - uint32(endOffset), // length from tr.End to tr.Start
+	}), db.idx.mu.pointers[deleteStart+2:]...)
 	return true
+
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.

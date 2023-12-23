@@ -10,6 +10,7 @@
 package unary
 
 import (
+	"context"
 	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -104,6 +105,29 @@ func (db *DB) TryClose() error {
 	} else {
 		return db.Close()
 	}
+}
+
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) {
+	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: tr})
+	i.SeekGE(ctx, tr.Start)
+	startOffset, endOffset := 0, 0
+	for {
+		if i.TimeRange().OverlapsWith(tr.Start.SpanRange(0)) {
+			break
+		}
+		startOffset += 1
+		i.Next()
+	}
+	i.SeekLE(ctx, tr.End)
+
+	for {
+		if i.TimeRange().OverlapsWith(tr.End.SpanRange(0)) {
+			break
+		}
+		startOffset += 1
+		i.Next()
+	}
+	db.Domain.Delete(ctx, tr, startOffset, endOffset)
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

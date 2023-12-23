@@ -199,37 +199,6 @@ func (idx *index) get(i int) (pointer, bool) {
 	return v, true
 }
 
-// delete a pointer based on a range
-func (idx *index) delete(ctx context.Context, p pointer) bool {
-	idx.T.Bench(ctx, "delete")
-	idx.mu.RLock()
-	if len(idx.mu.pointers) == 0 {
-		idx.mu.RUnlock()
-		return false
-	}
-	deleteStart, ok := idx.unprotectedSearch(p.Start.SpanRange(0))
-	if !ok {
-		idx.mu.RUnlock()
-		return false
-	}
-	deleteEnd, ok := idx.unprotectedSearch(p.End.SpanRange(0))
-	if !ok {
-		idx.mu.RUnlock()
-		return false
-	}
-
-	idx.mu.Lock()
-	// first insert the deleted to the tombstone
-	for _, ptr := range idx.mu.pointers[deleteStart:deleteEnd] {
-		idx.insertTombstone(ctx, ptr)
-	}
-	// then remove the said pointer
-	idx.mu.pointers = append(idx.mu.pointers[:deleteStart], idx.mu.pointers[deleteEnd+1:]...)
-	idx.mu.Unlock()
-
-	return true
-}
-
 func (idx *index) read(f func()) {
 	idx.mu.RLock()
 	f()
