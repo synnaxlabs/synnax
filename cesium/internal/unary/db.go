@@ -107,27 +107,32 @@ func (db *DB) TryClose() error {
 	}
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) {
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: tr})
-	i.SeekGE(ctx, tr.Start)
-	startOffset, endOffset := 0, 0
-	for {
-		if i.TimeRange().OverlapsWith(tr.Start.SpanRange(0)) {
-			break
-		}
-		startOffset += 1
-		i.Next()
+	if ok := i.SeekGE(ctx, tr.Start); !ok {
+		return false
 	}
-	i.SeekLE(ctx, tr.End)
+	approxDist, err := db.index().Distance(ctx, telem.TimeRange{
+		Start: i.TimeRange().Start,
+		End:   tr.Start,
+	}, false)
+	if err != nil {
+		return false
+	}
+	startOffset := approxDist.Upper
 
-	for {
-		if i.TimeRange().OverlapsWith(tr.End.SpanRange(0)) {
-			break
-		}
-		startOffset += 1
-		i.Next()
+	if ok := i.SeekLE(ctx, tr.End); !ok {
+		return false
 	}
-	db.Domain.Delete(ctx, tr, startOffset, endOffset)
+	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
+		Start: tr.End,
+		End:   i.TimeRange().End,
+	}, false)
+	if err != nil {
+		return false
+	}
+	endOffset := approxDist.Upper
+	return db.Domain.Delete(ctx, tr, startOffset, endOffset)
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

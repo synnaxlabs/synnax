@@ -138,7 +138,7 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int, endOffset int) bool {
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64, endOffset int64) bool {
 	db.idx.mu.RLock()
 	deleteStart, ok := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
 	if !ok {
