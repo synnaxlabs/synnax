@@ -66,10 +66,11 @@
   },
   "pnpm": {
     "overrides": {
-      "vite": "^5.0.8",
+      "vite": "^5.0.10",
       "vite-tsconfig-paths": "^4.2.2",
       "vite-plugin-dts": "^3.6.4",
-      "vitest": "^0.34.6",
+      "vitest": "^1.1.0",
+      "@vitest/coverage-v8": "^1.1.0",
       "typescript": "^5.3.3",
       "proxy-memoize": "1.2.0",
       "@tanstack/react-virtual": "3.0.0-beta.54",
