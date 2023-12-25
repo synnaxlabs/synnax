@@ -15,7 +15,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { type UseResizeHandler, useResize } from "@/hooks";
-import { type telem } from "@/telem/core";
+import { type telem } from "@/telem/aether";
 import { table } from "@/vis/table/aether";
 
 import "@/vis/table/Table.css";

@@ -28,8 +28,9 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps, useResize, useEffectCompare } from "@/hooks";
+import { useMemoDeepEqualProps, useEffectCompare } from "@/hooks";
 import { type Viewport } from "@/viewport";
+import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
 import { type GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
 
@@ -165,7 +166,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const ref = useResize(handleResize, { debounce });
+    const ref = Canvas.useRegion(handleResize);
 
     const setAxis: LinePlotContextValue["setAxis"] = useCallback(
       (meta: GridPositionSpec) =>

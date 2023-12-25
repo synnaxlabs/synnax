@@ -27,7 +27,7 @@ const messageZ = z.object({
   message: z.string().optional(),
 });
 
-describe.only("http", () => {
+describe("http", () => {
   test("echo", async () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/echo",

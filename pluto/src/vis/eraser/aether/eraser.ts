@@ -29,7 +29,7 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
 
   afterUpdate(): void {
     this.internal.render = render.Context.use(this.ctx);
-    this.internal.render.queue.push({
+    this.internal.render.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",

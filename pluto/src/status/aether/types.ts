@@ -26,6 +26,7 @@ export const specZ = z.object({
   variant: variantZ,
   message: z.string(),
   time: TimeStamp.z,
+  data: z.record(z.unknown()).optional(),
 });
 
 export type Spec = z.infer<typeof specZ>;

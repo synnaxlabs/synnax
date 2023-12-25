@@ -20,7 +20,6 @@ const Cell = ({
       <Text.Editable
         {...props}
         onChange={(v) => {
-          console.log(v);
           onChange({ ...props, value: v });
         }}
       />

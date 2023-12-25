@@ -165,7 +165,7 @@ degree of variance. This is especially true when a human operator is involved, a
 can issue commands at arbitrary times.
 
 Perhaps the most demanding example of real-time command would be something along the
-lines of over the network PID control. Sensor data must be processed and analyzed in
+lines of over the network Diagram control. Sensor data must be processed and analyzed in
 real-time, often at rates exceeding several hundred hertz.
 
 ### 3.2.0 - Multi-Source
@@ -178,7 +178,7 @@ both reads and writes.
 
 ### 3.2.1 - Highly-Variable Emission Rates
 
-Real-time commands can be issued at arbitrary intervals. In the PID control example,
+Real-time commands can be issued at arbitrary intervals. In the Diagram control example,
 this isn't the case, and the commands are probably issued at predictable rates.
 However, in the case of a human operator, commands can be issued at any time, and at
 any rate. For writes, this variability means it's more difficult to pre-allocate buffers
@@ -216,9 +216,9 @@ latency.
 
 Supervisory commands are issued to set the state or parameters of another device;
 this device then uses these parameters to perform real-time control much closer to the
-hardware. PID control is also a good example of this. In a supervisory control system,
+hardware. Diagram control is also a good example of this. In a supervisory control system,
 a command would be sent over the network containing the P,I, and D parameters for
-operation. Another command is issued to start an embedded PID controller, which then
+operation. Another command is issued to start an embedded Diagram controller, which then
 uses the parameters to perform real-time control independent of Synnax. Another similar
 example involve pushing a configuration file to a flight computer or a calibration sheet
 to a data acquisition device. Supervisory control is as important as its real-time

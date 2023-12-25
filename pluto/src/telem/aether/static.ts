@@ -1,0 +1,194 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import {
+  Series,
+  nativeTypedArray,
+  Rate,
+  DataType,
+  TimeRange,
+  bounds,
+} from "@synnaxlabs/x";
+import { z } from "zod";
+
+import { type Factory } from "./factory";
+import {
+  AbstractSource,
+  type SeriesSourceSpec,
+  type NumberSource,
+  type SeriesSource,
+  type Spec,
+  type Telem,
+  type StringSourceSpec,
+  type NumberSourceSpec,
+} from "./telem";
+
+export class StaticFactory implements Factory {
+  type = "static";
+  create(spec: Spec): Telem | null {
+    switch (spec.type) {
+      case FixedSeries.TYPE:
+        return new FixedSeries(spec.props);
+      case IterativeSeries.TYPE:
+        return new IterativeSeries(spec.props);
+      case FixedNumber.TYPE:
+        return new FixedNumber(spec.props);
+      case FixedString.TYPE:
+        return new FixedString(spec.props);
+      default:
+        return null;
+    }
+  }
+}
+
+export const fixedSeriesPropsZ = z.object({
+  data: z.array(nativeTypedArray),
+  offsets: z.array(z.number()).optional().default([]),
+});
+
+export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
+
+class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
+  data: Series[];
+
+  static readonly TYPE = "static-series";
+
+  constructor(props: unknown) {
+    super(props);
+    this.data = this.props.data.map(
+      (x, i) =>
+        new Series(x, DataType.FLOAT32, TimeRange.ZERO, this.props.offsets[i] ?? 0),
+    );
+  }
+
+  async value(): Promise<[bounds.Bounds, Series[]]> {
+    const b = bounds.max(this.data.map((x) => x.bounds));
+    return [b, this.data];
+  }
+}
+
+export const iterativeSeriesPropsZ = fixedSeriesPropsZ.extend({
+  rate: Rate.z,
+  yOffset: z.number().optional().default(0),
+  scroll: z.number().optional().default(0),
+  startPosition: z.number().optional().default(0),
+  scrollBounds: z.boolean().optional().default(false),
+});
+
+export type IterativeArrayProps = z.input<typeof iterativeSeriesPropsZ>;
+
+export class IterativeSeries
+  extends AbstractSource<typeof iterativeSeriesPropsZ>
+  implements SeriesSource
+{
+  static readonly TYPE = "iterative-series";
+  schema = iterativeSeriesPropsZ;
+
+  position: number;
+  interval?: number;
+  data: Series[];
+
+  constructor(props: unknown) {
+    super(props);
+    this.position = this.props.startPosition;
+    this.start(this.props.rate);
+    this.data = this.props.data.map(
+      (x, i) =>
+        new Series(x, DataType.FLOAT32, TimeRange.ZERO, this.props.offsets[i] ?? 0),
+    );
+  }
+
+  async value(): Promise<[bounds.Bounds, Series[]]> {
+    const d = this.data.map((x) => x.slice(0, this.position));
+    if (this.props.scrollBounds) {
+      const lower =
+        d[0].data[
+          this.position - this.props.scroll < 0 ? 0 : this.position - this.props.scroll
+        ];
+      const upper = d[0].data[this.position - 1];
+      const b = {
+        lower: Number(lower),
+        upper: Number(upper),
+      };
+      return [b, d];
+    }
+    const b = bounds.max(d.map((x) => x.bounds));
+    return [b, d];
+  }
+
+  start(rate: Rate): void {
+    if (this.interval != null) clearInterval(this.interval);
+    this.interval = setInterval(() => {
+      this.notify?.();
+      this.position++;
+    }, rate.period.milliseconds) as unknown as number;
+  }
+
+  cleanup(): void {
+    clearInterval(this.interval);
+    this.interval = undefined;
+  }
+}
+
+export const fixedNumberPropsZ = z.number();
+
+export type FixedNumberProps = z.infer<typeof fixedNumberPropsZ>;
+
+export class FixedNumber
+  extends AbstractSource<typeof fixedNumberPropsZ>
+  implements NumberSource
+{
+  static readonly TYPE = "static-numeric";
+  schema = fixedNumberPropsZ;
+
+  async value(): Promise<number> {
+    return this.props;
+  }
+}
+
+export const fixedStringPropsZ = z.string();
+
+export type FixedStringProps = z.infer<typeof fixedStringPropsZ>;
+
+export class FixedString extends AbstractSource<typeof fixedStringPropsZ> {
+  static readonly TYPE = "static-string";
+  schema = fixedStringPropsZ;
+
+  async value(): Promise<string> {
+    return this.props;
+  }
+}
+
+export const fixedArray = (props: FixedArrayProps): SeriesSourceSpec => ({
+  type: FixedSeries.TYPE,
+  props,
+  variant: "source",
+  valueType: "series",
+});
+
+export const iterativeArray = (props: IterativeArrayProps): SeriesSourceSpec => ({
+  type: IterativeSeries.TYPE,
+  props,
+  variant: "source",
+  valueType: "series",
+});
+
+export const fixedNumber = (value: number): NumberSourceSpec => ({
+  type: FixedNumber.TYPE,
+  props: value,
+  variant: "source",
+  valueType: "number",
+});
+
+export const fixedString = (value: string): StringSourceSpec => ({
+  type: FixedString.TYPE,
+  props: value,
+  variant: "source",
+  valueType: "string",
+});

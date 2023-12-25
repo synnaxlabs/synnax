@@ -51,19 +51,6 @@ body {
     width: 100%;
 }
 
-::-webkit-scrollbar {
-    width: 1rem;
-    height: 1rem;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--pluto-gray-l1);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--pluto-gray-l3);
-    border-radius: var(--pluto-border-radius);
-}
 
 .pluto--sharp {
     border-radius: 0 !important;

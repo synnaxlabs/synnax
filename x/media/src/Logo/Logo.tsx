@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  ComponentPropsWithoutRef,
-  ComponentType,
-  HTMLAttributes,
-  ReactElement,
+  type ComponentPropsWithoutRef,
+  type ComponentType,
+  type HTMLAttributes,
+  type ReactElement,
 } from "react";
 
 import clsx from "clsx";
@@ -96,6 +96,7 @@ const Icon = (props: InternalLogoProps): ReactElement => (
       <g id="Layer_1-2" data-name="Layer 1">
         <path
           className="cls-1"
+          vectorEffect="non-scaling-stroke"
           d="M52.61,168.82A14.81,14.81,0,0,1,39.78,146.6L94.22,52.33c5.7-9.88,20-9.88,25.9.42l51.77,89.67a6.88,6.88,0,0,0,2.48,2.49l15.42,8.9a6.78,6.78,0,0,0,9.26-9.27L119.87,7.41a14.8,14.8,0,0,0-25.65,0L2,167.12a14.81,14.81,0,0,0,12.83,22.22H170.39a6.79,6.79,0,0,0,3.39-12.66l-12.05-7a6.83,6.83,0,0,0-3.39-.91Z"
         />
       </g>

@@ -9,7 +9,7 @@
 
 import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 
-import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
+import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
 export interface DynamicWriteResponse {
   flushed: Series[];

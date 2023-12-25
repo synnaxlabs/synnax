@@ -65,6 +65,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         axis={"y1"}
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
+        align="center"
         location="top"
         grow
       />

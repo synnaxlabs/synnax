@@ -15,13 +15,14 @@ import {
   dimensions,
   type runtime,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { CSS } from "@/css";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
-import { Queue } from "@/vis/render/queue";
+import { Loop } from "@/vis/render/loop";
 
 export type CanvasVariant = "upper2d" | "lower2d" | "gl";
 
@@ -44,10 +45,10 @@ export class Context {
   readonly gl: WebGL2RenderingContext;
 
   /** A 2D canvas that sits below the WebGL canvas. */
-  readonly lower2d: SugaredOffscreenCanvasRenderingContext2D;
+  lower2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** A 2D canvas that sits above the WebGL canvas. */
-  readonly upper2d: SugaredOffscreenCanvasRenderingContext2D;
+  upper2d: SugaredOffscreenCanvasRenderingContext2D;
 
   /** The region the canvas occupies in pixel space */
   region: box.Box;
@@ -56,7 +57,7 @@ export class Context {
   dpr: number;
 
   /** queue render transitions onto the stack */
-  readonly queue: Queue;
+  readonly loop: Loop;
 
   /** See the @link{clear.Program} for why this is necessary. */
   private readonly clearProgram?: clear.Program;
@@ -87,7 +88,7 @@ export class Context {
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.os = os;
-    this.queue = new Queue();
+    this.loop = new Loop();
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
@@ -213,8 +214,8 @@ export class Context {
     this.gl.enable(this.gl.SCISSOR_TEST);
     region = applyOverscan(region, overscan);
     this.gl.scissor(
-      (box.left(region) - box.left(this.region)) * this.dpr,
-      (box.bottom(this.region) - box.bottom(region)) * this.dpr,
+      box.left(region) * this.dpr,
+      (box.height(this.region) - box.bottom(region)) * this.dpr,
       box.width(region) * this.dpr,
       box.height(region) * this.dpr,
     );
@@ -223,9 +224,10 @@ export class Context {
 
   erase(
     region: box.Box,
-    overscan: xy.XY = xy.ZERO,
+    overscan: xy.Crude = xy.ZERO,
     ...canvases: CanvasVariant[]
   ): void {
+    overscan = xy.construct(overscan);
     if (canvases.length === 0) canvases = ["upper2d", "lower2d", "gl"];
     if (canvases.includes("upper2d")) this.eraseCanvas(this.upper2d, region, overscan);
     if (canvases.includes("lower2d")) this.eraseCanvas(this.lower2d, region, overscan);

@@ -22,7 +22,7 @@ import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { Remote } from "@/telem/remote";
+import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { LinePlot as Core } from "@/vis/lineplot";
@@ -56,12 +56,12 @@ export interface BaseLineProps {
 
 export interface StaticLineProps extends BaseLineProps {
   variant: "static";
-  range: TimeRange;
+  timeRange: TimeRange;
 }
 
 export interface DynamicLineProps extends BaseLineProps {
   variant: "dynamic";
-  span: TimeSpan;
+  timeSpan: TimeSpan;
 }
 
 export type LineProps = StaticLineProps | DynamicLineProps;
@@ -146,12 +146,7 @@ export const LinePlot = ({
           />
         );
       })}
-      {showLegend && (
-        <Core.Legend
-          onLabelChange={(key, label) => onLineChange?.({ key, label })}
-          onColorChange={(key, color) => onLineChange?.({ key, color })}
-        />
-      )}
+      {showLegend && <Core.Legend onLineChange={onLineChange} />}
       {showTitle && (
         <Core.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
@@ -314,20 +309,26 @@ const Line = ({ line }: { line: LineProps }): ReactElement =>
 const DynamicLine = ({
   line: {
     key,
-    span,
+    timeSpan,
     channels: { x, y },
     ...props
   },
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const telem = Remote.useDynamicXYSource({ span, x, y });
-  return <Core.Line aetherKey={key} telem={telem} {...props} />;
+  const yTelem = telem.streamChannelData({ timeSpan, channel: y });
+  const hasX = x != null && x !== 0;
+  const xTelem = telem.streamChannelData({
+    timeSpan,
+    channel: hasX ? x : y,
+    index: !hasX,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };
 
 const StaticLine = ({
   line: {
-    range,
+    timeRange,
     key,
     channels: { x, y },
     ...props
@@ -335,6 +336,12 @@ const StaticLine = ({
 }: {
   line: StaticLineProps;
 }): ReactElement => {
-  const telem = Remote.useXYSource({ timeRange: range, x, y });
-  return <Core.Line aetherKey={key} telem={telem} {...props} />;
+  const yTelem = telem.channelData({ timeRange, channel: y });
+  const hasX = x != null && x !== 0;
+  const xTelem = telem.channelData({
+    timeRange,
+    channel: hasX ? x : y,
+    index: !hasX,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

@@ -32,7 +32,7 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+// import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
@@ -87,6 +87,9 @@ const MainUnderContext = (): ReactElement => {
       workerURL={WorkerURL}
       triggers={triggersProps}
       haul={{ useState: useHaulState }}
+      alamos={{
+        include: ["provider"],
+      }}
     >
       <Vis.Canvas>
         <Layout.Window />
@@ -107,4 +110,4 @@ const Main = (): ReactElement | null => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);
+ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);

@@ -86,7 +86,8 @@ export class Color {
    * @returns true if the given color is semantically equal to this color. Different
    * representations of the same color are considered equal (e.g. hex and rgba).
    */
-  equals(other: Crude): boolean {
+  equals(other?: Crude): boolean {
+    if (other == null) return false;
     const other_ = new Color(other);
     return this.rgba255.every((v, i) => v === other_.rgba255[i]);
   }

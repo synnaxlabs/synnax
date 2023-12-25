@@ -40,12 +40,7 @@ export const Primary: StoryFn<typeof Button.Button> = (args: Button.ButtonProps)
     <Button.Button startIcon={<AiOutlineDelete />} {...args} size="large" disabled>
       Button
     </Button.Button>
-    <Button.Button
-      startIcon={<AiOutlineDelete />}
-      {...args}
-      size="small"
-      variant="outlined"
-    >
+    <Button.Button {...args} size="small" variant="outlined">
       Button
     </Button.Button>
     <Button.Button

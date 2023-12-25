@@ -56,6 +56,7 @@ export interface Component {
   type: string;
   /** A unique key identifying the component within the tree. */
   key: string;
+  ctx: Context;
   /**
    * Propagates an update to the internal tree of the component, updating the component
    * itself and any children as necessary.
@@ -346,6 +347,8 @@ export class Composite<
     super(u);
     this._children = [];
   }
+
+  internalMemo: Record<string, any>;
 
   /** @returns a readonly array of the children of the component. */
   get children(): readonly C[] {

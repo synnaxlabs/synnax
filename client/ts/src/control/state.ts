@@ -11,7 +11,7 @@ import { type Destructor, binary, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key as ChannelKey } from "@/channel/payload";
-import { type Authority } from "@/control/authority";
+import { Authority } from "@/control/authority";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Streamer as FrameStreamer } from "@/framer/streamer";
 
@@ -25,11 +25,27 @@ export interface Subject {
   key: string;
 }
 
+export const stateZ = z.object({
+  subject: subjectZ,
+  resource: z.number(),
+  authority: Authority.z,
+});
+
 export interface State {
   subject: Subject;
   resource: ChannelKey;
   authority: Authority;
 }
+
+export const filterTransfersByChannelKey =
+  (...resources: ChannelKey[]) =>
+  (transfers: Transfer[]): Transfer[] =>
+    transfers.filter((t) => {
+      let ok = false;
+      if (t.to != null) ok = resources.includes(t.to.resource);
+      if (t.from != null && !ok) ok = resources.includes(t.from.resource);
+      return ok;
+    });
 
 interface Release {
   from: State;

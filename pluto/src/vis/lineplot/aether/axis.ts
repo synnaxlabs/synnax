@@ -204,7 +204,7 @@ export const parseAutoBounds = (
 ): { lower: boolean; upper: boolean } => {
   if (typeof autoBounds === "boolean") return { lower: autoBounds, upper: autoBounds };
   return {
-    lower: autoBounds.lower ?? true,
-    upper: autoBounds.upper ?? true,
+    lower: autoBounds?.lower ?? true,
+    upper: autoBounds?.upper ?? true,
   };
 };

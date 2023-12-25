@@ -34,7 +34,6 @@ export const Table: Layout.Renderer = ({ layoutKey }) => {
   const selectedStrings = table.selected.map((p) => `${p.x}-${p.y}`);
 
   const handleChange = (pos: xy.XY, props: UnknownRecord): void => {
-    console.log("SELECT", pos, props);
     d(setCellProps({ key: layoutKey, positions: [pos], props: [props] }));
   };
 
@@ -49,7 +48,6 @@ export const Table: Layout.Renderer = ({ layoutKey }) => {
           {r.cells.map((c, x) => {
             const strKey = `${y}-${x}`;
             const pos = { x, y };
-            console.log(c.props);
             return (
               <Cell
                 key={strKey}

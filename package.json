@@ -66,13 +66,16 @@
   },
   "pnpm": {
     "overrides": {
-      "vite": "^4.5.0",
-      "vite-tsconfig-paths": "^4.2.0",
-      "vite-plugin-dts": "^3.5.1",
-      "typescript": "^5.2.2",
+      "vite": "^5.0.10",
+      "vite-tsconfig-paths": "^4.2.2",
+      "vite-plugin-dts": "^3.6.4",
+      "vitest": "^1.1.0",
+      "@vitest/coverage-v8": "^1.1.0",
+      "typescript": "^5.3.3",
       "proxy-memoize": "1.2.0",
       "@tanstack/react-virtual": "3.0.0-beta.54",
-      "zod": "3.22.4"
+      "zod": "3.22.4",
+      "node-fetch": "2.6.11"
     }
   }
 }

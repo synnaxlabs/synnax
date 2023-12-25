@@ -20,10 +20,7 @@ export const Status = (props: StatusProps): ReactElement => {
   const [trigger, setTrigger] = useState<Trigger>([]);
 
   useEffect(
-    () =>
-      listen(({ next: [trigger] }) => {
-        setTrigger(trigger ?? []);
-      }),
+    () => listen(({ next: [trigger] }) => setTrigger(trigger ?? [])),
     [listen, setTrigger],
   );
 

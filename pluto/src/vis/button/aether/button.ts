@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { telem } from "@/telem/core";
-import { noop } from "@/telem/noop";
+import { telem } from "@/telem/aether";
 
 export const buttonStateZ = z.object({
   trigger: z.number(),
-  sink: telem.booleanSinkSpecZ.optional().default(noop.booleanSinkSpec),
+  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
 });
 
 interface InternalState {
   sink: telem.BooleanSink;
-  cleanupSink: Destructor;
 }
 
 export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
@@ -30,22 +27,18 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
   schema = buttonStateZ;
 
   afterUpdate(): void {
-    const [sink, cleanupSink] = telem.use<telem.BooleanSink>(
-      this.ctx,
-      this.key,
-      this.state.sink,
-    );
-    this.internal.sink = sink;
-    this.internal.cleanupSink = cleanupSink;
+    const { internal: i } = this;
+    i.sink = telem.useSink(this.ctx, this.state.sink, i.sink);
 
     if (this.state.trigger > this.prevState.trigger)
-      this.internal.sink.setBoolean(true).catch(console.error);
+      this.internal.sink.set(true).catch(console.error);
   }
 
   render(): void {}
 
   afterDelete(): void {
-    this.internal.cleanupSink();
+    const { internal: i } = this;
+    i.sink.cleanup?.();
   }
 }
 

@@ -18,7 +18,7 @@ export class Eraser {
     ctx: Context,
     next: box.Box,
     prev: box.Box,
-    overscan: xy.XY,
+    overscan: xy.Crude,
     canvases: CanvasVariant[],
   ): void {
     if (!box.equals(prev, next) && !box.equals(this.prevErase, prev)) {

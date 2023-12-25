@@ -11,7 +11,8 @@ import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { Static } from "@/telem/static";
+import { telem } from "@/aetherIndex";
+import { staticTelem } from "@/telem/aether/static";
 import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/lineplot/tooltip/Tooltip";
@@ -41,15 +42,15 @@ const yData3 = Float32Array.from(
   (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400,
 );
 const Example = (): ReactElement => {
-  const telem = Static.useStaticXY({
+  const telem1 = telem.fixedArray({
     x: [xData],
     y: [yData],
   });
-  const telem2 = Static.useStaticXY({
+  const telem2 = staticTelem.useStaticXY({
     x: [xData2],
     y: [yData2],
   });
-  const telem3 = Static.useStaticXY({
+  const telem3 = staticTelem.useStaticXY({
     x: [xData3],
     y: [yData3],
   });
@@ -80,15 +81,10 @@ const Example = (): ReactElement => {
             location="right"
             showGrid
           >
-            <LinePlot.Line telem={telem} color="#F733FF" strokeWidth={2} label="Line" />
+            <LinePlot.Line x={telem} color="#F733FF" strokeWidth={2} label="Line" />
+            <LinePlot.Line x={telem2} color="#20e530" strokeWidth={2} label="Line 2" />
             <LinePlot.Line
-              telem={telem2}
-              color="#20e530"
-              strokeWidth={2}
-              label="Line 2"
-            />
-            <LinePlot.Line
-              telem={telem3}
+              x={telem3}
               color="#e54420"
               strokeWidth={2}
               label="Line 3"

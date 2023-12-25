@@ -184,6 +184,8 @@ export const dim = (
   return signed ? dim : Math.abs(dim);
 };
 
+
+
 /** @returns the pont corresponding to the given corner of the box. */
 export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
   const b_ = construct(b);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
+import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
@@ -16,26 +16,26 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  type: string;
+  variant: PIDSymbols.Variant;
 };
 
 export interface State {
   editable: boolean;
   snapshot: boolean;
   remoteCreated: boolean;
-  viewport: PID.Viewport;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
-  props: Record<string, object>;
+  viewport: Diagram.Viewport;
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
+  props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
 }
 
 interface CopyBuffer {
   pos: xy.Crude;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
-  props: Record<string, object>;
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
+  props: Record<string, NodeProps>;
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
@@ -47,7 +47,7 @@ const ZERO_COPY_BUFFER: CopyBuffer = {
 
 // ||||| TOOLBAR |||||
 
-const TOOLBAR_TABS = ["elements", "properties"] as const;
+const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export type ToolbarTab = (typeof TOOLBAR_TABS)[number];
 
 export interface ToolbarState {
@@ -82,20 +82,20 @@ export const ZERO_STATE: State = {
 export const ZERO_PID_SLICE_STATE: SliceState = {
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "elements" },
+  toolbar: { activeTab: "symbols" },
   pids: {},
 };
 
 export interface SetViewportPayload {
   layoutKey: string;
-  viewport: PID.Viewport;
+  viewport: Diagram.Viewport;
 }
 
 export interface AddElementPayload {
   layoutKey: string;
   key: string;
   props: NodeProps;
-  node?: Partial<PID.Node>;
+  node?: Partial<Diagram.Node>;
 }
 
 export interface SetElementPropsPayload {
@@ -106,12 +106,18 @@ export interface SetElementPropsPayload {
 
 export interface SetNodesPayload {
   layoutKey: string;
-  nodes: PID.Node[];
+  mode?: "replace" | "update";
+  nodes: Diagram.Node[];
+}
+
+export interface SetNodePositionsPayload {
+  layoutKey: string;
+  positions: Record<string, xy.XY>;
 }
 
 export interface SetEdgesPayload {
   layoutKey: string;
-  edges: PID.Edge[];
+  edges: Diagram.Edge[];
 }
 
 export interface CreatePayload extends State {
@@ -163,7 +169,7 @@ export interface SetRemoteCreatedPayload {
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
-  viewport: PID.Viewport,
+  viewport: Diagram.Viewport,
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
@@ -235,7 +241,6 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
-          points: edge.points.map((point) => xy.translate(point, console)),
         };
       });
       pid.edges = [...pid.edges, ...nextEdges];
@@ -259,7 +264,7 @@ export const { actions, reducer } = createSlice({
       pid.edges.forEach((edge) => {
         edge.selected = false;
       });
-      state.toolbar.activeTab = "elements";
+      state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { layoutKeys } = payload;
@@ -296,14 +301,29 @@ export const { actions, reducer } = createSlice({
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { layoutKey, nodes } = payload;
+      const { layoutKey, nodes, mode = "replace" } = payload;
       const pid = state.pids[layoutKey];
-      pid.nodes = nodes;
-      const anySelected = nodes.some((node) => node.selected);
+      if (mode === "replace") pid.nodes = nodes;
+      else {
+        const keys = nodes.map((node) => node.key);
+        pid.nodes = [...pid.nodes.filter((node) => !keys.includes(node.key)), ...nodes];
+      }
+      const anySelected =
+        nodes.some((node) => node.selected) || pid.edges.some((edge) => edge.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
+    },
+    setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
+      const { layoutKey, positions } = payload;
+      const pid = state.pids[layoutKey];
+      Object.entries(positions).forEach(([key, position]) => {
+        const node = pid.nodes.find((node) => node.key === key);
+        if (node == null) return;
+        node.position = position;
+      });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
@@ -320,11 +340,13 @@ export const { actions, reducer } = createSlice({
         if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
       });
       pid.edges = edges;
-      const anySelected = edges.some((edge) => edge.selected);
+      const anySelected =
+        edges.some((edge) => edge.selected) || pid.nodes.some((node) => node.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
     },
     setActiveToolbarTab: (
       state,
@@ -376,7 +398,7 @@ export const { actions, reducer } = createSlice({
 
 const clearOtherSelections = (state: SliceState, layoutKey: string) => {
   Object.keys(state.pids).forEach((key) => {
-    // If any of the nodes or edges in other PID slices are selected, deselct them.
+    // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;
     clearSelections(state.pids[key]);
   });
@@ -392,6 +414,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
+  setNodePositions,
   toggleControl,
   setControlStatus,
   addElement,

@@ -10,7 +10,7 @@
 import { TimeRange, type Series, type Destructor } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
-import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
+import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
   series: Series[];

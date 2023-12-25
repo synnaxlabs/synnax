@@ -111,7 +111,6 @@ export const Search = <
       searcher
         .search(term)
         .then((d) => {
-          console.log(d);
           if (d.length === 0) setEmptyContent(NO_RESULTS);
           else setSourceData(d);
         })

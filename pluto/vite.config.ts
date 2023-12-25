@@ -12,6 +12,7 @@ import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/pluto/",
   plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
@@ -36,7 +37,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      external: ["react", "react-dom", "react-hook-form", "@synnaxlabs/client", "zod"],
+      external: ["react", "react-dom", "react-hook-form", "zod"],
       output: {
         globals: {
           react: "React",
