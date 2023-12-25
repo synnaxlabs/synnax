@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { telem } from "@/telem/aether";
 
 describe("telem", () => {
-  it.only("pipeline", async () => {
+  it("pipeline", async () => {
     const s1 = telem.fixedNumber(20);
     const s2 = telem.fixedNumber(9);
     const avg = telem.mean({});
