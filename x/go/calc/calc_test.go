@@ -195,7 +195,11 @@ var _ = Describe("Calc", func() {
 				err := e.Build("-1 * 2")
 				Expect(err).ToNot(HaveOccurred())
 				expectedTree := &ast.BinaryExpr{
-					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+					X: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+						Op: token.MUL,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					},
 					Op: token.MUL,
 					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
 				}
@@ -209,7 +213,11 @@ var _ = Describe("Calc", func() {
 				expectedTree := &ast.BinaryExpr{
 					X:  &ast.BasicLit{Kind: token.FLOAT, Value: "2"},
 					Op: token.MUL,
-					Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+					Y: &ast.BinaryExpr{
+						X:  &ast.BasicLit{Kind: token.FLOAT, Value: "-1"},
+						Op: token.MUL,
+						Y:  &ast.BasicLit{Kind: token.FLOAT, Value: "1"},
+					},
 				}
 				actualTree := e.Tree().(*ast.BinaryExpr)
 				Expect(treesEqual(expectedTree, actualTree)).To(BeTrue())
@@ -307,6 +315,12 @@ var _ = Describe("Calc", func() {
 			err := e.Build("3+4*2/(1-5)^2^3")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(e.Evaluate(nil)).To(Equal(float64(3.0001220703125)))
+		})
+		It("Should evaluate 3+4*2/(-5)^2^3", func() {
+			e := calc.Expression{}
+			err := e.Build("3+4*2/(-5)^2^3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Evaluate(nil)).To(Equal(float64(3.00002048)))
 		})
 		It("Should evaluate pi*r^2", func() {
 			e := calc.Expression{}
