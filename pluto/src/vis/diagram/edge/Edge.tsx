@@ -28,13 +28,13 @@ import { CSS } from "@/css";
 import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
-import { connector } from "@/vis/pid/edge/connector";
+import { connector } from "@/vis/diagram/edge/connector";
 
 import { selectNodeBox } from "../util";
 
-import { calculateLineDirection } from "@/vis/pid/edge/edgeUtils";
+import { calculateLineDirection } from "@/vis/diagram/edge/edgeUtils";
 
-import "@/vis/pid/edge/Edge.css";
+import "@/vis/diagram/edge/Edge.css";
 
 interface CurrentlyDragging {
   segments: connector.Segment[];
@@ -106,7 +106,7 @@ export const Edge = ({
   style,
   segments: propsSegments = [],
   onSegmentsChange,
-  color,
+  color = "var(--pluto-gray-l9)",
   selected = false,
   ...props
 }: EdgeProps): ReactElement => {
@@ -252,7 +252,7 @@ export const Edge = ({
           return (
             <Fragment key={i}>
               <rect
-                className={CSS.BE("pid-edge-handle", "background")}
+                className={CSS.BE("diagram-edge-handle", "background")}
                 fill="var(--pluto-gray-l0)"
                 stroke="var(--pluto-primary-z)"
                 {...dims}
@@ -263,7 +263,10 @@ export const Edge = ({
               <foreignObject x={p.x - 9} y={p.y - 9} width="18px" height="18px">
                 <div
                   id={`handle-${i}`}
-                  className={CSS(CSS.BE("pid-edge-handle", "dragger"), CSS.dir(dir))}
+                  className={CSS(
+                    CSS.BE("diagram-edge-handle", "dragger"),
+                    CSS.dir(dir),
+                  )}
                   draggable
                   onDragStart={dragStart}
                 />

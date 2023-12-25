@@ -12,17 +12,16 @@ import { useCallback, type ReactElement } from "react";
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { Canvas } from "@/vis/canvas";
-import { PID } from "@/vis/pid";
+import { Diagram } from "@/vis/diagram";
+import { Primitives } from "@/vis/pid/primitives";
 
-import { FourWayValve, SolenoidValve, ThreeWayValve, Value } from "./symbols/Symbols";
-
-const story: Meta<typeof PID.PID> = {
-  title: "PID",
-  component: PID.PID,
+const story: Meta<typeof Diagram.Diagram> = {
+  title: "Diagram",
+  component: Diagram.Diagram,
 };
 
 const Example = (): ReactElement => {
-  const props = PID.use({
+  const props = Diagram.use({
     initialNodes: [
       {
         key: "1",
@@ -30,7 +29,6 @@ const Example = (): ReactElement => {
           x: 0,
           y: 0,
         },
-        data: {},
       },
       {
         key: "2",
@@ -49,7 +47,7 @@ const Example = (): ReactElement => {
     ],
   });
 
-  const S = useCallback((p) => <Primitives.Switch />, []);
+  const S = useCallback(() => <Primitives.Switch />, []);
 
   return (
     <Canvas.Canvas
@@ -59,14 +57,14 @@ const Example = (): ReactElement => {
         position: "fixed",
       }}
     >
-      <PID.PID {...props} editable>
-        <PID.NodeRenderer>{S}</PID.NodeRenderer>
-      </PID.PID>
+      <Diagram.Diagram {...props} editable>
+        <Diagram.NodeRenderer>{S}</Diagram.NodeRenderer>
+      </Diagram.Diagram>
     </Canvas.Canvas>
   );
 };
 
-export const Primary: StoryFn<typeof PID> = () => <Example />;
+export const Primary: StoryFn<typeof Diagram.Diagram> = () => <Example />;
 
 // eslint-disable-next-line import/no-default-export
 export default story;

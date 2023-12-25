@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { type direction } from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x";
 import {
   type UseControllerProps,
   useController,
@@ -42,13 +42,22 @@ export interface ItemProps extends Align.SpaceProps {
   helpText?: string;
 }
 
+const maybeDefaultAlignment = (
+  align?: Align.Alignment,
+  dir: direction.Crude = "x",
+): Align.Alignment => {
+  if (align != null) return align;
+  return direction.construct(dir) === "y" ? "stretch" : "center";
+};
+
 export const Item = ({
   label,
   showLabel = true,
   helpText,
-  direction,
+  direction = "y",
   className,
   children,
+  align,
   size = "small",
   ...props
 }: ItemProps): ReactElement => {
@@ -57,14 +66,14 @@ export const Item = ({
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
-        <HelpText>{helpText}</HelpText>
+        {helpText != null && <HelpText>{helpText}</HelpText>}
       </Align.Space>
     );
   else
     inputAndHelp = (
       <>
         {children}
-        <HelpText>{helpText}</HelpText>
+        {helpText != null && <HelpText>{helpText}</HelpText>}
       </>
     );
 
@@ -73,6 +82,7 @@ export const Item = ({
       className={CSS(CSS.B("input-item"), className)}
       direction={direction}
       size={size}
+      align={maybeDefaultAlignment(align, direction)}
       {...props}
     >
       {showLabel && <Label>{label}</Label>}
@@ -114,7 +124,7 @@ export const ItemControlled = <
   });
   if (label == null) label = camelToTitle(name);
   return (
-    <Item ref={field.ref} label={label} helpText={fieldState.error?.message}>
+    <Item ref={field.ref} label={label} helpText={fieldState.error?.message} {...props}>
       {children({ value: field.value, onChange: field.onChange })}
     </Item>
   );

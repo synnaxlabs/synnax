@@ -29,7 +29,7 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Theming } from "@/theming";
 
-import "@/vis/pid/symbols/primitives/Primitives.css";
+import "@/vis/pid/primitives/Primitives.css";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 

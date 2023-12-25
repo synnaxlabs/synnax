@@ -13,7 +13,7 @@ export { color } from "@/color/core";
 export { synnax } from "@/synnax/aether";
 export { theming } from "@/theming/aether";
 export { measure } from "@/vis/measure/aether";
-export { pid } from "@/vis/pid/aether";
+export { diagram } from "@/vis/diagram/aether";
 export { telem } from "@/telem/aether";
 export { rule } from "@/vis/rule/aether";
 export { tooltip } from "@/vis/lineplot/tooltip/aether";

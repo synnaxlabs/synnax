@@ -14,7 +14,7 @@ import {
   useCallback,
 } from "react";
 
-import { Align, Text, PIDSymbols, Theming, Haul, Input, List } from "@synnaxlabs/pluto";
+import { Align, Text, PID, Theming, Haul, Input, List } from "@synnaxlabs/pluto";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
@@ -23,7 +23,7 @@ import { addElement } from "@/pid/slice";
 
 import "@/pid/toolbar/Symbols.css";
 
-const LIST_DATA = Object.values(PIDSymbols.registry).map((el) => ({
+const LIST_DATA = Object.values(PID.SYMBOLS).map((el) => ({
   key: el.variant,
   ...el,
 }));
@@ -33,8 +33,8 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = Theming.use();
 
   const handleAddElement = useCallback(
-    (variant: PIDSymbols.Variant) => {
-      const spec = PIDSymbols.registry[variant];
+    (variant: PID.Variant) => {
+      const spec = PID.SYMBOLS[variant];
       const initialProps = spec.defaultProps(theme);
       dispatch(
         addElement({
@@ -85,7 +85,7 @@ const SymbolsButton = ({
   ...props
 }: SymbolsButtonProps): ReactElement => {
   const { startDrag, ...dragProps } = Haul.useDrag({
-    type: "PID-Elements",
+    type: "Diagram-Elements",
     key: name,
   });
 

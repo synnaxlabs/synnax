@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, deep, location, xy } from "@synnaxlabs/x";
+import { box, location, xy } from "@synnaxlabs/x";
 import ReactFlow, {
   ReactFlowProvider,
   type Viewport as RFViewport,
@@ -37,9 +37,9 @@ import ReactFlow, {
   type Connection as RFConnection,
   type ReactFlowProps,
   useReactFlow,
-  useViewport,
   ConnectionMode,
   updateEdge,
+  type EdgeProps as RFEdgeProps,
 } from "reactflow";
 
 import { Aether } from "@/aether";
@@ -52,9 +52,10 @@ import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
-import { pid } from "@/vis/pid/aether";
-import { Edge as PlutoEdge } from "@/vis/pid/edge";
-import { CustomConnectionLine } from "@/vis/pid/edge/Edge";
+import { diagram } from "@/vis/diagram/aether";
+import { Edge as EdgeComponent } from "@/vis/diagram/edge";
+import { type connector } from "@/vis/diagram/edge/connector";
+import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
 import {
   type Edge,
   type Node,
@@ -65,19 +66,15 @@ import {
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
-} from "@/vis/pid/types";
+} from "@/vis/diagram/types";
 
-import "@/vis/pid/PID.css";
+import "@/vis/diagram/Diagram.css";
 import "reactflow/dist/style.css";
-
-import { type Segment } from "@/vis/pid/edge/connector/connector";
 
 export interface SymbolProps {
   symbolKey: string;
   position: xy.XY;
-  zoom: number;
   selected: boolean;
-  editable: boolean;
 }
 
 export interface UseProps {
@@ -147,7 +144,7 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   edgeUpdaterRadius: 0,
 };
 
-export interface PIDProps
+export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError"> {
   triggers?: CoreViewport.UseTriggers;
@@ -180,8 +177,8 @@ export const NodeRenderer = memo(
 );
 NodeRenderer.displayName = "NodeRenderer";
 
-const Core = Aether.wrap<PIDProps>(
-  pid.PID.TYPE,
+const Core = Aether.wrap<DiagramProps>(
+  diagram.Diagram.TYPE,
   // eslint-disable-next-line react/display-name
   ({
     aetherKey,
@@ -199,8 +196,8 @@ const Core = Aether.wrap<PIDProps>(
   }): ReactElement => {
     const [{ path }, , setState] = Aether.use({
       aetherKey,
-      type: pid.PID.TYPE,
-      schema: pid.PID.stateZ,
+      type: diagram.Diagram.TYPE,
+      schema: diagram.diagramStateZ,
       initialState: {
         position: viewport.position,
         region: box.ZERO,
@@ -226,13 +223,15 @@ const Core = Aether.wrap<PIDProps>(
 
     // For some reason, react flow repeatedly calls onViewportChange with the same
     // parameters, so we do a need equality check to prevent unnecessary re-renders.
-    const vpRef = useRef<RFViewport | null>(null);
+    const viewportRef = useRef<RFViewport | null>(null);
     const handleViewport = useCallback(
-      (viewport: RFViewport): void => {
-        if (vpRef.current != null && deep.equal(viewport, vpRef.current)) return;
-        vpRef.current = viewport;
-        setState((prev) => ({ ...prev, position: viewport, zoom: viewport.zoom }));
-        onViewportChange(translateViewportBackward(viewport));
+      (vp: RFViewport): void => {
+        const prev = viewportRef.current;
+        if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
+          return;
+        viewportRef.current = vp;
+        setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
+        onViewportChange(translateViewportBackward(vp));
       },
       [setState, onViewportChange],
     );
@@ -250,27 +249,23 @@ const Core = Aether.wrap<PIDProps>(
       [],
     );
 
-    const Node = useCallback(
-      ({ id, xPos, yPos, selected }: RFNodeProps) => {
-        const { zoom } = useViewport();
-        const { editable } = useContext();
-        return renderer({
-          symbolKey: id,
-          position: { x: xPos, y: yPos },
-          zoom,
-          selected,
-          editable,
-        });
-      },
+    const nodeTypes = useMemo(
+      () => ({
+        custom: ({ id, xPos, yPos, selected }: RFNodeProps) => {
+          return renderer({
+            symbolKey: id,
+            position: { x: xPos, y: yPos },
+            selected,
+          });
+        },
+      }),
       [renderer],
     );
-
-    const nodeTypes = useMemo(() => ({ custom: Node }), [Node]);
 
     const edgesRef = useRef(edges);
     const edges_ = useMemo(() => {
       edgesRef.current = edges;
-      return translateEdgesForward(edges, editable);
+      return translateEdgesForward(edges);
     }, [edges]);
     const nodesRef = useRef(nodes);
     const nodes_ = useMemo(() => {
@@ -303,13 +298,14 @@ const Core = Aether.wrap<PIDProps>(
     );
 
     const handleConnect = useCallback(
-      (conn: RFConnection) =>
-        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e))),
+      (conn: RFConnection) => {
+        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e)));
+      },
       [onEdgesChange],
     );
 
     const handleEdgeSegmentsChange = useCallback(
-      (id: string, segments: Segment[]) => {
+      (id: string, segments: connector.Segment[]) => {
         const next = [...edgesRef.current];
         const index = next.findIndex((e) => e.key === id);
         if (index === -1) return;
@@ -324,8 +320,8 @@ const Core = Aether.wrap<PIDProps>(
 
     const EDGE_TYPES = useMemo(
       () => ({
-        default: (props: any) => (
-          <PlutoEdge
+        default: (props: RFEdgeProps) => (
+          <EdgeComponent
             key={props.id}
             {...props}
             segments={props.data.segments}
@@ -371,7 +367,7 @@ const Core = Aether.wrap<PIDProps>(
         <Aether.Composite path={path}>
           <ReactFlow
             {...triggerProps}
-            className={CSS(CSS.B("pid"), CSS.editable(editable))}
+            className={CSS(CSS.B("diagram"), CSS.editable(editable))}
             nodes={nodes_}
             edges={edges_}
             nodeTypes={nodeTypes}
@@ -395,7 +391,7 @@ const Core = Aether.wrap<PIDProps>(
             }}
             {...props}
             style={{
-              [CSS.var("pid-zoom")]: viewport.zoom,
+              [CSS.var("diagram-zoom")]: viewport.zoom,
               ...props.style,
             }}
             {...editableProps}
@@ -416,7 +412,7 @@ export const Background = (): ReactElement | null => {
 export interface ControlsProps extends Align.PackProps {}
 
 export const Controls = ({ children, ...props }: ControlsProps): ReactElement => (
-  <Align.Pack direction="y" className={CSS.BE("pid", "controls")} {...props}>
+  <Align.Pack direction="y" className={CSS.BE("diagram", "controls")} {...props}>
     {children}
   </Align.Pack>
 );
@@ -475,7 +471,7 @@ export const FitViewControl = ({
   );
 };
 
-export const PID = (props: PIDProps): ReactElement => (
+export const Diagram = (props: DiagramProps): ReactElement => (
   <ReactFlowProvider>
     <Core {...props} />
   </ReactFlowProvider>

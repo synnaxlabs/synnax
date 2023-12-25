@@ -78,7 +78,17 @@ export class AuthError extends BaseError {}
 /**
  * UnexpectedError is raised when an unexpected error occurs.
  */
-export class UnexpectedError extends BaseError {}
+export class UnexpectedError extends BaseError {
+  constructor(message: string) {
+    super(`
+    Unexpected error encountered:
+
+    ${message}
+
+    Please report this to the Synnax team.
+    `);
+  }
+}
 
 /**
  * QueryError is raised when a query error occurs.
@@ -113,7 +123,7 @@ const decode = (payload: ErrorPayload): Error | null => {
       return new AuthError(payload.data);
     case APIErrorType.Unexpected:
       return new UnexpectedError(payload.data);
-    case APIErrorType.Validation: 
+    case APIErrorType.Validation:
       return new ValidationError(payload.data);
     case APIErrorType.Query:
       return new QueryError(payload.data);

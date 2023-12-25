@@ -116,7 +116,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             >
               {(p) => <Input.Text {...p} />}
             </Input.ItemControlled>
-            <Align.Space direction="x">
+            <Align.Space direction="x" grow>
               <Input.ItemControlled
                 name="host"
                 placeholder="localhost"
@@ -131,6 +131,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
                 placeholder="9090"
                 control={c}
                 className={CSS.BE("input", "port")}
+                grow
               >
                 {(p) => <Input.Text {...p} />}
               </Input.ItemControlled>
@@ -163,7 +164,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
                 ? Case.capitalize(connState.status)
-                : (connState.message as string)}
+                : connState.message!}
             </Status.Text>
           )}
         </Nav.Bar.Start>

@@ -16,7 +16,7 @@ import { telem } from "@/telem/aether";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { type Element } from "@/vis/pid/aether/pid";
+import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
@@ -74,11 +74,11 @@ export class Value
     else void this.render({});
   }
 
-  async render({ xyScale = scale.XY.IDENTITY }): Promise<void> {
+  async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
     const { render: renderCtx, telem } = this.internal;
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
-    const canvas = renderCtx.lower2d.applyScale(xyScale);
+    const canvas = renderCtx.lower2d.applyScale(viewportScale);
     const value = await telem.value();
     canvas.font = this.state.font;
     const dims = dimensions(value, this.state.font, canvas);

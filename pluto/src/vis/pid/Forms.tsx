@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { useCallback, type ReactElement, type FC } from "react";
 
 import { type channel } from "@synnaxlabs/client";
@@ -14,7 +23,7 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
-import { type LabelExtensionProps } from "@/vis/pid/symbols/Labeled";
+import { type LabelExtensionProps } from "@/vis/pid/Labeled";
 import {
   type ThreeWayValveProps,
   type ReliefValveProps,
@@ -23,12 +32,12 @@ import {
   type ControlStateProps,
   type ValueProps,
   type ButtonProps,
-} from "@/vis/pid/symbols/Symbols";
+} from "@/vis/pid/Symbols";
 import { type Toggle } from "@/vis/toggle";
 
 import { SelectOrientation } from "./SelectOrientation";
 
-import "@/vis/pid/symbols/Forms.css";
+import "@/vis/pid/Forms.css";
 
 import { Core } from "@/telem/client/client";
 

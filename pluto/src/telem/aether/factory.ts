@@ -9,13 +9,11 @@
 
 import { type telem } from "@/telem/aether";
 import { NoopFactory } from "@/telem/aether/noop";
+import { PipelineFactory } from "@/telem/aether/pipeline";
 import { RemoteFactory } from "@/telem/aether/remote";
 import { StaticFactory } from "@/telem/aether/static";
 import { TransformerFactory } from "@/telem/aether/transformers";
-
-import { type client } from "../client";
-
-import { PipelineFactory } from "./pipeline";
+import { type client } from "@/telem/client";
 
 export interface Factory {
   type: string;

@@ -9,7 +9,7 @@
 
 import { box, xy, type direction, location } from "@synnaxlabs/x";
 
-import { type NodeLayout } from "@/vis/pid/util";
+import { type NodeLayout } from "@/vis/diagram/util";
 
 export const alignNodes = (
   layouts: NodeLayout[],

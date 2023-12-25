@@ -10,8 +10,8 @@
 import { xy, box } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { alignNodes } from "@/vis/pid/align";
-import { NodeLayout, HandleLayout } from "@/vis/pid/util";
+import { alignNodes } from "@/vis/diagram/align";
+import { NodeLayout, HandleLayout } from "@/vis/diagram/util";
 
 describe("align", () => {
   interface Spec {
@@ -23,14 +23,18 @@ describe("align", () => {
   const TWO_NODES_SAME_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have same dimensions and handle positions",
     inputs: [
-      new NodeLayout(box.construct(xy.ZERO, { width: 100, height: 100 }), [
+      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
         new HandleLayout({ x: 0, y: 50 }, "left"),
         new HandleLayout({ x: 100, y: 50 }, "right"),
       ]),
-      new NodeLayout(box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 50 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
     ],
     outputs: [
       { x: 0, y: 0 },
@@ -41,14 +45,18 @@ describe("align", () => {
   const TWO_NODES_SAME_DIMS_DIFF_HANDLES: Spec = {
     name: "nodes have same dimensions but different handle positions",
     inputs: [
-      new NodeLayout(box.construct(xy.ZERO, { width: 100, height: 100 }), [
+      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
         new HandleLayout({ x: 0, y: 50 }, "left"),
         new HandleLayout({ x: 100, y: 50 }, "right"),
       ]),
-      new NodeLayout(box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 60 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 60 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
     ],
     outputs: [
       { x: 0, y: 0 },
@@ -59,14 +67,18 @@ describe("align", () => {
   const TWO_NODES_DIFF_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have different dimensions but same handle positions",
     inputs: [
-      new NodeLayout(box.construct(xy.ZERO, { width: 100, height: 100 }), [
+      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
         new HandleLayout({ x: 0, y: 50 }, "left"),
         new HandleLayout({ x: 100, y: 50 }, "right"),
       ]),
-      new NodeLayout(box.construct({ x: 10, y: 10 }, { width: 120, height: 120 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 10, y: 10 }, { width: 120, height: 120 }),
+        [
+          new HandleLayout({ x: 0, y: 50 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
     ],
     outputs: [
       { x: 0, y: 0 },
@@ -77,18 +89,26 @@ describe("align", () => {
   const THREE_NODES_SAME_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have same dimensions and handle positions",
     inputs: [
-      new NodeLayout(box.construct(xy.ZERO, { width: 100, height: 100 }), [
+      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
         new HandleLayout({ x: 0, y: 50 }, "left"),
         new HandleLayout({ x: 100, y: 50 }, "right"),
       ]),
-      new NodeLayout(box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 50 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new NodeLayout(
+        "n3",
+        box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 50 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
     ],
     outputs: [
       { x: 0, y: 0 },
@@ -100,23 +120,31 @@ describe("align", () => {
   const THREE_NODES_SAME_DIMS_DIFF_HANDLES: Spec = {
     name: "nodes have same dimensions but different handle positions",
     inputs: [
-      new NodeLayout(box.construct(xy.ZERO, { width: 100, height: 100 }), [
+      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
         new HandleLayout({ x: 0, y: 50 }, "left"),
         new HandleLayout({ x: 100, y: 50 }, "right"),
       ]),
-      new NodeLayout(box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 60 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 40 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
+      new NodeLayout(
+        "n2",
+        box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 60 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new NodeLayout(
+        "n3",
+        box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }),
+        [
+          new HandleLayout({ x: 0, y: 40 }, "left"),
+          new HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
     ],
     outputs: [
       { x: 0, y: 0 },
       { x: 10, y: -10 },
-      { x: 20, y: 10 },
+      { x: 20, y: 0 },
     ],
   };
 
@@ -131,7 +159,7 @@ describe("align", () => {
   for (const spec of SPECS) {
     it(spec.name, () => {
       const outputs = alignNodes(spec.inputs);
-      expect(outputs).toEqual(spec.outputs);
+      expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
   }
 });

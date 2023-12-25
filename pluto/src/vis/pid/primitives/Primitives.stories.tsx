@@ -13,7 +13,7 @@ import { type Meta, type StoryFn } from "@storybook/react";
 import { ReactFlowProvider } from "reactflow";
 
 import { Align } from "@/align";
-import { Primitives } from "@/vis/pid/symbols/primitives";
+import { Primitives } from "@/vis/pid/primitives/index";
 
 const story: Meta<typeof Primitives.Tank> = {
   title: "Primitive Symbols",

@@ -20,6 +20,7 @@ import {
   Nav,
   Synnax,
   useAsyncEffect,
+  componentRenderProp,
 } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
@@ -114,7 +115,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
     const start = Input.combineDateAndTimeValue(startDate, startTime).valueOf();
     const end = Input.combineDateAndTimeValue(endDate, endTime).valueOf();
     name = name.trim();
-    if (name.length === 0) name = range?.name as string;
+    if (name.length === 0) name = range?.name!;
     // remove leading and trailing whitespace
     const key = isCreate ? uuidv4() : layoutKey;
 
@@ -165,22 +166,23 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
         id="define-range"
       >
         <Align.Space grow className="console-form">
-          <Input.ItemControlled control={control} name="name" autoFocus />
+          <Input.ItemControlled control={control} name="name" autoFocus>
+            {(props) => <Input.Text {...props} />}
+          </Input.ItemControlled>
           <Align.Space direction="x" size="small">
             <Input.ItemControlled<number, number, Input.DateProps, DefineRangeFormProps>
               name="startDate"
               control={control}
               grow
             >
-              {Input.Date}
+              {componentRenderProp(Input.Date)}
             </Input.ItemControlled>
             <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
               name="startTime"
               control={control}
               grow
             >
-              {Input.Time}
-              {(props) => <TimeModifierRow {...props} />}
+              {componentRenderProp(Input.Time)}
             </Input.ItemControlled>
           </Align.Space>
 
@@ -190,15 +192,14 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
               control={control}
               grow
             >
-              {Input.Date}
+              {componentRenderProp(Input.Date)}
             </Input.ItemControlled>
             <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
               name="endTime"
               control={control}
               grow
             >
-              {Input.Time}
-              {(props) => <TimeModifierRow op="add" {...props} />}
+              {componentRenderProp(Input.Time)}
             </Input.ItemControlled>
           </Align.Space>
         </Align.Space>

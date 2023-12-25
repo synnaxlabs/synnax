@@ -74,6 +74,7 @@ import {
   MdKeyboardControlKey,
   MdPerson,
   MdPause,
+  MdPlayArrow,
   MdPictureInPicture,
   MdAutoAwesome,
   MdOutlineTableRows,
@@ -100,6 +101,7 @@ const IconOS: Record<runtime.OS, IconFC> = {
 
 export const Icon: IconType = {
   Pause: MdPause,
+  Play: MdPlayArrow,
   Circle: MdFiberManualRecord,
   Edit: MdEdit,
   EditOff: MdEditOff,
@@ -197,13 +199,14 @@ export const Icon: IconType = {
     YCenter: MdAlignVerticalCenter,
     Top: MdAlignVerticalTop,
     Bottom: MdAlignVerticalBottom,
-  }
+  },
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
 
 export interface IconType {
   Pause: IconFC;
+  Play: IconFC;
   Circle: IconFC;
   Edit: IconFC;
   EditOff: IconFC;
@@ -291,7 +294,7 @@ export interface IconType {
   Loading: IconFC;
   Sync: IconFC;
   Search: IconFC;
-  Auto: IconFC, 
+  Auto: IconFC;
   Align: {
     Right: IconFC;
     Left: IconFC;

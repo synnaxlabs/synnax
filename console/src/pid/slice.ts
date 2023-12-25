@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import {
-  type PID,
-  type Control,
-  type Viewport,
-  type PIDSymbols,
-} from "@synnaxlabs/pluto";
+import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
@@ -28,9 +23,9 @@ export interface State {
   editable: boolean;
   snapshot: boolean;
   remoteCreated: boolean;
-  viewport: PID.Viewport;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
+  viewport: Diagram.Viewport;
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
   props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
@@ -38,8 +33,8 @@ export interface State {
 
 interface CopyBuffer {
   pos: xy.Crude;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
   props: Record<string, NodeProps>;
 }
 
@@ -93,14 +88,14 @@ export const ZERO_PID_SLICE_STATE: SliceState = {
 
 export interface SetViewportPayload {
   layoutKey: string;
-  viewport: PID.Viewport;
+  viewport: Diagram.Viewport;
 }
 
 export interface AddElementPayload {
   layoutKey: string;
   key: string;
   props: NodeProps;
-  node?: Partial<PID.Node>;
+  node?: Partial<Diagram.Node>;
 }
 
 export interface SetElementPropsPayload {
@@ -112,7 +107,7 @@ export interface SetElementPropsPayload {
 export interface SetNodesPayload {
   layoutKey: string;
   mode?: "replace" | "update";
-  nodes: PID.Node[];
+  nodes: Diagram.Node[];
 }
 
 export interface SetNodePositionsPayload {
@@ -122,7 +117,7 @@ export interface SetNodePositionsPayload {
 
 export interface SetEdgesPayload {
   layoutKey: string;
-  edges: PID.Edge[];
+  edges: Diagram.Edge[];
 }
 
 export interface CreatePayload extends State {
@@ -174,7 +169,7 @@ export interface SetRemoteCreatedPayload {
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
-  viewport: PID.Viewport,
+  viewport: Diagram.Viewport,
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
@@ -403,7 +398,7 @@ export const { actions, reducer } = createSlice({
 
 const clearOtherSelections = (state: SliceState, layoutKey: string) => {
   Object.keys(state.pids).forEach((key) => {
-    // If any of the nodes or edges in other PID slices are selected, deselect them.
+    // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;
     clearSelections(state.pids[key]);
   });

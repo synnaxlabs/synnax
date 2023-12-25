@@ -15,6 +15,7 @@ import {
   dimensions,
   type runtime,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";
@@ -56,7 +57,7 @@ export class Context {
   dpr: number;
 
   /** queue render transitions onto the stack */
-  readonly queue: Loop;
+  readonly loop: Loop;
 
   /** See the @link{clear.Program} for why this is necessary. */
   private readonly clearProgram?: clear.Program;
@@ -87,7 +88,7 @@ export class Context {
     this.lower2dCanvas = lower2dCanvas;
     this.glCanvas = glCanvas;
     this.os = os;
-    this.queue = new Loop();
+    this.loop = new Loop();
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
@@ -223,9 +224,10 @@ export class Context {
 
   erase(
     region: box.Box,
-    overscan: xy.XY = xy.ZERO,
+    overscan: xy.Crude = xy.ZERO,
     ...canvases: CanvasVariant[]
   ): void {
+    overscan = xy.construct(overscan);
     if (canvases.length === 0) canvases = ["upper2d", "lower2d", "gl"];
     if (canvases.includes("upper2d")) this.eraseCanvas(this.upper2d, region, overscan);
     if (canvases.includes("lower2d")) this.eraseCanvas(this.lower2d, region, overscan);

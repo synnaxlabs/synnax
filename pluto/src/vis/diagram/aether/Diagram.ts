@@ -7,22 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useRef } from "react";
+
 import { scale, xy, box } from "@synnaxlabs/x";
+import { useReactFlow } from "reactflow";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { CSS } from "@/css";
 import { status } from "@/status/aether";
+import { translateViewportBackward, type Viewport } from "@/vis/diagram/types";
 import { render } from "@/vis/render";
 
-export const pidStateZ = z.object({
+export const diagramStateZ = z.object({
   position: xy.xy,
   zoom: z.number(),
   region: box.box,
+  clearOverscan: xy.crudeZ.optional().default(10),
 });
 
 interface ElementProps {
-  xyScale?: scale.XY;
+  viewportScale?: scale.XY;
 }
 
 export interface Element extends aether.Component {
@@ -30,21 +34,30 @@ export interface Element extends aether.Component {
 }
 
 interface InternalState {
-  render: render.Context;
-  aggregate: status.Aggregate;
+  renderCtx: render.Context;
+  addStatus: status.Aggregate;
 }
 
 const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
 
-export class PID extends aether.Composite<typeof pidStateZ, InternalState, Element> {
-  static readonly TYPE = CSS.B("pid");
-  static readonly stateZ = pidStateZ;
+export const useInitialViewport = (): Viewport => {
+  const flow = useReactFlow();
+  return useRef<Viewport>(translateViewportBackward(flow.getViewport())).current;
+};
+
+export class Diagram extends aether.Composite<
+  typeof diagramStateZ,
+  InternalState,
+  Element
+> {
+  static readonly TYPE = "Diagram";
+  static readonly stateZ = diagramStateZ;
   readonly eraser: render.Eraser = new render.Eraser();
-  schema = PID.stateZ;
+  schema = Diagram.stateZ;
 
   afterUpdate(): void {
-    this.internal.render = render.Context.use(this.ctx);
-    this.internal.aggregate = status.useAggregate(this.ctx);
+    this.internal.renderCtx = render.Context.use(this.ctx);
+    this.internal.addStatus = status.useAggregate(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender());
     this.requestRender();
   }
@@ -55,40 +68,39 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, Eleme
 
   async render(): Promise<render.Cleanup | undefined> {
     if (this.deleted) return undefined;
-    const { render: renderCtx } = this.internal;
+    const { renderCtx, addStatus } = this.internal;
+    const { zoom, position } = this.state;
     const region = box.construct(this.state.region);
     const clearScissor = renderCtx.scissor(region, xy.ZERO, CANVASES);
-    const xyScale = scale.XY.magnify(xy.construct(this.state.zoom))
+    const viewportScale = scale.XY.magnify(xy.construct(zoom))
       .translate(box.topLeft(region))
-      .translate(this.state.position);
+      .translate(position);
+
     try {
       await Promise.all(
-        this.children.map(async (child) => await child.render({ xyScale })),
+        this.children.map(async (child) => await child.render({ viewportScale })),
       );
     } catch (e) {
-      this.internal.aggregate({
-        variant: "error",
-        message: (e as Error).message,
-      });
+      addStatus({ variant: "error", message: (e as Error).message });
     } finally {
       clearScissor();
     }
 
     return () =>
       this.eraser.erase(
-        this.internal.render,
+        this.internal.renderCtx,
         this.state.region,
         this.prevState.region,
-        xy.construct(10),
+        this.state.clearOverscan,
         CANVASES,
       );
   }
 
   private requestRender(): void {
-    const { render: renderCtx } = this.internal;
-    void renderCtx.queue.set({
+    const { renderCtx } = this.internal;
+    void renderCtx.loop.set({
       key: this.key,
-      render: this.render.bind(this),
+      render: async () => await this.render(),
       priority: "high",
       canvases: CANVASES,
     });
@@ -96,5 +108,5 @@ export class PID extends aether.Composite<typeof pidStateZ, InternalState, Eleme
 }
 
 export const REGISTRY = {
-  [PID.TYPE]: PID,
+  [Diagram.TYPE]: Diagram,
 };

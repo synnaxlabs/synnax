@@ -11,6 +11,7 @@ import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
+import { telem } from "@/aetherIndex";
 import { staticTelem } from "@/telem/aether/static";
 import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";
@@ -41,7 +42,7 @@ const yData3 = Float32Array.from(
   (_, i) => Math.sin(i / DIV) * MULT + Math.random() + 400,
 );
 const Example = (): ReactElement => {
-  const telem = staticTelem.useStaticXY({
+  const telem1 = telem.fixedArray({
     x: [xData],
     y: [yData],
   });
@@ -81,12 +82,7 @@ const Example = (): ReactElement => {
             showGrid
           >
             <LinePlot.Line x={telem} color="#F733FF" strokeWidth={2} label="Line" />
-            <LinePlot.Line
-              x={telem2}
-              color="#20e530"
-              strokeWidth={2}
-              label="Line 2"
-            />
+            <LinePlot.Line x={telem2} color="#20e530" strokeWidth={2} label="Line 2" />
             <LinePlot.Line
               x={telem3}
               color="#e54420"

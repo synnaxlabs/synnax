@@ -58,7 +58,7 @@ export type Cleanup = (req: Request) => void;
 
 export type Priority = "high" | "low";
 
-const PRIOTITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
+const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
@@ -94,7 +94,7 @@ export class Loop {
         return;
       }
       const priorityOK =
-        PRIOTITY_ORDER[req.priority] >= PRIOTITY_ORDER[existing.priority];
+        PRIORITY_ORDER[req.priority] >= PRIORITY_ORDER[existing.priority];
       const canvasesOK = req.canvases.length >= existing.canvases.length;
       if (priorityOK && canvasesOK) this.requests.set(req.key, req);
     });

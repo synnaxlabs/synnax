@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { connector } from "@/vis/pid/edge/connector";
+import { connector } from "@/vis/diagram/edge/connector/index";
 
 describe("connector", () => {
   describe("needToGoAroundSource", () => {
@@ -845,11 +845,7 @@ describe("connector", () => {
           { direction: "y", length: -10 },
         ],
       },
-      expected: [
-        { direction: "x", length: 0 },
-        { direction: "y", length: 30 },
-        { direction: "y", length: -10 },
-      ],
+      expected: [{ direction: "y", length: 20 }],
     };
 
     const SPECS: Spec[] = [

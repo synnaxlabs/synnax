@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pid__controls {
+.pluto-diagram__controls {
     position: absolute;
     bottom: 2rem;
     left: 2rem;
@@ -41,11 +41,11 @@
 
 .react-flow__edge {
     & .react-flow__edge-path {
-        stroke-width: var(--pluto-pid-element-stroke-width) !important;
+        stroke-width: 2px !important;
     }
 }
 
-.pluto-pid {
+.pluto-diagram {
     &.pluto--editable {
         & .pluto-symbol-primitive {
             pointer-events: none;

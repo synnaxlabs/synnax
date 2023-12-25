@@ -10,15 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Status,
-  PID,
-  Color,
-  Input,
-  Align,
-  PIDSymbols,
-  Button,
-} from "@synnaxlabs/pluto";
+import { Status, PID, Color, Input, Align, Button, Diagram } from "@synnaxlabs/pluto";
 import { box, location, xy } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
@@ -26,10 +18,9 @@ import { CSS } from "@/css";
 import {
   type ElementInfo,
   useSelectSelectedElementsProps,
-  type NodeElementInfo,
   useSelectViewport,
 } from "@/pid/selectors";
-import { setElementProps, setNodePositions, setNodes } from "@/pid/slice";
+import { setElementProps, setNodePositions } from "@/pid/slice";
 
 import "@/pid/toolbar/Properties.css";
 
@@ -71,7 +62,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
         if (el.type !== "node") return null;
         // grab all child elements with the class 'react-flow__handle'
         try {
-          const nodeEl = PID.selectNode(el.key);
+          const nodeEl = Diagram.selectNode(el.key);
           const nodeBox = box.construct(
             el.node.position,
             box.dims(box.construct(nodeEl)),
@@ -88,14 +79,14 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
             if (match == null)
               throw new Error(`[pid] - cannot find handle orientation`);
             const orientation = location.construct(match[1]) as location.Outer;
-            return new PID.HandleLayout(dist, orientation);
+            return new Diagram.HandleLayout(dist, orientation);
           });
-          return new PID.NodeLayout(el.key, nodeBox, handles);
+          return new Diagram.NodeLayout(el.key, nodeBox, handles);
         } catch (e) {
           console.log(e);
         }
       })
-      .filter((el) => el !== null) as PID.NodeLayout[];
+      .filter((el) => el !== null) as Diagram.NodeLayout[];
 
     return (
       <Align.Space
@@ -125,7 +116,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
             <Button.Icon
               tooltip="Align nodes vertically"
               onClick={() => {
-                const newPositions = PID.alignNodes(layouts, "x");
+                const newPositions = Diagram.alignNodes(layouts, "x");
                 dispatch(
                   setNodePositions({
                     layoutKey,
@@ -141,7 +132,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
             <Button.Icon
               tooltip="Align nodes horizontally"
               onClick={() => {
-                const newPositions = PID.alignNodes(layouts, "y");
+                const newPositions = Diagram.alignNodes(layouts, "y");
                 dispatch(
                   setNodePositions({
                     layoutKey,
@@ -173,7 +164,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
     );
   }
 
-  const C = PIDSymbols.registry[selected.props.variant];
+  const C = PID.SYMBOLS[selected.props.variant as PID.Variant];
 
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">
@@ -184,50 +175,4 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       />
     </Align.Space>
   );
-};
-
-export const fromCSSTransform = (transform: string): XY => {
-  const [x, y] = transform
-    .replace("translate(", "")
-    .replace(")", "")
-    .split(",")
-    .map((s) => parseFloat(s));
-  return { x, y };
-};
-
-export const alignItems = (elements: ElementInfo[]): void => {};
-
-export const alignItemsLeg = (elements: ElementInfo[]): PID.Node[] => {
-  const nodes = elements.filter((e) => e.type === "node") as NodeElementInfo[];
-  const edges = elements.filter((e) => e.type === "edge");
-  const htmlElements = nodes
-    .map((n) => document.querySelector(`[data-id="${n.key}"]`))
-    .filter((e) => e !== null) as HTMLElement[];
-
-  const handlePositions = htmlElements.map((e, i) => {
-    const node = nodes[i];
-    console.log(nodes[i].node.position, box.top(box.construct(e)));
-    const right = e.querySelector(".react-flow__handle-right");
-    // const left = e.querySelector(".react-flow__handle-left");
-    const els = [right].filter((e) => e !== null) as HTMLElement[];
-    // reduce average box.center
-    const avg =
-      els.reduce((acc, handle) => acc + box.center(box.construct(handle)).y, 0) /
-        els.length -
-      box.top(box.construct(e));
-    return avg + node.node.position.y;
-  });
-  const overallAverage =
-    handlePositions.reduce((acc, y, i) => acc + y) / htmlElements.length;
-  return nodes.map((n, i) => {
-    const delta = handlePositions[i] - n.node.position.y;
-    const next = {
-      ...n.node,
-      position: {
-        ...n.node.position,
-        y: overallAverage - delta,
-      },
-    };
-    return next;
-  });
 };

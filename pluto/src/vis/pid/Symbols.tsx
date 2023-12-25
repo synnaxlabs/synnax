@@ -20,12 +20,13 @@ import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
-import { Labeled, type LabelExtensionProps } from "@/vis/pid/symbols/Labeled";
-import { Primitives } from "@/vis/pid/symbols/primitives";
+import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
+import { Labeled, type LabelExtensionProps } from "@/vis/pid/Labeled";
+import { Primitives } from "@/vis/pid/primitives";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
-import "@/vis/pid/symbols/Symbols.css";
+import "@/vis/pid/Symbols.css";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showChip?: boolean;
@@ -73,8 +74,6 @@ export type SymbolProps<P extends object = UnknownRecord> = P & {
   symbolKey: string;
   position: xy.XY;
   selected: boolean;
-  editable: boolean;
-  zoom: number;
   onChange: (value: P) => void;
 };
 
@@ -175,7 +174,7 @@ export const SolenoidValve = Aether.wrap<SymbolProps<SolenoidValveProps>>(
     aetherKey,
     label,
     onChange,
-    orientation,
+    orientation = "left",
     normallyOpen,
     color,
     source,
@@ -559,7 +558,6 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     children,
     textColor,
     color,
-    zoom = 1,
     precision,
     width,
     telem,
@@ -570,6 +568,8 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
 
     const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
     const resizeRef = useResize(setBox, {});
+
+    const zoom = useInitialViewport().zoom;
 
     const adjustedBox = adjustBox(
       label?.orientation ?? "top",

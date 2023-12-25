@@ -1,3 +1,12 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { type FC } from "react";
 
 import { z } from "zod";
@@ -13,7 +22,7 @@ import {
   CommonNonToggleForm,
   ValueForm,
   ButtonForm,
-} from "@/vis/pid/symbols/Forms";
+} from "@/vis/pid/Forms";
 import {
   type ThreeWayValveProps,
   type SymbolProps,
@@ -72,7 +81,7 @@ import {
   Switch,
   SwitchPreview,
   type SwitchProps,
-} from "@/vis/pid/symbols/Symbols";
+} from "@/vis/pid/Symbols";
 
 export interface Spec<P extends object> {
   name: string;
@@ -510,7 +519,7 @@ const switch_: Spec<SwitchProps> = {
   }),
 };
 
-export const registry: Record<Variant, Spec<any>> = {
+export const SYMBOLS: Record<Variant, Spec<any>> = {
   value,
   threeWayValve,
   valve,

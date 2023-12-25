@@ -18,12 +18,12 @@ import { control } from "@/telem/control/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
+import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
-import { pid } from "@/vis/pid/aether";
 import { rule } from "@/vis/rule/aether";
 import { table } from "@/vis/table/aether";
 import { toggle } from "@/vis/toggle/aether";
@@ -42,7 +42,7 @@ export const render = (): void => {
     ...line.REGISTRY,
     ...value.REGISTRY,
     ...toggle.REGISTRY,
-    ...pid.REGISTRY,
+    ...diagram.REGISTRY,
     ...rule.REGISTRY,
     ...tooltip.REGISTRY,
     ...measure.REGISTRY,

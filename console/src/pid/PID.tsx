@@ -12,8 +12,6 @@ import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
 import {
-  PIDSymbols,
-  PID as Core,
   Control,
   Button,
   Haul,
@@ -24,6 +22,8 @@ import {
   useSyncedRef,
   Synnax,
   useAsyncEffect,
+  Diagram,
+  PID as Core,
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord, box, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
@@ -93,9 +93,7 @@ const SymbolRenderer = ({
   position,
   selected,
   layoutKey,
-  editable,
-  zoom,
-}: Core.SymbolProps & { layoutKey: string }): ReactElement | null => {
+}: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
   const el = useSelectElementProps(layoutKey, symbolKey);
   if (el == null) return null;
   const {
@@ -119,17 +117,14 @@ const SymbolRenderer = ({
     [dispatch, symbolKey, layoutKey, variant],
   );
 
-  const C = PIDSymbols.registry[variant];
-
-  const refZoom = useRef(zoom);
+  const C = Core.SYMBOLS[variant as Core.Variant];
 
   return (
     <C.Symbol
       position={position}
       selected={selected}
       onChange={handleChange}
-      editable={editable}
-      zoom={refZoom.current}
+      zoom={1}
       {...props}
     />
   );
@@ -146,28 +141,28 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const theme = Theming.use();
   const viewportRef = useSyncedRef(pid.viewport);
 
-  const handleEdgesChange: Core.PIDProps["onEdgesChange"] = useCallback(
+  const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
       dispatch(setEdges({ layoutKey, edges }));
     },
     [dispatch, layoutKey],
   );
 
-  const handleNodesChange: Core.PIDProps["onNodesChange"] = useCallback(
+  const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes) => {
       dispatch(setNodes({ layoutKey, nodes }));
     },
     [dispatch, layoutKey],
   );
 
-  const handleViewportChange: Core.PIDProps["onViewportChange"] = useCallback(
+  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
     (vp) => {
       dispatch(setViewport({ layoutKey, viewport: vp }));
     },
     [layoutKey],
   );
 
-  const handleEditableChange: Core.PIDProps["onEditableChange"] = useCallback(
+  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
     (cbk) => {
       dispatch(setEditable({ layoutKey, editable: cbk }));
     },
@@ -195,7 +190,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   );
 
   const elRenderer = useCallback(
-    (props: Core.ElementProps) => {
+    (props: Diagram.SymbolProps) => {
       return <SymbolRenderer layoutKey={layoutKey} {...props} />;
     },
     [layoutKey],
@@ -210,7 +205,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       const region = box.construct(ref.current);
       const OFFSET = 20;
       valid.forEach(({ key: variant, data }, i) => {
-        const spec = PIDSymbols.registry[variant as PIDSymbols.Variant];
+        const spec = Core.SYMBOLS[variant as Core.Variant];
         if (spec == null) return;
         const zoomXY = xy.construct(pid.viewport.zoom);
         const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
@@ -298,7 +293,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
         acquireTrigger={pid.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Core.PID
+        <Diagram.Diagram
           onViewportChange={handleViewportChange}
           edges={pid.edges}
           nodes={pid.nodes}
@@ -311,13 +306,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           onDoubleClick={handleDoubleClick}
           {...dropProps}
         >
-          <Core.NodeRenderer>{elRenderer}</Core.NodeRenderer>
-          <Core.Background />
-          <Core.Controls>
+          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+          <Diagram.Background />
+          <Diagram.Controls>
             {!pid.snapshot && (
-              <Core.ToggleEditControl disabled={pid.control === "acquired"} />
+              <Diagram.ToggleEditControl disabled={pid.control === "acquired"} />
             )}
-            <Core.FitViewControl />
+            <Diagram.FitViewControl />
             {!pid.snapshot && (
               <Button.ToggleIcon
                 value={pid.control === "acquired"}
@@ -333,8 +328,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 <Icon.Circle />
               </Button.ToggleIcon>
             )}
-          </Core.Controls>
-        </Core.PID>
+          </Diagram.Controls>
+        </Diagram.Diagram>
         <Control.Legend />
       </Control.Controller>
     </div>

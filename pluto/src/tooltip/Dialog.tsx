@@ -147,9 +147,7 @@ export const Dialog = ({
     }
     const window = box.construct(document.documentElement);
     const parse = location.location.safeParse(cornerOrLocation);
-    const root = box.construct(
-      getRenderRoot(document.getElementById(id) ?? document.body),
-    );
+    const root = box.construct(document.body);
 
     const chooseRemainingLocation = (first: location.Location): location.Location => {
       let preferences: location.Location[];
@@ -181,7 +179,9 @@ export const Dialog = ({
     }
 
     let pos = box.xyLoc(container, xyLoc);
+    console.log(pos);
     const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
+    console.log(xyLoc, translate, container);
     if (translate != null) pos = translate(pos, container);
 
     setState({

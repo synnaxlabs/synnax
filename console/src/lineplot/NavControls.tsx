@@ -91,6 +91,7 @@ export const NavControls = (): ReactElement => {
             <Text.Text level="small">Show Tooltip on Hover</Text.Text>
           </Align.Space>
         }
+        tooltipLocation="top"
       >
         <Icon.Tooltip />
       </Button.ToggleIcon>
@@ -98,7 +99,7 @@ export const NavControls = (): ReactElement => {
         ClickMode,
         { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
       >
-        value={control.clickMode as ClickMode}
+        value={control.clickMode!}
         onChange={handleClickModeChange}
         size="medium"
         bordered={false}
@@ -125,7 +126,7 @@ export const NavControls = (): ReactElement => {
             style={{}}
             size="medium"
             tooltip={entry.tooltip}
-            tooltipLocation={{ x: "right", y: "top" }}
+            tooltipLocation={{ x: "left", y: "top" }}
           >
             {entry.icon}
           </Button.Icon>
@@ -137,7 +138,7 @@ export const NavControls = (): ReactElement => {
         onChange={handleHoldChange}
         sharp
         uncheckedVariant="text"
-        tooltipLocation="right"
+        tooltipLocation={{ x: "right", y: "top" }}
         tooltip={
           <Align.Space direction="x" align="center">
             <Text.Text level="small">
@@ -147,7 +148,7 @@ export const NavControls = (): ReactElement => {
           </Align.Space>
         }
       >
-        <Icon.Pause />
+        {control.hold ? <Icon.Play /> : <Icon.Pause />}
       </Button.ToggleIcon>
     </>
   );
