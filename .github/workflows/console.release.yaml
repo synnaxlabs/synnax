@@ -131,7 +131,9 @@ jobs:
 
       - name: Build
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:console
+        run: |
+          export NODE_OPTIONS="--max_old_space_size=4096"
+          pnpm build:console
 
       - uses: tauri-apps/tauri-action@v0
         if: steps.filter.outputs.changed == 'true'
