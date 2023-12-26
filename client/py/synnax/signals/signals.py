@@ -9,65 +9,91 @@
 
 from typing import Callable
 from multiprocessing import Pool
-
-import numpy as np
+from functools import wraps
 
 from synnax import framer
-from synnax import Synnax
 from synnax.channel.payload import ChannelParams, ChannelKey, ChannelName
 from synnax.state import State, LatestState
+from synnax.channel.retrieve import ChannelRetriever
 
-# At the end of the day, everything can be characterized by:
-# 1. A filter that takes in one or more channel values and determines
-# whether a workflow should be executed.
-# 2. A workflow that takes in some operational context and executes in
-# a separate thread or process.
-
-
-_InternalHandler = Callable[[State], Callable[[Synnax], None] | None]
+_InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
 
 class Registry:
+    __handlers: list[_InternalHandler]
+    __channels: set[ChannelKey | ChannelName]
+    __frame_client: framer.Client
+    __channel_retriever: ChannelRetriever
+
+    def __init__(
+        self,
+        frame_client: framer.Client,
+        channels: ChannelRetriever
+    ):
+        self.__handlers = list()
+        self.__channels = set()
+        self.__frame_client = frame_client
+        self.__channel_retriever = channels
+
     def on(
         self,
         channels: ChannelParams,
         filter_f: Callable[[LatestState], bool],
-    ):
-        ...
+    ) -> Callable[[Callable[[LatestState], None]], Callable[[], None] | None]:
+        self.__channels.update(channels)
+
+        def decorator(f: Callable[[LatestState], None]) -> None:
+            @wraps(f)
+            def wrapper(state: State) -> Callable[[], None] | None:
+                if filter_f(LatestState(state)):
+                    return f
+                return None
+
+            self.__handlers.append(wrapper)
+            return wrapper
+
+        return decorator
+
+    async def process(self) -> None:
+        await Scheduler(
+            channels=self.__channels,
+            handlers=self.__handlers,
+            frame_client=self.__frame_client,
+            channel_retriever=self.__channel_retriever,
+        ).start()
 
 
 class Scheduler:
     __pool: Pool
     __streamer: framer.AsyncStreamer | None = None
     __handlers: list[_InternalHandler]
-    __channels: set[ChannelKey | ChannelName]
-    __client: Synnax
+    __channels: ChannelParams
     __state: State
+    __frame_client: framer.Client
+    __channel_retriever: ChannelRetriever
 
-    def __init__(self, client: Synnax):
-        self.__pool = Pool()
-        self.__handlers = list()
-        self.__channels = set()
-        self.__client = client
+    def __init__(
+        self,
+        channels: ChannelParams,
+        handlers: list[_InternalHandler],
+        frame_client: framer.Client,
+        channel_retriever: ChannelRetriever,
+    ):
+        self.__frame_client = frame_client
+        self.__channels = channels
+        self.__handlers = handlers
+        self.__channel_retriever = channel_retriever
+        self.__state = State(channel_retriever)
 
     async def start(self):
-        self.__streamer = await self.__client.new_async_streamer(
-            list(self.__channels),
-        )
+        self.__streamer = await self.__frame_client.new_async_streamer(
+            list(self.__channels))
         async for frame in self.__streamer:
             self.__state.update(frame)
             for handler in self.__handlers:
                 res = handler(self.__state)
                 if res is not None:
-                    self.__pool.apply_async(res, (self.__client,))
+                    res(LatestState(self.__state))
 
     def stop(self):
         ...
-
-    def add(
-        self,
-        channels: ChannelParams,
-        handler: _InternalHandler,
-    ):
-        self.__handlers.append(handler)
-        self.__channels.update(channels.keys)

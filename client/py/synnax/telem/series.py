@@ -67,7 +67,7 @@ class Series(Payload):
         if self.data_type.has_fixed_density:
             return self.data_type.density.sample_count(len(self.data))
 
-        self.__len_cache = self.data.count(b"\n") + 1
+        self.__len_cache = self.data.count(b"\n")
         return self.__len_cache
 
     def __init__(
@@ -93,9 +93,9 @@ class Series(Payload):
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             if data_type == DataType.JSON:
-                data_ = b"\n".join([json.dumps(d).encode("utf-8") for d in data])
+                data_ = b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
             elif data_type == DataType.STRING:
-                data_ = b"\n".join([d.encode("utf-8") for d in data])
+                data_ = b"\n".join([d.encode("utf-8") for d in data]) + b"\n"
             elif data_type == DataType.UUID:
                 data_ = b"".join(d.bytes for d in data)
             else:
