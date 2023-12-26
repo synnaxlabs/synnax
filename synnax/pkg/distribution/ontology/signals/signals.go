@@ -12,10 +12,10 @@ package cdc
 import (
 	"bytes"
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -27,7 +27,7 @@ import (
 
 func Propagate(
 	ctx context.Context,
-	prov *cdc.Provider,
+	prov *signals.Provider,
 	otg *ontology.Ontology,
 ) (io.Closer, error) {
 	resourceObserver := observe.Translator[iter.Nexter[schema.Change], []change.Change[[]byte, struct{}]]{
@@ -41,7 +41,7 @@ func Propagate(
 			})
 		},
 	}
-	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
 		Name:       "ontology_resource",
 		Observable: resourceObserver,
 		Set:        channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT},
@@ -61,7 +61,7 @@ func Propagate(
 			})
 		},
 	}
-	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, cdc.ObservableConfig{
+	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
 		Name:       "ontology_relationship",
 		Observable: relationshipObserver,
 		Set:        channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},

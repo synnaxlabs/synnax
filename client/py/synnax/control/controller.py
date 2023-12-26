@@ -36,7 +36,7 @@ class State:
 
     def __init__(self, retrieve: ChannelRetriever):
         self.__retriever = retrieve
-        self.value = {}
+        self.value = dict()
 
     def update(self, value: framer.Frame):
         for i, key in enumerate(value.columns):

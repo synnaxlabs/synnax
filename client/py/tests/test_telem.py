@@ -6,7 +6,7 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -372,6 +372,9 @@ class TestDataType:
             ("int32", DataType.INT32),
             ("int64", DataType.INT64),
             (np.float32(1), DataType.FLOAT32),
+            ({"a": 1}, DataType.JSON),
+            (["a"], DataType.STRING),
+            (uuid.uuid4(), DataType.UUID),
         ],
     )
     def test_construction(self, crude: CrudeDataType, expected: DataType):

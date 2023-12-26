@@ -166,6 +166,7 @@ class Frame:
             return self.to_df()[key]
         return self.series[self.columns.index(key)]  # type: ignore
 
+
     def get(
         self, key: ChannelKey | ChannelName, default: Series | None = None
     ) -> Series | None:

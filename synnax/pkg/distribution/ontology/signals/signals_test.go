@@ -62,7 +62,7 @@ func (s *changeService) RetrieveResource(ctx context.Context, key string, tx gor
 	return e, nil
 }
 
-var _ = Describe("CDC", Ordered, func() {
+var _ = Describe("Signals", Ordered, func() {
 	var (
 		builder *mock.Builder
 		ctx     = context.Background()
