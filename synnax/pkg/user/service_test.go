@@ -53,7 +53,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(errors.Is(w.Create(ctx, u), query.UniqueViolation)).To(BeTrue())
 		})
 	})
-	Describe("Rename", func() {
+	Describe("Update", func() {
 		It("Should update the user", func() {
 			w := svc.NewWriter(nil)
 			u := user.User{Username: "test2"}

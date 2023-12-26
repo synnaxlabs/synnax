@@ -29,7 +29,7 @@ var _ = Describe("Writer", func() {
 			Expect(ws.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Rename", func() {
+	Describe("Update", func() {
 		It("Should rename a workspace", func() {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())

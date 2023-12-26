@@ -25,6 +25,7 @@ import (
 // Range (short for time range) is an interesting, user defined regions of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
+	// tx is the transaction used to execute KV operations specific to this range
 	tx  gorp.Tx
 	otg *ontology.Ontology
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
@@ -34,6 +35,8 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Labels is the keys of the labels assigned to the range.
+	Labels []uuid.UUID `json:"labels" msgpack:"labels"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
