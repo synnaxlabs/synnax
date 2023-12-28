@@ -12,11 +12,11 @@
 // using the standard channel streaming pipeline, allowing Synnax users to execute
 // arbitrary code in response to changes a cluster's data and metadata.
 //
-// Users of this library should typically use the SubscribeToGorp function, which provide CDC
+// Users of this library should typically use the SubscribeToGorp function, which provide Signals
 // functionality for changes to a gorp compatible key-value store with a simple
 // configuration. The most common of these is the GorpConfigUUID function, which
 // provides a config for propagating sets and deletes for UUID keyed gorp entries.
-package cdc
+package signals
 
 import (
 	"github.com/synnaxlabs/alamos"
@@ -27,12 +27,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Provider implements the core functionality for opening CDC pipelines. It should be
-// passed around as an argument to any services that need to open CDC pipelines. It is
+// Provider implements the core functionality for opening signal pipelines. It should be
+// passed around as an argument to any services that need to open signal pipelines. It is
 // stateless, and does not need to be closed.
 type Provider struct{ Config }
 
-// Config is the configuration for opening the core CDC Provider.
+// Config is the configuration for opening the core Signals Provider.
 type Config struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL]
@@ -48,13 +48,13 @@ type Config struct {
 
 var (
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for the CDC Provider.
+	// DefaultConfig is the default configuration for the Signals Provider.
 	DefaultConfig = Config{}
 )
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("CDC")
+	v := validate.New("Signals")
 	validate.NotNil(v, "Channel", c.Channel)
 	validate.NotNil(v, "Framer", c.Framer)
 	return v.Error()
@@ -68,7 +68,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// New creates a new CDC Provider using the given configuration. This service is
+// New creates a new Signals Provider using the given configuration. This service is
 // stateless, and does not need to be closed.
 func New(cfgs ...Config) (*Provider, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)

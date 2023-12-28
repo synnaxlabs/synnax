@@ -225,7 +225,6 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             key: e.key,
             tagKey,
             entry: e,
-            color: "var(--pluto-border-color)",
             onClose: () => onSelect?.(e.key),
             onDragStart: (ev) => onTagDragStart?.(ev, e.key),
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
@@ -241,7 +240,7 @@ interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<
   key: K;
   tagKey: keyof E | ((e: E) => string | number);
   entry: E;
-  color: Color.Crude;
+  color?: Color.Crude;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;

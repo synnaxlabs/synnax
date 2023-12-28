@@ -217,7 +217,7 @@ const synnaxBase: ThemeSpec = {
     p: {
       size: 2.25,
       weight: "regular",
-      lineHeight: 2.5,
+      lineHeight: 3.25,
     },
     small: {
       size: 2,

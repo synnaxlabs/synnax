@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -54,6 +55,7 @@ type Config struct {
 	PID           *pid.Service
 	LinePlot      *lineplot.Service
 	Token         *token.Service
+	Label         *label.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
@@ -82,6 +84,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "pid", c.PID)
 	validate.NotNil(v, "insecure", c.Insecure)
+	validate.NotNil(v, "lineplot", c.LinePlot)
+	validate.NotNil(v, "label", c.Label)
 	return v.Error()
 }
 
@@ -104,6 +108,7 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.PID = override.Nil(c.PID, other.PID)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
+	c.Label = override.Nil(c.Label, other.Label)
 	return c
 }
 
@@ -165,6 +170,12 @@ type Transport struct {
 	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
+	// LABEL
+	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
+	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
+	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
+	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
+	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -181,6 +192,7 @@ type API struct {
 	Workspace    *WorkspaceService
 	PID          *PIDService
 	LinePlot     *LinePlotService
+	Label        *LabelService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -269,6 +281,13 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// LABEL
+		t.LabelCreate,
+		t.LabelRetrieve,
+		t.LabelDelete,
+		t.LabelSet,
+		t.LabelRemove,
 	)
 
 	// AUTH
@@ -335,6 +354,13 @@ func (a *API) BindTo(t Transport) {
 	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
 	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
+
+	// LABEL
+	t.LabelCreate.BindHandler(a.Label.Create)
+	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
+	t.LabelDelete.BindHandler(a.Label.Delete)
+	t.LabelSet.BindHandler(a.Label.Set)
+	t.LabelRemove.BindHandler(a.Label.Remove)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -354,5 +380,6 @@ func New(configs ...Config) (API, error) {
 	api.Workspace = NewWorkspaceService(api.provider)
 	api.PID = NewPIDService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
+	api.Label = NewLabelService(api.provider)
 	return api, nil
 }

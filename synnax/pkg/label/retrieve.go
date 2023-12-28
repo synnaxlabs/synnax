@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -27,7 +28,7 @@ type Retrieve struct {
 	searchTerm string
 }
 
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
+func NewRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
 	return Retrieve{
 		baseTx: tx,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
@@ -36,6 +37,10 @@ func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
 }
 
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
+
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
+
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Entry binds the Label that Retrieve will fill results into. If multiple results match
 // the query, only the first result will be filled into the provided Label.
@@ -70,4 +75,25 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		r.gorp.WhereKeys(keys...)
 	}
 	return r.gorp.Exec(ctx, tx)
+}
+
+func (s *Service) RetrieveFor(ctx context.Context, id ontology.ID, tx gorp.Tx) ([]Label, error) {
+	var labelResources []ontology.Resource
+	tx = gorp.OverrideTx(s.DB, tx)
+	if err := s.Ontology.NewRetrieve().
+		WhereIDs(id).
+		TraverseTo(Labels).
+		Entries(&labelResources).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	keys, err := KeysFromOntologyIds(schema.ResourceIDs(labelResources))
+	if err != nil {
+		return nil, err
+	}
+	labels := make([]Label, 0, len(keys))
+	return labels, NewRetrieve(tx, s.Ontology).
+		WhereKeys(keys...).
+		Entries(&labels).
+		Exec(ctx, tx)
 }

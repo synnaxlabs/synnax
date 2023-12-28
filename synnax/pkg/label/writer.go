@@ -37,7 +37,7 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(l.Key)
-	if err = w.otg.DeleteResource(ctx, otgID); err != nil {
+	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
@@ -79,6 +79,44 @@ func (w Writer) Delete(
 		return
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))
+}
+
+func (w Writer) DeleteMany(
+	ctx context.Context,
+	ks []uuid.UUID,
+) (err error) {
+	for _, k := range ks {
+		if err = w.Delete(ctx, k); err != nil {
+			return
+		}
+	}
+	return err
+}
+
+func (w Writer) Label(
+	ctx context.Context,
+	target ontology.ID,
+	labels []uuid.UUID,
+) error {
+	for _, label := range labels {
+		if err := w.otg.DefineRelationship(ctx, target, LabeledBy, OntologyID(label)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) RemoveLabel(
+	ctx context.Context,
+	target ontology.ID,
+	labels []uuid.UUID,
+) error {
+	for _, label := range labels {
+		if err := w.otg.DeleteRelationship(ctx, target, LabeledBy, OntologyID(label)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w Writer) validate(l Label) error {

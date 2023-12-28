@@ -226,15 +226,18 @@ func (r Retrieve) retrieveEntities(
 		if res.ID.IsZero() {
 			return nil, query.NotFound
 		}
-		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if err != nil {
-			return nil, err
-		}
-		if !includeFieldData {
-			res.Data = nil
-		}
-		if !includeSchema {
-			res.Schema = nil
+		var err error
+		if includeFieldData || includeSchema {
+			res, err = r.registrar.retrieveResource(ctx, res.ID, tx)
+			if err != nil {
+				return nil, err
+			}
+			if !includeFieldData {
+				res.Data = nil
+			}
+			if !includeSchema {
+				res.Schema = nil
+			}
 		}
 		entries.Set(j, res)
 	}

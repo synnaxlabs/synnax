@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -137,7 +138,7 @@ func start(cmd *cobra.Command) {
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			CDC:      dist.CDC,
+			Signals:  dist.Signals,
 		})
 		if err != nil {
 			return err
@@ -151,6 +152,15 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		linePlotSvc, err := lineplot.NewService(lineplot.Config{DB: gorpDB, Ontology: dist.Ontology})
+		if err != nil {
+			return err
+		}
+		labelSvc, err := label.OpenService(ctx, label.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		})
 		if err != nil {
 			return err
 		}
@@ -178,6 +188,7 @@ func start(cmd *cobra.Command) {
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
+			Label:           labelSvc,
 		})
 		if err != nil {
 			return err

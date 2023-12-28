@@ -15,6 +15,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
@@ -52,6 +53,7 @@ export default class Synnax {
   readonly ontology: ontology.Client;
   readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
+  readonly labels: label.Client;
   static readonly connectivity = connection.Checker;
 
   /**
@@ -104,6 +106,7 @@ export default class Synnax {
       chRetriever,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
+    this.labels = new label.Client(this.transport.unary);
   }
 
   close(): void {

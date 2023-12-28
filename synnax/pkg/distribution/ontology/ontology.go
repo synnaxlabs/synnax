@@ -198,7 +198,7 @@ func (o *Ontology) RegisterService(s Service) {
 
 	d1 := s.OnChange(o.ResourceObserver.Notify)
 
-	// Set up a change handler to index new resources.
+	// Label up a change handler to index new resources.
 	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {

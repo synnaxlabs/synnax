@@ -11,15 +11,27 @@ import { type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { List as Core, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
+import {
+  List as Core,
+  Menu as PMenu,
+  Divider,
+  Ranger,
+  Tag,
+  CSS as PlutoCSS,
+} from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { defineWindowLayout } from "@/range/Define";
 import type { Range } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { remove, setActive } from "@/range/slice";
+
+import "@/range/accordionEntry.css";
 
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
@@ -109,13 +121,44 @@ export const List = (): ReactElement => {
             onChange={([key]: string[]) => handleSelect(key)}
             allowMultiple={false}
           />
-          <Core.Column.Header columns={listColumns} />
-          <Core.Core.Virtual
-            itemHeight={30}
-            style={{ height: "100%", overflowX: "hidden" }}
-          >
-            {Core.Column.Item}
-          </Core.Core.Virtual>
+          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+            {({ entry, selected, onSelect }) => {
+              return (
+                <Align.Space
+                  direction="y"
+                  onClick={() => onSelect(entry.key)}
+                  className={CSS(CSS.B("range-list-item"), PlutoCSS.selected(selected))}
+                >
+                  <Text.Text level="p" style={{ fontWeight: "450" }}>
+                    {entry.name}
+                  </Text.Text>
+                  <Ranger.TimeRangeChip timeRange={entry.timeRange} />
+                  <Align.Space
+                    direction="x"
+                    size="small"
+                    wrap
+                    style={{
+                      overflowX: "auto",
+                      height: "fit-content",
+                    }}
+                  >
+                    <Tag.Tag level="small" color="var(--pluto-secondary-z)">
+                      Limelight
+                    </Tag.Tag>
+                    <Tag.Tag level="small" color="var(--pluto-error-z)">
+                      Prop
+                    </Tag.Tag>
+                    <Tag.Tag level="small" color="blue">
+                      TPC
+                    </Tag.Tag>
+                    <Tag.Tag level="small" color="orange">
+                      GSE Context
+                    </Tag.Tag>
+                  </Align.Space>
+                </Align.Space>
+              );
+            }}
+          </Core.Core>
         </Core.List>
       </PMenu.ContextMenu>
     </div>

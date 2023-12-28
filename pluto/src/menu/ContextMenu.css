@@ -12,9 +12,11 @@
 .pluto-menu-context {
     position: fixed;
     z-index: 2001;
-    border: var(--pluto-border);
-    background-color: var(--pluto-gray-l1);
-    border-radius: var(--pluto-border-radius);
+    border: var(--pluto-border-l4);
+    backdrop-filter: blur(2px);
+    background-color: var(--pluto-gray-l0-30);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 1.5rem;
     padding: 1rem;
 }
 

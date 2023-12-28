@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -35,8 +36,6 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the range of time occupied by the range.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	// Labels is the keys of the labels assigned to the range.
-	Labels []uuid.UUID `json:"labels" msgpack:"labels"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
@@ -141,4 +140,24 @@ func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) 
 		aliases[a.Channel] = a.Alias
 	}
 	return aliases, nil
+}
+
+func (r Range) SetLabels(ctx context.Context, labels ...uuid.UUID) error {
+	w := r.otg.NewWriter(r.tx)
+	for _, l := range labels {
+		if err := w.DefineRelationship(ctx, OntologyID(r.Key), label.LabeledBy, label.OntologyID(l)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r Range) DeleteLabels(ctx context.Context, labels ...uuid.UUID) error {
+	w := r.otg.NewWriter(r.tx)
+	for _, l := range labels {
+		if err := w.DeleteRelationship(ctx, OntologyID(r.Key), label.LabeledBy, label.OntologyID(l)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cdc_test
+package signals_test
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/gorp"

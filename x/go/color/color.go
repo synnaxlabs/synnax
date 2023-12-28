@@ -12,11 +12,7 @@
 package color
 
 // Color is an alpha-valued hexadecimal color represented as bytes.
-type Color [4]byte
+type Color string
 
 // IsZero returns true if the color is the zero value for its type.
-func (c Color) IsZero() bool { return c == Color{} }
-
-func (c Color) String() string {
-	return "#" + string(c[:])
-}
+func (c Color) IsZero() bool { return len(c) == 0 }

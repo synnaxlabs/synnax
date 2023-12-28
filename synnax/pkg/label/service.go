@@ -13,9 +13,9 @@ package label
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
@@ -27,7 +27,7 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	CDC      *cdc.Provider
+	Signals  *signals.Provider
 }
 
 var (
@@ -49,14 +49,14 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.CDC = override.Nil(c.CDC, other.CDC)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
 type Service struct {
 	Config
-	cdc   io.Closer
-	group group.Group
+	signals io.Closer
+	group   group.Group
 }
 
 const groupName = "Labels"
@@ -72,8 +72,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-	if cfg.CDC != nil {
-		s.cdc, err = cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Label](cfg.DB))
+	if cfg.Signals != nil {
+		s.signals, err = signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigUUID[Label](cfg.DB))
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +81,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	return s, err
 }
 
-func (s *Service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.Ontology) }
+func (s *Service) NewRetrieve() Retrieve { return NewRetrieve(s.DB, s.Ontology) }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{tx: tx, otg: s.Ontology.NewWriter(tx), group: s.group}

@@ -42,7 +42,7 @@ export const Toolbar: Layout.NavDrawerItem = {
   icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Workspace",
-  initialSize: 350,
-  minSize: 250,
-  maxSize: 500,
+  initialSize: 300,
+  minSize: 225,
+  maxSize: 400,
 };

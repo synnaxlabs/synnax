@@ -24,7 +24,7 @@ func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
 	var (
 		curDataSize, index               int             = -1, 0
 		startTime, endTime               telem.TimeStamp = 0, 0
-		byteArraySize                    int             = 1 // Set to one to handle start array
+		byteArraySize                    int             = 1 // Label to one to handle start array
 		encoded                          []byte
 		sizeFlag, alignFlag, channelFlag uint8 = 1, 1, 0
 	)

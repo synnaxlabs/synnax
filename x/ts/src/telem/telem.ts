@@ -328,6 +328,11 @@ export class TimeStamp extends Number implements Stringer {
     return remainder(this, divisor);
   }
 
+  /** @returns true if the day portion TimeStamp is today, false otherwise. */
+  get isToday(): boolean {
+    return this.truncate(TimeSpan.DAY).equals(TimeStamp.now().truncate(TimeSpan.DAY));
+  }
+
   truncate(span: TimeSpan | TimeStamp): TimeStamp {
     return this.sub(this.remainder(span));
   }

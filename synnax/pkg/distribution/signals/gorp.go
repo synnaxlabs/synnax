@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cdc
+package signals
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-// GorpConfig is the configuration for opening a CDC pipeline that subscribes
+// GorpConfig is the configuration for opening a Signals pipeline that subscribes
 // changes to a particular entry type in a gorp.DB. It's not typically necessary
 // to instantiate this configuration directly, instead use a helper function
 // such as GorpConfigUUID.
@@ -92,7 +92,7 @@ func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// GorpConfigUUID is a helper function for creating a CDC pipeline that propagates
+// GorpConfigUUID is a helper function for creating a Signals pipeline that propagates
 // changes to UUID keyed gorp entries written to the provided DB. The returned
 // configuration should be passed to SubscribeToGorp.
 func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
@@ -115,9 +115,9 @@ func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
 	}
 }
 
-// SubscribeToGorp opens a CDC pipeline that subscribes to the sets and deletes of a
+// SubscribeToGorp opens a Signals pipeline that subscribes to the sets and deletes of a
 // particular entry type in the configured gorp.DB. The returned io.Closer should be
-// closed to stop the CDC pipeline.
+// closed to stop the Signals pipeline.
 func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	svc *Provider,

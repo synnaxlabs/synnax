@@ -14,8 +14,14 @@ import { type Key, type Params, type Name } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { type label } from "@/label";
+import { type Label } from "@/label/payload";
+import { ontology } from "@/ontology";
 import { type Alias, type Aliaser } from "@/ranger/alias";
 import { type KV } from "@/ranger/kv";
+
+const ontologyID = (key: string): ontology.ID =>
+  new ontology.ID({ type: "range", key });
 
 export class Range {
   key: string;
@@ -25,6 +31,7 @@ export class Range {
   readonly channels: ChannelRetriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
+  private readonly labelClient: label.Client;
 
   constructor(
     name: string,
@@ -34,6 +41,7 @@ export class Range {
     _kv: KV,
     _aliaser: Aliaser,
     _channels: ChannelRetriever,
+    _labelClient: label.Client,
   ) {
     this.key = key;
     this.name = name;
@@ -42,6 +50,7 @@ export class Range {
     this.kv = _kv;
     this.aliaser = _aliaser;
     this.channels = _channels;
+    this.labelClient = _labelClient;
   }
 
   async setAlias(channel: Key | Name, alias: string): Promise<void> {
@@ -70,5 +79,17 @@ export class Range {
 
   async read(channels: Params): Promise<Series | framer.Frame> {
     return await this.frameClient.read(this.timeRange, channels);
+  }
+
+  async labels(): Promise<Label[]> {
+    return await this.labelClient.retrieveFor(ontologyID(this.key));
+  }
+
+  async addLabel(...labels: label.Key[]): Promise<void> {
+    await this.labelClient.label(ontologyID(this.key), labels);
+  }
+
+  async removeLabel(...labels: label.Key[]): Promise<void> {
+    await this.labelClient.removeLabels(ontologyID(this.key), labels);
   }
 }

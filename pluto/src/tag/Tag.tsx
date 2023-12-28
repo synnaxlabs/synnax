@@ -31,18 +31,19 @@ export const Tag = ({
   children = "",
   size = "medium",
   variant = "filled",
-  color = "var(--pluto-primary-z)",
+  color,
   icon,
   onClose,
-  style,
   onDragStart,
   ...props
 }: TagProps): ReactElement => {
   const cssColor = Color.cssString(color);
+  if (icon == null && color != null) icon = <Icon.Circle fill={cssColor} />;
   const closeIcon =
     onClose == null ? undefined : (
       <Button.Icon
         aria-label="close"
+        size={size}
         className={CSS.BE("tag", "close")}
         onClick={(e) => {
           e.stopPropagation();
@@ -54,18 +55,13 @@ export const Tag = ({
     );
   return (
     <Text.WithIcon
-      endIcon={closeIcon}
       startIcon={icon}
-      className={CSS.B("tag")}
+      endIcon={closeIcon}
+      className={CSS(CSS.B("tag"), onClose != null && CSS.BM("tag", "closeable"))}
       level={Text.ComponentSizeLevels[size]}
       noWrap
+      align="center"
       onDragStart={onDragStart}
-      style={{
-        border: `var(--pluto-border-width) solid ${cssColor ?? ""}`,
-        backgroundColor: variant === "filled" ? cssColor : "transparent",
-        cursor: onClose == null ? "default" : "pointer",
-        ...style,
-      }}
       {...props}
     >
       {children}

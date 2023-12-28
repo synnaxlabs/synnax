@@ -52,7 +52,7 @@ func newResource(l Label) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(l.Key), l.Name)
 	schema.Set(e, "key", l.Key.String())
 	schema.Set(e, "name", l.Name)
-	schema.Set(e, "color", l.Color.String())
+	schema.Set(e, "color", string(l.Color))
 	return e
 }
 
@@ -87,3 +87,12 @@ func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	n, err := gorp.WrapReader[uuid.UUID, Label](s.DB).OpenNexter()
 	return iter.NexterCloserTranslator[Label, schema.Resource]{Wrap: n, Translate: newResource}, err
 }
+
+var (
+	Labels = ontology.Traverser{
+		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
+			return rel.Type == LabeledBy && rel.From == res.ID
+		},
+		Direction: ontology.Forward,
+	}
+)

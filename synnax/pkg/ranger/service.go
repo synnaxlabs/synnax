@@ -12,10 +12,10 @@ package ranger
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -32,7 +32,7 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	CDC      *cdc.Provider
+	Signals  *signals.Provider
 }
 
 var (
@@ -54,14 +54,14 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.CDC = override.Nil(c.CDC, other.CDC)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
 type Service struct {
 	Config
 	group                 group.Group
-	cdc                   io.Closer
+	shutdownSignals       io.Closer
 	mu                    sync.Mutex
 	activeRange           uuid.UUID
 	activeRangeObservable observe.Observer[[]changex.Change[[]byte, struct{}]]
@@ -81,20 +81,20 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s := &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
-	if cfg.CDC != nil {
-		rangeCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+	if cfg.Signals != nil {
+		rangeCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigUUID[Range](cfg.DB))
 		if err != nil {
 			return nil, err
 		}
-		aliasCDCCfg := cdc.GorpConfigString[alias](cfg.DB)
+		aliasCDCCfg := signals.GorpConfigString[alias](cfg.DB)
 		aliasCDCCfg.SetName = "sy_range_alias_set"
 		aliasCDCCfg.DeleteName = "sy_range_alias_delete"
-		aliasCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, aliasCDCCfg)
+		aliasCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, aliasCDCCfg)
 		if err != nil {
 			return nil, err
 		}
 		s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
-		activeRangeCDC, err := cfg.CDC.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		activeRangeCDC, err := cfg.Signals.SubscribeToObservable(ctx, signals.ObservableConfig{
 			Name:       "sy_active_range",
 			Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
 			Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
@@ -103,14 +103,14 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.cdc = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+		s.shutdownSignals = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
 	}
 	return s, err
 }
 
 func (s *Service) Close() error {
-	if s.cdc != nil {
-		return s.cdc.Close()
+	if s.shutdownSignals != nil {
+		return s.shutdownSignals.Close()
 	}
 	return nil
 }
@@ -133,7 +133,7 @@ func (s *Service) SetActiveRange(ctx context.Context, key uuid.UUID, tx gorp.Tx)
 	}
 	s.mu.Lock()
 	s.activeRange = key
-	if s.CDC != nil {
+	if s.Signals != nil {
 		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
 			Variant: changex.Set,
 			Key:     key[:],
@@ -153,7 +153,7 @@ func (s *Service) RetrieveActiveRange(ctx context.Context, tx gorp.Tx) (r Range,
 func (s *Service) ClearActiveRange(ctx context.Context) {
 	s.mu.Lock()
 	key := s.activeRange
-	if s.CDC != nil {
+	if s.Signals != nil {
 		s.activeRangeObservable.Notify(ctx, []changex.Change[[]byte, struct{}]{{
 			Variant: changex.Delete,
 			Key:     key[:],

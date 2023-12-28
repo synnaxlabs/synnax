@@ -79,7 +79,7 @@ func (s *ChannelService) Create(
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
-		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
+		res.Channels = translateChannelsForward(translated)
 		return err
 	})
 }

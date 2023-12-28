@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cdc
+package signals
 
 import (
 	"context"
@@ -29,11 +29,11 @@ import (
 	"io"
 )
 
-// ObservableConfig is the configuration for opening a CDC pipeline that subscribes
+// ObservableConfig is the configuration for opening a Signals pipeline that subscribes
 // to the provided observable and writes changes to the provided channels. Higher
-// level CDC pipeline should be preferred, such as the SubscribeToGorp.
+// level Signals pipeline should be preferred, such as the SubscribeToGorp.
 type ObservableConfig struct {
-	// Name is an optional name for the CDC pipeline, used for debugging purposes.
+	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	Name string
 	// Set is the channel used to propagate set operations. Only Name and SetDataType
 	// need to be provided. The config will automatically set Leaseholder to Free
@@ -51,19 +51,19 @@ type ObservableConfig struct {
 var (
 	_ config.Config[ObservableConfig] = ObservableConfig{}
 	// DefaultObservableConfig is the default configuration for the SubscribeToObservable
-	// CDC pipeline.
+	// Signals pipeline.
 	DefaultObservableConfig = ObservableConfig{}
 )
 
 const (
-	nonVirtual = "CDC can only work with virtual free channels. Received false for %s"
-	nonFree    = "CDC can only work with free channels. Received leaseholder %s that is not equal to Free"
+	nonVirtual = "Signals can only work with virtual free channels. Received false for %s"
+	nonFree    = "Signals can only work with free channels. Received leaseholder %s that is not equal to Free"
 )
 
 // Validate implements config.Config.
 func (c ObservableConfig) Validate() error {
 	v := validate.New("cdc.Core")
-	validate.NotEmptyString(v, "Set.Name", c.Set.Name)
+	validate.NotEmptyString(v, "Label.Name", c.Set.Name)
 	validate.NotEmptyString(v, "Delete.Name", c.Delete.Name)
 	v.Ternaryf(!c.Set.Free(), nonFree, c.Set.Leaseholder)
 	v.Ternaryf(!c.Delete.Free(), nonFree, c.Delete.Leaseholder)
@@ -86,7 +86,7 @@ func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
 	return c
 }
 
-// SubscribeToObservable opens a new CDC pipeline that subscribes to the configured
+// SubscribeToObservable opens a new Signals pipeline that subscribes to the configured
 // Observable and writes changes to the configured channels. The returned io.Closer
 // can be used to close the pipeline when done.
 func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...ObservableConfig) (io.Closer, error) {

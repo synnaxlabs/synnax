@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cdc_test
+package signals_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
@@ -29,7 +29,7 @@ import (
 var _ = Describe("Observable", Ordered, Serial, func() {
 	var (
 		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
-		cfg           cdc.ObservableConfig
+		cfg           signals.ObservableConfig
 		closer        io.Closer
 		streamer      framer.Streamer
 		requests      confluence.Inlet[framer.StreamerRequest]
@@ -38,12 +38,12 @@ var _ = Describe("Observable", Ordered, Serial, func() {
 	)
 	BeforeEach(func() {
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
-		cfg = cdc.ObservableConfig{
+		cfg = signals.ObservableConfig{
 			Set:        channel.Channel{Name: "observable_set", DataType: telem.UUIDT},
 			Delete:     channel.Channel{Name: "observable_delete", DataType: telem.UUIDT},
 			Observable: obs,
 		}
-		closer = MustSucceed(dist.CDC.SubscribeToObservable(ctx, cfg))
+		closer = MustSucceed(dist.Signals.SubscribeToObservable(ctx, cfg))
 		Expect(dist.Channel.NewRetrieve().
 			WhereNames("observable_set").
 			Entry(&cfg.Set).
