@@ -16,6 +16,7 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
@@ -44,6 +45,7 @@ const layoutRenderers = {
   vis: Vis.LayoutSelector,
   mosaic: Layout.Mosaic,
   createWorkspace: Workspace.Create,
+  [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
   [Table.LAYOUT_TYPE]: Table.Table,

@@ -10,18 +10,25 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 
-import { type Key, type Label } from "@/label/payload";
+import { type framer } from "@/framer";
+import { type Key, type Label, labelZ } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
 import { Writer, type NewLabelPayload } from "@/label/writer";
 import { type ontology } from "@/ontology";
+import { signals } from "@/signals";
+
+const LABEL_SET_NAME = "sy_label_set";
+const LABEL_DELETE_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
   private readonly retriever: Retriever;
   private readonly writer: Writer;
+  private readonly frameClient: framer.Client;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, frameClient: framer.Client) {
     this.writer = new Writer(client);
     this.retriever = new Retriever(client);
+    this.frameClient = frameClient;
   }
 
   async search(term: string): Promise<Label[]> {
@@ -71,4 +78,26 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   async delete(keys: Key | Key[]): Promise<void> {
     await this.writer.delete(keys);
   }
+
+  async openChangeTracker(): Promise<signals.Observable<string, Label>> {
+    return await signals.Observable.open<string, Label>(
+      this.frameClient,
+      LABEL_SET_NAME,
+      LABEL_DELETE_NAME,
+      decodeChanges,
+    );
+  }
 }
+
+const decodeChanges: signals.Decoder<string, Label> = (variant, data) => {
+  if (variant === "delete")
+    return data.toUUIDs().map((v) => ({
+      variant,
+      key: v,
+    }));
+  return data.parseJSON(labelZ).map((l) => ({
+    variant,
+    key: l.key,
+    value: l,
+  }));
+};

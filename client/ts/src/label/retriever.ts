@@ -25,7 +25,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  labels: labelZ.array(),
+  labels: labelZ.array().optional().default([]),
 });
 
 export class Retriever {

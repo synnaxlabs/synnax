@@ -10,7 +10,7 @@
 import { useRef, type ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -21,6 +21,8 @@ import {
   Synnax,
   useAsyncEffect,
   componentRenderProp,
+  type Select,
+  Ranger,
 } from "@synnaxlabs/pluto";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
@@ -37,6 +39,7 @@ const formSchema = z.object({
   startTime: z.number().int(),
   endDate: z.number().int(),
   endTime: z.number().int(),
+  labels: z.string().array(),
 });
 
 const RANGE_WINDOW_KEY = "defineRange";
@@ -46,7 +49,7 @@ export const defineWindowLayout: Layout.LayoutState = {
   type: RANGE_WINDOW_KEY,
   windowKey: RANGE_WINDOW_KEY,
   name: "Define Range",
-  location: "window",
+  location: "mosaic",
   window: {
     resizable: false,
     size: { height: 410, width: 625 },
@@ -62,7 +65,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
   const range = useSelect(layoutKey);
   const [loading, setLoading] = useState(false);
   const client = Synnax.use();
-  let defaultValues;
+  let defaultValues = { labels: [] };
   const isCreate = layoutKey === RANGE_WINDOW_KEY;
   const isRemoteEdit = client != null && !isCreate && range != null;
 
@@ -73,6 +76,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
       startTime: now,
       endDate: now,
       endTime: now,
+      labels: [],
     };
   else if (range != null && range.variant === "static")
     defaultValues = {
@@ -82,6 +86,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
       endDate: range.timeRange.end,
       endTime: range.timeRange.end,
       savePermanent: true,
+      labels: [],
     };
 
   const { control, handleSubmit, reset } = useForm({
@@ -92,12 +97,14 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
   useAsyncEffect(async () => {
     if (!isRemoteEdit) return;
     const rng = await client.ranges.retrieve(layoutKey);
+    console.log(rng.name);
     reset({
       name: rng.name,
       startDate: rng.timeRange.start.valueOf(),
       startTime: rng.timeRange.start.valueOf(),
       endDate: rng.timeRange.end.valueOf(),
       endTime: rng.timeRange.end.valueOf(),
+      labels: [],
     });
   }, [isRemoteEdit]);
 
@@ -111,6 +118,7 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
     startTime,
     endDate,
     endTime,
+    labels,
   }: DefineRangeFormProps): Promise<void> => {
     const start = Input.combineDateAndTimeValue(startDate, startTime).valueOf();
     const end = Input.combineDateAndTimeValue(endDate, endTime).valueOf();
@@ -124,11 +132,12 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
     if (persisted && client != null) {
       try {
         setLoading(true);
-        await client.ranges.create({
+        const rng = await client.ranges.create({
           name,
           timeRange: new TimeRange(start, end),
           key,
         });
+        await rng.addLabel(...labels);
       } finally {
         setLoading(false);
       }
@@ -202,6 +211,13 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
               {componentRenderProp(Input.Time)}
             </Input.ItemControlled>
           </Align.Space>
+          <Input.ItemControlled<label.Key, label.Key, Select.MultipleProps>
+            name="labels"
+            control={control}
+            grow
+          >
+            {componentRenderProp(Ranger.SelectLabels)}
+          </Input.ItemControlled>
         </Align.Space>
       </form>
       <Nav.Bar location="bottom" size={48}>

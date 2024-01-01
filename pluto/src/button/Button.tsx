@@ -67,6 +67,7 @@ export const Core = Tooltip.wrap(
   <E extends SpaceElementType>({
     size = "medium",
     variant = "filled",
+    type = "button",
     className,
     children,
     iconSpacing,
@@ -92,6 +93,7 @@ export const Core = Tooltip.wrap(
           CSS.BM("btn", variant),
           className,
         )}
+        type={type}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
         onClick={!disabled ? onClick : undefined}

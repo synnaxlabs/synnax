@@ -9,7 +9,6 @@
 
 import { type Series, TimeRange } from "@synnaxlabs/x";
 
-import { type cdc } from "@/cdc";
 import { type Key, type Params, type Name } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
@@ -19,6 +18,7 @@ import { type Label } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { type Alias, type Aliaser } from "@/ranger/alias";
 import { type KV } from "@/ranger/kv";
+import { type signals } from "@/signals";
 
 const ontologyID = (key: string): ontology.ID =>
   new ontology.ID({ type: "range", key });
@@ -69,7 +69,7 @@ export class Range {
     return await this.aliaser.list();
   }
 
-  async openAliasTracker(): Promise<cdc.Observable<string, Alias>> {
+  async openAliasTracker(): Promise<signals.Observable<string, Alias>> {
     return await this.aliaser.openChangeTracker();
   }
 

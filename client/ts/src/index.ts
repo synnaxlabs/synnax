@@ -50,3 +50,4 @@ export type {
 } from "@synnaxlabs/x";
 export { workspace } from "@/workspace";
 export { ranger } from "@/ranger";
+export { label } from "@/label";

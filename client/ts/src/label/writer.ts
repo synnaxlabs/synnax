@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 
-const newLabelPayloadZ = labelZ.partial({ key: true });
+export const newLabelPayloadZ = labelZ.extend({ key: keyZ.optional() });
 
 export type NewLabelPayload = z.infer<typeof newLabelPayloadZ>;
 

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { e } from "vitest/dist/reporters-O4LBziQ_";
 
 import { label } from "@/label";
 import { newClient } from "@/setupspecs";

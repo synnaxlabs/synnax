@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cdc } from "@/cdc";
 import { type channel } from "@/channel";
 import { keyZ as channelKeyZ, type Key as ChannelKey } from "@/channel/payload";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Key, keyZ } from "@/ranger/payload";
+import { signals } from "@/signals";
 
 export const ALIAS_SET_NAME = "sy_range_alias_set";
 export const ALIAS_DELETE_NAME = "sy_range_alias_delete";
@@ -136,8 +136,8 @@ export class Aliaser {
     );
   }
 
-  async openChangeTracker(): Promise<cdc.Observable<string, Alias>> {
-    return await cdc.Observable.open<string, Alias>(
+  async openChangeTracker(): Promise<signals.Observable<string, Alias>> {
+    return await signals.Observable.open<string, Alias>(
       this.frameClient,
       ALIAS_SET_NAME,
       ALIAS_DELETE_NAME,
@@ -163,7 +163,7 @@ const aliasZ = z.object({
 const aliasSeparator = "---";
 
 const decodeAliasChanges =
-  (rangeKey: Key): cdc.Decoder<string, Alias> =>
+  (rangeKey: Key): signals.Decoder<string, Alias> =>
   (variant, data) => {
     if (variant === "delete") {
       return data

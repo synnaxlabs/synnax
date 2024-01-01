@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   List as Core,
@@ -18,6 +18,9 @@ import {
   Ranger,
   Tag,
   CSS as PlutoCSS,
+  componentRenderProp,
+  Synnax,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -122,45 +125,49 @@ export const List = (): ReactElement => {
             allowMultiple={false}
           />
           <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
-            {({ entry, selected, onSelect }) => {
-              return (
-                <Align.Space
-                  direction="y"
-                  onClick={() => onSelect(entry.key)}
-                  className={CSS(CSS.B("range-list-item"), PlutoCSS.selected(selected))}
-                >
-                  <Text.Text level="p" style={{ fontWeight: "450" }}>
-                    {entry.name}
-                  </Text.Text>
-                  <Ranger.TimeRangeChip timeRange={entry.timeRange} />
-                  <Align.Space
-                    direction="x"
-                    size="small"
-                    wrap
-                    style={{
-                      overflowX: "auto",
-                      height: "fit-content",
-                    }}
-                  >
-                    <Tag.Tag level="small" color="var(--pluto-secondary-z)">
-                      Limelight
-                    </Tag.Tag>
-                    <Tag.Tag level="small" color="var(--pluto-error-z)">
-                      Prop
-                    </Tag.Tag>
-                    <Tag.Tag level="small" color="blue">
-                      TPC
-                    </Tag.Tag>
-                    <Tag.Tag level="small" color="orange">
-                      GSE Context
-                    </Tag.Tag>
-                  </Align.Space>
-                </Align.Space>
-              );
-            }}
+            {componentRenderProp(ListItem)}
           </Core.Core>
         </Core.List>
       </PMenu.ContextMenu>
     </div>
+  );
+};
+
+interface ListItemProps extends Core.ItemProps {}
+
+const ListItem = ({ entry, selected, onSelect }: ListItemProps): ReactElement => {
+  const client = Synnax.use();
+  const [labels, setLabels] = useState<label.Label[]>([]);
+  useAsyncEffect(async () => {
+    if (client == null) return;
+    const labels = await (await client.ranges.retrieve(entry.key)).labels();
+    setLabels(labels);
+  }, [entry.key, client]);
+  return (
+    <Align.Space
+      direction="y"
+      onClick={() => onSelect(entry.key)}
+      className={CSS(CSS.B("range-list-item"), PlutoCSS.selected(selected))}
+    >
+      <Text.Text level="p" style={{ fontWeight: "450" }}>
+        {entry.name}
+      </Text.Text>
+      <Ranger.TimeRangeChip timeRange={entry.timeRange} />
+      <Align.Space
+        direction="x"
+        size="small"
+        wrap
+        style={{
+          overflowX: "auto",
+          height: "fit-content",
+        }}
+      >
+        {labels.map((l) => (
+          <Tag.Tag key={l.key} level="small" color={l.color}>
+            {l.name}
+          </Tag.Tag>
+        ))}
+      </Align.Space>
+    </Align.Space>
   );
 };

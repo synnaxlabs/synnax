@@ -11,13 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x";
 
 import { type Client as FrameClient } from "@/framer/client";
-import { ChangeTracker } from "@/ontology/cdc";
 import { group } from "@/ontology/group";
 import { type ID, type Resource } from "@/ontology/payload";
 import { Retriever } from "@/ontology/retriever";
 import { Writer } from "@/ontology/writer";
 
 import { QueryError } from "..";
+
+import { ChangeTracker } from "@/ontology/signals";
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {

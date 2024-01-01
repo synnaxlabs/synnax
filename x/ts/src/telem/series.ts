@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { date, type z } from "zod";
 
+import { compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -21,7 +22,6 @@ import {
   type TimeStamp,
   type CrudeDataType,
 } from "@/telem/telem";
-import { compare } from "@/compare";
 
 export type SampleValue = number | bigint;
 
@@ -204,6 +204,22 @@ export class Series {
     return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
   }
 
+  toUUIDs(): string[] {
+    if (!this.dataType.equals(DataType.UUID))
+      throw new Error("cannot convert non-uuid series to uuids");
+    const den = DataType.UUID.density.valueOf();
+    const r = Array(this.length);
+
+    for (let i = 0; i < this.length; i++) {
+      const v = this.buffer.slice(i * den, (i + 1) * den);
+      const id = Array.from(new Uint8Array(v), (b) => b.toString(16).padStart(2, "0"))
+        .join("")
+        .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
+      r[i] = id;
+    }
+    return r;
+  }
+
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot convert non-string series to strings");
@@ -217,7 +233,7 @@ export class Series {
   /** @returns the time range of this array. */
   get timeRange(): TimeRange {
     validateFieldNotNull("timeRange", this._timeRange);
-    return this._timeRange as TimeRange;
+    return this._timeRange!;
   }
 
   /** @returns the capacity of the underlying buffer in bytes. */

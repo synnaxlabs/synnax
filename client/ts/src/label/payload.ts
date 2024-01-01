@@ -19,7 +19,7 @@ export type Params = Key | Key[];
 
 export const labelZ = z.object({
   key: keyZ,
-  name: z.string(),
+  name: z.string().min(1),
   color: z.string(),
 });
 

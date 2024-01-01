@@ -19,7 +19,7 @@ export type Params = Key | Name | Keys | Names;
 
 export const payloadZ = z.object({
   key: keyZ,
-  name: z.string(),
+  name: z.string().min(1),
   timeRange: TimeRange.z,
 });
 export type Payload = z.infer<typeof payloadZ>;
