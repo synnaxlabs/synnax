@@ -100,16 +100,14 @@ class Controller:
     def set(self,
             ch: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
             value: int | float | None = None):
-        if (isinstance(ch, dict)):
+        if isinstance(ch, dict):
             values = list(ch.values())
             channels = retrieve_required(self.retriever, list(ch.keys()))
             now = TimeStamp.now()
             updated = {channels[i].key: values[i] for i in range(len(channels))}
             updated_idx = {channels[i].index: now for i in range(len(channels))}
-            print(updated, updated_idx)
             self.writer.write({**updated, **updated_idx})
             return
-        print(ch, value)
         ch = retrieve_required(self.retriever, ch)[0]
         self.writer.write({ch.key: value, ch.index: TimeStamp.now()})
 
