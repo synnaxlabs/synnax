@@ -210,11 +210,11 @@ public:
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
-    TimeStamp operator-(const TimeStamp &other) const { return TimeStamp(value - other.value); }
+    TimeSpan operator-(const TimeStamp &other) const { return TimeSpan(value - other.value); }
 
-    friend TimeStamp operator-(const long &lhs, const TimeStamp &rhs) { return TimeStamp(lhs - rhs.value); }
+    friend TimeSpan operator-(const long &lhs, const TimeStamp &rhs) { return TimeSpan(lhs - rhs.value); }
 
-    TimeStamp operator-(const TimeSpan &other) const { return TimeStamp(value - other.value); }
+    TimeSpan operator-(const TimeSpan &other) const { return TimeSpan(value - other.value); }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
