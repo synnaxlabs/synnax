@@ -71,8 +71,6 @@ class TankTemperature:
         else:
             state[self.tc] += 0
 
-        print(state[self.tc])
-
         return state
 
 
@@ -82,7 +80,7 @@ class TankTemperature:
 class VoltageFailure:
     def __init__(
         self,
-        state_machine: TankPressure,
+        state_machine: SimulatedResponse,
         pt_channel: str,
         error_type: bool,
         error_step: int,
@@ -106,7 +104,7 @@ class VoltageFailure:
 class ValveFailure:
     def __init__(
         self,
-        state_machine: TankPressure,
+        state_machine: SimulatedResponse,
         valve_channel: str,
         error_step: int,
     ) -> SimulatedResponse:
@@ -117,6 +115,25 @@ class ValveFailure:
     def step(self, state: dict[str, float], step_num: int) -> dict[str, float]:
         if step_num > self.error_step:
             state[self.valve_channel] = 0
+        else:
+            self.state_machine.step(state, step_num)
+        return state
+
+
+class TCFailure:
+    def __init__(
+        self,
+        state_machine: SimulatedResponse,
+        tc_channel: str,
+        error_step: int,
+    ) -> SimulatedResponse:
+        self.state_machine = state_machine
+        self.tc_channel = tc_channel
+        self.error_step = error_step
+
+    def step(self, state: dict[str, float], step_num: int) -> dict[str, float]:
+        if step_num > self.error_step:
+            state[self.tc_channel] = 0
         else:
             self.state_machine.step(state, step_num)
         return state
