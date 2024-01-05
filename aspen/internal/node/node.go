@@ -34,6 +34,9 @@ func (k Key) IsFree() bool { return k == Free }
 
 func (k Key) IsBootstrapper() bool { return k == Bootstrapper }
 
+// String implements fmt.Stringer.
+func (k Key) String() string { return strconv.Itoa(int(k)) }
+
 type Node struct {
 	Key       Key
 	Address   address.Address

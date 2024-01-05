@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/device"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
@@ -154,6 +155,10 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, HostResolver: dist.Cluster})
+		if err != nil {
+			return err
+		}
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
@@ -178,6 +183,7 @@ func start(cmd *cobra.Command) {
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
+			Device:          deviceSvc,
 		})
 		if err != nil {
 			return err

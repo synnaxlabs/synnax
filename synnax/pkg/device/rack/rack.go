@@ -11,7 +11,11 @@
 
 package rack
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/core"
+import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/x/gorp"
+	"strconv"
+)
 
 type Key uint32
 
@@ -23,8 +27,19 @@ func (k Key) Node() core.NodeKey { return core.NodeKey(k >> 16) }
 
 func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
 
+func (k Key) IsValid() bool { return k.Node() != 0 && k.LocalKey() != 0 }
+
+// String implements fmt.Stringer.
+func (k Key) String() string { return strconv.Itoa(int(k)) }
+
 type Rack struct {
-	Name     string
-	Node     core.NodeKey
-	LocalKey uint16
+	Key           Key    `json:"key" msgpack:"key"`
+	Name          string `json:"name" msgpack:"name"`
+	ModuleCounter uint32 `json:"module_counter" msgpack:"module_counter"`
 }
+
+var _ gorp.Entry[Key] = Rack{}
+
+func (r Rack) GorpKey() Key { return r.Key }
+
+func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }

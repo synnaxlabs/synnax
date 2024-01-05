@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -54,6 +55,7 @@ type Config struct {
 	PID           *pid.Service
 	LinePlot      *lineplot.Service
 	Token         *token.Service
+	Device        *device.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
@@ -81,6 +83,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "pid", c.PID)
+	validate.NotNil(v, "lineplot", c.LinePlot)
+	validate.NotNil(v, "device", c.Device)
 	validate.NotNil(v, "insecure", c.Insecure)
 	return v.Error()
 }
@@ -104,6 +108,7 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.PID = override.Nil(c.PID, other.PID)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
+	c.Device = override.Nil(c.Device, other.Device)
 	return c
 }
 
@@ -165,6 +170,13 @@ type Transport struct {
 	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
+	// DEVICE
+	DeviceCreateRack     freighter.UnaryServer[DeviceCreateRackRequest, DeviceCreateRackResponse]
+	DeviceRetrieveRack   freighter.UnaryServer[DeviceRetrieveRackRequest, DeviceRetrieveRackResponse]
+	DeviceDeleteRack     freighter.UnaryServer[DeviceDeleteRackRequest, types.Nil]
+	DeviceCreateModule   freighter.UnaryServer[DeviceCreateModuleRequest, DeviceCreateModuleResponse]
+	DeviceRetrieveModule freighter.UnaryServer[DeviceRetrieveModuleRequest, DeviceRetrieveModuleResponse]
+	DeviceDeleteModule   freighter.UnaryServer[DeviceDeleteModuleRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -181,6 +193,7 @@ type API struct {
 	Workspace    *WorkspaceService
 	PID          *PIDService
 	LinePlot     *LinePlotService
+	Device       *DeviceService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -269,6 +282,14 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotSetData,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// DEVICE
+		t.DeviceCreateRack,
+		t.DeviceRetrieveRack,
+		t.DeviceDeleteModule,
+		t.DeviceCreateModule,
+		t.DeviceRetrieveModule,
+		t.DeviceDeleteModule,
 	)
 
 	// AUTH
@@ -335,6 +356,14 @@ func (a *API) BindTo(t Transport) {
 	t.LinePlotSetData.BindHandler(a.LinePlot.SetData)
 	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
+
+	// DEVICE
+	t.DeviceCreateRack.BindHandler(a.Device.CreateRack)
+	t.DeviceRetrieveRack.BindHandler(a.Device.RetrieveRack)
+	t.DeviceDeleteRack.BindHandler(a.Device.DeleteRack)
+	t.DeviceCreateModule.BindHandler(a.Device.CreateModule)
+	t.DeviceRetrieveModule.BindHandler(a.Device.RetrieveModule)
+	t.DeviceDeleteModule.BindHandler(a.Device.DeleteModule)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -354,5 +383,6 @@ func New(configs ...Config) (API, error) {
 	api.Workspace = NewWorkspaceService(api.provider)
 	api.PID = NewPIDService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
+	api.Device = NewDeviceService(api.provider)
 	return api, nil
 }

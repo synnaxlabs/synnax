@@ -36,7 +36,6 @@ private:
 
     /// @brief synnax writer.
     std::unique_ptr<synnax::Synnax> client;
-    std::unique_ptr<synnax::Writer> writer;
     synnax::WriterConfig writer_config;
 
     /// @brief commit tracking;

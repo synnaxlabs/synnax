@@ -94,7 +94,7 @@ const versionCounterKey = "ver"
 
 type versionAssigner struct {
 	Config
-	counter *kvx.PersistedCounter
+	counter *kvx.AtomicUint64Counter
 	confluence.LinearTransform[TxRequest, TxRequest]
 }
 

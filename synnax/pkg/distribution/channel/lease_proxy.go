@@ -17,21 +17,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 )
 
 type leaseProxy struct {
 	ServiceConfig
 	router        proxy.BatchFactory[Channel]
-	leasedCounter *keyCounter
-	freeCounter   *keyCounter
+	leasedCounter *kv.AtomicUint64Counter
+	freeCounter   *kv.AtomicUint64Counter
 	group         group.Group
 }
 
+const leasedCounterSuffix = ".distribution.channel.counter.leased"
+const freeCounterSuffix = ".distribution.channel.counter.free"
+
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
-	c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB, ".distribution.channel.counter.leased")
+	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
+	c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
 	}
+
 	p := &leaseProxy{
 		ServiceConfig: cfg,
 		router:        proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
@@ -39,7 +45,8 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		group:         g,
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
-		c, err := openCounter(cfg.HostResolver.HostKey(), cfg.ClusterDB, ".distribution.channel.counter.free")
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+		c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +131,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	counter *keyCounter,
+	counter *kv.AtomicUint64Counter,
 	retrieveIfNameExists bool,
 ) (toCreate []Channel, err error) {
 	// This is the value we would increment by if retrieveIfNameExists is false or
@@ -150,7 +157,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		}
 	}
 
-	v, err := counter.Add(incCounterBy)
+	v, err := counter.Add(uint64(incCounterBy))
 	if err != nil {
 		return
 	}
@@ -158,7 +165,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = v - incCounterBy + uint16(len(toCreate)) + 1
+			ch.LocalKey = uint16(v) - incCounterBy + uint16(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
 			ch.LocalIndex = ch.LocalKey

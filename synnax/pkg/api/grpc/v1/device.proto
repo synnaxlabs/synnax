@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package api.v1;
+
+import "google/protobuf/empty.proto";
+
+service DeviceCreateModuleService {
+    rpc Create(DeviceCreateModuleRequest) returns (DeviceCreateModuleResponse);
+}
+
+service DeviceRetrieveModuleService {
+    rpc Retrieve(DeviceRetrieveModuleRequest) returns (DeviceRetrieveModuleResponse);
+}
+
+service DeviceDeleteModuleService {
+    rpc Delete(DeviceDeleteModuleRequest) returns (google.protobuf.Empty);
+}
+
+service DeviceCreateRackService {
+    rpc Create(DeviceCreateRackRequest) returns (DeviceCreateRackResponse);
+}
+
+service DeviceRetrieveRackService {
+    rpc Retrieve(DeviceRetrieveRackRequest) returns (DeviceRetrieveRackResponse);
+}
+
+service DeviceDeleteRackService {
+    rpc Delete(DeviceDeleteRackRequest) returns (google.protobuf.Empty);
+}
+
+message Rack {
+    uint32 key = 1;
+    string name = 2;
+}
+
+message DeviceCreateRackRequest {
+    repeated Rack racks = 1;
+}
+
+message DeviceCreateRackResponse {
+    repeated Rack racks = 1;
+}
+
+message DeviceRetrieveRackRequest {
+    repeated uint32 keys = 1;
+}
+
+message DeviceRetrieveRackResponse {
+    repeated Rack racks = 1;
+}
+
+message DeviceDeleteRackRequest {
+    repeated uint32 keys = 1;
+}
+
+message Module {
+    uint64 key = 1;
+    string name = 2;
+    string type = 3;
+    string config = 4;
+}
+
+message DeviceCreateModuleRequest {
+    repeated Module modules = 1;
+}
+
+message DeviceCreateModuleResponse {
+    repeated Module modules = 1;
+}
+
+message DeviceRetrieveModuleRequest {
+    uint32 rack = 1;
+    repeated uint64 keys = 2;
+}
+
+message DeviceRetrieveModuleResponse {
+    repeated Module modules = 1;
+}
+
+message DeviceDeleteModuleRequest {
+    repeated uint64 keys = 1;
+}
+
