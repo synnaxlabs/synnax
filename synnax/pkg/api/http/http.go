@@ -83,5 +83,13 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LinePlotRename = fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, "/api/v1/workspace/lineplot/rename")
 	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, "/api/v1/workspace/lineplot/set-data")
 
+	// DEVICE
+	t.DeviceCreateRack = fhttp.UnaryServer[api.DeviceCreateRackRequest, api.DeviceCreateRackResponse](router, "/api/v1/device/rack/create")
+	t.DeviceRetrieveRack = fhttp.UnaryServer[api.DeviceRetrieveRackRequest, api.DeviceRetrieveRackResponse](router, "/api/v1/device/rack/retrieve")
+	t.DeviceDeleteRack = fhttp.UnaryServer[api.DeviceDeleteRackRequest, types.Nil](router, "/api/v1/device/rack/delete")
+	t.DeviceCreateModule = fhttp.UnaryServer[api.DeviceCreateModuleRequest, api.DeviceCreateModuleResponse](router, "/api/v1/device/module/create")
+	t.DeviceRetrieveModule = fhttp.UnaryServer[api.DeviceRetrieveModuleRequest, api.DeviceRetrieveModuleResponse](router, "/api/v1/device/module/retrieve")
+	t.DeviceDeleteModule = fhttp.UnaryServer[api.DeviceDeleteModuleRequest, types.Nil](router, "/api/v1/device/module/delete")
+
 	return t
 }

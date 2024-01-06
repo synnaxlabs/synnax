@@ -32,12 +32,12 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	rackService, err := rack.NewService(ctx, cfg)
+	rackService, err := rack.OpenService(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	moduleService, err := module.NewService(ctx, module.Config{
+	moduleService, err := module.OpenService(ctx, module.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,

@@ -8,13 +8,16 @@
 // included in the file licenses/APL.txt.
 
 
-#include "synnax/device/device.h";
+#include "synnax/device/device.h"
 
 using namespace synnax;
 
-Rack::Rack(std::uint32_t key, std::string name):
+Rack::Rack(RackKey key, std::string name):
         key(key),
         name(name) {
+}
+
+Rack::Rack(std::string name): name(name) {
 }
 
 Rack::Rack(const api::v1::Rack &a) :
@@ -23,7 +26,7 @@ Rack::Rack(const api::v1::Rack &a) :
 }
 
 void Rack::to_proto(api::v1::Rack *rack) const {
-    rack->set_key(key);
+    rack->set_key(key.value);
     rack->set_name(name);
 }
 
@@ -45,6 +48,9 @@ freighter::Error DeviceClient::createRack(Rack &rack) const {
     auto req = api::v1::DeviceCreateRackRequest();
     rack.to_proto(req.add_racks());
     auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
+    if (err) return err;
+    rack.key = res.racks().at(0).key();
+    rack.modules = ModuleClient(rack.key, module_create_client, module_retrieve_client, module_delete_client);
     return err;
 }
 
@@ -55,8 +61,15 @@ freighter::Error DeviceClient::deleteRack(std::uint64_t key) const {
     return err;
 }
 
-Module::Module(std::uint64_t key, std::string name, std::string type, std::string config):
+Module::Module(ModuleKey key, std::string name, std::string type, std::string config):
         key(key),
+        name(name),
+        type(type),
+        config(config) {
+}
+
+Module::Module(RackKey rack, std::string name, std::string type, std::string config):
+        key(ModuleKey(rack, 0)),
         name(name),
         type(type),
         config(config) {
@@ -92,6 +105,8 @@ freighter::Error ModuleClient::create(Module &module) const {
     auto req = api::v1::DeviceCreateModuleRequest();
     module.to_proto(req.add_modules());
     auto [res, err] = module_create_client->send(CREATE_MODULE_ENDPOINT, req);
+    if (err) return err;
+    module.key = res.modules().at(0).key();
     return err;
 }
 
@@ -104,7 +119,7 @@ freighter::Error ModuleClient::del(std::uint64_t key) const {
 
 std::pair<std::vector<Module>, freighter::Error> ModuleClient::list() const {
     auto req = api::v1::DeviceRetrieveModuleRequest();
-    req.set_rack(rack);
+    req.set_rack(rack.value);
     auto [res, err] = module_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {std::vector<Module>(), err};
     std::vector<Module> modules = {res.modules().begin(), res.modules().end()};

@@ -14,12 +14,15 @@ package module
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/device/rack"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"io"
 )
 
 // Config is the configuration for creating a Service.
@@ -28,6 +31,7 @@ type Config struct {
 	Ontology *ontology.Ontology
 	Group    *group.Service
 	Rack     *rack.Service
+	CDC      *cdc.Provider
 }
 
 var (
@@ -41,6 +45,7 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
+	c.CDC = override.Nil(c.CDC, other.CDC)
 	return c
 }
 
@@ -56,16 +61,34 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
+	cdc io.Closer
 }
 
-func NewService(ctx context.Context, configs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return nil, err
+		return
 	}
-	s := &Service{Config: cfg}
+	s = &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
-	return s, nil
+
+	if cfg.CDC == nil {
+		return s, nil
+	}
+
+	cdcS, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigPureNumeric[Key, Module](cfg.DB, telem.Uint64T))
+	if err != nil {
+		return
+	}
+	s.cdc = cdcS
+	return
+}
+
+func (s *Service) Close() error {
+	if s.cdc != nil {
+		return s.cdc.Close()
+	}
+	return nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

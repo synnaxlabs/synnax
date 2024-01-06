@@ -69,7 +69,7 @@ type Service struct {
 
 const groupName = "Ranges"
 
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -78,34 +78,35 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, group: g}
+	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
-	if cfg.CDC != nil {
-		rangeCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
-		if err != nil {
-			return nil, err
-		}
-		aliasCDCCfg := cdc.GorpConfigString[alias](cfg.DB)
-		aliasCDCCfg.SetName = "sy_range_alias_set"
-		aliasCDCCfg.DeleteName = "sy_range_alias_delete"
-		aliasCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, aliasCDCCfg)
-		if err != nil {
-			return nil, err
-		}
-		s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
-		activeRangeCDC, err := cfg.CDC.SubscribeToObservable(ctx, cdc.ObservableConfig{
-			Name:       "sy_active_range",
-			Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
-			Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
-			Observable: s.activeRangeObservable,
-		})
-		if err != nil {
-			return nil, err
-		}
-		s.cdc = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+	if cfg.CDC == nil {
+		return
 	}
-	return s, err
+	rangeCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigUUID[Range](cfg.DB))
+	if err != nil {
+		return
+	}
+	aliasCDCCfg := cdc.GorpConfigString[alias](cfg.DB)
+	aliasCDCCfg.SetName = "sy_range_alias_set"
+	aliasCDCCfg.DeleteName = "sy_range_alias_delete"
+	aliasCDC, err := cdc.SubscribeToGorp(ctx, cfg.CDC, aliasCDCCfg)
+	if err != nil {
+		return
+	}
+	s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
+	activeRangeCDC, err := cfg.CDC.SubscribeToObservable(ctx, cdc.ObservableConfig{
+		Name:       "sy_active_range",
+		Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
+		Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
+		Observable: s.activeRangeObservable,
+	})
+	if err != nil {
+		return
+	}
+	s.cdc = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+	return
 }
 
 func (s *Service) Close() error {

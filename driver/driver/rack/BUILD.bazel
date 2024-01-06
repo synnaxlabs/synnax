@@ -1,0 +1,17 @@
+cc_library(
+    name = "ni",
+    srcs = [
+        "heartbeat.cpp",
+        "modules.cpp",
+        "rack.cpp",
+    ],
+    hdrs = [
+        "rack.h",
+    ],
+    deps = [
+        "//driver/breaker",
+        "//driver/modules:module",
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
+    ],
+)

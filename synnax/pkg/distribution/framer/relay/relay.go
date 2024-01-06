@@ -50,7 +50,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	return v.Error()

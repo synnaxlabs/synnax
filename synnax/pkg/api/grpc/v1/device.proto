@@ -5,27 +5,27 @@ package api.v1;
 import "google/protobuf/empty.proto";
 
 service DeviceCreateModuleService {
-    rpc Create(DeviceCreateModuleRequest) returns (DeviceCreateModuleResponse);
+    rpc Exec(DeviceCreateModuleRequest) returns (DeviceCreateModuleResponse);
 }
 
 service DeviceRetrieveModuleService {
-    rpc Retrieve(DeviceRetrieveModuleRequest) returns (DeviceRetrieveModuleResponse);
+    rpc Exec(DeviceRetrieveModuleRequest) returns (DeviceRetrieveModuleResponse);
 }
 
 service DeviceDeleteModuleService {
-    rpc Delete(DeviceDeleteModuleRequest) returns (google.protobuf.Empty);
+    rpc Exec(DeviceDeleteModuleRequest) returns (google.protobuf.Empty);
 }
 
 service DeviceCreateRackService {
-    rpc Create(DeviceCreateRackRequest) returns (DeviceCreateRackResponse);
+    rpc Exec(DeviceCreateRackRequest) returns (DeviceCreateRackResponse);
 }
 
 service DeviceRetrieveRackService {
-    rpc Retrieve(DeviceRetrieveRackRequest) returns (DeviceRetrieveRackResponse);
+    rpc Exec(DeviceRetrieveRackRequest) returns (DeviceRetrieveRackResponse);
 }
 
 service DeviceDeleteRackService {
-    rpc Delete(DeviceDeleteRackRequest) returns (google.protobuf.Empty);
+    rpc Exec(DeviceDeleteRackRequest) returns (google.protobuf.Empty);
 }
 
 message Rack {

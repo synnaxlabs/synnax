@@ -20,14 +20,14 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	DeviceCreateModuleService_Create_FullMethodName = "/api.v1.DeviceCreateModuleService/Create"
+	DeviceCreateModuleService_Exec_FullMethodName = "/api.v1.DeviceCreateModuleService/Exec"
 )
 
 // DeviceCreateModuleServiceClient is the client API for DeviceCreateModuleService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceCreateModuleServiceClient interface {
-	Create(ctx context.Context, in *DeviceCreateModuleRequest, opts ...grpc.CallOption) (*DeviceCreateModuleResponse, error)
+	Exec(ctx context.Context, in *DeviceCreateModuleRequest, opts ...grpc.CallOption) (*DeviceCreateModuleResponse, error)
 }
 
 type deviceCreateModuleServiceClient struct {
@@ -38,9 +38,9 @@ func NewDeviceCreateModuleServiceClient(cc grpc.ClientConnInterface) DeviceCreat
 	return &deviceCreateModuleServiceClient{cc}
 }
 
-func (c *deviceCreateModuleServiceClient) Create(ctx context.Context, in *DeviceCreateModuleRequest, opts ...grpc.CallOption) (*DeviceCreateModuleResponse, error) {
+func (c *deviceCreateModuleServiceClient) Exec(ctx context.Context, in *DeviceCreateModuleRequest, opts ...grpc.CallOption) (*DeviceCreateModuleResponse, error) {
 	out := new(DeviceCreateModuleResponse)
-	err := c.cc.Invoke(ctx, DeviceCreateModuleService_Create_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceCreateModuleService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +51,15 @@ func (c *deviceCreateModuleServiceClient) Create(ctx context.Context, in *Device
 // All implementations should embed UnimplementedDeviceCreateModuleServiceServer
 // for forward compatibility
 type DeviceCreateModuleServiceServer interface {
-	Create(context.Context, *DeviceCreateModuleRequest) (*DeviceCreateModuleResponse, error)
+	Exec(context.Context, *DeviceCreateModuleRequest) (*DeviceCreateModuleResponse, error)
 }
 
 // UnimplementedDeviceCreateModuleServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceCreateModuleServiceServer struct {
 }
 
-func (UnimplementedDeviceCreateModuleServiceServer) Create(context.Context, *DeviceCreateModuleRequest) (*DeviceCreateModuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+func (UnimplementedDeviceCreateModuleServiceServer) Exec(context.Context, *DeviceCreateModuleRequest) (*DeviceCreateModuleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceCreateModuleServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -73,20 +73,20 @@ func RegisterDeviceCreateModuleServiceServer(s grpc.ServiceRegistrar, srv Device
 	s.RegisterService(&DeviceCreateModuleService_ServiceDesc, srv)
 }
 
-func _DeviceCreateModuleService_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceCreateModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceCreateModuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceCreateModuleServiceServer).Create(ctx, in)
+		return srv.(DeviceCreateModuleServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceCreateModuleService_Create_FullMethodName,
+		FullMethod: DeviceCreateModuleService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceCreateModuleServiceServer).Create(ctx, req.(*DeviceCreateModuleRequest))
+		return srv.(DeviceCreateModuleServiceServer).Exec(ctx, req.(*DeviceCreateModuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -99,8 +99,8 @@ var DeviceCreateModuleService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceCreateModuleServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Create",
-			Handler:    _DeviceCreateModuleService_Create_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceCreateModuleService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -108,14 +108,14 @@ var DeviceCreateModuleService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeviceRetrieveModuleService_Retrieve_FullMethodName = "/api.v1.DeviceRetrieveModuleService/Retrieve"
+	DeviceRetrieveModuleService_Exec_FullMethodName = "/api.v1.DeviceRetrieveModuleService/Exec"
 )
 
 // DeviceRetrieveModuleServiceClient is the client API for DeviceRetrieveModuleService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceRetrieveModuleServiceClient interface {
-	Retrieve(ctx context.Context, in *DeviceRetrieveModuleRequest, opts ...grpc.CallOption) (*DeviceRetrieveModuleResponse, error)
+	Exec(ctx context.Context, in *DeviceRetrieveModuleRequest, opts ...grpc.CallOption) (*DeviceRetrieveModuleResponse, error)
 }
 
 type deviceRetrieveModuleServiceClient struct {
@@ -126,9 +126,9 @@ func NewDeviceRetrieveModuleServiceClient(cc grpc.ClientConnInterface) DeviceRet
 	return &deviceRetrieveModuleServiceClient{cc}
 }
 
-func (c *deviceRetrieveModuleServiceClient) Retrieve(ctx context.Context, in *DeviceRetrieveModuleRequest, opts ...grpc.CallOption) (*DeviceRetrieveModuleResponse, error) {
+func (c *deviceRetrieveModuleServiceClient) Exec(ctx context.Context, in *DeviceRetrieveModuleRequest, opts ...grpc.CallOption) (*DeviceRetrieveModuleResponse, error) {
 	out := new(DeviceRetrieveModuleResponse)
-	err := c.cc.Invoke(ctx, DeviceRetrieveModuleService_Retrieve_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceRetrieveModuleService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,15 +139,15 @@ func (c *deviceRetrieveModuleServiceClient) Retrieve(ctx context.Context, in *De
 // All implementations should embed UnimplementedDeviceRetrieveModuleServiceServer
 // for forward compatibility
 type DeviceRetrieveModuleServiceServer interface {
-	Retrieve(context.Context, *DeviceRetrieveModuleRequest) (*DeviceRetrieveModuleResponse, error)
+	Exec(context.Context, *DeviceRetrieveModuleRequest) (*DeviceRetrieveModuleResponse, error)
 }
 
 // UnimplementedDeviceRetrieveModuleServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceRetrieveModuleServiceServer struct {
 }
 
-func (UnimplementedDeviceRetrieveModuleServiceServer) Retrieve(context.Context, *DeviceRetrieveModuleRequest) (*DeviceRetrieveModuleResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Retrieve not implemented")
+func (UnimplementedDeviceRetrieveModuleServiceServer) Exec(context.Context, *DeviceRetrieveModuleRequest) (*DeviceRetrieveModuleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceRetrieveModuleServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -161,20 +161,20 @@ func RegisterDeviceRetrieveModuleServiceServer(s grpc.ServiceRegistrar, srv Devi
 	s.RegisterService(&DeviceRetrieveModuleService_ServiceDesc, srv)
 }
 
-func _DeviceRetrieveModuleService_Retrieve_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceRetrieveModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceRetrieveModuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceRetrieveModuleServiceServer).Retrieve(ctx, in)
+		return srv.(DeviceRetrieveModuleServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceRetrieveModuleService_Retrieve_FullMethodName,
+		FullMethod: DeviceRetrieveModuleService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceRetrieveModuleServiceServer).Retrieve(ctx, req.(*DeviceRetrieveModuleRequest))
+		return srv.(DeviceRetrieveModuleServiceServer).Exec(ctx, req.(*DeviceRetrieveModuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -187,8 +187,8 @@ var DeviceRetrieveModuleService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceRetrieveModuleServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Retrieve",
-			Handler:    _DeviceRetrieveModuleService_Retrieve_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceRetrieveModuleService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -196,14 +196,14 @@ var DeviceRetrieveModuleService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeviceDeleteModuleService_Delete_FullMethodName = "/api.v1.DeviceDeleteModuleService/Delete"
+	DeviceDeleteModuleService_Exec_FullMethodName = "/api.v1.DeviceDeleteModuleService/Exec"
 )
 
 // DeviceDeleteModuleServiceClient is the client API for DeviceDeleteModuleService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceDeleteModuleServiceClient interface {
-	Delete(ctx context.Context, in *DeviceDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Exec(ctx context.Context, in *DeviceDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type deviceDeleteModuleServiceClient struct {
@@ -214,9 +214,9 @@ func NewDeviceDeleteModuleServiceClient(cc grpc.ClientConnInterface) DeviceDelet
 	return &deviceDeleteModuleServiceClient{cc}
 }
 
-func (c *deviceDeleteModuleServiceClient) Delete(ctx context.Context, in *DeviceDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *deviceDeleteModuleServiceClient) Exec(ctx context.Context, in *DeviceDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DeviceDeleteModuleService_Delete_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceDeleteModuleService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -227,15 +227,15 @@ func (c *deviceDeleteModuleServiceClient) Delete(ctx context.Context, in *Device
 // All implementations should embed UnimplementedDeviceDeleteModuleServiceServer
 // for forward compatibility
 type DeviceDeleteModuleServiceServer interface {
-	Delete(context.Context, *DeviceDeleteModuleRequest) (*emptypb.Empty, error)
+	Exec(context.Context, *DeviceDeleteModuleRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedDeviceDeleteModuleServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceDeleteModuleServiceServer struct {
 }
 
-func (UnimplementedDeviceDeleteModuleServiceServer) Delete(context.Context, *DeviceDeleteModuleRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+func (UnimplementedDeviceDeleteModuleServiceServer) Exec(context.Context, *DeviceDeleteModuleRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceDeleteModuleServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -249,20 +249,20 @@ func RegisterDeviceDeleteModuleServiceServer(s grpc.ServiceRegistrar, srv Device
 	s.RegisterService(&DeviceDeleteModuleService_ServiceDesc, srv)
 }
 
-func _DeviceDeleteModuleService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceDeleteModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceDeleteModuleRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceDeleteModuleServiceServer).Delete(ctx, in)
+		return srv.(DeviceDeleteModuleServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceDeleteModuleService_Delete_FullMethodName,
+		FullMethod: DeviceDeleteModuleService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceDeleteModuleServiceServer).Delete(ctx, req.(*DeviceDeleteModuleRequest))
+		return srv.(DeviceDeleteModuleServiceServer).Exec(ctx, req.(*DeviceDeleteModuleRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -275,8 +275,8 @@ var DeviceDeleteModuleService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceDeleteModuleServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Delete",
-			Handler:    _DeviceDeleteModuleService_Delete_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceDeleteModuleService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -284,14 +284,14 @@ var DeviceDeleteModuleService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeviceCreateRackService_Create_FullMethodName = "/api.v1.DeviceCreateRackService/Create"
+	DeviceCreateRackService_Exec_FullMethodName = "/api.v1.DeviceCreateRackService/Exec"
 )
 
 // DeviceCreateRackServiceClient is the client API for DeviceCreateRackService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceCreateRackServiceClient interface {
-	Create(ctx context.Context, in *DeviceCreateRackRequest, opts ...grpc.CallOption) (*DeviceCreateRackResponse, error)
+	Exec(ctx context.Context, in *DeviceCreateRackRequest, opts ...grpc.CallOption) (*DeviceCreateRackResponse, error)
 }
 
 type deviceCreateRackServiceClient struct {
@@ -302,9 +302,9 @@ func NewDeviceCreateRackServiceClient(cc grpc.ClientConnInterface) DeviceCreateR
 	return &deviceCreateRackServiceClient{cc}
 }
 
-func (c *deviceCreateRackServiceClient) Create(ctx context.Context, in *DeviceCreateRackRequest, opts ...grpc.CallOption) (*DeviceCreateRackResponse, error) {
+func (c *deviceCreateRackServiceClient) Exec(ctx context.Context, in *DeviceCreateRackRequest, opts ...grpc.CallOption) (*DeviceCreateRackResponse, error) {
 	out := new(DeviceCreateRackResponse)
-	err := c.cc.Invoke(ctx, DeviceCreateRackService_Create_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceCreateRackService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -315,15 +315,15 @@ func (c *deviceCreateRackServiceClient) Create(ctx context.Context, in *DeviceCr
 // All implementations should embed UnimplementedDeviceCreateRackServiceServer
 // for forward compatibility
 type DeviceCreateRackServiceServer interface {
-	Create(context.Context, *DeviceCreateRackRequest) (*DeviceCreateRackResponse, error)
+	Exec(context.Context, *DeviceCreateRackRequest) (*DeviceCreateRackResponse, error)
 }
 
 // UnimplementedDeviceCreateRackServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceCreateRackServiceServer struct {
 }
 
-func (UnimplementedDeviceCreateRackServiceServer) Create(context.Context, *DeviceCreateRackRequest) (*DeviceCreateRackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+func (UnimplementedDeviceCreateRackServiceServer) Exec(context.Context, *DeviceCreateRackRequest) (*DeviceCreateRackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceCreateRackServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -337,20 +337,20 @@ func RegisterDeviceCreateRackServiceServer(s grpc.ServiceRegistrar, srv DeviceCr
 	s.RegisterService(&DeviceCreateRackService_ServiceDesc, srv)
 }
 
-func _DeviceCreateRackService_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceCreateRackService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceCreateRackRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceCreateRackServiceServer).Create(ctx, in)
+		return srv.(DeviceCreateRackServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceCreateRackService_Create_FullMethodName,
+		FullMethod: DeviceCreateRackService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceCreateRackServiceServer).Create(ctx, req.(*DeviceCreateRackRequest))
+		return srv.(DeviceCreateRackServiceServer).Exec(ctx, req.(*DeviceCreateRackRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -363,8 +363,8 @@ var DeviceCreateRackService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceCreateRackServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Create",
-			Handler:    _DeviceCreateRackService_Create_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceCreateRackService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -372,14 +372,14 @@ var DeviceCreateRackService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeviceRetrieveRackService_Retrieve_FullMethodName = "/api.v1.DeviceRetrieveRackService/Retrieve"
+	DeviceRetrieveRackService_Exec_FullMethodName = "/api.v1.DeviceRetrieveRackService/Exec"
 )
 
 // DeviceRetrieveRackServiceClient is the client API for DeviceRetrieveRackService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceRetrieveRackServiceClient interface {
-	Retrieve(ctx context.Context, in *DeviceRetrieveRackRequest, opts ...grpc.CallOption) (*DeviceRetrieveRackResponse, error)
+	Exec(ctx context.Context, in *DeviceRetrieveRackRequest, opts ...grpc.CallOption) (*DeviceRetrieveRackResponse, error)
 }
 
 type deviceRetrieveRackServiceClient struct {
@@ -390,9 +390,9 @@ func NewDeviceRetrieveRackServiceClient(cc grpc.ClientConnInterface) DeviceRetri
 	return &deviceRetrieveRackServiceClient{cc}
 }
 
-func (c *deviceRetrieveRackServiceClient) Retrieve(ctx context.Context, in *DeviceRetrieveRackRequest, opts ...grpc.CallOption) (*DeviceRetrieveRackResponse, error) {
+func (c *deviceRetrieveRackServiceClient) Exec(ctx context.Context, in *DeviceRetrieveRackRequest, opts ...grpc.CallOption) (*DeviceRetrieveRackResponse, error) {
 	out := new(DeviceRetrieveRackResponse)
-	err := c.cc.Invoke(ctx, DeviceRetrieveRackService_Retrieve_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceRetrieveRackService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -403,15 +403,15 @@ func (c *deviceRetrieveRackServiceClient) Retrieve(ctx context.Context, in *Devi
 // All implementations should embed UnimplementedDeviceRetrieveRackServiceServer
 // for forward compatibility
 type DeviceRetrieveRackServiceServer interface {
-	Retrieve(context.Context, *DeviceRetrieveRackRequest) (*DeviceRetrieveRackResponse, error)
+	Exec(context.Context, *DeviceRetrieveRackRequest) (*DeviceRetrieveRackResponse, error)
 }
 
 // UnimplementedDeviceRetrieveRackServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceRetrieveRackServiceServer struct {
 }
 
-func (UnimplementedDeviceRetrieveRackServiceServer) Retrieve(context.Context, *DeviceRetrieveRackRequest) (*DeviceRetrieveRackResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Retrieve not implemented")
+func (UnimplementedDeviceRetrieveRackServiceServer) Exec(context.Context, *DeviceRetrieveRackRequest) (*DeviceRetrieveRackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceRetrieveRackServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -425,20 +425,20 @@ func RegisterDeviceRetrieveRackServiceServer(s grpc.ServiceRegistrar, srv Device
 	s.RegisterService(&DeviceRetrieveRackService_ServiceDesc, srv)
 }
 
-func _DeviceRetrieveRackService_Retrieve_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceRetrieveRackService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceRetrieveRackRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceRetrieveRackServiceServer).Retrieve(ctx, in)
+		return srv.(DeviceRetrieveRackServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceRetrieveRackService_Retrieve_FullMethodName,
+		FullMethod: DeviceRetrieveRackService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceRetrieveRackServiceServer).Retrieve(ctx, req.(*DeviceRetrieveRackRequest))
+		return srv.(DeviceRetrieveRackServiceServer).Exec(ctx, req.(*DeviceRetrieveRackRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -451,8 +451,8 @@ var DeviceRetrieveRackService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceRetrieveRackServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Retrieve",
-			Handler:    _DeviceRetrieveRackService_Retrieve_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceRetrieveRackService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -460,14 +460,14 @@ var DeviceRetrieveRackService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeviceDeleteRackService_Delete_FullMethodName = "/api.v1.DeviceDeleteRackService/Delete"
+	DeviceDeleteRackService_Exec_FullMethodName = "/api.v1.DeviceDeleteRackService/Exec"
 )
 
 // DeviceDeleteRackServiceClient is the client API for DeviceDeleteRackService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DeviceDeleteRackServiceClient interface {
-	Delete(ctx context.Context, in *DeviceDeleteRackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Exec(ctx context.Context, in *DeviceDeleteRackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type deviceDeleteRackServiceClient struct {
@@ -478,9 +478,9 @@ func NewDeviceDeleteRackServiceClient(cc grpc.ClientConnInterface) DeviceDeleteR
 	return &deviceDeleteRackServiceClient{cc}
 }
 
-func (c *deviceDeleteRackServiceClient) Delete(ctx context.Context, in *DeviceDeleteRackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *deviceDeleteRackServiceClient) Exec(ctx context.Context, in *DeviceDeleteRackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DeviceDeleteRackService_Delete_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeviceDeleteRackService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -491,15 +491,15 @@ func (c *deviceDeleteRackServiceClient) Delete(ctx context.Context, in *DeviceDe
 // All implementations should embed UnimplementedDeviceDeleteRackServiceServer
 // for forward compatibility
 type DeviceDeleteRackServiceServer interface {
-	Delete(context.Context, *DeviceDeleteRackRequest) (*emptypb.Empty, error)
+	Exec(context.Context, *DeviceDeleteRackRequest) (*emptypb.Empty, error)
 }
 
 // UnimplementedDeviceDeleteRackServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedDeviceDeleteRackServiceServer struct {
 }
 
-func (UnimplementedDeviceDeleteRackServiceServer) Delete(context.Context, *DeviceDeleteRackRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+func (UnimplementedDeviceDeleteRackServiceServer) Exec(context.Context, *DeviceDeleteRackRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
 // UnsafeDeviceDeleteRackServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -513,20 +513,20 @@ func RegisterDeviceDeleteRackServiceServer(s grpc.ServiceRegistrar, srv DeviceDe
 	s.RegisterService(&DeviceDeleteRackService_ServiceDesc, srv)
 }
 
-func _DeviceDeleteRackService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DeviceDeleteRackService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeviceDeleteRackRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeviceDeleteRackServiceServer).Delete(ctx, in)
+		return srv.(DeviceDeleteRackServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeviceDeleteRackService_Delete_FullMethodName,
+		FullMethod: DeviceDeleteRackService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeviceDeleteRackServiceServer).Delete(ctx, req.(*DeviceDeleteRackRequest))
+		return srv.(DeviceDeleteRackServiceServer).Exec(ctx, req.(*DeviceDeleteRackRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -539,8 +539,8 @@ var DeviceDeleteRackService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DeviceDeleteRackServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Delete",
-			Handler:    _DeviceDeleteRackService_Delete_Handler,
+			MethodName: "Exec",
+			Handler:    _DeviceDeleteRackService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

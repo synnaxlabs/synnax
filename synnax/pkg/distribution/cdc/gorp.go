@@ -105,6 +105,35 @@ func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, 
 	}
 }
 
+func GorpConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpConfig[K, E] {
+	return GorpConfig[K, E]{
+		DB:             db,
+		DeleteDataType: dt,
+		SetDataType:    dt,
+		MarshalDelete: func(k K) (b []byte, err error) {
+			telem.MarshalF[K](dt)(b, k)
+			return b, nil
+		},
+		MarshalSet: marshalJSON[K, E],
+	}
+}
+
+func GorpConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpConfig[K, E] {
+	return GorpConfig[K, E]{
+		DB:             db,
+		DeleteDataType: dt,
+		SetDataType:    dt,
+		MarshalDelete: func(k K) (b []byte, err error) {
+			telem.MarshalF[K](dt)(b, k)
+			return b, nil
+		},
+		MarshalSet: func(e E) (b []byte, err error) {
+			telem.MarshalF[K](dt)(b, e.GorpKey())
+			return b, nil
+		},
+	}
+}
+
 func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
 	return GorpConfig[string, E]{
 		DB:             db,

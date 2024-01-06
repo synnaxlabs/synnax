@@ -152,9 +152,13 @@ public:
 
     TimeSpan operator*(const TimeSpan &other) const { return TimeSpan(value * other.value); }
 
+    TimeSpan operator*(const float &other) const { return TimeSpan(value * other); }
+
     friend TimeSpan operator*(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs * rhs.value); }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 

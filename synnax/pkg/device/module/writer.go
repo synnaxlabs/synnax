@@ -28,7 +28,7 @@ func (w Writer) Create(ctx context.Context, r *Module) (err error) {
 	if !r.Key.IsValid() {
 		localKey, err := w.rack.IncrementModuleCount(ctx, r.Rack(), 1)
 		if err != nil {
-			return
+			return err
 		}
 		r.Key = NewKey(r.Rack(), localKey)
 	}

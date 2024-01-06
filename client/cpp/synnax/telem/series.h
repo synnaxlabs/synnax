@@ -46,6 +46,27 @@ public:
         data_type = synnax::INT64;
     }
 
+    explicit Series(const std::vector<uint64_t> &d) {
+        data = std::make_unique<std::byte[]>(d.size() * sizeof(uint64_t));
+        memcpy(data.get(), d.data(), d.size() * sizeof(uint64_t));
+        size = d.size() * sizeof(uint64_t);
+        data_type = synnax::UINT64;
+    }
+
+    explicit Series(const std::vector<std::string> &d, synnax::DataType data_type = synnax::STRING): data_type(data_type) {
+        size_t total_size = 0;
+        for (const auto &s : d) total_size += s.size() + 1;
+        data = std::make_unique<std::byte[]>(total_size);
+        size_t offset = 0;
+        for (const auto &s : d) {
+            memcpy(data.get() + offset, s.data(), s.size());
+            offset += s.size();
+            data[offset] = std::byte('\n');
+            offset++;
+        }
+        size = total_size;
+    }
+
     explicit Series(const telempb::Series &s) {
         data_type = synnax::DataType(s.data_type());
         size = s.data().size();
@@ -62,7 +83,7 @@ public:
         s->set_data(data.get(), size);
     }
 
-    std::vector<uint8_t> uint8()  {
+    [[nodiscard]] std::vector<uint8_t> uint8() const {
         if (data_type != synnax::UINT8) {
             throw std::runtime_error("invalid data type");
         }
@@ -71,7 +92,7 @@ public:
         return v;
     }
 
-    std::vector<float> float32() {
+    [[nodiscard]] std::vector<float> float32() const {
         if (data_type != synnax::FLOAT32) {
             throw std::runtime_error("invalid data type");
         }
@@ -80,12 +101,37 @@ public:
         return v;
     }
 
-    std::vector<int64_t> int64() {
+    [[nodiscard]] std::vector<int64_t> int64() const {
         if (data_type != synnax::INT64) {
             throw std::runtime_error("invalid data type");
         }
         std::vector<int64_t> v(size / sizeof(int64_t));
         memcpy(v.data(), data.get(), size);
+        return v;
+    }
+
+    [[nodiscard]] std::vector<uint64_t> uint64() const {
+        if (data_type != synnax::UINT64) {
+            throw std::runtime_error("invalid data type");
+        }
+        std::vector<uint64_t> v(size / sizeof(uint64_t));
+        memcpy(v.data(), data.get(), size);
+        return v;
+    }
+
+    [[nodiscard]] std::vector<std::string> string() const {
+        if (data_type != synnax::STRING) {
+            throw std::runtime_error("invalid data type");
+        }
+        std::vector<std::string> v;
+        std::string s;
+        for (size_t i = 0; i < size; i++) {
+            if (data[i] == std::byte('\n')) {
+                v.push_back(s);
+                s.clear();
+                // WARNING: This might be very slow due to copying.
+            } else s += char(data[i]);
+        }
         return v;
     }
 

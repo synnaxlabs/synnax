@@ -66,13 +66,55 @@ typedef freighter::UnaryClient<
         api::v1::DeviceDeleteModuleRequest
 > DeviceDeleteModuleClient;
 
+class RackKey {
+public:
+    std::uint32_t value = 0;
+
+    RackKey(std::uint32_t value) : value(value) {}
+
+    RackKey(std::uint16_t node_key, std::uint16_t local_key) :
+            value((node_key << 16) | local_key) {}
+
+    std::uint16_t node_key() const { return value >> 16; }
+
+    std::uint16_t local_key() const { return value & 0xFFFF; }
+
+    RackKey() = default;
+};
+
+struct ModuleKey {
+    std::uint64_t value = 0;
+
+    ModuleKey(std::uint64_t value) : value(value) {}
+
+    ModuleKey(RackKey rack_key, std::uint32_t local_key) :
+            value((static_cast<std::uint64_t>(rack_key.value) << 32) | local_key) {}
+
+    operator std::uint64_t() const {
+        return value;
+    }
+
+    RackKey rack_key() const {
+        return RackKey(value >> 32);
+    }
+
+    std::uint32_t local_key() const {
+        return value & 0xFFFFFFFF;
+    }
+
+    ModuleKey() = default;
+};
+
 class Module {
-    std::uint64_t key;
+public:
+    ModuleKey key;
     std::string name;
     std::string type;
     std::string config;
 
-    Module(std::uint64_t key, std::string name, std::string type, std::string config);
+    Module(ModuleKey key, std::string name, std::string type, std::string config);
+
+    Module(RackKey rack, std::string name, std::string type, std::string config);
 
     explicit Module(const api::v1::Module &module);
 
@@ -89,7 +131,7 @@ private:
 class ModuleClient {
 public:
     ModuleClient(
-            std::uint32_t rack,
+            RackKey rack,
             std::shared_ptr<DeviceCreateModuleClient> module_create_client,
             std::shared_ptr<DeviceRetrieveModuleClient> module_retrieve_client,
             std::shared_ptr<DeviceDeleteModuleClient> module_delete_client
@@ -113,7 +155,7 @@ public:
 
 private:
     /// @brief key of rack that this client belongs to.
-    std::uint32_t rack;
+    RackKey rack;
     /// @brief module creation transport.
     std::shared_ptr<DeviceCreateModuleClient> module_create_client;
     /// @brief module retrieval transport.
@@ -123,13 +165,18 @@ private:
 };
 
 class Rack {
-    std::uint32_t key;
+public:
+    RackKey key;
     std::string name;
-    ModuleClient modules = ModuleClient(key, nullptr, nullptr, nullptr);
+    ModuleClient modules = ModuleClient(0, nullptr, nullptr, nullptr);
 
-    Rack(std::uint32_t key, std::string name);
+    Rack(RackKey key, std::string name);
+
+    Rack(std:: string name);
 
     explicit Rack(const api::v1::Rack &rack);
+
+    bool operator==(const Rack &rack) const { return rack.key.value == key.value; }
 
 private:
     void to_proto(api::v1::Rack *rack) const;
@@ -145,7 +192,7 @@ public:
     DeviceClient(
             std::unique_ptr<DeviceCreateRackClient> rack_create_client,
             std::unique_ptr<DeviceRetrieveRackClient> rack_retrieve_client,
-            std::unique_ptr<DeviceDeleteRackClient > rack_delete_client,
+            std::unique_ptr<DeviceDeleteRackClient> rack_delete_client,
             std::shared_ptr<DeviceCreateModuleClient> module_create_client,
             std::shared_ptr<DeviceRetrieveModuleClient> module_retrieve_client,
             std::shared_ptr<DeviceDeleteModuleClient> module_delete_client
@@ -173,7 +220,7 @@ private:
     /// @brief rack retrieval transport.
     std::unique_ptr<DeviceRetrieveRackClient> rack_retrieve_client;
     /// @brief rack deletion transport.
-    std::unique_ptr<DeviceDeleteRackClient > rack_delete_client;
+    std::unique_ptr<DeviceDeleteRackClient> rack_delete_client;
     /// @brief module creation transport.
     std::shared_ptr<DeviceCreateModuleClient> module_create_client;
     /// @brief module retrieval transport.

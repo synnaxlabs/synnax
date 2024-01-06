@@ -67,7 +67,8 @@ type DeviceRetrieveRackResponse struct {
 
 func (d *DeviceService) RetrieveRack(ctx context.Context, req DeviceRetrieveRackRequest) (res DeviceRetrieveRackResponse, _ error) {
 	return res, d.WithTx(ctx, func(tx gorp.Tx) error {
-		return d.internal.Rack.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Racks).Exec(ctx, tx)
+		err := d.internal.Rack.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Racks).Exec(ctx, tx)
+		return err
 	})
 }
 

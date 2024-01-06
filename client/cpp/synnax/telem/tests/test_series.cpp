@@ -17,7 +17,7 @@
 /// std.
 #include <iostream>
 
-///// @brief create basic int series
+///// @brief create basic int series.
 TEST(TestSeries, testConstruction)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
@@ -29,7 +29,19 @@ TEST(TestSeries, testConstruction)
     }
 }
 
-//// @brief it should correctly serialize and deserialize the series from protoubuf
+//// @brief it should correctly initialize and parse a string series.
+TEST(TestSeries, testString)
+{
+    std::vector<std::string> vals = {"hello", "world"};
+    synnax::Series s{vals};
+    ASSERT_EQ(s.getDataType(), synnax::STRING);
+    auto v = s.string();
+    for (size_t i = 0; i < vals.size(); i++) {
+        ASSERT_EQ(v[i], vals[i]);
+    }
+}
+
+//// @brief it should correctly serialize and deserialize the series from protoubuf.
 TEST(TestSeries, testProto)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};

@@ -61,7 +61,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	return v.Error()
 }
 

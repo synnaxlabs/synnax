@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
+/// GTest.
+#include <gtest/gtest.h>
 
-/// std
-#include <string>
+/// Local headers.
+#include "driver/breaker/breaker.h"
 
-namespace synnax {
-const std::string ERROR_PREFIX = "sy.api.";
-const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
-const std::string QUERY_ERROR = ERROR_PREFIX + "query";
-const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";
-const std::string NOT_FOUND = QUERY_ERROR + ".not_found";
+// @brief it should correctly wait for an expended number of requests.
+TEST(BreakerTests, testBreaker)
+{
+    auto b = breaker::Breaker(breaker::Config{synnax::TimeSpan(1), 1, 1});
+    ASSERT_TRUE(b.wait());
+    ASSERT_FALSE(b.wait());
 }

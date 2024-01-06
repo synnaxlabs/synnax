@@ -123,7 +123,7 @@ std::pair<Channel, freighter::Error> ChannelClient::retrieve(const std::string &
     if (err)
         return {Channel(), err};
     if (res.channels_size() == 0)
-        return {Channel(), freighter::Error(synnax::NO_RESULTS, "no channels found matching name " + name)};
+        return {Channel(), freighter::Error(synnax::NOT_FOUND, "no channels found matching name " + name)};
     if (res.channels_size() > 1)
         return {Channel(), freighter::Error(synnax::QUERY_ERROR, "multiple channels found matching name " + name)};
     return {Channel(res.channels(0)), err};
