@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/pluto",
   "private": false,
-  "version": "0.13.0",
+  "version": "0.14.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -164,6 +164,16 @@
       "import": "./dist/list.js",
       "require": "./dist/list.cjs",
       "types": "./dist/list/index.d.ts"
+    },
+    "./color": {
+      "import": "./dist/color.js",
+      "require": "./dist/color.cjs",
+      "types": "./dist/color/index.d.ts"
+    },
+    "./css": {
+      "import": "./dist/css.js",
+      "require": "./dist/css.cjs",
+      "types": "./dist/css/index.d.ts"
     },
     "./dist/*": "./dist/*"
   },
