@@ -185,7 +185,7 @@ export const Icon: IconType = {
   Selection: PiSelectionPlusBold,
   Pan: GrPan,
   Rule: MdSquareFoot,
-  ser: MdPerson,
+  User: MdPerson,
   Rename: BiRename,
   Snapshot: MdPictureInPicture,
   Sync: AiOutlineSync,
