@@ -56,5 +56,10 @@ export const Number = (): ReactElement => {
   return <Input.Numeric value={value} onChange={setValue} />;
 };
 
+export const TextArea = (): ReactElement => {
+  const [value, setValue] = useState("");
+  return <Input.TextArea value={value} onChange={setValue} />;
+};
+
 // eslint-disable-next-line import/no-default-export
 export default story;

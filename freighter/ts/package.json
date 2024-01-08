@@ -5,7 +5,7 @@
   "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
-  "license": "MIT",
+  "licens": "MIT",
   "keywords": [
     "synnax",
     "grpc",

@@ -22,6 +22,9 @@ import {
   componentRenderProp,
   Status,
 } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Button } from "@synnaxlabs/pluto/button";
+import { Input } from "@synnaxlabs/pluto/input";
 import { Case } from "@synnaxlabs/x";
 import { type FieldValues, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
@@ -34,6 +37,9 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
+
+import { z } from "astro/zod";
+import { useForm } from "react-hook-form";
 
 const formSchema = synnaxPropsZ.extend({ name: z.string() });
 

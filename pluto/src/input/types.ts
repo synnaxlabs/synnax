@@ -23,17 +23,20 @@ export interface OptionalControl<I extends Value = Value, O extends Value = I>
 
 type HTMLInputProps = Omit<
   ComponentPropsWithoutRef<"input">,
-  "size" | "onChange" | "value" | "children"
+  "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 
 export type Variant = "outlined" | "shadow";
 
-export interface BaseProps<I extends Value = Value, O extends Value = I>
-  extends Omit<HTMLInputProps, "placeholder">,
-    Control<I, O> {
+export interface ExtensionProps<I extends Value = Value, O extends Value = I>
+  extends Control<I, O> {
   size?: ComponentSize;
   variant?: Variant;
   sharp?: boolean;
   placeholder?: ReactNode;
   children?: ReactNode;
 }
+
+export interface BaseProps<I extends Value = Value, O extends Value = I>
+  extends HTMLInputProps,
+    ExtensionProps<I, O> {}

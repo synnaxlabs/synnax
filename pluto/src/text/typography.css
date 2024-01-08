@@ -21,7 +21,8 @@ li,
 th,
 td,
 text,
-input {
+input,
+textarea {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     fill: var(--pluto-text-color);
