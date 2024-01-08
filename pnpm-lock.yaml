@@ -547,7 +547,7 @@ importers:
         specifier: ^3.3.2
         version: 3.3.2(react-hook-form@7.49.0)
       '@synnaxlabs/media':
-        specifier: ^0.0.5
+        specifier: ^0.0.6
         version: link:../x/media
       '@synnaxlabs/pluto':
         specifier: ^0.13.0

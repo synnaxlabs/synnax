@@ -49,6 +49,7 @@
       "import": "./dist/media.es.js",
       "require": "./dist/media.cjs.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./dist/*": "./dist/*"
   }
 }
