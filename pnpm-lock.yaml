@@ -547,8 +547,8 @@ importers:
         specifier: ^3.3.2
         version: 3.3.2(react-hook-form@7.49.0)
       '@synnaxlabs/media':
-        specifier: ^0.0.2
-        version: 0.0.2
+        specifier: ^0.0.4
+        version: link:../x/media
       '@synnaxlabs/pluto':
         specifier: ^0.13.0
         version: link:../pluto
@@ -7469,27 +7469,6 @@ packages:
       svg-parser: 2.0.4
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /@synnaxlabs/media@0.0.2:
-    resolution: {integrity: sha512-HxjMuJdoNo9TBov4DHVcfcOF5plRyrd1uIMIMsZcHG5vHrZxuIvevhHF6ak5xKU9El8BDXeh1OnfT+q9g+Kcmg==}
-    dependencies:
-      '@synnaxlabs/x': 0.8.0
-      '@types/react': 18.2.47
-      clsx: 2.1.0
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      react-icons: 4.12.0(react@18.2.0)
-    dev: false
-
-  /@synnaxlabs/x@0.8.0:
-    resolution: {integrity: sha512-RipxP6gi7QWF3CeQ9zXms/TOf2xqUsYt8gHJHvdtXu6BbAHG+rUgT7DIHBaQk/rBPblvneMcXOiGCHrarpdUig==}
-    dependencies:
-      async-mutex: 0.4.0
-      js-convert-case: 4.2.0
-      msgpackr: 1.10.0
-      nanoid: 5.0.4
-      zod: 3.22.4
     dev: false
 
   /@tanstack/react-virtual@3.0.0-beta.54(react@18.2.0):
