@@ -1,6 +1,16 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #include <string>
 #include <unordered_map>
 #include <thread>
+#include <latch>
 
 #include "synnax/synnax.h"
 #include "driver/modules/module.h"
@@ -13,18 +23,21 @@ namespace device {
 
 class Modules {
 public:
-    Modules(
+    [[maybe_unused]] Modules(
             synnax::RackKey rack_key,
-            const std::shared_ptr<synnax::Synnax>& client,
-            std::unique_ptr<module::Factory> factory
+            const std::shared_ptr<synnax::Synnax> &client,
+            std::unique_ptr<module::Factory> factory,
+            breaker::Breaker breaker
     );
 
-    freighter::Error start();
+    freighter::Error start(std::latch &latch);
 
-    void stop();
+    freighter::Error stop();
 
     void processModuleSet(const synnax::Series &series);
+
     void processModuleDelete(const synnax::Series &series);
+
 private:
     synnax::RackKey rack_key;
     synnax::Rack internal;
@@ -42,20 +55,25 @@ private:
     freighter::Error exit_err;
     breaker::Breaker breaker;
 
-    void run();
+    void run(std::latch &latch);
+
+    freighter::Error runInternal();
+
+    freighter::Error startInternal();
+
 };
 
 class Heartbeat {
 public:
     Heartbeat(
-        synnax::RackKey rack_key,
-        std::uint32_t generation,
-        const std::shared_ptr<synnax::Synnax> &client,
+            synnax::RackKey rack_key,
+            std::uint32_t generation,
+            const std::shared_ptr<synnax::Synnax> &client
     );
 
-    freighter::Error start();
+    freighter::Error start(std::latch &latch);
 
-    void stop();
+    freighter::Error stop();
 
 private:
     // Synnax
@@ -83,12 +101,15 @@ public:
     Rack(
             synnax::RackKey key,
             std::uint32_t generation,
-            const std::shared_ptr<synnax::Synnax>& client,
+            const std::shared_ptr<synnax::Synnax> &client,
             std::unique_ptr<module::Factory> module_factory
     );
 
     freighter::Error run();
+
 private:
+    synnax::RackKey key;
+    std::uint32_t generation;
     Modules modules;
     Heartbeat heartbeat;
 };

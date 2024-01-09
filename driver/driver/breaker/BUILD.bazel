@@ -2,7 +2,10 @@ cc_library(
     name = "breaker",
     hdrs = ["breaker.h"],
     visibility = ["//visibility:public"],
-    deps = ["@synnax//synnax"],
+    deps = [
+        "@com_github_google_glog//:glog",
+        "@synnax//synnax",
+    ],
 )
 
 cc_test(

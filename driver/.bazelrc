@@ -1,2 +1,2 @@
-# Specifies compilation with c++ version 17.
-build --action_env=BAZEL_CXXOPTS="-std=c++17"
+# Specifies compilation with c++ version 20.
+build --action_env=BAZEL_CXXOPTS="-std=c++20"

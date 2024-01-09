@@ -12,12 +12,12 @@
 
 using namespace synnax;
 
-Rack::Rack(RackKey key, std::string name):
+Rack::Rack(RackKey key, std::string name) :
         key(key),
         name(name) {
 }
 
-Rack::Rack(std::string name): name(name) {
+Rack::Rack(std::string name) : name(name) {
 }
 
 Rack::Rack(const api::v1::Rack &a) :
@@ -34,7 +34,7 @@ void Rack::to_proto(api::v1::Rack *rack) const {
 const std::string RETRIEVE_RACK_ENDPOINT = "/device/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/device/rack/create";
 
-std::pair<Rack, freighter::Error> DeviceClient::retrieveRack(std::uint64_t key) const {
+std::pair<Rack, freighter::Error> DeviceClient::retrieveRack(std::uint32_t key) const {
     auto req = api::v1::DeviceRetrieveRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
@@ -54,21 +54,27 @@ freighter::Error DeviceClient::createRack(Rack &rack) const {
     return err;
 }
 
-freighter::Error DeviceClient::deleteRack(std::uint64_t key) const {
+std::pair<Rack, freighter::Error> DeviceClient::createRack(const std::string &name) const {
+    auto rack = Rack(name);
+    auto err = createRack(rack);
+    return {rack, err};
+}
+
+freighter::Error DeviceClient::deleteRack(std::uint32_t key) const {
     auto req = api::v1::DeviceDeleteRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_delete_client->send(CREATE_RACK_ENDPOINT, req);
     return err;
 }
 
-Module::Module(ModuleKey key, std::string name, std::string type, std::string config):
+Module::Module(ModuleKey key, std::string name, std::string type, std::string config) :
         key(key),
         name(name),
         type(type),
         config(config) {
 }
 
-Module::Module(RackKey rack, std::string name, std::string type, std::string config):
+Module::Module(RackKey rack, std::string name, std::string type, std::string config) :
         key(ModuleKey(rack, 0)),
         name(name),
         type(type),

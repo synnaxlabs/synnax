@@ -1,5 +1,5 @@
 cc_library(
-    name = "ni",
+    name = "rack",
     srcs = [
         "heartbeat.cpp",
         "modules.cpp",
@@ -11,7 +11,21 @@ cc_library(
     deps = [
         "//driver/breaker",
         "//driver/modules:module",
+        "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
         "@synnax//synnax",
+    ],
+)
+
+cc_test(
+    name = "test_rack",
+    size = "small",
+    srcs = [
+        "modules_test.cpp",
+    ],
+    deps = [
+        "//driver/rack",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
     ],
 )

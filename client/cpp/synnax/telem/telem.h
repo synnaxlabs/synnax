@@ -167,6 +167,18 @@ public:
     friend TimeSpan operator/(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs / rhs.value); }
 
     TimeSpan operator/(const long &other) const { return TimeSpan(value / other); }
+
+    ////////////////////////////////// MODULO /////////////////////////////////
+
+    TimeSpan operator%(const TimeSpan &other) const { return TimeSpan(value % other.value); }
+
+    friend TimeSpan operator%(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs % rhs.value); }
+
+    TimeSpan operator%(const long &other) const { return TimeSpan(value % other); }
+
+    ////////////////////////////////// OSTREAM /////////////////////////////////
+
+    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) { return os << ts.value; }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.

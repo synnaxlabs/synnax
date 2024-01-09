@@ -209,10 +209,13 @@ public:
     freighter::Error createRack(Rack &rack) const;
 
     [[nodiscard]]
-    std::pair<Rack, freighter::Error> retrieveRack(std::uint64_t key) const;
+    std::pair<Rack, freighter::Error> createRack(const std::string &name) const;
 
     [[nodiscard]]
-    freighter::Error deleteRack(std::uint64_t key) const;
+    std::pair<Rack, freighter::Error> retrieveRack(std::uint32_t key) const;
+
+    [[nodiscard]]
+    freighter::Error deleteRack(std::uint32_t key) const;
 
 private:
     /// @brief rack creation transport.

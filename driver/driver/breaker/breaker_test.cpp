@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@
 // @brief it should correctly wait for an expended number of requests.
 TEST(BreakerTests, testBreaker)
 {
-    auto b = breaker::Breaker(breaker::Config{synnax::TimeSpan(1), 1, 1});
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", synnax::TimeSpan(1), 1, 1});
     ASSERT_TRUE(b.wait());
     ASSERT_FALSE(b.wait());
 }
