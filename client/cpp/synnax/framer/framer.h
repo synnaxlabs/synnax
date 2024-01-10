@@ -32,28 +32,16 @@ using namespace synnax;
 namespace synnax {
 
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<
-        api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest
-> StreamerStream;
+typedef freighter::Stream<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerStream;
 
 /// @brief typ;e alias for frame writer network transport.
-typedef freighter::StreamClient<
-        api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest
-> StreamerClient;
+typedef freighter::StreamClient<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerClient;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<
-        api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest
-> WriterStream;
+typedef freighter::Stream<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterStream;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<
-        api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest
-> WriterClient;
+typedef freighter::StreamClient<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterClient;
 
 
 /// @brief Frame type.
@@ -260,8 +248,20 @@ public:
             writer_client(std::move(writer_client)) {}
 
 
+    /// @brief opens a new frame writer using the given configuration. For information
+    /// on configuration parameters, see WriterConfig.
+    /// @returns a pair containing the opened writer and an error when ok() is false
+    /// if the writer could not be opened. In the case where ok() is false, the writer
+    /// will be in an invalid state and does not need to be closed. If ok() is true,
+    /// The writer must be closed after use to avoid leaking resources.
     std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config);
 
+    /// @brief opens a new frame streamer using the given configuration. For information
+    /// on configuration parameters, see StreamerConfig.
+    /// @returns a pair containing the opened streamer and an error when ok() is false
+    /// if the streamer could not be opened. In the case where ok() is false, the
+    /// streamer will be in an invalid state and does not need to be closed. If ok()
+    /// is true, the streamer must be closed after use to avoid leaking resources.
     std::pair<Streamer, freighter::Error> openStreamer(const StreamerConfig &config);
 };
 }

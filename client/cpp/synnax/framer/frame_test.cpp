@@ -16,20 +16,14 @@
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FramerTests, testConstruction) {
     auto f = synnax::Frame(2);
-    f.add(
-            65537,
-            synnax::Series(std::vector<float>{1, 2, 3})
-    );
+    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
     ASSERT_EQ(f.size(), 1);
 }
 
 /// @brief it should construct a frame from a proto.
 TEST(FramerTests, toProto) {
     auto f = synnax::Frame(2);
-    f.add(
-            65537,
-            synnax::Series(std::vector<float>{1, 2, 3})
-    );
+    f.add(65537, synnax::Series(std::vector<float>{1, 2, 3}));
     auto p = new api::v1::Frame();
     f.toProto(p);
     ASSERT_EQ(p->keys_size(), 1);

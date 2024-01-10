@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// GTest.
-#include <gtest/gtest.h>
+#include <include/gtest/gtest.h>
 
 /// Local headers.
 #include "synnax/telem/telem.h"

@@ -22,14 +22,9 @@ public:
     DataType() = default;
 
     explicit DataType(std::string data_type) {
-        setDataType(data_type);
-    }
-
-    void setDataType(std::string data_type) {
         if (!DENSITIES.count(data_type)) {
-            if (NAMES.count(data_type)) {
-                data_type = NAMES[data_type];
-            } else throw std::runtime_error("Tried to create unknown datatype " + data_type);
+            if (!NAMES.count(data_type)) throw std::runtime_error("Tried to create unknown datatype " + data_type);
+            data_type = NAMES[data_type];
         }
         value = data_type;
     }
@@ -84,30 +79,37 @@ private:
 
 };
 
-/// @brief representation of a float64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
 const DataType FLOAT64 = DataType("float64");
-/// @brief representation of a float32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
 const DataType FLOAT32 = DataType("float32");
-/// @brief representation of a int8 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
 const DataType INT8 = DataType("int8");
-/// @brief representation of a int16 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
 const DataType INT16 = DataType("int16");
-/// @brief representation of a int32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
 const DataType INT32 = DataType("int32");
-/// @brief representation of a int64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
 const DataType INT64 = DataType("int64");
-/// @brief representation of a timestamp data type in a Synnax cluster.
+/// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
 const DataType TIMESTAMP = DataType("timestamp");
-/// @brief representation of a uint8 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
 const DataType UINT8 = DataType("uint8");
-/// @brief representation of a uint16 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
 const DataType UINT16 = DataType("uint16");
-/// @brief representation of a uint32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
 const DataType UINT32 = DataType("uint32");
-/// @brief representation of a uint64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
 const DataType UINT64 = DataType("uint64");
-/// @brief representation of a uuid data type in a Synnax cluster.
+/// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
+const DataType UUID = DataType("uuid");
+/// @brief identifier for a newline separated, variable-length string data type in a
+/// Synnax cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
 const DataType STRING = DataType("string");
+/// @brief identifier for a newline separated, stringified JSON data type in a Synnax
+/// cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
 
 class TimeSpan {
 public:
