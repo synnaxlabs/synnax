@@ -280,15 +280,15 @@ class Stream {
 public:
     /// @brief Receives a response from the stream. It's not safe to call receive concurrently with itself.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<response_t, Error> receive() = 0;
+    virtual std::pair<response_t, Error> receive() const = 0;
 
     /// @brief Sends a request to the stream. It is not safe to call send concurrently with itself or closeSend.
     /// @param request - the request to send.
-    virtual Error send(request_t &request) = 0;
+    virtual Error send(request_t &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no more requests will be send,
     /// and (if desired) allowing the server to close the receiving end of the stream.
-    virtual Error closeSend() = 0;
+    virtual Error closeSend() const = 0;
 
     virtual ~Stream() = default;
 };
