@@ -62,7 +62,7 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	group           group.Group
-	localKeyCounter *kv.AtomicUint64Counter
+	localKeyCounter *kv.AtomicInt64Counter
 	cdc             io.Closer
 }
 

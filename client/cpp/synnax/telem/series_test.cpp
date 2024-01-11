@@ -22,7 +22,7 @@ TEST(TestSeries, testConstruction)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
-    ASSERT_EQ(s.getDataType(), synnax::UINT8);
+    ASSERT_EQ(s.data_type, synnax::UINT8);
     auto v = s.uint8();
     for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
@@ -34,7 +34,7 @@ TEST(TestSeries, testString)
 {
     std::vector<std::string> vals = {"hello", "world"};
     synnax::Series s{vals};
-    ASSERT_EQ(s.getDataType(), synnax::STRING);
+    ASSERT_EQ(s.data_type, synnax::STRING);
     auto v = s.string();
     for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);

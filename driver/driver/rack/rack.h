@@ -34,7 +34,7 @@ public:
 
     freighter::Error stop();
 
-    void processModuleSet(const synnax::Series &series);
+    void processModuleSet(const synnax::Series &series, const synnax::Writer &comms);
 
     void processModuleDelete(const synnax::Series &series);
 
@@ -49,6 +49,7 @@ private:
 
     synnax::Channel module_set_channel;
     synnax::Channel module_delete_channel;
+    synnax::Channel module_comms_channel;
 
     std::atomic<bool> running;
     std::thread exec_thread;

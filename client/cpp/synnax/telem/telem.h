@@ -21,6 +21,9 @@ class DataType {
 public:
     DataType() = default;
 
+    /// @brief Holds the id of the data type
+    std::string value;
+
     explicit DataType(std::string data_type) {
         if (!DENSITIES.count(data_type)) {
             if (!NAMES.count(data_type)) throw std::runtime_error("Tried to create unknown datatype " + data_type);
@@ -42,8 +45,6 @@ public:
     bool operator!=(const DataType &other) const { return value != other.value; }
 
 private:
-    /// @brief Holds the id of the data type
-    std::string value;
     /// @brief Maps the data type to the 'density' of
     /// the object.
     static inline std::unordered_map<std::string, uint32_t> DENSITIES = {
@@ -58,8 +59,9 @@ private:
             {"uint32",    4},
             {"uint64",    8},
             {"timestamp", 8},
+            {"uuid",      16},
             {"string",    0},
-            {"uuid",      16}
+            {"json",      0},
     };
 
     /// @brief Maps the data type id to name
@@ -110,6 +112,7 @@ const DataType STRING = DataType("string");
 /// @brief identifier for a newline separated, stringified JSON data type in a Synnax
 /// cluster. Note that variable-length data types have reduced performance and
 /// restricted use within a Synnax cluster.
+const DataType JSON = DataType("json");
 
 class TimeSpan {
 public:

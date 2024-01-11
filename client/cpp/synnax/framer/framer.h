@@ -100,7 +100,7 @@ public:
     /// If error.ok() is false, then the streamer has failed and must be closed.
     /// @note read is not safe to call concurrently with itself or with close(), but it
     /// is safe to call concurrently with setChannels().
-    std::pair<Frame, freighter::Error> read();
+    std::pair<Frame, freighter::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -109,7 +109,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
-    freighter::Error setChannels(std::vector<ChannelKey> channels);
+    freighter::Error setChannels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
     /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -119,13 +119,13 @@ public:
     /// during operation.
     /// @note close() is not safe to call concurrently with itself or any other streamer
     /// methods.
-    freighter::Error close();
+    freighter::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to receive()
     /// will exhaust the stream and eventually return an EOF.
     /// @note closeSend() is safe to call concurrently with read(), but not with any
     /// other DB methods.
-    freighter::Error closeSend();
+    freighter::Error closeSend() const;
 
 private:
     Streamer() = default;
