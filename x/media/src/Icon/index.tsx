@@ -84,6 +84,7 @@ import {
   MdAlignVerticalCenter,
   MdAlignVerticalTop,
   MdAlignVerticalBottom,
+  MdHardware,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
@@ -200,6 +201,7 @@ export const Icon: IconType = {
     Top: MdAlignVerticalTop,
     Bottom: MdAlignVerticalBottom,
   },
+  Hardware: MdHardware,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -303,4 +305,5 @@ export interface IconType {
     Top: IconFC;
     Bottom: IconFC;
   };
+  Hardware: IconFC;
 }

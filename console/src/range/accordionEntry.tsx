@@ -12,7 +12,6 @@ import { type ReactElement, useState } from "react";
 import { TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  List as Core,
   Menu as PMenu,
   Divider,
   Ranger,
@@ -23,6 +22,7 @@ import {
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
+import { List as Core } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 

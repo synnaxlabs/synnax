@@ -94,19 +94,12 @@ export const Item = ({
 export type ItemControlledProps<
   I extends Value = string | number,
   O extends Value = I,
-  F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>,
 > = ItemExtensionProps &
-  UseControllerProps<F, TName> & {
+  UseControllerProps<any, string> & {
     children: RenderProp<Control<I, O>>;
   };
 
-export const ItemControlled = <
-  I extends Value = string | number,
-  O extends Value = I,
-  F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>,
->({
+export const ItemControlled = <I extends Value = string | number, O extends Value = I>({
   name,
   rules,
   control,
@@ -115,8 +108,8 @@ export const ItemControlled = <
   label,
   children,
   ...props
-}: ItemControlledProps<I, O, F, TName>): ReactElement => {
-  const { field, fieldState } = useController<F, TName>({
+}: ItemControlledProps<I, O>): ReactElement => {
+  const { field, fieldState } = useController({
     control,
     rules,
     name,

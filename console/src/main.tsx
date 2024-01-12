@@ -16,6 +16,8 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { HardwareConfigure } from "@/hardware/configure";
+import { HardwareStatus } from "@/hardware/status";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
@@ -33,6 +35,7 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
+
 // import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
@@ -49,6 +52,8 @@ const layoutRenderers = {
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
   [Table.LAYOUT_TYPE]: Table.Table,
+  [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
+  [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

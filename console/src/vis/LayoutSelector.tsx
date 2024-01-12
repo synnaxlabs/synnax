@@ -14,10 +14,11 @@ import { Eraser, Button, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 
 import { CSS } from "@/css";
+import { HardwareConfigure } from "@/hardware/configure";
+import { HardwareStatus } from "@/hardware/status";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
-import { Table } from "@/table";
 
 import "@/vis/LayoutSelector.css";
 
@@ -57,6 +58,13 @@ export const LayoutSelector = ({
             startIcon={<Icon.PID />}
           >
             PID
+          </Button.Button>
+          <Button.Button
+            variant="outlined"
+            onClick={() => place(HardwareConfigure.create({ key: layoutKey }))}
+            startIcon={<Icon.Hardware />}
+          >
+            Hardware Status
           </Button.Button>
         </Align.Space>
       </Align.Center>
