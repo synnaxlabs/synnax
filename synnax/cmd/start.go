@@ -155,7 +155,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, Host: dist.Cluster})
+		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, Host: dist.Cluster, CDC: dist.CDC})
 		if err != nil {
 			return err
 		}

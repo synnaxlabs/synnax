@@ -34,7 +34,7 @@ public:
 
     freighter::Error stop();
 
-    void processModuleSet(const synnax::Series &series, const synnax::Writer &comms);
+    void processModuleSet(const synnax::Series &series, synnax::Writer &comms);
 
     void processModuleDelete(const synnax::Series &series);
 
@@ -44,6 +44,8 @@ private:
 
     const std::shared_ptr<synnax::Synnax> client;
     std::unique_ptr<module::Factory> factory;
+    std::unique_ptr<synnax::Streamer> streamer;
+
 
     std::unordered_map<std::uint64_t, std::unique_ptr<module::Module>> modules;
 
@@ -51,7 +53,6 @@ private:
     synnax::Channel module_delete_channel;
     synnax::Channel module_comms_channel;
 
-    std::atomic<bool> running;
     std::thread exec_thread;
     freighter::Error exit_err;
     breaker::Breaker breaker;
@@ -69,7 +70,8 @@ public:
     Heartbeat(
             synnax::RackKey rack_key,
             std::uint32_t generation,
-            const std::shared_ptr<synnax::Synnax> &client
+            std::shared_ptr<synnax::Synnax> client,
+            breaker::Breaker breaker
     );
 
     freighter::Error start(std::latch &latch);
@@ -103,7 +105,8 @@ public:
             synnax::RackKey key,
             std::uint32_t generation,
             const std::shared_ptr<synnax::Synnax> &client,
-            std::unique_ptr<module::Factory> module_factory
+            std::unique_ptr<module::Factory> module_factory,
+            breaker::Breaker breaker
     );
 
     freighter::Error run();

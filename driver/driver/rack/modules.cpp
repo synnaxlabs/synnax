@@ -28,7 +28,6 @@ device::Modules::Modules(
         rack_key(rack_key),
         client(client),
         factory(std::move(factory)),
-        running(false),
         exit_err(freighter::NIL),
         breaker(std::move(breaker)),
         internal(rack_key, "") {
@@ -45,7 +44,6 @@ freighter::Error device::Modules::start(std::latch &latch) {
         return err;
     }
     breaker.reset();
-    running = true;
     exec_thread = std::thread(&Modules::run, this, std::ref(latch));
     return freighter::NIL;
 }
@@ -53,6 +51,7 @@ freighter::Error device::Modules::start(std::latch &latch) {
 freighter::Error device::Modules::startInternal() {
     auto [rack, rack_err] = client->devices.retrieveRack(rack_key.value);
     if (rack_err) return rack_err;
+    internal = rack;
 
     // Fetch module set channel.
     auto [mod_set, mod_set_err] = client->channels.retrieve(MODULE_SET_CHANNEL);
@@ -69,6 +68,7 @@ freighter::Error device::Modules::startInternal() {
             "sy_node_" + std::to_string(rack.key.node_key()) + "_comms");
     if (mod_comms_err) return mod_comms_err;
     module_comms_channel = mod_comms;
+    return freighter::NIL;
 }
 
 
@@ -82,11 +82,18 @@ void device::Modules::run(std::latch &latch) {
     latch.count_down();
 }
 
+freighter::Error device::Modules::stop() {
+    streamer->closeSend();
+    exec_thread.join();
+    return exit_err;
+}
+
 freighter::Error device::Modules::runInternal() {
     // Open the streamer.
     std::vector<synnax::ChannelKey> stream_channels = {module_set_channel.key, module_delete_channel.key};
-    auto [streamer, open_err] = client->telem.openStreamer(synnax::StreamerConfig{.channels = stream_channels});
+    auto [s, open_err] = client->telem.openStreamer(synnax::StreamerConfig{.channels = stream_channels});
     if (open_err) return open_err;
+    streamer = std::make_unique<synnax::Streamer>(std::move(s));
 
     // Open the writer.
     std::vector<synnax::ChannelKey> write_channels = {module_comms_channel.key};
@@ -96,8 +103,8 @@ freighter::Error device::Modules::runInternal() {
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
-    while (running) {
-        auto [frame, read_err] = streamer.read();
+    while (true) {
+        auto [frame, read_err] = streamer->read();
         if (read_err) return read_err;
         for (size_t i = 0; i < frame.size(); i++) {
             auto &key = (*frame.columns)[i];
@@ -106,9 +113,10 @@ freighter::Error device::Modules::runInternal() {
             else if (key == module_delete_channel.key) processModuleDelete(series);
         }
     }
+    return freighter::NIL;
 }
 
-void device::Modules::processModuleSet(const synnax::Series &series, const synnax::Writer &comms) {
+void device::Modules::processModuleSet(const synnax::Series &series, synnax::Writer &comms) {
     auto keys = series.uint64();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
@@ -125,14 +133,14 @@ void device::Modules::processModuleSet(const synnax::Series &series, const synna
         json config_err;
         bool valid_config = true;
         auto driver_mod = factory->configure(client, mod_config, valid_config, config_err);
-        if (err) {
+        if (!valid_config) {
             json config_err_pld;
             config_err_pld["type"] = "config_error";
             config_err_pld["error"] = config_err;
             config_err_pld["module"] = mod_config.key.value;
             auto fr = synnax::Frame(1);
-            fr.add(module_comms_channel.key, synnax::Series(std::vector<std::string>{to_string(config_err)}));
-            comms.write(fr);
+            fr.add(module_comms_channel.key, synnax::Series(std::vector<std::string>{to_string(config_err_pld)}, synnax::JSON));
+            comms.write(std::move(fr));
             continue;
         }
         modules[key] = std::move(driver_mod);

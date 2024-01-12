@@ -58,6 +58,7 @@ private:
             {"uint16",    2},
             {"uint32",    4},
             {"uint64",    8},
+            {"uint128",  16},
             {"timestamp", 8},
             {"uuid",      16},
             {"string",    0},
@@ -103,6 +104,8 @@ const DataType UINT16 = DataType("uint16");
 const DataType UINT32 = DataType("uint32");
 /// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
 const DataType UINT64 = DataType("uint64");
+/// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
+const DataType UINT128 = DataType("uint128");
 /// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
 const DataType UUID = DataType("uuid");
 /// @brief identifier for a newline separated, variable-length string data type in a

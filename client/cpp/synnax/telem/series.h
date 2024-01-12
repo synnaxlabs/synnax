@@ -24,8 +24,15 @@ namespace synnax {
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
 public:
+    static const DataType validateDataType(DataType expected, DataType value, bool validate = true) {
+        if (validate && expected != value)
+            throw std::runtime_error("invalid data type. Expected " + expected.name() + ", got " + value.name());
+        return value;
+    }
+
+
     /// @brief Constructs the series from a vector of uint8's,
-    explicit Series(const std::vector<uint8_t> &d) : data_type(synnax::UINT8) {
+    explicit Series(const std::vector<uint8_t> &d, bool validate_data_type = true) : data_type(synnax::UINT8) {
         data = std::make_unique<std::byte[]>(d.size());
         memcpy(data.get(), d.data(), d.size());
         size = d.size();
@@ -68,7 +75,7 @@ public:
         size = total_size;
     }
 
-    explicit Series(const telempb::Series &s): data_type(s.data_type()) {
+    explicit Series(const telempb::Series &s) : data_type(s.data_type()) {
         size = s.data().size();
         data = std::make_unique<std::byte[]>(size);
         memcpy(data.get(), s.data().data(), size);

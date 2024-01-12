@@ -12,7 +12,7 @@
 
 //// internal
 #include "synnax/synnax.h"
-#include "synnax/testutil/testutil.h"
+#include "driver/testutil/testutil.h"
 
 synnax::Synnax new_test_client()
 {

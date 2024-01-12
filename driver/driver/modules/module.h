@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#pragma once
+
 #include "synnax/synnax.h"
 #include <memory>
 #include <utility>
@@ -22,7 +24,7 @@ private:
 public:
     Module(synnax::Module module) : internal(std::move(module)) {}
 
-    virtual void stop() = 0;
+    virtual void stop() {};
 
     virtual ~Module() = default;
 };
@@ -30,7 +32,7 @@ public:
 class Factory {
 public:
     virtual std::unique_ptr<Module> configure(
-            const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module, bool &valid_config, const json &config_err) = 0;
+            const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module, bool &valid_config, json &config_err) = 0;
 
     virtual ~Factory() = default;
 };

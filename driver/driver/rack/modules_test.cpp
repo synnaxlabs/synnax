@@ -13,29 +13,52 @@
 
 /// Local headers.
 #include "driver/rack/rack.h"
-#include "synnax/testutil/testutil.h"
+#include "driver/testutil/testutil.h"
 #include "driver/breaker/breaker.h"
 
 class MockModuleFactory : public module::Factory {
-    std::pair<std::unique_ptr<module::Module>, freighter::Error>
-    configure(const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module) override {
-        return {std::make_unique<module::Module>(module), freighter::NIL};
+public:
+    bool configured = false;
+
+    std::unique_ptr<module::Module> configure(
+            const std::shared_ptr<synnax::Synnax> &client,
+            const synnax::Module &module,
+            bool &valid_config,
+            json &config_err
+    ) override {
+        valid_config = false;
+        config_err["error"] = "test error";
+        return std::make_unique<module::Module>(module);
     }
+
 };
 
-TEST(RackModulesTests, testModuls) {
+TEST(RackModulesTests, testModuleNominalConfiguration) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto [rack, err] = client->devices.createRack("test_rack");
     ASSERT_FALSE(err) << err.message();
-    auto modules = device::Modules(rack.key, client, std::make_unique<MockModuleFactory>(), breaker::Breaker(breaker::Config{
+    auto breaker =breaker::Breaker(breaker::Config{
             "test_breaker",
             synnax::TimeSpan(1),
             1,
             1
-    }));
-
+    });
+    std::unique_ptr<MockModuleFactory> factory = std::make_unique<MockModuleFactory>();
+    auto modules = device::Modules(rack.key, client, std::move(factory), breaker);
     std::latch latch{1};
     err = modules.start(latch);
+    ASSERT_FALSE(err) << err.message();
+    auto mod = synnax::Module(
+            rack.key,
+            "test_module",
+            "",
+            ""
+    );
+    auto mod_err = rack.modules.create(mod);
+    ASSERT_FALSE(mod_err) << mod_err.message();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    err = modules.stop();
     ASSERT_FALSE(err) << err.message();
 }
 

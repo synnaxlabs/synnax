@@ -15,7 +15,11 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/device/module"
 	"github.com/synnaxlabs/synnax/pkg/device/rack"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Config = rack.Config
@@ -25,6 +29,7 @@ var DefaultConfig = rack.DefaultConfig
 type Service struct {
 	Rack   *rack.Service
 	Module *module.Service
+	CDC    *cdc.Provider
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -32,6 +37,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	rackService, err := rack.OpenService(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -42,6 +48,19 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
 		Rack:     rackService,
+		CDC:      cfg.CDC,
 	})
-	return &Service{Rack: rackService, Module: moduleService}, err
+	if err != nil {
+		return nil, err
+	}
+	svc := &Service{Rack: rackService, Module: moduleService}
+	if cfg.CDC != nil {
+		return svc, cfg.CDC.Channel.Create(ctx, &channel.Channel{
+			Name:        "sy_node_1_comms",
+			DataType:    telem.JSONT,
+			Leaseholder: core.Free,
+			Virtual:     true,
+		})
+	}
+	return svc, nil
 }
