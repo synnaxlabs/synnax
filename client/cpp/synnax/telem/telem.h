@@ -21,15 +21,13 @@ class DataType {
 public:
     DataType() = default;
 
-    explicit DataType(std::string data_type) {
-        setDataType(data_type);
-    }
+    /// @brief Holds the id of the data type
+    std::string value;
 
-    void setDataType(std::string data_type) {
+    explicit DataType(std::string data_type) {
         if (!DENSITIES.count(data_type)) {
-            if (NAMES.count(data_type)) {
-                data_type = NAMES[data_type];
-            } else throw std::runtime_error("Tried to create unknown datatype " + data_type);
+            if (!NAMES.count(data_type)) throw std::runtime_error("Tried to create unknown datatype " + data_type);
+            data_type = NAMES[data_type];
         }
         value = data_type;
     }
@@ -47,8 +45,6 @@ public:
     bool operator!=(const DataType &other) const { return value != other.value; }
 
 private:
-    /// @brief Holds the id of the data type
-    std::string value;
     /// @brief Maps the data type to the 'density' of
     /// the object.
     static inline std::unordered_map<std::string, uint32_t> DENSITIES = {
@@ -62,9 +58,11 @@ private:
             {"uint16",    2},
             {"uint32",    4},
             {"uint64",    8},
+            {"uint128",  16},
             {"timestamp", 8},
+            {"uuid",      16},
             {"string",    0},
-            {"uuid",      16}
+            {"json",      0},
     };
 
     /// @brief Maps the data type id to name
@@ -84,30 +82,40 @@ private:
 
 };
 
-/// @brief representation of a float64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
 const DataType FLOAT64 = DataType("float64");
-/// @brief representation of a float32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
 const DataType FLOAT32 = DataType("float32");
-/// @brief representation of a int8 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int8 data type in a Synnax cluster.
 const DataType INT8 = DataType("int8");
-/// @brief representation of a int16 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int16 data type in a Synnax cluster.
 const DataType INT16 = DataType("int16");
-/// @brief representation of a int32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int32 data type in a Synnax cluster.
 const DataType INT32 = DataType("int32");
-/// @brief representation of a int64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size int64 data type in a Synnax cluster.
 const DataType INT64 = DataType("int64");
-/// @brief representation of a timestamp data type in a Synnax cluster.
+/// @brief identifier for a fixed-size timestamp data type in a Synnax cluster.
 const DataType TIMESTAMP = DataType("timestamp");
-/// @brief representation of a uint8 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint8 data type in a Synnax cluster.
 const DataType UINT8 = DataType("uint8");
-/// @brief representation of a uint16 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint16 data type in a Synnax cluster.
 const DataType UINT16 = DataType("uint16");
-/// @brief representation of a uint32 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint32 data type in a Synnax cluster.
 const DataType UINT32 = DataType("uint32");
-/// @brief representation of a uint64 data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint64 data type in a Synnax cluster.
 const DataType UINT64 = DataType("uint64");
-/// @brief representation of a uuid data type in a Synnax cluster.
+/// @brief identifier for a fixed-size uint128 data type in a Synnax cluster (16 bytes).
+const DataType UINT128 = DataType("uint128");
+/// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16 bytes).
+const DataType UUID = DataType("uuid");
+/// @brief identifier for a newline separated, variable-length string data type in a
+/// Synnax cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
 const DataType STRING = DataType("string");
+/// @brief identifier for a newline separated, stringified JSON data type in a Synnax
+/// cluster. Note that variable-length data types have reduced performance and
+/// restricted use within a Synnax cluster.
+const DataType JSON = DataType("json");
 
 class TimeSpan {
 public:
@@ -152,9 +160,13 @@ public:
 
     TimeSpan operator*(const TimeSpan &other) const { return TimeSpan(value * other.value); }
 
+    TimeSpan operator*(const float &other) const { return TimeSpan(value * other); }
+
     friend TimeSpan operator*(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs * rhs.value); }
 
     TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
@@ -163,6 +175,18 @@ public:
     friend TimeSpan operator/(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs / rhs.value); }
 
     TimeSpan operator/(const long &other) const { return TimeSpan(value / other); }
+
+    ////////////////////////////////// MODULO /////////////////////////////////
+
+    TimeSpan operator%(const TimeSpan &other) const { return TimeSpan(value % other.value); }
+
+    friend TimeSpan operator%(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs % rhs.value); }
+
+    TimeSpan operator%(const long &other) const { return TimeSpan(value % other); }
+
+    ////////////////////////////////// OSTREAM /////////////////////////////////
+
+    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) { return os << ts.value; }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -210,11 +234,11 @@ public:
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
-    TimeStamp operator-(const TimeStamp &other) const { return TimeStamp(value - other.value); }
+    TimeSpan operator-(const TimeStamp &other) const { return TimeSpan(value - other.value); }
 
-    friend TimeStamp operator-(const long &lhs, const TimeStamp &rhs) { return TimeStamp(lhs - rhs.value); }
+    friend TimeSpan operator-(const long &lhs, const TimeStamp &rhs) { return TimeSpan(lhs - rhs.value); }
 
-    TimeStamp operator-(const TimeSpan &other) const { return TimeStamp(value - other.value); }
+    TimeSpan operator-(const TimeSpan &other) const { return TimeSpan(value - other.value); }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 

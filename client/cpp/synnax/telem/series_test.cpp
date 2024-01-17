@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// GTest.
-#include <gtest/gtest.h>
+#include <include/gtest/gtest.h>
 
 /// Local headers.
 #include "synnax/telem/series.h"
@@ -17,19 +17,31 @@
 /// std.
 #include <iostream>
 
-///// @brief create basic int series
+///// @brief create basic int series.
 TEST(TestSeries, testConstruction)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
-    ASSERT_EQ(s.getDataType(), synnax::UINT8);
+    ASSERT_EQ(s.data_type, synnax::UINT8);
     auto v = s.uint8();
     for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
     }
 }
 
-//// @brief it should correctly serialize and deserialize the series from protoubuf
+//// @brief it should correctly initialize and parse a string series.
+TEST(TestSeries, testString)
+{
+    std::vector<std::string> vals = {"hello", "world"};
+    synnax::Series s{vals};
+    ASSERT_EQ(s.data_type, synnax::STRING);
+    auto v = s.string();
+    for (size_t i = 0; i < vals.size(); i++) {
+        ASSERT_EQ(v[i], vals[i]);
+    }
+}
+
+//// @brief it should correctly serialize and deserialize the series from protoubuf.
 TEST(TestSeries, testProto)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};

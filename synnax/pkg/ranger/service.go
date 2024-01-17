@@ -11,6 +11,9 @@ package ranger
 
 import (
 	"context"
+	"io"
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -24,8 +27,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
-	"sync"
 )
 
 type Config struct {
@@ -69,7 +70,7 @@ type Service struct {
 
 const groupName = "Ranges"
 
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -78,34 +79,35 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, group: g}
+	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
-	if cfg.Signals != nil {
-		rangeCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigUUID[Range](cfg.DB))
-		if err != nil {
-			return nil, err
-		}
-		aliasCDCCfg := signals.GorpConfigString[alias](cfg.DB)
-		aliasCDCCfg.SetName = "sy_range_alias_set"
-		aliasCDCCfg.DeleteName = "sy_range_alias_delete"
-		aliasCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, aliasCDCCfg)
-		if err != nil {
-			return nil, err
-		}
-		s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
-		activeRangeCDC, err := cfg.Signals.SubscribeToObservable(ctx, signals.ObservableConfig{
-			Name:       "sy_active_range",
-			Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
-			Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
-			Observable: s.activeRangeObservable,
-		})
-		if err != nil {
-			return nil, err
-		}
-		s.shutdownSignals = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+	if cfg.Signals == nil {
+		return
 	}
-	return s, err
+	rangeCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigUUID[Range](cfg.DB))
+	if err != nil {
+		return
+	}
+	aliasCDCCfg := signals.GorpConfigString[alias](cfg.DB)
+	aliasCDCCfg.SetName = "sy_range_alias_set"
+	aliasCDCCfg.DeleteName = "sy_range_alias_delete"
+	aliasCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, aliasCDCCfg)
+	if err != nil {
+		return
+	}
+	s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
+	activeRangeCDC, err := cfg.Signals.SubscribeToObservable(ctx, signals.ObservableConfig{
+		Name:       "sy_active_range",
+		Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
+		Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
+		Observable: s.activeRangeObservable,
+	})
+	if err != nil {
+		return
+	}
+	s.shutdownSignals = xio.MultiCloser{rangeCDC, aliasCDC, activeRangeCDC}
+	return
 }
 
 func (s *Service) Close() error {

@@ -248,7 +248,7 @@ public:
     /// @brief retrieves the active range in the cluster.
     /// @returns a pair containing the active range and an error where ok() is false
     /// if the active range could not be retrieved. If no range is active, ok() will be
-    /// false and the error type will be synnax::NO_RESULTS.
+    /// false and the error type will be synnax::NOT_FOUND.
     [[nodiscard]] std::pair<Range, freighter::Error> retrieveActive() const;
 
     /// @brief clears the active range in the cluster.

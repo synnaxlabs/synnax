@@ -11,15 +11,17 @@ package cmd
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/device"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
-	"os"
-	"os/signal"
-	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -161,6 +163,7 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
+		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, Host: dist.Cluster, CDC: dist.CDC})
 		if err != nil {
 			return err
 		}
@@ -189,6 +192,7 @@ func start(cmd *cobra.Command) {
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
+			Device:          deviceSvc,
 		})
 		if err != nil {
 			return err

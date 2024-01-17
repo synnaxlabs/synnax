@@ -23,6 +23,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
 	transports = append(transports, newRanger(&a))
+	transports = append(transports, newDevice(&a))
 
 	// AUTH
 	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}

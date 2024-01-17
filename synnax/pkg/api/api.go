@@ -14,6 +14,8 @@
 package api
 
 import (
+	"go/types"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -37,7 +40,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to
@@ -56,6 +58,7 @@ type Config struct {
 	LinePlot      *lineplot.Service
 	Token         *token.Service
 	Label         *label.Service
+	Device        *device.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
@@ -83,6 +86,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "pid", c.PID)
+	validate.NotNil(v, "lineplot", c.LinePlot)
+	validate.NotNil(v, "device", c.Device)
 	validate.NotNil(v, "insecure", c.Insecure)
 	validate.NotNil(v, "lineplot", c.LinePlot)
 	validate.NotNil(v, "label", c.Label)
@@ -109,6 +114,7 @@ func (c Config) Override(other Config) Config {
 	c.PID = override.Nil(c.PID, other.PID)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Device = override.Nil(c.Device, other.Device)
 	return c
 }
 
@@ -176,6 +182,13 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
+	// DEVICE
+	DeviceCreateRack     freighter.UnaryServer[DeviceCreateRackRequest, DeviceCreateRackResponse]
+	DeviceRetrieveRack   freighter.UnaryServer[DeviceRetrieveRackRequest, DeviceRetrieveRackResponse]
+	DeviceDeleteRack     freighter.UnaryServer[DeviceDeleteRackRequest, types.Nil]
+	DeviceCreateModule   freighter.UnaryServer[DeviceCreateModuleRequest, DeviceCreateModuleResponse]
+	DeviceRetrieveModule freighter.UnaryServer[DeviceRetrieveModuleRequest, DeviceRetrieveModuleResponse]
+	DeviceDeleteModule   freighter.UnaryServer[DeviceDeleteModuleRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -193,6 +206,7 @@ type API struct {
 	PID          *PIDService
 	LinePlot     *LinePlotService
 	Label        *LabelService
+	Device       *DeviceService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -288,6 +302,13 @@ func (a *API) BindTo(t Transport) {
 		t.LabelDelete,
 		t.LabelSet,
 		t.LabelRemove,
+		// DEVICE
+		t.DeviceCreateRack,
+		t.DeviceRetrieveRack,
+		t.DeviceDeleteModule,
+		t.DeviceCreateModule,
+		t.DeviceRetrieveModule,
+		t.DeviceDeleteModule,
 	)
 
 	// AUTH
@@ -361,6 +382,13 @@ func (a *API) BindTo(t Transport) {
 	t.LabelDelete.BindHandler(a.Label.Delete)
 	t.LabelSet.BindHandler(a.Label.Set)
 	t.LabelRemove.BindHandler(a.Label.Remove)
+	// DEVICE
+	t.DeviceCreateRack.BindHandler(a.Device.CreateRack)
+	t.DeviceRetrieveRack.BindHandler(a.Device.RetrieveRack)
+	t.DeviceDeleteRack.BindHandler(a.Device.DeleteRack)
+	t.DeviceCreateModule.BindHandler(a.Device.CreateModule)
+	t.DeviceRetrieveModule.BindHandler(a.Device.RetrieveModule)
+	t.DeviceDeleteModule.BindHandler(a.Device.DeleteModule)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -381,5 +409,6 @@ func New(configs ...Config) (API, error) {
 	api.PID = NewPIDService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
 	api.Label = NewLabelService(api.provider)
+	api.Device = NewDeviceService(api.provider)
 	return api, nil
 }

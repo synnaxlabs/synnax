@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,15 +11,12 @@
 #include <gtest/gtest.h>
 
 /// Local headers.
-#include "synnax/telem/telem.h"
+#include "driver/breaker/breaker.h"
 
-/// std.
-
-using namespace synnax;
-
-/// @brief - it should initialize a timestamp from a long.
-TEST(TimeStampTests, testContructor)
+// @brief it should correctly wait for an expended number of requests.
+TEST(BreakerTests, testBreaker)
 {
-    auto ts = TimeStamp(5);
-    ASSERT_EQ(ts.value, 5);
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", synnax::TimeSpan(1), 1, 1});
+    ASSERT_TRUE(b.wait());
+    ASSERT_FALSE(b.wait());
 }

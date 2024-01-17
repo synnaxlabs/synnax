@@ -34,7 +34,7 @@ class Series(Payload):
         return super().__new__(overload_comparison_operators(cls, "__array__"))
 
     """Series is a strongly typed array of telemetry samples backed by an underlying
-    binary buffers. It is interoperable with np.ndarray, meaning that it can be safely
+    binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
 
     Series also have an optional 'time_range' property that can be used to define the
@@ -49,9 +49,10 @@ class Series(Payload):
     Series' data. This property is guaranteed to be defined when reading data from
     a Synnax cluster, and is particularly useful for understanding the alignment of
     samples in relation to another series. This is especially relevant in the context
-    of a Frame (framer.Frame). The start of the time range represents the timestamp of
-    the first sample in the array (inclusive), while the end of the time range is set
-    to the nanosecond AFTER the last sample in the array (exclusive).
+    of a Frame (framer.Frame). When set by the Cluster, the start of the time range
+    represents the timestamp of the first sample in the array (inclusive), while the
+    end of the time range is set to the nanosecond AFTER the last sample in the array
+    (exclusive).
     """
     data_type: DataType
     """The data type of the Series"""
