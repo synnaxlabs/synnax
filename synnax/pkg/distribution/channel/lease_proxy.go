@@ -23,8 +23,8 @@ import (
 type leaseProxy struct {
 	ServiceConfig
 	router        proxy.BatchFactory[Channel]
-	leasedCounter *kv.AtomicUint64Counter
-	freeCounter   *kv.AtomicUint64Counter
+	leasedCounter *kv.AtomicInt64Counter
+	freeCounter   *kv.AtomicInt64Counter
 	group         group.Group
 }
 
@@ -131,7 +131,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	counter *kv.AtomicUint64Counter,
+	counter *kv.AtomicInt64Counter,
 	retrieveIfNameExists bool,
 ) (toCreate []Channel, err error) {
 	// This is the value we would increment by if retrieveIfNameExists is false or
@@ -157,7 +157,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		}
 	}
 
-	v, err := counter.Add(uint64(incCounterBy))
+	v, err := counter.Add(int64(incCounterBy))
 	if err != nil {
 		return
 	}

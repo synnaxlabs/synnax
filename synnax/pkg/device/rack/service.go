@@ -46,6 +46,7 @@ func (c Config) Override(other Config) Config {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Host = override.Nil(c.Host, other.Host)
+	c.CDC = override.Nil(c.CDC, other.CDC)
 	return c
 }
 
@@ -62,7 +63,7 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	group           group.Group
-	localKeyCounter *kv.AtomicUint64Counter
+	localKeyCounter *kv.AtomicInt64Counter
 	cdc             io.Closer
 }
 

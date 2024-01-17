@@ -35,18 +35,18 @@ std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerCo
 
 Streamer::Streamer(std::unique_ptr<StreamerStream> s) : stream(std::move(s)) {}
 
-std::pair<Frame, freighter::Error> Streamer::read()
+std::pair<Frame, freighter::Error> Streamer::read() const
 {
     assertOpen();
     auto [fr, exc] = stream->receive();
     return {Frame(fr.frame()), exc};
 }
 
-freighter::Error Streamer::closeSend() {
+freighter::Error Streamer::closeSend() const {
     return stream->closeSend();
 }
 
-freighter::Error Streamer::close()
+freighter::Error Streamer::close() const
 {
     auto exc = stream->closeSend();
     if (exc)
@@ -57,7 +57,7 @@ freighter::Error Streamer::close()
     return recExc;
 }
 
-freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels)
+freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) const
 {
     assertOpen();
     auto req = new api::v1::FrameStreamerRequest();

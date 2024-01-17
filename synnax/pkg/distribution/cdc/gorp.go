@@ -111,6 +111,7 @@ func GorpConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.D
 		DeleteDataType: dt,
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
+			b = make([]byte, dt.Density())
 			telem.MarshalF[K](dt)(b, k)
 			return b, nil
 		},
@@ -124,10 +125,12 @@ func GorpConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt tel
 		DeleteDataType: dt,
 		SetDataType:    dt,
 		MarshalDelete: func(k K) (b []byte, err error) {
+			b = make([]byte, dt.Density())
 			telem.MarshalF[K](dt)(b, k)
 			return b, nil
 		},
 		MarshalSet: func(e E) (b []byte, err error) {
+			b = make([]byte, dt.Density())
 			telem.MarshalF[K](dt)(b, e.GorpKey())
 			return b, nil
 		},

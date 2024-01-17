@@ -21,8 +21,9 @@ device::Rack::Rack(
     synnax::RackKey key,
     std::uint32_t generation,
     const std::shared_ptr<synnax::Synnax>& client,
-    std::unique_ptr<module::Factory> factory
-): modules(key, client, std::move(factory)), heartbeat(key, generation, client) {
+    std::unique_ptr<module::Factory> factory,
+    breaker::Breaker breaker
+): modules(key, client, std::move(factory), breaker), heartbeat(key, generation, client, breaker) {
 }
 
 freighter::Error device::Rack::run() {

@@ -11,3 +11,15 @@ cc_library(
         "@telem_protos//telempb:telem_grpc",
     ],
 )
+
+cc_test(
+    name = "telem_test",
+    srcs = [
+        "series_test.cpp",
+        "telem_test.cpp",
+    ],
+    deps = [
+        "//synnax/telem",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
