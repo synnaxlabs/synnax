@@ -6,6 +6,6 @@ cc_library(
     hdrs = ["freighter.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "@ferrors_protos//ferrors/v1:ferrors_cc_proto",
     ],
 )

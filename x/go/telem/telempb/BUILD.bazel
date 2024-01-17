@@ -4,17 +4,8 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
-
-cpp_grpc_library(
-    name = "telem_grpc",
-    protos = [":telem_proto"],
+cc_proto_library(
+    name = "telem_cc_proto",
+    deps = [":telem_proto"],
     visibility = ["//visibility:public"],
-)
-
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
-
-cpp_grpc_compile(
-    name = "ferrors_grpc_comp",
-    protos = [":telem_proto"],
 )

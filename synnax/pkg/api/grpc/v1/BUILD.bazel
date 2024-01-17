@@ -13,6 +13,7 @@ proto_library(
         "@ferrors_protos//ferrors/v1:ferrors_proto",
         "@telem_protos//telempb:telem_proto",
     ],
+    visibility = ["//visibility:public"],
 )
 
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
@@ -21,10 +22,6 @@ cpp_grpc_library(
     name = "api_grpc",
     protos = [":api_proto"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@ferrors_protos//ferrors/v1:ferrors_grpc",
-        "@telem_protos//telempb:telem_grpc",
-    ],
 )
 
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")

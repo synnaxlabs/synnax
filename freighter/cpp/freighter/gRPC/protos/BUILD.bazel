@@ -1,9 +1,19 @@
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_proto_compile")
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
+
 proto_library(
     name = "service_proto",
     srcs = ["service.proto"],
+    visibility = ["//visibility:public"],
 )
 
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_proto_compile(
+    name = "service_proto_cc",
+    protos = ["service_proto"],
+)
+
 
 cpp_grpc_library(
     name = "service_grpc",
@@ -11,7 +21,6 @@ cpp_grpc_library(
     visibility = ["//visibility:public"]
 )
 
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
 
 cpp_grpc_compile(
     name = "service_grpc_comp",
