@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -32,7 +31,7 @@ var _ = Describe("Delete", Ordered, func() {
 			By("Creating a channel")
 			Expect(db.CreateChannel(
 				ctx,
-				cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1},
+				cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{basic1},
@@ -51,10 +50,6 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(ok).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			//frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
-			//Expect(err).To(BeNil())
-			//fmt.Println("frame before deletion: ", frame)
-
 			By("Deleting channel data")
 			Expect(db.DeleteTimeRange(ctx, basic1, telem.TimeRange{
 				Start: 12 * telem.SecondTS,
@@ -63,7 +58,16 @@ var _ = Describe("Delete", Ordered, func() {
 
 			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
 			Expect(err).To(BeNil())
-			fmt.Println("frame after deletion: ", frame)
+			Expect(frame.Series).To(HaveLen(2))
+			Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+			Expect(frame.Series[0].Data).To(ContainElement(uint8(10)))
+			Expect(frame.Series[0].Data).To(ContainElement(uint8(11)))
+			Expect(frame.Series[0].Data).ToNot(ContainElement(uint8(12)))
+			Expect(frame.Series[1].TimeRange.Start).To(Equal(15 * telem.SecondTS))
+			Expect(frame.Series[1].Data).ToNot(ContainElement(uint8(15)))
+			Expect(frame.Series[1].Data).To(ContainElement(uint8(16)))
+			Expect(frame.Series[1].Data).To(ContainElement(uint8(17)))
+			Expect(frame.Series[1].Data).To(ContainElement(uint8(18)))
 		})
 	})
 })
