@@ -132,7 +132,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
 		return false
 	}
 	endOffset := approxDist.Upper
-	return db.Domain.Delete(ctx, tr, startOffset, endOffset)
+	return db.Domain.Delete(ctx, tr, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()))
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }
