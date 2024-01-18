@@ -84,7 +84,6 @@ func (db *DB) LeadingControlState() *controller.State {
 }
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
-
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
@@ -108,7 +107,8 @@ func (db *DB) TryClose() error {
 }
 
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
-	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: tr})
+	bounds := db.Domain.GetBounds()
+	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: bounds})
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
 		return false
 	}

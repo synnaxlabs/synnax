@@ -50,7 +50,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 		return ChannelNotFound
 	}
 
-	ok := udb.Domain.Delete(ctx, tr)
+	ok := udb.Delete(ctx, tr)
 	if !ok {
 		return errors.New("Could not delete time range")
 	}
