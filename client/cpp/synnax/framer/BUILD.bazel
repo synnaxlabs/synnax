@@ -31,4 +31,5 @@ cc_test(
         "//synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],
+    copts = ["/std:c++17"]
 )

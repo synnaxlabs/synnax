@@ -2,4 +2,5 @@ cc_library(
     name = "errors",
     hdrs = ["errors.h"],
     visibility = ["//visibility:public"],
+    copts = ["/std:c++17"]
 )

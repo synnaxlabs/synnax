@@ -9,20 +9,8 @@ proto_library(
 )
 
 
-cpp_proto_compile(
-    name = "service_proto_cc",
-    protos = ["service_proto"],
-)
-
-
 cpp_grpc_library(
     name = "service_grpc",
     protos = [":service_proto"],
     visibility = ["//visibility:public"]
-)
-
-
-cpp_grpc_compile(
-    name = "service_grpc_comp",
-    protos = [":service_proto"],
 )

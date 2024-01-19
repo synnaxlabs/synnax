@@ -10,6 +10,7 @@ cc_library(
     deps = [
         "@telem_protos//telempb:telem_grpc",
     ],
+    copts = ["/std:c++17"]
 )
 
 cc_test(
@@ -22,4 +23,5 @@ cc_test(
         "//synnax/telem",
         "@com_google_googletest//:gtest_main",
     ],
+    copts = ["/std:c++17"]
 )

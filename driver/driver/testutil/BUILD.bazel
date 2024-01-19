@@ -4,4 +4,5 @@ cc_library(
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
     deps = ["@synnax//synnax"],
+    copts = ["/std:c++17"]
 )

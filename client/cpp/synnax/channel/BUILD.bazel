@@ -23,4 +23,5 @@ cc_test(
         ":channel",
         "@com_google_googletest//:gtest_main",
     ],
+    copts = ["/std:c++17"]
 )

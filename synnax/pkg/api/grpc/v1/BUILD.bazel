@@ -21,12 +21,11 @@ load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 cpp_grpc_library(
     name = "api_grpc",
     protos = [":api_proto"],
+    deps = [
+        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "@telem_protos//telempb:telem_grpc",
+    ],
     visibility = ["//visibility:public"],
 )
 
-load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
 
-cpp_grpc_compile(
-    name = "api_grpc_comp",
-    protos = [":api_proto"],
-)

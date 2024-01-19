@@ -42,7 +42,7 @@ std::string readFile(const std::string &path) {
         throw std::runtime_error("failed to open " + path);
     char buf[1024];
     for (;;) {
-        ssize_t n = fread(buf, 1, sizeof(buf), f);
+        size_t n = fread(buf, 1, sizeof(buf), f);
         if (n <= 0)
             break;
         data.append(buf, n);

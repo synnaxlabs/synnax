@@ -4,8 +4,11 @@ proto_library(
     visibility = ["//visibility:public"],
 )
 
-cc_proto_library(
-    name = "ferrors_cc_proto",
-    deps = [":ferrors_proto"],
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "ferrors_grpc",
+    protos = [":ferrors_proto"],
     visibility = ["//visibility:public"],
 )
+

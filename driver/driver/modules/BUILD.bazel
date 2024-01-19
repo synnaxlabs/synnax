@@ -8,4 +8,5 @@ cc_library(
         "@nlohmann_json//:json",
         "@synnax//synnax",
     ],
+    copts = ["/std:c++17"]
 )

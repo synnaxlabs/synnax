@@ -16,5 +16,6 @@ cc_test(
         ":server",
         "//freighter/gRPC/protos:service_grpc",
         "@com_google_googletest//:gtest_main",
-    ]
+    ],
+    copts = ["/std:c++17"]
 )
