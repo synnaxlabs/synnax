@@ -23,7 +23,7 @@ const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 
-class Error : std::exception {
+class Error {
 public:
     std::string type;
     std::string data;
@@ -50,7 +50,6 @@ public:
         data = err.data();
     }
 
-    [[nodiscard]] const char *what() const noexcept override { return data.c_str(); }
 
     [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
 

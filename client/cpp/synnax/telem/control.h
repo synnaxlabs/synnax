@@ -10,7 +10,7 @@
 #pragma once
 
 /// std
-#include <numbers>
+//#include <numbers>
 #include <string>
 
 /// api protos
@@ -19,7 +19,7 @@
 namespace synnax {
 typedef uint8_t Authority;
 
-const Authority ABSOLUTE = 255;
+const Authority ABSOLUTTE = 255;
 
 struct Subject {
     std::string name;
