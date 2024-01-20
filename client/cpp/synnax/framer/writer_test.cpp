@@ -8,6 +8,7 @@
 
 /// std
 #include <thread>
+#include <stdio.h>
 
 /// GTest
 #include <include/gtest/gtest.h>
@@ -37,10 +38,10 @@ TEST(FramerTests, testWriteBasic) {
 
     auto now = synnax::TimeStamp::now();
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
-            .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
-            .start = now,
-            .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
-            .subject = synnax::Subject{.name = "test_writer"},
+            std::vector<synnax::ChannelKey>{time.key, data.key},
+            now,
+            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
+            synnax::Subject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
@@ -62,6 +63,7 @@ TEST(FramerTests, testWriteBasic) {
             data.key,
             synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
     );
+
 
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [end, ok] = writer.commit();

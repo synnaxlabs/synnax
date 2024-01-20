@@ -22,20 +22,26 @@ const std::string WRITE_ENDPOINT = "/frame/write";
 using namespace synnax;
 
 /// @brief enumeration of possible writer commands.
-enum WriterCommand : uint32_t {
-    OPEN = 0,
-    WRITE = 1,
-    COMMIT = 2,
-    ERROR = 3,
-    SET_AUTHORITY = 4
-};
+
+//const std::uint32_t OPEN = 0;
+//const std::uint32_t WRITE = 1;
+//const std::uint32_t COMMIT = 2;
+//const std::uint32_t ERROR = 3;
+//const std::uint32_t SET_AUTHORITY = 4;
+//enum WriterCommand : uint32_t {
+//    OPEN = 0,
+//    WRITE = 1,
+//    COMMIT = 2,
+//    ERROR = 3,
+//    SET_AUTHORITY = 4
+//};
 
 
 std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig &config) {
     auto [s, exc] = writer_client->stream(WRITE_ENDPOINT);
     if (exc) return {Writer(), exc};
     auto req = api::v1::FrameWriterRequest();
-    req.set_command(OPEN);
+    req.set_command(0);
     config.toProto(req.mutable_config());
     exc = s->send(req);
     if (exc) return {Writer(), exc};
@@ -57,7 +63,7 @@ bool Writer::write(Frame fr) {
     assertOpen();
     if (err_accumulated) return false;
     api::v1::FrameWriterRequest req;
-    req.set_command(WRITE);
+    req.set_command(1);
     fr.toProto(req.mutable_frame());
     auto exc = stream->send(req);
     if (exc) err_accumulated = true;
@@ -69,7 +75,7 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
     if (err_accumulated) return {synnax::TimeStamp(), false};
 
     auto req = api::v1::FrameWriterRequest();
-    req.set_command(COMMIT);
+    req.set_command(2);
     auto exc = stream->send(req);
     if (exc) {
         err_accumulated = true;
@@ -82,7 +88,7 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
             err_accumulated = true;
             return {synnax::TimeStamp(0), false};
         }
-        if (res.command() == COMMIT) return {synnax::TimeStamp(res.end()), true};
+        if (res.command() == 2) return {synnax::TimeStamp(res.end()), true};
     }
 }
 
@@ -90,14 +96,14 @@ freighter::Error Writer::error() {
     assertOpen();
 
     auto req = api::v1::FrameWriterRequest();
-    req.set_command(ERROR);
+    req.set_command(3);
     auto exc = stream->send(req);
     if (exc) return exc;
 
     while (true) {
         auto [res, recExc] = stream->receive();
         if (recExc) return recExc;
-        if (res.command() == ERROR) return {res.error()};
+        if (res.command() == 3) return {res.error()};
     }
 }
 

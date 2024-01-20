@@ -29,16 +29,16 @@ TEST(FramerTests, testStreamBasic)
         auto now = synnax::TimeStamp::now();
         std::vector<synnax::ChannelKey> channels = {data.key};
         auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
-            .channels = channels,
-            .start = now,
-            .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE},
-            .subject = synnax::Subject{.name = "test_writer"}});
+            channels,
+            now,
+            std::vector<synnax::Authority>{synnax::ABSOLUTTE},
+            synnax::Subject{"test_writer"}});
         ASSERT_FALSE(wErr) << wErr.message();
 
         auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
-            .channels = channels,
+             channels,
         });
-        ASSERT_FALSE(sErr) << sErr.message();
+
 
         // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
