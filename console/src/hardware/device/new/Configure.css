@@ -1,0 +1,27 @@
+.vendor-logo {
+                width: 2rem;
+                height: 2rem;
+                margin-right: 1rem;
+            }
+
+.console-device-new-configure {
+    height: 100%;
+    width: 100%;
+
+    & .console-properties {
+        padding: 10rem;
+        flex-grow: 1;
+        height: 100%;
+
+        & .console-vendor {
+
+            & svg {
+                height: 20px;
+                width: 20px;
+            }
+            
+
+        }
+    }
+
+}

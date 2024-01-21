@@ -10,21 +10,16 @@
 import { type ReactElement } from "react";
 
 import { direction } from "@synnaxlabs/x";
-import {
-  type UseControllerProps,
-  useController,
-  type FieldValues,
-  type FieldPath,
-} from "react-hook-form";
+import { type UseControllerProps, useController } from "react-hook-form";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
+import { Text } from "@/input/Text";
 import { type Control, type Value } from "@/input/types";
 import { camelToTitle } from "@/util/case";
-
-import { type RenderProp } from "..";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/input/Item.css";
 
@@ -96,8 +91,10 @@ export type ItemControlledProps<
   O extends Value = I,
 > = ItemExtensionProps &
   UseControllerProps<any, string> & {
-    children: RenderProp<Control<I, O>>;
+    children?: RenderProp<Control<I, O>>;
   };
+
+const defaultChild = componentRenderProp(Text);
 
 export const ItemControlled = <I extends Value = string | number, O extends Value = I>({
   name,
@@ -106,7 +103,7 @@ export const ItemControlled = <I extends Value = string | number, O extends Valu
   shouldUnregister,
   defaultValue,
   label,
-  children,
+  children = defaultChild as unknown as RenderProp<Control<I, O>>,
   ...props
 }: ItemControlledProps<I, O>): ReactElement => {
   const { field, fieldState } = useController({

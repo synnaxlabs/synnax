@@ -25,7 +25,7 @@ import (
 )
 
 var _ = Describe("Open", func() {
-	Context("Valid Config", func() {
+	Context("Valid Properties", func() {
 
 		var (
 			gossipNet *fmock.Network[gossip.Message, gossip.Message]
@@ -159,7 +159,7 @@ var _ = Describe("Open", func() {
 
 	})
 
-	Context("Invalid Config", func() {
+	Context("Invalid Properties", func() {
 		It("Should return an error ", func() {
 			cfg := cluster.Config{}
 			ctx, cancel := signal.Isolated()

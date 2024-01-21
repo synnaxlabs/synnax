@@ -9,15 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-package device
+package hardware
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/device/module"
-	"github.com/synnaxlabs/synnax/pkg/device/rack"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/hardware/device"
+	"github.com/synnaxlabs/synnax/pkg/hardware/module"
+	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -29,7 +30,8 @@ var DefaultConfig = rack.DefaultConfig
 type Service struct {
 	Rack   *rack.Service
 	Module *module.Service
-	CDC    *cdc.Provider
+	Device *device.Service
+	CDC    *signals.Provider
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -43,19 +45,28 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
+	deviceService, err := device.OpenService(ctx, device.Config{
+		DB:       cfg.DB,
+		Ontology: cfg.Ontology,
+		Group:    cfg.Group,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	moduleService, err := module.OpenService(ctx, module.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
 		Rack:     rackService,
-		CDC:      cfg.CDC,
+		Signals:  cfg.Signals,
 	})
 	if err != nil {
 		return nil, err
 	}
-	svc := &Service{Rack: rackService, Module: moduleService}
-	if cfg.CDC != nil {
-		return svc, cfg.CDC.Channel.Create(ctx, &channel.Channel{
+	svc := &Service{Rack: rackService, Module: moduleService, Device: deviceService}
+	if cfg.Signals != nil {
+		return svc, cfg.Signals.Channel.Create(ctx, &channel.Channel{
 			Name:        "sy_node_1_comms",
 			DataType:    telem.JSONT,
 			Leaseholder: core.Free,

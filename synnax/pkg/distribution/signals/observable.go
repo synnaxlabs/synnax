@@ -60,7 +60,7 @@ const (
 	nonFree    = "Signals can only work with free channels. Received leaseholder %s that is not equal to Free"
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c ObservableConfig) Validate() error {
 	v := validate.New("cdc.Core")
 	validate.NotEmptyString(v, "Label.Name", c.Set.Name)
@@ -73,7 +73,7 @@ func (c ObservableConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.Set = override.If(c.Set, other.Set, c.Set.Name == "")

@@ -16,6 +16,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import { box, location as loc, xy } from "@synnaxlabs/x";
@@ -39,7 +40,7 @@ export interface UseReturn {
   ref: RefObject<HTMLDivElement>;
   close: () => void;
   open: () => void;
-  toggle: (vis?: boolean) => void;
+  toggle: (vis?: boolean | unknown) => void;
 }
 
 /**
@@ -62,7 +63,11 @@ export const use = (props?: UseProps): UseReturn => {
   useEffect(() => onVisibleChange?.(visible), [visible, onVisibleChange]);
   const ref = useRef<HTMLDivElement>(null);
   const toggle = useCallback(
-    (vis?: boolean) => setVisible((v) => vis ?? !v),
+    (vis?: boolean | unknown) =>
+      setVisible((v) => {
+        if (typeof vis === "boolean") return vis;
+        return !v;
+      }),
     [setVisible, onVisibleChange],
   );
   const open = useCallback(() => toggle(true), [toggle]);
@@ -78,7 +83,7 @@ export interface DialogProps
     Partial<Omit<UseReturn, "visible" | "ref">>,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
   location?: loc.Y;
-  children: [ReactElement, ReactElement];
+  children: [ReactNode, ReactNode];
   keepMounted?: boolean;
   matchTriggerWidth?: boolean;
 }

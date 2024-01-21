@@ -79,7 +79,7 @@
         color: var(--pluto-gray-l6);
     }
 
-    & .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+    & .pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
         stroke: var(--pluto-gray-l6);
         fill: var(--pluto-gray-l6);
     }

@@ -36,6 +36,8 @@ import { Workspace } from "@/workspace";
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 
+import { NewDevice } from "./hardware/device/new";
+
 // import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
@@ -54,6 +56,7 @@ const layoutRenderers = {
   [Table.LAYOUT_TYPE]: Table.Table,
   [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
   [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
+  [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

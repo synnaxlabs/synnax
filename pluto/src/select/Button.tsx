@@ -7,16 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useCallback, type ReactElement, useState } from "react";
+
+import { Icon } from "@synnaxlabs/media";
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
+import { Dropdown } from "@/dropdown";
 import {
   type UseSelectMultipleProps,
   useSelectMultiple,
 } from "@/hooks/useSelectMultiple";
 import { type Input } from "@/input";
-import { type RenderProp } from "@/util/renderProp";
+import { List as CoreList } from "@/list";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
+
+import { List } from "./List";
 
 export interface ButtonOptionProps<
   K extends Key = Key,
@@ -83,14 +90,97 @@ const defaultSelectButtonOption = <
   onClick,
   selected,
   title,
-}: ButtonOptionProps<K, E>): JSX.Element => {
+}: ButtonOptionProps<K, E>): JSX.Element => (
+  <CoreButton.Button onClick={onClick} variant={selected ? "filled" : "outlined"}>
+    {title}
+  </CoreButton.Button>
+);
+
+export interface DropdownButtonButtonProps<
+  K extends Key,
+  E extends KeyedRenderableRecord<K, E>,
+> {
+  selected: E | null;
+  renderKey: keyof E;
+  toggle: () => void;
+  visible: boolean;
+}
+
+export interface DropdownButtonProps<
+  K extends Key,
+  E extends KeyedRenderableRecord<K, E>,
+> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
+    Input.Control<K>,
+    Omit<CoreList.ListProps<K, E>, "children"> {
+  columns?: Array<CoreList.ColumnSpec<K, E>>;
+  children?: RenderProp<DropdownButtonButtonProps<K, E>>;
+  renderKey?: keyof E;
+  allowNone?: boolean;
+}
+
+export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
+  componentRenderProp(
+    ({ selected, renderKey, toggle, visible }: DropdownButtonButtonProps<any, any>) => (
+      <CoreButton.Button
+        onClick={toggle}
+        variant="outlined"
+        startIcon={visible ? <Icon.Caret.Down /> : <Icon.Caret.Right />}
+      >
+        {selected?.[renderKey]}
+      </CoreButton.Button>
+    ),
+  );
+
+export const DropdownButton = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+>({
+  data,
+  value,
+  columns = [],
+  children = defaultButton,
+  renderKey = "key",
+  allowNone = false,
+  onChange,
+}: DropdownButtonProps<K, E>): ReactElement => {
+  const { ref, visible, toggle, close } = Dropdown.use();
+  const [selected, setSelected] = useState<E | null>(data.find((e) => e.key === value));
+
+  console.log(value);
+
+  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
+    ([next]: K[], e): void => {
+      close();
+      if (next == null) {
+        setSelected(null);
+        return onChange(value);
+      }
+      setSelected(e.entries[0]);
+      onChange(next);
+    },
+    [onChange, value, close, setSelected],
+  );
+
+  console.log(selected, value);
+
   return (
-    <CoreButton.Button
-      key={key}
-      onClick={onClick}
-      variant={selected ? "filled" : "outlined"}
-    >
-      {title}
-    </CoreButton.Button>
+    <CoreList.List data={data}>
+      <Dropdown.Dialog visible={visible} ref={ref} matchTriggerWidth>
+        {children({
+          selected,
+          renderKey,
+          toggle,
+          visible,
+        })}
+        <List<K, E>
+          visible={visible}
+          value={[value]}
+          onChange={handleChange}
+          allowMultiple={false}
+          allowNone={allowNone}
+          columns={columns}
+        />
+      </Dropdown.Dialog>
+    </CoreList.List>
   );
 };

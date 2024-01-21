@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+.pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
     stroke: var(--pluto-gray-l8);
     fill: var(--pluto-gray-l8);
 }

@@ -51,7 +51,8 @@ export type SpaceElementType =
   | "footer"
   | "button"
   | "dialog"
-  | "a";
+  | "a"
+  | "form";
 
 export interface SpaceExtensionProps {
   empty?: boolean;

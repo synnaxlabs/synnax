@@ -1,15 +1,20 @@
-import { type ReactElement, useEffect, Children, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { type hardware } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Button,
   Channel,
   Header,
   Select,
   componentRenderProp,
+  Nav,
+  Synnax,
+  useAsyncEffect,
+  Status,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
+import { Button } from "@synnaxlabs/pluto/button";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List as PList } from "@synnaxlabs/pluto/list";
@@ -28,12 +33,11 @@ import "@/hardware/configure/Configure.css";
 
 type AnalogInputConfig = z.infer<typeof AnalogInput.config>;
 
-export const Configure: Layout.Renderer = (): ReactElement => {
+export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const {
     control: c,
     handleSubmit,
     getValues,
-    trigger,
   } = useForm<AnalogInputConfig>({
     resolver: zodResolver(AnalogInput.config),
     defaultValues: {
@@ -53,16 +57,33 @@ export const Configure: Layout.Renderer = (): ReactElement => {
     name: "channels",
   });
 
+  const client = Synnax.use();
+
+  const [rack, setRack] = useState<hardware.Module | null>(null);
+
+  useAsyncEffect(async () => {
+    const rack = await client?.hardware.retrieveRack(Number(layoutKey));
+    setRack(rack);
+  }, []);
+
+  const handleValidSubmit = (data: AnalogInputConfig): void => {};
+
   return (
     <Align.Space
       el="form"
       id="configure"
-      onSubmit={handleSubmit(console.log)}
+      /* eslint-disable-next-line @typescript-eslint/no-misused-promises */
+      onSubmit={handleSubmit(handleValidSubmit)}
       className={CSS.B("configure")}
       direction="y"
     >
+      <Header.Header level="h4">
+        <Header.Title startIcon={<Icon.Hardware />}>
+          Configure {rack?.name ?? "Module"}
+        </Header.Title>
+      </Header.Header>
       <Align.Space direction="y" className={CSS.B("properties")} align="start">
-        <Text.Text level="h3">Module Properties</Text.Text>
+        <Text.Text level="h3">Properties</Text.Text>
         <Align.Space direction="x">
           <Input.ItemControlled<string> control={c} name="device">
             {(props) => <Input.Text {...props} />}
@@ -82,33 +103,31 @@ export const Configure: Layout.Renderer = (): ReactElement => {
             {(p) => <Input.Numeric {...p} />}
           </Input.ItemControlled>
         </Align.Space>
-        <Button.Button form="configure" type="submit">
-          Apply
-        </Button.Button>
       </Align.Space>
       <Align.Space className={CSS.B("channels")} direction="x">
         <Align.Space className={CSS.B("list")} grow empty>
-          <Header.Header level="h3">
+          <Header.Header level="h4">
             <Header.Title>Channels</Header.Title>
             <Header.Actions>
               {[
                 {
                   children: <Icon.Add />,
                   type: "button",
+                  size: "large",
                   onClick: () =>
                     append({
                       type: "voltage",
                       key: nanoid(),
                       port: 0,
                       channel: 0,
-                      active: true,
+                      enabled: true,
                     }),
                 },
               ]}
             </Header.Actions>
           </Header.Header>
 
-          <PList.List<number, AnalogInput.Channel> data={getValues().channels}>
+          <PList.List<string, AnalogInput.Channel> data={getValues().channels}>
             <PList.Selector
               allowMultiple={false}
               value={selectedChan != null ? [selectedChan] : []}
@@ -118,11 +137,21 @@ export const Configure: Layout.Renderer = (): ReactElement => {
           </PList.List>
         </Align.Space>
         <Align.Space className={CSS.B("properties")} grow>
-          {selectedIndex != null && selectedIndex != -1 && (
+          {selectedIndex != null && selectedIndex !== -1 && (
             <Properties index={selectedIndex} control={c} />
           )}
         </Align.Space>
       </Align.Space>
+      <Nav.Bar location="bottom" className={CSS.BE("footer", "end")}>
+        <Nav.Bar.End>
+          <Button.Button type="button" variant="outlined">
+            Close
+          </Button.Button>
+          <Button.Button form="configure" type="submit">
+            Apply
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
   );
 };
@@ -130,15 +159,45 @@ export const Configure: Layout.Renderer = (): ReactElement => {
 interface ListItemProps extends PList.ItemProps<string, AnalogInput.Channel> {}
 
 const ListItem = ({ entry, selected, onSelect }: ListItemProps): ReactElement => {
-  const channelName = Channel.useName(entry.channel, "LOX PT");
+  const channelName = Channel.useName(entry.channel);
+  const [v, setV] = useState<boolean>(false);
   return (
     <Align.Space
       className={CSS(CSS.B("list-item"), PCSS.selected(selected))}
       direction="x"
       onClick={() => onSelect?.(entry.key)}
+      align="center"
+      justify="spaceBetween"
     >
-      <Text.Text level="p">{channelName}</Text.Text>
-      <Text.Text level="p">Port {entry.port}</Text.Text>
+      <Align.Space direction="x" size="small">
+        <Text.Text level="p" style={{ color: "var(--pluto-gray-l7)" }}>
+          Port
+        </Text.Text>
+        <Text.Text level="p" style={{ width: "10rem" }}>
+          {entry.port}
+        </Text.Text>
+        <Text.Text level="p">
+          {entry.channel === 0 ? "No Channel" : channelName}
+        </Text.Text>
+      </Align.Space>
+      <Button.Toggle
+        checkedVariant="text"
+        uncheckedVariant="text"
+        value={v}
+        size="small"
+        onClick={(e) => e.stopPropagation()}
+        onChange={setV}
+        tooltip={
+          <Text.Text level="p" style={{ maxWidth: 300 }}>
+            Data acquisition for this channel is {v ? "enabled" : "disabled"}. Click to
+            {v ? " disable" : " enable"} it.
+          </Text.Text>
+        }
+      >
+        <Status.Text variant={v ? "success" : "disabled"} level="p">
+          {v ? "Enabled" : "Disabled"}
+        </Status.Text>
+      </Button.Toggle>
     </Align.Space>
   );
 };
@@ -197,13 +256,16 @@ export type LayoutType = "hardwareConfigure";
 export const LAYOUT_TYPE = "hardwareConfigure";
 export const create =
   (initial: Omit<Partial<Layout.LayoutState>, "type">) => (): Layout.LayoutState => {
-    const { name = "Configure Hardware", location = "mosaic", ...rest } = initial;
+    const { name = "Configure Hardware", location = "window", ...rest } = initial;
     const k = uuidv4();
     return {
       key: initial.key ?? k,
       type: LAYOUT_TYPE,
       windowKey: initial.key ?? k,
       name,
+      window: {
+        navTop: true,
+      },
       location,
       ...rest,
     };

@@ -62,14 +62,14 @@ var (
 	}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("ts")
 	validate.NotNil(v, "FS", c.FS)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.Dirname = override.String(c.Dirname, other.Dirname)
 	c.FS = override.Nil(c.FS, other.FS)

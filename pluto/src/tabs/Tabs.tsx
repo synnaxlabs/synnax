@@ -15,6 +15,8 @@ import React, {
   useState,
 } from "react";
 
+import { direction } from "@synnaxlabs/x";
+
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type TabSpec, Selector } from "@/tabs/Selector";
@@ -114,6 +116,7 @@ export const Tabs = ({
   onDragOver,
   onDrop,
   size = "medium",
+  direction: dir = "y",
   ...props
 }: TabsProps): ReactElement => (
   <Align.Space
@@ -121,6 +124,7 @@ export const Tabs = ({
     className={CSS(CSS.B("tabs"), className)}
     onDragOver={onDragOver}
     onDrop={onDrop}
+    direction={dir}
     {...props}
   >
     <TabsContext.Provider
@@ -139,7 +143,7 @@ export const Tabs = ({
         onDrop,
       }}
     >
-      <Selector size={size} />
+      <Selector size={size} direction={direction.swap(dir)} />
       <Content />
     </TabsContext.Provider>
   </Align.Space>

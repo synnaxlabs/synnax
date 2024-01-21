@@ -47,7 +47,7 @@ package alamos
 // the With* options:
 //
 //	// define a tracing config
-//	tracingConfig := tracing.Config{}
+//	tracingConfig := tracing.Properties{}
 //	devTracer := tracing.NewTracer(tracingConfig)
 //	ins := alamos.Name(alamos.WithTracer(devTracer))
 //

@@ -14,7 +14,7 @@ export namespace AnalogInput {
   const voltageChannel = z.object({
     key: z.string(),
     type: z.literal("voltage"),
-    active: z.boolean(),
+    enabled: z.boolean(),
     port: z.number(),
     channel: z.number(),
     scale: z.optional(scale),

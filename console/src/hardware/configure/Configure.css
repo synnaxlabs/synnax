@@ -1,20 +1,14 @@
 
 .console-configure {
-    padding: 5rem 3rem;
     height: 100%;
 
     & > .console-properties {
-        background: #FFFFFF;
         padding: 5rem;
-        border: var(--pluto-border);
-        border-radius: 1rem;
     }
 
     & .console-channels {
         flex-grow: 1;
-        background: #FFFFFF;
-        border: var(--pluto-border);
-        border-radius: 1rem;
+        border-top: var(--pluto-border);
 
         & .console-list {
             border-right: var(--pluto-border);
@@ -27,10 +21,17 @@
         & .console-list-item {
             padding: 2rem;
             border-bottom: var(--pluto-border);
+            cursor: pointer;
+            
+            
 
             &.pluto--selected {
                 background: var(--pluto-primary-z-10);
             }
         }
+    }
+
+    & .console-footer__end {
+        padding: 1rem;
     }
 }

@@ -24,7 +24,6 @@ import {
   primitiveIsZero,
 } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";

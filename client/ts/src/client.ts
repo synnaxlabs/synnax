@@ -20,6 +20,7 @@ import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
+import { hardware } from "./hardware";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -54,6 +55,7 @@ export default class Synnax {
   readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
+  readonly hardware: hardware.Client;
   static readonly connectivity = connection.Checker;
 
   /**
@@ -108,6 +110,10 @@ export default class Synnax {
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
+    this.hardware = new hardware.Client(
+      new hardware.Retriever(this.transport.unary),
+      new hardware.Writer(this.transport.unary),
+    )
   }
 
   close(): void {

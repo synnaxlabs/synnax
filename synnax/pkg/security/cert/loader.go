@@ -56,7 +56,7 @@ var (
 	}
 )
 
-// Override implements Config.
+// Override implements Properties.
 func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.CertsDir = override.String(l.CertsDir, other.CertsDir)
 	l.CAKeyPath = override.String(l.CAKeyPath, other.CAKeyPath)
@@ -68,7 +68,7 @@ func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	return l
 }
 
-// Validate implements Config.
+// Validate implements Properties.
 func (l LoaderConfig) Validate() error {
 	v := validate.New("cert.Loader")
 	validate.NotEmptyString(v, "CertsDir", l.CertsDir)

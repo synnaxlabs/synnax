@@ -27,10 +27,10 @@ var (
 	DefaultLoggerConfig = LoggerConfig{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c LoggerConfig) Validate() error { return nil }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c LoggerConfig) Override(other LoggerConfig) LoggerConfig {
 	c.Zap = override.Nil(c.Zap, other.Zap)
 	return c

@@ -15,7 +15,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/device"
+	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -163,7 +163,13 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
-		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, Host: dist.Cluster, CDC: dist.CDC})
+		deviceSvc, err := hardware.OpenService(ctx, hardware.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Host:     dist.Cluster,
+			Signals:  dist.Signals,
+		})
 		if err != nil {
 			return err
 		}
@@ -192,7 +198,7 @@ func start(cmd *cobra.Command) {
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
-			Device:          deviceSvc,
+			Hardware:        deviceSvc,
 		})
 		if err != nil {
 			return err

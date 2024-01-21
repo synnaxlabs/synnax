@@ -9,16 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package rack
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/device/rack"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -30,8 +31,8 @@ type Config struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
 	Group    *group.Service
-	Rack     *rack.Service
-	CDC      *cdc.Provider
+	Host     core.HostProvider
+	Signals  *signals.Provider
 }
 
 var (
@@ -39,63 +40,75 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Rack = override.Nil(c.Rack, other.Rack)
-	c.CDC = override.Nil(c.CDC, other.CDC)
+	c.Host = override.Nil(c.Host, other.Host)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
-	v := validate.New("workspace")
+	v := validate.New("rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "rack", c.Rack)
+	validate.NotNil(v, "host", c.Host)
 	return v.Error()
 }
 
 type Service struct {
 	Config
-	cdc io.Closer
+	group           group.Group
+	localKeyCounter *kv.AtomicInt64Counter
+	shutdownSignals io.Closer
 }
+
+const groupName = "Racks"
+const localKeyCounterSuffix = ".rack.counter"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	s = &Service{Config: cfg}
+
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return nil, err
+	}
+
+	counterKey := []byte(cfg.Host.HostKey().String() + localKeyCounterSuffix)
+	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	s = &Service{Config: cfg, group: g, localKeyCounter: c}
 	cfg.Ontology.RegisterService(s)
 
-	if cfg.CDC == nil {
-		return s, nil
-	}
-
-	cdcS, err := cdc.SubscribeToGorp(ctx, cfg.CDC, cdc.GorpConfigPureNumeric[Key, Module](cfg.DB, telem.Uint64T))
-	if err != nil {
+	if cfg.Signals == nil {
 		return
 	}
-	s.cdc = cdcS
-	return
-}
 
-func (s *Service) Close() error {
-	if s.cdc != nil {
-		return s.cdc.Close()
-	}
-	return nil
+	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
+	s.shutdownSignals = cdcS
+
+	return s, nil
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:   gorp.OverrideTx(s.DB, tx),
-		otg:  s.Ontology.NewWriter(tx),
-		rack: s.Rack.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		group: s.group,
+		newKey: func() (Key, error) {
+			n, err := s.localKeyCounter.Add(1)
+			return NewKey(s.Host.HostKey(), uint16(n)), err
+		},
 	}
 }
 
@@ -103,6 +116,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.Ontology,
 		baseTX: s.DB,
-		gorp:   gorp.NewRetrieve[Key, Module](),
+		gorp:   gorp.NewRetrieve[Key, Rack](),
 	}
 }

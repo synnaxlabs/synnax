@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package api.v1;
+
+import "google/protobuf/empty.proto";
+
+service HardwareCreateModuleService {
+    rpc Exec(HardwareCreateModuleRequest) returns (HardwareCreateModuleResponse);
+}
+
+service HardwareRetrieveModuleService {
+    rpc Exec(HardwareRetrieveModuleRequest) returns (HardwareRetrieveModuleResponse);
+}
+
+service HardwareDeleteModuleService {
+    rpc Exec(HardwareDeleteModuleRequest) returns (google.protobuf.Empty);
+}
+
+service HardwareCreateRackService {
+    rpc Exec(HardwareCreateRackRequest) returns (HardwareCreateRackResponse);
+}
+
+service HardwareRetrieveRackService {
+    rpc Exec(HardwareRetrieveRackRequest) returns (HardwareRetrieveRackResponse);
+}
+
+service HardwareDeleteRackService {
+    rpc Exec(HardwareDeleteRackRequest) returns (google.protobuf.Empty);
+}
+
+service HardwareCreateDeviceService {
+    rpc Exec(HardwareCreateDeviceRequest) returns (HardwareCreateDeviceResponse);
+}
+
+service HardwareRetrieveDeviceService {
+    rpc Exec(HardwareRetrieveDeviceRequest) returns (HardwareRetrieveDeviceResponse);
+}
+
+service HardwareDeleteDeviceService {
+    rpc Exec(HardwareDeleteDeviceRequest) returns (google.protobuf.Empty);
+}
+
+message Rack {
+    uint32 key = 1;
+    string name = 2;
+}
+
+message HardwareCreateRackRequest {
+    repeated Rack racks = 1;
+}
+
+message HardwareCreateRackResponse {
+    repeated Rack racks = 1;
+}
+
+message HardwareRetrieveRackRequest {
+    repeated uint32 keys = 1;
+}
+
+message HardwareRetrieveRackResponse {
+    repeated Rack racks = 1;
+}
+
+message HardwareDeleteRackRequest {
+    repeated uint32 keys = 1;
+}
+
+message Module {
+    uint64 key = 1;
+    string name = 2;
+    string type = 3;
+    string config = 4;
+}
+
+message HardwareCreateModuleRequest {
+    repeated Module modules = 1;
+}
+
+message HardwareCreateModuleResponse {
+    repeated Module modules = 1;
+}
+
+message HardwareRetrieveModuleRequest {
+    uint32 rack = 1;
+    repeated uint64 keys = 2;
+}
+
+message HardwareRetrieveModuleResponse {
+    repeated Module modules = 1;
+}
+
+message HardwareDeleteModuleRequest {
+    repeated uint64 keys = 1;
+}
+
+message Device {
+    string key = 1;
+    string name = 2;
+    string make = 3;
+    string model = 4;
+    string properties = 5;
+}
+
+message HardwareCreateDeviceRequest {
+    repeated Device devices = 1;
+}
+
+message HardwareCreateDeviceResponse {
+    repeated Device devices = 1;
+}
+
+message HardwareRetrieveDeviceRequest {
+    repeated string keys = 1;
+}
+
+message HardwareRetrieveDeviceResponse {
+    repeated Device devices = 1;
+}
+
+message HardwareDeleteDeviceRequest {
+    repeated string keys = 1;
+}
+

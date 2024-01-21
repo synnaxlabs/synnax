@@ -220,16 +220,16 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         align="center"
         grow
       >
-        {selected.map((e, i) => {
-          return renderTag({
+        {selected.map((e, i) =>
+          renderTag({
             key: e.key,
             tagKey,
             entry: e,
             onClose: () => onSelect?.(e.key),
             onDragStart: (ev) => onTagDragStart?.(ev, e.key),
             onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
-          });
-        })}
+          }),
+        )}
       </Align.Space>
       <ClearButton onClick={clear} />
     </Input.Text>

@@ -9,11 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-package device
+package hardware
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/device/module"
-	"github.com/synnaxlabs/synnax/pkg/device/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/module"
+	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/version"
 )
 

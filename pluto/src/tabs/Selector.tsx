@@ -42,6 +42,7 @@ const CLS = "tabs-selector";
 export const Selector = ({
   className,
   size = "medium",
+  direction = "x",
   ...props
 }: SelectorProps): ReactElement | null => {
   const {
@@ -59,14 +60,14 @@ export const Selector = ({
   return (
     <Align.Space
       className={CSS(CSS.B(CLS), CSS.size(size), className)}
-      direction="x"
       align="center"
       justify="start"
       onDrop={onDrop}
       empty
+      direction={direction}
       {...props}
     >
-      <Align.Space className={CSS.BE(CLS, "tabs")} empty direction="x" grow>
+      <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty grow>
         {tabs.map((tab) => (
           <SelectorButton
             key={tab.tabKey}

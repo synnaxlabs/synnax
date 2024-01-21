@@ -14,8 +14,7 @@ import { Eraser, Button, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 
 import { CSS } from "@/css";
-import { HardwareConfigure } from "@/hardware/configure";
-import { HardwareStatus } from "@/hardware/status";
+import { NewDevice } from "@/hardware/device/new";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
@@ -61,7 +60,7 @@ export const LayoutSelector = ({
           </Button.Button>
           <Button.Button
             variant="outlined"
-            onClick={() => place(HardwareConfigure.create({ key: layoutKey }))}
+            onClick={() => place(NewDevice.create({ key: layoutKey }))}
             startIcon={<Icon.Hardware />}
           >
             Hardware Status

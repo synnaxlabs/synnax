@@ -89,13 +89,17 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LabelDelete = fhttp.UnaryServer[api.LabelDeleteRequest, types.Nil](router, "/api/v1/label/delete")
 	t.LabelSet = fhttp.UnaryServer[api.LabelSetRequest, types.Nil](router, "/api/v1/label/set")
 	t.LabelRemove = fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, "/api/v1/label/remove")
+
 	// DEVICE
-	t.DeviceCreateRack = fhttp.UnaryServer[api.DeviceCreateRackRequest, api.DeviceCreateRackResponse](router, "/api/v1/device/rack/create")
-	t.DeviceRetrieveRack = fhttp.UnaryServer[api.DeviceRetrieveRackRequest, api.DeviceRetrieveRackResponse](router, "/api/v1/device/rack/retrieve")
-	t.DeviceDeleteRack = fhttp.UnaryServer[api.DeviceDeleteRackRequest, types.Nil](router, "/api/v1/device/rack/delete")
-	t.DeviceCreateModule = fhttp.UnaryServer[api.DeviceCreateModuleRequest, api.DeviceCreateModuleResponse](router, "/api/v1/device/module/create")
-	t.DeviceRetrieveModule = fhttp.UnaryServer[api.DeviceRetrieveModuleRequest, api.DeviceRetrieveModuleResponse](router, "/api/v1/device/module/retrieve")
-	t.DeviceDeleteModule = fhttp.UnaryServer[api.DeviceDeleteModuleRequest, types.Nil](router, "/api/v1/device/module/delete")
+	t.HardwareCreateRack = fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, "/api/v1/hardware/rack/create")
+	t.HardwareRetrieveRack = fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, "/api/v1/hardware/rack/retrieve")
+	t.HardwareDeleteRack = fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, "/api/v1/hardware/rack/delete")
+	t.HardwareCreateModule = fhttp.UnaryServer[api.HardwareCreateModuleRequest, api.HardwareCreateModuleResponse](router, "/api/v1/hardware/module/create")
+	t.HardwareRetrieveModule = fhttp.UnaryServer[api.HardwareRetrieveModuleRequest, api.HardwareRetrieveModuleResponse](router, "/api/v1/hardware/module/retrieve")
+	t.HardwareDeleteModule = fhttp.UnaryServer[api.HardwareDeleteModuleRequest, types.Nil](router, "/api/v1/hardware/module/delete")
+	t.HardwareCreateDevice = fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, "/api/v1/hardware/device/create")
+	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, "/api/v1/hardware/device/retrieve")
+	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, "/api/v1/hardware/device/delete")
 
 	return t
 }

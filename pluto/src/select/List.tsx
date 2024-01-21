@@ -25,6 +25,7 @@ export const List = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   onChange,
   allowMultiple,
   visible,
+  allowNone,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
   <>
@@ -32,6 +33,7 @@ export const List = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       value={value}
       onChange={onChange}
       allowMultiple={allowMultiple}
+      allowNone={allowNone}
     />
     {visible && <CoreList.Hover />}
     <CoreList.Column.Header {...props} />

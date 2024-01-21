@@ -1,4 +1,5 @@
 /*
+	Hello myt name is emi
  * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
@@ -7,7 +8,7 @@
  * As of the Change Date specified in that file, in accordance with the Business Source
  * License, use of this software will be governed by the Apache License, Version 2.0,
  * included in the file licenses/APL.txt.
- */
+*/
 
 package grpc
 
@@ -16,8 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
-	"github.com/synnaxlabs/synnax/pkg/device/module"
-	"github.com/synnaxlabs/synnax/pkg/device/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/module"
+	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/unsafe"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -25,38 +26,56 @@ import (
 
 type (
 	rackCreateServer = fgrpc.UnaryServer[
-		api.DeviceCreateRackRequest,
-		*gapi.DeviceCreateRackRequest,
-		api.DeviceCreateRackResponse,
-		*gapi.DeviceCreateRackResponse,
+		api.HardwareCreateRackRequest,
+		*gapi.HardwareCreateRackRequest,
+		api.HardwareCreateRackResponse,
+		*gapi.HardwareCreateRackResponse,
 	]
 	rackRetrieveServer = fgrpc.UnaryServer[
-		api.DeviceRetrieveRackRequest,
-		*gapi.DeviceRetrieveRackRequest,
-		api.DeviceRetrieveRackResponse,
-		*gapi.DeviceRetrieveRackResponse,
+		api.HardwareRetrieveRackRequest,
+		*gapi.HardwareRetrieveRackRequest,
+		api.HardwareRetrieveRackResponse,
+		*gapi.HardwareRetrieveRackResponse,
 	]
 	rackDeleteServer = fgrpc.UnaryServer[
-		api.DeviceDeleteRackRequest,
-		*gapi.DeviceDeleteRackRequest,
+		api.HardwareDeleteRackRequest,
+		*gapi.HardwareDeleteRackRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	moduleCreateServer = fgrpc.UnaryServer[
-		api.DeviceCreateModuleRequest,
-		*gapi.DeviceCreateModuleRequest,
-		api.DeviceCreateModuleResponse,
-		*gapi.DeviceCreateModuleResponse,
+		api.HardwareCreateModuleRequest,
+		*gapi.HardwareCreateModuleRequest,
+		api.HardwareCreateModuleResponse,
+		*gapi.HardwareCreateModuleResponse,
 	]
 	moduleRetrieveServer = fgrpc.UnaryServer[
-		api.DeviceRetrieveModuleRequest,
-		*gapi.DeviceRetrieveModuleRequest,
-		api.DeviceRetrieveModuleResponse,
-		*gapi.DeviceRetrieveModuleResponse,
+		api.HardwareRetrieveModuleRequest,
+		*gapi.HardwareRetrieveModuleRequest,
+		api.HardwareRetrieveModuleResponse,
+		*gapi.HardwareRetrieveModuleResponse,
 	]
 	moduleDeleteServer = fgrpc.UnaryServer[
-		api.DeviceDeleteModuleRequest,
-		*gapi.DeviceDeleteModuleRequest,
+		api.HardwareDeleteModuleRequest,
+		*gapi.HardwareDeleteModuleRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	deviceCreateServer = fgrpc.UnaryServer[
+		api.HardwareCreateDeviceRequest,
+		*gapi.HardwareCreateDeviceRequest,
+		api.HardwareCreateDeviceResponse,
+		*gapi.HardwareCreateDeviceResponse,
+	]
+	deviceRetrieveServer = fgrpc.UnaryServer[
+		api.HardwareRetrieveDeviceRequest,
+		*gapi.HardwareRetrieveDeviceRequest,
+		api.HardwareRetrieveDeviceResponse,
+		*gapi.HardwareRetrieveDeviceResponse,
+	]
+	deviceDeleteServer = fgrpc.UnaryServer[
+		api.HardwareDeleteDeviceRequest,
+		*gapi.HardwareDeleteDeviceRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -68,26 +87,34 @@ type (
 	rackRetrieveRequestTranslator    struct{}
 	rackRetrieveResponseTranslator   struct{}
 	rackDeleteRequestTranslator      struct{}
-	rackDeleteResponseTranslator     struct{}
 	moduleCreateRequestTranslator    struct{}
 	moduleCreateResponseTranslator   struct{}
 	moduleRetrieveRequestTranslator  struct{}
 	moduleRetrieveResponseTranslator struct{}
 	moduleDeleteRequestTranslator    struct{}
-	moduleDeleteResponseTranslator   struct{}
+	deviceCreateRequestTranslator    struct{}
+	deviceCreateResponseTranslator   struct{}
+	deviceRetrieveRequestTranslator  struct{}
+	deviceRetrieveResponseTranslator struct{}
+	deviceDeleteRequestTranslator    struct{}
 )
 
 var (
-	_ fgrpc.Translator[api.DeviceCreateRackRequest, *gapi.DeviceCreateRackRequest]           = rackCreateRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceCreateRackResponse, *gapi.DeviceCreateRackResponse]         = rackCreateResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveRackRequest, *gapi.DeviceRetrieveRackRequest]       = rackRetrieveRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveRackResponse, *gapi.DeviceRetrieveRackResponse]     = rackRetrieveResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceDeleteRackRequest, *gapi.DeviceDeleteRackRequest]           = rackDeleteRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceCreateModuleRequest, *gapi.DeviceCreateModuleRequest]       = moduleCreateRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceCreateModuleResponse, *gapi.DeviceCreateModuleResponse]     = moduleCreateResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveModuleRequest, *gapi.DeviceRetrieveModuleRequest]   = moduleRetrieveRequestTranslator{}
-	_ fgrpc.Translator[api.DeviceRetrieveModuleResponse, *gapi.DeviceRetrieveModuleResponse] = moduleRetrieveResponseTranslator{}
-	_ fgrpc.Translator[api.DeviceDeleteModuleRequest, *gapi.DeviceDeleteModuleRequest]       = moduleDeleteRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateRackRequest, *gapi.HardwareCreateRackRequest]           = rackCreateRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateRackResponse, *gapi.HardwareCreateRackResponse]         = rackCreateResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveRackRequest, *gapi.HardwareRetrieveRackRequest]       = rackRetrieveRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveRackResponse, *gapi.HardwareRetrieveRackResponse]     = rackRetrieveResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareDeleteRackRequest, *gapi.HardwareDeleteRackRequest]           = rackDeleteRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateModuleRequest, *gapi.HardwareCreateModuleRequest]       = moduleCreateRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateModuleResponse, *gapi.HardwareCreateModuleResponse]     = moduleCreateResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveModuleRequest, *gapi.HardwareRetrieveModuleRequest]   = moduleRetrieveRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveModuleResponse, *gapi.HardwareRetrieveModuleResponse] = moduleRetrieveResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareDeleteModuleRequest, *gapi.HardwareDeleteModuleRequest]       = moduleDeleteRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateDeviceRequest, *gapi.HardwareCreateDeviceRequest]       = deviceCreateRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateDeviceResponse, *gapi.HardwareCreateDeviceResponse]     = deviceCreateResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveDeviceRequest, *gapi.HardwareRetrieveDeviceRequest]   = deviceRetrieveRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveDeviceResponse, *gapi.HardwareRetrieveDeviceResponse] = deviceRetrieveResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareDeleteDeviceRequest, *gapi.HardwareDeleteDeviceRequest]       = deviceDeleteRequestTranslator{}
 )
 
 func translateRackForward(r *api.Rack) *gapi.Rack {
@@ -114,44 +141,44 @@ func translateRacksBackward(rs []*gapi.Rack) []api.Rack {
 	return res
 }
 
-func (rackCreateRequestTranslator) Forward(_ context.Context, req api.DeviceCreateRackRequest) (*gapi.DeviceCreateRackRequest, error) {
-	return &gapi.DeviceCreateRackRequest{Racks: translateRacksForward(req.Racks)}, nil
+func (rackCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCreateRackRequest) (*gapi.HardwareCreateRackRequest, error) {
+	return &gapi.HardwareCreateRackRequest{Racks: translateRacksForward(req.Racks)}, nil
 }
 
-func (rackCreateRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRackRequest) (api.DeviceCreateRackRequest, error) {
-	return api.DeviceCreateRackRequest{Racks: translateRacksBackward(req.Racks)}, nil
+func (rackCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateRackRequest) (api.HardwareCreateRackRequest, error) {
+	return api.HardwareCreateRackRequest{Racks: translateRacksBackward(req.Racks)}, nil
 }
 
-func (rackCreateResponseTranslator) Forward(_ context.Context, res api.DeviceCreateRackResponse) (*gapi.DeviceCreateRackResponse, error) {
-	return &gapi.DeviceCreateRackResponse{Racks: translateRacksForward(res.Racks)}, nil
+func (rackCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateRackResponse) (*gapi.HardwareCreateRackResponse, error) {
+	return &gapi.HardwareCreateRackResponse{Racks: translateRacksForward(res.Racks)}, nil
 }
 
-func (rackCreateResponseTranslator) Backward(_ context.Context, res *gapi.DeviceCreateRackResponse) (api.DeviceCreateRackResponse, error) {
-	return api.DeviceCreateRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
+func (rackCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateRackResponse) (api.HardwareCreateRackResponse, error) {
+	return api.HardwareCreateRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
 }
 
-func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.DeviceRetrieveRackRequest) (*gapi.DeviceRetrieveRackRequest, error) {
-	return &gapi.DeviceRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
+func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveRackRequest) (*gapi.HardwareRetrieveRackRequest, error) {
+	return &gapi.HardwareRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
 }
 
-func (rackRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.DeviceRetrieveRackRequest) (api.DeviceRetrieveRackRequest, error) {
-	return api.DeviceRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+func (rackRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveRackRequest) (api.HardwareRetrieveRackRequest, error) {
+	return api.HardwareRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
 }
 
-func (rackRetrieveResponseTranslator) Forward(_ context.Context, res api.DeviceRetrieveRackResponse) (*gapi.DeviceRetrieveRackResponse, error) {
-	return &gapi.DeviceRetrieveRackResponse{Racks: translateRacksForward(res.Racks)}, nil
+func (rackRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveRackResponse) (*gapi.HardwareRetrieveRackResponse, error) {
+	return &gapi.HardwareRetrieveRackResponse{Racks: translateRacksForward(res.Racks)}, nil
 }
 
-func (rackRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.DeviceRetrieveRackResponse) (api.DeviceRetrieveRackResponse, error) {
-	return api.DeviceRetrieveRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
+func (rackRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveRackResponse) (api.HardwareRetrieveRackResponse, error) {
+	return api.HardwareRetrieveRackResponse{Racks: translateRacksBackward(res.Racks)}, nil
 }
 
-func (rackDeleteRequestTranslator) Forward(_ context.Context, req api.DeviceDeleteRackRequest) (*gapi.DeviceDeleteRackRequest, error) {
-	return &gapi.DeviceDeleteRackRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
+func (rackDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteRackRequest) (*gapi.HardwareDeleteRackRequest, error) {
+	return &gapi.HardwareDeleteRackRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
 }
 
-func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.DeviceDeleteRackRequest) (api.DeviceDeleteRackRequest, error) {
-	return api.DeviceDeleteRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteRackRequest) (api.HardwareDeleteRackRequest, error) {
+	return api.HardwareDeleteRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
 }
 
 func translateModuleForward(m *api.Module) *gapi.Module {
@@ -178,83 +205,166 @@ func translateModulesBackward(ms []*gapi.Module) []api.Module {
 	return res
 }
 
-func (moduleCreateRequestTranslator) Forward(_ context.Context, req api.DeviceCreateModuleRequest) (*gapi.DeviceCreateModuleRequest, error) {
-	return &gapi.DeviceCreateModuleRequest{Modules: translateModulesForward(req.Modules)}, nil
+func (moduleCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCreateModuleRequest) (*gapi.HardwareCreateModuleRequest, error) {
+	return &gapi.HardwareCreateModuleRequest{Modules: translateModulesForward(req.Modules)}, nil
 }
 
-func (moduleCreateRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateModuleRequest) (api.DeviceCreateModuleRequest, error) {
-	return api.DeviceCreateModuleRequest{Modules: translateModulesBackward(req.Modules)}, nil
+func (moduleCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateModuleRequest) (api.HardwareCreateModuleRequest, error) {
+	return api.HardwareCreateModuleRequest{Modules: translateModulesBackward(req.Modules)}, nil
 }
 
-func (moduleCreateResponseTranslator) Forward(_ context.Context, res api.DeviceCreateModuleResponse) (*gapi.DeviceCreateModuleResponse, error) {
-	return &gapi.DeviceCreateModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
+func (moduleCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateModuleResponse) (*gapi.HardwareCreateModuleResponse, error) {
+	return &gapi.HardwareCreateModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
 }
 
-func (moduleCreateResponseTranslator) Backward(_ context.Context, res *gapi.DeviceCreateModuleResponse) (api.DeviceCreateModuleResponse, error) {
-	return api.DeviceCreateModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
+func (moduleCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateModuleResponse) (api.HardwareCreateModuleResponse, error) {
+	return api.HardwareCreateModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
 }
 
-func (moduleRetrieveRequestTranslator) Forward(_ context.Context, req api.DeviceRetrieveModuleRequest) (*gapi.DeviceRetrieveModuleRequest, error) {
-	return &gapi.DeviceRetrieveModuleRequest{Rack: uint32(req.Rack), Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
+func (moduleRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveModuleRequest) (*gapi.HardwareRetrieveModuleRequest, error) {
+	return &gapi.HardwareRetrieveModuleRequest{Rack: uint32(req.Rack), Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
 }
 
-func (moduleRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.DeviceRetrieveModuleRequest) (api.DeviceRetrieveModuleRequest, error) {
-	return api.DeviceRetrieveModuleRequest{Rack: rack.Key(req.Rack), Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
+func (moduleRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveModuleRequest) (api.HardwareRetrieveModuleRequest, error) {
+	return api.HardwareRetrieveModuleRequest{Rack: rack.Key(req.Rack), Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
 }
 
-func (moduleRetrieveResponseTranslator) Forward(_ context.Context, res api.DeviceRetrieveModuleResponse) (*gapi.DeviceRetrieveModuleResponse, error) {
-	return &gapi.DeviceRetrieveModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
+func (moduleRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveModuleResponse) (*gapi.HardwareRetrieveModuleResponse, error) {
+	return &gapi.HardwareRetrieveModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
 }
 
-func (moduleRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.DeviceRetrieveModuleResponse) (api.DeviceRetrieveModuleResponse, error) {
-	return api.DeviceRetrieveModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
+func (moduleRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveModuleResponse) (api.HardwareRetrieveModuleResponse, error) {
+	return api.HardwareRetrieveModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
 }
 
-func (moduleDeleteRequestTranslator) Forward(_ context.Context, req api.DeviceDeleteModuleRequest) (*gapi.DeviceDeleteModuleRequest, error) {
-	return &gapi.DeviceDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
+func (moduleDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteModuleRequest) (*gapi.HardwareDeleteModuleRequest, error) {
+	return &gapi.HardwareDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
 }
 
-func (moduleDeleteRequestTranslator) Backward(_ context.Context, req *gapi.DeviceDeleteModuleRequest) (api.DeviceDeleteModuleRequest, error) {
-	return api.DeviceDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
+func (moduleDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteModuleRequest) (api.HardwareDeleteModuleRequest, error) {
+	return api.HardwareDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
 }
 
-func newDevice(a *api.Transport) fgrpc.BindableTransport {
+func translateDeviceForward(d *api.Device) *gapi.Device {
+	return &gapi.Device{Key: d.Key, Name: d.Name, Make: d.Make, Model: d.Model, Properties: d.Properties}
+}
+
+func translateDeviceBackward(d *gapi.Device) *api.Device {
+	return &api.Device{Key: d.Key, Name: d.Name, Make: d.Make, Model: d.Model, Properties: d.Properties}
+}
+
+func translateDevicesForward(ds []api.Device) []*gapi.Device {
+	res := make([]*gapi.Device, len(ds))
+	for i, d := range ds {
+		res[i] = translateDeviceForward(&d)
+	}
+	return res
+}
+
+func translateDevicesBackward(ds []*gapi.Device) []api.Device {
+	res := make([]api.Device, len(ds))
+	for i, d := range ds {
+		res[i] = *translateDeviceBackward(d)
+	}
+	return res
+}
+
+func (deviceCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCreateDeviceRequest) (*gapi.HardwareCreateDeviceRequest, error) {
+	return &gapi.HardwareCreateDeviceRequest{Devices: translateDevicesForward(req.Devices)}, nil
+}
+
+func (deviceCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateDeviceRequest) (api.HardwareCreateDeviceRequest, error) {
+	return api.HardwareCreateDeviceRequest{Devices: translateDevicesBackward(req.Devices)}, nil
+}
+
+func (deviceCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateDeviceResponse) (*gapi.HardwareCreateDeviceResponse, error) {
+	return &gapi.HardwareCreateDeviceResponse{Devices: translateDevicesForward(res.Devices)}, nil
+}
+
+func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateDeviceResponse) (api.HardwareCreateDeviceResponse, error) {
+	return api.HardwareCreateDeviceResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+}
+
+func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveDeviceRequest) (*gapi.HardwareRetrieveDeviceRequest, error) {
+	return &gapi.HardwareRetrieveDeviceRequest{Keys: req.Keys}, nil
+}
+
+func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveDeviceRequest) (api.HardwareRetrieveDeviceRequest, error) {
+	return api.HardwareRetrieveDeviceRequest{Keys: req.Keys}, nil
+}
+
+func (deviceRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveDeviceResponse) (*gapi.HardwareRetrieveDeviceResponse, error) {
+	return &gapi.HardwareRetrieveDeviceResponse{Devices: translateDevicesForward(res.Devices)}, nil
+}
+
+func (deviceRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveDeviceResponse) (api.HardwareRetrieveDeviceResponse, error) {
+	return api.HardwareRetrieveDeviceResponse{Devices: translateDevicesBackward(res.Devices)}, nil
+}
+
+func (deviceDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteDeviceRequest) (*gapi.HardwareDeleteDeviceRequest, error) {
+	return &gapi.HardwareDeleteDeviceRequest{Keys: req.Keys}, nil
+}
+
+func (deviceDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteDeviceRequest) (api.HardwareDeleteDeviceRequest, error) {
+	return api.HardwareDeleteDeviceRequest{Keys: req.Keys}, nil
+}
+
+func newHardware(a *api.Transport) fgrpc.BindableTransport {
 	createRack := &rackCreateServer{
 		RequestTranslator:  rackCreateRequestTranslator{},
 		ResponseTranslator: rackCreateResponseTranslator{},
-		ServiceDesc:        &gapi.DeviceCreateRackService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareCreateRackService_ServiceDesc,
 	}
-	a.DeviceCreateRack = createRack
+	a.HardwareCreateRack = createRack
 	retrieveRack := &rackRetrieveServer{
 		RequestTranslator:  rackRetrieveRequestTranslator{},
 		ResponseTranslator: rackRetrieveResponseTranslator{},
-		ServiceDesc:        &gapi.DeviceRetrieveRackService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareRetrieveRackService_ServiceDesc,
 	}
-	a.DeviceRetrieveRack = retrieveRack
+	a.HardwareRetrieveRack = retrieveRack
 	deleteRack := &rackDeleteServer{
 		RequestTranslator:  rackDeleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &gapi.DeviceDeleteRackService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareDeleteRackService_ServiceDesc,
 	}
-	a.DeviceDeleteRack = deleteRack
+	a.HardwareDeleteRack = deleteRack
 	createModule := &moduleCreateServer{
 		RequestTranslator:  moduleCreateRequestTranslator{},
 		ResponseTranslator: moduleCreateResponseTranslator{},
-		ServiceDesc:        &gapi.DeviceCreateModuleService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareCreateModuleService_ServiceDesc,
 	}
-	a.DeviceCreateModule = createModule
+	a.HardwareCreateModule = createModule
 	retrieveModule := &moduleRetrieveServer{
 		RequestTranslator:  moduleRetrieveRequestTranslator{},
 		ResponseTranslator: moduleRetrieveResponseTranslator{},
-		ServiceDesc:        &gapi.DeviceRetrieveModuleService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareRetrieveModuleService_ServiceDesc,
 	}
-	a.DeviceRetrieveModule = retrieveModule
+	a.HardwareRetrieveModule = retrieveModule
 	deleteModule := &moduleDeleteServer{
 		RequestTranslator:  moduleDeleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &gapi.DeviceDeleteModuleService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareDeleteModuleService_ServiceDesc,
 	}
-	a.DeviceDeleteModule = deleteModule
+	a.HardwareDeleteModule = deleteModule
+	createDevice := &deviceCreateServer{
+		RequestTranslator:  deviceCreateRequestTranslator{},
+		ResponseTranslator: deviceCreateResponseTranslator{},
+		ServiceDesc:        &gapi.HardwareCreateDeviceService_ServiceDesc,
+	}
+	a.HardwareCreateDevice = createDevice
+	retrieveDevice := &deviceRetrieveServer{
+		RequestTranslator:  deviceRetrieveRequestTranslator{},
+		ResponseTranslator: deviceRetrieveResponseTranslator{},
+		ServiceDesc:        &gapi.HardwareRetrieveDeviceService_ServiceDesc,
+	}
+	a.HardwareRetrieveDevice = retrieveDevice
+	deleteDevice := &deviceDeleteServer{
+		RequestTranslator:  deviceDeleteRequestTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ServiceDesc:        &gapi.HardwareDeleteDeviceService_ServiceDesc,
+	}
+	a.HardwareDeleteDevice = deleteDevice
+
 	return fgrpc.CompoundBindableTransport{
 		createRack,
 		retrieveRack,
@@ -262,5 +372,8 @@ func newDevice(a *api.Transport) fgrpc.BindableTransport {
 		createModule,
 		retrieveModule,
 		deleteModule,
+		createDevice,
+		retrieveDevice,
+		deleteDevice,
 	}
 }

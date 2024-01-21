@@ -1,7 +1,0 @@
-cc_library(
-    name = "pipeline",
-    srcs = ["read.cpp"],
-    deps = [
-        "@synnax//synnax",
-    ],
-)

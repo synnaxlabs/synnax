@@ -12,12 +12,14 @@
 package module
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/device/rack"
+	"encoding/json"
+	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/types"
 	"strconv"
 )
 
-type Key uint64
+type Key types.StringParseableUint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
@@ -31,11 +33,34 @@ func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 func (k Key) IsValid() bool { return k.Rack().IsValid() && k.LocalKey() != 0 }
 
+func (k *Key) UnmarshalJSON(b []byte) error {
+	// Try to unmarshal as a number first.
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*k = Key(n)
+		return nil
+	}
+
+	// Unmarshal as a string.
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return err
+	}
+
+	// Parse the string.
+	n, err := strconv.ParseUint(str, 10, 64)
+	if err != nil {
+		return err
+	}
+	*k = Key(n)
+	return nil
+}
+
 type Module struct {
-	Key    Key    `json:"key" msgpack:"key" gorp:"primary_key"`
+	Key    Key    `json:"key" msgpack:"key"`
 	Name   string `json:"name" msgpack:"name"`
-	Type   string
-	Config string `json:"configuration" msgpack:"configuration"`
+	Type   string `json:"type" msgpack:"type"`
+	Config string `json:"config" msgpack:"config"`
 }
 
 var _ gorp.Entry[Key] = Module{}
