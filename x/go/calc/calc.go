@@ -112,7 +112,7 @@ func (e *Expression) Build(s string) error {
 				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: "-1"})
 				operators.Push("*")
 			} else {
-				for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
+				for operators.Len() > 0 && precedence[operators.Peek()] >= precedence[t] {
 					if err := popOperators(&output, &operators); err != nil {
 						return err
 					}
@@ -120,14 +120,14 @@ func (e *Expression) Build(s string) error {
 				operators.Push(t)
 			}
 		case "+", "*", "/", "==", "!=", ">", "<", ">=", "<=", "&&", "||":
-			for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
+			for operators.Len() > 0 && precedence[operators.Peek()] >= precedence[t] {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
 			}
 			operators.Push(t)
 		case "^":
-			for operators.Len() > 0 && precedence[*operators.Peek()] > precedence[t] {
+			for operators.Len() > 0 && precedence[operators.Peek()] > precedence[t] {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
@@ -136,7 +136,7 @@ func (e *Expression) Build(s string) error {
 		case "(", "!":
 			operators.Push(t)
 		case ")":
-			for operators.Len() > 0 && *operators.Peek() != "(" {
+			for operators.Len() > 0 && operators.Peek() != "(" {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
