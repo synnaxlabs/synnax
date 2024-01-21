@@ -11,6 +11,7 @@ package stack
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/deque"
 )
 
 // EmptyStackError is an error returned when popping from an empty stack
@@ -18,38 +19,39 @@ var EmptyStackError = errors.New("stack is empty")
 
 // Stack is a container datatype that follows the LIFO (Last In First Out) principle
 type Stack[T any] struct {
-	stack []T
+	s deque.Deque[T]
 }
 
 // Push adds an element to the top of the stack
 func (s *Stack[T]) Push(i T) {
-	s.stack = append(s.stack, i)
+	s.s.PushBack(i)
 }
 
 // Pop removes an element from the top of the stack, returns the element and an error if the stack is empty
 func (s *Stack[T]) Pop() (val T, err error) {
-	if len(s.stack) == 0 {
+	if s.Len() == 0 {
 		return val, EmptyStackError
 	}
-	i := s.stack[len(s.stack)-1]
-	s.stack = s.stack[:len(s.stack)-1]
-	return i, nil
+	return s.s.PopBack(), nil
 }
 
-// Peek returns a pointer to the element at the top of the stack without removing it, returns nil if the stack is empty
-func (s *Stack[T]) Peek() *T {
-	if len(s.stack) == 0 {
-		return nil
-	}
-	return &s.stack[len(s.stack)-1]
+// Peek returns a copy of the element at the top of the stack without removing it
+// Panics if the stack is empty
+func (s *Stack[T]) Peek() (val T) {
+	return s.s.Back()
 }
 
 // Len returns the number of elements in the stack
 func (s *Stack[T]) Len() int {
-	return len(s.stack)
+	return s.s.Len()
 }
 
 // Empty returns true if the stack is empty
 func (s *Stack[T]) Empty() bool {
-	return len(s.stack) == 0
+	return s.Len() == 0
+}
+
+// Cap returns the capacity of the stack
+func (s *Stack[T]) Cap() int {
+	return s.s.Cap()
 }

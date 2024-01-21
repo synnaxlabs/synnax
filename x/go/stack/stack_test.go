@@ -26,14 +26,12 @@ var _ = Describe("Stack", func() {
 			Expect(s.Empty()).To(BeFalse())
 
 			top := s.Peek()
-			Expect(*top).To(Equal(3))
+			Expect(top).To(Equal(3))
 			Expect(s.Len()).To(Equal(3))
-			*top = 4
-			Expect(*s.Peek()).To(Equal(4))
 
 			val, err := s.Pop()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(4))
+			Expect(val).To(Equal(3))
 			for i := 2; i > 0; i-- {
 				x, e := s.Pop()
 				Expect(e).ToNot(HaveOccurred())
@@ -43,7 +41,7 @@ var _ = Describe("Stack", func() {
 		})
 		It("Should return an error when popping from an empty queue", func() {
 			s := &stack.Stack[int]{}
-			Expect(s.Peek()).To(BeNil())
+			Expect(func() { s.Peek() }).To(Panic())
 			_, err := s.Pop()
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(stack.EmptyStackError))
@@ -58,7 +56,7 @@ var _ = Describe("Stack", func() {
 			Expect(s.Empty()).To(BeFalse())
 
 			top := s.Peek()
-			Expect(*top).To(Equal("c"))
+			Expect(top).To(Equal("c"))
 
 			val, err := s.Pop()
 			Expect(err).ToNot(HaveOccurred())
