@@ -26,14 +26,12 @@ var _ = Describe("Queue", func() {
 			Expect(q.Empty()).To(BeFalse())
 
 			front := q.Peek()
-			Expect(*front).To(Equal(1))
+			Expect(front).To(Equal(1))
 			Expect(q.Len()).To(Equal(3))
-			*front = 4
-			Expect(*q.Peek()).To(Equal(4))
 
 			val, err := q.Pop()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(4))
+			Expect(val).To(Equal(1))
 			for i := 0; i < 2; i++ {
 				x, e := q.Pop()
 				Expect(e).ToNot(HaveOccurred())
@@ -43,7 +41,7 @@ var _ = Describe("Queue", func() {
 		})
 		It("Should return an error when popping from an empty queue", func() {
 			q := &queue.Queue[int]{}
-			Expect(q.Peek()).To(BeNil())
+			Expect(func() { q.Peek() }).To(Panic())
 			_, err := q.Pop()
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(queue.EmptyQueueError))
@@ -58,7 +56,7 @@ var _ = Describe("Queue", func() {
 			Expect(q.Empty()).To(BeFalse())
 
 			front := q.Peek()
-			Expect(*front).To(Equal("a"))
+			Expect(front).To(Equal("a"))
 
 			val, err := q.Pop()
 			Expect(err).ToNot(HaveOccurred())

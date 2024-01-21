@@ -11,6 +11,7 @@ package queue
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/deque"
 )
 
 // EmptyQueueError is an error returned when popping from an empty queue
@@ -18,38 +19,38 @@ var EmptyQueueError = errors.New("queue is empty")
 
 // Queue is a container datatype that follows the FIFO (First In First Out) principle
 type Queue[T any] struct {
-	queue []T
+	q deque.Deque[T]
 }
 
 // Push adds an element to the end of the queue
 func (q *Queue[T]) Push(i T) {
-	q.queue = append(q.queue, i)
+	q.q.PushBack(i)
 }
 
 // Pop removes an element from the front of the queue, returns the element or an error if the queue is empty
 func (q *Queue[T]) Pop() (val T, err error) {
-	if len(q.queue) == 0 {
+	if q.q.Empty() {
 		return val, EmptyQueueError
 	}
-	i := q.queue[0]
-	q.queue = q.queue[1:]
-	return i, nil
+	return q.q.PopFront(), nil
 }
 
-// Peek returns a pointer to the element at the front of the queue without removing it, returns nil if the queue is empty
-func (q *Queue[T]) Peek() *T {
-	if len(q.queue) == 0 {
-		return nil
-	}
-	return &q.queue[0]
+// Peek returns a copy of the element at the front of the queue without removing it
+// Panics if the queue is empty
+func (q *Queue[T]) Peek() (val T) {
+	return q.q.Front()
 }
 
 // Len returns the number of elements in the queue
 func (q *Queue[T]) Len() int {
-	return len(q.queue)
+	return q.q.Len()
 }
 
 // Empty returns true if the queue is empty
 func (q *Queue[T]) Empty() bool {
-	return len(q.queue) == 0
+	return q.q.Empty()
+}
+
+func (q *Queue[T]) Cap() int {
+	return q.q.Cap()
 }
