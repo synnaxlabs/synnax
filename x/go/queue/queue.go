@@ -51,6 +51,7 @@ func (q *Queue[T]) Empty() bool {
 	return q.q.Empty()
 }
 
+// Cap returns the capacity of the queue
 func (q *Queue[T]) Cap() int {
 	return q.q.Cap()
 }
