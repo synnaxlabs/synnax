@@ -94,3 +94,14 @@ http_archive(
     strip_prefix = "bazel-skylib-master",
     urls = ["https://github.com/bazelbuild/bazel-skylib/archive/master.zip"],
 )
+new_local_repository(
+    name = "nidaqmx",
+    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+    build_file="@//nidaqmx:BUILD.bazel"
+)
+
+new_local_repository(
+    name = "nisyscfg",
+    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+    build_file="@//nisyscfg:BUILD.bazel"
+)

@@ -1,0 +1,34 @@
+cc_library(
+    name = "daqmx_hds",
+    hdrs=["daqmx.h"],
+    deps=["//driver/nidaqmx:lib"]
+)
+
+cc_library(
+    name = "syscfg_hds",
+    hdrs = ["nisyscfg_errors.h", "nisyscfg_wide.h", "nisyscfg.h"],
+    deps = ["//driver/nisyscfg:lib", "//driver/nidaqmx:lib"]
+)
+
+
+cc_library(
+    name = "ni",
+    srcs = [
+        "reader.cpp",
+    ],
+    hdrs = [
+        "daqmx.h",
+        "reader.h",
+        "nisyscfg.h",
+        "nisyscfg_errors.h",
+        "nisyscfg_wide.h",
+    ],
+    deps = [
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
+        "daqmx_hds",
+        "syscfg_hds",
+    ],
+    copts = ["/std:c++17"],
+    linkopts = ['user32.lib'],
+)
