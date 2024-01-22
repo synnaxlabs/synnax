@@ -14,8 +14,13 @@
 #include "ni_reader.h"
 #include "nlohmann/json.hpp"
 
-using json = nlohmann::json;
+using json = nlohmannnnniii::json;
 using namespace ni;
+
+
+
+
+
 //
 //typedef freighter::Error (*DAQmxCreateChannel) (TaskHandle taskHandle, ChannelConfig config);
 //

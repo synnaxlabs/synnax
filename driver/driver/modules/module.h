@@ -16,24 +16,42 @@
 
 using json = nlohmann::json;
 
+struct channel_config {
+    std::string name;
+    uint64_t port;
+    uint64_t
+};
 
 namespace module {
-class Module {
-private:
-    synnax::Module internal;
-public:
-    Module(synnax::Module module) : internal(std::move(module)) {}
+    class Module {
+    private:
+        synnax::Module internal;
+    public:
+        Module(synnax::Module module) : internal(std::move(module)) {}
 
-    virtual void stop() {};
+        virtual void stop() {};
 
-    virtual ~Module() = default;
-};
+        virtual ~Module() = default;
+    };
 
-class Factory {
-public:
-    virtual std::unique_ptr<Module> configure(
-            const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module, bool &valid_config, json &config_err) = 0;
+    class Factory {
+    public:
+        virtual std::unique_ptr<Module> configure(
+                const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module, bool &valid_config, json &config_err) = 0;
 
-    virtual ~Factory() = default;
-};
+        virtual ~Factory() = default;
+    };
 }
+
+class AnalogReader : module{
+    public:
+        vector<channel_config> channels;
+};
+
+//class DigitalReader : module{
+//    public:
+//};
+//
+//class DigitalWriter : module{
+//    public:
+//};

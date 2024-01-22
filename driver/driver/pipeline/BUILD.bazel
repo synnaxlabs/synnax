@@ -8,6 +8,7 @@ cc_library(
 #        "ctrl.h", TODO: uncomment when ctrl is implemented
         "acq.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//driver/breaker",
         "//driver/errors",

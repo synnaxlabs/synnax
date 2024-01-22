@@ -19,11 +19,9 @@
 namespace daq {
     class AcqReader {
     public:
-        virtual void writeToNode() = 0; // TODO: change return type
         virtual std::pair <synnax::Frame, freighter::Error> read() = 0;
-
+        virtual freighter::Error configure(synnax::Module config) = 0;
         virtual freighter::Error start() = 0;
-
         virtual freighter::Error stop() = 0;
     };
 
@@ -67,5 +65,5 @@ private:
     std::unique_ptr<breaker::Breaker> breaker;
 
     void run();
-    void runInternal(); // TODO: difference between this and run() (elham)
+    void runInternal();
 };

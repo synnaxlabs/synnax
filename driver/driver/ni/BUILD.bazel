@@ -28,6 +28,8 @@ cc_library(
         "@synnax//synnax",
         "daqmx_hds",
         "syscfg_hds",
+        "//driver/breaker:breaker",
+        "//driver/pipeline:pipeline",
     ],
     copts = ["/std:c++17"],
     linkopts = ['user32.lib'],

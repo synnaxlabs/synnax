@@ -11,21 +11,23 @@
 #include "synnax/synnax.h"
 #include <string>
 #include <vector>
+#include "driver/pipeline/acq.h"
+
+#pragma once
 
 namespace ni {
-class Reader {
-private:
-    TaskHandle task;
+    class niReader : daq::AcqReader{
 
-    Reader();
-public:
-    std::pair<synnax::Frame, freighter::Error> read();
+    private:
 
-    freighter::Error configure(synnax::Module config);
-
-    freighter::Error stop();
-};
-
+        TaskHandle task;
+        niReader();
+    public:
+        std::pair<synnax::Frame, freighter::Error> read();
+        freighter::Error configure(synnax::Module config);
+        freighter::Error stop();
+        freighter::Error start();
+    };
 }
-class Factory {
-};
+//class Factory {
+//};

@@ -31,11 +31,25 @@ void Acq::stop() {
     exec_thread.join();
 }
 
+void Acq::run() {
+    // start daq read
+    auto dq_err = daq_reader->start();
+    if (!dq_err.ok()) { // daq read error
+        if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
+        return;
+    }
 
-std::string Acq::runInternal(){
+    // start synnax writer
+    auto [writer, wo_err] = client->telem.openWriter(writer_config);
+    if (!wo_err.ok()) { // synnax write error
+        daq_reader->stop();
+        if (wo_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
+        return;
+    }
 
-    running = true;
+    bool retry = false;
     while (running) {
+        // perform a daq read
         auto [frame, error] = daq_reader->read();
         if (!error.ok()) {
             // Any other type means we've encountered a critical hardware failure
@@ -49,92 +63,83 @@ std::string Acq::runInternal(){
                 break;
             }
         }
-
+        // synnax commit
         auto now = synnax::TimeStamp::now();
         if (now - last_commit > commit_interval) {
             auto ok = writer.commit().second;
+            auto err = writer.error();
             if (!ok) {
-                auto err = writer.error();
                 retry = error.type == freighter::TYPE_UNREACHABLE;
                 break;
             }
             last_commit = now;
         }
     }
-}
 
-void Acq::run(){
-    bool retry = false;
-
-    // Open daq specific reader
-    auto dq_err = daq_reader->start();
-    if (!dq_err.ok()) {
-        if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) ;
-        return;
-    }
-
-    // open synnax writer
-    auto [writer, wo_err] = client->telem.openWriter(writer_config);
-    if (!wo_err.ok()) {
-        daq_reader->stop();
-        if (wo_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) runInternal();
-        return;
-    }
-
-    runInternal();
-
-    daq_reader->stop(); // close daq readeer
-    writer.close(); // close synnax writer
-
-    if(retry && breaker->wait()) runInternal();
+    daq_reader->stop();
+    writer.close();
+    if (retry && breaker->wait()) run();
 }
 
 
-// TODO: remove below
-//void Outbound::run() {
-//    auto dq_err = daq_reader->start();
-//    if (!dq_err.ok()) {
-//        if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
-//        return;
-//    }
+
 //
-//    auto [writer, wo_err] = client->telem.openWriter(writer_config);
-//    if (!wo_err.ok()) {
-//        daq_reader->stop();
-//        if (wo_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
-//        return;
-//    }
+//std::string Acq::runInternal(){
 //
-//    bool retry = false;
+//    running = true;
 //    while (running) {
 //        auto [frame, error] = daq_reader->read();
-//        if (!error.ok()) {
+//
+//        if (!error.ok()) { // daq read error
 //            // Any other type means we've encountered a critical hardware failure
 //            // or configuration error and can't proceed.
-//            retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
+//            return TYPE_TRANSIENT_HARDWARE_ERROR;
 //        }
-//        if (!writer.write(std::move(frame))) {
+//
+//        if (!writer.write(std::move(frame))) { // synnax write error
 //            auto err = writer.error();
 //            if (!err.ok()) {
-//                retry = error.type == freighter::TYPE_UNREACHABLE;
-//                break;
+//                return freighter::TYPE_UNREACHABLE;
 //            }
 //        }
 //
 //        auto now = synnax::TimeStamp::now();
+//
 //        if (now - last_commit > commit_interval) {
 //            auto ok = writer.commit().second;
-//            if (!ok) {
-//                auto err = writer.error();
-//                retry = error.type == freighter::TYPE_UNREACHABLE;
-//                break;
+//            auto err = writer.error();
+//            if (!ok) { // synnax commit error
+//                return freighter::TYPE_UNREACHABLE;
 //            }
 //            last_commit = now;
 //        }
 //    }
-//
-//    daq_reader->stop();
-//    writer.close();
-//    if (retry && breaker->wait()) run();
 //}
 //
+//void Acq::run(){
+//    bool retry = false;
+//
+//    // attempt to open daq specific reader
+//    auto dq_err = daq_reader->start();
+//    if (!dq_err.ok()) {
+//        if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) runInternal();
+//        return;
+//    }
+//
+//    // attempt open synnax writer
+//    auto [writer, wo_err] = client->telem.openWriter(writer_config);
+//    if (!wo_err.ok()) {
+//        daq_reader->stop();
+//        if (wo_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) runInternal();
+//        return;
+//    }
+//
+//    runInternal();
+//
+//    daq_reader->stop(); // close daq readeer
+//    writer.close(); // close synnax writer
+//
+//    if(retry && breaker->wait()) runInternal();
+//}
+
+
