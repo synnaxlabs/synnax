@@ -11,7 +11,7 @@
 // Created by Emiliano Bonilla on 1/3/24.
 //
 
-#include "reader.h"
+#include "ni_reader.h"
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;

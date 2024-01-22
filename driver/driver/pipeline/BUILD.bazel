@@ -1,14 +1,15 @@
 cc_library(
     name = "pipeline",
     srcs = [
-        "inbound.cpp",
-        "outbound.cpp",
+#        "ctrl.cpp",  TODO: uncomment when ctrl is implemented
+        "acq.cpp",
     ],
     hdrs = [
-        "inbound.h",
-        "outbound.h",
+#        "ctrl.h", TODO: uncomment when ctrl is implemented
+        "acq.h",
     ],
     deps = [
+        "//driver/breaker",
         "//driver/errors",
         "@nlohmann_json//:json",
         "@synnax//synnax",

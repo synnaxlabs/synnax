@@ -14,11 +14,11 @@ cc_library(
 cc_library(
     name = "ni",
     srcs = [
-        "reader.cpp",
+        "ni_reader.cpp",
     ],
     hdrs = [
         "daqmx.h",
-        "reader.h",
+        "ni_reader.h",
         "nisyscfg.h",
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
