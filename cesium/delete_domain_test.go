@@ -23,8 +23,9 @@ var _ = Describe("Delete", Ordered, func() {
 		basic1      cesium.ChannelKey = 1
 		basic2      cesium.ChannelKey = 2
 		basic2index cesium.ChannelKey = 3
-		basic3      cesium.ChannelKey = 4
 		basic3index cesium.ChannelKey = 5
+		basic4index cesium.ChannelKey = 4
+		basic4      cesium.ChannelKey = 6
 	)
 	BeforeAll(func() {
 		db = openMemDB()
@@ -150,18 +151,16 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(db.CreateChannel(
 				ctx,
 				cesium.Channel{Key: basic3index, IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: basic3, Index: basic3index, DataType: telem.Int64T},
 			)).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic3, basic3index},
+				Channels: []cesium.ChannelKey{basic3index},
 				Start:    10 * telem.SecondTS,
 			}))
 
 			By("Writing data to the channel")
 			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{basic3, basic3index},
+				[]cesium.ChannelKey{basic3index},
 				[]telem.Series{
-					telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
 					telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
 				}),
 			)
@@ -182,7 +181,6 @@ var _ = Describe("Delete", Ordered, func() {
 
 			// After deletion:
 			// 10 11                17 18 19
-			//  0  1  2  3  4  5  6  7  8  9
 
 			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic3index)
 			Expect(err).To(BeNil())
@@ -200,6 +198,44 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(series1Data).To(ContainElement(17 * telem.SecondTS))
 			Expect(series1Data).To(ContainElement(18 * telem.SecondTS))
 			Expect(series1Data).To(ContainElement(19 * telem.SecondTS))
+		})
+	})
+
+	Describe("Deleting Index Channel when other channels depend on it", func() {
+		It("Should not allow such deletion when another channel is indexed by it on the sa me time range", func() {
+			By("Creating an indexed channel and a channel indexed by it")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: basic4index, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: basic4, Index: basic4index, DataType: telem.Int64T},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{basic4, basic4index},
+				Start:    10 * telem.SecondTS,
+			}))
+
+			By("Writing data to the channel")
+			ok := w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{basic4, basic4index},
+				[]telem.Series{
+					telem.NewSeriesV[int64](100, 101, 102),
+					telem.NewSecondsTSV(10, 11, 12),
+				}),
+			)
+			Expect(ok).To(BeTrue())
+			_, ok = w.Commit()
+			Expect(ok).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			// Before deletion:
+			// 10 11 12 13 14 15 16 17 18 19
+			//  0  1  2  3  4  5  6  7  8  9
+
+			By("Deleting channel data")
+			Expect(db.DeleteTimeRange(ctx, basic4index, telem.TimeRange{
+				Start: 12 * telem.SecondTS,
+				End:   17 * telem.SecondTS,
+			})).ToNot(Succeed())
 		})
 	})
 })

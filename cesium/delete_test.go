@@ -32,6 +32,34 @@ var _ = Describe("Delete", Ordered, func() {
 		Specify("Deleting a nonexistent channel", func() {
 			Expect(db.DeleteChannel(9)).To(MatchError(query.Error))
 		})
+		Specify("Deleting an index channel that other channels rely on", func() {
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: 15, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: 16, Index: 15, DataType: telem.Int64T},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{15, 16},
+				Start:    10 * telem.SecondTS,
+			}))
+
+			By("Writing data to the channel")
+			ok := w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{16, 15},
+				[]telem.Series{
+					telem.NewSeriesV[int64](100, 101, 102),
+					telem.NewSecondsTSV(10, 11, 12),
+				}),
+			)
+			Expect(ok).To(BeTrue())
+			_, ok = w.Commit()
+			Expect(ok).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+
+			By("Deleting channel")
+			Expect(db.DeleteChannel(15)).ToNot(Succeed())
+		})
 		Specify("Simple unary channel", func() {
 			By("Creating a channel")
 			Expect(db.CreateChannel(
@@ -96,14 +124,14 @@ var _ = Describe("Delete", Ordered, func() {
 				}))
 
 			By("Trying to delete them")
-			Expect(db.DeleteChannel(2).Error()).To(ContainSubstring("1 unclosed"))
+			Expect(db.DeleteChannel(2).Error()).To(ContainSubstring("depending"))
 			Expect(db.DeleteChannel(3).Error()).To(ContainSubstring("1 unclosed"))
 
 			By("Closing the writer")
 			Expect(w.Close()).To(Succeed())
 			By("Trying to delete them again")
-			Expect(db.DeleteChannel(2)).To(Succeed())
 			Expect(db.DeleteChannel(3)).To(Succeed())
+			Expect(db.DeleteChannel(2)).To(Succeed())
 
 			By("Trying to retrieve the channels")
 			_, err2 := db.RetrieveChannel(ctx, 2)

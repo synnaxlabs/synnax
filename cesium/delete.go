@@ -21,6 +21,18 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if uok {
+		if udb.Config.Channel.IsIndex {
+			for otherDBKey := range db.unaryDBs {
+				if otherDBKey == ch {
+					continue
+				}
+				otherDB := db.unaryDBs[otherDBKey]
+				if otherDB.Channel.Index == udb.Config.Channel.Key {
+					return errors.New("Could not delete index channel with other channels depending on it")
+				}
+			}
+		}
+
 		if err := udb.TryClose(); err != nil {
 			return err
 		}
@@ -48,6 +60,19 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
 		return ChannelNotFound
+	}
+
+	// cannot delete an index channel that other channels rely on
+	if udb.Config.Channel.IsIndex {
+		for otherDBKey := range db.unaryDBs {
+			if otherDBKey == ch {
+				continue
+			}
+			otherDB := db.unaryDBs[otherDBKey]
+			if otherDB.Channel.Index == udb.Config.Channel.Key && otherDB.Domain.GetBounds().OverlapsWith(tr) {
+				return errors.New("Could not delete index channel with other channels depending on it")
+			}
+		}
 	}
 
 	ok := udb.Delete(ctx, tr)
