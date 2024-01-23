@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { toArray, type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { useSyncedRef } from "@/hooks/ref";
 import {
   useSelectMultiple,
   type UseSelectMultipleProps,
@@ -32,9 +33,10 @@ export const Selector = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
-  value,
+  value: rValue,
   ...props
 }: SelectorProps<K, E>): null => {
+  const value = toArray(rValue);
   const {
     data,
     select: { setOnSelect, setClear, onChange },
@@ -46,14 +48,21 @@ export const Selector = <
     ...props,
   });
 
-  useEffect(() => {
-    setOnSelect(() => onSelect);
-    setClear(() => clear);
-  }, [onSelect, clear]);
+  const onSelectRef = useSyncedRef(onSelect);
+
+  const handleSelect = useCallback(
+    (key: K) => onSelectRef.current?.(key),
+    [onSelectRef],
+  );
 
   useEffect(() => {
-    onChange(value);
-  }, [value]);
+    setOnSelect(() => handleSelect);
+    setClear(() => clear);
+  }, [handleSelect, clear]);
+
+  useEffect(() => {
+    onChange(toArray(rValue));
+  }, [rValue]);
 
   return null;
 };

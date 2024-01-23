@@ -49,7 +49,6 @@ export interface ItemProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
-  key: string | number;
   entry: E;
   index: number;
   style: React.CSSProperties;

@@ -3,13 +3,8 @@ import { type ReactElement } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Button, Select } from "@synnaxlabs/pluto";
 import { type List } from "@synnaxlabs/pluto/list";
-import { z } from "zod";
 
-const VENDORS = ["ni", "other"] as const;
-
-export const vendorsZ = z.enum(VENDORS);
-
-export type Vendor = z.infer<typeof vendorsZ>;
+import { type Vendor } from "./types";
 
 interface VendorListItem {
   key: Vendor;

@@ -109,7 +109,7 @@ export const Core = <
       {data.length === 0 ? (
         emptyContent
       ) : (
-        <>
+        <div>
           {data.map((entry, index) =>
             props.children({
               key: entry.key.toString(),
@@ -122,7 +122,7 @@ export const Core = <
               style: {},
             }),
           )}
-        </>
+        </div>
       )}
     </Align.Space>
   );

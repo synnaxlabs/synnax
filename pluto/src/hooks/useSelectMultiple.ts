@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-import { type Key, type KeyedRecord, unique } from "@synnaxlabs/x";
+import { type Key, type KeyedRecord, unique, toArray } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 
@@ -36,7 +36,7 @@ export interface UseSelectMultipleProps<
   allowMultiple?: boolean;
   allowNone?: boolean;
   replaceOnSingle?: boolean;
-  value: K[];
+  value: K | K[];
   onChange: (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
 }
 
@@ -79,7 +79,7 @@ export const useSelectMultiple = <
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
 >({
   data = [],
-  value = [],
+  value: rValue = [],
   allowMultiple = true,
   allowNone = true,
   replaceOnSingle = false,
@@ -87,6 +87,13 @@ export const useSelectMultiple = <
 }: UseSelectMultipleProps<K, E>): UseSelectMultipleReturn<K, E> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
+
+  const value = toArray(rValue).filter((v) => v != null);
+
+  useEffect(() => {
+    if (value.length === 0 && !allowNone && data.length > 0)
+      onChange([data[0].key], { entries: [data[0]], clicked: data[0].key });
+  }, [value.length, allowNone]);
 
   const handleSelect = useCallback(
     (key: K): void => {

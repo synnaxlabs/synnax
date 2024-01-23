@@ -11,14 +11,15 @@
 
 .pluto-list__container {
     height: 100%;
-    width: 100%;
-    overflow-y: auto;
     user-select: none;
+    overflow: hidden;
     -webkit-user-select: none;
 }
 
 .pluto-list__container > div {
     width: 100%;
+    height: 100%;
+    overflow-y: auto;
     position: relative;
     user-select: none;
     -webkit-user-select: none;

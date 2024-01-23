@@ -25,6 +25,10 @@ export interface CoreProps<L extends Level = "h1"> {
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
+  /* Shade sets the shade color of the text */
+  shade?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  /* Weight sets the weight of the text */
+  weight?: number;
 }
 
 export type TextProps<L extends Level = "h1"> = Omit<
@@ -41,6 +45,8 @@ const CoreText = <L extends Level = "h1">(
     style,
     children,
     noWrap = false,
+    shade,
+    weight,
     ...props
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>,
@@ -49,7 +55,7 @@ const CoreText = <L extends Level = "h1">(
   <Generic.Element<L>
     el={level}
     ref={ref}
-    style={{ color: Color.cssString(color), ...style }}
+    style={{ color: evalColor(color, shade), fontWeight: weight, ...style }}
     className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
     {...props}
   >
@@ -60,3 +66,9 @@ const CoreText = <L extends Level = "h1">(
 export const Text = forwardRef(CoreText) as <L extends Level = "h1">(
   props: TextProps<L>,
 ) => ReactElement;
+
+const evalColor = (color?: Color.Crude, shade?: number): string | undefined => {
+  if (color != null) return Color.cssString(color);
+  if (shade != null) return Color.cssString(`var(--pluto-gray-l${shade})`);
+  return undefined;
+};

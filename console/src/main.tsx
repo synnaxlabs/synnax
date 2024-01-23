@@ -41,7 +41,7 @@ import "@synnaxlabs/media/dist/style.css";
 // import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
-  main: LayoutMain,
+  // main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
   defineRange: Range.Define,
@@ -56,7 +56,7 @@ const layoutRenderers = {
   [Table.LAYOUT_TYPE]: Table.Table,
   [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
   [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
-  [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
+  main: NewDevice.Configure,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

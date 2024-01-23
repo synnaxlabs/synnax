@@ -90,7 +90,9 @@
     border-right: var(--pluto-border);
     height: 100%;
 
+
      & .pluto-tabs-selector__btn {
+        justify-content: flex-start !important;
         margin-left: -1px;
         border-left: var(--pluto-border);
 
@@ -111,13 +113,7 @@
 .pluto--x {
     > .pluto-tabs-selector__btn {
         margin-bottom: -1px;
-
-
         border-bottom: var(--pluto-border);
-
-        
-
-
 
         /* Sets the nice blue underline. */
         &.pluto--selected {

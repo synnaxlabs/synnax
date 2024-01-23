@@ -29,6 +29,8 @@ import { Theming } from "@/theming";
 
 import "@/list/Column.css";
 
+import { ItemFrame } from "./Item";
+
 type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
 
 export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecord<K>> {
@@ -111,38 +113,29 @@ const Item = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   entry,
-  selected,
   columns,
   onSelect,
-  index,
-  hovered,
   ...props
 }: ItemProps<K, E>): ReactElement => {
-  const handleSelect = (): void => onSelect?.(entry.key);
   return (
-    <Align.Space
-      id={entry.key.toString()}
+    <ItemFrame<K, E>
+      key={entry.key.toString()}
+      entry={entry}
+      onSelect={onSelect}
       className={CSS(
-        CONTEXT_TARGET,
         CSS.BE("list-col-item", "container"),
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
-        hovered && CSS.BEM("list-col-item", "container", "hovered"),
-        selected && CSS.BEM("list-col-item", "container", "selected"),
-        selected && CONTEXT_SELECTED,
       )}
-      direction="x"
-      onClick={handleSelect}
-      onContextMenu={handleSelect}
       align="center"
-      {...props}
       size="medium"
+      {...props}
     >
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
           <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
         ))}
-    </Align.Space>
+    </ItemFrame>
   );
 };
 

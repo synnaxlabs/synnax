@@ -8,10 +8,28 @@
     height: 100%;
     width: 100%;
 
+    & .pluto-tabs {
+        height: 100%;
+    }
+
+    & .pluto-navbar {
+        padding: 0 2rem;
+    }
+
+    & .pluto-tabs-selector__tabs {
+        height: 100%;
+        justify-content: center !important;
+    }
+
     & .console-properties {
         padding: 10rem;
         flex-grow: 1;
+        width: 100%;
         height: 100%;
+
+        & .console-fields {
+            width: 100%;
+        }
 
         & .console-vendor {
 

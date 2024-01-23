@@ -45,12 +45,14 @@ export const WithIcon = <
   color: crudeColor,
   className,
   noWrap = false,
+  shade,
+  weight,
   ...props
 }: WithIconProps<E, L>): ReactElement => {
   const color = Color.cssString(crudeColor);
   const startIcons = startIcon != null && formatIcons(startIcon, color);
   const endIcons = endIcon != null && formatIcons(endIcon, color);
-  const formatted = formatChildren(level, children, color);
+  const formatted = formatChildren(level, children, color, shade, weight);
   return (
     // @ts-expect-error - level type errors
     <Align.Space<E>
@@ -93,10 +95,13 @@ export const formatChildren = <L extends Level>(
   level: L,
   children: ReactNode = [],
   color?: string,
+  shade?: number,
+  weight?: number,
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];
   let buff: Array<string | number | boolean | Iterable<ReactNode>> = [];
+  const props = { color, level, shade, weight };
   arr.forEach((child) => {
     if (child == null) return;
     if (
@@ -109,7 +114,7 @@ export const formatChildren = <L extends Level>(
       if (buff.length > 0) {
         o.push(
           // @ts-expect-error - level type errors
-          <Text<L> key={buff[0]} color={color} level={level}>
+          <Text<L> key={buff[0]} {...props}>
             {buff}
           </Text>,
         );
@@ -121,7 +126,7 @@ export const formatChildren = <L extends Level>(
   if (buff.length > 0)
     o.push(
       // @ts-expect-error- level type errors
-      <Text<L> key={buff[0]} color={color} level={level}>
+      <Text<L> key={buff[0]} {...props}>
         {buff}
       </Text>,
     );
