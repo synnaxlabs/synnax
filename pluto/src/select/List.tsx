@@ -17,8 +17,10 @@ import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends CoreList.SelectorProps<K, E>,
-    CoreList.ColumnHeaderProps<K, E>,
-    Pick<Dropdown.DialogProps, "visible"> {}
+    Omit<CoreList.ColumnHeaderProps<K, E>, "hide">,
+    Pick<Dropdown.DialogProps, "visible"> {
+  hideColumnHeader?: boolean;
+}
 
 export const List = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   value,
@@ -26,6 +28,7 @@ export const List = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   allowMultiple,
   visible,
   allowNone,
+  hideColumnHeader = false,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
   <>
@@ -36,7 +39,7 @@ export const List = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       allowNone={allowNone}
     />
     {visible && <CoreList.Hover />}
-    <CoreList.Column.Header {...props} />
+    <CoreList.Column.Header hide={hideColumnHeader} {...props} />
     <CoreList.Core.Virtual itemHeight={CoreList.Column.itemHeight}>
       {componentRenderProp(CoreList.Column.Item)}
     </CoreList.Core.Virtual>

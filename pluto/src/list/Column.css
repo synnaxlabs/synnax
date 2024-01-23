@@ -40,6 +40,10 @@
 .pluto-list-col-header__container {
     padding: 1rem 2rem;
     border-bottom: var(--pluto-border-width) solid var(--pluto-border-color);
+
+    &.pluto--hidden {
+        display: none;
+    }
 }
 
 .pluto-list-col-header__item {

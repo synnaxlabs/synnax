@@ -29,7 +29,6 @@ export interface ProviderProps<
 > extends Omit<BaseProps<A, S>, "store"> {
   store: Promise<EnhancedStore<S, A, M, E>> | EnhancedStore<S, A, M, E>;
   emptyContent?: ReactElement | null;
-  errorContent?: (error: Error) => ReactElement;
 }
 
 /**
@@ -47,14 +46,15 @@ export const DriftProvider = <
   E extends Enhancers = Enhancers
 >({
   store: storeOrPromise,
-  errorContent,
   emptyContent = null,
   children,
 }: ProviderProps<S, A, M, E>): ReactElement | null => {
   const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  if (error != null)
-    return errorContent?.(error) ?? createElement("h1", {}, error.message);
+  if (error != null) {
+    setError(null);
+    throw error;
+  }
   if (store == null) {
     // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);

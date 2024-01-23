@@ -116,6 +116,7 @@ export interface DropdownButtonProps<
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
   renderKey?: keyof E;
   allowNone?: boolean;
+  hideColumnHeader?: boolean;
 }
 
 export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
@@ -142,6 +143,7 @@ export const DropdownButton = <
   renderKey = "key",
   allowNone = false,
   onChange,
+  hideColumnHeader = true,
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { ref, visible, toggle, close } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(data.find((e) => e.key === value));
@@ -179,6 +181,7 @@ export const DropdownButton = <
           allowMultiple={false}
           allowNone={allowNone}
           columns={columns}
+          hide={hideColumnHeader}
         />
       </Dropdown.Dialog>
     </CoreList.List>

@@ -16,7 +16,9 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { ErrorOverlay } from "@/error/Overlay";
 import { HardwareConfigure } from "@/hardware/configure";
+import { NewDevice } from "@/hardware/device/new";
 import { HardwareStatus } from "@/hardware/status";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
@@ -35,8 +37,6 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-
-import { NewDevice } from "./hardware/device/new";
 
 // import "@synnaxlabs/pluto/dist/style.css";
 
@@ -110,13 +110,15 @@ const MainUnderContext = (): ReactElement => {
 
 const Main = (): ReactElement | null => {
   return (
-    <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
-      <Layout.RendererProvider value={layoutRenderers}>
-        <Ontology.ServicesProvider services={SERVICES}>
-          <MainUnderContext />
-        </Ontology.ServicesProvider>
-      </Layout.RendererProvider>
-    </Provider>
+    <ErrorOverlay>
+      <Provider store={store}>
+        <Layout.RendererProvider value={layoutRenderers}>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <MainUnderContext />
+          </Ontology.ServicesProvider>
+        </Layout.RendererProvider>
+      </Provider>
+    </ErrorOverlay>
   );
 };
 

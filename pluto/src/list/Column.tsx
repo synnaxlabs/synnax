@@ -32,12 +32,14 @@ import "@/list/Column.css";
 type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
 
 export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecord<K>> {
+  hide?: boolean;
   columns: Array<ListColumnT<K, E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
 const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+  hide = false,
   columns: initialColumns,
 }: ColumnHeaderProps<K, E>): ReactElement => {
   const {
@@ -76,7 +78,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     <Align.Space
       direction="x"
       size="medium"
-      className={CSS.BE("list-col-header", "container")}
+      className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
     >
       {columns
         .filter(({ visible = true }) => visible)

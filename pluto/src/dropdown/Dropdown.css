@@ -19,7 +19,6 @@
     background: var(--pluto-gray-l1);
     max-height: 360px;
     position: fixed;
-    box-shadow: 0 0 0 1px var(--pluto-gray-l2), 0 4px 8px 0 var(--pluto-gray-l3);
 
     &.pluto--top {
         transform: translateY(calc(-100% + 1px));
