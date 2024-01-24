@@ -14,12 +14,68 @@
 #include "ni_reader.h"
 #include "nlohmann/json.hpp"
 
-using json = nlohmannnnniii::json;
+using json = nlohman::json;
 using namespace ni;
 
+void ni::niReader::init(std::vector<channel_config> channels, uint64_t acqusition_rate){
 
+    // iterate through channels, check name and determine what tasks nbeed to be created
+    for(auto &channel : channels){
+        switch(channel.channelType){
+            case ANALOG_VOLTAGE_IN:
+                DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
+                break;
+            case THERMOCOUPLE_IN: //TODO: double check the function calls below (elham)
+                DAQmxErrChk(DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL));
+                break;
+            case ANALOG_CURRENT_IN://TODO: double check the function calls below (elham)
+                DAQmxErrChk(DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL));
+                break;
+            case DIGITAL_IN://TODO: double check the function calls below (elham)
+                DAQmxErrChk(DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines));
+                break;
+            case DIGITAL_OUT://TODO: double check the function calls below (elham)
+                DAQmxErrChk(DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines));
+                break;
+        }
+    }
+    // TODO last parameter is the number of samples to acquire or generate for each channel/ determine buffer size
+    // TODO 1000 is a placeholder for now maybe add a way to read this in from config file
+    // also make sampleMode configurable eventually?
+    DAQnxErrChk(DAQmxCfgSampClkTiming(taskHandle, NULL, acqusition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 1000));
+}
 
+freighter::Error ni::niReader::configure(synnax::Module config){
 
+}
+
+freighter::Error ni::niReader::start(){
+   DAQmxStartTask(taskHandle);
+   return freighter::NIL;
+}
+
+freighter::Error ni::niReader::stop(){
+    DAQmxStopTask(taskHandle);
+    return freighter::NIL;
+    // TODO figure when id want to all DAQmxClearTask (elham)
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::niReader::read(){
+    std::int32 read;
+    float64 data[1000];
+    char errBuff[2048]={'\0'};
+
+    DAQmxErrChk (DAQmxReadAnalogF64(taskHandle,-1,10.0,DAQmx_Val_GroupByChannel,data,1000,&read,NULL));
+    // TODO: Remove the bottom
+    if( read>0 )
+        printf("Acquired %d samples\n",(int)read);
+
+    if( DAQmxFailed(error) ) {
+        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+        printf("DAQmx Error: %s\n", errBuff);
+    }
+
+}
 
 //
 //typedef freighter::Error (*DAQmxCreateChannel) (TaskHandle taskHandle, ChannelConfig config);

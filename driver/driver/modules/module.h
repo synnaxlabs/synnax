@@ -16,11 +16,7 @@
 
 using json = nlohmann::json;
 
-struct channel_config {
-    std::string name;
-    uint64_t port;
-    uint64_t
-};
+
 
 namespace module {
     class Module {
@@ -43,15 +39,12 @@ namespace module {
     };
 }
 
-class AnalogReader : module{
-    public:
-        vector<channel_config> channels;
-};
 
-//class DigitalReader : module{
+
+//class NiDigitalReader : module{
 //    public:
 //};
 //
-//class DigitalWriter : module{
+//class NiDigitalWriter : module{
 //    public:
 //};

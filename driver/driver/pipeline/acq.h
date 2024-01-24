@@ -32,8 +32,8 @@ public:
     void start();
     void stop();
     Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-            synnax::WriterConfig writer_config,
-            synnax::StreamerConfig streamer_config);
+        std::unique_ptr<synnax::WriterConfig> writer_config,
+        std::unique_ptr<synnax::StreamerConfig> streamer_config);
 
 private:
     /// @brief threading.
@@ -63,6 +63,9 @@ private:
 
     /// @brief breaker
     std::unique_ptr<breaker::Breaker> breaker;
+
+    /// @brief mutex for shared variables
+    static std::mutex mut;
 
     void run();
     void runInternal();

@@ -17,9 +17,9 @@ using json = nlohmann::json;
 //using namespace pipeline;
 
 Acq::Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config) :
-        daq_reader(std::move(daq_reader)), writer_config(writer_config), streamer_config(streamer_config) {}
+        std::unique_ptr<synnax::WriterConfig> writer_config,
+        std::unique_ptr<synnax::StreamerConfig> streamer_config) :
+        daq_reader(std::move(daq_reader)), writer_config(std::move(writer_config)), streamer_config(std::move(streamer_config) {}
 
 void Acq::start() {
     running = true;
