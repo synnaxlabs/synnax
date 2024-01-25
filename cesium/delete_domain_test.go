@@ -232,10 +232,12 @@ var _ = Describe("Delete", Ordered, func() {
 			//  0  1  2  3  4  5  6  7  8  9
 
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic4index, telem.TimeRange{
+			err := db.DeleteTimeRange(ctx, basic4index, telem.TimeRange{
 				Start: 12 * telem.SecondTS,
 				End:   17 * telem.SecondTS,
-			})).ToNot(Succeed())
+			})
+
+			Expect(err.Error()).To(ContainSubstring("depending"))
 		})
 	})
 })
