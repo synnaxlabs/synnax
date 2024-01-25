@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { List as Core, Menu as PMenu, Divider } from "@synnaxlabs/pluto";
+import { List as Core, Menu as PMenu, Divider, Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -56,6 +56,7 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
+  const client = Synnax.use();
 
   const handleAddOrEdit = (key?: string): void => {
     newLayout({
@@ -72,6 +73,11 @@ export const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
+  const handleSetActive = (key: string): void => {
+    if (client == null) return;
+    client.ranges.setActive(key).catch(console.error);
+  };
+
   const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement => {
     const handleClick = (key: string): void => {
       switch (key) {
@@ -81,6 +87,8 @@ export const List = (): ReactElement => {
           return handleAddOrEdit(keys[0]);
         case "remove":
           return handleRemove(keys);
+        case "setActive":
+          return handleSetActive(keys[0]);
       }
     };
     return (
@@ -93,6 +101,9 @@ export const List = (): ReactElement => {
         </PMenu.Item>
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
           Create Range
+        </PMenu.Item>
+        <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
+          Set Active
         </PMenu.Item>
         <Divider.Divider direction="x" padded />
         <Menu.Item.HardReload />
