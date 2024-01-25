@@ -11,36 +11,60 @@ import { addons } from "@storybook/addons";
 import { themes, create } from "@storybook/theming";
 import "./index.css";
 
-const white = "#FFFFFF";
-const black = "#171716";
-const fontFamily = "Inter, sans-serif";
+
 const baseSize = 6;
+
+const setLightness = (color, lightness: number) => [
+  color[0],
+  color[1],
+  lightness,
+  color[3],
+];
+
+// Error
+
+const ERROR_HSLA = [357, 91, 55, 1];
+
+// Grayscale
+
+const LIGHT_SCALE = [
+  "#FCFCFC",
+  "#F9F9F9",
+  "#F4F4F4",
+  "#ededed",
+  "#d9d9d9",
+  "#ADADAD",
+  "#878787",
+  "#616161",
+  "#404040",
+  "#1C1C1C",
+  "#050505",
+];
+
+const lightGrayScale= Object.fromEntries(
+  LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
+);
 
 const synnaxBase = {
   key: "synnax-base",
   name: "Synnax Base",
   colors: {
     primary: {
-      m1: "#3363BE",
+      m2: "#041B3D",
+      m1: "#164FA0",
       z: "#3774D0",
-      p1: "#3b84e5",
+      p1: "#5E94EE",
+      p2: "#8AB8FF",
     },
-    gray: {
-      p3: "#1D1D1C",
-      p2: "#30302E",
-      p1: "#474744",
-      p0: "#676762",
-      m0: "#94938D",
-      m1: "#C8C7BF",
-      m2: "#e5e5e5",
-      m3: "#FEFEFD",
+    secondary: {
+      m2: "#2D8F4E",
+      m1: "#38B261",
+      z: "#50C878",
+      p1: "#73D393",
+      p2: "#96DEAE",
     },
-    border: "#C8C7BF",
-    error: {
-      m1: "#CF1322",
-      z: "#F5222D",
-      p1: "#FF4547",
-    },
+    gray: lightGrayScale,
+    border: lightGrayScale.l3,
     visualization: {
       palettes: {
         default: [
@@ -50,22 +74,31 @@ const synnaxBase = {
           "#FFC43D",
           "#FE5F55",
           "#8075FF",
-          "#470063",
-          "#020877",
           "#D90429",
+          "#f7aef8",
+          "#f18f01",
+          "#791e94",
+          "#279af1",
+          "#d9fff5",
+          "#ff6b6b",
+          "#52ffb8",
         ],
       },
     },
-    logo: "url(#linear-gradient)",
-    white,
-    black,
-    background: white,
+    logo: "url(#synnax-linear-gradient)",
+    white: "#FFFFFF",
+    black: "#000000",
+    text: lightGrayScale.l9,
+    textContrast: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
     border: {
       radius: 2,
       width: 1,
+    },
+    pid: {
+      elementStrokeWidth: 2,
     },
   },
   typography: {
@@ -88,23 +121,23 @@ const synnaxBase = {
     h4: {
       size: 2.5,
       weight: "medium",
-      lineHeight: 3.25,
+      lineHeight: 3,
     },
     h5: {
-      size: 2.5,
+      size: 2.25,
       weight: "medium",
-      lineHeight: 2.75,
+      lineHeight: 2.5,
       textTransform: "uppercase",
     },
     p: {
       size: 2.25,
       weight: "regular",
-      lineHeight: 2.5,
+      lineHeight: 3.25,
     },
     small: {
       size: 2,
       weight: "regular",
-      lineHeight: 2 + 1 / 3,
+      lineHeight: 2.3,
     },
   },
 };
@@ -115,29 +148,39 @@ export const synnaxLight = {
   name: "Synnax Light",
 };
 
+const DARK_SCALE = [
+  "#020202",
+  "#080808",
+  "#141414",
+  "#1a1a1a",
+  "#242424",
+  "#515151",
+  "#7f7f7f",
+  "#9D9D9D",
+  "#BFBFBF",
+  "#EDEDED",
+  "#FDFDFD",
+];
+
+const darkGrayScale = Object.fromEntries(
+  DARK_SCALE.map((color, index) => [`l${index}`, color]),
+);
+
 export const synnaxDark = {
   ...synnaxBase,
   key: "synnax-dark",
   name: "Synnax Dark",
   colors: {
     ...synnaxBase.colors,
-    gray: {
-      m3: synnaxBase.colors.gray.l8,
-      m2: synnaxBase.colors.gray.l8,
-      m1: synnaxBase.colors.gray.l7,
-      m0: synnaxBase.colors.gray.l6,
-      p0: synnaxBase.colors.gray.l5,
-      p1: synnaxBase.colors.gray.l4,
-      p2: synnaxBase.colors.gray.l3,
-      p3: synnaxBase.colors.gray.l2,
-    },
+    gray: darkGrayScale,
     logo: "var(--pluto-text-color)",
-    border: synnaxBase.colors.gray.l7,
-    background: synnaxBase.colors.black,
-    text: synnaxBase.colors.white,
+    border: darkGrayScale.l3,
+    text: darkGrayScale.l9,
+    textContrast: darkGrayScale.l0,
   },
 };
-const t = synnaxLight;
+
+const t = synnaxDark;
 
 const theme = create({
   ...t,

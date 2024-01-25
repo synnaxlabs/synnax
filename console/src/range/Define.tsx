@@ -97,7 +97,6 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
   useAsyncEffect(async () => {
     if (!isRemoteEdit) return;
     const rng = await client.ranges.retrieve(layoutKey);
-    console.log(rng.name);
     reset({
       name: rng.name,
       startDate: rng.timeRange.start.valueOf(),

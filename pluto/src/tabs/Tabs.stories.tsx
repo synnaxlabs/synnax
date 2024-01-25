@@ -46,7 +46,7 @@ export const Primary: StoryFn<typeof Tabs> = () => {
 export const Horizontal: StoryFn<typeof Tabs> = () => {
   const props = Tabs.useStatic({ tabs: exampleTabs });
   return (
-    <Tabs.Tabs {...props} size="small" direction="x" closable>
+    <Tabs.Tabs {...props} size="large" direction="x" closable>
       {(tab) => <h2>{tab.tabKey}</h2>}
     </Tabs.Tabs>
   );

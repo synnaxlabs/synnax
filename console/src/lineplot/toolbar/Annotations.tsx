@@ -54,7 +54,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           units: unit,
         },
-      })
+      }),
     );
   };
 
@@ -66,7 +66,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           label,
         },
-      })
+      }),
     );
   };
 
@@ -78,7 +78,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           position,
         },
-      })
+      }),
     );
   };
 
@@ -90,7 +90,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           color: color.hex,
         },
-      })
+      }),
     );
   };
 
@@ -102,7 +102,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           axis,
         },
-      })
+      }),
     );
   };
 
@@ -114,7 +114,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           lineWidth,
         },
-      })
+      }),
     );
   };
 
@@ -126,7 +126,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key: selected,
           lineDash,
         },
-      })
+      }),
     );
   };
 
@@ -139,7 +139,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           key,
           color: theme.colors.primary.z.hex,
         },
-      })
+      }),
     );
     setAllSelected([key]);
   };
@@ -209,7 +209,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
                 columns={[{ key: "name", name: "Axis" }]}
                 data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
                 tagKey="name"
-                allowClear={false}
+                allowNone={false}
                 {...props}
               />
             )}
@@ -251,7 +251,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
                     removeRule({
                       key: layoutKey,
                       ruleKeys: keys,
-                    })
+                    }),
                   );
               }
             };
@@ -296,7 +296,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
                   id={key}
                   className={CSS(
                     Menu.CONTEXT_TARGET,
-                    selected && Menu.CONTEXT_SELECTED
+                    selected && Menu.CONTEXT_SELECTED,
                   )}
                   onClick={() => {
                     onSelect?.(key);

@@ -12,6 +12,7 @@ import type React from "react";
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { type Text } from "@/text";
 import { type RenderProp } from "@/util/renderProp";
 
 type RenderF<
@@ -26,7 +27,7 @@ type RenderF<
 export interface ColumnSpec<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+> extends Pick<Text.TextProps, "shade"> {
   /** The key of the object to render. */
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
@@ -56,4 +57,5 @@ export interface ItemProps<
   columns: Array<ColumnSpec<K, E>>;
   hovered: boolean;
   onSelect?: (key: K) => void;
+  className?: string;
 }

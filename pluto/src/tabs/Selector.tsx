@@ -153,6 +153,7 @@ const SelectorButton = ({
         onRename={onRename}
         icon={icon}
         editable={editable}
+        level={Text.ComponentSizeLevels[size]}
       />
       {closable && onClose != null && (
         <Button.Icon onClick={handleClose}>
@@ -173,7 +174,7 @@ export interface SelectorButtonProps extends TabSpec {
   size: ComponentSize;
 }
 
-interface NameProps {
+interface NameProps extends Text.CoreProps<Text.Level> {
   onRename?: (key: string, name: string) => void;
   name: string;
   tabKey: string;
@@ -187,26 +188,27 @@ const Name = ({
   tabKey,
   icon,
   editable = true,
+  ...props
 }: NameProps): ReactElement => {
   if (onRename == null || !editable) {
     if (icon != null)
       return (
-        <Text.WithIcon startIcon={icon} level="p" noWrap>
+        <Text.WithIcon startIcon={icon} noWrap {...props}>
           {name}
         </Text.WithIcon>
       );
     return (
-      <Text.Text level="p" noWrap>
+      <Text.Text noWrap {...props}>
         {name}
       </Text.Text>
     );
   }
   return (
-    <Text.Editable<"p">
-      level="p"
+    <Text.Editable<Text.Level>
       onChange={(newText: string) => onRename(tabKey, newText)}
       value={name}
       noWrap
+      {...props}
     />
   );
 };

@@ -11,13 +11,14 @@
 
 .pluto-textarea {
     color: var(--pluto-text-color);
-    border: var(--pluto-border-l4);
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l1);
-    padding: 1rem;
+    border: none;
+    background: var(--pluto-background-color);
+    resize: none;
+    white-space: nowrap;
+    overflow-x: hidden;
+    font-size: var(--pluto-h3-size);
 
     &:focus-within {
-        border-color: var(--pluto-primary-z) !important;
         outline: none;
     }
 }

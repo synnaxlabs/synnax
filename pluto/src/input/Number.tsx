@@ -72,16 +72,16 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     const [isValueValid, setIsValueValid] = useState(true);
 
     const handleChange = useCallback(
-      (v: string | number) => {
+      (v: string | number, callonChange: boolean = true) => {
         let [n, ok] = toNumber(v);
         if (ok) {
-          setIsValueValid(true);
+          if (callonChange) setIsValueValid(true);
           n = bounds.clamp(bounds.construct(b), n);
           setInternalValue(v.toString());
-          onChange(n);
+          if (callonChange) onChange(n);
         } else {
           setInternalValue(v.toString());
-          setIsValueValid(false);
+          if (callonChange) setIsValueValid(false);
         }
       },
       [setInternalValue, onChange],
@@ -90,8 +90,20 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     const value_ = isValueValid ? value : internalValue;
 
     const onDragChange = useCallback(
-      (value: number) => handleChange(Math.round(value)),
-      [onChange],
+      (value: number) => {
+        setIsValueValid(false);
+        handleChange(Math.round(value), false);
+      },
+
+      [handleChange, setIsValueValid],
+    );
+
+    const onDragEnd = useCallback(
+      (value: number) => {
+        setIsValueValid(true);
+        handleChange(value);
+      },
+      [handleChange, setIsValueValid],
     );
 
     return (
@@ -112,6 +124,8 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
             onChange={onDragChange}
             dragScale={dragScale}
             resetValue={resetValue}
+            onDragEnd={onDragEnd}
+            onBlur={props.onBlur}
           />
         )}
         {children}

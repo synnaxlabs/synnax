@@ -94,7 +94,6 @@ export const Manage = ({ onClose }: Layout.RendererProps): ReactElement => {
         {labels
           .sort((a, b) => a.key.localeCompare(b.key))
           .map((l, i) => {
-            console.log(editing === i);
             if (editing === i)
               return (
                 <Form isEdit defaultValues={l} onFinish={() => setEditing(null)} />

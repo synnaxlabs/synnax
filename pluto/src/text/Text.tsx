@@ -16,7 +16,7 @@ import { type Level } from "@/text/types";
 
 import "@/text/Text.css";
 
-export interface CoreProps<L extends Level = "h1"> {
+export interface CoreProps<L extends Level = Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
@@ -37,7 +37,7 @@ export type TextProps<L extends Level = "h1"> = Omit<
 > &
   CoreProps<L>;
 
-const CoreText = <L extends Level = "h1">(
+const CoreText = <L extends Level = Level>(
   {
     level = "h1" as L,
     color,

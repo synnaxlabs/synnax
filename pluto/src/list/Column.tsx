@@ -22,14 +22,12 @@ import {
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
+import { ItemFrame } from "@/list/Item";
 import { type ItemProps, type ColumnSpec as ListColumnT } from "@/list/types";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 import "@/list/Column.css";
-
-import { ItemFrame } from "./Item";
 
 type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
 
@@ -115,6 +113,7 @@ const Item = <
   entry,
   columns,
   onSelect,
+  className,
   ...props
 }: ItemProps<K, E>): ReactElement => {
   return (
@@ -123,6 +122,7 @@ const Item = <
       entry={entry}
       onSelect={onSelect}
       className={CSS(
+        className,
         CSS.BE("list-col-item", "container"),
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
       )}
@@ -162,7 +162,13 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];
   return (
-    <Text.Text key={col.key.toString()} level="p" style={style}>
+    <Text.Text
+      className={CSS.BE("list-col-item-value", col.key.toString())}
+      key={col.key.toString()}
+      level="p"
+      style={style}
+      shade={col.shade}
+    >
       {convertRenderV(rv)}
     </Text.Text>
   );
@@ -237,5 +243,5 @@ export const Column = {
    */
   Item,
   /** The default height of a column list item. */
-  itemHeight: 30,
+  itemHeight: 36,
 };

@@ -63,7 +63,8 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
       )}
       ref={ref}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      // remove newlines
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
       onFocus={(e) => {
         if (selectOnFocus) e.target.select();
         onFocus?.(e);

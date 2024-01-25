@@ -41,12 +41,13 @@ export interface SingleProps<
 > extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "variant"> {
+    Pick<Input.TextProps, "variant" | "disabled"> {
   tagKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
-  allowClear?: boolean;
+  allowNone?: boolean;
+  hideColumnHeader?: boolean;
 }
 
 /**
@@ -77,10 +78,12 @@ export const Single = <
   data,
   emptyContent,
   inputProps,
-  allowClear = true,
+  allowNone = true,
   searcher,
   className,
   variant,
+  hideColumnHeader = false,
+  disabled,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
@@ -103,14 +106,14 @@ export const Single = <
     ([v], e): void => {
       close();
       if (v == null) {
-        if (!allowClear) return;
+        if (!allowNone) return;
         setSelected(null);
         return onChange(initialValue.current);
       }
       setSelected(e.entries[0]);
       onChange(v);
     },
-    [onChange, allowClear],
+    [onChange, allowNone],
   );
 
   const InputWrapper = useMemo(
@@ -136,14 +139,16 @@ export const Single = <
               selected={selected}
               tagKey={tagKey}
               visible={visible}
-              allowClear={allowClear}
+              allowNone={allowNone}
               className={className}
+              disabled={disabled}
             />
           )}
         </InputWrapper>
         <List<K, E>
           visible={visible}
           value={[value]}
+          hideColumnHeader={hideColumnHeader}
           onChange={handleChange}
           allowMultiple={false}
           columns={columns}
@@ -159,7 +164,7 @@ export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
-  allowClear?: boolean;
+  allowNone?: boolean;
 }
 
 const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -168,7 +173,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   visible,
   onChange,
   onFocus,
-  allowClear = true,
+  allowNone = true,
   debounceSearch = 250,
   className,
   ...props
@@ -219,7 +224,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       style={{ flexGrow: 1 }}
       {...props}
     >
-      {allowClear && <ClearButton onClick={handleClear} />}
+      {allowNone && <ClearButton onClick={handleClear} />}
     </Input.Text>
   );
 };

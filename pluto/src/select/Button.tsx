@@ -14,6 +14,7 @@ import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
+import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import {
   type UseSelectMultipleProps,
@@ -21,9 +22,10 @@ import {
 } from "@/hooks/useSelectMultiple";
 import { type Input } from "@/input";
 import { List as CoreList } from "@/list";
+import { List } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
-import { List } from "./List";
+import "@/select/Button.css";
 
 export interface ButtonOptionProps<
   K extends Key = Key,
@@ -99,7 +101,7 @@ const defaultSelectButtonOption = <
 export interface DropdownButtonButtonProps<
   K extends Key,
   E extends KeyedRenderableRecord<K, E>,
-> {
+> extends CoreButton.ButtonProps {
   selected: E | null;
   renderKey: keyof E;
   toggle: () => void;
@@ -111,26 +113,37 @@ export interface DropdownButtonProps<
   E extends KeyedRenderableRecord<K, E>,
 > extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
     Input.Control<K>,
-    Omit<CoreList.ListProps<K, E>, "children"> {
+    Omit<CoreList.ListProps<K, E>, "children">,
+    Pick<CoreButton.ButtonProps, "disabled"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
   renderKey?: keyof E;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
+  disabled?: boolean;
 }
 
+export const BaseButton = ({
+  selected,
+  renderKey,
+  toggle,
+  visible,
+  children,
+  ...props
+}: DropdownButtonButtonProps<any, any>): ReactElement => (
+  <CoreButton.Button
+    className={CSS.B("select-button")}
+    onClick={toggle}
+    variant="outlined"
+    endIcon={<Icon.Caret.Up className={CSS.BE("select-button", "indicator")} />}
+    {...props}
+  >
+    {children ?? selected?.[renderKey]}
+  </CoreButton.Button>
+);
+
 export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
-  componentRenderProp(
-    ({ selected, renderKey, toggle, visible }: DropdownButtonButtonProps<any, any>) => (
-      <CoreButton.Button
-        onClick={toggle}
-        variant="outlined"
-        startIcon={visible ? <Icon.Caret.Down /> : <Icon.Caret.Right />}
-      >
-        {selected?.[renderKey]}
-      </CoreButton.Button>
-    ),
-  );
+  componentRenderProp(BaseButton);
 
 export const DropdownButton = <
   K extends Key = Key,
@@ -143,12 +156,11 @@ export const DropdownButton = <
   renderKey = "key",
   allowNone = false,
   onChange,
+  disabled,
   hideColumnHeader = true,
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { ref, visible, toggle, close } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(data.find((e) => e.key === value));
-
-  console.log(value);
 
   const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
     ([next]: K[], e): void => {
@@ -163,8 +175,6 @@ export const DropdownButton = <
     [onChange, value, close, setSelected],
   );
 
-  console.log(selected, value);
-
   return (
     <CoreList.List data={data}>
       <Dropdown.Dialog visible={visible} ref={ref} matchTriggerWidth>
@@ -173,6 +183,7 @@ export const DropdownButton = <
           renderKey,
           toggle,
           visible,
+          disabled,
         })}
         <List<K, E>
           visible={visible}
@@ -181,7 +192,7 @@ export const DropdownButton = <
           allowMultiple={false}
           allowNone={allowNone}
           columns={columns}
-          hide={hideColumnHeader}
+          hideColumnHeader={hideColumnHeader}
         />
       </Dropdown.Dialog>
     </CoreList.List>

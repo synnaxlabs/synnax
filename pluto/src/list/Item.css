@@ -12,6 +12,7 @@
 
  .pluto-list__item {
     border-bottom: var(--pluto-border);
+    border-color: var(--pluto-gray-l2);
     cursor: pointer;
     padding: 2rem;
 

@@ -91,7 +91,9 @@ export type ItemControlledProps<
   O extends Value = I,
 > = ItemExtensionProps &
   UseControllerProps<any, string> & {
-    children?: RenderProp<Control<I, O>>;
+    children?: RenderProp<
+      Control<I, O> & { onBlur?: () => void; ref?: React.Ref<any> }
+    >;
   };
 
 const defaultChild = componentRenderProp(Text);
@@ -114,8 +116,13 @@ export const ItemControlled = <I extends Value = string | number, O extends Valu
   });
   if (label == null) label = camelToTitle(name);
   return (
-    <Item ref={field.ref} label={label} helpText={fieldState.error?.message} {...props}>
-      {children({ value: field.value, onChange: field.onChange })}
+    <Item label={label} helpText={fieldState.error?.message} {...props}>
+      {children({
+        ref: field.ref,
+        onChange: field.onChange,
+        value: field.value,
+        onBlur: field.onBlur,
+      })}
     </Item>
   );
 };

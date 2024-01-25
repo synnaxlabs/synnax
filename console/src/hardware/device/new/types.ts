@@ -10,7 +10,7 @@ const channelZ = z.object({
   key: z.string(),
   port: z.number(),
   line: z.number(),
-  name: z.string(),
+  name: z.string().min(1),
   dataType: z.string(),
   isIndex: z.boolean(),
 });
@@ -27,18 +27,50 @@ const groupZ = z.object({
 
 export type Group = z.infer<typeof groupZ>;
 
-const moduleZ = z.object({
-  key: z.string(),
-  slot: z.number().min(1),
-  model: z.string(),
-  category: z.string(),
-  busType: z.string(),
-  analogInCount: z.number().min(1),
-  analogOutCount: z.number().min(1),
-  digitalInCount: z.number().min(1),
-  digitalOutCount: z.number().min(1),
-  groups: z.array(groupZ),
-});
+const moduleZ = z
+  .object({
+    key: z.string(),
+    slot: z.number().min(1),
+    model: z.string(),
+    category: z.string(),
+    busType: z.string(),
+    analogInCount: z.number().min(0),
+    analogOutCount: z.number().min(0),
+    digitalInCount: z.number().min(0),
+    digitalOutCount: z.number().min(0),
+    groups: z.array(groupZ),
+  })
+  .superRefine((mod, ctx) => {
+    // Check that all ports and lines are unique
+    const ports = new Map<number, number>();
+    const lines = new Map<number, number>();
+
+    mod.groups.forEach((group, i) => {
+      group.channels.forEach((channel, j) => {
+        ports.set(channel.port, (ports.get(channel.port) ?? 0) + 1);
+        lines.set(channel.line, (lines.get(channel.line) ?? 0) + 1);
+      });
+    });
+
+    mod.groups.forEach((group, i) => {
+      group.channels.forEach((channel, j) => {
+        if (ports.get(channel.port) !== 1) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["groups", i, "channels", j, "port"],
+            message: `Port ${channel.port} is not unique`,
+          });
+        }
+        // if (lines.get(channel.line) !== 1) {
+        //   ctx.addIssue({
+        //     code: z.ZodIssueCode.custom,
+        //     path: ["groups", i, "channels", j, "line"],
+        //     message: `Line ${channel.line} is not unique`,
+        //   });
+        // }
+      });
+    });
+  });
 
 export type Module = z.infer<typeof moduleZ>;
 

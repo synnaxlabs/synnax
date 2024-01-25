@@ -69,13 +69,13 @@
     }
 
     &:hover:not(.pluto--selected) {
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l2);
         border-color: var(--pluto-border-color);
     }
 
     &:active:not(.pluto--selected) {
         background: var(--pluto-gray-l3);
-        border-color: var(--pluto-border-color);
+        border-color: var(--pluto-gray-l4);
     }
 
 
@@ -93,18 +93,19 @@
 
      & .pluto-tabs-selector__btn {
         justify-content: flex-start !important;
-        margin-left: -1px;
-        border-left: var(--pluto-border);
+        margin-right: -1px;
+        border-right: var(--pluto-border);
 
-    &.pluto--selected {
-        .pluto-text {
-            color: var(--pluto-text-color);
+        &.pluto--selected {
+            border-color: var(--pluto-primary-z);
+            .pluto-text {
+                color: var(--pluto-text-color);
+            }
+            box-shadow: inset -1px 0 0 var(--pluto-primary-z);
+            .pluto-btn-icon, .pluto-btn-icon:hover {
+                box-shadow: inset -1px 0px var(--pluto-primary-z);
+            }
         }
-        box-shadow: inset 2px 0 0 var(--pluto-primary-z);
-        .pluto-btn-icon, .pluto-btn-icon:hover {
-                box-shadow: inset 2px 0 var(--pluto-primary-z);
-        }
-    }
     }
 
     
@@ -115,14 +116,14 @@
         margin-bottom: -1px;
         border-bottom: var(--pluto-border);
 
-        /* Sets the nice blue underline. */
         &.pluto--selected {
+            border-color: var(--pluto-primary-z);
             .pluto-text {
                 color: var(--pluto-text-color);
             }
-            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+            box-shadow: inset 0 -1px 0 var(--pluto-primary-z);
             .pluto-btn-icon, .pluto-btn-icon:hover {
-                box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+                box-shadow: inset 0 -1px 0 var(--pluto-primary-z);
             }
         }
     }

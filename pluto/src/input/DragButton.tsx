@@ -34,7 +34,30 @@ export interface DragButtonProps
       "direction" | "onChange" | "onDragStart" | "children" | "value"
     >,
     Control<number>,
-    DragButtonExtensionProps {}
+    DragButtonExtensionProps {
+  onDragEnd?: (value: number) => void;
+}
+
+const calculateValue = (
+  value: number,
+  b: box.Box,
+  normalDragScale: xy.XY,
+  normalDragThreshold: xy.XY | null,
+  elBox: box.Box,
+): number => {
+  const { x, y } = normalDragThreshold ?? xy.construct(box.dims(elBox));
+  if (box.width(b) > x && box.width(b) > box.height(b)) {
+    const offset = box.signedWidth(b) < 0 ? x : -x;
+    value += (box.signedWidth(b) + offset) * normalDragScale.x;
+    Cursor.setGlobalStyle("ew-resize");
+  }
+  if (box.height(b) > y && box.height(b) > box.width(b)) {
+    const offset = box.signedHeight(b) < 0 ? y : -y;
+    value += (box.signedHeight(b) + offset) * normalDragScale.y;
+    Cursor.setGlobalStyle("ns-resize");
+  }
+  return value;
+};
 
 export const DragButton = ({
   direction,
@@ -46,6 +69,7 @@ export const DragButton = ({
   value,
   size,
   resetValue,
+  onDragEnd,
   ...props
 }: DragButtonProps): ReactElement => {
   const vRef = useRef({
@@ -74,29 +98,42 @@ export const DragButton = ({
       (b: box.Box) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
+        console.log(box.dims(b));
         vRef.current.dragging = true;
-        const { x, y } =
-          normalDragThreshold ?? xy.construct(box.dims(box.construct(elRef.current)));
-        if (box.width(b) > x && box.width(b) > box.height(b)) {
-          const offset = box.signedWidth(b) < 0 ? x : -x;
-          value += (box.signedWidth(b) + offset) * normalDragScale.x;
-          Cursor.setGlobalStyle("ew-resize");
-        }
-        if (box.height(b) > y && box.height(b) > box.width(b)) {
-          const offset = box.signedHeight(b) < 0 ? y : -y;
-          value += (box.signedHeight(b) + offset) * normalDragScale.y;
-          Cursor.setGlobalStyle("ns-resize");
-        }
+        value = calculateValue(
+          value,
+          b,
+          normalDragScale,
+          normalDragThreshold,
+          box.construct(elRef.current),
+        );
+        console.log(value);
         vRef.current.curr = value;
         onChange(value);
       },
       [onChange, normalDragScale, normalDragThreshold],
     ),
-    onEnd: useCallback(() => {
-      vRef.current.prev = vRef.current.curr;
-      vRef.current.dragging = false;
-      Cursor.clearGlobalStyle();
-    }, []),
+    onEnd: useCallback(
+      (b: box.Box, __, e) => {
+        if (elRef.current == null) return;
+        let value = vRef.current.prev;
+        console.log(box.dims(b), value);
+        value = calculateValue(
+          value,
+          b,
+          normalDragScale,
+          normalDragThreshold,
+          box.construct(elRef.current),
+        );
+
+        vRef.current.prev = value;
+        vRef.current.dragging = false;
+        Cursor.clearGlobalStyle();
+        onDragEnd?.(value);
+        props.onBlur?.(e);
+      },
+      [props.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
+    ),
   });
 
   const handleDoubleClick = useCallback(() => {

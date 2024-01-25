@@ -1064,6 +1064,25 @@ export class DataType extends String implements Stringer {
     [DataType.UUID.toString(), Density.BIT128],
   ]);
 
+  /** All the data types. */
+  static readonly ALL = [
+    DataType.UNKNOWN,
+    DataType.FLOAT64,
+    DataType.FLOAT32,
+    DataType.INT64,
+    DataType.INT32,
+    DataType.INT16,
+    DataType.INT8,
+    DataType.UINT64,
+    DataType.UINT32,
+    DataType.UINT16,
+    DataType.UINT8,
+    DataType.TIMESTAMP,
+    DataType.UUID,
+    DataType.STRING,
+    DataType.JSON,
+  ];
+
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 
   /** A zod schema for a DataType. */

@@ -52,14 +52,14 @@ export const SelectVendor = (props: SelectVendorProps): ReactElement => (
     {...props}
   >
     {({ selected: s, toggle }) => (
-      <Button.Button
+      <Select.BaseButton
         iconSpacing="small"
         onClick={toggle}
         variant="outlined"
         startIcon={s?.logo}
       >
         {s?.name}
-      </Button.Button>
+      </Select.BaseButton>
     )}
   </Select.DropdownButton>
 );
