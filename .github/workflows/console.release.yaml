@@ -93,6 +93,18 @@ jobs:
           node-version: 18
           cache: "pnpm"
 
+      - name: Determine OS
+        id: os
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "OS=macos" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            echo "OS=linux" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            echo "OS=windows" >> $GITHUB_ENV
+          fi
+
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
         id: version
@@ -100,6 +112,7 @@ jobs:
         shell: bash
         run: |
           echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
+
 
       - name: Install Synnax Binary
         if: steps.filter.outputs.changed == 'true'
