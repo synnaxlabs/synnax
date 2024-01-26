@@ -21,7 +21,6 @@ public:
     Acq acq;
     std::uint64_t acq_rate;
     std::uint64_t stream_rate;
-    std::uint64_t batch_size;
     std::uint64_t num_channels;
 
     NiAnalogReader(channels, acq_rate, stream_rate) : channels(channels), acq_rate(acq_rate), stream_rate(stream_rate) {}

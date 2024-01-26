@@ -39,24 +39,26 @@ struct channel_config {
 };
 
 namespace ni {
-    class niReader : daq::AcqReader{
+    class niDaqReader : daq::AcqReader{
 
     private:
         std::vector <channel_config> channels;
         std::uint64_t acq_rate;
+        std::uint64_t stream_rate;
         std::int64_t numChannels;
         TaskHandle taskHandle;
         niReader(){
             DAQmxErrChk(DAQmxCreateTask("",&task));
         }
 
-        void init(std::vector<channel_config> channels, uint64_t acquisition_rate);
+        void init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
 
     public:
         std::pair<synnax::Frame, freighter::Error> read();
         freighter::Error configure(synnax::Module config);
         freighter::Error stop();
         freighter::Error start();
+        freighter::Error parseJSONConfig(json config);
     };
 }
 

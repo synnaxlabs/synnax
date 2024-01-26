@@ -14,14 +14,16 @@
 #include "ni_reader.h"
 #include "nlohmann/json.hpp"
 #include "synnax/telem /telem.h"
+#include "<cmath>"
 
 using json = nlohman::json;
 using namespace ni;
 
-void ni::niReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate){
-
+void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
+    this->stream_rate = stream_rate;
     // iterate through channels, check name and determine what tasks nbeed to be created
-    acq_rate = acquisition_rate;
+
+    this->acq_rate = acquisition_rate;
     for(auto &channel : channels){
         switch(channel.channelType){
             case ANALOG_VOLTAGE_IN:
@@ -47,27 +49,28 @@ void ni::niReader::init(std::vector<channel_config> channels, uint64_t acquisiti
     DAQnxErrChk(DAQmxCfgSampClkTiming(taskHandle, NULL, acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 1000));
 }
 
-freighter::Error ni::niReader::configure(synnax::Module config){
+freighter::Error ni::niDaqReader::configure(synnax::Module config){
 
 }
 
-freighter::Error ni::niReader::start(){
+freighter::Error ni::niDaqReader::start(){
    DAQmxStartTask(taskHandle);
    return freighter::NIL;
 }
 
-freighter::Error ni::niReader::stop(){
-    DAQmxStopTask(taskHandle);
+freighter::Error ni::niDaqReader::stop(){
+    std::int32 daqmx_err = DAQmxStopTask(taskHandle);
+    daqmx_err = DAQmxClearTask(task);
     return freighter::NIL;
     // TODO figure when id want to  if at all DAQmxClearTask (elham)
 }
 
 
 
-std::pair<synnax::Frame, freighter::Error> ni::niReader::read(){
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
     //TODO: figure out where calibrations factor into this
     // inputs into daqmxreadanalogf64
-    std::int32_t numSamplesPerChan = 1000; //TODO: calculate this (elham)
+    std::int32_t numSamplesPerChan = std::floor(acq_rate/stream_rate); //TODO: calculate this (elham)
     std::int32 samplesRead;
     float64 data[10000];
     char errBuff[2048]={'\0'};
@@ -104,6 +107,9 @@ std::pair<synnax::Frame, freighter::Error> ni::niReader::read(){
     auto error = freighter::NIL;
     return std::make_pair(std::move(f), error);
 }
+
+
+
 
 //
 //typedef freighter::Error (*DAQmxCreateChannel) (TaskHandle taskHandle, ChannelConfig config);
@@ -157,16 +163,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niReader::read(){
 //        auto type = type_val->get<std::string>();
 //    }
 //}
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+/
 //    int32 daqmx_err = DAQmxCreateTask(config.name.c_str(), &task);
 //    uInt64 samples_per_chan = uInt64(config.sample_rate.value / config.transfer_rate.value);
 //
@@ -187,24 +184,5 @@ std::pair<synnax::Frame, freighter::Error> ni::niReader::read(){
 //    daqmx_err = DAQmxStartTask(task);
 //}
 //
-//freighter::Error Reader::stop() {
-//    int32 daqmx_err = DAQmxStopTask(task);
-//    daqmx_err = DAQmxClearTask(task);
-//}
-//
-//std::pair<synnax::Frame, freighter::Error> Reader::read() {
-//    std::byte data[64];
-//    int32 samples_read;
-//    int32 daqmx_err = DAQmxReadAnalogF64(
-//            task,
-//            -1,
-//            0,
-//            DAQmx_Val_GroupByChannel,
-//            reinterpret_cast<float64 *>(data),
-//            64,
-//            &samples_read,
-//            NULL
-//    );
-//
-//    return std::make_pair(std::move(frame), error);
-//}
+
+/}
