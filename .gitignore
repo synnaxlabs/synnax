@@ -79,3 +79,4 @@ synnax-data/**
 # |||| BINARIES ||||
 
 **/bin/**
+!**/bin/.gitkeep
