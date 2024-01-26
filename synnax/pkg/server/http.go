@@ -54,8 +54,12 @@ func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
 	return filterCloserError(b.internal.Listener(ctx.Lis))
 }
 
-// Stop	implements Branch.
-func (b *SecureHTTPBranch) Stop() { _ = b.internal.Shutdown() }
+// Stop	implements Branch. Stop is safe to call even if Serve has not been called.
+func (b *SecureHTTPBranch) Stop() {
+	if b.internal != nil {
+		_ = b.internal.Shutdown()
+	}
+}
 
 func (b *SecureHTTPBranch) maybeRouteDebugUtil(ctx BranchContext) {
 	if !ctx.Debug {

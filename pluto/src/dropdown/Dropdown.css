@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown {
+.pluto-dropdown.pluto--visible {
     :is(button, input, .pluto-input__internal):first-child:is(:focus,:focus-within,:hover) {
         z-index: 5;
     }

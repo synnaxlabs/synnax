@@ -26,7 +26,7 @@ data_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
-N_SAMPLES = int(10)
+N_SAMPLES = int(5000)
 start = sy.TimeStamp.now()
 stamps = np.linspace(
     int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLES, dtype=np.int64
@@ -46,6 +46,11 @@ Data channel: {data_ch.key}
 
 res_stamps = time_ch.read(r)
 res_data = data_ch.read(r)
+
+client.ranges.create(
+    name="Time Range",
+    time_range=sy.TimeRange(start, start + 100 * sy.TimeSpan.SECOND),
+)
 
 plt.plot(res_stamps, res_data)
 plt.show()

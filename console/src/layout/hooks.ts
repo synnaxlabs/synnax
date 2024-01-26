@@ -9,7 +9,7 @@
 
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
-import type { AnyAction } from "@reduxjs/toolkit";
+import type { UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -43,7 +43,7 @@ import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
-  dispatch: Dispatch<AnyAction>;
+  dispatch: Dispatch<UnknownAction>;
 }
 
 /** A function that creates a layout given a set of utilities. */
@@ -179,10 +179,10 @@ const matchThemeChange = ({
   payload: TauriTheme | null;
 }): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
 
-const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor =>
+const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
   await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
 
-const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> =>
+const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
   dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
 
 export interface NavMenuItem {

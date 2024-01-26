@@ -88,7 +88,7 @@ import {
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
+import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp, TbPlugConnected, TbPlugConnectedX} from "react-icons/tb";
 
 import "@/Icon/Icon.css";
 
@@ -200,6 +200,8 @@ export const Icon: IconType = {
     Top: MdAlignVerticalTop,
     Bottom: MdAlignVerticalBottom,
   },
+  Connect: TbPlugConnected,
+  Disconnect: TbPlugConnectedX,
 };
 
 type IconFC = FC<React.SVGProps<SVGSVGElement>>;
@@ -303,4 +305,6 @@ export interface IconType {
     Top: IconFC;
     Bottom: IconFC;
   };
+  Connect: IconFC;
+  Disconnect: IconFC;
 }

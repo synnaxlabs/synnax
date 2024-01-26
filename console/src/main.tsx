@@ -110,4 +110,6 @@ const Main = (): ReactElement | null => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<Main />);
+const rootEl = document.getElementById("root") as unknown as HTMLElement;
+
+ReactDOM.createRoot(rootEl).render(<Main />);

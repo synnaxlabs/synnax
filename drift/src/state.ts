@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type PreloadedState as BasePreloadedState,
-  type CombinedState,
   type PayloadAction,
   createSlice,
   nanoid,
+  Reducer,
 } from "@reduxjs/toolkit";
-import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
 
 import {
@@ -45,14 +43,10 @@ export interface StoreState {
   drift: SliceState;
 }
 
-export type PreloadedState<S extends StoreState> = BasePreloadedState<
-  CombinedState<NoInfer<S>>
->;
-
 // Disabling consistent type definitions here because 'empty' interfaces can't be named,
 // which raises an error on build.
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-type MaybeKeyPayload = { key?: string };
+export type MaybeKeyPayload = { key?: string };
 export interface KeyPayload {
   key: string;
 }
@@ -101,6 +95,7 @@ export type SetConfigPayload = Partial<Config>;
 
 /** Type representing all possible actions that are drift related. */
 export type Payload =
+  | LabelPayload
   | CreateWindowPayload
   | CloseWindowPayload
   | SetWindowStatePayload
@@ -340,7 +335,6 @@ const slice = createSlice({
 });
 
 export const {
-  reducer,
   actions: {
     setConfig,
     setWindowProps,
@@ -368,6 +362,10 @@ export const {
     setWindowDecorations,
   },
 } = slice;
+
+
+
+export const reducer: Reducer<SliceState, Action> = slice.reducer;
 
 /**
  * @returns true if the given action type is a drift action.

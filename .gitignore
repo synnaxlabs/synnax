@@ -75,3 +75,7 @@ synnax-data/**
 
 # |||| TLS ||||
 **/certs*/**
+
+# |||| BINARIES ||||
+
+**/bin/

@@ -20,5 +20,10 @@ export interface Cluster {
   props: SynnaxProps;
 }
 
+/** Represents the state of the locally running Synnax cluster */
+export interface LocalClusterState {
+  pid: number;
+}
+
 /** A subset of Cluster that satisfies RenderableRecord */
 export type RenderableCluster = Omit<Cluster, "props" | "state">;

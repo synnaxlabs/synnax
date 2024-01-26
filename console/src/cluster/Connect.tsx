@@ -35,7 +35,7 @@ import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
 
-const formSchema = synnaxPropsZ.extend({ name: z.string() });
+import { useSelect, useSelectMany } from "./selectors";
 
 export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
@@ -61,6 +61,14 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
+
+  const names = useSelectMany().map((c) => c.name);
+
+  const formSchema = synnaxPropsZ.extend({
+    name: z.string().refine((n) => !names.includes(n), {
+      message: "A cluster with this name already exists",
+    }),
+  });
 
   const {
     getValues,

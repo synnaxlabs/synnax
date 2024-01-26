@@ -12,7 +12,17 @@
   },
   "tauri": {
     "allowlist": {
-      "all": true
+      "all": true,
+      "shell": {
+        "sidecar": true,
+        "scope": [
+          { 
+            "name": "bin/sy",
+            "sidecar": true,
+            "args": ["start", "-mi", "-l","localhost:9090"]
+          }
+        ]
+      }
     },
     "bundle": {
       "active": true,
@@ -21,7 +31,9 @@
       "deb": {
         "depends": []
       },
-      "externalBin": [],
+      "externalBin": [
+            "bin/sy"
+      ],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
