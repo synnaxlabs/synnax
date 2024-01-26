@@ -133,16 +133,21 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
-            console.log(response.data);
-            console.log(response.status);
             let name;
             const path = "./console/src-tauri/bin";
             if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
             else if (process.env.OS === "macos") name = `sy-x86_64-apple-darwin`;
             else name = `sy-x86_64-unknown-linux-gnu`;
             const buf = Buffer.from(response.data);
-            fs.writeFileSync(name, buf);
-            fs.chmodSync(name, 0o755);
+            console.log("Pulled Synnax Binary");
+            console.log({
+                url,
+                name,
+                version: process.env.SERVER_VERSION,
+                path,
+            });
+            fs.writeFileSync(`${path}/${name}`, buf);
+            fs.chmodSync(`${path}/${name}`, 0o755);
 
       - name: Install Rust Stable
         if: steps.filter.outputs.changed == 'true'
