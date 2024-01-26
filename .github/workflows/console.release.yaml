@@ -99,7 +99,7 @@ jobs:
         working-directory: ./synnax
         shell: bash
         run: |
-          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+          echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
 
       - name: Install Synnax Binary
         if: steps.filter.outputs.changed == 'true'
@@ -111,8 +111,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${steps.version.outputs.VERSION}`);
-            const asset = release.assets.find(({ name }) => name === `synnax-v${steps.version.outputs.VERSION}-${process.env.OS}`);
+            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.SERVER_VERSION}`);
+            const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.SERVER_VERSION}-${process.env.OS}`);
             const url = asset.browser_download_url;
             const response = await github.request(`GET ${url}`);
             let name;
