@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.15.2"
+    "version": "0.15.3"
   },
   "tauri": {
     "allowlist": {
@@ -16,7 +16,7 @@
       "shell": {
         "sidecar": true,
         "scope": [
-          { 
+          {
             "name": "bin/sy",
             "sidecar": true,
             "args": ["start", "-mi", "-l","localhost:9090"]

@@ -32,6 +32,8 @@ import { setNavdrawerVisible } from "@/layout/slice";
 
 import "@/cluster/Toolbar.css";
 
+import { LOCAL_KEY } from "./local";
+
 const Content = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
@@ -56,14 +58,14 @@ const Content = (): ReactElement => {
     dispatch(remove({ keys }));
   };
 
-  const ContextMenu = ({ keys }: PMenu.ContextMenuProps): ReactElement => {
-    const handleSelect = (key: string): void => {
-      console.log(key);
-      switch (key) {
+  const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuProps): ReactElement => {
+    const handleSelect = (menuKey: string): void => {
+      if (key == null) return;
+      switch (menuKey) {
         case "remove":
-          return handleRemove(keys);
+          return handleRemove([key]);
         case "connect":
-          return handleConnect(keys);
+          return handleConnect([key]);
         case "disconnect":
           return handleConnect([]);
       }
@@ -71,10 +73,12 @@ const Content = (): ReactElement => {
 
     return (
       <PMenu.Menu onChange={handleSelect}>
-        <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
-          Remove
-        </PMenu.Item>
-        {keys[0] === active?.key ? (
+        {key !== LOCAL_KEY && (
+          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+            Remove
+          </PMenu.Item>
+        )}
+        {key === active?.key ? (
           <PMenu.Item startIcon={<Icon.Disconnect />} size="small" itemKey="disconnect">
             Disconnect
           </PMenu.Item>

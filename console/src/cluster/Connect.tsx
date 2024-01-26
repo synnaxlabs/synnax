@@ -28,14 +28,13 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
+import { useSelectMany } from "@/cluster/selectors";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
-
-import { useSelect, useSelectMany } from "./selectors";
 
 export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
