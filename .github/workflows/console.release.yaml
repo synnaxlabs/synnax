@@ -127,10 +127,11 @@ jobs:
             const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.SERVER_VERSION}`);
             const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.SERVER_VERSION}-${process.env.OS}`);
             const url = asset.browser_download_url;
-            const response = await github.rest.repos.getReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              asset_id: asset.id,
+            const response = await github.rest.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/releases/assets/${asset.id}`, {
+              headers: {
+                'Accept': 'application/octet-stream',
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
             });
             let name;
             const path = "./console/src-tauri/bin";
