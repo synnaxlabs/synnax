@@ -93,6 +93,35 @@ jobs:
           node-version: 18
           cache: "pnpm"
 
+      - name: Get Version
+        if: steps.filter.outputs.changed == 'true'
+        id: version
+        working-directory: ./synnax
+        shell: bash
+        run: |
+          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Install Synnax Binary
+        if: steps.filter.outputs.changed == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = await import("fs");
+            const { data: { assets } } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const asset = assets.find(({ name }) => name === `synnax-v${process.env.VERSION}-${process.env.OS}`);
+            const url = asset.browser_download_url;
+            const response = await github.request(`GET ${url}`);
+            let name;
+            const path = "./console/src-tauri/bin";
+            if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
+            else if (process.env.OS === "macos") name = `sy-x86_64-apple-darwin`;
+            else name = `sy-x86_64-unknown-linux-gnu`;
+            fs.writeFileSync(name, response.data);
+            fs.chmodSync(name, 0o755);
+
       - name: Install Rust Stable
         if: steps.filter.outputs.changed == 'true'
         uses: actions-rs/toolchain@v1
@@ -130,34 +159,6 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm i
 
-      - name: Get Version
-        if: steps.filter.outputs.changed == 'true'
-        id: version
-        working-directory: ./synnax
-        shell: bash
-        run: |
-          echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-
-      - name: Install Synnax Binary
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = await import("fs");
-            const { data: { assets } } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const asset = assets.find(({ name }) => name === `synnax-v${process.env.VERSION}-${process.env.OS}`);
-            const url = asset.browser_download_url;
-            const response = await github.request(`GET ${url}`);
-            let name;
-            const path = "./console/src-tauri/bin";
-            if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
-            else if (process.env.OS === "macos") name = `sy-x86_64-apple-darwin`;
-            else name = `sy-x86_64-unknown-linux-gnu`;
-            fs.writeFileSync(name, response.data);
-            fs.chmodSync(name, 0o755);
 
       - name: Build
         if: steps.filter.outputs.changed == 'true'
