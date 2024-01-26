@@ -133,6 +133,8 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
+            console.log(response.data);
+            console.log(response.status);
             let name;
             const path = "./console/src-tauri/bin";
             if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
