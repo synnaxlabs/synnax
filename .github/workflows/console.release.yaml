@@ -111,8 +111,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.VERSION}`);
-            const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.VERSION}-${process.env.OS}`);
+            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${steps.version.outputs.VERSION}`);
+            const asset = release.assets.find(({ name }) => name === `synnax-v${steps.version.outputs.VERSION}-${process.env.OS}`);
             const url = asset.browser_download_url;
             const response = await github.request(`GET ${url}`);
             let name;
