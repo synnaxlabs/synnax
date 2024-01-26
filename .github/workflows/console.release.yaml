@@ -139,7 +139,7 @@ jobs:
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Install Synnax Binary
-        if: steps.filter.outputs.changed == 'true
+        if: steps.filter.outputs.changed == 'true'
         uses: actions/github-script@v6
         with:
           script: |
