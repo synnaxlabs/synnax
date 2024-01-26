@@ -27,6 +27,7 @@ typdef enum{
 
 struct channel_config {
     std::string name;
+    std::string physicalChannel;
     uint32_t channel_key;
     uint64_t port;
     uint64_t line;
@@ -41,13 +42,15 @@ namespace ni {
     class niReader : daq::AcqReader{
 
     private:
-
+        std::vector <channel_config> channels;
+        std::uint64_t acq_rate;
+        std::int64_t numChannels;
         TaskHandle taskHandle;
         niReader(){
             DAQmxErrChk(DAQmxCreateTask("",&task));
         }
 
-        void init(std::vector<channel_config> channels, uint64_t acqusition_rate);
+        void init(std::vector<channel_config> channels, uint64_t acquisition_rate);
 
     public:
         std::pair<synnax::Frame, freighter::Error> read();

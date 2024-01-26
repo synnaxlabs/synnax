@@ -19,6 +19,8 @@
 namespace daq {
     class AcqReader {
     public:
+        std::vector<int64_t> time_index;
+        std::vector<std::vector<float64>> data;
         virtual std::pair <synnax::Frame, freighter::Error> read() = 0;
         virtual freighter::Error configure(synnax::Module config) = 0;
         virtual freighter::Error start() = 0;
