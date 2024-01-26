@@ -11,7 +11,7 @@ env:
 
 jobs:
   create-release:
-    if: github.ref == 'refs/heads/main'
+#    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
@@ -174,7 +174,7 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
+#    if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
     needs: [ create-release, build-tauri ]
 
     steps:
