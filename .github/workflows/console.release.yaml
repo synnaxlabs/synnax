@@ -127,7 +127,11 @@ jobs:
             const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.SERVER_VERSION}`);
             const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.SERVER_VERSION}-${process.env.OS}`);
             const url = asset.browser_download_url;
-            const response = await github.request(`GET ${url}`);
+            const response = await github.rest.repos.getReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              asset_id: asset.id,
+            });
             let name;
             const path = "./console/src-tauri/bin";
             if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
