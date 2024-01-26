@@ -107,11 +107,12 @@ jobs:
         with:
           script: |
             const fs = await import("fs");
-            const { data: { assets } } = await github.rest.repos.listReleases({
+            const releases = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo,
             });
-            const asset = assets.find(({ name }) => name === `synnax-v${process.env.VERSION}-${process.env.OS}`);
+            const release = releases.find(({ tag_name }) => tag_name === `synnax-v${process.env.VERSION}`);
+            const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.VERSION}-${process.env.OS}`);
             const url = asset.browser_download_url;
             const response = await github.request(`GET ${url}`);
             let name;
