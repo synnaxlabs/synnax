@@ -149,17 +149,17 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 	return tr
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64, endOffset int64) bool {
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64, endOffset int64) error {
 	db.idx.mu.RLock()
 	deleteStart, ok := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
 	if !ok {
 		db.idx.mu.RUnlock()
-		return false
+		return errors.New("Start TS not found")
 	}
 	deleteEnd, ok := db.idx.unprotectedSearch(tr.End.SpanRange(0))
 	if !ok {
 		db.idx.mu.RUnlock()
-		return false
+		return errors.New("End TS not found")
 	}
 	db.idx.mu.RUnlock()
 
@@ -234,9 +234,31 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 		},
 	}
 
-	db.idx.mu.pointers = append(append(db.idx.mu.pointers[:deleteStart], newPointers...), db.idx.mu.pointers[deleteStart+1:]...)
+	temp := make([]pointer, len(db.idx.mu.pointers)+1)
+	copy(temp, db.idx.mu.pointers[:deleteStart])
+	copy(temp[deleteStart:deleteStart+2], newPointers)
+	copy(temp[deleteStart+2:], db.idx.mu.pointers[deleteStart+1:])
 
-	return true
+	db.idx.mu.pointers = temp
+
+	return nil
+}
+
+func (db *DB) CollectTombstone(ctx context.Context) error {
+	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
+
+	//for _, tombstone := range db.idx.mu.tombstones {
+	//	file := db.FS.Open(fileKeyName(tombstone.fileKey), os.O_RDWR)
+	//	reader, err := db.files.newReader(ctx, tombstone.fileKey)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	make
+	//
+	//}
+	return nil
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.

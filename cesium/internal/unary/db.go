@@ -106,30 +106,31 @@ func (db *DB) TryClose() error {
 	}
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) bool {
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	bounds := db.Domain.GetBounds()
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: bounds})
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
-		return false
+		return errors.New("Start TS not found")
 	}
 	approxDist, err := db.index().Distance(ctx, telem.TimeRange{
 		Start: i.TimeRange().Start,
 		End:   tr.Start,
 	}, false)
 	if err != nil {
-		return false
+		return errors.New("Error calculating distance")
 	}
 	startOffset := approxDist.Upper
 
 	if ok := i.SeekLE(ctx, tr.End); !ok {
-		return false
+		return errors.New("End TS not found")
+
 	}
 	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
 		Start: tr.End,
 		End:   i.TimeRange().End,
 	}, false)
 	if err != nil {
-		return false
+		return errors.New("Error calculating distance")
 	}
 	endOffset := approxDist.Lower + 1
 	return db.Domain.Delete(ctx, tr, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()))
