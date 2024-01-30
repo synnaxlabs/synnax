@@ -19,8 +19,8 @@
 namespace daq {
     class AcqReader {
     public:
-        std::vector<int64_t> time_index;
-        std::vector<std::vector<float64>> data;
+        std::vector<long> time_index;
+        std::vector<std::vector<long>> data;
         virtual std::pair <synnax::Frame, freighter::Error> read() = 0;
         virtual freighter::Error configure(synnax::Module config) = 0;
         virtual freighter::Error start() = 0;
@@ -34,8 +34,8 @@ public:
     void start();
     void stop();
     Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-        std::unique_ptr<synnax::WriterConfig> writer_config,
-        std::unique_ptr<synnax::StreamerConfig> streamer_config);
+        synnax::WriterConfig writer_config,
+        synnax::StreamerConfig streamer_config);
 
 private:
     /// @brief threading.

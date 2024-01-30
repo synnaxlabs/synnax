@@ -17,51 +17,53 @@
 #pragma once
 
 
-typdef enum{
-    ANALOG_VOLTAGE_IN,
-    THERMOCOUPLE_IN,
-    ANALOG_CURRENT_IN,
-    DIGITAL_IN,
-    DIGITAL_OUT,
-} ChannelType
-
-struct channel_config {
-    std::string name;
-    std::string physicalChannel;
-    uint32_t channel_key;
-    uint64_t port;
-    uint64_t line;
-    ChannelType channelType;
-    float min_val;
-    float max_val;
-
-    //TODO: implement a calibration class later and put that in here too
-};
-
 namespace ni {
-    class niDaqReader : daq::AcqReader{
+    typedef enum {
+        ANALOG_VOLTAGE_IN,
+        THERMOCOUPLE_IN,
+        ANALOG_CURRENT_IN,
+        DIGITAL_IN,
+        DIGITAL_OUT
+    } ChannelType;
 
+    typedef struct channel_config {
+        std::string name;
+        uint32_t channel_key;
+//    uint64_t port;
+//    uint64_t line;
+        ChannelType channelType;
+        float min_val;
+        float max_val;
+
+        //TODO: implement a calibration class later and put that in here too
+    } channel_config;
+    class niDaqReader : daq::AcqReader {
+    public:
+        niDaqReader() {
+            DAQmxCreateTask("", &taskHandle);
+        }
+        void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
     private:
         std::vector <channel_config> channels;
-        std::uint64_t acq_rate;
-        std::uint64_t stream_rate;
-        std::int64_t numChannels;
-        TaskHandle taskHandle;
-        niReader(){
-            DAQmxErrChk(DAQmxCreateTask("",&task));
-        }
+        std::uint64_t acq_rate = 0;
+        std::uint64_t stream_rate = 0;
+        std::int64_t numChannels = 0;
+        TaskHandle taskHandle = 0;
 
-        void init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
+
+
 
     public:
-        std::pair<synnax::Frame, freighter::Error> read();
+        std::pair <synnax::Frame, freighter::Error> read();
+
         freighter::Error configure(synnax::Module config);
+
         freighter::Error stop();
+
         freighter::Error start();
-        freighter::Error parseJSONConfig(json config);
+//        freighter::Error parseJSONConfig(json config);
     };
 }
-
 
 //class Factory {
 //};

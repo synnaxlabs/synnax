@@ -13,10 +13,11 @@
 
 #include "ni_reader.h"
 #include "nlohmann/json.hpp"
-#include "synnax/telem /telem.h"
-#include "<cmath>"
+#include "synnax/telem/telem.h"
+#include <utility>
+//#include "<cmath>"
 
-using json = nlohman::json;
+using json = nlohmann::json;
 using namespace ni;
 
 void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
@@ -27,26 +28,27 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
     for(auto &channel : channels){
         switch(channel.channelType){
             case ANALOG_VOLTAGE_IN:
-                DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
+                DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL);
                 break;
             case THERMOCOUPLE_IN: //TODO: double check the function calls below (elham)
-                DAQmxErrChk(DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL));
+//                DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL);
                 break;
             case ANALOG_CURRENT_IN://TODO: double check the function calls below (elham)
-                DAQmxErrChk(DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL));
+//                DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL);
                 break;
             case DIGITAL_IN://TODO: double check the function calls below (elham)
-                DAQmxErrChk(DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines));
+//                DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines);
                 break;
             case DIGITAL_OUT://TODO: double check the function calls below (elham)
-                DAQmxErrChk(DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines));
+//                DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanForAllLines);
                 break;
         }
+        numChannels++;
     }
     // TODO last parameter is the number of samples to acquire or generate for each channel/ determine buffer size
     // TODO 1000 is a placeholder for now maybe add a way to read this in from config file
     // also make sampleMode configurable eventually?
-    DAQnxErrChk(DAQmxCfgSampClkTiming(taskHandle, NULL, acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 1000));
+    DAQmxCfgSampClkTiming(taskHandle, NULL, acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 1000);
 }
 
 freighter::Error ni::niDaqReader::configure(synnax::Module config){
@@ -59,8 +61,8 @@ freighter::Error ni::niDaqReader::start(){
 }
 
 freighter::Error ni::niDaqReader::stop(){
-    std::int32 daqmx_err = DAQmxStopTask(taskHandle);
-    daqmx_err = DAQmxClearTask(task);
+    int daqmx_err = DAQmxStopTask(taskHandle);
+    daqmx_err = DAQmxClearTask(taskHandle);
     return freighter::NIL;
     // TODO figure when id want to  if at all DAQmxClearTask (elham)
 }
@@ -70,31 +72,31 @@ freighter::Error ni::niDaqReader::stop(){
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
     //TODO: figure out where calibrations factor into this
     // inputs into daqmxreadanalogf64
-    std::int32_t numSamplesPerChan = std::floor(acq_rate/stream_rate); //TODO: calculate this (elham)
-    std::int32 samplesRead;
-    float64 data[10000];
+    int numSamplesPerChan = std::floor(acq_rate/stream_rate); //TODO: calculate this (elham)
+    signed long samplesRead;
+    double data[10000];
     char errBuff[2048]={'\0'};
 
-    auto f = synnax::Frame(numChannels); // make a synnax frame
-    int64_t initial_timestamp = Timestamp::now().value;
+    synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
+
+    long initial_timestamp = (synnax::TimeStamp::now()).value;
     //DAQmxReadAnalog (taskHandle, numSampesPerChan, timeout, fillMode, arraySizeinSamples, reserved (pass NULL))
     //so in each call to this function, im going to be reading numSampsPerChan and thenreturning a frame of N channels with numSampsPerChan samples
     // so I need to calculate  TODO: compute numSampsPerChan
-    DAQmxErrChk (DAQmxReadAnalogF64(taskHandle,-1,10.0,DAQmx_Val_GroupByChannel,data,numSamplesPerChan,&samplesRead,NULL));
+    DAQmxReadAnalogF64(taskHandle,-1,10.0,DAQmx_Val_GroupByChannel,data,numSamplesPerChan,&samplesRead,NULL);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
-        this->time_index[i] = initial_timestamp + (int64_t)( synnax::NANOSECOND/acq_rate)*i;
+        this->time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
     }
     // TODO: Remove the bottom
-    if( read>0 )
-        printf("Acquired %d samples\n",(int)read);
-    if( DAQmxFailed(error) ) {
-        DAQmxGetExtendedErrorInfo(errBuff, 2048);
-        printf("DAQmx Error: %s\n", errBuff);
-    }
-    // construct synnax frame to be sent
-    auto f = synnax::Frame(numChannels);
+    if( samplesRead>0 )
+        printf("Acquired %d samples\n",(int)samplesRead);
+    // TODO: uncomment and figure out issue with DAQmxGetExtendedErrorInfo
+//    if( DAQmxFailed(error) ) {
+//        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+//        printf("DAQmx Error: %s\n", errBuff);
+//    }
 
-    std::vector<float64 > data_vec(samplesRead);
+    std::vector<float> data_vec(samplesRead);
     // populate data
     for(int i = 0; i <  numChannels; i++){
         for(int j = 0; j < samplesRead; j++){
@@ -104,8 +106,14 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
         f.add(channels[i].channel_key, synnax::Series(data_vec));
     }
     printf("finished writing samples into frame");
-    auto error = freighter::NIL;
-    return std::make_pair(std::move(f), error);
+    freighter::Error error = freighter::NIL;
+
+    // initialize a pair of synnax frame and error
+//    std::pair<synnax::Frame, freighter::Error> frame_error_pair;
+//    std::pair<synnax::Frame, int> i;
+
+//    return frame_error_pair;
+    return {f, error};
 }
 
 
@@ -163,7 +171,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 //        auto type = type_val->get<std::string>();
 //    }
 //}
-/
+
 //    int32 daqmx_err = DAQmxCreateTask(config.name.c_str(), &task);
 //    uInt64 samples_per_chan = uInt64(config.sample_rate.value / config.transfer_rate.value);
 //
@@ -185,4 +193,4 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 //}
 //
 
-/}
+//}

@@ -34,3 +34,15 @@ cc_library(
     copts = ["/std:c++17"],
     linkopts = ['user32.lib'],
 )
+
+cc_test(
+    name = "ni_reader_test",
+    srcs = [
+        "ni_reader_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+    ],
+    copts = ["/std:c++17"]
+)
