@@ -103,24 +103,19 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
         {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
         <form onSubmit={handleSubmit} id="connect-cluster">
           <Align.Space>
-            <Input.ItemControlled
+            <Input.HFItem
               name="name"
               placeholder="My Synnax Cluster"
               control={c}
               autoFocus
             >
               {(p) => <Input.Text {...p} />}
-            </Input.ItemControlled>
+            </Input.HFItem>
             <Align.Space direction="x" grow>
-              <Input.ItemControlled
-                name="host"
-                placeholder="localhost"
-                control={c}
-                grow
-              >
+              <Input.HFItem name="host" placeholder="localhost" control={c} grow>
                 {(p) => <Input.Text {...p} />}
-              </Input.ItemControlled>
-              <Input.ItemControlled
+              </Input.HFItem>
+              <Input.HFItem
                 name="port"
                 type="number"
                 placeholder="9090"
@@ -129,26 +124,26 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
                 grow
               >
                 {(p) => <Input.Text {...p} />}
-              </Input.ItemControlled>
+              </Input.HFItem>
             </Align.Space>
-            <Input.ItemControlled name="username" placeholder="Harry" control={c}>
+            <Input.HFItem name="username" placeholder="Harry" control={c}>
               {(p) => <Input.Text {...p} />}
-            </Input.ItemControlled>
+            </Input.HFItem>
             <Align.Space direction="x">
-              <Input.ItemControlled
+              <Input.HFItem
                 name="password"
                 placeholder="Seldon"
                 control={c}
                 className={CSS.BE("input", "password")}
               >
                 {(p) => <Input.Text {...p} type="password" />}
-              </Input.ItemControlled>
-              <Input.ItemControlled<boolean, boolean, Input.SwitchProps>
+              </Input.HFItem>
+              <Input.HFItem<boolean, boolean, Input.SwitchProps>
                 name="secure"
                 control={c}
               >
                 {componentRenderProp(Input.Switch)}
-              </Input.ItemControlled>
+              </Input.HFItem>
             </Align.Space>
           </Align.Space>
         </form>

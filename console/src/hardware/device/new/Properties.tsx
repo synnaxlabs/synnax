@@ -57,17 +57,13 @@ export const PropertiesForm = (): ReactElement => {
           Confirm the details of your device and give it a name.
         </Text.Text>
         <Align.Space direction="y" align="stretch" className={CSS.B("fields")}>
-          <Input.ItemControlled<Vendor> control={c} name="vendor" label="Vendor">
+          <Input.HFItem<Vendor> control={c} name="vendor" label="Vendor">
             {(props) => <SelectVendor {...props} />}
-          </Input.ItemControlled>
-          <Input.ItemControlled<string> control={c} name="key" label="Serial Number" />
-          <Input.ItemControlled<string> control={c} name="model" label="Model" />
-          <Input.ItemControlled<string> control={c} name="name" label="Name" />
-          <Input.ItemControlled<string>
-            control={c}
-            name="identifier"
-            label="Identifier"
-          />
+          </Input.HFItem>
+          <Input.HFItem<string> control={c} name="key" label="Serial Number" />
+          <Input.HFItem<string> control={c} name="model" label="Model" />
+          <Input.HFItem<string> control={c} name="name" label="Name" />
+          <Input.HFItem<string> control={c} name="identifier" label="Identifier" />
         </Align.Space>
       </Align.Space>
     </Align.Center>

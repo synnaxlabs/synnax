@@ -174,49 +174,49 @@ export const Define = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
         id="define-range"
       >
         <Align.Space grow className="console-form">
-          <Input.ItemControlled control={control} name="name" autoFocus>
+          <Input.HFItem control={control} name="name" autoFocus>
             {(props) => <Input.Text {...props} />}
-          </Input.ItemControlled>
+          </Input.HFItem>
           <Align.Space direction="x" size="small">
-            <Input.ItemControlled<number, number, Input.DateProps, DefineRangeFormProps>
+            <Input.HFItem<number, number, Input.DateProps, DefineRangeFormProps>
               name="startDate"
               control={control}
               grow
             >
               {componentRenderProp(Input.Date)}
-            </Input.ItemControlled>
-            <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
+            </Input.HFItem>
+            <Input.HFItem<number, number, Input.TimeProps, DefineRangeFormProps>
               name="startTime"
               control={control}
               grow
             >
               {componentRenderProp(Input.Time)}
-            </Input.ItemControlled>
+            </Input.HFItem>
           </Align.Space>
 
           <Align.Space direction="x" size="small">
-            <Input.ItemControlled<number, number, Input.DateProps, DefineRangeFormProps>
+            <Input.HFItem<number, number, Input.DateProps, DefineRangeFormProps>
               name="endDate"
               control={control}
               grow
             >
               {componentRenderProp(Input.Date)}
-            </Input.ItemControlled>
-            <Input.ItemControlled<number, number, Input.TimeProps, DefineRangeFormProps>
+            </Input.HFItem>
+            <Input.HFItem<number, number, Input.TimeProps, DefineRangeFormProps>
               name="endTime"
               control={control}
               grow
             >
               {componentRenderProp(Input.Time)}
-            </Input.ItemControlled>
+            </Input.HFItem>
           </Align.Space>
-          <Input.ItemControlled<label.Key, label.Key, Select.MultipleProps>
+          <Input.HFItem<label.Key, label.Key, Select.MultipleProps>
             name="labels"
             control={control}
             grow
           >
             {componentRenderProp(Ranger.SelectLabels)}
-          </Input.ItemControlled>
+          </Input.HFItem>
         </Align.Space>
       </form>
       <Nav.Bar location="bottom" size={48}>

@@ -152,6 +152,7 @@ export const Configure = (): ReactElement => {
     defaultValues: DEFAULT_VALUES,
     mode: "onBlur",
     reValidateMode: "onBlur",
+    criteriaMode: "all",
     resolver: async (data, context, options) => {
       console.log(
         "validation result",

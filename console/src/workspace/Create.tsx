@@ -81,9 +81,9 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
         id="create-workspace"
       >
         <Align.Space className="console-form">
-          <Input.ItemControlled name="name" control={control} grow autoFocus>
+          <Input.HFItem name="name" control={control} grow autoFocus>
             {(p) => <Input.Text {...p} />}
-          </Input.ItemControlled>
+          </Input.HFItem>
         </Align.Space>
       </form>
       <Nav.Bar location="bottom" size={48}>

@@ -40,34 +40,42 @@ const moduleZ = z
     digitalOutCount: z.number().min(0),
     groups: z.array(groupZ),
   })
+  // Runs checks on ports:
+  //
+  // 1. Checks that ports + line combos are unique
+  // 2. Checks that port/line combos don't exceed the max number of channels
+  //
+  //
   .superRefine((mod, ctx) => {
-    // Check that all ports and lines are unique
-    const ports = new Map<number, number>();
-    const lines = new Map<number, number>();
+    const portLineCombos = new Map<string, number>();
 
-    mod.groups.forEach((group, i) => {
-      group.channels.forEach((channel, j) => {
-        ports.set(channel.port, (ports.get(channel.port) ?? 0) + 1);
-        lines.set(channel.line, (lines.get(channel.line) ?? 0) + 1);
+    mod.groups.forEach((group) => {
+      group.channels.forEach((channel) => {
+        const key = `${channel.port}/${channel.line}`;
+        portLineCombos.set(key, (portLineCombos.get(key) ?? 0) + 1);
       });
     });
 
     mod.groups.forEach((group, i) => {
       group.channels.forEach((channel, j) => {
-        if (ports.get(channel.port) !== 1) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["groups", i, "channels", j, "port"],
-            message: `Port ${channel.port} is not unique`,
-          });
+        const key = `${channel.port}/${channel.line}`;
+        if (portLineCombos.get(key) !== 1) {
+          const [port, line] = key.split("/").map(Number);
+
+          if (line === 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["groups", i, "channels", j, "port"],
+              message: `Port ${channel.port} has already been used`,
+            });
+          } else {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["groups", i, "channels", j, "line"],
+              message: `Line ${channel.line} has already been used on port ${port}`,
+            });
+          }
         }
-        // if (lines.get(channel.line) !== 1) {
-        //   ctx.addIssue({
-        //     code: z.ZodIssueCode.custom,
-        //     path: ["groups", i, "channels", j, "line"],
-        //     message: `Line ${channel.line} is not unique`,
-        //   });
-        // }
       });
     });
   });
@@ -97,11 +105,3 @@ export const configurationZ = properties.extend({
 });
 
 export type Configuration = z.infer<typeof configurationZ>;
-
-const sampleConfiguration: Configuration = {
-  name: "GSE DAQ",
-  vendor: "ni",
-  model: "NI CDAQ 9178",
-  key: "01A100CE",
-  identifier: "gse",
-};

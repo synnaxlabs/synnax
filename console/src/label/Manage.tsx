@@ -149,14 +149,14 @@ const Form = ({
       }}
       direction="x"
     >
-      <Input.ItemControlled control={control} showLabel={false} name="color">
+      <Input.HFItem control={control} showLabel={false} name="color">
         {({ value, onChange, ...props }) => (
           <Color.Swatch value={value} onChange={(c) => onChange(c.hex)} {...props} />
         )}
-      </Input.ItemControlled>
-      <Input.ItemControlled control={control} name="name" showLabel={false} grow>
+      </Input.HFItem>
+      <Input.HFItem control={control} name="name" showLabel={false} grow>
         {(p) => <Input.Text placeholder="Name" {...p} />}
-      </Input.ItemControlled>
+      </Input.HFItem>
       {!isEdit ? (
         <Button.Button
           variant="filled"

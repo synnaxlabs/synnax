@@ -85,23 +85,15 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
       <Align.Space direction="y" className={CSS.B("properties")} align="start">
         <Text.Text level="h3">Properties</Text.Text>
         <Align.Space direction="x">
-          <Input.ItemControlled<string> control={c} name="device">
+          <Input.HFItem<string> control={c} name="device">
             {(props) => <Input.Text {...props} />}
-          </Input.ItemControlled>
-          <Input.ItemControlled<number>
-            control={c}
-            name="sampleRate"
-            label="Sample Rate in Hz"
-          >
+          </Input.HFItem>
+          <Input.HFItem<number> control={c} name="sampleRate" label="Sample Rate in Hz">
             {(p) => <Input.Numeric {...p} />}
-          </Input.ItemControlled>
-          <Input.ItemControlled<number>
-            control={c}
-            name="streamRate"
-            label="Stream Rate in Hz"
-          >
+          </Input.HFItem>
+          <Input.HFItem<number> control={c} name="streamRate" label="Stream Rate in Hz">
             {(p) => <Input.Numeric {...p} />}
-          </Input.ItemControlled>
+          </Input.HFItem>
         </Align.Space>
       </Align.Space>
       <Align.Space className={CSS.B("channels")} direction="x">
@@ -212,20 +204,20 @@ const Properties = ({ index, control }: PropertiesProps): ReactElement => {
   return (
     <Align.Space className={CSS.B("properties")}>
       <Text.Text level="h3">Channel Properties</Text.Text>
-      <Input.ItemControlled<number>
+      <Input.HFItem<number>
         label="Port"
         name={`channels.${index}.port`}
         control={control}
       >
         {(p) => <Input.Numeric {...p} />}
-      </Input.ItemControlled>
-      <Input.ItemControlled<number>
+      </Input.HFItem>
+      <Input.HFItem<number>
         label="Channel"
         name={`channels.${index}.channel`}
         control={control}
       >
         {(p) => <Channel.SelectSingle {...p} />}
-      </Input.ItemControlled>
+      </Input.HFItem>
       <Input.Item label="Scale">
         <SelectScale value={scaleType} onChange={setScaleType} />
       </Input.Item>

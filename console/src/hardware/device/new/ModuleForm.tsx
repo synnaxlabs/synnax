@@ -369,19 +369,10 @@ const ChannelForm = ({
 
   return (
     <>
-      <Input.ItemControlled<string>
-        control={c}
-        name={`${prefix}.name`}
-        label="Name"
-        showLabel={false}
-      >
+      <Input.HFItem<string> name={`${prefix}.name`} label="Name" showLabel={false}>
         {(props) => <Input.TextArea {...props} />}
-      </Input.ItemControlled>
-      <Input.ItemControlled<number>
-        control={c}
-        name={`${prefix}.dataType`}
-        label="Data Type"
-      >
+      </Input.HFItem>
+      <Input.HFItem<number> name={`${prefix}.dataType`} label="Data Type">
         {(props) => (
           <Select.DataType
             {...props}
@@ -390,16 +381,20 @@ const ChannelForm = ({
             disabled={isIndex}
           />
         )}
-      </Input.ItemControlled>
+      </Input.HFItem>
       {port !== 0 && (
-        <Input.ItemControlled<number> control={c} name={`${prefix}.port`} label="Port">
+        <Input.HFItem<number>
+          alsoValidate={[`modules.${moduleIndex}.groups.${groupIndex}.channels`]}
+          name={`${prefix}.port`}
+          label="Port"
+        >
           {(props) => <Input.Numeric {...props} />}
-        </Input.ItemControlled>
+        </Input.HFItem>
       )}
       {line !== 0 && (
-        <Input.ItemControlled<number> control={c} name={`${prefix}.line`} label="Line">
+        <Input.HFItem<number> name={`${prefix}.line`} label="Line">
           {(props) => <Input.Numeric {...props} />}
-        </Input.ItemControlled>
+        </Input.HFItem>
       )}
     </>
   );
