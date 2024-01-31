@@ -12,6 +12,7 @@ cc_library(
     deps = [
         "//driver/breaker",
         "//driver/errors",
+        "//driver/modules:module",
         "@nlohmann_json//:json",
         "@synnax//synnax",
     ],

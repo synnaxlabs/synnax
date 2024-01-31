@@ -39,9 +39,7 @@ namespace ni {
     } channel_config;
     class niDaqReader : daq::AcqReader {
     public:
-        niDaqReader() {
-            DAQmxCreateTask("", &taskHandle);
-        }
+        niDaqReader();
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
     private:
         std::vector <channel_config> channels;
