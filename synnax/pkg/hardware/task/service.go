@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package task
 
 import (
 	"context"
@@ -76,7 +76,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return s, nil
 	}
 
-	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Module](cfg.DB, telem.Uint64T))
+	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
 		return
 	}
@@ -103,6 +103,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		otg:    s.Ontology,
 		baseTX: s.DB,
-		gorp:   gorp.NewRetrieve[Key, Module](),
+		gorp:   gorp.NewRetrieve[Key, Task](),
 	}
 }

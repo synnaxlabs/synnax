@@ -35,6 +35,7 @@ COUNT = 0
 
 products = []
 
+
 def check_has_property(product, property):
     for item in product["productData"]:
         if item["id"] == property:
@@ -49,13 +50,16 @@ for category in CATEGORIES:
     n_pages = response.json()["pagination"]["totalPages"]
     for page in range(1, n_pages + 1):
         print("Category: " + category + " Page: " + str(page))
-        response = requests.get(url + "/" + category + "?&page=" + str(page) + "&getPrice=false", headers=headers)
+        response = requests.get(
+            url + "/" + category + "?&page=" + str(page) + "&getPrice=false",
+            headers=headers)
         j = response.json()
         l_products = j["products"]
         COUNT += len(j["products"])
         for product in l_products:
             for key in list(product.keys()):
-                if key not in ["id", "tileLabel", "productID", "productData", "productSpecs"]:
+                if key not in ["id", "tileLabel", "productID", "productData",
+                               "productSpecs"]:
                     del product[key]
 
             product["category"] = category
@@ -73,5 +77,5 @@ for product in products:
         print(specs_url)
 
 # dump the products JSON file
-with open("products.json", "w") as f:
+with open("out/products-arc.json", "w") as f:
     json.dump(products, f)

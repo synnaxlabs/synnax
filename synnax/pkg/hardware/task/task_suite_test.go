@@ -1,4 +1,4 @@
-package module_test
+package task_test
 
 import (
 	"context"
@@ -12,5 +12,5 @@ var ctx = context.Background()
 
 func TestModule(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Module Suite")
+	RunSpecs(t, "Task Suite")
 }

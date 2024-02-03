@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
+import { UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const rackKeyZ = z.number();
-export const moduleKeyZ = z.bigint().or(z.number().transform((n) => BigInt(n)));
+export const taskKeyZ = z.bigint().or(z.number()).transform((k) => k.toString())
 export const deviceKeyZ = z.string();
 
 export const rackZ = z.object({
@@ -19,12 +20,17 @@ export const rackZ = z.object({
   name: z.string(),
 });
 
-export const moduleZ = z.object({
-  key: moduleKeyZ,
+export const taskZ = z.object({
+  key: taskKeyZ,
   name: z.string(),
   type: z.string(),
-  config: z.string(),
+  config: z.record(z.unknown()),
 });
+
+export type Task<
+  T extends string = string, 
+  C extends UnknownRecord = UnknownRecord
+> = Omit<z.infer<typeof taskZ>, "config" | "type"> & { type: T, config: C };
 
 export const deviceZ = z.object({
   key: deviceKeyZ,
@@ -35,9 +41,9 @@ export const deviceZ = z.object({
 })
 
 export const newRackZ = rackZ.partial({ key: true });
-export const newModuleZ = moduleZ
+export const newTaskZ = taskZ
   .omit({ key: true })
-  .extend({ key: moduleKeyZ.transform((k) => k.toString()).optional() });
+  .extend({ key: taskKeyZ.transform((k) => k.toString()).optional() });
 
 const createRackReqZ = z.object({
   racks: newRackZ.array(),
@@ -53,19 +59,19 @@ const deleteRackReqZ = z.object({
 
 const deleteRackResZ = z.object({});
 
-const createModuleReqZ = z.object({
-  modules: newModuleZ.array(),
+const createTaskReqZ = z.object({
+  tasks: newTaskZ.array(),
 });
 
-const createModuleResZ = z.object({
-  modules: moduleZ.array(),
+const createTaskResZ = z.object({
+  tasks: taskZ.array(),
 });
 
-const deleteModuleReqZ = z.object({
-  keys: moduleKeyZ.array(),
+const deleteTaskReqZ = z.object({
+  keys: taskKeyZ.array(),
 });
 
-const deleteModuleResZ = z.object({});
+const deleteTaskResZ = z.object({});
 
 const createDeviceReqZ = z.object({
   devices: deviceZ.array(),
@@ -83,15 +89,15 @@ const deleteDeviceResZ = z.object({});
 
 const CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 const DELETE_RACK_ENDPOINT = "/hardware/rack/delete";
-const CREATE_MODULE_ENDPOINT = "/hardware/module/create";
-const DELETE_MODULE_ENDPOINT = "/hardware/module/delete";
+const CREATE_TASK_ENDPOINT = "/hardware/task/create";
+const DELETE_TASK_ENDPOINT = "/hardware/task/delete";
 const CREATE_DEVICE_ENDPOINT = "/hardware/device/create";
 const DELETE_DEVICE_ENDPOINT = "/hardware/device/delete";
 
 export type NewRackPayload = z.infer<typeof newRackZ>;
 export type RackPayload = z.infer<typeof rackZ>;
-export type NewModulePayload = z.input<typeof newModuleZ>;
-export type ModulePayload = z.infer<typeof moduleZ>;
+export type NewTaskPayload = z.input<typeof newTaskZ>;
+export type TaskPayload = z.infer<typeof taskZ>;
 export type DevicePayload = z.infer<typeof deviceZ>;
 
 export class Writer {
@@ -120,22 +126,22 @@ export class Writer {
     );
   }
 
-  async createModule(modules: NewModulePayload[]): Promise<ModulePayload[]> {
-    const res = await sendRequired<typeof createModuleReqZ, typeof createModuleResZ>(
+  async createTask(tasks: NewTaskPayload[]): Promise<TaskPayload[]> {
+    const res = await sendRequired<typeof createTaskReqZ, typeof createTaskResZ>(
       this.client,
-      CREATE_MODULE_ENDPOINT,
-      createModuleReqZ.parse({ modules }),
-      createModuleResZ,
+      CREATE_TASK_ENDPOINT,
+      createTaskReqZ.parse({ tasks }),
+      createTaskResZ,
     );
-    return res.modules;
+    return res.tasks;
   }
 
-  async deleteModule(keys: bigint[]): Promise<void> {
-    await sendRequired<typeof deleteModuleReqZ, typeof deleteModuleResZ>(
+  async deleteTask(keys: bigint[]): Promise<void> {
+    await sendRequired<typeof deleteTaskReqZ, typeof deleteTaskResZ>(
       this.client,
-      DELETE_MODULE_ENDPOINT,
+      DELETE_TASK_ENDPOINT,
       { keys },
-      deleteModuleResZ,
+      deleteTaskResZ,
     );
   }
 

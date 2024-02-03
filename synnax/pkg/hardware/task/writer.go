@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package task
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type Writer struct {
 	rack rack.Writer
 }
 
-func (w Writer) Create(ctx context.Context, r *Module) (err error) {
+func (w Writer) Create(ctx context.Context, r *Task) (err error) {
 	if !r.Key.IsValid() {
 		localKey, err := w.rack.IncrementModuleCount(ctx, r.Rack(), 1)
 		if err != nil {
@@ -33,7 +33,7 @@ func (w Writer) Create(ctx context.Context, r *Module) (err error) {
 		r.Key = NewKey(r.Rack(), localKey)
 	}
 
-	if err = gorp.NewCreate[Key, Module]().Entry(r).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[Key, Task]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	otgID := OntologyID(r.Key)
@@ -47,5 +47,5 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 		return err
 	}
-	return gorp.NewDelete[Key, Module]().WhereKeys(key).Exec(ctx, w.tx)
+	return gorp.NewDelete[Key, Task]().WhereKeys(key).Exec(ctx, w.tx)
 }

@@ -18,7 +18,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Case } from "@synnaxlabs/x";
-import { type FieldValues, useForm } from "react-hook-form";
+import { type FieldValues, useForm, FormProvider } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -57,13 +57,8 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
 
-  const {
-    getValues,
-    trigger,
-    control: c,
-    handleSubmit: _handleSubmit,
-  } = useForm({ resolver: zodResolver(formSchema) });
-
+  const methods = useForm({ resolver: zodResolver(formSchema) });
+  const { getValues, trigger, control: c, handleSubmit: _handleSubmit } = methods;
   const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
     const { name, ...data } = _data;
     setConnState(null);
@@ -99,55 +94,49 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
       <Header.Header level="h4">
         <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
       </Header.Header>
-      <Align.Space className="console-form" grow>
-        {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
-        <form onSubmit={handleSubmit} id="connect-cluster">
+      <FormProvider {...methods}>
+        <Align.Space
+          id="connect-cluster"
+          el="form"
+          /* eslint-disable-next-line @typescript-eslint/no-misused-promises */
+          onSubmit={handleSubmit}
+          className="console-form"
+          grow
+        >
           <Align.Space>
-            <Input.HFItem
-              name="name"
-              placeholder="My Synnax Cluster"
-              control={c}
-              autoFocus
-            >
-              {(p) => <Input.Text {...p} />}
+            <Input.HFItem<string> name="name">
+              {(p) => <Input.Text placeholder="My Synnax Cluster" {...p} />}
             </Input.HFItem>
             <Align.Space direction="x" grow>
-              <Input.HFItem name="host" placeholder="localhost" control={c} grow>
-                {(p) => <Input.Text {...p} />}
+              <Input.HFItem<string> name="host">
+                {(p) => <Input.Text placeholder="localhost" {...p} />}
               </Input.HFItem>
-              <Input.HFItem
+              <Input.HFItem<number>
                 name="port"
-                type="number"
-                placeholder="9090"
                 control={c}
                 className={CSS.BE("input", "port")}
-                grow
               >
-                {(p) => <Input.Text {...p} />}
+                {(p) => <Input.Text showDragHandle={false} placeholder="9090" {...p} />}
               </Input.HFItem>
             </Align.Space>
-            <Input.HFItem name="username" placeholder="Harry" control={c}>
-              {(p) => <Input.Text {...p} />}
+            <Input.HFItem<string> name="username">
+              {(p) => <Input.Text placeholder="Harry" {...p} />}
             </Input.HFItem>
             <Align.Space direction="x">
-              <Input.HFItem
+              <Input.HFItem<string>
                 name="password"
-                placeholder="Seldon"
                 control={c}
                 className={CSS.BE("input", "password")}
               >
-                {(p) => <Input.Text {...p} type="password" />}
+                {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
               </Input.HFItem>
-              <Input.HFItem<boolean, boolean, Input.SwitchProps>
-                name="secure"
-                control={c}
-              >
+              <Input.HFItem<boolean> name="secure">
                 {componentRenderProp(Input.Switch)}
               </Input.HFItem>
             </Align.Space>
           </Align.Space>
-        </form>
-      </Align.Space>
+        </Align.Space>
+      </FormProvider>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start className={CSS.BE("footer", "start")}>
           {connState != null && (

@@ -111,6 +111,7 @@ export const HFItem = <I extends Value = string | number, O extends Value = I>({
   label,
   children = defaultChild as unknown as RenderProp<Control<I, O>>,
   alsoValidate,
+  ref: _,
   ...props
 }: ItemControlledProps<I, O>): ReactElement => {
   const { field, fieldState } = useController({
@@ -129,7 +130,6 @@ export const HFItem = <I extends Value = string | number, O extends Value = I>({
   return (
     <Item label={label} helpText={fieldState.error?.message} {...props}>
       {children({
-        ref: field.ref,
         onChange: field.onChange,
         value: field.value,
         onBlur: handleBlur,

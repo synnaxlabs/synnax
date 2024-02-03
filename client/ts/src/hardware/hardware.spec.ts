@@ -30,21 +30,21 @@ describe("Hardware", () => {
       });
     });
   });
-  describe("Module", () => {
+  describe("Task", () => {
     describe("create", () => {
-      it("should create a module on a rack", async () => {
+      it("should create a task on a rack", async () => {
         const r = await client.hardware.createRack({ name: "test" });
-        const m = await r.createModule({ name: "test", config: "dog", type: "ni" });
+        const m = await r.createTask({ name: "test", config: {a: "dog"}, type: "ni" });
         expect(m.key).toBeGreaterThan(0n);
-        const rackKey = m.key >> 32n;
+        const rackKey = BigInt(m.key) >> 32n;
         expect(Number(rackKey)).toBe(r.key);
       });
     });
     describe("retrieve", () => {
-      it("should retrieve a module by its key", async () => {
+      it("should retrieve a task by its key", async () => {
         const r = await client.hardware.createRack({ name: "test" });
-        const m = await r.createModule({ name: "test", config: "dog", type: "ni" });
-        const retrieved = await client.hardware.retrieveModule(m.key);
+        const m = await r.createTask({ name: "test", config: {"a": "dog"}, type: "ni" });
+        const retrieved = await client.hardware.retrieveTask(BigInt(m.key));
         expect(retrieved.key).toBe(m.key);
         expect(retrieved.name).toBe("test");
         expect(retrieved.config).toBe("dog");
@@ -54,7 +54,7 @@ describe("Hardware", () => {
   });
   describe("Device", () => {
     describe("create", () => {
-      it("should create a device on a module", async () => {
+      it("should create a device on a task", async () => {
         const d = await client.hardware.createDevice({ key: "SN222", name: "test", make: "ni", model: "dog", properties: "dog" });
         expect(d.key).toEqual("SN222");
         expect(d.name).toBe("test");

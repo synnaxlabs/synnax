@@ -4,16 +4,16 @@ package api.v1;
 
 import "google/protobuf/empty.proto";
 
-service HardwareCreateModuleService {
-    rpc Exec(HardwareCreateModuleRequest) returns (HardwareCreateModuleResponse);
+service HardwareCreateTaskService {
+    rpc Exec(HardwareCreateTaskRequest) returns (HardwareCreateTaskResponse);
 }
 
-service HardwareRetrieveModuleService {
-    rpc Exec(HardwareRetrieveModuleRequest) returns (HardwareRetrieveModuleResponse);
+service HardwareRetrieveTaskService {
+    rpc Exec(HardwareRetrieveTaskRequest) returns (HardwareRetrieveTaskResponse);
 }
 
-service HardwareDeleteModuleService {
-    rpc Exec(HardwareDeleteModuleRequest) returns (google.protobuf.Empty);
+service HardwareDeleteTaskService {
+    rpc Exec(HardwareDeleteTaskRequest) returns (google.protobuf.Empty);
 }
 
 service HardwareCreateRackService {
@@ -65,31 +65,31 @@ message HardwareDeleteRackRequest {
     repeated uint32 keys = 1;
 }
 
-message Module {
+message Task {
     uint64 key = 1;
     string name = 2;
     string type = 3;
     string config = 4;
 }
 
-message HardwareCreateModuleRequest {
-    repeated Module modules = 1;
+message HardwareCreateTaskRequest {
+    repeated Task tasks = 1;
 }
 
-message HardwareCreateModuleResponse {
-    repeated Module modules = 1;
+message HardwareCreateTaskResponse {
+    repeated Task tasks = 1;
 }
 
-message HardwareRetrieveModuleRequest {
+message HardwareRetrieveTaskRequest {
     uint32 rack = 1;
     repeated uint64 keys = 2;
 }
 
-message HardwareRetrieveModuleResponse {
-    repeated Module modules = 1;
+message HardwareRetrieveTaskResponse {
+    repeated Task tasks = 1;
 }
 
-message HardwareDeleteModuleRequest {
+message HardwareDeleteTaskRequest {
     repeated uint64 keys = 1;
 }
 

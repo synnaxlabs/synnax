@@ -16,17 +16,19 @@ import { type Level } from "@/text/types";
 
 import "@/text/Text.css";
 
+/* Shade sets the shade color of the text */
+export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 export interface CoreProps<L extends Level = Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
-  children?: (string | number) | Array<string | number>;
+  children?: (string | number | boolean) | Array<string | number | boolean>;
   /* The color of the text */
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
-  /* Shade sets the shade color of the text */
-  shade?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  shade?: Shade;
   /* Weight sets the weight of the text */
   weight?: number;
 }

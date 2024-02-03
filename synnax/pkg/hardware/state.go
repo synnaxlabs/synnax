@@ -12,14 +12,14 @@
 package hardware
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/hardware/module"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/version"
 )
 
 type RackState struct {
 	Heartbeat version.Heartbeat
-	Modules   map[module.Key]ModuleState
+	Modules   map[task.Key]ModuleState
 }
 
 type ModuleState struct {

@@ -21,6 +21,7 @@ export interface UseSelectMultipleOnChangeExtra<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
+  clickedIndex: number | null;
   /** The key of the entry that was last clicked. */
   clicked: K | null;
   /** The entries that are currently selected. */
@@ -92,7 +93,11 @@ export const useSelectMultiple = <
 
   useEffect(() => {
     if (value.length === 0 && !allowNone && data.length > 0)
-      onChange([data[0].key], { entries: [data[0]], clicked: data[0].key });
+      onChange([data[0].key], {
+        entries: [data[0]],
+        clicked: data[0].key,
+        clickedIndex: 0,
+      });
   }, [value.length, allowNone]);
 
   const handleSelect = useCallback(
@@ -130,13 +135,14 @@ export const useSelectMultiple = <
       onChange(unique(nextSelected), {
         entries: data.filter(({ key }) => nextSelected.includes(key)),
         clicked: key,
+        clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
     [onChange, value, data, allowMultiple],
   );
 
   const clear = useCallback(
-    (): void => onChange([], { entries: [], clicked: null }),
+    (): void => onChange([], { entries: [], clicked: null, clickedIndex: 0 }),
     [onChange],
   );
 

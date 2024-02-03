@@ -19,10 +19,26 @@
         }
     }
 
-    .console-notifications {
-        & > .pluto-space {
-            height: 6rem;
-            padding: 1rem;
+    
+}
+
+.console-notifications {
+    .console-notification {
+        padding: 1.5rem;
+        border-bottom: var(--pluto-border);
+        border-color: var(--pluto-gray-l3);
+
+        & .console-notification__message {
+            font-weight: 450;
+        }
+
+        & .console-notification__time {
+            color: var(--pluto-gray-l7);
+            font-weight: 450;
+        }
+
+        & .console-notification__description {
+            color: var(--pluto-gray-l8);
         }
     }
 }

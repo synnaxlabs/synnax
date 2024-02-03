@@ -12,7 +12,6 @@ import { type ReactElement } from "react";
 import { Icon } from "@synnaxlabs/media";
 
 import { Align } from "@/align";
-import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { type Variant } from "@/status/aether/types";
 import { Text as BaseText } from "@/text";
@@ -29,6 +28,7 @@ export interface TextProps
     TextDigest {
   level?: BaseText.Level;
   hideIcon?: boolean;
+  noColor?: boolean;
 }
 
 const CoreText = ({

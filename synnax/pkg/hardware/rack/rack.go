@@ -33,9 +33,9 @@ func (k Key) IsValid() bool { return k.Node() != 0 && k.LocalKey() != 0 }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type Rack struct {
-	Key           Key    `json:"key" msgpack:"key"`
-	Name          string `json:"name" msgpack:"name"`
-	ModuleCounter uint32 `json:"module_counter" msgpack:"module_counter"`
+	Key         Key    `json:"key" msgpack:"key"`
+	Name        string `json:"name" msgpack:"name"`
+	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package task
 
 import (
 	"encoding/json"
@@ -56,17 +56,17 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type Module struct {
+type Task struct {
 	Key    Key    `json:"key" msgpack:"key"`
 	Name   string `json:"name" msgpack:"name"`
 	Type   string `json:"type" msgpack:"type"`
 	Config string `json:"config" msgpack:"config"`
 }
 
-var _ gorp.Entry[Key] = Module{}
+var _ gorp.Entry[Key] = Task{}
 
-func (m Module) GorpKey() Key { return m.Key }
+func (m Task) GorpKey() Key { return m.Key }
 
-func (m Module) SetOptions() []interface{} { return []interface{}{m.Key.Rack().Node()} }
+func (m Task) SetOptions() []interface{} { return []interface{}{m.Key.Rack().Node()} }
 
-func (m Module) Rack() rack.Key { return m.Key.Rack() }
+func (m Task) Rack() rack.Key { return m.Key.Rack() }

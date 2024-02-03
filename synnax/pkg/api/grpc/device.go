@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
-	"github.com/synnaxlabs/synnax/pkg/hardware/module"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/unsafe"
 	"go/types"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -43,21 +43,21 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
-	moduleCreateServer = fgrpc.UnaryServer[
-		api.HardwareCreateModuleRequest,
-		*gapi.HardwareCreateModuleRequest,
-		api.HardwareCreateModuleResponse,
-		*gapi.HardwareCreateModuleResponse,
+	taskCreateServer = fgrpc.UnaryServer[
+		api.HardwareCreateTaskRequest,
+		*gapi.HardwareCreateTaskRequest,
+		api.HardwareCreateTaskResponse,
+		*gapi.HardwareCreateTaskResponse,
 	]
-	moduleRetrieveServer = fgrpc.UnaryServer[
-		api.HardwareRetrieveModuleRequest,
-		*gapi.HardwareRetrieveModuleRequest,
-		api.HardwareRetrieveModuleResponse,
-		*gapi.HardwareRetrieveModuleResponse,
+	taskRetrieveServer = fgrpc.UnaryServer[
+		api.HardwareRetrieveTaskRequest,
+		*gapi.HardwareRetrieveTaskRequest,
+		api.HardwareRetrieveTaskResponse,
+		*gapi.HardwareRetrieveTaskResponse,
 	]
-	moduleDeleteServer = fgrpc.UnaryServer[
-		api.HardwareDeleteModuleRequest,
-		*gapi.HardwareDeleteModuleRequest,
+	taskDeleteServer = fgrpc.UnaryServer[
+		api.HardwareDeleteTaskRequest,
+		*gapi.HardwareDeleteTaskRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -87,11 +87,11 @@ type (
 	rackRetrieveRequestTranslator    struct{}
 	rackRetrieveResponseTranslator   struct{}
 	rackDeleteRequestTranslator      struct{}
-	moduleCreateRequestTranslator    struct{}
-	moduleCreateResponseTranslator   struct{}
-	moduleRetrieveRequestTranslator  struct{}
-	moduleRetrieveResponseTranslator struct{}
-	moduleDeleteRequestTranslator    struct{}
+	taskCreateRequestTranslator      struct{}
+	taskCreateResponseTranslator     struct{}
+	taskRetrieveRequestTranslator    struct{}
+	taskRetrieveResponseTranslator   struct{}
+	taskDeleteRequestTranslator      struct{}
 	deviceCreateRequestTranslator    struct{}
 	deviceCreateResponseTranslator   struct{}
 	deviceRetrieveRequestTranslator  struct{}
@@ -105,11 +105,11 @@ var (
 	_ fgrpc.Translator[api.HardwareRetrieveRackRequest, *gapi.HardwareRetrieveRackRequest]       = rackRetrieveRequestTranslator{}
 	_ fgrpc.Translator[api.HardwareRetrieveRackResponse, *gapi.HardwareRetrieveRackResponse]     = rackRetrieveResponseTranslator{}
 	_ fgrpc.Translator[api.HardwareDeleteRackRequest, *gapi.HardwareDeleteRackRequest]           = rackDeleteRequestTranslator{}
-	_ fgrpc.Translator[api.HardwareCreateModuleRequest, *gapi.HardwareCreateModuleRequest]       = moduleCreateRequestTranslator{}
-	_ fgrpc.Translator[api.HardwareCreateModuleResponse, *gapi.HardwareCreateModuleResponse]     = moduleCreateResponseTranslator{}
-	_ fgrpc.Translator[api.HardwareRetrieveModuleRequest, *gapi.HardwareRetrieveModuleRequest]   = moduleRetrieveRequestTranslator{}
-	_ fgrpc.Translator[api.HardwareRetrieveModuleResponse, *gapi.HardwareRetrieveModuleResponse] = moduleRetrieveResponseTranslator{}
-	_ fgrpc.Translator[api.HardwareDeleteModuleRequest, *gapi.HardwareDeleteModuleRequest]       = moduleDeleteRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateTaskRequest, *gapi.HardwareCreateTaskRequest]           = taskCreateRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareCreateTaskResponse, *gapi.HardwareCreateTaskResponse]         = taskCreateResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveTaskRequest, *gapi.HardwareRetrieveTaskRequest]       = taskRetrieveRequestTranslator{}
+	_ fgrpc.Translator[api.HardwareRetrieveTaskResponse, *gapi.HardwareRetrieveTaskResponse]     = taskRetrieveResponseTranslator{}
+	_ fgrpc.Translator[api.HardwareDeleteTaskRequest, *gapi.HardwareDeleteTaskRequest]           = taskDeleteRequestTranslator{}
 	_ fgrpc.Translator[api.HardwareCreateDeviceRequest, *gapi.HardwareCreateDeviceRequest]       = deviceCreateRequestTranslator{}
 	_ fgrpc.Translator[api.HardwareCreateDeviceResponse, *gapi.HardwareCreateDeviceResponse]     = deviceCreateResponseTranslator{}
 	_ fgrpc.Translator[api.HardwareRetrieveDeviceRequest, *gapi.HardwareRetrieveDeviceRequest]   = deviceRetrieveRequestTranslator{}
@@ -181,68 +181,68 @@ func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.Hardwar
 	return api.HardwareDeleteRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
 }
 
-func translateModuleForward(m *api.Module) *gapi.Module {
-	return &gapi.Module{Key: uint64(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
+func translateTaskForward(m *api.Task) *gapi.Task {
+	return &gapi.Task{Key: uint64(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
 }
 
-func translateModuleBackward(m *gapi.Module) *api.Module {
-	return &api.Module{Key: module.Key(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
+func translateTaskBackward(m *gapi.Task) *api.Task {
+	return &api.Task{Key: task.Key(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
 }
 
-func translateModulesForward(ms []api.Module) []*gapi.Module {
-	res := make([]*gapi.Module, len(ms))
+func translateTasksForward(ms []api.Task) []*gapi.Task {
+	res := make([]*gapi.Task, len(ms))
 	for i, m := range ms {
-		res[i] = translateModuleForward(&m)
+		res[i] = translateTaskForward(&m)
 	}
 	return res
 }
 
-func translateModulesBackward(ms []*gapi.Module) []api.Module {
-	res := make([]api.Module, len(ms))
+func translateTasksBackward(ms []*gapi.Task) []api.Task {
+	res := make([]api.Task, len(ms))
 	for i, m := range ms {
-		res[i] = *translateModuleBackward(m)
+		res[i] = *translateTaskBackward(m)
 	}
 	return res
 }
 
-func (moduleCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCreateModuleRequest) (*gapi.HardwareCreateModuleRequest, error) {
-	return &gapi.HardwareCreateModuleRequest{Modules: translateModulesForward(req.Modules)}, nil
+func (taskCreateRequestTranslator) Forward(_ context.Context, req api.HardwareCreateTaskRequest) (*gapi.HardwareCreateTaskRequest, error) {
+	return &gapi.HardwareCreateTaskRequest{Tasks: translateTasksForward(req.Tasks)}, nil
 }
 
-func (moduleCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateModuleRequest) (api.HardwareCreateModuleRequest, error) {
-	return api.HardwareCreateModuleRequest{Modules: translateModulesBackward(req.Modules)}, nil
+func (taskCreateRequestTranslator) Backward(_ context.Context, req *gapi.HardwareCreateTaskRequest) (api.HardwareCreateTaskRequest, error) {
+	return api.HardwareCreateTaskRequest{Tasks: translateTasksBackward(req.Tasks)}, nil
 }
 
-func (moduleCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateModuleResponse) (*gapi.HardwareCreateModuleResponse, error) {
-	return &gapi.HardwareCreateModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
+func (taskCreateResponseTranslator) Forward(_ context.Context, res api.HardwareCreateTaskResponse) (*gapi.HardwareCreateTaskResponse, error) {
+	return &gapi.HardwareCreateTaskResponse{Tasks: translateTasksForward(res.Tasks)}, nil
 }
 
-func (moduleCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateModuleResponse) (api.HardwareCreateModuleResponse, error) {
-	return api.HardwareCreateModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
+func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.HardwareCreateTaskResponse) (api.HardwareCreateTaskResponse, error) {
+	return api.HardwareCreateTaskResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
 }
 
-func (moduleRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveModuleRequest) (*gapi.HardwareRetrieveModuleRequest, error) {
-	return &gapi.HardwareRetrieveModuleRequest{Rack: uint32(req.Rack), Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
+func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveTaskRequest) (*gapi.HardwareRetrieveTaskRequest, error) {
+	return &gapi.HardwareRetrieveTaskRequest{Rack: uint32(req.Rack), Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
 }
 
-func (moduleRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveModuleRequest) (api.HardwareRetrieveModuleRequest, error) {
-	return api.HardwareRetrieveModuleRequest{Rack: rack.Key(req.Rack), Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
+func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveTaskRequest) (api.HardwareRetrieveTaskRequest, error) {
+	return api.HardwareRetrieveTaskRequest{Rack: rack.Key(req.Rack), Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
 }
 
-func (moduleRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveModuleResponse) (*gapi.HardwareRetrieveModuleResponse, error) {
-	return &gapi.HardwareRetrieveModuleResponse{Modules: translateModulesForward(res.Modules)}, nil
+func (taskRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveTaskResponse) (*gapi.HardwareRetrieveTaskResponse, error) {
+	return &gapi.HardwareRetrieveTaskResponse{Tasks: translateTasksForward(res.Tasks)}, nil
 }
 
-func (moduleRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveModuleResponse) (api.HardwareRetrieveModuleResponse, error) {
-	return api.HardwareRetrieveModuleResponse{Modules: translateModulesBackward(res.Modules)}, nil
+func (taskRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.HardwareRetrieveTaskResponse) (api.HardwareRetrieveTaskResponse, error) {
+	return api.HardwareRetrieveTaskResponse{Tasks: translateTasksBackward(res.Tasks)}, nil
 }
 
-func (moduleDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteModuleRequest) (*gapi.HardwareDeleteModuleRequest, error) {
-	return &gapi.HardwareDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[module.Key, uint64](req.Keys)}, nil
+func (taskDeleteRequestTranslator) Forward(_ context.Context, req api.HardwareDeleteTaskRequest) (*gapi.HardwareDeleteTaskRequest, error) {
+	return &gapi.HardwareDeleteTaskRequest{Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
 }
 
-func (moduleDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteModuleRequest) (api.HardwareDeleteModuleRequest, error) {
-	return api.HardwareDeleteModuleRequest{Keys: unsafe.ReinterpretSlice[uint64, module.Key](req.Keys)}, nil
+func (taskDeleteRequestTranslator) Backward(_ context.Context, req *gapi.HardwareDeleteTaskRequest) (api.HardwareDeleteTaskRequest, error) {
+	return api.HardwareDeleteTaskRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
 }
 
 func translateDeviceForward(d *api.Device) *gapi.Device {
@@ -328,24 +328,24 @@ func newHardware(a *api.Transport) fgrpc.BindableTransport {
 		ServiceDesc:        &gapi.HardwareDeleteRackService_ServiceDesc,
 	}
 	a.HardwareDeleteRack = deleteRack
-	createModule := &moduleCreateServer{
-		RequestTranslator:  moduleCreateRequestTranslator{},
-		ResponseTranslator: moduleCreateResponseTranslator{},
-		ServiceDesc:        &gapi.HardwareCreateModuleService_ServiceDesc,
+	createTask := &taskCreateServer{
+		RequestTranslator:  taskCreateRequestTranslator{},
+		ResponseTranslator: taskCreateResponseTranslator{},
+		ServiceDesc:        &gapi.HardwareCreateTaskService_ServiceDesc,
 	}
-	a.HardwareCreateModule = createModule
-	retrieveModule := &moduleRetrieveServer{
-		RequestTranslator:  moduleRetrieveRequestTranslator{},
-		ResponseTranslator: moduleRetrieveResponseTranslator{},
-		ServiceDesc:        &gapi.HardwareRetrieveModuleService_ServiceDesc,
+	a.HardwareCreateTask = createTask
+	retrieveTask := &taskRetrieveServer{
+		RequestTranslator:  taskRetrieveRequestTranslator{},
+		ResponseTranslator: taskRetrieveResponseTranslator{},
+		ServiceDesc:        &gapi.HardwareRetrieveTaskService_ServiceDesc,
 	}
-	a.HardwareRetrieveModule = retrieveModule
-	deleteModule := &moduleDeleteServer{
-		RequestTranslator:  moduleDeleteRequestTranslator{},
+	a.HardwareRetrieveTask = retrieveTask
+	deleteTask := &taskDeleteServer{
+		RequestTranslator:  taskDeleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &gapi.HardwareDeleteModuleService_ServiceDesc,
+		ServiceDesc:        &gapi.HardwareDeleteTaskService_ServiceDesc,
 	}
-	a.HardwareDeleteModule = deleteModule
+	a.HardwareDeleteTask = deleteTask
 	createDevice := &deviceCreateServer{
 		RequestTranslator:  deviceCreateRequestTranslator{},
 		ResponseTranslator: deviceCreateResponseTranslator{},
@@ -369,9 +369,9 @@ func newHardware(a *api.Transport) fgrpc.BindableTransport {
 		createRack,
 		retrieveRack,
 		deleteRack,
-		createModule,
-		retrieveModule,
-		deleteModule,
+		createTask,
+		retrieveTask,
+		deleteTask,
 		createDevice,
 		retrieveDevice,
 		deleteDevice,

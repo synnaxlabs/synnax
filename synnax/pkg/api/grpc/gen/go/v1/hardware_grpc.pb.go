@@ -20,87 +20,87 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	HardwareCreateModuleService_Exec_FullMethodName = "/api.v1.HardwareCreateModuleService/Exec"
+	HardwareCreateTaskService_Exec_FullMethodName = "/api.v1.HardwareCreateTaskService/Exec"
 )
 
-// HardwareCreateModuleServiceClient is the client API for HardwareCreateModuleService service.
+// HardwareCreateTaskServiceClient is the client API for HardwareCreateTaskService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type HardwareCreateModuleServiceClient interface {
-	Exec(ctx context.Context, in *HardwareCreateModuleRequest, opts ...grpc.CallOption) (*HardwareCreateModuleResponse, error)
+type HardwareCreateTaskServiceClient interface {
+	Exec(ctx context.Context, in *HardwareCreateTaskRequest, opts ...grpc.CallOption) (*HardwareCreateTaskResponse, error)
 }
 
-type hardwareCreateModuleServiceClient struct {
+type hardwareCreateTaskServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewHardwareCreateModuleServiceClient(cc grpc.ClientConnInterface) HardwareCreateModuleServiceClient {
-	return &hardwareCreateModuleServiceClient{cc}
+func NewHardwareCreateTaskServiceClient(cc grpc.ClientConnInterface) HardwareCreateTaskServiceClient {
+	return &hardwareCreateTaskServiceClient{cc}
 }
 
-func (c *hardwareCreateModuleServiceClient) Exec(ctx context.Context, in *HardwareCreateModuleRequest, opts ...grpc.CallOption) (*HardwareCreateModuleResponse, error) {
-	out := new(HardwareCreateModuleResponse)
-	err := c.cc.Invoke(ctx, HardwareCreateModuleService_Exec_FullMethodName, in, out, opts...)
+func (c *hardwareCreateTaskServiceClient) Exec(ctx context.Context, in *HardwareCreateTaskRequest, opts ...grpc.CallOption) (*HardwareCreateTaskResponse, error) {
+	out := new(HardwareCreateTaskResponse)
+	err := c.cc.Invoke(ctx, HardwareCreateTaskService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// HardwareCreateModuleServiceServer is the server API for HardwareCreateModuleService service.
-// All implementations should embed UnimplementedHardwareCreateModuleServiceServer
+// HardwareCreateTaskServiceServer is the server API for HardwareCreateTaskService service.
+// All implementations should embed UnimplementedHardwareCreateTaskServiceServer
 // for forward compatibility
-type HardwareCreateModuleServiceServer interface {
-	Exec(context.Context, *HardwareCreateModuleRequest) (*HardwareCreateModuleResponse, error)
+type HardwareCreateTaskServiceServer interface {
+	Exec(context.Context, *HardwareCreateTaskRequest) (*HardwareCreateTaskResponse, error)
 }
 
-// UnimplementedHardwareCreateModuleServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedHardwareCreateModuleServiceServer struct {
+// UnimplementedHardwareCreateTaskServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedHardwareCreateTaskServiceServer struct {
 }
 
-func (UnimplementedHardwareCreateModuleServiceServer) Exec(context.Context, *HardwareCreateModuleRequest) (*HardwareCreateModuleResponse, error) {
+func (UnimplementedHardwareCreateTaskServiceServer) Exec(context.Context, *HardwareCreateTaskRequest) (*HardwareCreateTaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
-// UnsafeHardwareCreateModuleServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to HardwareCreateModuleServiceServer will
+// UnsafeHardwareCreateTaskServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HardwareCreateTaskServiceServer will
 // result in compilation errors.
-type UnsafeHardwareCreateModuleServiceServer interface {
-	mustEmbedUnimplementedHardwareCreateModuleServiceServer()
+type UnsafeHardwareCreateTaskServiceServer interface {
+	mustEmbedUnimplementedHardwareCreateTaskServiceServer()
 }
 
-func RegisterHardwareCreateModuleServiceServer(s grpc.ServiceRegistrar, srv HardwareCreateModuleServiceServer) {
-	s.RegisterService(&HardwareCreateModuleService_ServiceDesc, srv)
+func RegisterHardwareCreateTaskServiceServer(s grpc.ServiceRegistrar, srv HardwareCreateTaskServiceServer) {
+	s.RegisterService(&HardwareCreateTaskService_ServiceDesc, srv)
 }
 
-func _HardwareCreateModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HardwareCreateModuleRequest)
+func _HardwareCreateTaskService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HardwareCreateTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HardwareCreateModuleServiceServer).Exec(ctx, in)
+		return srv.(HardwareCreateTaskServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: HardwareCreateModuleService_Exec_FullMethodName,
+		FullMethod: HardwareCreateTaskService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HardwareCreateModuleServiceServer).Exec(ctx, req.(*HardwareCreateModuleRequest))
+		return srv.(HardwareCreateTaskServiceServer).Exec(ctx, req.(*HardwareCreateTaskRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// HardwareCreateModuleService_ServiceDesc is the grpc.ServiceDesc for HardwareCreateModuleService service.
+// HardwareCreateTaskService_ServiceDesc is the grpc.ServiceDesc for HardwareCreateTaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var HardwareCreateModuleService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.v1.HardwareCreateModuleService",
-	HandlerType: (*HardwareCreateModuleServiceServer)(nil),
+var HardwareCreateTaskService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.HardwareCreateTaskService",
+	HandlerType: (*HardwareCreateTaskServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _HardwareCreateModuleService_Exec_Handler,
+			Handler:    _HardwareCreateTaskService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -108,87 +108,87 @@ var HardwareCreateModuleService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	HardwareRetrieveModuleService_Exec_FullMethodName = "/api.v1.HardwareRetrieveModuleService/Exec"
+	HardwareRetrieveTaskService_Exec_FullMethodName = "/api.v1.HardwareRetrieveTaskService/Exec"
 )
 
-// HardwareRetrieveModuleServiceClient is the client API for HardwareRetrieveModuleService service.
+// HardwareRetrieveTaskServiceClient is the client API for HardwareRetrieveTaskService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type HardwareRetrieveModuleServiceClient interface {
-	Exec(ctx context.Context, in *HardwareRetrieveModuleRequest, opts ...grpc.CallOption) (*HardwareRetrieveModuleResponse, error)
+type HardwareRetrieveTaskServiceClient interface {
+	Exec(ctx context.Context, in *HardwareRetrieveTaskRequest, opts ...grpc.CallOption) (*HardwareRetrieveTaskResponse, error)
 }
 
-type hardwareRetrieveModuleServiceClient struct {
+type hardwareRetrieveTaskServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewHardwareRetrieveModuleServiceClient(cc grpc.ClientConnInterface) HardwareRetrieveModuleServiceClient {
-	return &hardwareRetrieveModuleServiceClient{cc}
+func NewHardwareRetrieveTaskServiceClient(cc grpc.ClientConnInterface) HardwareRetrieveTaskServiceClient {
+	return &hardwareRetrieveTaskServiceClient{cc}
 }
 
-func (c *hardwareRetrieveModuleServiceClient) Exec(ctx context.Context, in *HardwareRetrieveModuleRequest, opts ...grpc.CallOption) (*HardwareRetrieveModuleResponse, error) {
-	out := new(HardwareRetrieveModuleResponse)
-	err := c.cc.Invoke(ctx, HardwareRetrieveModuleService_Exec_FullMethodName, in, out, opts...)
+func (c *hardwareRetrieveTaskServiceClient) Exec(ctx context.Context, in *HardwareRetrieveTaskRequest, opts ...grpc.CallOption) (*HardwareRetrieveTaskResponse, error) {
+	out := new(HardwareRetrieveTaskResponse)
+	err := c.cc.Invoke(ctx, HardwareRetrieveTaskService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// HardwareRetrieveModuleServiceServer is the server API for HardwareRetrieveModuleService service.
-// All implementations should embed UnimplementedHardwareRetrieveModuleServiceServer
+// HardwareRetrieveTaskServiceServer is the server API for HardwareRetrieveTaskService service.
+// All implementations should embed UnimplementedHardwareRetrieveTaskServiceServer
 // for forward compatibility
-type HardwareRetrieveModuleServiceServer interface {
-	Exec(context.Context, *HardwareRetrieveModuleRequest) (*HardwareRetrieveModuleResponse, error)
+type HardwareRetrieveTaskServiceServer interface {
+	Exec(context.Context, *HardwareRetrieveTaskRequest) (*HardwareRetrieveTaskResponse, error)
 }
 
-// UnimplementedHardwareRetrieveModuleServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedHardwareRetrieveModuleServiceServer struct {
+// UnimplementedHardwareRetrieveTaskServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedHardwareRetrieveTaskServiceServer struct {
 }
 
-func (UnimplementedHardwareRetrieveModuleServiceServer) Exec(context.Context, *HardwareRetrieveModuleRequest) (*HardwareRetrieveModuleResponse, error) {
+func (UnimplementedHardwareRetrieveTaskServiceServer) Exec(context.Context, *HardwareRetrieveTaskRequest) (*HardwareRetrieveTaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
-// UnsafeHardwareRetrieveModuleServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to HardwareRetrieveModuleServiceServer will
+// UnsafeHardwareRetrieveTaskServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HardwareRetrieveTaskServiceServer will
 // result in compilation errors.
-type UnsafeHardwareRetrieveModuleServiceServer interface {
-	mustEmbedUnimplementedHardwareRetrieveModuleServiceServer()
+type UnsafeHardwareRetrieveTaskServiceServer interface {
+	mustEmbedUnimplementedHardwareRetrieveTaskServiceServer()
 }
 
-func RegisterHardwareRetrieveModuleServiceServer(s grpc.ServiceRegistrar, srv HardwareRetrieveModuleServiceServer) {
-	s.RegisterService(&HardwareRetrieveModuleService_ServiceDesc, srv)
+func RegisterHardwareRetrieveTaskServiceServer(s grpc.ServiceRegistrar, srv HardwareRetrieveTaskServiceServer) {
+	s.RegisterService(&HardwareRetrieveTaskService_ServiceDesc, srv)
 }
 
-func _HardwareRetrieveModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HardwareRetrieveModuleRequest)
+func _HardwareRetrieveTaskService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HardwareRetrieveTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HardwareRetrieveModuleServiceServer).Exec(ctx, in)
+		return srv.(HardwareRetrieveTaskServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: HardwareRetrieveModuleService_Exec_FullMethodName,
+		FullMethod: HardwareRetrieveTaskService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HardwareRetrieveModuleServiceServer).Exec(ctx, req.(*HardwareRetrieveModuleRequest))
+		return srv.(HardwareRetrieveTaskServiceServer).Exec(ctx, req.(*HardwareRetrieveTaskRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// HardwareRetrieveModuleService_ServiceDesc is the grpc.ServiceDesc for HardwareRetrieveModuleService service.
+// HardwareRetrieveTaskService_ServiceDesc is the grpc.ServiceDesc for HardwareRetrieveTaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var HardwareRetrieveModuleService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.v1.HardwareRetrieveModuleService",
-	HandlerType: (*HardwareRetrieveModuleServiceServer)(nil),
+var HardwareRetrieveTaskService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.HardwareRetrieveTaskService",
+	HandlerType: (*HardwareRetrieveTaskServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _HardwareRetrieveModuleService_Exec_Handler,
+			Handler:    _HardwareRetrieveTaskService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -196,87 +196,87 @@ var HardwareRetrieveModuleService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	HardwareDeleteModuleService_Exec_FullMethodName = "/api.v1.HardwareDeleteModuleService/Exec"
+	HardwareDeleteTaskService_Exec_FullMethodName = "/api.v1.HardwareDeleteTaskService/Exec"
 )
 
-// HardwareDeleteModuleServiceClient is the client API for HardwareDeleteModuleService service.
+// HardwareDeleteTaskServiceClient is the client API for HardwareDeleteTaskService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type HardwareDeleteModuleServiceClient interface {
-	Exec(ctx context.Context, in *HardwareDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type HardwareDeleteTaskServiceClient interface {
+	Exec(ctx context.Context, in *HardwareDeleteTaskRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type hardwareDeleteModuleServiceClient struct {
+type hardwareDeleteTaskServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewHardwareDeleteModuleServiceClient(cc grpc.ClientConnInterface) HardwareDeleteModuleServiceClient {
-	return &hardwareDeleteModuleServiceClient{cc}
+func NewHardwareDeleteTaskServiceClient(cc grpc.ClientConnInterface) HardwareDeleteTaskServiceClient {
+	return &hardwareDeleteTaskServiceClient{cc}
 }
 
-func (c *hardwareDeleteModuleServiceClient) Exec(ctx context.Context, in *HardwareDeleteModuleRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *hardwareDeleteTaskServiceClient) Exec(ctx context.Context, in *HardwareDeleteTaskRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, HardwareDeleteModuleService_Exec_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, HardwareDeleteTaskService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// HardwareDeleteModuleServiceServer is the server API for HardwareDeleteModuleService service.
-// All implementations should embed UnimplementedHardwareDeleteModuleServiceServer
+// HardwareDeleteTaskServiceServer is the server API for HardwareDeleteTaskService service.
+// All implementations should embed UnimplementedHardwareDeleteTaskServiceServer
 // for forward compatibility
-type HardwareDeleteModuleServiceServer interface {
-	Exec(context.Context, *HardwareDeleteModuleRequest) (*emptypb.Empty, error)
+type HardwareDeleteTaskServiceServer interface {
+	Exec(context.Context, *HardwareDeleteTaskRequest) (*emptypb.Empty, error)
 }
 
-// UnimplementedHardwareDeleteModuleServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedHardwareDeleteModuleServiceServer struct {
+// UnimplementedHardwareDeleteTaskServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedHardwareDeleteTaskServiceServer struct {
 }
 
-func (UnimplementedHardwareDeleteModuleServiceServer) Exec(context.Context, *HardwareDeleteModuleRequest) (*emptypb.Empty, error) {
+func (UnimplementedHardwareDeleteTaskServiceServer) Exec(context.Context, *HardwareDeleteTaskRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
-// UnsafeHardwareDeleteModuleServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to HardwareDeleteModuleServiceServer will
+// UnsafeHardwareDeleteTaskServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to HardwareDeleteTaskServiceServer will
 // result in compilation errors.
-type UnsafeHardwareDeleteModuleServiceServer interface {
-	mustEmbedUnimplementedHardwareDeleteModuleServiceServer()
+type UnsafeHardwareDeleteTaskServiceServer interface {
+	mustEmbedUnimplementedHardwareDeleteTaskServiceServer()
 }
 
-func RegisterHardwareDeleteModuleServiceServer(s grpc.ServiceRegistrar, srv HardwareDeleteModuleServiceServer) {
-	s.RegisterService(&HardwareDeleteModuleService_ServiceDesc, srv)
+func RegisterHardwareDeleteTaskServiceServer(s grpc.ServiceRegistrar, srv HardwareDeleteTaskServiceServer) {
+	s.RegisterService(&HardwareDeleteTaskService_ServiceDesc, srv)
 }
 
-func _HardwareDeleteModuleService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HardwareDeleteModuleRequest)
+func _HardwareDeleteTaskService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HardwareDeleteTaskRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HardwareDeleteModuleServiceServer).Exec(ctx, in)
+		return srv.(HardwareDeleteTaskServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: HardwareDeleteModuleService_Exec_FullMethodName,
+		FullMethod: HardwareDeleteTaskService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HardwareDeleteModuleServiceServer).Exec(ctx, req.(*HardwareDeleteModuleRequest))
+		return srv.(HardwareDeleteTaskServiceServer).Exec(ctx, req.(*HardwareDeleteTaskRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// HardwareDeleteModuleService_ServiceDesc is the grpc.ServiceDesc for HardwareDeleteModuleService service.
+// HardwareDeleteTaskService_ServiceDesc is the grpc.ServiceDesc for HardwareDeleteTaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var HardwareDeleteModuleService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.v1.HardwareDeleteModuleService",
-	HandlerType: (*HardwareDeleteModuleServiceServer)(nil),
+var HardwareDeleteTaskService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.HardwareDeleteTaskService",
+	HandlerType: (*HardwareDeleteTaskServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _HardwareDeleteModuleService_Exec_Handler,
+			Handler:    _HardwareDeleteTaskService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

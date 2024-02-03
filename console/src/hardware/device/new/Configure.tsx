@@ -4,147 +4,43 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button, Nav } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
-import { nanoid } from "nanoid";
 import { FormProvider, useForm } from "react-hook-form";
 import { v4 as uuidv4 } from "uuid";
 
 import { CSS } from "@/css";
-import { type Configuration, configurationZ } from "@/hardware/device/new/types";
+import { enrich } from "@/hardware/configure/ni/enrich";
+import { PhysicalPlanForm } from "@/hardware/device/new/PhysicalPlanForm";
+import { PropertiesForm } from "@/hardware/device/new/PropertiesForm";
+import { configurationZ, type Configuration } from "@/hardware/device/new/types";
 import { type Layout } from "@/layout";
 
-import { ModuleForm } from "./ModuleForm";
-import { PropertiesForm } from "./Properties";
+import { buildPhysicalDevicePlan } from "./physicalPlan";
 
 import "@/hardware/device/new/Configure.css";
 
+import { SoftwareTasksForm } from "./SoftwareTasksForm";
+import { buildSoftwareTasks } from "./softwareTasks";
+
 const DEFAULT_VALUES: Configuration = {
-  name: "GSE DAQ",
-  vendor: "other",
-  model: "PXIe-1082",
-  identifier: "GSE",
-  key: "123259",
-  isChassis: true,
-  slotCount: 2,
-  modules: [
-    {
-      key: "123259-2",
-      model: "PXI-6225",
-      analogInCount: 80,
-      analogOutCount: 0,
-      digitalInCount: 0,
-      digitalOutCount: 0,
-      busType: "PXI",
-      category: "voltage",
-      slot: 1,
-      groups: [
-        {
-          name: "Analog In",
-          channelPrefix: "gsdq_s1_ai_",
-          channelSuffix: "",
-          key: "123259-2-0",
-          channels: Array.from({ length: 80 }, (_, i) => ({
-            key: nanoid(),
-            dataType: "float32",
-            name: `gsdq_s1_ai_${i}`,
-            port: i + 1,
-            line: 0,
-            channel: i,
-            group: 0,
-            isIndex: false,
-          })),
-        },
-      ],
-    },
-    // {
-    //   key: "123259-1",
-    //   model: "PXI-6514 ",
-    //   analogInCount: 0,
-    //   analogOutCount: 0,
-    //   digitalInCount: 32,
-    //   digitalOutCount: 32,
-    //   category: "multifunction-io",
-    //   busType: "PXI",
-    //   slot: 2,
-    //   groups: [
-    //     {
-    //       key: "123259-1-0",
-    //       name: "Digital In",
-    //       channelPrefix: "gsdq_s1_di_",
-    //       channelSuffix: "",
-    //       channels: [
-    //         {
-    //           key: nanoid(),
-    //           name: "gsdq_s1_di_time",
-    //           port: 0,
-    //           line: 0,
-    //           isIndex: true,
-    //           dataType: "timestamp",
-    //         },
-    //         ...Array.from({ length: 32 }, (_, i) => ({
-    //           key: nanoid(),
-    //           name: `gsdq_s1_di_${i}`,
-    //           port: 1,
-    //           line: i,
-    //           dataType: "float32",
-    //           group: 0,
-    //           isIndex: false,
-    //         })),
-    //       ],
-    //     },
-    //     ...Array.from({ length: 32 }, (_, i) => ({
-    //       key: `123259-1-1-${i}`,
-    //       name: `Digital Out Command ${i}`,
-    //       channelPrefix: `gsdq_s1_do_${i}`,
-    //       channelSuffix: "_cmd",
-    //       channels: [
-    //         {
-    //           key: nanoid(),
-    //           name: `gsdq_s1_do_${i}_time`,
-    //           group: i,
-    //           port: 0,
-    //           line: 0,
-    //           isIndex: true,
-    //           dataType: "timestamp",
-    //         },
-    //         {
-    //           key: nanoid(),
-    //           name: `gsdq_s1_do_${i}_cmd`,
-    //           group: i,
-    //           port: 0,
-    //           line: 0,
-    //           isIndex: true,
-    //           dataType: "uint8",
-    //         },
-    //       ],
-    //     })),
-    //     {
-    //       name: "Digital Output States",
-    //       key: "123259-1-2",
-    //       channelPrefix: "gsdq_s1_do_",
-    //       channelSuffix: "_state",
-    //       channels: [
-    //         {
-    //           key: nanoid(),
-    //           name: "gsdq_s1_do_state_time",
-    //           port: 0,
-    //           line: 0,
-    //           isIndex: true,
-    //           dataType: "timestamp",
-    //         },
-    //         ...Array.from({ length: 32 }, (_, i) => ({
-    //           key: nanoid(),
-    //           name: `gsdq_s1_do_${i}_state`,
-    //           channel: i,
-    //           port: 1,
-    //           line: i,
-    //           dataType: "uint8",
-    //           isIndex: false,
-    //         })),
-    //       ],
-    //     },
-    //   ],
-    // },
-  ],
+  properties: {
+    key: "",
+    name: "",
+    vendor: "other",
+    model: "",
+    identifier: "",
+    location: "",
+    analogInput: { portCount: 0 },
+    analogOutput: { portCount: 0 },
+    digitalInput: { portCount: 0, lineCounts: [] },
+    digitalOutput: { portCount: 0, lineCounts: [] },
+    digitalInputOutput: { portCount: 0, lineCounts: [] },
+  },
+  physicalPlan: {
+    groups: [],
+  },
+  softwarePlan: {
+    tasks: [],
+  },
 };
 
 export const Configure = (): ReactElement => {
@@ -167,10 +63,10 @@ export const Configure = (): ReactElement => {
       tabKey: "properties",
       name: "Properties",
     },
-    ...methods.getValues("modules").map((m, i) => ({
-      tabKey: `hardwareModule-${i}`,
-      name: `Slot ${i + 1}: ${m.model}`,
-    })),
+    {
+      tabKey: "physicalPlan",
+      name: "Channel Creation",
+    },
     {
       tabKey: "softwareTasks",
       name: "Software Tasks",
@@ -181,15 +77,26 @@ export const Configure = (): ReactElement => {
 
   const content: Tabs.TabRenderProp = useCallback(
     ({ tabKey }) => {
-      if (tabKey.startsWith("hardwareModule-")) {
-        const moduleIndex = parseInt(tabKey.split("-")[1]);
-        return <ModuleForm key={moduleIndex} moduleIndex={moduleIndex} />;
-      }
       switch (tabKey) {
         case "properties":
           return <PropertiesForm />;
+        case "physicalPlan":
+          const enriched = enrich(methods.getValues().properties);
+          const physicalPlan = buildPhysicalDevicePlan(
+            enriched,
+            methods.getValues().properties.identifier,
+          );
+          console.log(physicalPlan.groups);
+          methods.setValue("physicalPlan.groups", physicalPlan.groups);
+          return <PhysicalPlanForm />;
         default:
-          return <div>Software Modules</div>;
+          const softwarePlan = buildSoftwareTasks(
+            methods.getValues().properties,
+            methods.getValues().physicalPlan,
+          );
+          methods.setValue("softwarePlan.tasks", softwarePlan);
+          console.log(softwarePlan);
+          return <SoftwareTasksForm />;
       }
     },
     [tabsProps.onSelect],
@@ -222,7 +129,7 @@ export const LAYOUT_TYPE = "hardwareConfigureNew";
 
 export const create =
   (initial: Omit<Partial<Layout.LayoutState>, "type">) => (): Layout.LayoutState => {
-    const { name = "Configure Hardware", location = "window", ...rest } = initial;
+    const { name = "Configure Hardware", location = "mosaic", ...rest } = initial;
     const k = uuidv4();
     return {
       key: initial.key ?? k,

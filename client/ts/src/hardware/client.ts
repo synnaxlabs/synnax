@@ -9,15 +9,22 @@
 
 import { Rack } from "@/hardware/rack";
 import { type Retriever } from "@/hardware/retriever";
-import { type NewRackPayload, type RackPayload, type Writer, ModulePayload, DevicePayload } from "@/hardware/writer";
+import { type NewRackPayload, type RackPayload, type Writer, TaskPayload, DevicePayload, deviceZ } from "@/hardware/writer";
+import { signals } from "@/signals";
+import {framer} from "@/framer";
+
+const DEVICE_SET_NAME = "sy_device_set";
+const DEVICE_DELETE_NAME = "sy_device_delete";
 
 export class Client {
   private readonly retriever: Retriever;
   private readonly writer: Writer;
+  private readonly frameClient: framer.Client;
 
-  constructor(retriever: Retriever, writer: Writer) {
+  constructor(retriever: Retriever, writer: Writer, frameClient: framer.Client) {
     this.retriever = retriever;
     this.writer = writer;
+    this.frameClient = frameClient;
   }
 
   async createRack(rack: NewRackPayload): Promise<Rack> {
@@ -30,8 +37,8 @@ export class Client {
     return this.sugarRacks(res)[0];
   }
 
-  async retrieveModule(key: bigint): Promise<ModulePayload> {
-    const res = await this.retriever.retrieveModules(0, [key]);
+  async retrieveTask(key: bigint): Promise<TaskPayload> {
+    const res = await this.retriever.retrieveTasks(0, [key]);
     return res[0];
   }
 
@@ -51,4 +58,17 @@ export class Client {
     });
   }
 
+  async openDeviceTracker(): Promise<signals.Observable<string, DevicePayload>> {
+    return await signals.Observable.open<string, DevicePayload>(
+      this.frameClient,
+      DEVICE_SET_NAME,
+      DEVICE_DELETE_NAME,
+      decodeDeviceChanges
+    );
+  }
+}
+
+const decodeDeviceChanges: signals.Decoder<string, DevicePayload> = (variant, data) => {
+  if (variant === "delete") return data.toStrings().map((k) => ({ variant, key: k, value: undefined}))
+  return data.parseJSON(deviceZ).map((d) => ({ variant, key: d.key, value: d }));
 }

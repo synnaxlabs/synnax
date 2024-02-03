@@ -1,4 +1,7 @@
+import { hardware } from "@synnaxlabs/client";
 import { z } from "zod";
+
+// VENDOR
 
 const VENDORS = ["ni", "other"] as const;
 
@@ -6,46 +9,77 @@ export const vendorZ = z.enum(VENDORS);
 
 export type Vendor = z.infer<typeof vendorZ>;
 
-const channelZ = z.object({
+// DEVICE DIGEST
+
+const propertiesDigestZ = z.object({
+  vendor: vendorZ,
+  key: z.string(),
+  location: z.string(),
+  model: z.string(),
+});
+
+export type PropertiesDigest = z.infer<typeof propertiesDigestZ>;
+
+// DEVICE ENRICHED
+
+const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
+  name: z.string(),
+  identifier: z
+    .string()
+    .min(3)
+    .max(6)
+    .refine((s) => !s.includes(" ") && /^[a-zA-Z0-9]+$/.test(s), {
+      message: "Only alphanumeric characters allowed",
+    }),
+  analogInput: z.object({
+    portCount: z.number(),
+  }),
+  analogOutput: z.object({
+    portCount: z.number(),
+  }),
+  digitalInputOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+  }),
+  digitalInput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+  }),
+  digitalOutput: z.object({
+    portCount: z.number(),
+    lineCounts: z.number().array(),
+  }),
+});
+
+export type EnrichedProperties = z.infer<typeof enrichedPropertiesDigestZ>;
+
+// PHYSICAL PLAN
+
+const physicalChannelPlanZ = z.object({
   key: z.string(),
   port: z.number(),
   line: z.number(),
   name: z.string().min(1),
   dataType: z.string(),
   isIndex: z.boolean(),
+  role: z.string(),
 });
 
-export type Channel = z.infer<typeof channelZ>;
+export type PhysicalChannelPlan = z.infer<typeof physicalChannelPlanZ>;
 
-const groupZ = z.object({
+const physicalGroupPlanZ = z.object({
   key: z.string(),
   name: z.string(),
   channelPrefix: z.string(),
   channelSuffix: z.string(),
-  channels: z.array(channelZ),
+  channels: z.array(physicalChannelPlanZ),
+  role: z.string(),
 });
 
-export type Group = z.infer<typeof groupZ>;
+export type PhysicalGroupPlan = z.infer<typeof physicalGroupPlanZ>;
 
-const moduleZ = z
-  .object({
-    key: z.string(),
-    slot: z.number().min(1),
-    model: z.string(),
-    category: z.string(),
-    busType: z.string(),
-    analogInCount: z.number().min(0),
-    analogOutCount: z.number().min(0),
-    digitalInCount: z.number().min(0),
-    digitalOutCount: z.number().min(0),
-    groups: z.array(groupZ),
-  })
-  // Runs checks on ports:
-  //
-  // 1. Checks that ports + line combos are unique
-  // 2. Checks that port/line combos don't exceed the max number of channels
-  //
-  //
+const physicalDevicePlan = z
+  .object({ groups: z.array(physicalGroupPlanZ) })
   .superRefine((mod, ctx) => {
     const portLineCombos = new Map<string, number>();
 
@@ -80,28 +114,18 @@ const moduleZ = z
     });
   });
 
-export type Module = z.infer<typeof moduleZ>;
+export type PhysicalPlan = z.infer<typeof physicalDevicePlan>;
 
-const properties = z.object({
-  vendor: vendorZ,
-  name: z.string().min(3).max(32),
-  model: z.string(),
-  key: z.string(),
-  identifier: z
-    .string()
-    .min(3)
-    .max(6)
-    .refine((s) => !s.includes(" ") && /^[a-zA-Z0-9]+$/.test(s), {
-      message: "Only alphanumeric characters allowed",
-    }),
-  isChassis: z.boolean(),
-  slotCount: z.number(),
+export const softwarePlanZ = z.object({
+  tasks: z.array(hardware.taskZ),
 });
 
-export type Properties = z.infer<typeof properties>;
+export type SoftwarePlan = z.infer<typeof softwarePlanZ>;
 
-export const configurationZ = properties.extend({
-  modules: moduleZ.array(),
+export const configurationZ = z.object({
+  properties: enrichedPropertiesDigestZ,
+  physicalPlan: physicalDevicePlan,
+  softwarePlan: softwarePlanZ,
 });
 
 export type Configuration = z.infer<typeof configurationZ>;

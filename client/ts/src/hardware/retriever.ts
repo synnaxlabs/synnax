@@ -11,12 +11,12 @@ import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import {
-  moduleKeyZ,
-  moduleZ,
+  taskKeyZ,
+  taskZ,
   rackKeyZ,
   rackZ,
   type RackPayload,
-  type ModulePayload,
+  type TaskPayload,
   DevicePayload,
   deviceZ,
 } from "@/hardware/writer";
@@ -29,13 +29,13 @@ const retrieveRackResZ = z.object({
   racks: rackZ.array(),
 });
 
-const retrieveModuleReqZ = z.object({
+const retrieveTaskReqZ = z.object({
   rack: rackKeyZ,
   keys: z.string().array(),
 });
 
-const retrieveModuleResZ = z.object({
-  modules: moduleZ.array(),
+const retrieveTaskResZ = z.object({
+  tasks: taskZ.array(),
 });
 
 const retrieveDeviceReqZ = z.object({
@@ -47,7 +47,7 @@ const retrieveDeviceResZ = z.object({
 });
 
 const RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
-const RETRIEVE_MODULE_ENDPOINT = "/hardware/module/retrieve";
+const RETRIEVE_TASK_ENDPOINT = "/hardware/task/retrieve";
 const RETRIEVE_DEVICE_ENDPOINT = "/hardware/device/retrieve";
 
 export class Retriever {
@@ -77,14 +77,14 @@ export class Retriever {
     return res.devices;
   }
 
-  async retrieveModules(rack: number = 0, keys: bigint[] = []): Promise<ModulePayload[]> {
+  async retrieveTasks(rack: number = 0, keys: bigint[] = []): Promise<TaskPayload[]> {
     const res = await sendRequired<
-      typeof retrieveModuleReqZ,
-      typeof retrieveModuleResZ
-    >(this.client, RETRIEVE_MODULE_ENDPOINT, { 
+      typeof retrieveTaskReqZ,
+      typeof retrieveTaskResZ
+    >(this.client, RETRIEVE_TASK_ENDPOINT, { 
       rack, 
       keys: keys.map((k) => k.toString()),
-    }, retrieveModuleResZ);
-    return res.modules;
+    }, retrieveTaskResZ);
+    return res.tasks;
   }
 }

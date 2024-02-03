@@ -22,7 +22,7 @@ import {
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useContext } from "@/list/Context";
-import { ItemFrame } from "@/list/Item";
+import { ItemFrame, type ItemFrameProps } from "@/list/Item";
 import { type ItemProps, type ColumnSpec as ListColumnT } from "@/list/types";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -115,7 +115,7 @@ const Item = <
   onSelect,
   className,
   ...props
-}: ItemProps<K, E>): ReactElement => {
+}: ItemProps<K, E> & ItemFrameProps<K, E>): ReactElement => {
   return (
     <ItemFrame<K, E>
       key={entry.key.toString()}

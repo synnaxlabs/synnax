@@ -113,6 +113,7 @@ export default class Synnax {
     this.hardware = new hardware.Client(
       new hardware.Retriever(this.transport.unary),
       new hardware.Writer(this.transport.unary),
+      this.telem,
     )
   }
 

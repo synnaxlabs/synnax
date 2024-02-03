@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/hardware/module"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -29,7 +29,7 @@ var DefaultConfig = rack.DefaultConfig
 
 type Service struct {
 	Rack   *rack.Service
-	Module *module.Service
+	Task   *task.Service
 	Device *device.Service
 	CDC    *signals.Provider
 }
@@ -49,12 +49,13 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
+		Signals:  cfg.Signals,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	moduleService, err := module.OpenService(ctx, module.Config{
+	moduleService, err := task.OpenService(ctx, task.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
@@ -64,7 +65,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	svc := &Service{Rack: rackService, Module: moduleService, Device: deviceService}
+	svc := &Service{Rack: rackService, Task: moduleService, Device: deviceService}
 	if cfg.Signals != nil {
 		return svc, cfg.Signals.Channel.Create(ctx, &channel.Channel{
 			Name:        "sy_node_1_comms",

@@ -40,34 +40,53 @@ export const DECIMAL = { lower: 0, upper: 1 };
 
 export const CLIP = { lower: -1, upper: 1 };
 
-export const equals = (a?: Bounds, b?: Bounds): boolean =>
-  a?.lower === b?.lower && a?.upper === b?.upper;
+export const equals = (_a?: Bounds, _b?: Bounds): boolean => {
+  if (_a == null && _b == null) return true;
+  if (_a == null || _b == null) return false;
+  const a = construct(_a);
+  const b = construct(_b);
+  return a?.lower === b?.lower && a?.upper === b?.upper;
+}
 
 export const makeValid = (a: Bounds): Bounds => {
   if (a.lower > a.upper) return { lower: a.upper, upper: a.lower };
   return a;
 };
 
-export const clamp = (bounds: Bounds, target: number): number => {
-  if (target < bounds.lower) return bounds.lower;
-  if (target >= bounds.upper) return bounds.upper - 1;
+export const clamp = (bounds: Crude, target: number): number => {
+  const _bounds = construct(bounds);
+  if (target < _bounds.lower) return _bounds.lower;
+  if (target >= _bounds.upper) return _bounds.upper - 1;
   return target;
 };
 
-export const contains = (bounds: Bounds, target: number): boolean =>
-  target >= bounds.lower && target < bounds.upper;
+export const contains = (bounds: Crude, target: number): boolean => {
+  const _bounds = construct(bounds);
+  return target >= _bounds.lower && target < _bounds.upper;
+}
 
-export const overlapsWith = (a: Bounds, b: Bounds): boolean =>
-  contains(a, a.lower) || contains(b, b.upper - 1);
+export const overlapsWith = (a: Crude, b: Crude): boolean => {
+  const _a = construct(a);
+  const _b = construct(b);
+  return contains(_a, _a.lower) || contains(_b, _b.upper - 1);
+}
 
-export const span = (a: Bounds): number => a.upper - a.lower;
+export const span = (a: Crude): number => {
+  const _a = construct(a);
+  return _a.upper - _a.lower;
+}
 
-export const isZero = (a: Bounds): boolean => a.lower === 0 && a.upper === 0;
+export const isZero = (a: Crude): boolean => {
+  const _a = construct(a);
+  return _a.lower === 0 && _a.upper === 0;
+}
 
-export const spanIsZero = (a: Bounds): boolean => span(a) === 0;
+export const spanIsZero = (a: Crude): boolean => span(a) === 0;
 
-export const isFinite = (a: Bounds): boolean =>
-  Number.isFinite(a.lower) && Number.isFinite(a.upper);
+export const isFinite = (a: Crude): boolean => {
+  const _a = construct(a);
+  return Number.isFinite(_a.lower) && Number.isFinite(_a.upper);
+}
 
 export const max = (bounds: Crude[]): Bounds => ({
   lower: Math.min(...bounds.map((b) => construct(b).lower)),
@@ -78,3 +97,8 @@ export const min = (bounds: Crude[]): Bounds => ({
   lower: Math.max(...bounds.map((b) => construct(b).lower)),
   upper: Math.min(...bounds.map((b) => construct(b).upper)),
 });
+
+export const constructArray = (bounds: Crude): number[] => {
+  const _bounds = construct(bounds);
+  return Array.from({ length: span(bounds) }, (_, i) => i + _bounds.lower);
+}

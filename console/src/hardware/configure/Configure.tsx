@@ -27,11 +27,11 @@ import { type z } from "zod";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
-import { AnalogInput } from "./ni/types";
-
 import "@/hardware/configure/Configure.css";
 
-type AnalogInputConfig = z.infer<typeof AnalogInput.config>;
+import { analodReadTaskConfigZ } from "./ni/types";
+
+type AnalogInputConfig = z.infer<typeof AnalogReadTask.analodReadTaskConfigZ>;
 
 export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const {
@@ -39,7 +39,7 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
     handleSubmit,
     getValues,
   } = useForm<AnalogInputConfig>({
-    resolver: zodResolver(AnalogInput.config),
+    resolver: zodResolver(analodReadTaskConfigZ),
     defaultValues: {
       type: "ni-analog-input",
       device: "",
@@ -119,7 +119,7 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
             </Header.Actions>
           </Header.Header>
 
-          <PList.List<string, AnalogInput.Channel> data={getValues().channels}>
+          <PList.List<string> data={getValues().channels}>
             <PList.Selector
               allowMultiple={false}
               value={selectedChan != null ? [selectedChan] : []}
@@ -148,7 +148,7 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
   );
 };
 
-interface ListItemProps extends PList.ItemProps<string, AnalogInput.Channel> {}
+interface ListItemProps extends PList.ItemProps<string, AnalogReadTask.Channel> {}
 
 const ListItem = ({ entry, selected, onSelect }: ListItemProps): ReactElement => {
   const channelName = Channel.useName(entry.channel);
@@ -193,56 +193,6 @@ const ListItem = ({ entry, selected, onSelect }: ListItemProps): ReactElement =>
     </Align.Space>
   );
 };
-
-interface PropertiesProps {
-  index: number;
-  control: ReturnType<typeof useForm>["control"];
-}
-
-const Properties = ({ index, control }: PropertiesProps): ReactElement => {
-  const [scaleType, setScaleType] = useState("none");
-  return (
-    <Align.Space className={CSS.B("properties")}>
-      <Text.Text level="h3">Channel Properties</Text.Text>
-      <Input.HFItem<number>
-        label="Port"
-        name={`channels.${index}.port`}
-        control={control}
-      >
-        {(p) => <Input.Numeric {...p} />}
-      </Input.HFItem>
-      <Input.HFItem<number>
-        label="Channel"
-        name={`channels.${index}.channel`}
-        control={control}
-      >
-        {(p) => <Channel.SelectSingle {...p} />}
-      </Input.HFItem>
-      <Input.Item label="Scale">
-        <SelectScale value={scaleType} onChange={setScaleType} />
-      </Input.Item>
-    </Align.Space>
-  );
-};
-
-const SCALE_DATA = [
-  {
-    key: "none",
-    label: "None",
-  },
-  {
-    key: "slope-offset-linear",
-    label: "Linear Slope Intercept",
-  },
-  {
-    key: "two-point-linear",
-    label: "Linear Two Point",
-  },
-];
-
-const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElement => (
-  <Select.Button<string> entryRenderKey="label" data={SCALE_DATA} {...props} />
-);
 
 export type LayoutType = "hardwareConfigure";
 export const LAYOUT_TYPE = "hardwareConfigure";

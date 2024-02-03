@@ -3,14 +3,14 @@ import { useEffect, type ReactElement } from "react";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useFormState, useWatch } from "react-hook-form";
 
 import { CSS } from "@/css";
+import { SelectModel } from "@/hardware/configure/ni/SelectModel";
+import { SelectVendor } from "@/hardware/device/new/SelectVendor";
+import { type Configuration, type Vendor } from "@/hardware/device/new/types";
 
-import { SelectVendor } from "./SelectVendor";
-import { type Vendor } from "./types";
-
-import "@/hardware/device/new/Properties.css";
+import "@/hardware/device/new/PropertiesForm.css";
 
 const MIN_IDENTIFIER_LENGTH = 3;
 const MAX_IDENTIFIER_LENGTH = 5;
@@ -27,21 +27,19 @@ const extrapolateIdentifier = (identifier: string): string => {
 };
 
 export const PropertiesForm = (): ReactElement => {
-  const { watch, setValue, control: c } = useFormContext();
+  const { setValue } = useFormContext<Configuration>();
 
-  useEffect(
-    () =>
-      watch((value, { name }) => {
-        if (
-          name !== "name" ||
-          value.name == null ||
-          c.getFieldState("identifier")?.isTouched
-        )
-          return;
-        setValue("identifier", extrapolateIdentifier(value.name));
-      }).unsubscribe,
-    [watch, setValue],
-  );
+  const name = useWatch<Configuration>({ name: "properties.name" }) as string;
+  const identifier: string = useWatch<Configuration>({
+    name: "properties.identifier",
+  }) as string;
+  const id = useFormState({ name: "properties.identifier" });
+  console.log(name);
+  if (!id.isDirty && name !== "") {
+    console.log("DOG");
+    const newIdentifier = extrapolateIdentifier(name);
+    if (newIdentifier !== identifier) setValue("properties.identifier", newIdentifier);
+  }
 
   return (
     <Align.Center>
@@ -57,13 +55,15 @@ export const PropertiesForm = (): ReactElement => {
           Confirm the details of your device and give it a name.
         </Text.Text>
         <Align.Space direction="y" align="stretch" className={CSS.B("fields")}>
-          <Input.HFItem<Vendor> control={c} name="vendor" label="Vendor">
+          <Input.HFItem<Vendor> name="properties.vendor" label="Vendor">
             {(props) => <SelectVendor {...props} />}
           </Input.HFItem>
-          <Input.HFItem<string> control={c} name="key" label="Serial Number" />
-          <Input.HFItem<string> control={c} name="model" label="Model" />
-          <Input.HFItem<string> control={c} name="name" label="Name" />
-          <Input.HFItem<string> control={c} name="identifier" label="Identifier" />
+          <Input.HFItem<string> name="properties.key" label="Serial Number" />
+          <Input.HFItem<string> name="properties.model" label="Model">
+            {(props) => <SelectModel {...props} />}
+          </Input.HFItem>
+          <Input.HFItem<string> name="properties.name" label="Name" />
+          <Input.HFItem<string> name="properties.identifier" label="Identifier" />
         </Align.Space>
       </Align.Space>
     </Align.Center>

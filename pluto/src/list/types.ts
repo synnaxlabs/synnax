@@ -27,7 +27,7 @@ type RenderF<
 export interface ColumnSpec<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Pick<Text.TextProps, "shade"> {
+> {
   /** The key of the object to render. */
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
@@ -44,6 +44,7 @@ export interface ColumnSpec<
    */
   width?: number;
   cWidth?: number;
+  shade?: Text.Shade;
 }
 
 export interface ItemProps<

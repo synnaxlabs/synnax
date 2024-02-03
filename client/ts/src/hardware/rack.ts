@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type NewModulePayload,
-  type ModulePayload,
+  type NewTaskPayload,
+  type TaskPayload,
   type Writer,
 } from "@/hardware/writer";
 
@@ -28,21 +28,21 @@ export class Rack {
     this.retriever = _retriever;
   }
 
-  async listModules(): Promise<ModulePayload[]> {
-    return await this.retriever.retrieveModules(this.key);
+  async listTasks(): Promise<TaskPayload[]> {
+    return await this.retriever.retrieveTasks(this.key);
   }
 
-  async retrieveModules(): Promise<ModulePayload[]> {
+  async retrieveTasks(): Promise<TaskPayload[]> {
     return [];
   }
 
-  async createModule(module: NewModulePayload): Promise<ModulePayload> {
-    module.key = (BigInt(this.key) << 32n) + (BigInt(module.key ?? 0) & 0xffffffffn);
-    const res = await this.writer.createModule([module]);
+  async createTask(task: NewTaskPayload): Promise<TaskPayload> {
+    task.key = (BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn);
+    const res = await this.writer.createTask([task]);
     return res[0];
   }
 
-  async deleteModule(module: bigint): Promise<void> {
-    await this.writer.deleteModule([module]);
+  async deleteTask(task: bigint): Promise<void> {
+    await this.writer.deleteTask([task]);
   }
 }

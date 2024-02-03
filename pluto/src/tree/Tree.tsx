@@ -84,7 +84,7 @@ export const use = (props: UseProps): UseReturn => {
 
   const handleSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"] =
     useCallback(
-      (keys: string[], { clicked }): void => {
+      (keys: string[], { clicked: clicked }): void => {
         setSelected(keys);
         const n = flatRef.current.find((node) => node.key === clicked);
         if (n?.hasChildren === false) return;

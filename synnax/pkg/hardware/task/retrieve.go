@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package task
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 type Retrieve struct {
 	baseTX     gorp.Tx
 	otg        *ontology.Ontology
-	gorp       gorp.Retrieve[Key, Module]
+	gorp       gorp.Retrieve[Key, Task]
 	searchTerm string
 }
 
@@ -37,18 +37,18 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 func (r Retrieve) WhereRack(key rack.Key) Retrieve {
-	r.gorp = r.gorp.Where(func(m *Module) bool {
+	r.gorp = r.gorp.Where(func(m *Task) bool {
 		return m.Rack() == key
 	})
 	return r
 }
 
-func (r Retrieve) Entry(rack *Module) Retrieve {
+func (r Retrieve) Entry(rack *Task) Retrieve {
 	r.gorp = r.gorp.Entry(rack)
 	return r
 }
 
-func (r Retrieve) Entries(racks *[]Module) Retrieve {
+func (r Retrieve) Entries(racks *[]Task) Retrieve {
 	r.gorp = r.gorp.Entries(racks)
 	return r
 }

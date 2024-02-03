@@ -23,6 +23,8 @@ from synnax.ranger.client import RangeClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.signals.signals import Registry
+from synnax.hardware.client import Client as HardwareClient
+from synnax.hardware.writer import Writer as HardwareWriter
 
 
 class Synnax(Client):
@@ -51,6 +53,7 @@ class Synnax(Client):
     ranges: RangeClient
     control: ControlClient
     signals: Registry
+    hardware: HardwareClient
 
     __client: Transport
 
@@ -114,6 +117,7 @@ class Synnax(Client):
             signals=self.signals
         )
         self.control = ControlClient(self, ch_retriever)
+        self.hardware = HardwareClient(HardwareWriter(client=self._transport.unary))
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-package module
+package task
 
 import (
 	"context"
@@ -48,7 +48,7 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(r Module) schema.Resource {
+func newResource(r Task) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(r.Key), r.Name)
 	schema.Set(e, "key", uint32(r.Key))
 	schema.Set(e, "name", r.Name)
@@ -57,7 +57,7 @@ func newResource(r Module) schema.Resource {
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[Key, Module]
+type change = changex.Change[Key, Task]
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() *schema.Schema { return _schema }
@@ -68,7 +68,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var r Module
+	var r Task
 	err = s.NewRetrieve().WhereKeys(Key(k)).Entry(&r).Exec(ctx, tx)
 	return newResource(r), err
 }
@@ -83,16 +83,16 @@ func translateChange(c change) schema.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[schema.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Module]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Task]) {
 		f(ctx, iter.NexterTranslator[change, schema.Change]{Wrap: reader, Translate: translateChange})
 	}
-	return gorp.Observe[Key, Module](s.DB).OnChange(handleChange)
+	return gorp.Observe[Key, Task](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
-	n, err := gorp.WrapReader[Key, Module](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Module, schema.Resource]{
+	n, err := gorp.WrapReader[Key, Task](s.DB).OpenNexter()
+	return iter.NexterCloserTranslator[Task, schema.Resource]{
 		Wrap:      n,
 		Translate: newResource,
 	}, err

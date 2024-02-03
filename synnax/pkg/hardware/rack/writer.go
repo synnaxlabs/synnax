@@ -51,8 +51,8 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 
 func (w Writer) IncrementModuleCount(ctx context.Context, key Key, by uint32) (next uint32, err error) {
 	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(key).Change(func(r Rack) Rack {
-		r.ModuleCounter += by
-		next = r.ModuleCounter
+		r.TaskCounter += by
+		next = r.TaskCounter
 		return r
 	}).Exec(ctx, w.tx)
 }

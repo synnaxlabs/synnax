@@ -56,5 +56,6 @@ export { Telem } from "@/telem";
 export { Eraser } from "@/vis/eraser";
 export { LinePlot } from "@/vis/lineplot";
 export { Ranger } from "@/ranger";
+export { Progress } from "@/progress";
 export * from "@/hooks";
 export * from "@/util/renderProp";

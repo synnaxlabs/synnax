@@ -185,9 +185,9 @@ type Transport struct {
 	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
 	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
 	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
-	HardwareCreateModule   freighter.UnaryServer[HardwareCreateModuleRequest, HardwareCreateModuleResponse]
-	HardwareRetrieveModule freighter.UnaryServer[HardwareRetrieveModuleRequest, HardwareRetrieveModuleResponse]
-	HardwareDeleteModule   freighter.UnaryServer[HardwareDeleteModuleRequest, types.Nil]
+	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
+	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
+	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
 	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
 	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
 	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
@@ -308,10 +308,10 @@ func (a *API) BindTo(t Transport) {
 		// HARDWARE
 		t.HardwareCreateRack,
 		t.HardwareRetrieveRack,
-		t.HardwareDeleteModule,
-		t.HardwareCreateModule,
-		t.HardwareRetrieveModule,
-		t.HardwareDeleteModule,
+		t.HardwareDeleteTask,
+		t.HardwareCreateTask,
+		t.HardwareRetrieveTask,
+		t.HardwareDeleteTask,
 		t.HardwareCreateDevice,
 		t.HardwareRetrieveDevice,
 		t.HardwareDeleteDevice,
@@ -393,9 +393,9 @@ func (a *API) BindTo(t Transport) {
 	t.HardwareCreateRack.BindHandler(a.Hardware.CreateRack)
 	t.HardwareRetrieveRack.BindHandler(a.Hardware.RetrieveRack)
 	t.HardwareDeleteRack.BindHandler(a.Hardware.DeleteRack)
-	t.HardwareCreateModule.BindHandler(a.Hardware.CreateModule)
-	t.HardwareRetrieveModule.BindHandler(a.Hardware.RetrieveModule)
-	t.HardwareDeleteModule.BindHandler(a.Hardware.DeleteModule)
+	t.HardwareCreateTask.BindHandler(a.Hardware.CreateTask)
+	t.HardwareRetrieveTask.BindHandler(a.Hardware.RetrieveTask)
+	t.HardwareDeleteTask.BindHandler(a.Hardware.DeleteTask)
 	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
 	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
 	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)

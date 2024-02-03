@@ -15,8 +15,8 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/hardware"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
-	"github.com/synnaxlabs/synnax/pkg/hardware/module"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
 )
@@ -34,7 +34,7 @@ func NewHardwareService(p Provider) *HardwareService {
 }
 
 type Rack = rack.Rack
-type Module = module.Module
+type Task = task.Task
 type Device = device.Device
 
 type HardwareCreateRackRequest struct {
@@ -90,57 +90,57 @@ func (svc *HardwareService) DeleteRack(ctx context.Context, req HardwareDeleteRa
 	})
 }
 
-type HardwareCreateModuleRequest struct {
-	Modules []module.Module `json:"modules" msgpack:"modules"`
+type HardwareCreateTaskRequest struct {
+	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 }
 
-type HardwareCreateModuleResponse struct {
-	Modules []module.Module `json:"modules" msgpack:"modules"`
+type HardwareCreateTaskResponse struct {
+	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 }
 
-func (svc *HardwareService) CreateModule(ctx context.Context, req HardwareCreateModuleRequest) (res HardwareCreateModuleResponse, _ error) {
+func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTaskRequest) (res HardwareCreateTaskResponse, _ error) {
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.internal.Module.NewWriter(tx)
-		for i, m := range req.Modules {
+		w := svc.internal.Task.NewWriter(tx)
+		for i, m := range req.Tasks {
 			if err := w.Create(ctx, &m); err != nil {
 				return err
 			}
-			req.Modules[i] = m
+			req.Tasks[i] = m
 		}
-		res.Modules = req.Modules
+		res.Tasks = req.Tasks
 		return nil
 	})
 }
 
-type HardwareRetrieveModuleRequest struct {
+type HardwareRetrieveTaskRequest struct {
 	Rack rack.Key
-	Keys []module.Key `json:"keys" msgpack:"keys"`
+	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-type HardwareRetrieveModuleResponse struct {
-	Modules []module.Module `json:"modules" msgpack:"modules"`
+type HardwareRetrieveTaskResponse struct {
+	Tasks []task.Task `json:"tasks" msgpack:"tasks"`
 }
 
-func (svc *HardwareService) RetrieveModule(ctx context.Context, req HardwareRetrieveModuleRequest) (res HardwareRetrieveModuleResponse, _ error) {
+func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrieveTaskRequest) (res HardwareRetrieveTaskResponse, _ error) {
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		r := svc.internal.Module.NewRetrieve()
+		r := svc.internal.Task.NewRetrieve()
 		if len(req.Keys) > 0 {
 			r = r.WhereKeys(req.Keys...)
 		}
 		if req.Rack.IsValid() {
 			r = r.WhereRack(req.Rack)
 		}
-		return r.Entries(&res.Modules).Exec(ctx, tx)
+		return r.Entries(&res.Tasks).Exec(ctx, tx)
 	})
 }
 
-type HardwareDeleteModuleRequest struct {
-	Keys []module.Key `json:"keys" msgpack:"keys"`
+type HardwareDeleteTaskRequest struct {
+	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-func (svc *HardwareService) DeleteModule(ctx context.Context, req HardwareDeleteModuleRequest) (res types.Nil, _ error) {
+func (svc *HardwareService) DeleteTask(ctx context.Context, req HardwareDeleteTaskRequest) (res types.Nil, _ error) {
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.internal.Module.NewWriter(tx)
+		w := svc.internal.Task.NewWriter(tx)
 		for _, k := range req.Keys {
 			if err := w.Delete(ctx, k); err != nil {
 				return err
