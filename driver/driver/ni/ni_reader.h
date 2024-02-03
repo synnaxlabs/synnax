@@ -26,6 +26,12 @@ namespace ni {
         DIGITAL_OUT
     } ChannelType;
 
+    typedef enum {
+        ANALOG_READER,
+        DIGITAL_READER,
+        DIGITAL_WRITER,
+    } TaskType;
+
     typedef struct channel_config {
         std::string name;
         uint32_t channel_key;
@@ -39,7 +45,7 @@ namespace ni {
     } channel_config;
     class niDaqReader : daq::AcqReader {
     public:
-        niDaqReader();
+        niDaqReader(TaskHandle taskHandle);
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
     private:
         std::vector <channel_config> channels;
@@ -47,6 +53,13 @@ namespace ni {
         std::uint64_t stream_rate = 0;
         std::int64_t numChannels = 0;
         TaskHandle taskHandle = 0;
+        TaskType taskType;
+        std::pair <synnax::Frame, freighter::Error> readAnalog();
+        std::pair <synnax::Frame, freighter::Error> readDigital();
+        double* data; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
+        uInt32* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
+        int bufferSize = 0; // size of the data buffer
+        int numSamplesPerChannel =0 ;
 
 
 
