@@ -37,6 +37,7 @@ type FS interface {
 	List(pth string) ([]os.FileInfo, error)
 	Exists(pth string) (bool, error)
 	Remove(pth string) error
+	Rename(pth string, newPth string) error
 }
 
 type subFS struct {
@@ -109,6 +110,10 @@ func (d *defaultFS) Remove(pth string) error {
 		return errors.New("Invalid file path")
 	}
 	return os.RemoveAll(pth)
+}
+
+func (d *defaultFS) Rename(pth string, newPth string) error {
+	return os.Rename(pth, newPth)
 }
 
 func OSDirFS(dir string) (FS, error) {
@@ -195,4 +200,8 @@ func (m *memFS) Remove(pth string) error {
 		return errors.New("Invalid file path")
 	}
 	return m.RemoveAll(pth)
+}
+
+func (m *memFS) Rename(pth string, newPth string) error {
+	return m.FS.Rename(pth, newPth)
 }

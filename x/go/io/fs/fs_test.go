@@ -270,5 +270,25 @@ var _ = Describe("FS", func() {
 			})
 
 		})
+
+		Describe("Rename", func() {
+			It("Should rename a file for Mem FS", func() {
+				_, err := myMemFS.Open("a.json", os.O_CREATE)
+				Expect(err).To(BeNil())
+				err = myMemFS.Rename("a.json", "b.json")
+				Expect(err).To(BeNil())
+				Expect(myMemFS.Exists("a.json")).To(BeFalse())
+				Expect(myMemFS.Exists("b.json")).To(BeTrue())
+			})
+
+			It("Should rename a directory for Mem FS", func() {
+				_, err := myMemFS.Sub("a")
+				Expect(err).To(BeNil())
+				err = myMemFS.Rename("a", "b")
+				Expect(err).To(BeNil())
+				Expect(myMemFS.Exists("a")).To(BeFalse())
+				Expect(myMemFS.Exists("b")).To(BeTrue())
+			})
+		})
 	}
 })
