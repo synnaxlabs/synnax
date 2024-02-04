@@ -184,8 +184,8 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 				End:   start.End,
 			},
 			fileKey: start.fileKey,
-			offset:  start.offset,
-			length:  uint32(startOffset), // length of {tr.Start, start.End}
+			offset:  start.offset + uint32(startOffset),
+			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
 		})
 
 		// remove start of end pointer
@@ -195,7 +195,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 				End:   tr.End,
 			},
 			fileKey: end.fileKey,
-			offset:  uint32(endOffset),
+			offset:  end.offset,
 			length:  end.length - uint32(endOffset), // length of {end.Start, tr.End}
 		})
 	} else {
@@ -244,18 +244,30 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 	return nil
 }
 
-func (db *DB) CollectTombstone(ctx context.Context) error {
+func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead int64) error {
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
-	//for _, tombstone := range db.idx.mu.tombstones {
-	//	file := db.FS.Open(fileKeyName(tombstone.fileKey), os.O_RDWR)
-	//	reader, err := db.files.newReader(ctx, tombstone.fileKey)
+	//buf := make([]byte, maxSizeRead)
+	//
+	//for fileKey, tombstones := range db.idx.mu.tombstones {
+	//	r, err := db.files.acquireReader(ctx, fileKey)
 	//	if err != nil {
 	//		return err
 	//	}
 	//
-	//	make
+	//	f, err := db.FS.Open(strconv.Itoa(int(fileKey))+"_temp", os.O_RDWR)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	tombstoneAt := 0
+	//	pointerAt := 0
+	//	totalPointers := len(db.idx.mu.pointers)
+	//
+	//	for pointerAt < totalPointers{
+	//		if(db.idx.mu.pointers[pointerAt].)
+	//	}
 	//
 	//}
 	return nil
