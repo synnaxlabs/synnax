@@ -22,7 +22,7 @@ type index struct {
 	mu struct {
 		sync.RWMutex
 		pointers   []pointer
-		tombstones []pointer
+		tombstones map[uint16][]pointer
 	}
 	observe.Observer[indexUpdate]
 }
@@ -65,7 +65,12 @@ func (idx *index) insertTombstone(ctx context.Context, p pointer) {
 	defer span.End()
 	idx.mu.Unlock()
 	defer idx.mu.Lock()
-	idx.mu.tombstones = append(idx.mu.tombstones, p)
+
+	if idx.mu.tombstones == nil {
+		idx.mu.tombstones = make(map[uint16][]pointer)
+	}
+
+	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
