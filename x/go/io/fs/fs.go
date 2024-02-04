@@ -116,10 +116,6 @@ func (d *defaultFS) Rename(pth string, newPth string) error {
 	return os.Rename(pth, newPth)
 }
 
-func OSDirFS(dir string) (FS, error) {
-	return (&defaultFS{perm: defaultPerm}).Sub(dir)
-}
-
 func NewMem() FS {
 	return &memFS{
 		FS:   vfs.NewMem(),
