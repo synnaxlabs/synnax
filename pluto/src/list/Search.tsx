@@ -107,12 +107,15 @@ export const Search = <
 
   const debounced = useDebouncedCallback(
     (term: string) => {
+      if (term.length === 0) {
+        handleFetchMore();
+      }
       if (searcher == null) return setEmptyContent(NO_RESULTS);
       searcher
         .search(term)
         .then((d) => {
           if (d.length === 0) setEmptyContent(NO_RESULTS);
-          else setSourceData(d);
+          setSourceData(d);
         })
         .catch((e) => {
           setEmptyContent(

@@ -31,6 +31,10 @@ html {
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
+    --pluto-shadow-menu: 0px 1px 1px rgba(0,0,0,.02),0px 4px 8px -4px rgba(0,0,0,.04),0px 16px 24px -8px rgba(0,0,0,.06);
+    @media (prefers-color-scheme: dark) {
+        --pluto-shadow-menu: 0px 1px 1px rgba(0,0,0,.02),0px 4px 8px -4px rgba(0,0,0,.04),0px 16px 24px -8px rgba(0,0,0,.06);
+    }
 
     background: var(--pluto-gray-l0);
     margin: 0;

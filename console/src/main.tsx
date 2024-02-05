@@ -11,6 +11,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
@@ -69,6 +70,8 @@ const triggersProps: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
 };
 
+const client = new QueryClient();
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   Version.useLoadTauri();
@@ -89,22 +92,24 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
 
   return (
-    <Pluto.Provider
-      {...theme}
-      channelAlias={{ activeRange: activeRange?.key }}
-      workerEnabled
-      connParams={cluster?.props}
-      workerURL={WorkerURL}
-      triggers={triggersProps}
-      haul={{ useState: useHaulState }}
-      alamos={{
-        include: ["provider"],
-      }}
-    >
-      <Vis.Canvas>
-        <Layout.Window />
-      </Vis.Canvas>
-    </Pluto.Provider>
+    <QueryClientProvider client={client}>
+      <Pluto.Provider
+        {...theme}
+        channelAlias={{ activeRange: activeRange?.key }}
+        workerEnabled
+        connParams={cluster?.props}
+        workerURL={WorkerURL}
+        triggers={triggersProps}
+        haul={{ useState: useHaulState }}
+        alamos={{
+          include: ["provider"],
+        }}
+      >
+        <Vis.Canvas>
+          <Layout.Window />
+        </Vis.Canvas>
+      </Pluto.Provider>
+    </QueryClientProvider>
   );
 };
 

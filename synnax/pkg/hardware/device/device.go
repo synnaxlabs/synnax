@@ -11,11 +11,18 @@
 
 package device
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/x/gorp"
+)
 
 type Device struct {
 	// The key of the device is its serial no.
 	Key string `json:"key" msgpack:"key"`
+	// Rack is the rack that the device is in.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Location is the location of the device in the rack.
+	Location string `json:"location" msgpack:"location"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
 	// Identifier is a short ID that is useful for identifying items related to this

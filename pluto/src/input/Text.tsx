@@ -9,6 +9,8 @@
 
 import { forwardRef } from "react";
 
+import { evaluate } from "mathjs";
+
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
@@ -41,7 +43,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       onChange,
       className,
       onFocus,
-      selectOnFocus = false,
+      selectOnFocus = true,
       centerPlaceholder = false,
       placeholder,
       variant = "outlined",
@@ -76,10 +78,12 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
         <input
           ref={ref}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange?.(e.target.value);
+          }}
           onFocus={(e) => {
-            if (selectOnFocus) e.target.select();
             onFocus?.(e);
+            if (selectOnFocus) setTimeout(() => e.target.select(), 0);
           }}
           placeholder={placeholder as string}
           className={CSS.visible(false)}

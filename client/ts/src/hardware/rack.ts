@@ -37,7 +37,8 @@ export class Rack {
   }
 
   async createTask(task: NewTaskPayload): Promise<TaskPayload> {
-    task.key = (BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn);
+    // @ts-expect-error
+    task.key = ((BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn)).toString();
     const res = await this.writer.createTask([task]);
     return res[0];
   }

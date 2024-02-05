@@ -8,6 +8,8 @@ const linearScaleZ = z.object({
   two: xy.xy,
 });
 
+export type LinearScale = z.infer<typeof linearScaleZ>;
+
 const analogInputScaleZ = linearScaleZ;
 
 const analogInputVoltageChannelZ = z.object({
@@ -94,3 +96,9 @@ export type NIChannel =
   | DigitalInputChannel
   | AnalogInputVoltageChannel
   | DigitalOutputChannel;
+
+export const CHANNEL_TYPE_DISPLAY: Record<NIChannel["type"], string> = {
+  analogVoltageInput: "Analog Voltage Input",
+  digitalInput: "Digital Input",
+  digitalOutput: "Digital Output",
+};

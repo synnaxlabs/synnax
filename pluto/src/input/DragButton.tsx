@@ -98,7 +98,6 @@ export const DragButton = ({
       (b: box.Box) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
-        console.log(box.dims(b));
         vRef.current.dragging = true;
         value = calculateValue(
           value,
@@ -107,7 +106,6 @@ export const DragButton = ({
           normalDragThreshold,
           box.construct(elRef.current),
         );
-        console.log(value);
         vRef.current.curr = value;
         onChange(value);
       },
@@ -117,7 +115,6 @@ export const DragButton = ({
       (b: box.Box, __, e) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
-        console.log(box.dims(b), value);
         value = calculateValue(
           value,
           b,
@@ -142,6 +139,7 @@ export const DragButton = ({
 
   return (
     <Button.Icon
+      tabIndex={-1}
       ref={elRef}
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}

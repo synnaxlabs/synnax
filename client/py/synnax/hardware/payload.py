@@ -9,9 +9,11 @@
 
 from freighter import Payload
 
+
 class Rack(Payload):
     key: int = 0
     name: str = ""
+
 
 class Task(Payload):
     key: int = 0
@@ -22,8 +24,9 @@ class Task(Payload):
 
 class Device(Payload):
     key: str = ""
+    location: str = ""
+    rack: int = 0
     name: str = ""
     make: str = ""
     model: str = ""
     properties: str = ""
-

@@ -34,16 +34,18 @@ export type Task<
 
 export const deviceZ = z.object({
   key: deviceKeyZ,
+  rack: rackKeyZ,
   name: z.string(),
   make: z.string(),
   model: z.string(),
+  location: z.string(),
   properties: z.string(),
 })
 
 export const newRackZ = rackZ.partial({ key: true });
 export const newTaskZ = taskZ
   .omit({ key: true })
-  .extend({ key: taskKeyZ.transform((k) => k.toString()).optional() });
+  .extend({ key: taskKeyZ.transform((k) => k.toString()).optional(), config: z.unknown().transform((c) => JSON.stringify(c)) });
 
 const createRackReqZ = z.object({
   racks: newRackZ.array(),
@@ -130,7 +132,7 @@ export class Writer {
     const res = await sendRequired<typeof createTaskReqZ, typeof createTaskResZ>(
       this.client,
       CREATE_TASK_ENDPOINT,
-      createTaskReqZ.parse({ tasks }),
+      {tasks: tasks.map((t) => ({...t, config: JSON.stringify(t.config)}))},
       createTaskResZ,
     );
     return res.tasks;

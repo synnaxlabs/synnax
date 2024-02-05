@@ -387,7 +387,7 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement => {
       </Input.HFItem>
       {port !== 0 && (
         <Input.HFItem<number>
-          alsoValidate={[`groups.${groupIndex}.channels`]}
+          alsoValidate={[`physicalPlan.groups.${groupIndex}.channels`]}
           name={`${prefix}.port`}
           label="Port"
         >

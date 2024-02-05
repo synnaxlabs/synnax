@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from "react";
+import { useEffect, type ReactElement, useState } from "react";
 
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -34,9 +34,7 @@ export const PropertiesForm = (): ReactElement => {
     name: "properties.identifier",
   }) as string;
   const id = useFormState({ name: "properties.identifier" });
-  console.log(name);
   if (!id.isDirty && name !== "") {
-    console.log("DOG");
     const newIdentifier = extrapolateIdentifier(name);
     if (newIdentifier !== identifier) setValue("properties.identifier", newIdentifier);
   }

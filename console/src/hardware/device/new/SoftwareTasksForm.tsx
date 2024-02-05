@@ -1,13 +1,18 @@
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, useMemo, useEffect } from "react";
 
-import { Align, Button, Header, Select, Status } from "@synnaxlabs/pluto";
+import { Align, Button, Channel, Header, Select, Status } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 
 import { CSS } from "@/css";
-import { type NIChannel, type NITask } from "@/hardware/configure/ni/types";
+import {
+  CHANNEL_TYPE_DISPLAY,
+  type LinearScale,
+  type NIChannel,
+  type NITask,
+} from "@/hardware/configure/ni/types";
 import { type Configuration } from "@/hardware/device/new/types";
 
 import "@/hardware/device/new/SoftwareTasksForm.css";
@@ -50,11 +55,9 @@ export const SoftwareTasksForm = (): ReactElement => {
           selectedTaskIndex={mostRecentSelected?.index ?? 0}
           onSelectChannels={handleSelectChannels}
         />
-        <Align.Space className={CSS.B("details")} grow>
-          {mostRecentSelected != null && (
-            <Details selected={mostRecentSelected} taskIndex={selectedTask?.index} />
-          )}
-        </Align.Space>
+        {mostRecentSelected != null && (
+          <Details selected={mostRecentSelected} taskIndex={selectedTask?.index} />
+        )}
       </Align.Space>
     </Align.Space>
   );
@@ -152,7 +155,7 @@ export const ChannelListItem = ({
   const hasLine = "line" in entry;
   return (
     <List.ItemFrame {...props} justify="spaceBetween" align="center">
-      <Align.Space direction="y">
+      <Align.Space direction="y" size="small">
         <Align.Space direction="x">
           <Text.Text level="small" weight={500} shade={6} style={{ width: "3rem" }}>
             {entry.port} {hasLine && `/${entry.line}`}
@@ -162,7 +165,7 @@ export const ChannelListItem = ({
           </Text.Text>
         </Align.Space>
         <Text.Text level="small" shade={6}>
-          {entry.type}
+          {CHANNEL_TYPE_DISPLAY[entry.type]}
         </Text.Text>
       </Align.Space>
       <Button.Toggle
@@ -197,12 +200,19 @@ interface DetailsPorps {
 }
 
 const Details = ({ selected, taskIndex }: DetailsPorps): ReactElement | null => {
+  console.log(selected, taskIndex);
   if (taskIndex == null) return null;
   if (selected.type === "task") {
     return <></>;
     // return <TaskForm index={selected.index} />;
   }
-  return <ChannelForm taskIndex={taskIndex} index={selected.index} />;
+  return (
+    <ChannelForm
+      key={`${taskIndex}-${selected.index}`}
+      taskIndex={taskIndex}
+      index={selected.index}
+    />
+  );
 };
 
 interface ChannelFormProps {
@@ -213,19 +223,37 @@ interface ChannelFormProps {
 const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
   const [scaleType, setScaleType] = useState("none");
   const prefix = `softwarePlan.tasks.${taskIndex}.config.channels.${index}`;
-  console.log("DIG");
+  const channel = useWatch<NIChannel>({
+    name: prefix,
+  });
+  const { getValues } = useFormContext<Configuration>();
+
+  // We should only need to do this on first render, since the groups are static.
+  const channelOptions = useMemo(
+    () =>
+      getValues(`physicalPlan.groups`)
+        .map((g) => g.channels)
+        .flat(),
+    [],
+  );
+
+  const hasLine = "line" in channel;
   return (
-    <Align.Space className={CSS.B("properties")}>
+    <Align.Space className={CSS.B("details")}>
       <Text.Text level="h3">Channel Properties</Text.Text>
       <Input.HFItem<number> label="Port" name={`${prefix}.port`}>
         {(p) => <Input.Numeric {...p} />}
       </Input.HFItem>
-      {/* <Input.HFItem<number> label="Line" name={`${prefix}.line`}>
-        {(p) => <Input.Numeric {...p} />}
+      {hasLine && (
+        <Input.HFItem<number> label="Line" name={`${prefix}.line`}>
+          {(p) => <Input.Numeric {...p} />}
+        </Input.HFItem>
+      )}
+      <Input.HFItem<string> label="Channel" name={`${prefix}.channel`}>
+        {(p) => <Channel.SelectSingle data={channelOptions} {...p} />}
       </Input.HFItem>
-      <Input.Item label="Scale">
-        <SelectScale value={scaleType} onChange={setScaleType} />
-      </Input.Item> */}
+      <SelectScale value={scaleType} onChange={setScaleType} />
+      {scaleType === "two-point-linear" && <LinearTwoPoint name={`${prefix}.scale`} />}
     </Align.Space>
   );
 };
@@ -246,5 +274,59 @@ const SCALE_DATA = [
 ];
 
 const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElement => (
-  <Select.Button<string> entryRenderKey="label" data={SCALE_DATA} {...props} />
+  <Select.DropdownButton<string>
+    entryRenderKey="label"
+    columns={[
+      {
+        key: "label",
+        name: "Scale",
+      },
+    ]}
+    data={SCALE_DATA}
+    renderKey="label"
+    {...props}
+  />
 );
+
+interface LinearTwoPointProps {
+  name: string;
+}
+
+const LinearTwoPoint = ({ name }: LinearTwoPointProps): ReactElement => {
+  console.log(name);
+  const value = useWatch({
+    name,
+  }) as LinearScale;
+  const isValid = value != null && value.type === "linear";
+  const { setValue } = useFormContext<Configuration>();
+  useEffect(() => {
+    console.log(isValid);
+    if (isValid) return;
+    setValue(name, {
+      type: "linear",
+      one: { x: 0, y: 0 },
+      two: { x: 1, y: 1 },
+    });
+  }, [isValid]);
+  if (!isValid) return <></>;
+  return (
+    <Align.Space direction="y" grow>
+      <Align.Space direction="x">
+        <Input.HFItem label="Raw Min" name={`${name}.one.x`} grow>
+          {(p) => <Input.Numeric {...p} />}
+        </Input.HFItem>
+        <Input.HFItem label="Raw Max" name={`${name}.two.x`} grow>
+          {(p) => <Input.Numeric {...p} />}
+        </Input.HFItem>
+      </Align.Space>
+      <Align.Space direction="x">
+        <Input.HFItem label="Scaled Min" name={`${name}.one.y`} grow>
+          {(p) => <Input.Numeric {...p} />}
+        </Input.HFItem>
+        <Input.HFItem label="Scaled Max" name={`${name}.two.y`} grow>
+          {(p) => <Input.Numeric {...p} />}
+        </Input.HFItem>
+      </Align.Space>
+    </Align.Space>
+  );
+};

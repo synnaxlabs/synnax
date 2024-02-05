@@ -9,7 +9,7 @@
 
 import { Rack } from "@/hardware/rack";
 import { type Retriever } from "@/hardware/retriever";
-import { type NewRackPayload, type RackPayload, type Writer, TaskPayload, DevicePayload, deviceZ } from "@/hardware/writer";
+import { type NewRackPayload, type RackPayload, type Writer, TaskPayload, DevicePayload, deviceZ, NewTaskPayload } from "@/hardware/writer";
 import { signals } from "@/signals";
 import {framer} from "@/framer";
 
@@ -35,6 +35,11 @@ export class Client {
   async retrieveRack(key: number): Promise<Rack> {
     const res = await this.retriever.retrieveRacks([key]);
     return this.sugarRacks(res)[0];
+  }
+
+  async createTask(task: NewTaskPayload): Promise<TaskPayload> {
+    const res = await this.writer.createTask([task]);
+    return res[0];
   }
 
   async retrieveTask(key: bigint): Promise<TaskPayload> {

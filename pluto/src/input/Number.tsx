@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, forwardRef, useCallback, useState } from "react";
+import {
+  type ReactElement,
+  forwardRef,
+  useCallback,
+  useState,
+  type FocusEventHandler,
+} from "react";
 
 import { bounds } from "@synnaxlabs/x";
+import { evaluate } from "mathjs";
 
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
+
+import { Triggers, useCombinedStateAndRef } from "..";
 
 export interface NumericProps
   extends Omit<BaseProps<number>, "type">,
@@ -64,57 +73,87 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       variant = "outlined",
       className,
       children,
+      onBlur,
       ...props
     },
     ref,
   ): ReactElement => {
-    const [internalValue, setInternalValue] = useState(value.toString());
+    // We need to keep the actual value as a valid number, but we need to let the user
+    // input an invalid value that may eventually be valid, so we need to keep the
+    // internal value as a string in state.
+    const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
+      value.toString(),
+    );
     const [isValueValid, setIsValueValid] = useState(true);
 
-    const handleChange = useCallback(
-      (v: string | number, callonChange: boolean = true) => {
-        let [n, ok] = toNumber(v);
-        if (ok) {
-          if (callonChange) setIsValueValid(true);
-          n = bounds.clamp(bounds.construct(b), n);
-          setInternalValue(v.toString());
-          if (callonChange) onChange(n);
-        } else {
-          setInternalValue(v.toString());
-          if (callonChange) setIsValueValid(false);
-        }
+    const updateActualValue = useCallback(() => {
+      setIsValueValid(true);
+      let ok = false;
+      let v = 0;
+      try {
+        v = evaluate(internalValueRef.current);
+        ok = true;
+      } catch (e) {
+        ok = false;
+      }
+      if (ok) {
+        onChange?.(v);
+      } else {
+        setInternalValue(value.toString());
+      }
+    }, [onChange, setInternalValue]);
+
+    const handleBlur: FocusEventHandler<HTMLInputElement> = useCallback(
+      (e) => {
+        onBlur?.(e);
+        updateActualValue();
       },
-      [setInternalValue, onChange],
+      [onBlur],
     );
 
+    const handleChange = useCallback(
+      (v: string) => {
+        setIsValueValid(false);
+        setInternalValue(v);
+      },
+      [setInternalValue, setIsValueValid],
+    );
+
+    // If the value is valid, use the actual value, otherwise use the internal value.
     const value_ = isValueValid ? value : internalValue;
 
+    // We don't communicate the actual value until the user is done dragging, this
+    // prevents a bunch of re-renders every time the user moves the mouse.
     const onDragChange = useCallback(
       (value: number) => {
         setIsValueValid(false);
-        handleChange(Math.round(value), false);
+        setInternalValue(Math.round(value).toString());
       },
-
-      [handleChange, setIsValueValid],
+      [setInternalValue, setIsValueValid],
     );
 
+    // See not above.
     const onDragEnd = useCallback(
       (value: number) => {
         setIsValueValid(true);
-        handleChange(value);
+        onChange?.(value);
       },
-      [handleChange, setIsValueValid],
+      [onChange, setIsValueValid],
     );
 
     return (
       <Text
         ref={ref}
-        type="number"
+        type="text"
         variant={variant}
         value={value_.toString()}
         onChange={handleChange}
         style={style}
         selectOnFocus={selectOnFocus}
+        // When the user hits 'Enter', we should try to evaluate the input and update the
+        // actual value.
+        onKeyDown={(e) => Triggers.eventKey(e) === "Enter" && updateActualValue()}
+        onBlur={handleBlur}
         {...props}
       >
         {showDragHandle && (
@@ -125,7 +164,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
             dragScale={dragScale}
             resetValue={resetValue}
             onDragEnd={onDragEnd}
-            onBlur={props.onBlur}
+            onBlur={props.onBlur as FocusEventHandler<HTMLButtonElement>}
           />
         )}
         {children}

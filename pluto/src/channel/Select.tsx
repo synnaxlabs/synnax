@@ -173,16 +173,17 @@ export const SelectSingle = ({
   onChange,
   value,
   className,
+  data,
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
-  const searcher = useMemo(
-    () => client?.channels.newSearcherUnderRange(activeRange),
-    [client, activeRange],
-  );
+  const searcher = useMemo(() => {
+    if (data != null && data.length > 0) return undefined;
+    return client?.channels.newSearcherUnderRange(activeRange);
+  }, [client, activeRange, data?.length]);
 
   const emptyContent =
     client != null ? undefined : (
@@ -228,6 +229,7 @@ export const SelectSingle = ({
 
   return (
     <Select.Single
+      data={data}
       className={CSS(className, CSS.dropRegion(canDrop(dragging, [value])))}
       value={value}
       onDragStart={onDragStart}

@@ -24,6 +24,7 @@
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/pluto": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
+    "@tanstack/react-query": "^5.18.1",
     "@tauri-apps/api": "^1.5.2",
     "nanoid": "^5.0.4",
     "proxy-memoize": "2.0.4",

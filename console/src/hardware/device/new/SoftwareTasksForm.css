@@ -44,6 +44,8 @@
 
     & .console-details {
         height: 100%;
+        width: 100%;
+        max-width: 700px;
         overflow: hidden;
         padding: 5rem;
     }

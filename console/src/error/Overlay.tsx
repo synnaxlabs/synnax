@@ -109,7 +109,9 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             <Status.Text variant="error" hideIcon level="h3">
               {messageTranslation[error.message] || error.message}
             </Status.Text>
-            <Text.Text level="p">{error.stack}</Text.Text>
+            <Text.Text className={CSS.B("stack")} level="p">
+              {error.stack}
+            </Text.Text>
             <Button.Button onClick={resetErrorBoundary}>Try again</Button.Button>
           </Align.Space>
         </Align.Space>

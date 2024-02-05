@@ -28,7 +28,7 @@ const buildAnalogInputGroups = (
   const idXChannel: PhysicalChannelPlan = {
     key: nanoid(),
     role: "index",
-    dataType: "float32",
+    dataType: "timestamp",
     name: `${prefix}idx`,
     isIndex: true,
     line: 0,

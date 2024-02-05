@@ -8,13 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.hardware.writer import Writer
+from synnax.hardware.retrieve import Retriever
 from synnax.hardware.payload import Rack, Task, Device
+
 
 class Client:
     __writer: Writer
+    __retriever: Retriever
 
-    def __init__(self, writer: Writer) -> None:
+    def __init__(self, writer: Writer, retriever: Retriever) -> None:
         self.__writer = writer
+        self.__retriever = retriever
 
     def create_rack(self, racks: list[Rack]) -> list[Rack]:
         return self.__writer.create_rack(racks)
@@ -34,4 +38,11 @@ class Client:
     def delete_device(self, keys: list[str]):
         self.__writer.delete_device(keys)
 
+    def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
+        return self.__retriever.retrieve_rack(keys)
 
+    def retrieve_task(self, rack: int | None = None, keys: list[int] | None = None) -> list[Task]:
+        return self.__retriever.retrieve_task(rack, keys)
+
+    def retrieve_device(self, keys: list[str] | None = None) -> list[Device]:
+        return self.__retriever.retrieve_device(keys)

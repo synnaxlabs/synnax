@@ -43,19 +43,28 @@ export const useListenForChanges = (): void => {
 };
 
 export const notificationAdapter: NotificationAdapter = (status) => {
-  console.log("ADAPTER");
   if (!status.key.startsWith("new-device-")) return null;
+  // grab the device key from the status key
+  const deviceKey = status.key.slice("new-device-".length);
   return {
     ...status,
-    actions: [<ConfigureButton key="configure" />],
+    actions: [<ConfigureButton deviceKey={deviceKey} key="configure" />],
   };
 };
 
-export const ConfigureButton = (): ReactElement => {
+interface ConfigureButtonProps {
+  deviceKey: string;
+}
+
+const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
   const place = Layout.usePlacer();
 
   return (
-    <Button.Button variant="outlined" size="small" onClick={() => place(create({}))}>
+    <Button.Button
+      variant="outlined"
+      size="small"
+      onClick={() => place(create(deviceKey, {}))}
+    >
       Configure
     </Button.Button>
   );

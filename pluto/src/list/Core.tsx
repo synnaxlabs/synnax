@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement, useRef } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -55,6 +61,11 @@ const VirtualCore = <
     estimateSize: () => itemHeight,
     overscan,
   });
+
+  // Whenever the data changes, scroll to the top of the list
+  useLayoutEffect(() => {
+    if (data.length > 0) virtualizer?.scrollToIndex(0);
+  }, [data]);
 
   const items = virtualizer.getVirtualItems();
 

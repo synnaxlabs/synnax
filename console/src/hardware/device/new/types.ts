@@ -57,6 +57,7 @@ export type EnrichedProperties = z.infer<typeof enrichedPropertiesDigestZ>;
 
 const physicalChannelPlanZ = z.object({
   key: z.string(),
+  synnaxChannel: z.number().optional(),
   port: z.number(),
   line: z.number(),
   name: z.string().min(1),
@@ -81,20 +82,20 @@ export type PhysicalGroupPlan = z.infer<typeof physicalGroupPlanZ>;
 const physicalDevicePlan = z
   .object({ groups: z.array(physicalGroupPlanZ) })
   .superRefine((mod, ctx) => {
-    const portLineCombos = new Map<string, number>();
+    const portLineRoleCombos = new Map<string, number>();
 
     mod.groups.forEach((group) => {
       group.channels.forEach((channel) => {
-        const key = `${channel.port}/${channel.line}`;
-        portLineCombos.set(key, (portLineCombos.get(key) ?? 0) + 1);
+        const key = `${channel.role}/${channel.port}/${channel.line}`;
+        portLineRoleCombos.set(key, (portLineRoleCombos.get(key) ?? 0) + 1);
       });
     });
 
     mod.groups.forEach((group, i) => {
       group.channels.forEach((channel, j) => {
-        const key = `${channel.port}/${channel.line}`;
-        if (portLineCombos.get(key) !== 1) {
-          const [port, line] = key.split("/").map(Number);
+        const key = `${channel.role}/${channel.port}/${channel.line}`;
+        if ((portLineRoleCombos.get(key) ?? 0) > 1) {
+          const [, port, line] = key.split("/").map(Number);
 
           if (line === 0) {
             ctx.addIssue({

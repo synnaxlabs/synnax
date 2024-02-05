@@ -8,6 +8,11 @@
         max-width: 650px;
     }
 
+    & .console-stack {
+        max-height: 700px;
+        overflow: auto;
+    }
+
 
     & .synnax-logo {
         width: 150px;
