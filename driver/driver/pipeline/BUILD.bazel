@@ -15,6 +15,18 @@ cc_library(
         "//driver/modules:module",
         "@nlohmann_json//:json",
         "@synnax//synnax",
+        "//driver/ni"
     ],
-    copts = ["/std:c++17"]
+    copts = ["/std:c++17"],
 )
+
+#cc_test (
+#    name = "acq_test",
+#    srcs = ["acq_test.cpp"],
+#    deps = [
+#        "pipeline",
+#        "@com_google_googletest//:gtest_main",
+#    ],
+#    copts = ["/std:c++17"],
+#)
+```

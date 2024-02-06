@@ -31,7 +31,7 @@ cc_library(
         "daqmx_hds",
         "syscfg_hds",
         "//driver/breaker:breaker",
-        "//driver/pipeline:pipeline",
+        "//driver/pipeline",
     ],
     copts = ["/std:c++17"],
     linkopts = ['user32.lib'],
@@ -49,5 +49,4 @@ cc_test(
         "syscfg_hds",
     ],
     copts = ["/std:c++17"],
-#    linkopts = ['user32.lib'],
 )

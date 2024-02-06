@@ -12,6 +12,7 @@
 #include <memory>
 #include <thread>
 #include "driver/breaker/breaker.h"
+#inclyude "driver/ni/ni_reader.h"
 
 #pragma once
 
@@ -29,47 +30,51 @@ namespace daq {
     };
 
 }
+namepspace Acq{
+        class Acq { // Acquisition Pipeline Class
+            public:
+            void start();
+            void stop();
+            Acq();
+            void Acq(std::unique_ptr <daq::AcqReader> daq_reader,
+                     synnax::WriterConfig writer_config,
+                     std::unique_ptr <synnax::Synnax> client,
+                     std::vector <ni::channel_config> channels,
+                     uint64_t acquisition_rate,
+                     uint64_t stream_rate
+                     Taskhandle taskHandle);
+            private:
+            /// @brief threading.
+            std::atomic<bool> running;
+            std::thread acq_thread;
 
-class Acq { // Acquisition Pipeline Class
-public:
-    void start();
-    void stop();
-    Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config);
+            /// @brief synnax IO.
+            std::unique_ptr <synnax::Synnax> client;
 
-private:
-    /// @brief threading.
-    std::atomic<bool> running;
-    std::thread exec_thread;
+            /// @brief synnax streamer.
+            std::unique_ptr <synnax::Streamer> streamer;
+            synnax::StreamerConfig streamer_config;
 
-    /// @brief synnax IO.
-    std::unique_ptr<synnax::Synnax> client;
+            /// @brief synnax writer
+            std::unique_ptr <synnax::Writer> writer;
+            synnax::WriterConfig writer_config;
 
-    /// @brief synnax streamer.
-    std::unique_ptr<synnax::Streamer> streamer;
-    synnax::StreamerConfig streamer_config;
+            /// @brief commit tracking;
+            synnax::TimeSpan commit_interval = synnax::TimeSpan(1); // TODO: comeback to and move to constructor?
+            synnax::TimeStamp last_commit;
 
-    /// @brief synnax writer
-    std::unique_ptr<synnax::Writer> writer;
-    synnax::WriterConfig writer_config;
+            /// @brief driver comms.
+            synnax::ChannelKey comms_channel_key;
 
-    /// @brief commit tracking;
-    synnax::TimeSpan commit_interval = synnax::TimeSpan(1); // TODO: comeback to and move to constructor?
-    synnax::TimeStamp last_commit;
+            /// @brief daq interface
+            std::unique_ptr <daq::AcqReader> daq_reader;
 
-    /// @brief driver comms.
-    synnax::ChannelKey comms_channel_key;
+            /// @brief breaker
+            std::unique_ptr <breaker::Breaker> breaker;
 
-    /// @brief daq interface
-    std::unique_ptr<daq::AcqReader> daq_reader;
+            /// @brief mutex for shared variables
+            static std::mutex mut;
 
-    /// @brief breaker
-    std::unique_ptr<breaker::Breaker> breaker;
-
-    /// @brief mutex for shared variables
-    static std::mutex mut;
-
-    void run();
-    void runInternal();
+            void run();
+        };
 };

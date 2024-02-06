@@ -11,26 +11,43 @@
 #include "driver/pipeline/acq.h"
 #include "driver/errors/errors.h"
 #include "nlohmann/json.hpp"
+#include "acq.h"
+
+
+#pragma once
 
 using json = nlohmann::json;
 
 //using namespace pipeline;
 
-Acq::Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config) :
-        daq_reader(std::move(daq_reader)),
-        writer_config(writer_config),
-        streamer_config(streamer_config) {}
+Acq::Acq(){}
+
+void Acq::Acq(std::unique_ptr<daq::AcqReader> daq_reader,
+         synnax::WriterConfig writer_config,
+         std::unique_ptr<synnax::Synnax> client
+         std::vector<ni::channel_config> channels,
+         uint64_t acquisition_rate,
+         uint64_t stream_rate,
+         Taskhandle taskHandle)  {
+
+    this->daq_reader = std::move(daq_reader);
+    this->client = std::move(client);
+    this->writer_config = writer_config;
+
+    // instantiate the daq_reader
+    this->daq_reader = std::make_unique<niDaqReader>(taskHandle);
+    static_cast <niDaqReader*>(this->daq_reader.get())->init(channels, acquisition_rate, stream_rate);
+
+}
 
 void Acq::start() {
     running = true;
-    exec_thread = std::thread(&Acq::run, this);
+    acq_thread = std::thread(&Acq::run);
 }
 
 void Acq::stop() {
     running = false;
-    exec_thread.join();
+//    acq_thread.join(); // FIXME: I dont want to call join im p sure (elham)
 }
 
 void Acq::run() {
@@ -58,7 +75,7 @@ void Acq::run() {
             // or configuration error and can't proceed.
             retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
         }
-        if (!writer.write(std::move(frame))) {
+        if (!writer.write(std::move(frame))) { // write frame to channel
             auto err = writer.error();
             if (!err.ok()) {
                 retry = error.type == freighter::TYPE_UNREACHABLE;
@@ -82,5 +99,6 @@ void Acq::run() {
     writer.close();
     if (retry && breaker->wait()) run();
 }
+
 
 
