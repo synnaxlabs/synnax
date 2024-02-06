@@ -2,14 +2,14 @@ cc_library(
     name = "daqmx_hds",
     hdrs=["daqmx.h"],
     deps=["@nidaqmx//:lib"],
-#    visibility=["//visibility:public"],
+    visibility=["//visibility:public"],
 )
 
 cc_library(
     name = "syscfg_hds",
     hdrs = ["nisyscfg_errors.h", "nisyscfg_wide.h", "nisyscfg.h"],
     deps = ["@nisyscfg//:lib", "@nidaqmx//:lib"],
-#    visibility=["//visibility:public"],
+    visibility=["//visibility:public"],
 )
 
 
@@ -31,10 +31,12 @@ cc_library(
         "daqmx_hds",
         "syscfg_hds",
         "//driver/breaker:breaker",
-        "//driver/pipeline",
+        "//driver/pipeline:acqReader",
+        "//driver/modules:module",
     ],
     copts = ["/std:c++17"],
     linkopts = ['user32.lib'],
+    visibility=["//visibility:public"]
 )
 
 cc_test(

@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#pragma once
 #include "daqmx.h"
 #include "synnax/synnax.h"
 #include <string>
 #include <vector>
-#include "driver/pipeline/acq.h"
+#include "driver/pipeline/acqReader.h"
 #include "driver/modules/module.h"
 
-#pragma once
 
 
 namespace ni {

@@ -22,20 +22,17 @@ using json = nlohmann::json;
 
 Acq::Acq(){}
 
-void Acq::Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-         synnax::WriterConfig writer_config,
+void Acq::Acq(synnax::WriterConfig writer_config,
          std::unique_ptr<synnax::Synnax> client
          std::vector<ni::channel_config> channels,
          uint64_t acquisition_rate,
          uint64_t stream_rate,
-         Taskhandle taskHandle)  {
-
-    this->daq_reader = std::move(daq_reader);
-    this->client = std::move(client);
-    this->writer_config = writer_config;
+         Taskhandle taskHandle):
+         daq_reader(std::make_unique<niDaqReader>(taskHandle)),
+         client(std::move(client)),
+         writer_config(writer_config){
 
     // instantiate the daq_reader
-    this->daq_reader = std::make_unique<niDaqReader>(taskHandle);
     static_cast <niDaqReader*>(this->daq_reader.get())->init(channels, acquisition_rate, stream_rate);
 
 }

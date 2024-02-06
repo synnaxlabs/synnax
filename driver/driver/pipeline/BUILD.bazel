@@ -20,6 +20,18 @@ cc_library(
     copts = ["/std:c++17"],
 )
 
+cc_library(
+    name = "acqReader",
+    hdrs = ["acqReader.h"],
+
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_google_glog//:glog",
+        "@synnax//synnax",
+    ],
+    copts = ["/std:c++17"],
+)
+
 #cc_test (
 #    name = "acq_test",
 #    srcs = ["acq_test.cpp"],
@@ -29,4 +41,3 @@ cc_library(
 #    ],
 #    copts = ["/std:c++17"],
 #)
-```
