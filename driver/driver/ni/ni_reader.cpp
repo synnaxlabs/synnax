@@ -84,9 +84,13 @@ freighter::Error ni::niDaqReader::stop(){
 }
 
 std::uint64_t ni::niDaqReader::getTimeStamp() {
-    return (uint64_t)(std::chrono::duration_cast<std::chrono::nanoseconds>(
-            std::chrono::high_resolution_clock::now().time_since_epoch()).count());
 
+    std::cout << "Initial timestamp before casting: " <<  std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count() << std::endl;
+
+    uint64_t windows_time = (uint64_t)(std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    return windows_time;
 }
 
 
@@ -95,8 +99,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     char errBuff[2048]={'\0'};
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
 
-    std::uint64_t initial_timestamp = getTimeStamp(); //(synnax::TimeStamp::now()).value;
-    std::cout << "Initial timestamp before casting: " <<  getTimeStamp() << std::endl;
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     std::cout << "Initial Timestamp: " << initial_timestamp << std::endl;
     DAQmxReadAnalogF64(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->data,this->bufferSize,&samplesRead,NULL);
 //    printf("Acquired %d samples\n",(int)samplesRead);
@@ -142,7 +145,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     char errBuff[2048]={'\0'};
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
 
-    std::uint64_t initial_timestamp =  getTimeStamp();//(synnax::TimeStamp::now()).value;
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
     printf("Acquired %d samples\n",(int)samplesRead);
     DAQmxGetExtendedErrorInfo(errBuff,2048);

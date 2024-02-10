@@ -48,7 +48,7 @@ TEST(FramerTests, testWriteBasic) {
     auto frame = synnax::Frame(2);
     frame.add(
             time.key,
-            synnax::Series(std::vector<std::int64_t>{
+            synnax::Series(std::vector<std::uint64_t>{
                     (now.value + synnax::SECOND).value,
                     (now + synnax::SECOND * 2).value,
                     (now + synnax::SECOND * 3).value,
@@ -68,7 +68,9 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
+    std::cout << "end: " << end.value << std::endl;
     ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);
+    //print end
     auto err = writer.close();
     ASSERT_FALSE(err) << err.message();
 }

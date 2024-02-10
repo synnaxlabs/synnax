@@ -70,11 +70,11 @@ private:
             {typeid(int).name(),            "int32"},
             {typeid(double).name(),         "float64"},
             {typeid(float).name(),          "float32"},
-            {typeid(long).name(),           "int64"},
+            {typeid(long long).name(),           "int64"},
             {typeid(short).name(),          "int16"},
             {typeid(char).name(),           "int8"},
             {typeid(unsigned int).name(),   "uint32"},
-            {typeid(unsigned long).name(),  "uint64"},
+            {typeid(unsigned long long).name(),  "uint64"},
             {typeid(unsigned short).name(), "uint16"},
             {typeid(unsigned char).name(),  "uint8"},
             {typeid(std::string).name(),    "string"},
@@ -120,11 +120,11 @@ const DataType JSON = DataType("json");
 class TimeSpan {
 public:
     /// @property value holds the internal, primitive value of the timespan.
-    long value;
+    unsigned long long value;
 
-    /// @brief Constructs a timespan from the given long, interpreting it as a nanosecond-precision
+    /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
     /// timespan.
-    explicit TimeSpan(long i) : value(i) {}
+    explicit TimeSpan(unsigned long long i) : value(i) {}
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
@@ -144,17 +144,17 @@ public:
 
     TimeSpan operator+(const TimeSpan &other) const { return TimeSpan(value + other.value); }
 
-    friend TimeSpan operator+(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs + rhs.value); }
+    friend TimeSpan operator+(const unsigned long long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs + rhs.value); }
 
-    TimeSpan operator+(const long &other) const { return TimeSpan(value + other); }
+    TimeSpan operator+(const unsigned long long &other) const { return TimeSpan(value + other); }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
     TimeSpan operator-(const TimeSpan &other) const { return TimeSpan(value - other.value); }
 
-    friend TimeSpan operator-(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs - rhs.value); }
+    friend TimeSpan operator-(const unsigned long long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs - rhs.value); }
 
-    TimeSpan operator-(const long &other) const { return TimeSpan(value - other); }
+    TimeSpan operator-(const unsigned long long &other) const { return TimeSpan(value - other); }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
@@ -162,9 +162,9 @@ public:
 
     TimeSpan operator*(const float &other) const { return TimeSpan(value * other); }
 
-    friend TimeSpan operator*(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs * rhs.value); }
+    friend TimeSpan operator*(const unsigned long long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs * rhs.value); }
 
-    TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const unsigned long long &other) const { return TimeSpan(value * other); }
 
     TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
@@ -172,17 +172,17 @@ public:
 
     TimeSpan operator/(const TimeSpan &other) const { return TimeSpan(value / other.value); }
 
-    friend TimeSpan operator/(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs / rhs.value); }
+    friend TimeSpan operator/(const unsigned long long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs / rhs.value); }
 
-    TimeSpan operator/(const long &other) const { return TimeSpan(value / other); }
+    TimeSpan operator/(const unsigned long long &other) const { return TimeSpan(value / other); }
 
     ////////////////////////////////// MODULO /////////////////////////////////
 
     TimeSpan operator%(const TimeSpan &other) const { return TimeSpan(value % other.value); }
 
-    friend TimeSpan operator%(const long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs % rhs.value); }
+    friend TimeSpan operator%(const unsigned long long &lhs, const TimeSpan &rhs) { return TimeSpan(lhs % rhs.value); }
 
-    TimeSpan operator%(const long &other) const { return TimeSpan(value % other); }
+    TimeSpan operator%(const unsigned long long &other) const { return TimeSpan(value % other); }
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
@@ -193,13 +193,13 @@ public:
 class TimeStamp {
 public:
     /// @property value holds the internal, primitive value of the timestamp.
-    long value;
+    unsigned long long value;
 
     TimeStamp() = default;
 
-    /// @brief Constructs a timestamp from the given long, interpreting it as a nanosecond-precision UTC
+    /// @brief Constructs a timestamp from the given unsigned long long, interpreting it as a nanosecond-precision UTC
     /// timestamp.
-    explicit TimeStamp(long value) : value(value) {}
+    explicit TimeStamp(unsigned long long value) : value(value) {}
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(TimeSpan ts) : value(ts.value) {}
@@ -228,7 +228,7 @@ public:
 
     TimeStamp operator+(const TimeStamp &other) const { return TimeStamp(value + other.value); }
 
-    friend TimeStamp operator+(const long &lhs, const TimeStamp &rhs) { return TimeStamp(lhs + rhs.value); }
+    friend TimeStamp operator+(const unsigned long long &lhs, const TimeStamp &rhs) { return TimeStamp(lhs + rhs.value); }
 
     TimeStamp operator+(const TimeSpan &other) const { return TimeStamp(value + other.value); }
 
@@ -236,7 +236,7 @@ public:
 
     TimeSpan operator-(const TimeStamp &other) const { return TimeSpan(value - other.value); }
 
-    friend TimeSpan operator-(const long &lhs, const TimeStamp &rhs) { return TimeSpan(lhs - rhs.value); }
+    friend TimeSpan operator-(const unsigned long long &lhs, const TimeStamp &rhs) { return TimeSpan(lhs - rhs.value); }
 
     TimeSpan operator-(const TimeSpan &other) const { return TimeSpan(value - other.value); }
 
