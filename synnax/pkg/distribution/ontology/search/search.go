@@ -128,11 +128,11 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
 	// Split the term into words
 
-	words := strings.Split(req.Term, " ")
+	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
 
 	// this is where we search
 	q := bleve.NewDisjunctionQuery(lo.FlatMap(words, func(word string, _ int) []query.Query {
-		q := bleve.NewFuzzyQuery(word)
+		q := bleve.NewMatchQuery(word)
 		q.SetFuzziness(1)
 		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9_]*" + word + "[a-zA-Z0-9_]*")
 		q3 := bleve.NewPrefixQuery(word)
