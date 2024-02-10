@@ -63,6 +63,11 @@ void Acq::run() {
             // or configuration error and can't proceed.
             retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
         }
+
+        auto s =  frame.series->at(0).uint64();
+        for (int j = 0; j < s.size(); j++){
+            std::cout << s[j] << ", ";
+        }
         std::cout << "Writing" << std::endl;
         if (!writer.write(std::move(frame))) { // write frame to channel
 

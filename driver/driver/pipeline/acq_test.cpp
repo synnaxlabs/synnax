@@ -55,7 +55,8 @@ TEST(AcqTests, testAcqNi){
     ASSERT_FALSE(dErr) << dErr.message();
 
     std::vector<ni::channel_config> channel_configs;
-    channel_configs.push_back(ni::channel_config({"Dev1/ai0", data.key, time.key,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
+    channel_configs.push_back(ni::channel_config({"", time.key, ni::INDEX_CHANNEL , 0, 0}));
+    channel_configs.push_back(ni::channel_config({"Dev1/ai0", data.key, ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
 
     // make and init daqReade unique ptrr
     auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
