@@ -13,11 +13,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/blevesearch/bleve/search/query"
-
 	"github.com/blevesearch/bleve"
 	"github.com/blevesearch/bleve/mapping"
 	"github.com/blevesearch/bleve/search"
+	"github.com/blevesearch/bleve/search/query"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -49,6 +48,7 @@ func New(configs ...Config) (*Index, error) {
 	}
 	s := &Index{Config: cfg}
 	s.mapping = bleve.NewIndexMapping()
+
 	s.idx, err = bleve.NewMemOnly(s.mapping)
 	return s, err
 }
@@ -131,14 +131,14 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
 
 	// this is where we search
-	q := bleve.NewDisjunctionQuery(lo.FlatMap(words, func(word string, _ int) []query.Query {
+	q := bleve.NewConjunctionQuery(lo.Map(words, func(word string, _ int) query.Query {
 		q := bleve.NewMatchQuery(word)
 		q.SetFuzziness(1)
-		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9_]*" + word + "[a-zA-Z0-9_]*")
+		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9\\._[]*[_\\.-]" + word + "[a-zA-Z0-9_]*")
 		q3 := bleve.NewPrefixQuery(word)
-		q4 := bleve.NewRegexpQuery(`[a-zA-Z0-9\.\_[]*` + word + `*?[a-zA-Z0-9\.[\_]*`)
-		return []query.Query{q, q2, q3, q4}
+		return bleve.NewDisjunctionQuery(q, q2, q3)
 	})...)
+
 	search_ := bleve.NewSearchRequest(q)
 	search_.Fields = []string{"Name"}
 	search_.Size = 100
