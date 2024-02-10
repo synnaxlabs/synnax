@@ -23,7 +23,8 @@ namespace ni {
         THERMOCOUPLE_IN,
         ANALOG_CURRENT_IN,
         DIGITAL_IN,
-        DIGITAL_OUT
+        DIGITAL_OUT,
+        INDEX_CHANNEL,
     } ChannelType;
 
     typedef enum {
@@ -43,10 +44,15 @@ namespace ni {
 
         //TODO: implement a calibration class later and put that in here too
     } channel_config;
-    class niDaqReader : daq::AcqReader {
+    class niDaqReader : public  daq::AcqReader { // I need the public keyword to be able to store pointer to niDaqreader in a pointer to acqReader
     public:
         niDaqReader(TaskHandle taskHandle);
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
+        std::pair <synnax::Frame, freighter::Error> read();
+        freighter::Error configure(synnax::Module config);
+        freighter::Error stop();
+        freighter::Error start();
+//        freighter::Error parseJSONConfig(json config);
     private:
         std::vector <channel_config> channels;
         std::uint64_t acq_rate = 0;
@@ -60,19 +66,7 @@ namespace ni {
         uInt32* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
-
-
-
-
-    public:
-        std::pair <synnax::Frame, freighter::Error> read();
-
-        freighter::Error configure(synnax::Module config);
-
-        freighter::Error stop();
-
-        freighter::Error start();
-//        freighter::Error parseJSONConfig(json config);
+        std::uint64_t getTimeStamp();
     };
 }
 

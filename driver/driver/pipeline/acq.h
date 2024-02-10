@@ -14,27 +14,29 @@
 #include <thread>
 #include "driver/breaker/breaker.h"
 #include "acqReader.h"
+#include "driver/ni/ni_reader.h"
+#include "driver/ni/daqmx.h"
+#include <utility>
 
 
 class Acq { // Acquisition Pipeline Class
 public:
     void start();
     void stop();
-    Acq(std::unique_ptr<daq::AcqReader> daq_reader,
-        synnax::WriterConfig writer_config,
-        synnax::StreamerConfig streamer_config);
-
+    Acq::Acq(synnax::WriterConfig writer_config,
+             std::shared_ptr<synnax::Synnax> client,
+             std::unique_ptr<daq::AcqReader> daq_reader);
+    Acq();
 private:
     /// @brief threading.
-    std::atomic<bool> running;
-    std::thread exec_thread;
+//    std::atomic<bool> running = std::atomic_bool(false);
+    bool running = false;
+//    bool running;
+    std::thread acq_thread;
 
     /// @brief synnax IO.
-    std::unique_ptr<synnax::Synnax> client;
+    std::shared_ptr<synnax::Synnax> client;
 
-    /// @brief synnax streamer.
-    std::unique_ptr<synnax::Streamer> streamer;
-    synnax::StreamerConfig streamer_config;
 
     /// @brief synnax writer
     std::unique_ptr<synnax::Writer> writer;
@@ -54,8 +56,8 @@ private:
     std::unique_ptr<breaker::Breaker> breaker;
 
     /// @brief mutex for shared variables
-    static std::mutex mut;
+//    static std::mutex mut;
 
     void run();
-    void runInternal();
+//    void runInternal();
 };

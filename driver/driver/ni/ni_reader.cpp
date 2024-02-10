@@ -15,6 +15,7 @@
 #include "nlohmann/json.hpp"
 #include "synnax/telem/telem.h"
 #include <utility>
+#include <chrono>
 #include <stdio.h>
 
 //#include "<cmath>"
@@ -82,35 +83,54 @@ freighter::Error ni::niDaqReader::stop(){
     return freighter::NIL;
 }
 
+std::uint64_t ni::niDaqReader::getTimeStamp() {
+    return (uint64_t)std::chrono::time_point_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now()).time_since_epoch().count();
+}
+
 
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     signed long samplesRead;
     char errBuff[2048]={'\0'};
-    std::vector<long> time_index(numSamplesPerChannel);
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
-    long initial_timestamp = (synnax::TimeStamp::now()).value;
 
-    std::cout << "Acquiring samples" << std::endl;
-    std::cout << "numSamplesPerChan: " << this->numSamplesPerChannel << std::endl;
+    std::uint64_t initial_timestamp = getTimeStamp(); //(synnax::TimeStamp::now()).value;
+    std::cout << "Initial Timestamp: " << initial_timestamp << std::endl;
     DAQmxReadAnalogF64(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->data,this->bufferSize,&samplesRead,NULL);
     printf("Acquired %d samples\n",(int)samplesRead);
-
     DAQmxGetExtendedErrorInfo(errBuff,2048);
-    printf("DAQmx Error: %s\n",errBuff);
+//    printf("DAQmx Error: %s\n",errBuff); TODO: uncomment this line
+
+
+    // Construct index channel
+    std::vector<std::uint64_t> time_index(numSamplesPerChannel);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
-        time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
+        time_index[i] = initial_timestamp + (std::uint64_t)((1e9/acq_rate)*i);  // time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
     }
 
+
+    // construct synnax frame
     std::vector<float> data_vec(samplesRead);
-    // populate data
+    //print num channels
+    std::cout << "Num Channels: " << numChannels << std::endl;
+    uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
-        std::cout << "SamplesRead: " << samplesRead << std::endl;
-        for(int j = 0; j < samplesRead; j++){
-            data_vec[j] = data[i*samplesRead + j];
+        if(channels[i].channelType == INDEX_CHANNEL ){
+            f.add(channels[i].channel_key, synnax::Series(time_index));
         }
-        f.add(channels[i].channel_key, synnax::Series(data_vec));
+        else{
+            std::cout << "SamplesRead for channel " << i << ": " << samplesRead;
+            for(int j = 0; j < samplesRead; j++){
+                data_vec[j] = data[data_index*samplesRead + j];
+                //print sample
+                std::cout << data_vec[j] << ", ";
+            }
+            std::cout << std::endl;
+            f.add(channels[i].channel_key, synnax::Series(data_vec));
+            data_index++;
+        }
     }
+
     freighter::Error error = freighter::NIL;
     return {std::move(f), error};
 }
@@ -118,33 +138,35 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048]={'\0'};
-    std::vector<long> time_index(numSamplesPerChannel);
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
-    long initial_timestamp = (synnax::TimeStamp::now()).value;
-    std::cout << "Acquiring samples" << std::endl;
-    std::cout << "numSamplesPerChan: " << this->numSamplesPerChannel << std::endl;
-    std::cout << "Buffer Size: " << this->bufferSize << std::endl;
+
+    std::uint64_t initial_timestamp = getTimeStamp(); //(synnax::TimeStamp::now()).value;
     DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
     printf("Acquired %d samples\n",(int)samplesRead);
-
     DAQmxGetExtendedErrorInfo(errBuff,2048);
-    printf("DAQmx Error: %s\n",errBuff);
+    // printf("DAQmx Error: %s\n",errBuff); TODO: uncomment this line
+
+    // Construct index channel
+    std::vector<std::uint64_t> time_index(numSamplesPerChannel);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
-        time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
+        time_index[i] = initial_timestamp + ((1e9/acq_rate)*i);  // time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
     }
-    std::cout << "Time Index data written" << std::endl;
 
+    // construct synnax frame
     std::vector<float> data_vec(samplesRead);
-    // populate data
-    std::cout << "Populating data" << std::endl;
+    uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
-        std::cout << "SamplesRead: " << samplesRead << std::endl;
-        for(int j = 0; j < samplesRead; j++){
-//            std::cout << "Data: " << data[i*samplesRead + j] << std::endl;
-            data_vec[j] = digitalData[i*samplesRead + j];
+        if(channels[i].channelType == INDEX_CHANNEL ){
+            f.add(channels[i].channel_key, synnax::Series(time_index));
         }
-
-        f.add(channels[i].channel_key, synnax::Series(data_vec));
+        else{
+            std::cout << "SamplesRead: " << samplesRead << std::endl;
+            for(int j = 0; j < samplesRead; j++){
+                data_vec[j] = digitalData[data_index*samplesRead + j];
+            }
+            f.add(channels[i].channel_key, synnax::Series(data_vec));
+            data_index++;
+        }
     }
     freighter::Error error = freighter::NIL;
     return {std::move(f), error};

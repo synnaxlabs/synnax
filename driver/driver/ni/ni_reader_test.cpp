@@ -20,6 +20,7 @@ TEST(NiReaderTests, testReadandInitAnalog){
 
     // create a channel config vector
     std::vector<ni::channel_config> channel_configs;
+    channel_configs.push_back(ni::channel_config({"", 0,  ni::INDEX_CHANNEL ,  0, 0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai0", 65531,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai1", 65532,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai2", 65533,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
@@ -35,14 +36,22 @@ TEST(NiReaderTests, testReadandInitAnalog){
 
     std::cout << "Frame size: " <<  frame.size() << std::endl;
     //iterate through each series and print the data
-    for (int i = 0; i < frame.series->size(); i++){\
+    for (int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
-        auto s =  frame.series->at(i).float32();
-        for (int j = 0; j < s.size(); j++){
-            std::cout << s[j] << ", ";
+        // check series type before casting
+        if (frame.series->at(i).data_type == synnax::FLOAT32){
+            auto s =  frame.series->at(i).float32();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << s[j] << ", ";
+            }
+        }
+        else if(frame.series->at(i).data_type == synnax::UINT64){
+            auto s =  frame.series->at(i).uint64();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << s[j] << ", ";
+            }
         }
     }
-
    reader.stop();
 }
 
@@ -57,21 +66,33 @@ TEST(NiReaderTests, testReadandInitDigital){
 
     // create a channel config vector
     std::vector<ni::channel_config> channel_configs;
+    channel_configs.push_back(ni::channel_config({"", 65538,  ni::INDEX_CHANNEL ,  0, 0}));
     channel_configs.push_back(ni::channel_config({"Dev1/port0/line0", 65531,  ni::DIGITAL_IN , -1.0, 1.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/port0/line1", 65532,  ni::DIGITAL_IN , -1.0, 1.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/port0/line2", 65533,  ni::DIGITAL_IN , -1.0, 1.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/port0/line3", 65534,  ni::DIGITAL_IN , -1.0, 1.0}));
+
     reader.init(channel_configs, 1000, 20);
     reader.start();
     auto [frame, err] = reader.read();
 
     std::cout << "Frame size: " <<  frame.size() << std::endl;
+
     //iterate through each series and print the data
-    for (int i = 0; i < frame.series->size(); i++){\
+    for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
-        auto s =  frame.series->at(i).float32();
-        for (int j = 0; j < s.size(); j++){
-            std::cout << s[j] << ", ";
+        // check series type before casting
+        if (frame.series->at(i).data_type == synnax::FLOAT32){
+            auto s =  frame.series->at(i).float32();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << s[j] << ", ";
+            }
+        }
+        else if(frame.series->at(i).data_type == synnax::UINT64){
+            auto s =  frame.series->at(i).uint64();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << s[j] << ", ";
+            }
         }
     }
     reader.stop();
