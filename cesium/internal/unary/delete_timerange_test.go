@@ -7,67 +7,85 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cesium_test
+package unary_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	var db *cesium.DB
 	var (
-		basic1      cesium.ChannelKey = 1
-		basic2      cesium.ChannelKey = 2
-		basic2index cesium.ChannelKey = 3
-		basic3index cesium.ChannelKey = 5
-		basic4index cesium.ChannelKey = 4
-		basic4      cesium.ChannelKey = 6
-		basic5      cesium.ChannelKey = 7
-		basic6      cesium.ChannelKey = 8
+		db        *unary.DB
+		indexDB   *unary.DB
+		rateDB    *unary.DB
+		index     cesium.ChannelKey = 11
+		data      cesium.ChannelKey = 12
+		rate      cesium.ChannelKey = 13
+		defaultFS                   = fs.Default
+		pth1                        = "./tests/synnaxUnaryTestsIndex"
+		pth2                        = "./tests/synnaxUnaryTests"
+		pth3                        = "./tests/synnaxUnaryTestsRate"
 	)
-	BeforeAll(func() {
-		db = openMemDB()
+	BeforeEach(func() {
+		By("Creating channels")
+		indexDB = MustSucceed(unary.Open(unary.Config{
+			FS: MustSucceed(fs.Default.Sub(pth1)),
+			Channel: core.Channel{
+				Key:      index,
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+				Index:    index,
+			},
+		}))
+		db = MustSucceed(unary.Open(unary.Config{
+			FS: MustSucceed(fs.Default.Sub(pth2)),
+			Channel: core.Channel{
+				Key:      data,
+				DataType: telem.Int64T,
+				Index:    index,
+			},
+		}))
+		rateDB = MustSucceed(unary.Open(unary.Config{
+			FS: MustSucceed(fs.Default.Sub(pth3)),
+			Channel: core.Channel{
+				Key:      rate,
+				DataType: telem.Int64T,
+				Rate:     1 * telem.Hz,
+			},
+		}))
+		db.SetIndex(indexDB.Index())
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	AfterEach(func() {
+		Expect(db.Close()).To(Succeed())
+		Expect(indexDB.Close()).To(Succeed())
+		Expect(rateDB.Close()).To(Succeed())
+		Expect(defaultFS.Remove("tests")).To(Succeed())
+	})
 	Describe("Simple Rate-based channel", func() {
 		It("Should delete chunks of a channel", func() {
-			By("Creating a channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic1},
-				Start:    10 * telem.SecondTS,
-			}))
-
 			By("Writing data to the channel")
-			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{basic1},
-				[]telem.Series{
-					telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18),
-				}),
-			)
-			Expect(ok).To(BeTrue())
-			_, ok = w.Commit()
-			Expect(ok).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
+			Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
 
 			// Data before deletion: 10, 11, 12, 13, 14, 15, 16, 17, 18
 
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic1, telem.TimeRange{
+			Expect(rateDB.Delete(ctx, telem.TimeRange{
 				Start: 12 * telem.SecondTS,
 				End:   15 * telem.SecondTS,
 			})).To(Succeed())
 
 			// Data after deletion: 10, 11, __, __, __, 15, 16, 17, 18
+			iter := rateDB.OpenIterator(unary.IterRange((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
+			Expect(iter.SeekFirst(ctx)).To(BeTrue())
 
-			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
+			frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS})
 			Expect(err).To(BeNil())
 			Expect(frame.Series).To(HaveLen(2))
 
@@ -89,36 +107,16 @@ var _ = Describe("Delete", Ordered, func() {
 
 	Describe("Simple Index-based channel", func() {
 		It("Should delete chunks of a channel", func() {
-			By("Creating an indexed channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic2index, IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: basic2, Index: basic2index, DataType: telem.Int64T},
-			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic2, basic2index},
-				Start:    10 * telem.SecondTS,
-			}))
-
 			By("Writing data to the channel")
-			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{basic2, basic2index},
-				[]telem.Series{
-					telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
-					telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
-				}),
-			)
-			Expect(ok).To(BeTrue())
-			_, ok = w.Commit()
-			Expect(ok).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
+			Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+			Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
 			// Before deletion:
 			// 10 11 12 13 14 15 16 17 18 19
 			//  0  1  2  3  4  5  6  7  8  9
 
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic2, telem.TimeRange{
+			Expect(db.Delete(ctx, telem.TimeRange{
 				Start: 12 * telem.SecondTS,
 				End:   17 * telem.SecondTS,
 			})).To(Succeed())
@@ -127,7 +125,7 @@ var _ = Describe("Delete", Ordered, func() {
 			// 10 11 12 13 14 15 16 17 18 19
 			//  0  1                 7  8  9
 
-			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2)
+			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
 			Expect(err).To(BeNil())
 			Expect(frame.Series).To(HaveLen(2))
 			Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
@@ -149,34 +147,14 @@ var _ = Describe("Delete", Ordered, func() {
 
 	Describe("Deleting simple index channel", func() {
 		It("Should Delete chunks off the index channel", func() {
-			By("Creating an indexed channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic3index, IsIndex: true, DataType: telem.TimeStampT},
-			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic3index},
-				Start:    10 * telem.SecondTS,
-			}))
-
 			By("Writing data to the channel")
-			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{basic3index},
-				[]telem.Series{
-					telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
-				}),
-			)
-			Expect(ok).To(BeTrue())
-			_, ok = w.Commit()
-			Expect(ok).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
-
 			// Before deletion:
 			// 10 11 12 13 14 15 16 17 18 19
 			//  0  1  2  3  4  5  6  7  8  9
+			Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
 
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic3index, telem.TimeRange{
+			Expect(indexDB.Delete(ctx, telem.TimeRange{
 				Start: 12 * telem.SecondTS,
 				End:   17 * telem.SecondTS,
 			})).To(Succeed())
@@ -184,7 +162,7 @@ var _ = Describe("Delete", Ordered, func() {
 			// After deletion:
 			// 10 11                17 18 19
 
-			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic3index)
+			frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
 			Expect(err).To(BeNil())
 			Expect(frame.Series).To(HaveLen(2))
 
@@ -203,83 +181,25 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 	})
 
-	Describe("Deleting Index Channel when other channels depend on it", func() {
-		It("Should not allow such deletion when another channel is indexed by it on the sa me time range", func() {
-			By("Creating an indexed channel and a channel indexed by it")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic4index, IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: basic4, Index: basic4index, DataType: telem.Int64T},
-			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{basic4, basic4index},
-				Start:    10 * telem.SecondTS,
-			}))
-
-			By("Writing data to the channel")
-			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{basic4, basic4index},
-				[]telem.Series{
-					telem.NewSeriesV[int64](100, 101, 102),
-					telem.NewSecondsTSV(10, 11, 12),
-				}),
-			)
-			Expect(ok).To(BeTrue())
-			_, ok = w.Commit()
-			Expect(ok).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
-
-			// Before deletion:
-			// 10 11 12 13 14 15 16 17 18 19
-			//  0  1  2  3  4  5  6  7  8  9
-
-			By("Deleting channel data")
-			err := db.DeleteTimeRange(ctx, basic4index, telem.TimeRange{
-				Start: 12 * telem.SecondTS,
-				End:   17 * telem.SecondTS,
-			})
-
-			Expect(err.Error()).To(ContainSubstring("depending"))
-		})
-	})
 	Describe("Deleting Time-based channel across multiple pointers", func() {
 		It("Should complete such deletions with the appropriate pointers and tombstones", func() {
-			By("Creating a channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic5, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-			)).To(Succeed())
-
 			By("Writing data to the channel")
 			for i := 1; i <= 9; i++ {
 				var data []int64
 				for j := 0; j <= 9; j++ {
 					data = append(data, int64(i*10+j))
 				}
-				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{basic5},
-					Start:    telem.TimeStamp(10*i) * telem.SecondTS,
-				}))
-				ok := w.Write(cesium.NewFrame(
-					[]cesium.ChannelKey{basic5},
-					[]telem.Series{
-						telem.NewSeriesV[int64](data...),
-					}),
-				)
-				Expect(ok).To(BeTrue())
-				_, ok = w.Commit()
-				Expect(ok).To(BeTrue())
-				Expect(w.Close()).To(Succeed())
+				Expect(unary.Write(ctx, rateDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
 			}
 
 			// should have been written to 10 - 99
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic5, telem.TimeRange{
+			Expect(rateDB.Delete(ctx, telem.TimeRange{
 				Start: 33 * telem.SecondTS,
 				End:   75 * telem.SecondTS,
 			})).To(Succeed())
 
-			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic5)
+			frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
 			Expect(err).To(BeNil())
 			Expect(frame.Series).To(HaveLen(6))
 
@@ -298,42 +218,23 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 
 		It("Should work for deleting whole pointers", func() {
-			By("Creating a channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic6, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-			)).To(Succeed())
-
 			By("Writing data to the channel")
 			for i := 1; i <= 9; i++ {
 				var data []int64
 				for j := 0; j <= 9; j++ {
 					data = append(data, int64(i*10+j))
 				}
-				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{basic6},
-					Start:    telem.TimeStamp(10*i) * telem.SecondTS,
-				}))
-				ok := w.Write(cesium.NewFrame(
-					[]cesium.ChannelKey{basic6},
-					[]telem.Series{
-						telem.NewSeriesV[int64](data...),
-					}),
-				)
-				Expect(ok).To(BeTrue())
-				_, ok = w.Commit()
-				Expect(ok).To(BeTrue())
-				Expect(w.Close()).To(Succeed())
+				Expect(unary.Write(ctx, rateDB, telem.TimeStamp(10*i)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
 			}
 
 			// should have been written to 10 - 99
 			By("Deleting channel data")
-			Expect(db.DeleteTimeRange(ctx, basic6, telem.TimeRange{
+			Expect(rateDB.Delete(ctx, telem.TimeRange{
 				Start: 20 * telem.SecondTS,
 				End:   50 * telem.SecondTS,
 			})).To(Succeed())
 
-			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic6)
+			frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
 			Expect(err).To(BeNil())
 			Expect(frame.Series).To(HaveLen(6))
 
@@ -344,6 +245,41 @@ var _ = Describe("Delete", Ordered, func() {
 			series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 			Expect(series1Data).ToNot(ContainElement(49))
 			Expect(series1Data).To(ContainElement(50))
+
+			Expect(frame.Series[5].TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
+		})
+
+		It("Should work for deleting whole pointers in an indexed channel", func() {
+			By("Writing data to the channel")
+			for i := 1; i <= 9; i++ {
+				var index []telem.TimeStamp
+				var content []int64
+				for j := 0; j <= 9; j++ {
+					index = append(index, telem.TimeStamp(i*10+j))
+					content = append(content, int64(i*100+j*10))
+				}
+				Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSecondsTSV(index...))).To(Succeed())
+				Expect(unary.Write(ctx, db, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](content...))).To(Succeed())
+			}
+
+			// should have been written to 10 - 99
+			By("Deleting channel data")
+			Expect(db.Delete(ctx, telem.TimeRange{
+				Start: 20 * telem.SecondTS,
+				End:   50 * telem.SecondTS,
+			})).To(Succeed())
+
+			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+			Expect(err).To(BeNil())
+			Expect(frame.Series).To(HaveLen(6))
+
+			series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+			Expect(series0Data).ToNot(ContainElement(200))
+
+			Expect(frame.Series[1].TimeRange.Start).To(Equal(50 * telem.SecondTS))
+			series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+			Expect(series1Data).ToNot(ContainElement(490))
+			Expect(series1Data).To(ContainElement(500))
 
 			Expect(frame.Series[5].TimeRange.End).To(BeNumerically("<", 100*telem.SecondTS))
 		})
