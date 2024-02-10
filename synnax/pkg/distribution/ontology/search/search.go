@@ -134,7 +134,7 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	q := bleve.NewConjunctionQuery(lo.Map(words, func(word string, _ int) query.Query {
 		q := bleve.NewMatchQuery(word)
 		q.SetFuzziness(1)
-		q2 := bleve.NewRegexpQuery("[a-zA-Z0-9\\._[]*[_\\.-]" + word + "[a-zA-Z0-9_]*")
+		q2 := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
 		q3 := bleve.NewPrefixQuery(word)
 		return bleve.NewDisjunctionQuery(q, q2, q3)
 	})...)
