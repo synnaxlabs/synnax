@@ -17,7 +17,7 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/x/deque"
+	"github.com/synnaxlabs/x/stack"
 )
 
 // A dictionary mapping operators to their token
@@ -72,22 +72,22 @@ func findTokens(s string) (tokens []string, err error) {
 	return re.FindAllString(s, -1), err
 }
 
-func popOperators(output *deque.Deque[interface{}], operators *deque.Deque[string]) error {
-	op := operators.PopBack()
+func popOperators(output *stack.Stack[interface{}], operators *stack.Stack[string]) error {
+	op, _ := operators.Pop()
 	if op == "!" {
-		if output.Len() == 0 {
+		X, err := output.Pop()
+		if err != nil {
 			return errors.Wrap(InvalidExpressionError, "Invalid expression: unary operator used with no operand")
 		}
-		X := output.PopBack()
-		output.PushBack(&ast.UnaryExpr{Op: token.NOT, X: X.(ast.Expr)})
+		output.Push(&ast.UnaryExpr{Op: token.NOT, X: X.(ast.Expr)})
 		return nil
 	}
-	if output.Len() < 2 {
+	Y, err1 := output.Pop()
+	X, err2 := output.Pop()
+	if err1 != nil || err2 != nil {
 		return errors.Wrap(InvalidExpressionError, "Invalid expression: binary operator used with only one operand")
 	}
-	Y := output.PopBack()
-	X := output.PopBack()
-	output.PushBack(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
+	output.Push(&ast.BinaryExpr{X: X.(ast.Expr), Op: operatorTokens[op], Y: Y.(ast.Expr)})
 	return nil
 }
 
@@ -97,8 +97,8 @@ func (e *Expression) Build(s string) error {
 	if tokenError != nil {
 		return errors.Wrap(InvalidExpressionError, "Invalid expression: invalid token")
 	}
-	output := deque.Deque[interface{}]{}
-	operators := deque.Deque[string]{}
+	output := stack.Stack[interface{}]{}
+	operators := stack.Stack[string]{}
 	//	Use shunting-yard algorithm
 	for i := 0; i < len(tokens); i++ {
 		t := tokens[i]
@@ -109,48 +109,48 @@ func (e *Expression) Build(s string) error {
 				_, tokenInDict = precedence[tokens[i-1]]
 			}
 			if i == 0 || (tokenInDict) {
-				output.PushBack(&ast.BasicLit{Kind: token.FLOAT, Value: "-1"})
-				operators.PushBack("*")
+				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: "-1"})
+				operators.Push("*")
 			} else {
-				for operators.Len() > 0 && precedence[operators.Back()] >= precedence[t] {
+				for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
 					if err := popOperators(&output, &operators); err != nil {
 						return err
 					}
 				}
-				operators.PushBack(t)
+				operators.Push(t)
 			}
 		case "+", "*", "/", "==", "!=", ">", "<", ">=", "<=", "&&", "||":
-			for operators.Len() > 0 && precedence[operators.Back()] >= precedence[t] {
+			for operators.Len() > 0 && precedence[*operators.Peek()] >= precedence[t] {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
 			}
-			operators.PushBack(t)
+			operators.Push(t)
 		case "^":
-			for operators.Len() > 0 && precedence[operators.Back()] > precedence[t] {
+			for operators.Len() > 0 && precedence[*operators.Peek()] > precedence[t] {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
 			}
-			operators.PushBack(t)
+			operators.Push(t)
 		case "(", "!":
-			operators.PushBack(t)
+			operators.Push(t)
 		case ")":
-			for operators.Len() > 0 && operators.Back() != "(" {
+			for operators.Len() > 0 && *operators.Peek() != "(" {
 				if err := popOperators(&output, &operators); err != nil {
 					return err
 				}
 			}
-			if operators.Len() == 0 {
+			_, err := operators.Pop()
+			if err != nil {
 				return errors.Wrap(InvalidExpressionError, "Invalid expression: mismatched parentheses")
 			}
-			operators.PopBack()
 		default:
 			_, err := strconv.ParseFloat(t, 64)
 			if err != nil {
-				output.PushBack(&ast.Ident{Name: t})
+				output.Push(&ast.Ident{Name: t})
 			} else {
-				output.PushBack(&ast.BasicLit{Kind: token.FLOAT, Value: t})
+				output.Push(&ast.BasicLit{Kind: token.FLOAT, Value: t})
 			}
 
 		}
@@ -161,10 +161,10 @@ func (e *Expression) Build(s string) error {
 			return err
 		}
 	}
-	if output.Len() == 0 {
-		return errors.Wrap(InvalidExpressionError, "Invalid expression: invalid number of operands")
+	exp, err := output.Pop()
+	if err != nil {
+		return err
 	}
-	exp := output.PopBack()
 	e.exp = exp.(ast.Expr)
 	return nil
 }
