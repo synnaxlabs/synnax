@@ -27,18 +27,11 @@ import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/input/Item.css";
 
-interface ItemExtensionProps extends Align.SpaceExtensionProps {
-  label?: string;
-  showLabel?: boolean;
-  helpText?: string;
-  className?: string;
-  style?: React.CSSProperties;
-}
-
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
   showLabel?: boolean;
   helpText?: string;
+  padHelpText?: boolean;
 }
 
 const maybeDefaultAlignment = (
@@ -58,6 +51,7 @@ export const Item = ({
   children,
   align,
   size = "small",
+  padHelpText = false,
   ...props
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
@@ -65,15 +59,15 @@ export const Item = ({
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
-        {helpText != null && <HelpText>{helpText}</HelpText>}
+        {(padHelpText || helpText != null) && <HelpText>{helpText}</HelpText>}
       </Align.Space>
     );
   else
     inputAndHelp = (
-      <>
+      <Align.Space direction="y" size={1 / 3}>
         {children}
-        {helpText != null && <HelpText>{helpText}</HelpText>}
-      </>
+        {(padHelpText || helpText != null) && <HelpText>{helpText}</HelpText>}
+      </Align.Space>
     );
 
   return (
@@ -93,12 +87,13 @@ export const Item = ({
 export type ItemControlledProps<
   I extends Value = string | number,
   O extends Value = I,
-> = ItemExtensionProps &
+> = Omit<ItemProps, "children"> &
   Omit<UseControllerProps<any, string>, "controller"> & {
     children?: RenderProp<
       Control<I, O> & { onBlur?: () => void; ref?: React.Ref<any> }
     >;
     alsoValidate?: string[];
+    padHelpText?: boolean;
   };
 
 const defaultChild = componentRenderProp(Text);
@@ -111,6 +106,7 @@ export const HFItem = <I extends Value = string | number, O extends Value = I>({
   label,
   children = defaultChild as unknown as RenderProp<Control<I, O>>,
   alsoValidate,
+  padHelpText = true,
   ref: _,
   ...props
 }: ItemControlledProps<I, O>): ReactElement => {
@@ -128,7 +124,12 @@ export const HFItem = <I extends Value = string | number, O extends Value = I>({
   }, [field.onBlur, trigger, alsoValidate, name]);
 
   return (
-    <Item label={label} helpText={fieldState.error?.message} {...props}>
+    <Item
+      label={label}
+      padHelpText={padHelpText}
+      helpText={fieldState.error?.message}
+      {...props}
+    >
       {children({
         onChange: field.onChange,
         value: field.value,

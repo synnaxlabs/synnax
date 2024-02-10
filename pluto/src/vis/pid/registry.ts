@@ -214,6 +214,7 @@ const fourWayValve: Spec<ValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: FourWayValvePreview,
 };
@@ -231,6 +232,7 @@ const angledValve: Spec<AngledValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: AngledValvePreview,
 };
@@ -248,6 +250,7 @@ const pump: Spec<PumpProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: PumpPreview,
 };
@@ -450,7 +453,7 @@ const value: Spec<ValueProps> = {
   Preview: ValuePreview,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    level: "small",
+    level: "h5",
     label: {
       label: "Value",
       level: "p",
@@ -461,14 +464,14 @@ const value: Spec<ValueProps> = {
       connections: [
         {
           from: "valueStream",
-          to: "stringify",
+          to: "stringifier",
         },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: 0 }),
-        stringify: telem.stringifyNumber({ precision: 2 }),
+        stringifier: telem.stringifyNumber({ precision: 2 }),
       },
-      outlet: "stringify",
+      outlet: "stringifier",
     }),
   }),
 };

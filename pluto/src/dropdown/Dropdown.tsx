@@ -86,6 +86,7 @@ export interface DialogProps
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
   matchTriggerWidth?: boolean;
+  variant?: "connected" | "floating";
 }
 
 interface State {
@@ -119,6 +120,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       keepMounted = true,
       className,
       matchTriggerWidth = false,
+      variant = "connected",
       // It's common to pass these in, so we'll destructure and ignore them so we don't
       // get an invalid prop on div tag error.
       open: _o,
@@ -142,7 +144,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
       const loc_ = loc.construct(location ?? (toBottom > toTop ? "bottom" : "top"));
       const pos = xy.construct(box.left(b), box.loc(b, loc_));
       setState({ pos, loc: loc_, width: box.width(b) });
-    }, []);
+    }, [variant]);
 
     if (ref.current != null) {
       if (visible && (visibleRef.current == null || !visibleRef.current)) {
@@ -156,11 +158,18 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
     const dialogStyle: CSSProperties = { ...xy.css(pos) };
     if (matchTriggerWidth) dialogStyle.width = width;
 
+    const C = variant === "connected" ? Align.Pack : Align.Space;
+
     return (
-      <Align.Pack
+      <C
         {...props}
         ref={combinedRef}
-        className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
+        className={CSS(
+          className,
+          CSS.B("dropdown"),
+          CSS.visible(visible),
+          CSS.M(variant),
+        )}
         direction="y"
         reverse={loc_ === "top"}
       >
@@ -179,7 +188,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
             {children[1]}
           </Align.Space>
         )}
-      </Align.Pack>
+      </C>
     );
   },
 );

@@ -9,8 +9,6 @@
 
 import { forwardRef } from "react";
 
-import { evaluate } from "mathjs";
-
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
@@ -43,12 +41,13 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       onChange,
       className,
       onFocus,
-      selectOnFocus = true,
+      selectOnFocus = false,
       centerPlaceholder = false,
       placeholder,
       variant = "outlined",
       sharp = false,
       children,
+      level,
       ...props
     },
     ref,
@@ -57,12 +56,13 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       style={style}
       className={CSS(
         CSS.B("input"),
-        CSS.size(size),
+        level == null && CSS.size(size),
         CSS.BM("input", variant),
         CSS.sharp(sharp),
         className,
       )}
       align="center"
+      size={size}
     >
       <div className={CSS.BE("input", "internal")}>
         {(value == null || value.length === 0) && (
@@ -72,7 +72,10 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
               centerPlaceholder && CSS.M("centered"),
             )}
           >
-            {CoreText.formatChildren(CoreText.ComponentSizeLevels[size], placeholder)}
+            {CoreText.formatChildren(
+              level ?? CoreText.ComponentSizeLevels[size],
+              placeholder,
+            )}
           </div>
         )}
         <input
@@ -81,12 +84,14 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           onChange={(e) => {
             onChange?.(e.target.value);
           }}
+          autoCapitalize="off"
+          autoComplete="off"
+          autoCorrect="off"
           onFocus={(e) => {
             onFocus?.(e);
             if (selectOnFocus) setTimeout(() => e.target.select(), 0);
           }}
-          placeholder={placeholder as string}
-          className={CSS.visible(false)}
+          className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
           {...props}
         />
       </div>

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type FC } from "react";
+import { useCallback, type ReactElement, type FC, useState } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import { type location, type dimensions, type xy, type bounds } from "@synnaxlabs/x";
@@ -39,8 +39,6 @@ import { SelectOrientation } from "./SelectOrientation";
 
 import "@/vis/pid/Forms.css";
 
-import { Core } from "@/telem/client/client";
-
 export interface SymbolFormProps<P extends object> {
   value: P;
   onChange: (value: P) => void;
@@ -54,10 +52,6 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   {
     tabKey: "control",
     name: "Control",
-  },
-  {
-    tabKey: "tooltip",
-    name: "Tooltip",
   },
 ];
 
@@ -374,6 +368,9 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
+  const stringifier = telem.stringifyNumberProps.parse(
+    sourceP.segments.stringifier.props,
+  );
   const handleSourceChange = (v: channel.Key): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
@@ -385,8 +382,26 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
       segments: {
         valueStream: telem.streamChannelValue({ channel: v }),
         stringifier: telem.stringifyNumber({
-          precision: 2,
-          suffix: " psi",
+          precision: stringifier.precision ?? 2,
+        }),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
+  const handlePrecisionChange = (precision: number): void => {
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "stringifier",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        stringifier: telem.stringifyNumber({
+          precision,
         }),
       },
       outlet: "stringifier",
@@ -399,6 +414,13 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
       <Input.Item label="Input Channel">
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
+      <Input.Item label="Percision" align="start">
+        <Input.Numeric
+          value={stringifier.precision ?? 2}
+          bounds={{ lower: 0, upper: 10 }}
+          onChange={handlePrecisionChange}
+        />
+      </Input.Item>
     </FormWrapper>
   );
 };
@@ -410,7 +432,24 @@ export const ValueForm = ({ value, onChange }: ValueFormProps): ReactElement => 
         case "telemetry":
           return <ValueTelemetryForm value={value} onChange={onChange} />;
         default: {
-          return <CommonNonToggleForm value={value} onChange={onChange} />;
+          return (
+            <FormWrapper direction="x">
+              <Align.Space direction="y" grow>
+                <LabelControls value={value} onChange={onChange} />
+                <Align.Space direction="x">
+                  <ColorControl value={value} onChange={onChange} />
+
+                  <Input.Item label="Units" align="start">
+                    <Input.Text
+                      value={value.units ?? ""}
+                      onChange={(v) => onChange({ ...value, units: v })}
+                    />
+                  </Input.Item>
+                </Align.Space>
+              </Align.Space>
+              <OrientationControl value={value} onChange={onChange} />
+            </FormWrapper>
+          );
         }
       }
     },

@@ -13,9 +13,9 @@
     position: fixed;
     z-index: 2001;
     border: var(--pluto-border-l4);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(3rem);
     background-color: var(--pluto-gray-l0-30);
-    -webkit-backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(3rem);
     box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 24px;
     border-radius: 1rem;
     padding: 1rem;

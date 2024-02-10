@@ -9,6 +9,8 @@
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
+import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 import { v4 as uuidV4 } from "uuid";
@@ -102,6 +104,10 @@ export interface SetElementPropsPayload {
   layoutKey: string;
   key: string;
   props: NodeProps;
+}
+
+export interface FixThemeContrastPayload {
+  theme: Theming.ThemeSpec;
 }
 
 export interface SetNodesPayload {
@@ -393,6 +399,34 @@ export const { actions, reducer } = createSlice({
       const pid = state.pids[layoutKey];
       pid.remoteCreated = true;
     },
+    fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
+      const { theme } = payload;
+      const bgColor = new Color.Color(theme.colors.gray.l0);
+      Object.values(state.pids).forEach((pid) => {
+        const { nodes, edges, props } = pid;
+        nodes.forEach((node) => {
+          const nodeProps = props[node.key];
+          if ("color" in nodeProps) {
+            const c = new Color.Color(nodeProps.color as string);
+            // check the contrast of the color
+            if (c.contrast(bgColor) < 1.1) {
+              // if the contrast is too low, change the color to the contrast color
+              nodeProps.color = theme.colors.gray.l9;
+            }
+          }
+        });
+        edges.forEach((edge) => {
+          if (
+            edge.color != null &&
+            new Color.Color(edge.color as string).contrast(bgColor) < 1.1
+          ) {
+            edge.color = theme.colors.gray.l9;
+          } else if (edge.color == null) {
+            edge.color = theme.colors.gray.l9;
+          }
+        });
+      });
+    },
   },
 });
 
@@ -431,6 +465,7 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
+  fixThemeContrast,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

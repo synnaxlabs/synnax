@@ -37,21 +37,21 @@
 }
 
 .pluto-text-icon--h4 svg {
-    width: var(--pluto-h4-line-height);
-    min-width: var(--pluto-h4-line-height);
-    height: var(--pluto-h4-line-height);
+    width: calc(var(--pluto-h4-size) * 1.1);
+    min-width: calc(var(--pluto-h4-size) * 1.1);
+    height: calc(var(--pluto-h4-size) * 1.1);
 }
 
 .pluto-text-icon--h5 svg {
-    width: var(--pluto-h5-line-height);
-    min-width: var(--pluto-h5-line-height);
-    height: var(--pluto-h5-line-height);
+    width: calc(var(--pluto-h5-size) * 1.1);
+    min-width: calc(var(--pluto-h5-size) * 1.1);
+    height: calc(var(--pluto-h5-size) * 1.1);
 }
 
 .pluto-text-icon--p svg {
-    width: var(--pluto-p-size);
-    min-width: var(--pluto-p-size);
-    height: var(--pluto-p-size);
+    width: calc(var(--pluto-p-size) * 1.1);
+    min-width: calc(var(--pluto-p-size) * 1.1);
+    height: calc(var(--pluto-p-size) * 1.1);
 }
 
 .pluto-text-icon--small svg {

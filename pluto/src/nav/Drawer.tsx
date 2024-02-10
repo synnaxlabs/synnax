@@ -19,6 +19,8 @@ import { Eraser } from "@/vis/eraser";
 
 import "@/nav/Drawer.css";
 
+import { act } from "react-dom/test-utils";
+
 export interface DrawerItem {
   key: string;
   content: ReactElement;
@@ -63,10 +65,11 @@ export const Drawer = Aether.wrap<DrawerProps>(
     onResize,
     ...props
   }): ReactElement | null => {
-    if (activeItem == null) return null;
     const dir = location.direction(loc_);
-    const { key, content, ...rest } = activeItem;
-    const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
+    const handleCollapse = useCallback(
+      () => activeItem != null && onSelect?.(activeItem.key),
+      [onSelect, activeItem?.key],
+    );
     const erase = Eraser.use({ aetherKey });
     const handleResize = useCallback(
       (size: number, box: box.Box) => {
@@ -75,6 +78,8 @@ export const Drawer = Aether.wrap<DrawerProps>(
       },
       [onResize, erase],
     );
+    if (activeItem == null) return null;
+    const { content, ...rest } = activeItem;
     return (
       <Resize.Single
         className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
@@ -85,7 +90,7 @@ export const Drawer = Aether.wrap<DrawerProps>(
         {...rest}
         {...props}
       >
-        {content}
+        {activeItem.content}
       </Resize.Single>
     );
   },

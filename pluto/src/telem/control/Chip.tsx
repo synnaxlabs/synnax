@@ -43,7 +43,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
         chipColor: "var(--pluto-error-z)",
       };
     case "success":
-      if (status.data?.authority === clientControl.Authority.ABSOLUTE)
+      if (status.data?.authority === clientControl.Authority.ABSOLUTE.valueOf())
         return {
           message: "You have absolute control. Click to release.",
           chipColor: "var(--pluto-secondary-z)",

@@ -373,7 +373,7 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement => {
   return (
     <>
       <Input.HFItem<string> name={`${prefix}.name`} label="Name" showLabel={false}>
-        {(props) => <Input.TextArea {...props} />}
+        {(props) => <Input.TextArea placeholder="Range Name" {...props} />}
       </Input.HFItem>
       <Input.HFItem<number> name={`${prefix}.dataType`} label="Data Type">
         {(props) => (

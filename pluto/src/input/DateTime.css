@@ -1,0 +1,7 @@
+
+.pluto-input-date-time {
+    & .pluto-input-date {
+        width: min-content;
+    }
+
+}

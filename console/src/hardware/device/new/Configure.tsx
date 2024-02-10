@@ -173,7 +173,6 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
             });
           }),
         );
-        console.log(output);
 
         const tasks = methods.getValues().softwarePlan.tasks as NITask[];
         if (client == null) return;

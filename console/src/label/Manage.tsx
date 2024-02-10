@@ -23,7 +23,7 @@ import {
   Nav,
   Header,
 } from "@synnaxlabs/pluto";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -128,7 +128,7 @@ const Form = ({
 }: FormProps): ReactElement => {
   const client = Synnax.use();
 
-  const { control, handleSubmit, reset } = useForm({
+  const methods = useForm({
     defaultValues,
     resolver: zodResolver(label.newLabelPayloadZ),
   });
@@ -145,37 +145,39 @@ const Form = ({
       el="form"
       onSubmit={(e) => {
         e.preventDefault();
-        void handleSubmit(onSubmit)(e);
+        void methods.handleSubmit(onSubmit)(e);
       }}
       direction="x"
     >
-      <Input.HFItem control={control} showLabel={false} name="color">
-        {({ value, onChange, ...props }) => (
-          <Color.Swatch value={value} onChange={(c) => onChange(c.hex)} {...props} />
+      <FormProvider {...methods}>
+        <Input.HFItem showLabel={false} name="color">
+          {({ value, onChange, ...props }) => (
+            <Color.Swatch value={value} onChange={(c) => onChange(c.hex)} {...props} />
+          )}
+        </Input.HFItem>
+        <Input.HFItem name="name" showLabel={false} grow>
+          {(p) => <Input.Text placeholder="Name" {...p} />}
+        </Input.HFItem>
+        {!isEdit ? (
+          <Button.Button
+            variant="filled"
+            type="submit"
+            disabled={client == null}
+            startIcon={<Icon.Add />}
+          >
+            New Label
+          </Button.Button>
+        ) : (
+          <>
+            <Button.Button variant="outlined" onClick={onFinish}>
+              Cancel
+            </Button.Button>
+            <Button.Button variant="filled" type="submit">
+              Save
+            </Button.Button>
+          </>
         )}
-      </Input.HFItem>
-      <Input.HFItem control={control} name="name" showLabel={false} grow>
-        {(p) => <Input.Text placeholder="Name" {...p} />}
-      </Input.HFItem>
-      {!isEdit ? (
-        <Button.Button
-          variant="filled"
-          type="submit"
-          disabled={client == null}
-          startIcon={<Icon.Add />}
-        >
-          New Label
-        </Button.Button>
-      ) : (
-        <>
-          <Button.Button variant="outlined" onClick={onFinish}>
-            Cancel
-          </Button.Button>
-          <Button.Button variant="filled" type="submit">
-            Save
-          </Button.Button>
-        </>
-      )}
+      </FormProvider>
     </Align.Space>
   );
 };

@@ -10,7 +10,7 @@
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { toArray } from "@synnaxlabs/x";
+import { TimeSpan, toArray } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
 import { type SpaceElementType } from "@/align/Space";
@@ -49,6 +49,7 @@ export type ButtonProps<E extends SpaceElementType = "button"> = Omit<
     endIcon?: ReactElement | ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
+    delay?: number | TimeSpan;
   };
 
 /**
@@ -78,11 +79,19 @@ export const Core = Tooltip.wrap(
     loading = false,
     level,
     startIcon = [] as ReactElement[],
+    delay = 0,
     onClick,
     ...props
   }: ButtonProps<E>): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+
+    const handleClick: ButtonProps<E>["onClick"] = (e) => {
+      if (disabled) return;
+      const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
+      if (span.isZero) return onClick?.(e);
+    };
+
     return (
       // @ts-expect-error
       <Text.WithIcon<E, any>
@@ -98,9 +107,9 @@ export const Core = Tooltip.wrap(
         type={type}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
-        onClick={!disabled ? onClick : undefined}
+        onClick={handleClick}
         noWrap
-        color={color(variant, disabled, props.color)}
+        color={color(variant, disabled, props.color, props.shade)}
         startIcon={startIcon}
         {...props}
       >

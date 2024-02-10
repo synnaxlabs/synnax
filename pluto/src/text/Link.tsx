@@ -10,19 +10,19 @@
 import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-import { type Level } from "@/text/types";
 
 import "@/text/Link.css";
 
-export type LinkProps<L extends Level = "h1"> = Omit<TextProps<L>, "ref"> & {
+export type LinkProps<L extends text.Level = "h1"> = Omit<TextProps<L>, "ref"> & {
   href?: string;
   download?: string;
   target?: string;
   rel?: string;
 };
 
-const CoreLink = <L extends Level = "h1">(
+const CoreLink = <L extends text.Level = "h1">(
   { href, download, target, rel, ...props }: LinkProps<L>,
   ref: ForwardedRef<HTMLAnchorElement>,
 ): ReactElement => (
@@ -40,6 +40,6 @@ const CoreLink = <L extends Level = "h1">(
 );
 
 // @ts-expect-error
-export const Link = forwardRef(CoreLink) as <L extends Level = "h1">(
+export const Link = forwardRef(CoreLink) as <L extends text.Level = "h1">(
   props: LinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> },
 ) => ReactElement;

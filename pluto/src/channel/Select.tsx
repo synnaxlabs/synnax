@@ -28,6 +28,10 @@ const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
     name: "Name",
   },
   {
+    key: "alias",
+    name: "Alias",
+  },
+  {
     key: "rate",
     name: "Rate",
   },
@@ -65,7 +69,7 @@ export interface SelectMultipleProps
   columns?: string[];
 }
 
-const DEFAULT_FILTER = ["name"];
+const DEFAULT_FILTER = ["name", "alias"];
 
 const useColumns = (
   filter: string[],
@@ -73,17 +77,7 @@ const useColumns = (
   const aliases = useAliases();
   return useMemo(() => {
     if (filter.length === 0) return channelColumns;
-    return channelColumns
-      .filter((column) => filter.includes(column.key))
-      .map((column) => {
-        if (column.key === "name") {
-          return {
-            ...column,
-            stringer: (entry: channel.Payload) => aliases[entry.key] ?? entry.name,
-          };
-        }
-        return column;
-      });
+    return channelColumns.filter((column) => filter.includes(column.key));
   }, [filter, aliases]);
 };
 

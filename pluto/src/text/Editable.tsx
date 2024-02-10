@@ -13,12 +13,12 @@ import type { KeyboardEvent, ReactElement } from "react";
 import { CSS } from "@/css";
 import { type Input } from "@/input";
 import { type state } from "@/state";
+import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-import { type Level } from "@/text/types";
 
 import "@/text/Editable.css";
 
-export type EditableProps<L extends Level = "h1"> = Omit<
+export type EditableProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
   "children" | "onChange"
 > &
@@ -38,7 +38,7 @@ export const edit = (id: string): void => {
   d.setAttribute("contenteditable", "true");
 };
 
-export const Editable = <L extends Level = "h1">({
+export const Editable = <L extends text.Level = "h1">({
   onChange,
   value,
   useEditableState = useState,
@@ -108,14 +108,14 @@ export const Editable = <L extends Level = "h1">({
   );
 };
 
-export type MaybeEditableProps<L extends Level = "h1"> = Omit<
+export type MaybeEditableProps<L extends text.Level = "h1"> = Omit<
   EditableProps<L>,
   "onChange"
 > & {
   onChange?: EditableProps<L>["onChange"] | boolean;
 };
 
-export const MaybeEditable = <L extends Level = "h1">({
+export const MaybeEditable = <L extends text.Level = "h1">({
   onChange,
   value,
   allowDoubleClick,

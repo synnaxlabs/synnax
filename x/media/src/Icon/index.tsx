@@ -31,7 +31,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
+import { BsLightbulbFill, BsShiftFill, BsSave} from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
@@ -85,6 +85,7 @@ import {
   MdAlignVerticalTop,
   MdAlignVerticalBottom,
   MdHardware,
+  MdSaveAlt,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
@@ -229,6 +230,7 @@ export const Icon: IconType = {
   },
   Hardware: MdHardware,
   Module: RiSoundModuleFill,
+  Save: MdSaveAlt,
 };
 
 
@@ -334,4 +336,5 @@ export interface IconType {
   };
   Hardware: IconFC;
   Module: IconFC;
+  Save: IconFC;
 }

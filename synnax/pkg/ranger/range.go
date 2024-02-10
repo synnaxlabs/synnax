@@ -89,6 +89,15 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
 }
 
+func (r Range) GetAlias(ctx context.Context, ch channel.Key) (string, error) {
+	var res alias
+	err := gorp.NewRetrieve[string, alias]().
+		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+		Entry(&res).
+		Exec(ctx, r.tx)
+	return res.Alias, err
+}
+
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
 	var res alias
 	matcher := func(a *alias) bool { return a.Range == r.Key && a.Alias == al }

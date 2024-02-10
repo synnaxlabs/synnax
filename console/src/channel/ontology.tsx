@@ -128,7 +128,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
-      {activeRange != null && (
+      {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
             <Menu.Item itemKey="alias" startIcon={<Icon.Rename />}>

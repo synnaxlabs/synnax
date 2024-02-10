@@ -11,11 +11,12 @@
 
 
  .pluto-list__item {
-    border-bottom: var(--pluto-border);
-    border-color: var(--pluto-gray-l2);
     cursor: pointer;
     padding: 2rem;
-
+    border-top: var(--pluto-border);
+    margin-top: -1px;
+    border-color: var(--pluto-gray-l2);
+    
     &:is(:hover, .pluto--hovered) {
         background: var(--pluto-gray-l3);
     }
@@ -26,7 +27,11 @@
 
     &.pluto--selected {
         background: var(--pluto-gray-l2);
+
         box-shadow: inset 2px 0 0 var(--pluto-primary-z);
+        &.pluto--right-aligned {
+            box-shadow: inset -2px 0 0 var(--pluto-primary-z);
+        }
     }
 
  }

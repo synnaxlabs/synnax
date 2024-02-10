@@ -10,6 +10,7 @@
  */
 
 .pluto-navbar {
+    position: relative;
     flex-shrink: 0;
 }
 
@@ -50,4 +51,10 @@
 .pluto-navbar.pluto--y .pluto-navbar__content.pluto--end {
     order: 100;
     margin-top: auto;
+}
+
+.pluto-navbar.pluto--x .pluto-navbar__content.pluto--absolute-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }

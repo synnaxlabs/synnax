@@ -36,15 +36,31 @@ export const TimeRangeChip = ({ timeRange }: TimeRangeChipProps): ReactElement =
       className={CSS(CSS.B("time-range-chip"))}
       align="center"
     >
-      {startTS.isToday && <Text.Text level="small">Today</Text.Text>}
-      <Text.DateTime level="small" displayTZ="local" format={startFormat}>
+      {startTS.isToday && (
+        <Text.Text level="p" shade={7} weight={450}>
+          Today
+        </Text.Text>
+      )}
+      <Text.DateTime
+        level="p"
+        displayTZ="local"
+        format={startFormat}
+        shade={7}
+        weight={450}
+      >
         {startTS}
       </Text.DateTime>
       <Icon.Arrow.Right color="var(--pluto-text-color)" />
       {isOpen ? (
-        <Text.Text level="small">Now</Text.Text>
+        <Text.Text level="p">Now</Text.Text>
       ) : (
-        <Text.DateTime level="small" displayTZ="local" format={endFormat}>
+        <Text.DateTime
+          level="p"
+          displayTZ="local"
+          format={endFormat}
+          shade={7}
+          weight={450}
+        >
           {endTS}
         </Text.DateTime>
       )}

@@ -18,7 +18,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { setRanges } from "@/lineplot/slice";
 import { Ontology } from "@/ontology";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
 import { type StoreState, add, remove, setActive } from "@/range/slice";
@@ -140,7 +140,7 @@ const handleEdit = ({
   selection: { resources },
   placeLayout,
 }: Ontology.TreeContextMenuProps) => {
-  placeLayout({ ...defineWindowLayout, key: resources[0].id.key });
+  placeLayout({ ...editLayout, key: resources[0].id.key });
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

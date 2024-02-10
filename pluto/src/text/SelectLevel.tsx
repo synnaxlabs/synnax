@@ -11,15 +11,15 @@ import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
-import { type Level } from "@/text/types";
+import { type text } from "@/text/core";
 
 interface Entry {
-  key: Level;
+  key: text.Level;
   label: string;
 }
 
 export interface SelectLevelProps
-  extends Omit<ButtonProps<Level, Entry>, "data" | "entryRenderKey"> {}
+  extends Omit<ButtonProps<text.Level, Entry>, "data" | "entryRenderKey"> {}
 
 const DATA: Entry[] = [
   {
@@ -49,7 +49,7 @@ const defaultSelectDirectionButton = ({
   entry,
   onClick,
   selected,
-}: ButtonOptionProps<Level, Entry>): ReactElement => {
+}: ButtonOptionProps<text.Level, Entry>): ReactElement => {
   return (
     <CoreButton.Button
       key={key}

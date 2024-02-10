@@ -126,11 +126,13 @@ func (r *region[E]) unprotectedUpdate(
 	g *Gate[E],
 	auth control.Authority,
 ) (t Transfer) {
+	prevAuth := g.Authority
 	g.Authority = auth
 
 	// Gate is in control, should it not be?
 	if g == r.curr {
 		t.From = g.State()
+		t.From.Authority = prevAuth
 		for og := range r.gates {
 			var (
 				isGate     = og == g

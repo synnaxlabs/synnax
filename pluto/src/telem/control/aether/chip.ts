@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Authority } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -37,10 +38,11 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
     this.internal.source = telem.useSource(this.ctx, sourceProps, this.internal.source);
     this.internal.sink = telem.useSink(this.ctx, sinkProps, this.internal.sink);
 
-    if (this.state.triggered && !this.prevState.triggered)
+    if (this.state.triggered && !this.prevState.triggered) {
       this.internal.sink
-        .set(this.state.status.variant !== "success")
+        .set(this.state.status.data.authority !== Authority.ABSOLUTE.valueOf())
         .catch(console.error);
+    }
 
     void (async () => {
       await this.updateEnabledState();

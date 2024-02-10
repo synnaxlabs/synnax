@@ -11,14 +11,22 @@ import { type ReactElement } from "react";
 
 import { Header } from "@synnaxlabs/pluto";
 
+import { CSS } from "@/css";
+
+import "@/components/Toolbar/Toolbar.css";
+
 export const ToolbarHeader = (
   props: Omit<Header.HeaderProps, "level" | "divided">,
-): ReactElement => <Header.Header level="h4" {...props} />;
+): ReactElement => (
+  <Header.Header className={CSS.B("toolbar-header")} level="h5" {...props} />
+);
 
 export interface ToolbarTitleProps extends Pick<Header.TitleProps, "children"> {
   icon: ReactElement;
 }
 
 export const ToolbarTitle = ({ icon, children }: ToolbarTitleProps): ReactElement => (
-  <Header.Title startIcon={icon}>{children}</Header.Title>
+  <Header.Title shade={8} weight={500} startIcon={icon}>
+    {children}
+  </Header.Title>
 );

@@ -10,21 +10,13 @@
 import { forwardRef, useCallback, useState, type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
-import { z } from "astro/zod";
-import { useForm } from "react-hook-form";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Button } from "@synnaxlabs/pluto/button";
-import { Input } from "@synnaxlabs/pluto/input";
 
 import "@/input/Time.css";
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Icon } from "@synnaxlabs/media";
 
 export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
@@ -37,6 +29,44 @@ export interface TimeProps extends BaseProps<number>, DragButtonExtensionProps {
 const DRAG_SCALE = {
   x: TimeSpan.SECOND.valueOf() * 0.5,
   y: TimeSpan.MINUTE.valueOf(),
+};
+
+export interface UseTimeProps
+  extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
+
+export interface UseTimeReturn {
+  value: string;
+  onChange: (value: string | number) => void;
+}
+
+export const useTime = ({ value, onChange, tzInfo }: UseTimeProps) => {
+  const ts = new TimeStamp(value, "UTC");
+
+  // We want to check for remainder overflow in LOCAL time.
+  const local = ts.sub(TimeStamp.utcOffset);
+  // All good.
+  if (local.after(TimeStamp.DAY)) {
+    // Chop off the extra time.
+    const tsV = local.remainder(TimeStamp.DAY);
+    // We have a correcly zeroed timestamp in local, now
+    // add back the UTC offset to get the UTC timestamp.
+    onChange(new TimeStamp(tsV, "local").valueOf());
+  }
+
+  const handleChange = useCallback(
+    (value: number | string) => {
+      let ts: TimeStamp;
+      if (typeof value === "number") ts = new TimeStamp(value, "UTC");
+      else if (value.length === 0) return;
+      else ts = new TimeStamp(value, "local");
+      onChange(ts.valueOf());
+    },
+    [onChange, tzInfo],
+  );
+
+  const inputValue = ts.fString("time", tzInfo);
+
+  return { inputValue, ts, handleChange };
 };
 
 /**
@@ -74,31 +104,7 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
     }: TimeProps,
     ref,
   ) => {
-    const ts = new TimeStamp(value, "UTC");
-
-    // We want to check for remainder overflow in LOCAL time.
-    const local = ts.sub(TimeStamp.utcOffset);
-    // All good.
-    if (local.after(TimeStamp.DAY)) {
-      // Chop off the extra time.
-      const tsV = local.remainder(TimeStamp.DAY);
-      // We have a correcly zeroed timestamp in local, now
-      // add back the UTC offset to get the UTC timestamp.
-      onChange(new TimeStamp(tsV, "local").valueOf());
-    }
-
-    const handleChange = useCallback(
-      (value: number | string) => {
-        let ts: TimeStamp;
-        if (typeof value === "number") ts = new TimeStamp(value, "UTC");
-        else if (value.length === 0) return;
-        else ts = new TimeStamp(value, "local");
-        onChange(ts.valueOf());
-      },
-      [onChange, tzInfo],
-    );
-
-    const inputValue = ts.fString("time", tzInfo);
+    const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
     return (
       <Text
         ref={ref}

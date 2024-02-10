@@ -15,7 +15,7 @@ import { Align, Header } from "@synnaxlabs/pluto";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 
 const Content = (): ReactElement => {
   const p = Layout.usePlacer();
@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(defineWindowLayout),
+              onClick: () => p(editLayout("Create Range")),
             },
           ]}
         </Header.Actions>

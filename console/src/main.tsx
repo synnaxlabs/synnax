@@ -38,14 +38,13 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-
-// import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
-  defineRange: Range.Define,
+  defineRange: Range.EditLayout,
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,

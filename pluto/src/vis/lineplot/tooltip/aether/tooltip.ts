@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, xy } from "@synnaxlabs/x";
+import { TimeStamp, bounds, box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -72,9 +72,12 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     );
     const { draw } = this.internal;
 
-    const avgXDecimal = values.reduce((p, c) => p + c.position.x, 0) / values.length;
+    const avgXPosition = values.reduce((p, c) => p + c.position.x, 0) / values.length;
+    const avgXValue = new TimeStamp(
+      values.reduce((p, c) => p + c.value.x, 0) / values.length,
+    );
 
-    const rulePosition = s.x.pos(avgXDecimal);
+    const rulePosition = s.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
 
     draw.rule({
@@ -101,15 +104,21 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
+    text.unshift(`Time: ${avgXValue.fString("preciseDate")}`);
 
     draw.textContainer({
       text,
       backgroundColor: this.state.backgroundColor,
       borderColor: this.state.borderColor,
-      position: xy.translate(this.state.position, [10, 10]),
+      position: this.state.position,
       direction: "y",
       level: "small",
       spacing: 1,
+      offset: { x: 12, y: 12 },
+      root: {
+        x: avgXPosition > 0.8 ? "right" : "left",
+        y: this.state.position.y / box.height(region) > 0.8 ? "bottom" : "top",
+      },
     });
   }
 }

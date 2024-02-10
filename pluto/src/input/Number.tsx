@@ -13,6 +13,7 @@ import {
   useCallback,
   useState,
   type FocusEventHandler,
+  useEffect,
 } from "react";
 
 import { bounds } from "@synnaxlabs/x";
@@ -22,7 +23,7 @@ import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 
-import { Triggers, useCombinedStateAndRef } from "..";
+import { Triggers, useCombinedStateAndRef, useSyncedRef } from "..";
 
 export interface NumericProps
   extends Omit<BaseProps<number>, "type">,
@@ -67,7 +68,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       showDragHandle = true,
       dragScale,
       selectOnFocus = true,
-      bounds: b = bounds.INFINITE,
+      bounds: propsBounds = bounds.INFINITE,
       resetValue,
       style,
       variant = "outlined",
@@ -97,19 +98,25 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         ok = false;
       }
       if (ok) {
-        onChange?.(v);
+        onChange?.(bounds.clamp(propsBounds, v));
       } else {
         setInternalValue(value.toString());
       }
     }, [onChange, setInternalValue]);
+
+    const updateActualValueRef = useSyncedRef(updateActualValue);
 
     const handleBlur: FocusEventHandler<HTMLInputElement> = useCallback(
       (e) => {
         onBlur?.(e);
         updateActualValue();
       },
-      [onBlur],
+      [onBlur, updateActualValue],
     );
+
+    // Sometimes we don't blur the component before it unmounts, so this makes
+    // sure we try to update the actual value on unmount.
+    useEffect(() => () => updateActualValueRef.current?.(), []);
 
     const handleChange = useCallback(
       (v: string) => {
@@ -127,7 +134,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     const onDragChange = useCallback(
       (value: number) => {
         setIsValueValid(false);
-        setInternalValue(Math.round(value).toString());
+        setInternalValue(Math.round(bounds.clamp(propsBounds, value)).toString());
       },
       [setInternalValue, setIsValueValid],
     );
@@ -136,10 +143,18 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     const onDragEnd = useCallback(
       (value: number) => {
         setIsValueValid(true);
-        onChange?.(value);
+        onChange?.(bounds.clamp(propsBounds, Math.round(value)));
       },
       [onChange, setIsValueValid],
     );
+
+    if (dragScale == null) {
+      // make X 5% of the bounds and Y 10% of the bounds
+      dragScale = {
+        x: bounds.span(propsBounds) * 0.01,
+        y: bounds.span(propsBounds) * 0.02,
+      };
+    }
 
     return (
       <Text

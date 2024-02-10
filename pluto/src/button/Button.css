@@ -111,6 +111,8 @@
     justify-content: center;
     align-items: center;
     aspect-ratio: 1;
+    color: var(--pluto-gray-l9);
+    font-weight: 600;
 }
 
 .pluto-btn-icon > svg {

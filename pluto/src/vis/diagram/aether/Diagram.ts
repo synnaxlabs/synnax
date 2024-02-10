@@ -38,7 +38,7 @@ interface InternalState {
   addStatus: status.Aggregate;
 }
 
-const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
+const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
 
 export const useInitialViewport = (): Viewport => {
   const flow = useReactFlow();

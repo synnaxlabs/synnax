@@ -30,6 +30,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "gray-l1": theme.colors.gray.l1.hex,
     ...createHexOpacityVariants("gray-l1", theme.colors.gray.l1, OPACITIES),
     "gray-l2": theme.colors.gray.l2.hex,
+    ...createHexOpacityVariants("gray-l2", theme.colors.gray.l2, OPACITIES),
     "gray-l3": theme.colors.gray.l3.hex,
     ...createHexOpacityVariants("gray-l3", theme.colors.gray.l3, OPACITIES),
     "gray-l4": theme.colors.gray.l4.hex,

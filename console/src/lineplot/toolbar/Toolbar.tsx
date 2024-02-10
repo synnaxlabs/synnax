@@ -96,7 +96,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
+          <Tabs.Selector size="medium" />
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

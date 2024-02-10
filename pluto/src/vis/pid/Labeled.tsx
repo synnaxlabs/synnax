@@ -54,6 +54,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
           ...style,
         }}
         align="center"
+        size={2 / 3}
         justify="center"
         direction={orientation}
         ref={ref}
@@ -61,6 +62,7 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
         {...props}
       >
         <Text.Editable
+          className={CSS.BE("symbol", "label")}
           value={value}
           onChange={useCallback(
             (label) =>

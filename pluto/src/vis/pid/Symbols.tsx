@@ -561,12 +561,13 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     precision,
     width,
     telem,
+    units,
     onChange,
   }): ReactElement => {
     const font = Theming.useTypography(level);
     const [box_, setBox] = useState<box.Box>(box.ZERO);
 
-    const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
+    const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
     const resizeRef = useResize(setBox, {});
 
     const zoom = useInitialViewport().zoom;
@@ -579,14 +580,13 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
       position,
     );
 
-    CoreValue.use({
+    const { width: oWidth } = CoreValue.use({
       aetherKey,
       color: textColor,
       level,
       box: adjustedBox,
       telem,
-      precision,
-      width,
+      minWidth: 60,
     });
 
     return (
@@ -601,11 +601,10 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
           color={color}
           dimensions={{
             height: valueBoxHeight,
-            width: 100,
+            width: oWidth,
           }}
-        >
-          {children}
-        </Primitives.Value>
+          units={units}
+        />
       </Labeled>
     );
   },
@@ -660,7 +659,7 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => {
         height: 25,
       }}
     >
-      <Text.Text level="small">500 psi</Text.Text>
+      <Text.Text level="p">50.00</Text.Text>
     </Primitives.Value>
   );
 };

@@ -18,3 +18,4 @@ export * from "@/input/Switch";
 export * from "@/input/types";
 export * from "@/input/Time";
 export * from "@/input/TextArea";
+export * from "@/input/DateTime";

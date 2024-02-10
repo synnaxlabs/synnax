@@ -45,6 +45,7 @@ export class Channel {
   leaseholder: number;
   index: Key;
   isIndex: boolean;
+  alias: string | undefined;
 
   constructor({
     dataType,
@@ -52,10 +53,10 @@ export class Channel {
     name,
     leaseholder = 0,
     key = 0,
-    density = 0,
     isIndex = false,
     index = 0,
     frameClient,
+    alias,
   }: NewPayload & {
     frameClient?: framer.Client;
     density?: CrudeDensity;
@@ -67,6 +68,7 @@ export class Channel {
     this.leaseholder = leaseholder;
     this.index = index;
     this.isIndex = isIndex;
+    this.alias = alias;
     this._frameClient = frameClient ?? null;
   }
 
@@ -145,9 +147,9 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return single ? res[0] : res;
   }
 
-  async retrieve(channel: KeyOrName): Promise<Channel>;
+  async retrieve(channel: KeyOrName, rangeKey?: string): Promise<Channel>;
 
-  async retrieve(channels: Params): Promise<Channel[]>;
+  async retrieve(channels: Params, rangeKey?: string): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -157,10 +159,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(channels: Params): Promise<Channel | Channel[]> {
+  async retrieve(channels: Params, rangeKey?: string): Promise<Channel | Channel[]> {
     const { single, actual, normalized } = analyzeParams(channels);
     if (normalized.length === 0) return [];
-    const res = this.sugar(await this.retriever.retrieve(channels));
+    const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
     if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
     if (res.length > 1)
@@ -176,8 +178,8 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return new SearcherUnderRange(this, rangeKey);
   }
 
-  async page(offset: number, limit: number): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit));
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Channel[]> {
+    return this.sugar(await this.retriever.page(offset, limit, rangeKey));
   }
 
   private sugar(payloads: Payload[]): Channel[] {
@@ -200,10 +202,10 @@ class SearcherUnderRange implements AsyncTermSearcher<string, Key, Channel> {
   }
 
   async page(offset: number, limit: number): Promise<Channel[]> {
-    return await this.client.page(offset, limit);
+    return await this.client.page(offset, limit, this.rangeKey);
   }
 
   async retrieve(channels: Key[]): Promise<Channel[]> {
-    return await this.client.retrieve(channels);
+    return await this.client.retrieve(channels, this.rangeKey);
   }
 }

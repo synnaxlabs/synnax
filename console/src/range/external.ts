@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/range/Define";
+export * from "@/range/EditLayout";
 export * from "@/range/Toolbar";
 export * from "@/range/accordionEntry";
 export * from "@/range/Select";

@@ -36,7 +36,7 @@ export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
-  name: "Connect a Cluster",
+  name: "Connect Cluster",
   location: "window",
   window: {
     resizable: false,
@@ -91,9 +91,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Header.Header level="h4">
-        <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
-      </Header.Header>
       <FormProvider {...methods}>
         <Align.Space
           id="connect-cluster"
@@ -102,38 +99,33 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           onSubmit={handleSubmit}
           className="console-form"
           grow
+          empty
+          justify="center"
         >
-          <Align.Space>
-            <Input.HFItem<string> name="name">
-              {(p) => <Input.Text placeholder="My Synnax Cluster" {...p} />}
+          <Input.HFItem<string> name="name">
+            {(p) => <Input.Text placeholder="My Synnax Cluster" {...p} />}
+          </Input.HFItem>
+          <Align.Space direction="x">
+            <Input.HFItem<string> name="host" grow>
+              {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Input.HFItem>
-            <Align.Space direction="x" grow>
-              <Input.HFItem<string> name="host">
-                {(p) => <Input.Text placeholder="localhost" {...p} />}
-              </Input.HFItem>
-              <Input.HFItem<number>
-                name="port"
-                control={c}
-                className={CSS.BE("input", "port")}
-              >
-                {(p) => <Input.Text showDragHandle={false} placeholder="9090" {...p} />}
-              </Input.HFItem>
-            </Align.Space>
-            <Input.HFItem<string> name="username">
-              {(p) => <Input.Text placeholder="Harry" {...p} />}
+            <Input.HFItem<number> name="port" className={CSS.BE("input", "port")}>
+              {(p) => <Input.Text showDragHandle={false} placeholder="9090" {...p} />}
             </Input.HFItem>
-            <Align.Space direction="x">
-              <Input.HFItem<string>
-                name="password"
-                control={c}
-                className={CSS.BE("input", "password")}
-              >
-                {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
-              </Input.HFItem>
-              <Input.HFItem<boolean> name="secure">
-                {componentRenderProp(Input.Switch)}
-              </Input.HFItem>
-            </Align.Space>
+          </Align.Space>
+          <Input.HFItem<string> name="username">
+            {(p) => <Input.Text placeholder="Harry" {...p} />}
+          </Input.HFItem>
+          <Align.Space direction="x">
+            <Input.HFItem<string>
+              name="password"
+              className={CSS.BE("input", "password")}
+            >
+              {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
+            </Input.HFItem>
+            <Input.HFItem<boolean> name="secure">
+              {componentRenderProp(Input.Switch)}
+            </Input.HFItem>
           </Align.Space>
         </Align.Space>
       </FormProvider>

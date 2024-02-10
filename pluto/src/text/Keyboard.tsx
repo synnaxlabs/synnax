@@ -10,14 +10,14 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { type text } from "@/text/core";
 import { type TextProps, Text } from "@/text/Text";
-import { type Level } from "@/text/types";
 
 import "@/text/Keyboard.css";
 
-export type KeyboardProps<L extends Level = "h1"> = TextProps<L>;
+export type KeyboardProps<L extends text.Level = "h1"> = TextProps<L>;
 
-export const Keyboard = <L extends Level = "p">({
+export const Keyboard = <L extends text.Level = "p">({
   className,
   ...props
 }: KeyboardProps<L>): ReactElement => (

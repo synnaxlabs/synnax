@@ -12,14 +12,14 @@ import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { type Level } from "@/text/types";
+import { type text } from "@/text/core";
 
 import "@/text/Text.css";
 
 /* Shade sets the shade color of the text */
 export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-export interface CoreProps<L extends Level = Level> {
+export interface CoreProps<L extends text.Level = text.Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
@@ -33,13 +33,13 @@ export interface CoreProps<L extends Level = Level> {
   weight?: number;
 }
 
-export type TextProps<L extends Level = "h1"> = Omit<
+export type TextProps<L extends text.Level = "h1"> = Omit<
   Generic.ElementProps<L>,
   "el" | "color" | "children"
 > &
   CoreProps<L>;
 
-const CoreText = <L extends Level = Level>(
+const CoreText = <L extends text.Level = text.Level>(
   {
     level = "h1" as L,
     color,
@@ -65,7 +65,7 @@ const CoreText = <L extends Level = Level>(
   </Generic.Element>
 );
 
-export const Text = forwardRef(CoreText) as <L extends Level = "h1">(
+export const Text = forwardRef(CoreText) as <L extends text.Level = "h1">(
   props: TextProps<L>,
 ) => ReactElement;
 

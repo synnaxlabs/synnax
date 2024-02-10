@@ -22,6 +22,7 @@ export interface ItemFrameProps<K extends Key, E extends KeyedRenderableRecord<K
   extends Omit<ItemProps<K, E>, "columns">,
     Omit<Align.SpaceProps, "key" | "style" | "onSelect"> {
   draggingOver?: boolean;
+  rightAligned?: boolean;
 }
 
 export const ItemFrame = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -31,17 +32,22 @@ export const ItemFrame = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
   onSelect,
   className,
   draggingOver = false,
+  rightAligned = false,
   ...props
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
+    id={entry.key.toString()}
     direction="x"
     onClick={() => onSelect?.(entry.key)}
-    onContextMenu={() => onSelect?.(entry.key)}
+    onContextMenu={() => {
+      !selected && onSelect?.(entry.key);
+    }}
     className={CSS(
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
       hovered && CSS.M("hovered"),
+      rightAligned && CSS.M("right-aligned"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
     )}

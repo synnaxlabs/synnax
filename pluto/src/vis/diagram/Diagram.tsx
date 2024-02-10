@@ -386,6 +386,7 @@ const Core = Aether.wrap<DiagramProps>(
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
+            selectionMode="partial"
             proOptions={{
               hideAttribution: true,
             }}

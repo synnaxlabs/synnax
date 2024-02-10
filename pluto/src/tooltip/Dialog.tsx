@@ -179,9 +179,7 @@ export const Dialog = ({
     }
 
     let pos = box.xyLoc(container, xyLoc);
-    console.log(pos);
     const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
-    console.log(xyLoc, translate, container);
     if (translate != null) pos = translate(pos, container);
 
     setState({

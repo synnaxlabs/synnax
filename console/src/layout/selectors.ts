@@ -63,7 +63,7 @@ export const useSelectRequired = (key: string): LayoutState =>
  */
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): [string, Mosaic.Node] => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
@@ -94,16 +94,19 @@ export const selectActiveThemeKey = (state: StoreState): string =>
  */
 export const selectTheme = (
   state: StoreState,
-  key?: string
+  key?: string,
 ): Theming.Theme | null | undefined => {
   const t = selectByKey(
     selectSliceState(state).themes,
     key,
-    selectActiveThemeKey(state)
+    selectActiveThemeKey(state),
   );
   if (t == null) return t;
   return Theming.themeZ.parse(t);
 };
+
+export const selectRawTheme = (state: StoreState, key?: string): Theming.ThemeSpec =>
+  selectByKey(selectSliceState(state).themes, key, selectActiveThemeKey(state));
 
 /**
  * Selects the current theme from the store.
@@ -137,7 +140,7 @@ export const useSelectMany = (keys?: string[]): LayoutState[] =>
 
 export const selectNavDrawer = (
   state: StoreState,
-  loc: NavdrawerLocation
+  loc: NavdrawerLocation,
 ): NavdrawerEntryState => state.layout.nav.drawers[loc];
 
 export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
@@ -145,7 +148,7 @@ export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState 
 
 export const selectActiveMosaicTabKey = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): string | null => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
@@ -157,7 +160,7 @@ export const useSelectActiveMosaicTabKey = (): string | null =>
 
 export const selectActiveMosaicTab = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): LayoutState | undefined => {
   const activeTabKey = selectActiveMosaicTabKey(state, windowKey);
   if (activeTabKey == null) return undefined;

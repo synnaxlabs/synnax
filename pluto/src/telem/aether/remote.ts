@@ -72,14 +72,18 @@ export class StreamChannelValue
   }
 
   async read(): Promise<void> {
-    this.valid = true;
-    const { channel } = this.props;
-    const now = TimeStamp.now()
-      .sub(TimeStamp.seconds(10))
-      .spanRange(TimeSpan.seconds(20));
-    const d = await this.client.read(now, [channel]);
-    this.leadingBuffer = d[channel].data[0];
-    await this.updateStreamHandler();
+    try {
+      this.valid = true;
+      const { channel } = this.props;
+      const now = TimeStamp.now()
+        .sub(TimeStamp.seconds(10))
+        .spanRange(TimeSpan.seconds(20));
+      const d = await this.client.read(now, [channel]);
+      this.leadingBuffer = d[channel].data[0];
+      await this.updateStreamHandler();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   private async updateStreamHandler(): Promise<void> {

@@ -200,6 +200,11 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     onChange(v);
   };
 
+  const handleFocus: Input.TextProps["onFocus"] = (e) => {
+    onChange("");
+    onFocus?.(e);
+  };
+
   return (
     <Input.Text
       ref={ref}
@@ -211,7 +216,10 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       placeholder={placeholder}
       value={value}
       onChange={handleChange}
-      onFocus={onFocus}
+      onFocus={handleFocus}
+      autoComplete="off"
+      autoCapitalize="off"
+      autoCorrect="off"
       {...props}
     >
       <Align.Space

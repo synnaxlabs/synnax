@@ -83,11 +83,14 @@ const Center = contentFactory("center");
 Center.displayName = "NavbarCenter";
 const Content = contentFactory("");
 Content.displayName = "NavbarContent";
+const AbsoluteCenter = contentFactory("absolute-center");
+AbsoluteCenter.displayName = "NavbarAbsoluteCenter";
 
 export interface BarType extends CoreBarType {
   Start: typeof Start;
   Center: typeof Center;
   End: typeof End;
+  AbsoluteCenter: typeof AbsoluteCenter;
   Content: typeof Content;
 }
 
@@ -96,4 +99,5 @@ export const Bar = CoreBar as BarType;
 Bar.Start = Start;
 Bar.Center = Center;
 Bar.End = End;
+Bar.AbsoluteCenter = AbsoluteCenter;
 Bar.Content = Content;

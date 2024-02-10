@@ -9,6 +9,7 @@
 
 import { type ReactNode, type ComponentPropsWithoutRef } from "react";
 
+import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export type Value = unknown;
@@ -26,7 +27,7 @@ type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 
-export type Variant = "outlined" | "shadow";
+export type Variant = "outlined" | "shadow" | "natural";
 
 export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   extends Control<I, O> {
@@ -35,6 +36,7 @@ export interface ExtensionProps<I extends Value = Value, O extends Value = I>
   sharp?: boolean;
   placeholder?: ReactNode;
   children?: ReactNode;
+  level?: Text.Level;
 }
 
 export interface BaseProps<I extends Value = Value, O extends Value = I>

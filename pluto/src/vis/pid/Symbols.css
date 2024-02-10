@@ -17,3 +17,8 @@
     padding: 0 1rem 1rem;
 }
 
+.pluto-symbol__label {
+    /* scale the font to 0.9 of its current */
+    transform: scale(0.85);
+
+}

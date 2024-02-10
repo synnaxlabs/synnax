@@ -385,6 +385,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "Uncontrolled",
         time,
+        data: { color: undefined, authority: 0 },
       };
 
     return {

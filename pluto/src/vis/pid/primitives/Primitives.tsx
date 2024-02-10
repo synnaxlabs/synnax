@@ -27,6 +27,7 @@ import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
+import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 import "@/vis/pid/primitives/Primitives.css";
@@ -864,6 +865,7 @@ export const AngledReliefValve = ({
 export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
+  units?: string;
 }
 
 export const Value = ({
@@ -871,25 +873,44 @@ export const Value = ({
   color,
   dimensions,
   orientation,
+  units = "psi",
+  children,
   ...props
-}: ValueProps): ReactElement => (
-  <Div
-    className={CSS(CSS.B("value"), className)}
-    {...props}
-    style={{
-      borderColor: Color.cssString(color),
-      ...dimensions,
-    }}
-  >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation="left" left={-2} top={50} id="1" />
-      <Handle location="right" orientation="left" left={102} top={50} id="2" />
-      <Handle location="top" orientation="left" left={50} top={-2} id="3" />
-      <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
-    </HandleBoundary>
-    {props.children}
-  </Div>
-);
+}: ValueProps): ReactElement => {
+  const borderColor = Color.cssString(color);
+  const theme = Theming.use();
+  let textColor = "var(--pluto-gray-l0)";
+  if (color != null) {
+    textColor = Color.cssString(
+      new Color.Color(color).pickByContrast(theme.colors.gray.l0, theme.colors.gray.l9),
+    );
+  }
+  return (
+    <Div
+      className={CSS(CSS.B("value"), className)}
+      {...props}
+      style={{
+        borderColor,
+        height: dimensions?.height,
+      }}
+    >
+      <div className={CSS.BE("value", "content")} style={{ width: dimensions?.width }}>
+        {children}
+      </div>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={-2} top={50} id="1" />
+        <Handle location="right" orientation="left" left={102} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={-2} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
+        <Text.Text level="small" color={textColor}>
+          {units}
+        </Text.Text>
+      </div>
+    </Div>
+  );
+};
 
 export interface SwitchProps extends ToggleProps, DivProps {}
 

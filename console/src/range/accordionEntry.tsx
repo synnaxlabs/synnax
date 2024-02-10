@@ -9,30 +9,31 @@
 
 import { type ReactElement, useState } from "react";
 
-import { TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
+import { TimeRange, TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Menu as PMenu,
   Divider,
   Ranger,
   Tag,
-  CSS as PlutoCSS,
   componentRenderProp,
   Synnax,
   useAsyncEffect,
+  Tooltip,
+  Button,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
+import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 import type { Range } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
-import { remove, setActive } from "@/range/slice";
+import { add, remove, setActive } from "@/range/slice";
 
 import "@/range/accordionEntry.css";
 
@@ -67,15 +68,17 @@ export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
+  const client = Synnax.use();
   const newLayout = Layout.usePlacer();
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
+    const layout = editLayout(key == null ? "Create Range" : "Edit Range");
     newLayout({
-      ...defineWindowLayout,
-      key: key ?? defineWindowLayout.key,
+      ...layout,
+      key: key ?? layout.key,
     });
   };
 
@@ -87,27 +90,71 @@ export const List = (): ReactElement => {
     dispatch(setActive(key));
   };
 
-  const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement => {
-    const handleClick = (key: string): void => {
-      switch (key) {
+  const handleDelete = (key: string): undefined => {
+    void (async () => {
+      await client?.ranges.delete(key);
+      handleRemove([key]);
+    })();
+  };
+
+  const handleSave = (key: string): undefined => {
+    void (async () => {
+      const range = ranges.find((r) => r.key === key);
+      if (range == null || range.variant === "dynamic") return;
+      await client?.ranges.create({
+        key: range.key,
+        timeRange: new TimeRange(range.timeRange.start, range.timeRange.end),
+        name: range.name,
+      });
+      dispatch(add({ ranges: [{ ...range, persisted: true }] }));
+    })();
+  };
+
+  const ContextMenu = ({
+    keys: [key],
+  }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+    const rng = ranges.find((r) => r.key === key);
+    const handleClick = (itemKey: string): void => {
+      switch (itemKey) {
         case "create":
           return handleAddOrEdit();
         case "edit":
-          return handleAddOrEdit(keys[0]);
+          if (rng == null) return;
+          return handleAddOrEdit(rng.key);
         case "remove":
-          return handleRemove(keys);
+          if (rng == null) return;
+          return handleRemove([rng.key]);
+        case "delete":
+          if (rng == null) return;
+          return handleDelete(rng.key);
+        case "save":
+          if (rng == null) return;
+          return handleSave(rng.key);
       }
     };
     return (
       <PMenu.Menu onChange={handleClick}>
-        <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
-          Edit Range
-        </PMenu.Item>
-        <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
-          Remove Range
-        </PMenu.Item>
+        {rng != null && (
+          <>
+            <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
+              Edit
+            </PMenu.Item>
+            <PMenu.Item startIcon={<Icon.Close />} size="small" itemKey="remove">
+              Remove from List
+            </PMenu.Item>
+            {rng.persisted ? (
+              <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="delete">
+                Delete
+              </PMenu.Item>
+            ) : (
+              <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
+                Save to Synnax
+              </PMenu.Item>
+            )}
+          </>
+        )}
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
-          Create Range
+          Create New
         </PMenu.Item>
         <Divider.Divider direction="x" padded />
         <Menu.Item.HardReload />
@@ -116,8 +163,8 @@ export const List = (): ReactElement => {
   };
 
   return (
-    <div style={{ flexGrow: 1 }}>
-      <PMenu.ContextMenu menu={(props) => <ContextMenu {...props} />} {...menuProps}>
+    <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
+      <div style={{ flexGrow: 1 }}>
         <Core.List data={ranges.filter((r) => r.variant === "static")}>
           <Core.Selector
             value={selectedRange == null ? [] : [selectedRange.key]}
@@ -128,46 +175,60 @@ export const List = (): ReactElement => {
             {componentRenderProp(ListItem)}
           </Core.Core>
         </Core.List>
-      </PMenu.ContextMenu>
-    </div>
+      </div>
+    </PMenu.ContextMenu>
   );
 };
 
-interface ListItemProps extends Core.ItemProps {}
+interface ListItemProps extends Core.ItemProps<string, Range> {}
 
-const ListItem = ({ entry, selected, onSelect }: ListItemProps): ReactElement => {
+const ListItem = (props: ListItemProps): ReactElement => {
+  const { entry } = props;
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
   useAsyncEffect(async () => {
-    if (client == null) return;
-    const labels = await (await client.ranges.retrieve(entry.key)).labels();
-    setLabels(labels);
+    if (client == null || labels.length > 0) return;
+    const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
+    setLabels(labels_);
   }, [entry.key, client]);
   return (
-    <Align.Space
+    <Core.ItemFrame
+      className={CSS.B("range-list-item")}
       direction="y"
-      onClick={() => onSelect(entry.key)}
-      className={CSS(CSS.B("range-list-item"), PlutoCSS.selected(selected))}
+      rightAligned
+      {...props}
+      size="small"
     >
-      <Text.Text level="p" style={{ fontWeight: "450" }}>
+      {!entry.persisted && (
+        <Tooltip.Dialog location={"left"}>
+          <Text.Text level="small">This range is local.</Text.Text>
+          <Text.Text className="save-button" weight={700} level="small" shade={7}>
+            L
+          </Text.Text>
+        </Tooltip.Dialog>
+      )}
+
+      <Text.WithIcon level="p" weight={500}>
         {entry.name}
-      </Text.Text>
+      </Text.WithIcon>
       <Ranger.TimeRangeChip timeRange={entry.timeRange} />
-      <Align.Space
-        direction="x"
-        size="small"
-        wrap
-        style={{
-          overflowX: "auto",
-          height: "fit-content",
-        }}
-      >
-        {labels.map((l) => (
-          <Tag.Tag key={l.key} level="small" color={l.color}>
-            {l.name}
-          </Tag.Tag>
-        ))}
-      </Align.Space>
-    </Align.Space>
+      {labels.length > 0 && (
+        <Align.Space
+          direction="x"
+          size="small"
+          wrap
+          style={{
+            overflowX: "auto",
+            height: "fit-content",
+          }}
+        >
+          {labels.map((l) => (
+            <Tag.Tag key={l.key} level="small" color={l.color}>
+              {l.name}
+            </Tag.Tag>
+          ))}
+        </Align.Space>
+      )}
+    </Core.ItemFrame>
   );
 };

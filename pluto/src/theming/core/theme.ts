@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { color } from "@/color/core";
-import { specZ } from "@/text/types";
+import { text } from "@/text/core";
 
 const grayScaleZ = z.object({
   l0: color.Color.z,
@@ -76,13 +76,13 @@ export const themeZ = z.object({
   }),
   typography: z.object({
     family: z.string(),
-    h1: specZ,
-    h2: specZ,
-    h3: specZ,
-    h4: specZ,
-    h5: specZ,
-    p: specZ,
-    small: specZ,
+    h1: text.specZ,
+    h2: text.specZ,
+    h3: text.specZ,
+    h4: text.specZ,
+    h5: text.specZ,
+    p: text.specZ,
+    small: text.specZ,
   }),
 });
 
@@ -191,38 +191,37 @@ const synnaxBase: ThemeSpec = {
     h1: {
       size: 5,
       weight: "500",
-      lineHeight: 6,
+      lineHeight: 5 * 1.5,
     },
     h2: {
       size: 4,
       weight: "medium",
-      lineHeight: 5,
+      lineHeight: 4 * 1.5,
     },
     h3: {
       size: 3,
       weight: "medium",
-      lineHeight: 4,
+      lineHeight: 3 * 1.5,
     },
     h4: {
       size: 2.5,
       weight: "medium",
-      lineHeight: 3,
+      lineHeight: 2.5 * 1.5,
     },
     h5: {
-      size: 2.25,
-      weight: "medium",
-      lineHeight: 2.5,
-      textTransform: "uppercase",
+      size: 2.333333,
+      weight: 450,
+      lineHeight: 2.333333 * 1.5,
     },
     p: {
-      size: 2.25,
+      size: 2.1666666666,
       weight: "regular",
-      lineHeight: 3.25,
+      lineHeight: 2 * 1.5,
     },
     small: {
-      size: 2,
+      size: 1.916666,
       weight: "regular",
-      lineHeight: 2.3,
+      lineHeight: 1.9166666 * 1.5,
     },
   },
 };

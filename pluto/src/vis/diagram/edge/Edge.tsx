@@ -234,7 +234,6 @@ export const Edge = ({
       <BaseEdge
         path={calcPath(points)}
         style={{ ...style, stroke: Color.cssString(color) }}
-        interactionWidth={6}
         {...props}
       />
       {selected &&

@@ -25,7 +25,9 @@
 .console-notifications {
     .console-notification {
         padding: 1.5rem;
-        border-bottom: var(--pluto-border);
+        &:not(:last-child) {
+            border-bottom: var(--pluto-border);
+        }
         border-color: var(--pluto-gray-l3);
 
         & .console-notification__message {

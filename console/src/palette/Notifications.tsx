@@ -59,7 +59,6 @@ const Notification = ({
   silence,
 }: NotificationProps): ReactElement => {
   const adapted = useMemo(() => {
-    console.log(adapters);
     for (const adapter of adapters) {
       const result = adapter(status);
       if (result != null) return result;

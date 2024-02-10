@@ -77,7 +77,7 @@ export const Palette = ({
 
   const [mode, setMode] = useState<Mode>("resource");
 
-  const notifications = Status.useNotifications({ expiration: TimeSpan.MAX });
+  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
 
   const handleSelect: List.SelectorProps<Key, Entry>["onChange"] = useCallback(
     ([key]: Key[], { entries }) => {

@@ -61,13 +61,13 @@ export const Selector = ({
     <Align.Space
       className={CSS(CSS.B(CLS), CSS.size(size), className)}
       align="center"
-      justify="start"
+      justify="spaceBetween"
       onDrop={onDrop}
       empty
       direction={direction}
       {...props}
     >
-      <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty grow>
+      <Align.Space direction={direction} className={CSS.BE(CLS, "tabs")} empty>
         {tabs.map((tab) => (
           <SelectorButton
             key={tab.tabKey}

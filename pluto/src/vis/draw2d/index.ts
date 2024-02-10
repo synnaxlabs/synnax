@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, xy, type dimensions } from "@synnaxlabs/x";
+import { box, direction, xy, type dimensions, location } from "@synnaxlabs/x";
 
 import { type color } from "@/color/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
-import { type Level } from "@/text/types";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
+
+import { type Level } from "@/text/types";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -68,6 +69,8 @@ export interface Draw2DTextContainerProps
   extends Omit<Draw2DContainerProps, "region">,
     Draw2DMeasureTextContainerProps {
   position: xy.XY;
+  offset?: xy.XY;
+  root?: location.CornerXY;
 }
 
 export class Draw2D {
@@ -145,11 +148,25 @@ export class Draw2D {
 
   textContainer(props: Draw2DTextContainerProps): void {
     const [dims, draw] = this.spacedTextDrawF(props);
-    const { position } = props;
+    dims.width += 12;
+    dims.height += 12;
+    const { root = location.TOP_LEFT, offset = xy.ZERO } = props;
+    const position = { ...props.position };
+    if (root.x === "right") {
+      position.x -= dims.width + offset.x;
+    } else {
+      position.x += offset.x;
+    }
+    if (root.y === "bottom") {
+      position.y -= dims.height + offset.y;
+    } else {
+      position.y += offset.y;
+    }
     this.container({
-      region: box.construct(position, dims.width + 12, dims.height + 12),
+      region: box.construct(position, dims.width, dims.height),
       ...props,
     });
+    this.canvas.filter = "none";
     draw(xy.translate(position, [6, 6]));
   }
 

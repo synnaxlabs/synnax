@@ -66,7 +66,7 @@ describe("Series", () => {
     });
   });
 
-  test("at", () => {
+  describe("at", () => {
     it("should return the value at the given index and add the sample offset", () => {
       const arr = new Series(
         new Float32Array([1, 2, 3]),
@@ -286,4 +286,14 @@ describe("Series", () => {
       ]);
     });
   });
+  
+  describe("binarySearch", () => {
+    it("should correctly binary search a pre-allocated array", () => {
+      const arr = Series.alloc(10, DataType.FLOAT32);
+      const writeOne = new Series(new Float32Array([1, 2, 3, 4, 5]));
+      arr.write(writeOne);
+      expect(arr.binarySearch(3)).toEqual(2);
+      expect(arr.binarySearch(6)).toEqual(5);
+    })
+  })
 });

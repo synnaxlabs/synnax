@@ -42,7 +42,7 @@ type Transfer[R comparable] struct {
 // From.Subject != To.Subject.
 func (t Transfer[R]) Occurred() bool {
 	if t.From != nil && t.To != nil {
-		return t.From.Subject != t.To.Subject
+		return t.From.Subject != t.To.Subject || t.From.Authority != t.To.Authority
 	}
 	return t.From != nil || t.To != nil
 }

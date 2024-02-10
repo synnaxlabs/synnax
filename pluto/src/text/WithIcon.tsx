@@ -15,15 +15,15 @@ import { Align } from "@/align";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { type text } from "@/text/core";
 import { type CoreProps, Text } from "@/text/Text";
-import { type Level } from "@/text/types";
 import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
-  L extends Level = "h1",
+  L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   Omit<CoreProps<L>, "children"> & {
     startIcon?: false | ReactElement | ReactElement[];
@@ -35,7 +35,7 @@ export type WithIconProps<
 
 export const WithIcon = <
   E extends Align.SpaceElementType = "div",
-  L extends Level = "h1",
+  L extends text.Level = "h1",
 >({
   level = "h1" as L,
   divided = false,
@@ -91,7 +91,7 @@ const formatIcons = (
   );
 };
 
-export const formatChildren = <L extends Level>(
+export const formatChildren = <L extends text.Level>(
   level: L,
   children: ReactNode = [],
   color?: string,

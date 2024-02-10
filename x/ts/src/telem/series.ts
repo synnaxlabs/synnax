@@ -421,6 +421,11 @@ export class Series {
     };
   }
 
+  get alignmentBounds(): bounds.Bounds {
+    return bounds.construct(this.alignment, this.alignment + this.length);
+  }
+
+
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
     if (this.gl.buffer == null) return;
     gl.deleteBuffer(this.gl.buffer);

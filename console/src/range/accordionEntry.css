@@ -10,13 +10,6 @@
  */
 
 .console-range-list-item {
-    padding: 2rem 3rem;
-    border-bottom: var(--pluto-border);
-    border-color: var(--pluto-gray-l2);
-    border-right: 0.3rem solid transparent;
-    min-height: 80px;
-    cursor: pointer;
-
     & p {
         font-weight: 450;
     }
@@ -30,4 +23,9 @@
         border-right-color: var(--pluto-primary-z);
     }
 
+    & .save-button {
+        position: absolute;
+        top: 1rem;
+        right: 1.5rem;
+    }
 }

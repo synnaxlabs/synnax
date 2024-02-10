@@ -33,7 +33,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <Menu.Menu onChange={onSelect} size="large" iconSpacing="medium">
       <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>
@@ -52,7 +52,9 @@ export interface GroupMenuItemProps {
   selection: Ontology.TreeContextMenuProps["selection"];
 }
 
-export const GroupMenuItem = ({ selection }: GroupMenuItemProps): ReactElement | null =>
+export const GroupMenuItem = ({
+  selection,
+}: GroupMenuItemProps): ReactElement | null =>
   canGroupSelection(selection) ? (
     <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
       Group
@@ -73,13 +75,13 @@ const ungroupSelection = async ({
   await client.ontology.moveChildren(
     id,
     parentID,
-    ...children.map((c) => new ontology.ID(c.key))
+    ...children.map((c) => new ontology.ID(c.key)),
   );
   await client.ontology.groups.delete(id.key);
   let nextNodes = Tree.moveNode(
     state.nodes,
     parentID.toString(),
-    ...children.map((c) => c.key)
+    ...children.map((c) => c.key),
   );
   nextNodes = Tree.removeNode(nextNodes, id.toString());
   state.setNodes([...nextNodes]);
@@ -88,7 +90,7 @@ const ungroupSelection = async ({
 const NEW_GROUP_NAME = "New Group";
 
 export const canGroupSelection = (
-  selection: Ontology.TreeContextMenuProps["selection"]
+  selection: Ontology.TreeContextMenuProps["selection"],
 ): boolean => getAllNodesOfMinDepth(selection.nodes).length > 1;
 
 const getAllNodesOfMinDepth = (nodes: Tree.NodeWithDepth[]): Tree.NodeWithDepth[] => {
@@ -116,12 +118,12 @@ export const fromSelection = async ({
   let nextNodes = Tree.setNode(
     state.nodes,
     selection.parent.key,
-    ...Ontology.toTreeNodes(services, [res])
+    ...Ontology.toTreeNodes(services, [res]),
   );
   nextNodes = Tree.moveNode(
     state.nodes,
     res.id.toString(),
-    ...resourcesToGroup.map((id) => id.toString())
+    ...resourcesToGroup.map((id) => id.toString()),
   );
   state.setNodes([...nextNodes]);
   state.setResources([...state.resources, res]);
