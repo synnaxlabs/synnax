@@ -69,8 +69,8 @@ export class Dynamic {
   }
 
   private _write(series: Series): DynamicWriteResponse {
-    // This only happens on the first write to the cache.
     const res: DynamicWriteResponse = { flushed: [], allocated: [] };
+    // This only happens on the first write to the cache
     if (this.buffer == null) {
       this.buffer = this.allocate(this.cap, series.alignment);
       res.allocated.push(this.buffer);
@@ -86,7 +86,10 @@ export class Dynamic {
     }
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
+    // This means that the current buffer is large enough to fit the entire incoming
+    // series. We're done in this case.
     if (amountWritten === series.length) return res;
+    // Push the current buffer to the flushed list.
     res.flushed.push(this.buffer);
     this.buffer = this.allocate(this.cap, series.alignment + amountWritten);
     res.allocated.push(this.buffer);

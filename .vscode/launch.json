@@ -1,0 +1,19 @@
+{  
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Front-end App Debug",
+      "type": "msedge",
+      "port": 9222,
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/console/src-tauri/target/debug/Synnax.exe", // Remember to edit the right path to your app.
+      "useWebView": true,
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev:console-vite",          
+      "sourceMapPathOverrides": {
+          "/src/*": "${workspaceFolder}/console/src/*",
+          "./src/*": "${workspaceFolder}/console/src/*",
+      }
+    },   
+  ],
+}

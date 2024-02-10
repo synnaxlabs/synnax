@@ -107,7 +107,11 @@ export const useNotifications = (
 
   const filtered = statuses.filter((status) => {
     const new_ = status.time.after(threshold);
-    if (new_) setTimeout(() => setThreshold(status.time), expiration.milliseconds);
+    if (new_)
+      setTimeout(
+        () => setThreshold((p) => (status.time.after(p) ? status.time : p)),
+        expiration.milliseconds,
+      );
     return new_ && !silenced.includes(status.key);
   });
 

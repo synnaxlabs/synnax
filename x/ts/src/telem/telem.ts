@@ -898,6 +898,15 @@ export class TimeRange implements Stringer {
     return this.start.beforeEq(other) && this.end.after(other);
   }
 
+  boundBy(other: TimeRange): TimeRange {
+    const next = new TimeRange(this.start, this.end);
+    if (other.start.after(this.start)) next.start = other.start;
+    if (other.start.after(this.end)) next.end = other.start;
+    if (other.end.before(this.end)) next.end = other.end;
+    if (other.end.before(this.start)) next.start = other.end;
+    return next;
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 

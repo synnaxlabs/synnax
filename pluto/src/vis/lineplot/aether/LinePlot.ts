@@ -157,7 +157,11 @@ export class LinePlot extends aether.Composite<
       await this.renderMeasures(plot, canvases);
       renderCtx.gl.flush();
     } catch (e) {
-      this.internal.aggregate({ variant: "error", message: (e as Error).message });
+      this.internal.aggregate({
+        key: `${this.type}-${this.key}`,
+        variant: "error",
+        message: (e as Error).message,
+      });
     } finally {
       removeCanvasScissor();
       removeGLScissor();

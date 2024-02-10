@@ -33,13 +33,11 @@ export class Cache {
     // Buffers that have been flushed out of the dynamic cache are written to the
     // static cache.
     if (flushed.length > 0) {
-      this.static.write(
-        new TimeRange(
-          flushed[0].timeRange.start,
-          flushed[flushed.length - 1].timeRange.end,
-        ),
-        flushed,
+      const tr = new TimeRange(
+        flushed[0].timeRange.start,
+        flushed[flushed.length - 1].timeRange.end,
       );
+      this.static.write(tr, flushed);
     }
     return allocated;
   }

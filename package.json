@@ -22,6 +22,7 @@
     "watch:alamos": "npx turbo watch --filter alamos",
     "dev:pluto": "npx turbo dev --filter pluto",
     "dev:console": "npx turbo dev --filter console",
+    "dev:console-vite": "npx turbo dev-vite --filter console",
     "dev:docs": "npx turbo dev --filter docs",
     "dev:landing": "npx turbo dev --filter landing",
     "test": "npx turbo test",
