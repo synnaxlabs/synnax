@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package queue_test
+package deque_test
 
 import (
 	"context"
@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestCalc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Queue Suite")
+	RunSpecs(t, "Deque Suite")
 }

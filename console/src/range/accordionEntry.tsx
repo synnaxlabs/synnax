@@ -73,6 +73,7 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
+  const client = Synnax.use();
 
   const handleAddOrEdit = (key?: string): void => {
     const layout = editLayout(key == null ? "Create Range" : "Edit Range");
@@ -158,6 +159,9 @@ export const List = (): ReactElement => {
         )}
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">
           Create New
+        </PMenu.Item>
+        <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
+          Set Active
         </PMenu.Item>
         <Divider.Divider direction="x" padded />
         <Menu.Item.HardReload />
