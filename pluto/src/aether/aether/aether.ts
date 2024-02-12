@@ -289,8 +289,8 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    */
   internalDelete(path: string[]): void {
     this.validatePath(path);
-    this._deleted = true;
     this.afterDelete();
+    this._deleted = true;
   }
 
   /**

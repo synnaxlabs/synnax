@@ -35,6 +35,7 @@ import {
   select,
   useSelect,
   useSelectElementProps,
+  useSelectViewport,
   useSelectViewportMode,
 } from "@/pid/selectors";
 import {
@@ -119,12 +120,15 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[variant as Core.Variant];
 
+  const zoom = useSelectViewport(layoutKey);
+
   return (
     <C.Symbol
+      aetherKey={symbolKey}
       position={position}
       selected={selected}
       onChange={handleChange}
-      zoom={1}
+      zoom={zoom.zoom}
       {...props}
     />
   );
@@ -223,6 +227,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 x: event.clientX + OFFSET * i,
                 y: event.clientY + OFFSET * i,
               }),
+              zIndex: spec.zIndex,
             },
             props: {
               variant,

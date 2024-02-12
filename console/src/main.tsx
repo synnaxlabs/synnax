@@ -101,7 +101,8 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          include: ["provider"],
+          level: "debug",
+          include: ["aether.telem"],
         }}
       >
         <Vis.Canvas>

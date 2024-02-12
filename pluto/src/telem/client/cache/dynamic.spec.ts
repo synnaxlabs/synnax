@@ -16,7 +16,10 @@ describe("DynamicCache", () => {
   describe("write", () => {
     it("Should correctly allocate a buffer", () => {
       const cache = new Dynamic(100, DataType.FLOAT32);
-      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       const { flushed, allocated } = cache.write([arr]);
       expect(flushed).toHaveLength(0);
       expect(allocated).toHaveLength(1);
@@ -24,7 +27,10 @@ describe("DynamicCache", () => {
     });
     it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
       const cache = new Dynamic(100, DataType.FLOAT32);
-      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       cache.write([arr]);
       const { flushed, allocated } = cache.write([arr.reAlign(3)]);
       expect(flushed).toHaveLength(0);
@@ -33,7 +39,10 @@ describe("DynamicCache", () => {
     });
     it("should correctly allocate a single new buffer when the current one is full", () => {
       const cache = new Dynamic(2, DataType.FLOAT32);
-      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       const { flushed, allocated } = cache.write([arr]);
       expect(flushed).toHaveLength(1);
       expect(allocated).toHaveLength(2);
@@ -42,7 +51,10 @@ describe("DynamicCache", () => {
     });
     it("should correctly allocate multiple new buffers when the current one is full", () => {
       const cache = new Dynamic(1, DataType.FLOAT32);
-      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       const { flushed, allocated } = cache.write([arr]);
       expect(flushed).toHaveLength(2);
       expect(allocated).toHaveLength(3);
@@ -50,7 +62,10 @@ describe("DynamicCache", () => {
     });
     it("it should correctly set multiple writes", () => {
       const cache = new Dynamic(10, DataType.FLOAT32);
-      const arr = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       expect(cache.write([arr]).allocated).toHaveLength(1);
       expect(cache.write([arr.reAlign(3)]).allocated).toHaveLength(0);
       expect(cache.write([arr.reAlign(6)]).allocated).toHaveLength(0);
@@ -64,7 +79,10 @@ describe("DynamicCache", () => {
     });
     it("should allocate a new buffer if the two series are out of alignment", () => {
       const cache = new Dynamic(10, DataType.FLOAT32);
-      const s1 = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const s1 = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       const { flushed, allocated } = cache.write([s1]);
       expect(flushed).toHaveLength(0);
       expect(allocated).toHaveLength(1);
@@ -75,7 +93,10 @@ describe("DynamicCache", () => {
     });
     it("in the smae write, it should allocate a new buffer if the two series are out of alignment", () => {
       const cache = new Dynamic(10, DataType.FLOAT32);
-      const s1 = new Series(new Float32Array([1, 2, 3]), DataType.FLOAT32);
+      const s1 = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
       const s2 = s1.reAlign(5);
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);

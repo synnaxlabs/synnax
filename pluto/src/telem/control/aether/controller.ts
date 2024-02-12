@@ -246,7 +246,7 @@ export class SetChannelValue
 
   invalidate(): void {}
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.controller.deleteTelem(this);
   }
 
@@ -267,9 +267,9 @@ export class SetChannelValue
       [ch.key, index.key],
       [
         // @ts-expect-error - issues with BigInt vs number.
-        new Series(new ch.dataType.Array([value])),
+        new Series({ data: new ch.dataType.Array([value]) }),
         // @ts-expect-error - issues with BigInt vs number.
-        new Series(new index.dataType.Array([BigInt(TimeStamp.now())])),
+        new Series({ data: new index.dataType.Array([BigInt(TimeStamp.now())]) }),
       ],
     );
     await this.controller.set(frame);
@@ -303,7 +303,7 @@ export class AcquireChannelControl
     this.controller = controller;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.controller.deleteTelem(this);
   }
 
@@ -397,7 +397,7 @@ export class AuthoritySource
     };
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.controller.deleteTelem(this);
     this.stopListening?.();
   }

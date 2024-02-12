@@ -17,7 +17,7 @@
     -webkit-user-select: none;
 }
 
-.pluto-list__container > div {
+.pluto-list__container > .pluto-list__virtualizer {
     width: 100%;
     height: 100%;
     position: relative;

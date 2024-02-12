@@ -63,7 +63,12 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
     super(props);
     this.data = this.props.data.map(
       (x, i) =>
-        new Series(x, DataType.FLOAT32, TimeRange.ZERO, this.props.offsets[i] ?? 0),
+        new Series({
+          data: x,
+          dataType: DataType.FLOAT32,
+          timeRange: TimeRange.ZERO,
+          sampleOffset: this.props.offsets[i] ?? 0,
+        }),
     );
   }
 
@@ -100,7 +105,12 @@ export class IterativeSeries
     this.start(this.props.rate);
     this.data = this.props.data.map(
       (x, i) =>
-        new Series(x, DataType.FLOAT32, TimeRange.ZERO, this.props.offsets[i] ?? 0),
+        new Series({
+          data: x,
+          dataType: DataType.FLOAT32,
+          timeRange: TimeRange.ZERO,
+          sampleOffset: this.props.offsets[i] ?? 0,
+        }),
     );
   }
 

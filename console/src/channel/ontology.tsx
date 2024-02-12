@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu, Tree, Channel } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Tree, Channel, telem } from "@synnaxlabs/pluto";
 
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
@@ -60,17 +60,34 @@ const handleSelect: Ontology.HandleSelect = ({
   }
 };
 
-const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => [
-  {
-    type: "channel",
-    key: Number(id.key),
-  },
-  {
-    type: PID.HAUL_TYPE,
-    key: "value",
-    data: { telem: { channel: Number(id.key) }, label: name },
-  },
-];
+const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
+  const t = telem.sourcePipeline("string", {
+    connections: [
+      {
+        from: "valueStream",
+        to: "stringifier",
+      },
+    ],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel: Number(id.key) }),
+      stringifier: telem.stringifyNumber({ precision: 2 }),
+    },
+    outlet: "stringifier",
+  });
+  return [
+    {
+      type: "channel",
+      key: Number(id.key),
+    },
+    {
+      type: PID.HAUL_TYPE,
+      key: "value",
+      data: {
+        telem: t,
+      },
+    },
+  ];
+};
 
 const allowRename = (): boolean => true;
 

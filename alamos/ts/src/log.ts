@@ -37,9 +37,9 @@ export interface LogLevelKeyFilterProps {
 }
 export const logLevelKeyFiler = (props: LogLevelKeyFilterProps): LogLevelFilter => {
   const { include, exclude } = props;
-  return ({ key }) => {
-    if (include != null && !include.includes(key)) return false;
-    if (exclude != null && exclude.includes(key)) return false;
+  return ({ path }) => {
+    if (include != null && !include.some((k) => path.startsWith(k))) return false;
+    if (exclude != null && exclude.some((k) => path.startsWith(k))) return false;
     return true;
   };
 };

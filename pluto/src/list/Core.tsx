@@ -82,7 +82,10 @@ const VirtualCore = <
       {data.length === 0 ? (
         emptyContent
       ) : (
-        <div style={{ height: virtualizer.getTotalSize() }}>
+        <div
+          className={CSS.BE("list", "virtualizer")}
+          style={{ height: virtualizer.getTotalSize() }}
+        >
           {items.map(({ index, start }) => {
             const entry = data[index];
             return children({

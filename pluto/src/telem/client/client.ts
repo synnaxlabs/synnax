@@ -22,13 +22,15 @@ import {
   TimeRange,
   type SeriesDigest,
   TimeSpan,
+  debounce,
+  type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { nanoid } from "nanoid";
 
 import { cache } from "@/telem/client/cache";
 
-export const CACHE_BUFFER_SIZE = 10000;
+export const CACHE_BUFFER_SIZE = 1000;
 
 export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
 
@@ -68,7 +70,7 @@ export interface ReadClient {
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
 export interface StreamClient {
-  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<Destructor>;
+  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<AsyncDestructor>;
 }
 
 /**
@@ -87,7 +89,7 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * set, all operations will throw an error.
  */
 export class Proxy implements Client {
-  readonly _client: Client | null = null;
+  _client: Client | null = null;
 
   swap(client: Client | null): void {
     this._client?.close();
@@ -108,7 +110,7 @@ export class Proxy implements Client {
   }
 
   /** Stream implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
     return await this.client.stream(handler, keys);
   }
 
@@ -135,10 +137,14 @@ export class Core implements Client {
   private readonly cache = new Map<channel.Key, cache.Cache>();
   private readonly listeners = new Map<StreamHandler, channel.Keys>();
   private _streamer: framer.Streamer | null = null;
+  private readonly debouncedUpdateStreamer;
 
   constructor(wrap: Synnax, ins: alamos.Instrumentation) {
     this.core = wrap;
     this.ins = ins;
+    this.debouncedUpdateStreamer = debounce(() => {
+      void this.updateStreamer();
+    }, 100);
   }
 
   /** Implements ChannelClient. */
@@ -203,9 +209,13 @@ export class Core implements Client {
         const frame = await this.core.telem.read(range, keys);
         for (const key of keys) {
           const cache = await this.getCache(key);
-          cache.writeStatic(range, frame.get(key));
+          const data = frame.get(key);
+          if (data.length > 0) cache.writeStatic(data);
         }
       }
+    } catch (e) {
+      this.ins.L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
+      throw e;
     } finally {
       releasers.forEach((r) => r());
     }
@@ -228,9 +238,9 @@ export class Core implements Client {
   }
 
   /** Implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
     return await this.mu.runExclusive(async () => {
-      this.ins.L.debug("updating stream", { keys });
+      this.ins.L.debug("adding stream handler", { keys });
       this.listeners.set(handler, keys);
       const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
@@ -241,8 +251,8 @@ export class Core implements Client {
         );
       }
       handler(dynamicBuffs);
-      await this.updateStreamer();
-      return () => this.removeStreamHandler(handler);
+      this.debouncedUpdateStreamer();
+      return async () => this.removeStreamHandler(handler);
     });
   }
 
@@ -256,7 +266,7 @@ export class Core implements Client {
   private removeStreamHandler(handler: StreamHandler): void {
     void this.mu.runExclusive(async () => {
       this.ins.L.debug("removing stream handler", { handler });
-      if (this.listeners.delete(handler)) return await this.updateStreamer();
+      if (this.listeners.delete(handler)) return this.debouncedUpdateStreamer();
       this.ins.L.warn("attempted to remove non-existent stream handler", { handler });
     });
   }
@@ -265,7 +275,8 @@ export class Core implements Client {
     const c = this.cache.get(key);
     if (c != null) return c;
     const channel = await this.core.channels.retrieve(key);
-    const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, channel);
+    const ins = this.ins.child(`cache-${channel.name}-${channel.key}`);
+    const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, channel, ins);
     this.cache.set(key, cache_);
     return cache_;
   }
@@ -284,8 +295,12 @@ export class Core implements Client {
     }
 
     const arrKeys = Array.from(keys);
-    if (compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === compare.EQUAL)
+    if (
+      compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === compare.EQUAL
+    ) {
+      this.ins.L.debug("streamer keys unchanged", { keys: arrKeys });
       return;
+    }
 
     // Update or create the streamer.
     if (this._streamer == null) {
@@ -308,11 +323,13 @@ export class Core implements Client {
         const out = cache.writeDynamic(series);
         changed.push(new ReadResponse(cache.channel, out));
       }
-      this.listeners.forEach((keys, handler) => {
-        const notify = changed.filter((r) => keys.includes(r.channel.key));
-        if (notify.length === 0) return;
-        const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-        handler(d);
+      await this.mu.runExclusive(() => {
+        this.listeners.forEach((keys, handler) => {
+          const notify = changed.filter((r) => keys.includes(r.channel.key));
+          if (notify.length === 0) return;
+          const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
+          handler(d);
+        });
       });
     }
   }

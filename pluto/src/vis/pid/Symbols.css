@@ -18,7 +18,8 @@
 }
 
 .pluto-symbol__label {
-    /* scale the font to 0.9 of its current */
     transform: scale(0.85);
-
+    /* make the text wrap at 150px */
+    max-inline-size: 150px;
+    overflow-wrap: break-word;
 }

@@ -23,9 +23,12 @@
     }
 }
 
+
+.react-flow__edge {
+    z-index: 6;
+
+}
+
 .react-flow__edge.selected {
     z-index: 10000;
 }
-
-
-

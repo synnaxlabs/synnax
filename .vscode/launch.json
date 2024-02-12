@@ -15,5 +15,10 @@
           "./src/*": "${workspaceFolder}/console/src/*",
       }
     },   
+    {
+      "name": "Pluto Debug",
+      "type": "chrome",
+      "request": "launch",
+    }
   ],
 }

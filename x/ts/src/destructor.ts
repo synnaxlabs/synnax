@@ -8,3 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export type Destructor = () => void;
+
+export type AsyncDestructor = () => Promise<void>;

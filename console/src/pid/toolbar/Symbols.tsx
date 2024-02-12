@@ -40,6 +40,9 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         addElement({
           layoutKey,
           key: nanoid(),
+          node: {
+            zIndex: spec.zIndex,
+          },
           props: {
             variant,
             ...initialProps,

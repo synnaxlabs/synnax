@@ -201,6 +201,14 @@ export const Dialog = ({
     document.addEventListener("mousemove", handleMove);
     visibleCleanup.current = () =>
       document.removeEventListener("mousemove", handleMove);
+    document.addEventListener(
+      "mousedown",
+      () => {
+        setState(null);
+        visibleCleanup.current?.();
+      },
+      { once: true },
+    );
   };
 
   if (hide && state != null) setState(null);

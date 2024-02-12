@@ -21,6 +21,7 @@ import {
   Handle as RFHandle,
   Position as RFPosition,
   useUpdateNodeInternals,
+  NodeResizer,
 } from "reactflow";
 
 import { Button as CoreButton } from "@/button";
@@ -66,7 +67,7 @@ export interface SVGBasedPrimitiveProps extends OrientableProps {
 }
 
 export interface DivProps
-  extends Omit<ComponentPropsWithoutRef<"div">, "color">,
+  extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
     OrientableProps {}
 
 interface ToggleProps
@@ -154,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   }, [orientation]);
   return (
     <>
-      <span ref={ref} />
+      {/* <span ref={ref} /> */}
       {children}
     </>
   );
@@ -649,12 +650,6 @@ type BorderRadius =
   | Record<location.CornerXYString, number>
   | DetailedBorderRadius;
 
-export interface TankProps extends DivProps {
-  dimensions?: dimensions.Dimensions;
-  borderRadius?: BorderRadius;
-  color?: Color.Crude;
-}
-
 const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
   if (typeof radius === "number")
     return {
@@ -689,11 +684,19 @@ const cssBorderRadius = (radius: DetailedBorderRadius): string => {
 const DEFAULT_DIMENSIONS = { width: 40, height: 80 };
 const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 
+export interface TankProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+  borderRadius?: BorderRadius;
+  color?: Color.Crude;
+  onResize?: (dimensions: dimensions.Dimensions) => void;
+}
+
 export const Tank = ({
   className,
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   color,
+  onResize,
   ...props
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
@@ -892,9 +895,13 @@ export const Value = ({
       style={{
         borderColor,
         height: dimensions?.height,
+        width: "100%",
       }}
     >
-      <div className={CSS.BE("value", "content")} style={{ width: dimensions?.width }}>
+      <div
+        className={CSS.BE("value", "content")}
+        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize: 80 }}
+      >
         {children}
       </div>
       <HandleBoundary orientation={orientation}>

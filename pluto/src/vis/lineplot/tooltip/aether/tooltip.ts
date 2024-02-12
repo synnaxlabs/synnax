@@ -106,6 +106,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
     text.unshift(`Time: ${avgXValue.fString("preciseDate")}`);
 
+    const relativePosition = reverseScale.pos(this.state.position);
+
     draw.textContainer({
       text,
       backgroundColor: this.state.backgroundColor,
@@ -116,8 +118,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       spacing: 1,
       offset: { x: 12, y: 12 },
       root: {
-        x: avgXPosition > 0.8 ? "right" : "left",
-        y: this.state.position.y / box.height(region) > 0.8 ? "bottom" : "top",
+        x: relativePosition.x > 0.8 ? "right" : "left",
+        y: relativePosition.y > 0.8 ? "top" : "bottom",
       },
     });
   }

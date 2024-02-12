@@ -210,6 +210,12 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     onFocus?.(e);
   };
 
+  const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    if (visible) return;
+    e.preventDefault();
+    onFocus?.(e);
+  };
+
   const handleClear = (): void => {
     setInternalValue("");
     clear?.();
@@ -222,6 +228,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       onChange={handleChange}
       onFocus={handleFocus}
       style={{ flexGrow: 1 }}
+      onClick={handleClick}
       {...props}
     >
       {allowNone && <ClearButton onClick={handleClear} />}

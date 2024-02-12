@@ -29,23 +29,43 @@ interface InternalState {
 export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState> {
   static readonly TYPE = "Indicator";
   schema = indicatorStateZ;
+  stopListeningStatus?: () => void;
+  stopListeningColor?: () => void;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(console.error);
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
-    i.statusSource = telem.useSource(this.ctx, this.state.statusSource, i.statusSource);
-    i.colorSource = telem.useSource(this.ctx, this.state.colorSource, i.colorSource);
-    void this.updateState();
-    i.statusSource.onChange(() => {
+    i.statusSource = await telem.useSource(
+      this.ctx,
+      this.state.statusSource,
+      i.statusSource,
+    );
+    i.colorSource = await telem.useSource(
+      this.ctx,
+      this.state.colorSource,
+      i.colorSource,
+    );
+    await this.updateState();
+    this.stopListeningStatus?.();
+    this.stopListeningStatus = i.statusSource.onChange(() => {
       void this.updateState();
     });
-    i.colorSource.onChange(() => {
+    this.stopListeningColor?.();
+    this.stopListeningColor = i.colorSource.onChange(() => {
       void this.updateState();
     });
   }
 
   afterDelete(): void {
-    this.internal.statusSource.cleanup?.();
-    this.internal.colorSource.cleanup?.();
+    this.internalAfterDelete().catch(console.error);
+  }
+
+  private async internalAfterDelete(): Promise<void> {
+    await this.internal.statusSource.cleanup?.();
+    await this.internal.colorSource.cleanup?.();
   }
 
   async render(): Promise<void> {}

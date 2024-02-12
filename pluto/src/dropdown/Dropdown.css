@@ -11,15 +11,12 @@
 
 .pluto-dropdown.pluto--visible {
     :first-child {
-        z-index: 5;
+        z-index: 6;
     }
 }
 
 .pluto-dropdown.pluto--floating .pluto-dropdown__dialog {
     transform: translateY(1rem);
-    /* & .pluto--top {
-        transform: translateY(calc(-100% - 1rem));
-    } */
 }
 
 .pluto-dropdown__dialog {
@@ -30,11 +27,9 @@
     background: var(--pluto-gray-l1);
 
 
-
     &.pluto--top {
         transform: translateY(calc(-100% + 1px));
     } 
-
 
     &.pluto--hidden {
         opacity: 0;
@@ -44,6 +39,6 @@
     }
 
     &.pluto--visible {
-        z-index: 4;
+        z-index: 5;
     }
 }

@@ -139,7 +139,8 @@ var _ = Describe("Telem", func() {
 				}
 				bounded := tr.BoundBy(bound)
 				Expect(bounded.Start).To(Equal(bound.Start))
-				Expect(bounded.End).To(Equal(bounded.End))
+				Expect(bounded.End).To(Equal(bound.End))
+
 			})
 
 			It("Should bound the time range even if the start is after the end", func() {

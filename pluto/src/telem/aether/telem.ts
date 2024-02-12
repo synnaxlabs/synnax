@@ -54,7 +54,7 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
 };
 
 export interface Telem {
-  cleanup?: () => void;
+  cleanup?: () => Promise<void>;
 }
 
 export interface Source<V> extends Telem, observe.Observable<void> {

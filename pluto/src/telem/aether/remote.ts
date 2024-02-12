@@ -11,12 +11,12 @@ import { type channel } from "@synnaxlabs/client";
 import {
   bounds,
   TimeRange,
-  type Destructor,
   type Series,
   TimeSpan,
   TimeStamp,
   DataType,
   addSamples,
+  type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -41,7 +41,7 @@ export class StreamChannelValue
   extends AbstractSource<typeof streamChannelValuePropsZ>
   implements NumberSource
 {
-  removeStreamHandler: Destructor | null = null;
+  removeStreamHandler: AsyncDestructor | null = null;
 
   static readonly TYPE = "range-point";
 
@@ -56,9 +56,10 @@ export class StreamChannelValue
     this.client = client;
   }
 
-  cleanup(): void {
-    this.removeStreamHandler?.();
+  async cleanup(): Promise<void> {
+    await this.removeStreamHandler?.();
     this.valid = false;
+    this.leadingBuffer?.release();
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
@@ -78,8 +79,12 @@ export class StreamChannelValue
       const now = TimeStamp.now()
         .sub(TimeStamp.seconds(10))
         .spanRange(TimeSpan.seconds(20));
-      const d = await this.client.read(now, [channel]);
-      this.leadingBuffer = d[channel].data[0];
+      const res = await this.client.read(now, [channel]);
+      const newData = res[channel].data;
+      if (newData.length === 0) return;
+      const first = newData[newData.length - 1];
+      first.acquire();
+      this.leadingBuffer = first;
       await this.updateStreamHandler();
     } catch (e) {
       console.error(e);
@@ -87,11 +92,18 @@ export class StreamChannelValue
   }
 
   private async updateStreamHandler(): Promise<void> {
-    this.removeStreamHandler?.();
+    await this.removeStreamHandler?.();
     const { channel } = this.props;
     const handler: client.StreamHandler = (data) => {
       const res = data[channel];
-      if (res.data.length > 0) this.leadingBuffer = res.data[res.data.length - 1];
+      const newData = res.data;
+      if (newData.length !== 0) {
+        const first = newData[newData.length - 1];
+        first.acquire();
+        this.leadingBuffer?.release();
+        this.leadingBuffer = first;
+      }
+      // Just because we didn't
       this.notify?.();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);
@@ -131,7 +143,8 @@ export class ChannelData
     this.client = client;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
+    this.data.forEach((d) => d.release());
     this.valid = false;
   }
 
@@ -150,7 +163,9 @@ export class ChannelData
 
   private async readFixed(key: channel.Key): Promise<void> {
     const res = await this.client.read(this.props.timeRange, [key]);
-    this.data = res[key].data;
+    const newData = res[key].data;
+    newData.forEach((d) => d.acquire());
+    this.data = newData;
     this.valid = true;
   }
 }
@@ -170,7 +185,7 @@ export class StreamChannelData
   static readonly TYPE = "dynamic-series-source";
   private readonly client: client.Client;
   private readonly data: Series[] = [];
-  private stopStreaming?: Destructor;
+  private stopStreaming?: AsyncDestructor;
   private valid: boolean = false;
   schema = streamChannelDataPropsZ;
 
@@ -193,32 +208,40 @@ export class StreamChannelData
     return [b, this.data];
   }
 
-  invalidate(): void {
-    this.valid = false;
-    this.notify();
-  }
-
   private async read(key: channel.Key): Promise<void> {
     const tr = TimeStamp.now().spanRange(-this.props.timeSpan);
     const res = await this.client.read(tr, [key]);
+    const newData = res[key].data;
+    newData.forEach((d) => d.acquire());
     this.data.push(...res[key].data);
     await this.updateStreamHandler(key);
     this.valid = true;
   }
 
   private async updateStreamHandler(key: channel.Key): Promise<void> {
-    this.stopStreaming?.();
-    const handler: client.StreamHandler = (data) => {
-      const d = data[key];
-      this.data.push(...d.data);
+    if (this.stopStreaming != null) await this.stopStreaming();
+    const handler: client.StreamHandler = (res) => {
+      const newData = res[key].data;
+      newData.forEach((d) => d.acquire());
+      this.data.push(...newData);
+      this.gcOutOfRangeData();
       this.notify();
     };
     this.stopStreaming = await this.client.stream(handler, [key]);
   }
 
-  cleanup(): void {
-    this.stopStreaming?.();
+  private gcOutOfRangeData(): void {
+    const threshold = TimeStamp.now().sub(this.props.timeSpan);
+    const toGC = this.data.findIndex((d) => d.timeRange.end.before(threshold));
+    if (toGC === -1) return;
+    this.data.splice(toGC, 1).forEach((d) => d.release());
+    this.gcOutOfRangeData();
+  }
+
+  async cleanup(): Promise<void> {
+    await this.stopStreaming?.();
     this.stopStreaming = undefined;
+    this.data.forEach((d) => d.release());
   }
 }
 

@@ -16,8 +16,12 @@ export const DateTime = ({ value, onChange, onBlur, ...props }: DateTimeProps) =
   const [valueIsValid, setValueIsValid] = useState(true);
 
   const handleChange = (next: string | number): void => {
-    setInternalVlaue(next.toString());
+    let nextStr = next.toString();
+    setInternalVlaue(nextStr);
+
     let ts = new TimeStamp(next, "UTC");
+    if (nextStr.length < 24) nextStr += ".000";
+
     ts = ts.add(
       (TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset()) *
         TimeSpan.MINUTE.valueOf(),
@@ -25,8 +29,10 @@ export const DateTime = ({ value, onChange, onBlur, ...props }: DateTimeProps) =
     let ok = false;
     try {
       const str = ts.fString("ISO", "local");
-      ok = str.slice(0, -1) === next.toString();
-    } catch (_) {}
+      ok = str.slice(0, -1) === nextStr;
+    } catch (_) {
+      console.error("e");
+    }
     if (!ok) {
       setValueIsValid(false);
       return;

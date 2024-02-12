@@ -51,22 +51,31 @@ export class Value
   schema = Value.z;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(console.error);
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.render = render.Context.use(this.ctx);
     i.theme = theming.use(this.ctx);
     if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
-    i.telem = telem.useSource(this.ctx, this.state.telem, i.telem);
+    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }
 
   afterDelete(): void {
+    if (this.deleted) return;
+    this.internalAfterDelete().catch(console.error);
+  }
+
+  private async internalAfterDelete(): Promise<void> {
     const { requestRender, telem, render: renderCtx } = this.internal;
-    telem.cleanup?.();
+    await telem.cleanup?.();
     if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "lower2d");
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "upper2d");
     else requestRender(render.REASON_LAYOUT);
   }
 
@@ -80,7 +89,7 @@ export class Value
     const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
-    const canvas = renderCtx.lower2d.applyScale(viewportScale);
+    const canvas = renderCtx.upper2d.applyScale(viewportScale);
     const value = await telem.value();
     canvas.font = this.state.font;
     const height = theme.typography[this.state.font].size * theme.sizes.base;
@@ -101,6 +110,8 @@ export class Value
     ) {
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
     }
+
+    console.log(box.width(b), this.state.width);
 
     const labelPosition = xy.couple(
       xy.translate(

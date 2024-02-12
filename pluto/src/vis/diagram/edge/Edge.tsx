@@ -32,8 +32,6 @@ import { connector } from "@/vis/diagram/edge/connector";
 
 import { selectNodeBox } from "../util";
 
-import { calculateLineDirection } from "@/vis/diagram/edge/edgeUtils";
-
 import "@/vis/diagram/edge/Edge.css";
 
 interface CurrentlyDragging {

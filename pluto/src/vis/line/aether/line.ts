@@ -17,7 +17,6 @@ import {
   type Series,
   type direction,
   type SeriesDigest,
-  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -180,9 +179,18 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(() => {
+      this.internal.instrumentation.L.error("afterUpdate", {
+        key: this.key,
+        reason: "failed",
+      });
+    });
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
-    i.xTelem = telem.useSource(this.ctx, this.state.x, i.xTelem);
-    i.yTelem = telem.useSource(this.ctx, this.state.y, i.yTelem);
+    i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
+    i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
     i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
     i.prog = Context.use(this.ctx);
     i.requestRender = render.Controller.useRequest(this.ctx);
@@ -192,9 +200,18 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   afterDelete(): void {
+    this.internalAfterDelete().catch(() => {
+      this.internal.instrumentation.L.error("afterDelete", {
+        key: this.key,
+        reason: "failed",
+      });
+    });
+  }
+
+  private async internalAfterDelete(): Promise<void> {
     const { internal: i } = this;
-    i.xTelem.cleanup?.();
-    i.yTelem.cleanup?.();
+    await i.xTelem.cleanup?.();
+    await i.yTelem.cleanup?.();
     i.requestRender(render.REASON_LAYOUT);
   }
 

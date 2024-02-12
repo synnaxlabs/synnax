@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type FC, useState } from "react";
+import { useCallback, type ReactElement, type FC, useState, useEffect } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import { type location, type dimensions, type xy, type bounds } from "@synnaxlabs/x";
@@ -360,10 +360,10 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
   },
 ];
 
-const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
-  value,
-  onChange,
-}): ReactElement => {
+const ValueTelemetryForm: MultiPropertyInput<{
+  telem: telem.StringSourceSpec;
+  tooltip: string[];
+}> = ({ value, onChange }): ReactElement => {
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -408,6 +408,11 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
     });
     onChange({ ...value, telem: t });
   };
+
+  const c = Channel.useName(source.channel);
+  useEffect(() => {
+    onChange({ ...value, tooltip: [c] });
+  }, [c]);
 
   return (
     <FormWrapper direction="y">

@@ -13,15 +13,29 @@
     position: absolute;
     bottom: 2rem;
     left: 2rem;
-    z-index: 5;
+    z-index: 4;
 }
 
 .react-flow__selection,
-.react-flow__nodesselection-rect,
-.react-flow__node.selected {
+.react-flow__nodesselection-rect {
     background: var(--pluto-primary-z-20) !important;
     border: var(--pluto-border-width) dashed var(--pluto-primary-z-40) !important;
 }
+
+.react-flow__node.selected {
+    /* make an inset box shadow to simulate a background */
+    box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
+
+    & .react-flow__resize-control {
+        display: block;
+    }
+}
+
+
+.react-flow__resize-control {
+    display: none;
+}
+
 
 .react-flow__handle {
     background: none !important;
@@ -43,6 +57,10 @@
     & .react-flow__edge-path {
         stroke-width: 2px !important;
     }
+}
+
+.react-flow__edges {
+    /* z-index:  6 !important; */
 }
 
 .pluto-diagram {
