@@ -11,7 +11,6 @@ import {
   type ComponentPropsWithoutRef,
   type ReactElement,
   useRef,
-  useEffect,
   useLayoutEffect,
 } from "react";
 
@@ -20,6 +19,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { usePrevious } from "@/hooks/ref";
 import { useContext } from "@/list/Context";
 import { type ItemProps } from "@/list/types";
 import { type RenderProp } from "@/util/renderProp";
@@ -62,9 +62,12 @@ const VirtualCore = <
     overscan,
   });
 
-  // Whenever the data changes, scroll to the top of the list
+  const prev = usePrevious(data);
+
+  // // Whenever the data changes, scroll to the top of the list
   useLayoutEffect(() => {
-    if (data.length > 0) virtualizer?.scrollToIndex(0);
+    if (prev == null || prev.length === 0) return;
+    if (data.length > 0 && data[0].key !== prev[0].key) virtualizer?.scrollToIndex(0);
   }, [data]);
 
   const items = virtualizer.getVirtualItems();

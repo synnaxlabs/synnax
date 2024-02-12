@@ -62,7 +62,6 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
   }
 
   afterDelete(): void {
-    if (this.deleted) return;
     this.internalAfterDelete().catch(console.error);
   }
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
-import { Input } from "@/input";
+import { Text } from "@/input/Text";
 
 import { type BaseProps } from "./types";
 
@@ -48,7 +48,7 @@ export const DateTime = ({ value, onChange, onBlur, ...props }: DateTimeProps) =
   };
 
   return (
-    <Input.Text
+    <Text
       type="datetime-local"
       onBlur={handleBlur}
       required={false}

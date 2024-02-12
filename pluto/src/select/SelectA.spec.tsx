@@ -69,7 +69,22 @@ const SelectMultiple = (): ReactElement => {
   );
 };
 
-const PLACEHOLDER = "Search...";
+const SelectSingle = (): ReactElement => {
+  const [value, setValue] = useState<string | null>(null);
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MockRecord>
+        columns={mockColumns}
+        data={mockOptions}
+        tagKey="name"
+        value={value}
+        onChange={setValue}
+      />
+    </Triggers.Provider>
+  );
+};
+
+const PLACEHOLDER = "Select...";
 
 describe("Select", () => {
   beforeAll(() => {
@@ -107,7 +122,7 @@ describe("Select", () => {
       fireEvent.click(c.getByText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
-      fireEvent.click(j[0].nextSibling as HTMLElement);
+      fireEvent.click(j[1]);
       const j2 = c.queryAllByText("John");
       expect(j2.length).toBe(1);
     });
@@ -124,6 +139,39 @@ describe("Select", () => {
       expect(j.length).toBe(1);
       expect(j2.length).toBe(1);
       expect(j3.length).toBe(1);
+    });
+  });
+  describe("Select.Single", () => {
+    it("should render a search input", () => {
+      const c = render(<SelectSingle />);
+      expect(c.getByText(PLACEHOLDER)).toBeTruthy();
+    });
+    it("should render a list of options when the input area is selected", () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      expect(c.getByText("John")).toBeTruthy();
+    });
+    it("should not render a list of options when the input area is not selected", () => {
+      const c = render(<SelectSingle />);
+      const el = c.getByText("John");
+      expect(
+        el.parentElement?.parentElement?.parentElement?.parentElement?.className,
+      ).toContain("hidden");
+    });
+    it("should allow the user to select an item", async () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      const input = await c.findByDisplayValue("John");
+      expect(input).toBeTruthy();
+    });
+    it("should allow the user to clear the selected item", async () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      const input = c.queryByDisplayValue("John");
+      expect(input).toBeFalsy();
     });
   });
 });

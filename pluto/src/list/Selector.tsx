@@ -40,6 +40,7 @@ export const Selector = <
 
   const { onSelect, clear } = useSelect<K, E>({
     data,
+    value,
     ...props,
   } as const as UseSelectProps<K, E>);
 
@@ -56,8 +57,7 @@ export const Selector = <
   }, [handleSelect, clear]);
 
   useEffect(() => {
-    if (value == null) return;
-    onChange(toArray(value));
+    onChange(value === null ? [] : toArray(value));
   }, [value]);
 
   return null;

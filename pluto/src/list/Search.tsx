@@ -15,14 +15,13 @@ import {
   type KeyedRenderableRecord,
 } from "@synnaxlabs/x";
 
+import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
-import { List } from "@/list";
+import { useContext } from "@/list/Context";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import { useSyncedRef } from "..";
 
 export interface SearchProps<
   K extends Key = Key,
@@ -74,7 +73,7 @@ export const Search = <
     setSourceData,
     setEmptyContent,
     infinite: { setOnFetchMore, setHasMore },
-  } = List.useContext<K, E>();
+  } = useContext<K, E>();
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
 
   const handleFetchMore = useCallback(
@@ -107,6 +106,7 @@ export const Search = <
   );
 
   useEffect(() => {
+    console.log("B");
     handleFetchMore(true);
     setOnFetchMore(handleFetchMore);
   }, [handleFetchMore]);
@@ -114,6 +114,7 @@ export const Search = <
   const debounced = useDebouncedCallback(
     (term: string) => {
       if (term.length === 0) {
+        console.log("CD");
         handleFetchMore(true);
         return;
       }

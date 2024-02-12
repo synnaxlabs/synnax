@@ -124,6 +124,11 @@ export class Proxy implements Client {
   }
 }
 
+interface ListenerEntry {
+  valid: boolean;
+  keys: channel.Keys;
+}
+
 /**
  * Core wraps a Synnax client to implement the pluto telemetry Client interface,
  * adding a transparent caching layer.
@@ -134,7 +139,8 @@ export class Core implements Client {
   private readonly ins: alamos.Instrumentation;
   private readonly mu: Mutex = new Mutex();
   private readonly cache = new Map<channel.Key, cache.Cache>();
-  private readonly listeners = new Map<StreamHandler, channel.Keys>();
+  private readonly listeners = new Map<StreamHandler, ListenerEntry>();
+  private streamerRunLoop: Promise<void> | null = null;
   private _streamer: framer.Streamer | null = null;
 
   constructor(wrap: Synnax, ins: alamos.Instrumentation) {
@@ -236,7 +242,7 @@ export class Core implements Client {
   async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
     return await this.mu.runExclusive(async () => {
       this.ins.L.debug("adding stream handler", { keys });
-      this.listeners.set(handler, keys);
+      this.listeners.set(handler, { valid: true, keys });
       const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
         const c = await this.getCache(key);
@@ -247,7 +253,7 @@ export class Core implements Client {
       }
       handler(dynamicBuffs);
       await this.updateStreamer();
-      return async () => this.removeStreamHandler(handler);
+      return async () => await this.removeStreamHandler(handler);
     });
   }
 
@@ -258,7 +264,12 @@ export class Core implements Client {
     this._streamer?.close();
   }
 
-  private removeStreamHandler(handler: StreamHandler): void {
+  private async removeStreamHandler(handler: StreamHandler): Promise<void> {
+    await this.mu.runExclusive(() => {
+      const entry = this.listeners.get(handler);
+      if (entry == null) return;
+      entry.valid = false;
+    });
     setTimeout(() => {
       void this.mu.runExclusive(async () => {
         this.ins.L.debug("removing stream handler", { handler });
@@ -281,13 +292,15 @@ export class Core implements Client {
   private async updateStreamer(): Promise<void> {
     // Assemble the set of keys we need to stream.
     const keys = new Set<channel.Key>();
-    this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
+    this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
       this.ins.L.info("no keys to stream, closing streamer");
       this._streamer?.close();
+      if (this.streamerRunLoop != null) await this.streamerRunLoop;
       this._streamer = null;
+      this.ins.L.info("streamer closed successfully");
       return;
     }
 
@@ -303,7 +316,7 @@ export class Core implements Client {
     if (this._streamer == null) {
       this.ins.L.info("creating new streamer", { keys: arrKeys });
       this._streamer = await this.core.telem.newStreamer(arrKeys);
-      void this.start(this._streamer);
+      this.streamerRunLoop = this.runStreamer(this._streamer);
     }
 
     this.ins.L.debug("updating streamer", { prev: this._streamer.keys, next: arrKeys });
@@ -311,7 +324,7 @@ export class Core implements Client {
     await this._streamer.update(arrKeys);
   }
 
-  private async start(streamer: framer.Streamer): Promise<void> {
+  private async runStreamer(streamer: framer.Streamer): Promise<void> {
     for await (const frame of streamer) {
       const changed: ReadResponse[] = [];
       for (const k of frame.keys) {
@@ -321,11 +334,11 @@ export class Core implements Client {
         changed.push(new ReadResponse(cache.channel, out));
       }
       await this.mu.runExclusive(() => {
-        this.listeners.forEach((keys, handler) => {
-          const notify = changed.filter((r) => keys.includes(r.channel.key));
+        this.listeners.forEach((entry, handler) => {
+          const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
           if (notify.length === 0) return;
           const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-          handler(d);
+          if (entry.valid) handler(d);
         });
       });
     }

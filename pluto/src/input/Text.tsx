@@ -84,6 +84,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           onChange={(e) => {
             onChange?.(e.target.value);
           }}
+          role="textbox"
           autoCapitalize="off"
           autoComplete="off"
           autoCorrect="off"

@@ -19,11 +19,11 @@ import {
 import { bounds } from "@synnaxlabs/x";
 import { evaluate } from "mathjs";
 
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
-
-import { Triggers, useCombinedStateAndRef, useSyncedRef } from "..";
+import { Triggers } from "@/triggers";
 
 export interface NumericProps
   extends Omit<BaseProps<number>, "type">,

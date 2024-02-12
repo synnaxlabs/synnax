@@ -289,9 +289,11 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    */
   internalDelete(path: string[]): void {
     this.validatePath(path);
-    this.afterDelete();
     this._deleted = true;
+    this.afterDelete();
   }
+
+  beforeUpdate(): void {}
 
   /**
    * afterUpdate is optionally defined by a subclass, allowing the component to
@@ -300,6 +302,8 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * the component.
    */
   afterUpdate(): void {}
+
+  beforeDelete(): void {}
 
   /**
    * Runs after the component has been spliced out of the tree. This is useful for

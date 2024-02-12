@@ -44,10 +44,6 @@ const TABS = [
     name: "Axes",
   },
   {
-    tabKey: "annotations",
-    name: "Annotations",
-  },
-  {
     tabKey: "properties",
     name: "Properties",
   },

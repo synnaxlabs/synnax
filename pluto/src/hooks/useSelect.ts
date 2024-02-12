@@ -9,17 +9,22 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { type Key, type KeyedRecord, unique, toArray } from "@synnaxlabs/x";
+import {
+  type Key,
+  type KeyedRecord,
+  unique,
+  toArray,
+  type Optional,
+} from "@synnaxlabs/x";
 
+import { useSyncedRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
-
-import { useSyncedRef } from ".";
 
 /**
  * Extra information passed as an additional argument to the `onChange` callback.
  * of the {@link useSelect} hook.
  */
-export interface UseSelectMultipleOnChangeExtra<
+export interface UseSelectOnChangeExtra<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
 > {
@@ -37,9 +42,9 @@ export interface UseSelectSingleAllowNoneProps<
   data: E[];
   replaceOnSingle?: boolean;
   allowMultiple: false;
-  allowNone: true | undefined;
+  allowNone?: true | undefined;
   value: K | K[] | null;
-  onChange: (next: K | null, extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
+  onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
 export interface UseSelectSingleDisallowNoneProps<
@@ -51,27 +56,32 @@ export interface UseSelectSingleDisallowNoneProps<
   allowMultiple: false;
   allowNone: false;
   value: K | K[];
-  onChange: (next: K, extra: UseSelectMultipleOnChangeExtra<K, any>) => void;
+  onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
 
-export type UseSelectSingleProps<K extends Key, E extends KeyedRecord<K, E>> =
+type UseSelectSingleInternalProps<K extends Key, E extends KeyedRecord<K, E>> =
   | UseSelectSingleAllowNoneProps<K, E>
   | UseSelectSingleDisallowNoneProps<K, E>;
 
+export type UseSelectSingleProps<K extends Key, E extends KeyedRecord<K, E>> = Optional<
+  UseSelectSingleInternalProps<K, E>,
+  "allowNone"
+>;
+
 export interface UseSelectMultipleProps<K extends Key, E extends KeyedRecord<K, E>> {
   data: E[];
-  allowMultiple: true | undefined;
+  allowMultiple?: true;
   replaceOnSingle?: boolean;
   allowNone?: boolean;
   value: K | K[];
-  onChange: (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
+  onChange: (next: K[], extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
 /** Props for the {@link useSelect} hook. */
 export type UseSelectProps<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
-> = UseSelectSingleProps<K, E> | UseSelectMultipleProps<K, E>;
+> = UseSelectSingleInternalProps<K, E> | UseSelectMultipleProps<K, E>;
 
 /** Return value for the {@link useSelect} hook. */
 export interface UseSelectMultipleReturn<
@@ -126,7 +136,7 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
   const dataRef = useSyncedRef(propsData);
 
   const handleChange = useCallback(
-    (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => {
+    (next: K[], extra: UseSelectOnChangeExtra<K, E>) => {
       valueRef.current = next;
       if (next.length === 0 && allowNone !== false) {
         if (allowMultiple !== false) return onChange([], extra);
@@ -141,7 +151,7 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
   useEffect(() => {
     const data = dataRef.current;
     // If for some reason the value is empty and it shouldn't be, automatically set
-    // it to the new value.
+    // it to the new value..
     if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
       const first = data[0];
       handleChange([first.key], {
@@ -150,13 +160,13 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
         clickedIndex: 0,
       });
     }
-  }, [handleChange, propsValue, allowNone]);
+  }, [handleChange, dataRef, propsValue, allowNone]);
 
   const onSelect = useCallback(
     (key: K): void => {
-      let nextSelected: K[] = [];
       const shiftValue = shiftValueRef.current;
       const data = dataRef.current;
+      let nextSelected: K[] = [];
       const value = toArray(valueRef.current).filter((v) => v != null) as K[];
       if (allowMultiple === false) {
         nextSelected = value.includes(key) ? [] : [key];
@@ -186,13 +196,13 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
       const v = unique(nextSelected);
       if (allowNone === false && v.length === 0) return;
       if (v.length === 0) shiftValueRef.current = null;
-      handleChange(unique(nextSelected), {
+      handleChange(v, {
         entries: data.filter(({ key }) => nextSelected.includes(key)),
         clicked: key,
         clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
-    [valueRef, handleChange, allowMultiple],
+    [valueRef, dataRef, handleChange, allowMultiple],
   );
 
   const clear = useCallback(

@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Status, Button, Select, Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Status, Button, Select, Align } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 
 import { Layout } from "@/layout";

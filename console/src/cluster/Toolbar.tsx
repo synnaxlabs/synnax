@@ -46,8 +46,8 @@ const Content = (): ReactElement => {
     },
   ];
 
-  const handleSelect = ([key]: string[]): void => {
-    dispatch(setActive(key ?? null));
+  const handleSelect = (key: string | null): void => {
+    dispatch(setActive(key));
   };
 
   return (

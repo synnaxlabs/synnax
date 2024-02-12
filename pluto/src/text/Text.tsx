@@ -41,7 +41,7 @@ export type TextProps<L extends text.Level = "h1"> = Omit<
 
 const CoreText = <L extends text.Level = text.Level>(
   {
-    level = "h1" as L,
+    level = "p" as L,
     color,
     className,
     style,

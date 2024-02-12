@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type ranger } from "@synnaxlabs/client";
+import { type ontology, type Synnax, type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree } from "@synnaxlabs/pluto";
+import { Menu, Tree, type Haul } from "@synnaxlabs/pluto";
 import { toArray } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
@@ -207,6 +207,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
+  {
+    type: "range",
+    key: id.key,
+  },
+];
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "range",
   hasChildren: true,
@@ -214,7 +221,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => true,
   onSelect: handleSelect,
   TreeContextMenu,
-  haulItems: () => [],
+  haulItems,
   allowRename: () => true,
   onRename: handleRename,
 };

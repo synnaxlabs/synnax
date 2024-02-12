@@ -86,7 +86,10 @@ export const List = (): ReactElement => {
     dispatch(remove({ keys }));
   };
 
+  console.log(selectedRange?.key);
+
   const handleSelect = (key: string): void => {
+    console.log(key);
     dispatch(setActive(key));
   };
 
@@ -167,9 +170,10 @@ export const List = (): ReactElement => {
       <div style={{ flexGrow: 1 }}>
         <Core.List data={ranges.filter((r) => r.variant === "static")}>
           <Core.Selector
-            value={selectedRange == null ? [] : [selectedRange.key]}
-            onChange={([key]: string[]) => handleSelect(key)}
+            value={selectedRange?.key}
+            onChange={handleSelect}
             allowMultiple={false}
+            allowNone={true}
           />
           <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
             {componentRenderProp(ListItem)}

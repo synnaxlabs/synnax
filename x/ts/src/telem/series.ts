@@ -190,7 +190,6 @@ export class Series  {
 
   release(): void {
     this._refCount--;
-    console.log("RELEASE", this.key, this._refCount, this.gl.control)
     if (this._refCount === 0 && this.gl.control != null)
       this.maybeGarbageCollectGLBuffer(this.gl.control);
     else if (this._refCount < 0)

@@ -129,12 +129,6 @@ export const NavTop = (): ReactElement => {
         >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Button.Icon
-          size="medium"
-          tooltip={<Text.Text level="small">Settings</Text.Text>}
-        >
-          <Icon.Settings />
-        </Button.Icon>
         <Controls className="console-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>

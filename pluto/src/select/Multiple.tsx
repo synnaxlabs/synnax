@@ -23,6 +23,7 @@ import {
   type AsyncTermSearcher,
   compare,
   toArray,
+  type RenderableValue,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
@@ -90,6 +91,9 @@ export const Multiple = <
   renderTag,
   placeholder,
   onTagDragStart,
+  allowMultiple,
+  allowNone,
+  replaceOnSingle,
   onTagDragEnd,
   style,
   ...props
@@ -98,15 +102,18 @@ export const Multiple = <
   const [selected, setSelected] = useState<readonly E[]>([]);
   const searchMode = searcher != null;
 
+  // This hook makes sure we have the selected entries fetched to render their tags
+  // properly.
   useAsyncEffect(async () => {
-    const selectedKeys = selected.map((v) => v.key);
     if (selectValueIsZero(value)) setSelected([]);
-    const arrValue = toArray(value);
-    if (compare.primitiveArrays(selectedKeys, arrValue) === compare.EQUAL) return;
-    const e = searchMode
-      ? await searcher.retrieve(arrValue)
-      : data?.filter((v) => arrValue.includes(v.key)) ?? [];
-    setSelected(e);
+    const inSelected = selected.map((v) => v.key);
+    const nextValue = toArray(value);
+    if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
+      return;
+    let nextSelected: E[] = [];
+    if (searchMode) nextSelected = await searcher.retrieve(nextValue);
+    else if (data != null) nextSelected = data.filter((v) => nextValue.includes(v.key));
+    setSelected(nextSelected);
   }, [searcher, searchMode, value, data]);
 
   const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
@@ -123,7 +130,7 @@ export const Multiple = <
   );
 
   return (
-    <CoreList.List data={data} emptyContent={emptyContent}>
+    <CoreList.List<K, E> data={data} emptyContent={emptyContent}>
       <Dropdown.Dialog
         ref={ref}
         visible={visible}
@@ -131,9 +138,11 @@ export const Multiple = <
         {...props}
         matchTriggerWidth
       >
-        <InputWrapper searcher={searcher}>
-          {({ onChange }) => (
+        <InputWrapper<K, E> searcher={searcher}>
+          {({ onChange, value: inputValue }) => (
             <MultipleInput<K, E>
+              value={inputValue}
+              selectedKeys={value}
               className={className}
               onChange={onChange}
               selected={selected}
@@ -148,10 +157,12 @@ export const Multiple = <
             />
           )}
         </InputWrapper>
-        <List
+        <List<K, E>
           visible={visible}
           value={value}
           onChange={handleChange}
+          allowNone={allowNone}
+          replaceOnSingle={replaceOnSingle}
           columns={columns}
           allowMultiple
         />
@@ -161,7 +172,8 @@ export const Multiple = <
 };
 
 interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Omit<Input.TextProps, "value"> {
+  extends Input.TextProps {
+  selectedKeys: K | K[];
   selected: readonly E[];
   tagKey: keyof E | ((e: E) => string | number);
   visible: boolean;
@@ -171,40 +183,50 @@ interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecor
 }
 
 const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+  selectedKeys,
   selected,
   onChange,
   onFocus,
   visible,
   tagKey,
   renderTag = componentRenderProp(SelectMultipleTag),
-  placeholder = "Search...",
+  placeholder = "Select...",
   onTagDragStart,
   onTagDragEnd,
+  value,
   className,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
   const {
     select: { onSelect, clear },
   } = CoreList.useContext<K, E>();
-  const [value, setValue] = useState("");
   const ref = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
     if (visible) ref.current?.focus();
-    // Notice how we don't call onChange with an empty value here. This is so
-    // we preserve the previous search result in the list even after we clear
-    // the box when a value is selected.
-    else setValue("");
+    // // Notice how we don't call onChange with an empty value here. This is so
+    // // we preserve the previous search result in the list even after we clear
+    // // the box when a value is selected.
+    // else setValue("");
   }, [visible, selected]);
 
   const handleChange = (v: string): void => {
-    setValue(v);
     onChange(v);
   };
 
   const handleFocus: Input.TextProps["onFocus"] = (e) => {
-    onChange("");
+    if (!visible) onChange("");
     onFocus?.(e);
+  };
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+    if (visible) return;
+    onFocus?.(e);
+  };
+
+  const handleBlur = (): void => {
+    if (visible) return;
+    onChange("");
   };
 
   return (
@@ -215,6 +237,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         CSS.visible(visible),
         className,
       )}
+      onBlur={handleBlur}
       placeholder={placeholder}
       value={value}
       onChange={handleChange}
@@ -222,6 +245,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       autoComplete="off"
       autoCapitalize="off"
       autoCorrect="off"
+      onClick={handleClick}
       {...props}
     >
       <Align.Space
@@ -230,16 +254,18 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
         align="center"
         grow
       >
-        {selected.map((e, i) =>
-          renderTag({
-            key: e.key,
+        {toArray(selectedKeys).map((k, i) => {
+          const e = selected[i];
+          return renderTag({
+            key: k,
+            entryKey: k,
             tagKey,
             entry: e,
-            onClose: () => onSelect?.(e.key),
-            onDragStart: (ev) => onTagDragStart?.(ev, e.key),
-            onDragEnd: (ev) => onTagDragEnd?.(ev, e.key),
-          }),
-        )}
+            onClose: () => onSelect?.(k),
+            onDragStart: (ev) => onTagDragStart?.(ev, k),
+            onDragEnd: (ev) => onTagDragEnd?.(ev, k),
+          });
+        })}
       </Align.Space>
       <ClearButton onClick={clear} />
     </Input.Text>
@@ -248,8 +274,9 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
 interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   key: K;
+  entryKey: K;
   tagKey: keyof E | ((e: E) => string | number);
-  entry: E;
+  entry?: E;
   color?: Color.Crude;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -257,13 +284,21 @@ interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<
 }
 
 const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+  entryKey,
   tagKey,
   entry,
   ...props
 }: SelectMultipleTagProps<K, E>): ReactElement => {
-  const v = typeof tagKey === "function" ? tagKey(entry) : entry[tagKey];
+  let v: RenderableValue = entryKey;
+  if (entry != null) v = typeof tagKey === "function" ? tagKey(entry) : entry[tagKey];
   return (
-    <Tag.Tag size="small" variant="outlined" draggable {...props} key={v.toString()}>
+    <Tag.Tag
+      size="small"
+      variant="outlined"
+      draggable
+      {...props}
+      key={entryKey.toString()}
+    >
       {convertRenderV(v)}
     </Tag.Tag>
   );

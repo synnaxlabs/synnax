@@ -26,16 +26,21 @@ import {
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { type UseSelectProps } from "@/hooks/useSelect";
-import { Input } from "@/input";@/hooks/useSelect
+import {
+  selectValueIsZero,
+  type UseSelectSingleProps,
+  type UseSelectOnChangeExtra,
+} from "@/hooks/useSelect";
+import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
 import { List } from "@/select/List";
 
 import "@/select/Single.css";
 
-interface BaseSingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "variant">,
+    Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
   tagKey?: keyof E | ((e: E) => string | number);
@@ -44,15 +49,6 @@ interface BaseSingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
 }
-
-export type SingleProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> = BaseSingleProps<K, E> &
-  (
-    | ({ allowNone: false } & Input.Control<K>)
-    | ({ allowNone: true } & Input.Control<K | null>)
-  );
 
 /**
  * Allows a user to browse, search for, and select a value from a list of options.
@@ -94,27 +90,24 @@ export const Single = <
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
+  // This hook runs to make sure we have the selected entry populated when the value
+  // changes externally.
   useAsyncEffect(async () => {
-    if (searcher == null || selected?.key === value || primitiveIsZero(value)) return;
-    const [e] = await searcher.retrieve([value]);
-    setSelected(e ?? null);
+    if (selected?.key === value) return;
+    if (selectValueIsZero(value)) return setSelected(null);
+    let nextSelected: E | null = null;
+    if (searchMode) {
+      const [e] = await searcher.retrieve([value]);
+      nextSelected = e ?? null;
+    } else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+    setSelected(nextSelected);
   }, [searcher, value]);
 
-  useEffect(() => {
-    if (selected?.key === value) return;
-    setSelected(data?.find((e) => e.key === value) ?? null);
-  }, [value]);
-
-  const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
-    ([v], e): void => {
+  const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
+    (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
+      if (v != null) setSelected(e.entries[0]);
       close();
-      if (v == null) {
-        if (!allowNone) return;
-        setSelected(null);
-        return onChange(null);
-      }
-      setSelected(e.entries[0]);
-      onChange(v);
+      onChange(v, e);
     },
     [onChange, allowNone],
   );
@@ -125,7 +118,7 @@ export const Single = <
   );
 
   return (
-    <CoreList.List data={data} emptyContent={emptyContent}>
+    <CoreList.List<K, E> data={data} emptyContent={emptyContent}>
       <Dropdown.Dialog
         ref={ref}
         visible={visible}
@@ -133,9 +126,9 @@ export const Single = <
         matchTriggerWidth
         {...props}
       >
-        <InputWrapper searcher={searcher}>
+        <InputWrapper<K, E> searcher={searcher}>
           {({ onChange }) => (
-            <SingleInput
+            <SingleInput<K, E>
               variant={variant}
               onChange={onChange}
               onFocus={open}
@@ -149,11 +142,12 @@ export const Single = <
           )}
         </InputWrapper>
         <List<K, E>
+          allowMultiple={false}
           visible={visible}
           value={value}
           hideColumnHeader={hideColumnHeader}
           onChange={handleChange}
-          allowMultiple={false}
+          allowNone={allowNone}
           columns={columns}
         />
       </Dropdown.Dialog>
@@ -178,6 +172,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   onFocus,
   allowNone = true,
   debounceSearch = 250,
+  placeholder = "Select...",
   className,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
@@ -195,6 +190,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
+    console.log("selected", selected);
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
@@ -213,7 +209,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     onFocus?.(e);
   };
 
-  const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+  const handleClick: React.MouseEventHandler<HTMLInputElement> = (e) => {
     if (visible) return;
     e.preventDefault();
     onFocus?.(e);
@@ -232,6 +228,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       onFocus={handleFocus}
       style={{ flexGrow: 1 }}
       onClick={handleClick}
+      placeholder={placeholder}
       {...props}
     >
       {allowNone && <ClearButton onClick={handleClear} />}

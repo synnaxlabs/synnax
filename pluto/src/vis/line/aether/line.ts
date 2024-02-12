@@ -269,6 +269,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async render(props: LineProps): Promise<void> {
+    if (this.deleted) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;

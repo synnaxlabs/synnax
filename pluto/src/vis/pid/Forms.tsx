@@ -371,7 +371,7 @@ const ValueTelemetryForm: MultiPropertyInput<{
   const stringifier = telem.stringifyNumberProps.parse(
     sourceP.segments.stringifier.props,
   );
-  const handleSourceChange = (v: channel.Key): void => {
+  const handleSourceChange = (v: channel.Key | null): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
         {
@@ -380,7 +380,7 @@ const ValueTelemetryForm: MultiPropertyInput<{
         },
       ],
       segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
+        valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision ?? 2,
         }),
