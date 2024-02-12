@@ -42,10 +42,10 @@ TEST(NiReaderTests, testReadandInitAnalog){
         if (frame.series->at(i).data_type == synnax::FLOAT32){
             auto s =  frame.series->at(i).float32();
             for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
+                std::cout << s[j]<< ", ";
             }
         }
-        else if(frame.series->at(i).data_type == synnax::UINT64){
+        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";
@@ -88,7 +88,7 @@ TEST(NiReaderTests, testReadandInitDigital){
                 std::cout << s[j] << ", ";
             }
         }
-        else if(frame.series->at(i).data_type == synnax::UINT64){
+        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";

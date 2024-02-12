@@ -50,7 +50,7 @@ public:
         size = d.size() * sizeof(int64_t);
     }
 
-    explicit Series(const std::vector<uint64_t> &d) : data_type(synnax::UINT64) {
+    explicit Series(const std::vector<uint64_t> &d, DataType data_type = synnax::UINT64) : data_type(data_type) {
         data = std::make_unique<std::byte[]>(d.size() * sizeof(uint64_t));
         memcpy(data.get(), d.data(), d.size() * sizeof(uint64_t));
         size = d.size() * sizeof(uint64_t);
@@ -114,7 +114,7 @@ public:
     }
 
     [[nodiscard]] std::vector<uint64_t> uint64() const {
-        if (data_type != synnax::UINT64) {
+        if (data_type != synnax::UINT64 && data_type != synnax::TIMESTAMP) {
             throw std::runtime_error("invalid data type");
         }
         std::vector<uint64_t> v(size / sizeof(uint64_t));

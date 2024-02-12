@@ -48,7 +48,7 @@ TEST(AcqTests, testAcqNi){
 
     auto [data, dErr] = client->channels.create(
             "data",
-            synnax::UINT8,
+            synnax::FLOAT32,
             time.key,
             false
     );
@@ -60,7 +60,7 @@ TEST(AcqTests, testAcqNi){
 
     // make and init daqReade unique ptrr
     auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(channel_configs, 1000, 20);
+    reader->init(channel_configs, 500, 10);
 
     // create a test writer
     auto now = synnax::TimeStamp::now();
@@ -74,8 +74,10 @@ TEST(AcqTests, testAcqNi){
 
     // instantiate the acq
     auto acq = Acq::Acq(writerConfig, client, std::move(reader));
+//    std::cout << "Starting acq" << std::endl;
     acq.start();
-    std::this_thread::sleep_for(std::chrono::seconds(20)); // let the acq run for 10 seconds, should expect frames to be commited
+    std::this_thread::sleep_for(std::chrono::seconds(60)); // let the acq run for 10 seconds, should expect frames to be commited
+//    std::cout << "Stopping acq" << std::endl;
     acq.stop();
 
 }

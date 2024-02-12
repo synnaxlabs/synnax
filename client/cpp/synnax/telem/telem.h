@@ -205,6 +205,9 @@ public:
     explicit TimeStamp(TimeSpan ts) : value(ts.value) {}
 
     TimeStamp static now() {
+
+        // note that on some machines, high res clock refs system_clock and on others it references
+        // steady_clock. This could create a problem so we should probably use system_clock.
         return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::system_clock::now().time_since_epoch()
         ).count());

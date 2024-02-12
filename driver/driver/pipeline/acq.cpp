@@ -64,11 +64,14 @@ void Acq::run() {
             retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
         }
 
-        auto s =  frame.series->at(0).uint64();
-        for (int j = 0; j < s.size(); j++){
-            std::cout << s[j] << ", ";
-        }
-        std::cout << "Writing" << std::endl;
+//        std::cout << "holy fucking shit fuckface fuck" << std::endl;
+//        auto s =  frame.series->at(0).uint64();
+
+//        for (int j = 0; j < s.size(); j++){
+//            std::cout << s[j] << ", ";
+//        }
+
+//        std::cout << "Writing" << std::endl;
         if (!writer.write(std::move(frame))) { // write frame to channel
 
             auto err = writer.error();
@@ -81,7 +84,7 @@ void Acq::run() {
         // synnax commit
         auto now = synnax::TimeStamp::now();
 
-        std::cout << "committing" << std::endl;
+//        std::cout << "committing" << std::endl;
         if (now - last_commit > commit_interval) {
             auto [end, ok] = writer.commit();
             auto err = writer.error();
@@ -90,14 +93,14 @@ void Acq::run() {
                 std::cout << "committing failed" << std::endl;
                 break;
             }
-            std::cout << "end: " << end.value << std::endl;
+//            std::cout << "end: " << end.value << std::endl;
             last_commit = now;
         }
     }
-    std::cout  << "shutting things down" << std::endl;
+//    std::cout  << "shutting things down" << std::endl;
     daq_reader->stop();
     auto err = writer.close();
-    std::cout << "Acq run error: " << err.message() << std::endl;
+//    std::cout << "Acq run error: " << err.message() << std::endl;
     if (retry && breaker->wait()) run();
 }
 

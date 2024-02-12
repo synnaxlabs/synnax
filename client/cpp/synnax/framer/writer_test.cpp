@@ -57,7 +57,7 @@ TEST(FramerTests, testWriteBasic) {
                     (now + synnax::SECOND * 6).value,
                     (now + synnax::SECOND * 7).value,
                     (now + synnax::SECOND * 8).value,
-            })
+            }, synnax::TIMESTAMP)
     );
     frame.add(
             data.key,
