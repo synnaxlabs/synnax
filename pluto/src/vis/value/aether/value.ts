@@ -111,8 +111,6 @@ export class Value
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
     }
 
-    console.log(box.width(b), this.state.width);
-
     const labelPosition = xy.couple(
       xy.translate(
         box.topLeft(b),

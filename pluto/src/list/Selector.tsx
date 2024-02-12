@@ -12,41 +12,36 @@ import { useCallback, useEffect } from "react";
 import { toArray, type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks/ref";
-import {
-  useSelectMultiple,
-  type UseSelectMultipleProps,
-} from "@/hooks/useSelectMultiple";
+import { useSelect, type UseSelectProps } from "@/hooks/useSelect";
 import { useContext } from "@/list/Context";
 
-export interface SelectorProps<
+export type SelectorProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<UseSelectMultipleProps<K, E>, "data"> {}
+> = Omit<UseSelectProps<K, E>, "data">;
 
 /**
  * Implements selection behavior for a list.
  *
  * @param props - The props for the List.Selector component. These props are identical
- * to the props for {@link useSelectMultiple} hook.
+ * to the props for {@link useSelect} hook.
  */
 export const Selector = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
-  value: rValue,
+  value,
   ...props
 }: SelectorProps<K, E>): null => {
-  const value = toArray(rValue);
   const {
     data,
     select: { setOnSelect, setClear, onChange },
   } = useContext<K, E>();
 
-  const { onSelect, clear } = useSelectMultiple({
+  const { onSelect, clear } = useSelect<K, E>({
     data,
-    value,
     ...props,
-  });
+  } as const as UseSelectProps<K, E>);
 
   const onSelectRef = useSyncedRef(onSelect);
 
@@ -61,8 +56,9 @@ export const Selector = <
   }, [handleSelect, clear]);
 
   useEffect(() => {
-    onChange(toArray(rValue));
-  }, [rValue]);
+    if (value == null) return;
+    onChange(toArray(value));
+  }, [value]);
 
   return null;
 };

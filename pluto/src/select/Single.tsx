@@ -13,7 +13,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -27,28 +26,33 @@ import {
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
-import { Input } from "@/input";
+import { type UseSelectProps } from "@/hooks/useSelect";
+import { Input } from "@/input";@/hooks/useSelect
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
 import { List } from "@/select/List";
 
 import "@/select/Single.css";
 
-export interface SingleProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
-    Input.Control<K>,
+interface BaseSingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+  extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "variant">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
   tagKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
-  allowNone?: boolean;
   hideColumnHeader?: boolean;
 }
+
+export type SingleProps<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+> = BaseSingleProps<K, E> &
+  (
+    | ({ allowNone: false } & Input.Control<K>)
+    | ({ allowNone: true } & Input.Control<K | null>)
+  );
 
 /**
  * Allows a user to browse, search for, and select a value from a list of options.
@@ -78,7 +82,7 @@ export const Single = <
   data,
   emptyContent,
   inputProps,
-  allowNone = true,
+  allowNone,
   searcher,
   className,
   variant,
@@ -87,7 +91,6 @@ export const Single = <
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { ref, visible, open, close } = Dropdown.use();
-  const initialValue = useRef<K>(value);
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
@@ -102,13 +105,13 @@ export const Single = <
     setSelected(data?.find((e) => e.key === value) ?? null);
   }, [value]);
 
-  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
+  const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
     ([v], e): void => {
       close();
       if (v == null) {
         if (!allowNone) return;
         setSelected(null);
-        return onChange(initialValue.current);
+        return onChange(null);
       }
       setSelected(e.entries[0]);
       onChange(v);
@@ -147,7 +150,7 @@ export const Single = <
         </InputWrapper>
         <List<K, E>
           visible={visible}
-          value={[value]}
+          value={value}
           hideColumnHeader={hideColumnHeader}
           onChange={handleChange}
           allowMultiple={false}

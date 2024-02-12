@@ -22,6 +22,7 @@ import {
   type KeyedRenderableRecord,
   type AsyncTermSearcher,
   compare,
+  toArray,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
@@ -29,7 +30,7 @@ import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { selectValueIsZero, type UseSelectMultipleProps } from "@/hooks/useSelect";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
@@ -43,7 +44,7 @@ export interface MultipleProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children">,
-    Input.Control<K[]>,
+    Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
@@ -99,18 +100,19 @@ export const Multiple = <
 
   useAsyncEffect(async () => {
     const selectedKeys = selected.map((v) => v.key);
-    if (value.length === 0) return setSelected([]);
-    if (compare.primitiveArrays(selectedKeys, value) === compare.EQUAL) return;
+    if (selectValueIsZero(value)) setSelected([]);
+    const arrValue = toArray(value);
+    if (compare.primitiveArrays(selectedKeys, arrValue) === compare.EQUAL) return;
     const e = searchMode
-      ? await searcher.retrieve(value)
-      : data?.filter((v) => value.includes(v.key)) ?? [];
+      ? await searcher.retrieve(arrValue)
+      : data?.filter((v) => arrValue.includes(v.key)) ?? [];
     setSelected(e);
   }, [searcher, searchMode, value, data]);
 
   const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
     (v, extra) => {
       setSelected(extra.entries);
-      onChange(v);
+      onChange(v, extra);
     },
     [onChange],
   );

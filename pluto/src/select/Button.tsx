@@ -16,10 +16,7 @@ import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import {
-  type UseSelectMultipleProps,
-  useSelectMultiple,
-} from "@/hooks/useSelectMultiple";
+import { type UseSelectProps, useSelect } from "@/hooks/useSelect";
 import { type Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { List } from "@/select/List";
@@ -42,7 +39,7 @@ export interface ButtonProps<
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Input.Control<K>,
     Omit<Align.PackProps, "children" | "onChange">,
-    Pick<UseSelectMultipleProps, "allowNone" | "allowMultiple"> {
+    Pick<UseSelectProps, "allowNone" | "allowMultiple"> {
   children?: RenderProp<ButtonOptionProps<K, E>>;
   entryRenderKey?: keyof E;
   data: E[];
@@ -61,7 +58,7 @@ export const Button = <
   data,
   ...props
 }: ButtonProps<K, E>): JSX.Element => {
-  const { onSelect } = useSelectMultiple({
+  const { onSelect } = useSelect({
     allowMultiple,
     allowNone,
     data,
@@ -162,7 +159,7 @@ export const DropdownButton = <
   const { ref, visible, toggle, close } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(data.find((e) => e.key === value));
 
-  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
+  const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
     ([next]: K[], e): void => {
       close();
       if (next == null) {

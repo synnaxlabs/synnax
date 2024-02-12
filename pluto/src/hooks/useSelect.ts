@@ -13,9 +13,11 @@ import { type Key, type KeyedRecord, unique, toArray } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 
+import { useSyncedRef } from ".";
+
 /**
  * Extra information passed as an additional argument to the `onChange` callback.
- * of the {@link useSelectMultiple} hook.
+ * of the {@link useSelect} hook.
  */
 export interface UseSelectMultipleOnChangeExtra<
   K extends Key = Key,
@@ -28,20 +30,50 @@ export interface UseSelectMultipleOnChangeExtra<
   entries: E[];
 }
 
-/** Props for the {@link useSelectMultiple} hook. */
-export interface UseSelectMultipleProps<
-  K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>,
+export interface UseSelectSingleAllowNoneProps<
+  K extends Key,
+  E extends KeyedRecord<K, E>,
 > {
   data: E[];
-  allowMultiple?: boolean;
-  allowNone?: boolean;
   replaceOnSingle?: boolean;
+  allowMultiple: false;
+  allowNone: true | undefined;
+  value: K | K[] | null;
+  onChange: (next: K | null, extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
+}
+
+export interface UseSelectSingleDisallowNoneProps<
+  K extends Key,
+  E extends KeyedRecord<K, E>,
+> {
+  data: E[];
+  replaceOnSingle?: boolean;
+  allowMultiple: false;
+  allowNone: false;
+  value: K | K[];
+  onChange: (next: K, extra: UseSelectMultipleOnChangeExtra<K, any>) => void;
+}
+
+export type UseSelectSingleProps<K extends Key, E extends KeyedRecord<K, E>> =
+  | UseSelectSingleAllowNoneProps<K, E>
+  | UseSelectSingleDisallowNoneProps<K, E>;
+
+export interface UseSelectMultipleProps<K extends Key, E extends KeyedRecord<K, E>> {
+  data: E[];
+  allowMultiple: true | undefined;
+  replaceOnSingle?: boolean;
+  allowNone?: boolean;
   value: K | K[];
   onChange: (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => void;
 }
 
-/** Return value for the {@link useSelectMultiple} hook. */
+/** Props for the {@link useSelect} hook. */
+export type UseSelectProps<
+  K extends Key = Key,
+  E extends KeyedRecord<K, E> = KeyedRecord<K>,
+> = UseSelectSingleProps<K, E> | UseSelectMultipleProps<K, E>;
+
+/** Return value for the {@link useSelect} hook. */
 export interface UseSelectMultipleReturn<
   K extends Key = Key,
   E extends KeyedRecord<K, E> = KeyedRecord<K>,
@@ -50,8 +82,12 @@ export interface UseSelectMultipleReturn<
   clear: () => void;
 }
 
+export const selectValueIsZero = <K extends Key>(
+  value: K | K[] | null,
+): value is null | K[] => value == null || (Array.isArray(value) && value.length === 0);
+
 /**
- * Implements generic multiple selection over a collection of keyed records. The hook
+ * Implements generic selection over a collection of keyed records. The hook
  * does not maintain internal selection state, but instead relies on the `value` and
  * `onChange` props to manage the selection state. This allows the hook to be used
  * with any selection state implementation, such as a React state hook or a Redux
@@ -75,36 +111,54 @@ export interface UseSelectMultipleReturn<
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelectMultiple = <
-  K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>,
->({
-  data = [],
-  value: rValue = [],
-  allowMultiple = true,
-  allowNone = true,
+export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
+  data: propsData,
+  value: propsValue = [],
+  allowMultiple,
+  allowNone,
   replaceOnSingle = false,
   onChange,
-}: UseSelectMultipleProps<K, E>): UseSelectMultipleReturn<K, E> => {
+}: UseSelectProps<K, E>): UseSelectMultipleReturn<K, E> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
 
-  const value = toArray(rValue).filter((v) => v != null);
+  const valueRef = useSyncedRef(propsValue);
+  const dataRef = useSyncedRef(propsData);
+
+  const handleChange = useCallback(
+    (next: K[], extra: UseSelectMultipleOnChangeExtra<K, E>) => {
+      valueRef.current = next;
+      if (next.length === 0 && allowNone !== false) {
+        if (allowMultiple !== false) return onChange([], extra);
+        return onChange(null, extra);
+      }
+      if (allowMultiple !== false) return onChange(next, extra);
+      if (next.length > 0) return onChange(next[0], extra);
+    },
+    [onChange, allowNone, allowMultiple],
+  );
 
   useEffect(() => {
-    if (value.length === 0 && !allowNone && data.length > 0)
-      onChange([data[0].key], {
-        entries: [data[0]],
-        clicked: data[0].key,
+    const data = dataRef.current;
+    // If for some reason the value is empty and it shouldn't be, automatically set
+    // it to the new value.
+    if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
+      const first = data[0];
+      handleChange([first.key], {
+        entries: [first],
+        clicked: first.key,
         clickedIndex: 0,
       });
-  }, [value.length, allowNone]);
+    }
+  }, [handleChange, propsValue, allowNone]);
 
-  const handleSelect = useCallback(
+  const onSelect = useCallback(
     (key: K): void => {
       let nextSelected: K[] = [];
       const shiftValue = shiftValueRef.current;
-      if (!allowMultiple) {
+      const data = dataRef.current;
+      const value = toArray(valueRef.current).filter((v) => v != null) as K[];
+      if (allowMultiple === false) {
         nextSelected = value.includes(key) ? [] : [key];
       } else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
@@ -130,21 +184,21 @@ export const useSelectMultiple = <
         else nextSelected = [...value, key];
       }
       const v = unique(nextSelected);
-      if (!allowNone && v.length === 0) return;
+      if (allowNone === false && v.length === 0) return;
       if (v.length === 0) shiftValueRef.current = null;
-      onChange(unique(nextSelected), {
+      handleChange(unique(nextSelected), {
         entries: data.filter(({ key }) => nextSelected.includes(key)),
         clicked: key,
         clickedIndex: data.findIndex(({ key: k }) => k === key),
       });
     },
-    [onChange, value, data, allowMultiple],
+    [valueRef, handleChange, allowMultiple],
   );
 
   const clear = useCallback(
-    (): void => onChange([], { entries: [], clicked: null, clickedIndex: 0 }),
-    [onChange],
+    (): void => handleChange([], { entries: [], clicked: null, clickedIndex: 0 }),
+    [handleChange],
   );
 
-  return { onSelect: handleSelect, clear };
+  return { onSelect, clear };
 };

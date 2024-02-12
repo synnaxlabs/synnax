@@ -35,7 +35,7 @@ export class Static {
 
   write(series: Series[]): void {
     series.forEach((s) => this.writeOne(convertSeriesFloat32(s)));
-    this.checkIntegrity();
+    this.checkIntegrity(series);
   }
 
   private writeOne(series: Series): void {
@@ -58,7 +58,7 @@ export class Static {
     this.data.splice(insertInto, deleteInBetween, series);
   }
 
-  private checkIntegrity(): void {
+  private checkIntegrity(write: Series[]): void {
     const allBounds = this.data.map((s) => s.alignmentBounds);
     const invalid = allBounds.some((b, i) => {
       return allBounds.some((b2, j) => {
@@ -69,6 +69,7 @@ export class Static {
     });
     if (invalid) {
       this.ins.L.debug("Cache is in an invalid state - bounds overlap!", {
+        write: write.map((s) => s.digest),
         cacheContents: this.data.map((s) => s.digest),
       });
       throw new Error("Invalid state");

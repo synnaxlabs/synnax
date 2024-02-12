@@ -307,6 +307,10 @@ describe("Bounds", () => {
           {lower: 47240, upper: 47066+354},
         ]);
       });
+      it("should insert a value into a sorted array of bounds", () => {
+
+      })
+
     })
 
   })

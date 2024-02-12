@@ -22,7 +22,6 @@ import {
   TimeRange,
   type SeriesDigest,
   TimeSpan,
-  debounce,
   type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
@@ -137,14 +136,10 @@ export class Core implements Client {
   private readonly cache = new Map<channel.Key, cache.Cache>();
   private readonly listeners = new Map<StreamHandler, channel.Keys>();
   private _streamer: framer.Streamer | null = null;
-  private readonly debouncedUpdateStreamer;
 
   constructor(wrap: Synnax, ins: alamos.Instrumentation) {
     this.core = wrap;
     this.ins = ins;
-    this.debouncedUpdateStreamer = debounce(() => {
-      void this.updateStreamer();
-    }, 100);
   }
 
   /** Implements ChannelClient. */
@@ -251,7 +246,7 @@ export class Core implements Client {
         );
       }
       handler(dynamicBuffs);
-      this.debouncedUpdateStreamer();
+      await this.updateStreamer();
       return async () => this.removeStreamHandler(handler);
     });
   }
@@ -264,11 +259,13 @@ export class Core implements Client {
   }
 
   private removeStreamHandler(handler: StreamHandler): void {
-    void this.mu.runExclusive(async () => {
-      this.ins.L.debug("removing stream handler", { handler });
-      if (this.listeners.delete(handler)) return this.debouncedUpdateStreamer();
-      this.ins.L.warn("attempted to remove non-existent stream handler", { handler });
-    });
+    setTimeout(() => {
+      void this.mu.runExclusive(async () => {
+        this.ins.L.debug("removing stream handler", { handler });
+        if (this.listeners.delete(handler)) return await this.updateStreamer();
+        this.ins.L.warn("attempted to remove non-existent stream handler", { handler });
+      });
+    }, 5000);
   }
 
   private async getCache(key: channel.Key): Promise<cache.Cache> {

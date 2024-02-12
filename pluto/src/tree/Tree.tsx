@@ -16,7 +16,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef, useCombinedStateAndRef } from "@/hooks";
-import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
+import { type UseSelectProps } from "@/hooks/useSelect";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { Text } from "@/text";
@@ -65,7 +65,7 @@ export interface UseProps {
 export interface UseReturn {
   selected: string[];
   expanded: string[];
-  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
   nodes: FlattenedNode[];
 }
 
@@ -82,26 +82,25 @@ export const use = (props: UseProps): UseReturn => {
 
   const shiftRef = Triggers.useHeldRef({ triggers: [["Shift"]] });
 
-  const handleSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"] =
-    useCallback(
-      (keys: string[], { clicked: clicked }): void => {
-        setSelected(keys);
-        const n = flatRef.current.find((node) => node.key === clicked);
-        if (n?.hasChildren === false) return;
-        if (clicked == null || shiftRef.current.held) return;
-        const currentlyExpanded = ref.current;
-        const action = currentlyExpanded.some((key) => key === clicked)
-          ? "contract"
-          : "expand";
-        let nextExpanded = currentlyExpanded;
-        if (action === "contract")
-          nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
-        else nextExpanded = [...currentlyExpanded, clicked];
-        setExpanded(nextExpanded);
-        onExpand?.({ current: nextExpanded, action, clicked });
-      },
-      [onExpand, flatRef, setExpanded, setSelected],
-    );
+  const handleSelect: UseSelectProps<string, FlattenedNode>["onChange"] = useCallback(
+    (keys: string[], { clicked }): void => {
+      setSelected(keys);
+      const n = flatRef.current.find((node) => node.key === clicked);
+      if (n?.hasChildren === false) return;
+      if (clicked == null || shiftRef.current.held) return;
+      const currentlyExpanded = ref.current;
+      const action = currentlyExpanded.some((key) => key === clicked)
+        ? "contract"
+        : "expand";
+      let nextExpanded = currentlyExpanded;
+      if (action === "contract")
+        nextExpanded = currentlyExpanded.filter((key) => key !== clicked);
+      else nextExpanded = [...currentlyExpanded, clicked];
+      setExpanded(nextExpanded);
+      onExpand?.({ current: nextExpanded, action, clicked });
+    },
+    [onExpand, flatRef, setExpanded, setSelected],
+  );
 
   return {
     onSelect: handleSelect,
@@ -135,7 +134,7 @@ export interface TreeProps
     > {
   nodes: FlattenedNode[];
   selected?: string[];
-  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
 }
