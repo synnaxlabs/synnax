@@ -60,7 +60,7 @@ TEST(AcqTests, testAcqNi){
 
     // make and init daqReade unique ptrr
     auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(channel_configs, 500, 10);
+    reader->init(channel_configs, 50, 10);
 
     // create a test writer
     auto now = synnax::TimeStamp::now();

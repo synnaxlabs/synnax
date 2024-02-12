@@ -67,6 +67,7 @@ namespace ni {
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
         std::uint64_t getTimeStamp();
+        uint64_t readIteration = 0;
     };
 }
 

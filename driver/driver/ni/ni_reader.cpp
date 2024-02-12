@@ -58,7 +58,7 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
         }
         numChannels++;
     }
-    if( taskType == ANALOG_READER) DAQmxCfgSampClkTiming(taskHandle, "", acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 10000);
+    if( taskType == ANALOG_READER) DAQmxCfgSampClkTiming(taskHandle, "", acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 0);
     this->numSamplesPerChannel = std::floor(acquisition_rate/stream_rate);
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
@@ -99,20 +99,25 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     char errBuff[2048]={'\0'};
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
 
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
 
-    static uint64_t readIteration = 0;
 
     uint64_t data1;
     uint64_t  acquired_samples = (uint64_t)(DAQmxGetReadTotalSampPerChanAcquired(this->taskHandle, &data1));
     uint64_t preacquired_samples = data1 - readIteration*this->numSamplesPerChannel;
     std::cout << "preacquired samples: " << preacquired_samples << std::endl;
 
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     DAQmxReadAnalogF64(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->data,this->bufferSize,&samplesRead,NULL);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
+    uint64_t diff = final_timestamp - initial_timestamp;
+
+    std::cout   << "Initial timestamp: " << initial_timestamp << std::endl
+                << "Final timestamp: " << final_timestamp << std::endl
+                << "Diff: " << diff << std::endl;
+
     DAQmxGetExtendedErrorInfo(errBuff,2048);
-//    printf("DAQmx Error: %s\n",errBuff); TODO: uncomment this line
+    printf("DAQmx Error: %s\n",errBuff); //TODO: uncomment this line
 
     //print samples per channel
     std::cout << "Samples per channel: " << samplesRead << std::endl;
@@ -120,9 +125,10 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     std::vector<std::uint64_t> time_index(numSamplesPerChannel);
 
 
-    initial_timestamp = initial_timestamp - preacquired_samples*(1e9/acq_rate) - (1e9/acq_rate)*3;
-    for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
+    initial_timestamp = initial_timestamp; //- preacquired_samples*(1e9/acq_rate);
+    for (uint64_t i = 0; i < samplesRead; ++i) { // populate time index channeL
         time_index[i] = initial_timestamp + (std::uint64_t)((1e9/acq_rate)*i);  // time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
+//        std::cout << "time_index[" << i << "]: " << time_index[i] << std::endl;
     }
 
     int64_t delta_timestamp = final_timestamp - time_index[samplesRead-1]; // final timestamp should be greater than the last timestamp
@@ -159,7 +165,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
     printf("Acquired %d samples\n",(int)samplesRead);
     DAQmxGetExtendedErrorInfo(errBuff,2048);
-    // printf("DAQmx Error: %s\n",errBuff); TODO: uncomment this line
+    printf("DAQmx Error: %s\n",errBuff);// TODO: uncomment this line
 
     // Construct index channel
     std::vector<std::uint64_t> time_index(numSamplesPerChannel);

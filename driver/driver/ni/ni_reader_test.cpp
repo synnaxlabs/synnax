@@ -33,7 +33,7 @@ TEST(NiReaderTests, testReadandInitAnalog){
     reader.init(channel_configs, 1000, 20);
     reader.start();
     auto [frame, err] = reader.read();
-
+    auto [frame1, err1] = reader.read();
     std::cout << "Frame size: " <<  frame.size() << std::endl;
     //iterate through each series and print the data
     for (int i = 0; i < frame.series->size(); i++){
