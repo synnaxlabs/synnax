@@ -37,6 +37,25 @@ const dataTypes = [
 
 const namePrefixes = ["strainGauge", "accelerometer", "gyroscope", "magnetometer"];
 
+interface Person {
+  key: string;
+  name: string;
+}
+
+const ListStory = () => {
+  return (
+    <List.List<string, Person> data={[{ key: "1", name: "one" }]}>
+      <List.Core.Virtual<string, Person> itemHeight={30}>
+        {({ entry }) => <ListEntryRenderer entry={entry} />}
+      </List.Core.Virtual>
+    </List.List>
+  );
+};
+
+const ListEntryRenderer = ({ entry }: { entry: Person }) => {
+  return <h1>{entry.name}</h1>;
+};
+
 const data = Array.from({ length: 500 }, (_, i) => ({
   key: `key-${i}`,
   dataType: dataTypes[Math.floor(Math.random() * dataTypes.length)],

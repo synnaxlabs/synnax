@@ -106,7 +106,6 @@ export const Search = <
   );
 
   useEffect(() => {
-    console.log("B");
     handleFetchMore(true);
     setOnFetchMore(handleFetchMore);
   }, [handleFetchMore]);
@@ -114,7 +113,6 @@ export const Search = <
   const debounced = useDebouncedCallback(
     (term: string) => {
       if (term.length === 0) {
-        console.log("CD");
         handleFetchMore(true);
         return;
       }

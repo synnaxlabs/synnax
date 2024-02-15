@@ -10,11 +10,10 @@
 import { box, direction, xy, type dimensions, location } from "@synnaxlabs/x";
 
 import { type color } from "@/color/core";
+import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-
-import { type Level } from "@/text/types";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -49,7 +48,7 @@ export interface Draw2DContainerProps {
 export interface DrawTextProps {
   text: string;
   position: xy.XY;
-  level: Level;
+  level: text.Level;
   direction: direction.Direction;
 }
 
@@ -61,7 +60,7 @@ export interface DrawTextInCenterProps
 export interface Draw2DMeasureTextContainerProps {
   text: string[];
   direction: direction.Direction;
-  level: Level;
+  level: text.Level;
   spacing?: number;
 }
 

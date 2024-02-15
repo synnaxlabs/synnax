@@ -140,7 +140,7 @@ export class IterativeSeries
     }, rate.period.milliseconds) as unknown as number;
   }
 
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     clearInterval(this.interval);
     this.interval = undefined;
   }

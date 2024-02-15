@@ -182,7 +182,6 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
             c.channel = output.get(c.key)!;
           });
         });
-        console.log(tasks);
 
         const t = tasks[0];
         await rack.createTask({

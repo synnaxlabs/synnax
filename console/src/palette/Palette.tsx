@@ -36,6 +36,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
+import { type UseSelectOnChangeExtra } from "@synnaxlabs/pluto/dist/hooks/useSelect.js";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
@@ -78,10 +79,9 @@ export const Palette = ({
   const [mode, setMode] = useState<Mode>("resource");
 
   const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
-  console.log(notifications);
 
-  const handleSelect: List.SelectorProps<Key, Entry>["onChange"] = useCallback(
-    ([key]: Key[], { entries }) => {
+  const handleSelect = useCallback(
+    (key: Key, { entries }: UseSelectOnChangeExtra<Key, Entry>) => {
       dropdown.close();
       if (mode === "command") {
         const entry = entries[0];
@@ -339,7 +339,7 @@ const PaletteList = ({
   }, [mode, resourceTypes]);
   return (
     <>
-      <List.Selector value={[]} onChange={onSelect} allowMultiple={false} />
+      <List.Selector value={null} onChange={onSelect} allowMultiple={false} />
       {visible && <List.Hover />}
       <List.Core.Virtual className={CSS.BE("palette", "list")} itemHeight={27}>
         {item}

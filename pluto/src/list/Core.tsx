@@ -76,13 +76,19 @@ const VirtualCore = <
     onFetchMore?.();
   }
 
+  const empty = data.length === 0;
+
   return (
     <div
       ref={parentRef}
-      className={CSS(className, CSS.BE("list", "container"))}
+      className={CSS(
+        className,
+        CSS.BE("list", "container"),
+        empty && CSS.BM("list", "empty"),
+      )}
       {...props}
     >
-      {data.length === 0 ? (
+      {empty ? (
         emptyContent
       ) : (
         <div
@@ -92,7 +98,6 @@ const VirtualCore = <
           {items.map(({ index, start }) => {
             const entry = data[index];
             return children({
-              key: entry.key,
               index,
               onSelect: select.onSelect,
               entry,
@@ -129,7 +134,6 @@ export const Core = <
         <>
           {data.map((entry, index) =>
             props.children({
-              key: entry.key.toString(),
               index,
               onSelect: select.onSelect,
               entry,

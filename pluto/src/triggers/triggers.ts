@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type xy, type CompareF } from "@synnaxlabs/x";
+import { compare, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
@@ -288,10 +288,10 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * the triggers will be considered equal.
  * @returns a comparison function that determines if two triggers are semantically equal.
  */
-const compareF = (loose: boolean): CompareF<Trigger> =>
+const compareF = (loose: boolean): compare.CompareF<Trigger> =>
   loose ? _looseCompare : compare.unorderedPrimitiveArrays;
 
-const _looseCompare: CompareF<Trigger> = (a, b) =>
+const _looseCompare: compare.CompareF<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */

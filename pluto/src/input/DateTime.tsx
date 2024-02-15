@@ -20,7 +20,7 @@ export const DateTime = ({ value, onChange, onBlur, ...props }: DateTimeProps) =
     setInternalVlaue(nextStr);
 
     let ts = new TimeStamp(next, "UTC");
-    if (nextStr.length < 24) nextStr += ".000";
+    if (nextStr.length < 23) nextStr += ".000";
 
     ts = ts.add(
       (TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset()) *

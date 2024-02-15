@@ -179,11 +179,11 @@ export const calculatePos = (
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
+    .translate(xy.scale(viewport.position, -1))
     .magnify({
       x: 1 / zoomXY.x,
       y: 1 / zoomXY.y,
-    })
-    .translate(xy.scale(viewport.position, -1));
+    });
   return s.pos(cursor);
 };
 
@@ -369,6 +369,7 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { layoutKey, editable } = payload;
       const pid = state.pids[layoutKey];
+      clearSelections(pid);
       if (pid.control === "acquired") {
         pid.controlAcquireTrigger = -1;
         pid.control = "released";
@@ -385,6 +386,7 @@ export const { actions, reducer } = createSlice({
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { layoutKey, control } = payload;
       const pid = state.pids[layoutKey];
+      if (pid == null) return;
       pid.control = control;
       if (control === "acquired") pid.editable = false;
     },

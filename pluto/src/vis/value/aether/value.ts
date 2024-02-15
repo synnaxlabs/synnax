@@ -67,7 +67,6 @@ export class Value
   }
 
   afterDelete(): void {
-    if (this.deleted) return;
     this.internalAfterDelete().catch(console.error);
   }
 

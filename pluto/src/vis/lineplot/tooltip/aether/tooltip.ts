@@ -65,19 +65,21 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   async render(props: TooltipProps): Promise<void> {
     if (this.deleted || this.state.position == null) return;
     const { region } = props;
-    const s = scale.XY.scale(box.DECIMAL).scale(region);
+    const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
     const values = await props.findByXDecimal(
       reverseScale.x.pos(this.state.position.x),
     );
+    const validValues = values.filter((c) => xy.isFinite(c.value));
     const { draw } = this.internal;
 
-    const avgXPosition = values.reduce((p, c) => p + c.position.x, 0) / values.length;
+    const avgXPosition =
+      validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
     const avgXValue = new TimeStamp(
-      values.reduce((p, c) => p + c.value.x, 0) / values.length,
+      validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
     );
 
-    const rulePosition = s.x.pos(avgXPosition);
+    const rulePosition = scale_.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
 
     draw.rule({
@@ -89,8 +91,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       position: rulePosition,
     });
 
-    values.forEach((r) => {
-      const position = s.pos(r.position);
+    validValues.forEach((r) => {
+      const position = scale_.pos(r.position);
       draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
       draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
       draw.circle({

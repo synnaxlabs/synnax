@@ -38,7 +38,7 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-// import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers = {
   main: LayoutMain,
@@ -102,7 +102,7 @@ const MainUnderContext = (): ReactElement => {
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
-          include: ["aether.telem"],
+          include: [],
         }}
       >
         <Vis.Canvas>

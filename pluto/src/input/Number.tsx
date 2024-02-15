@@ -26,18 +26,14 @@ import { type BaseProps } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type">,
+  extends Omit<BaseProps<number>, "type" | "onBlur">,
     DragButtonExtensionProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
+  onBlur?: () => void;
 }
 
-const toNumber = (v: string | number): [number, boolean] => {
-  if (v.toString().length === 0) return [0, false];
-  const n = Number(v);
-  return [n, !isNaN(n)];
-};
 /**
  * A controlled number input component.
  *
@@ -106,13 +102,10 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
 
     const updateActualValueRef = useSyncedRef(updateActualValue);
 
-    const handleBlur: FocusEventHandler<HTMLInputElement> = useCallback(
-      (e) => {
-        onBlur?.(e);
-        updateActualValue();
-      },
-      [onBlur, updateActualValue],
-    );
+    const handleBlur = useCallback(() => {
+      onBlur?.();
+      updateActualValue();
+    }, [onBlur, updateActualValue]);
 
     // Sometimes we don't blur the component before it unmounts, so this makes
     // sure we try to update the actual value on unmount.
@@ -179,7 +172,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
             dragScale={dragScale}
             resetValue={resetValue}
             onDragEnd={onDragEnd}
-            onBlur={props.onBlur as FocusEventHandler<HTMLButtonElement>}
+            onBlur={handleBlur}
           />
         )}
         {children}

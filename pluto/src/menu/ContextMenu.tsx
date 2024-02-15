@@ -64,9 +64,10 @@ const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
 const findTarget = (target: HTMLElement): HTMLElement => {
   let candidate = target;
-  while (candidate != null && !candidate.classList.contains(CONTEXT_TARGET)) {
+  while (!candidate.classList.contains(CONTEXT_TARGET)) {
     if (candidate.classList.contains(CONTEXT_MENU_CONTAINER)) return target;
-    candidate = candidate.parentElement as HTMLElement;
+    if (candidate.parentElement == null) return target;
+    candidate = candidate.parentElement;
   }
   return candidate;
 };
@@ -95,7 +96,7 @@ export const useContextMenu = (): UseContextMenuReturn => {
 
   const handleOpen: ContextMenuOpen = (e, keys) => {
     const p = xy.construct(e);
-    if ("preventDefault" in e) {
+    if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();

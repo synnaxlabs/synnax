@@ -43,7 +43,7 @@ export interface UseSelectSingleAllowNoneProps<
   replaceOnSingle?: boolean;
   allowMultiple: false;
   allowNone?: true | undefined;
-  value: K | K[] | null;
+  value: K | null;
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
@@ -55,7 +55,7 @@ export interface UseSelectSingleDisallowNoneProps<
   replaceOnSingle?: boolean;
   allowMultiple: false;
   allowNone: false;
-  value: K | K[];
+  value: K;
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
 

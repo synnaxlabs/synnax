@@ -38,7 +38,7 @@ import { List } from "@/select/List";
 
 import "@/select/Single.css";
 
-interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "variant">,
     Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
@@ -105,7 +105,7 @@ export const Single = <
 
   const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
     (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
-      if (v != null) setSelected(e.entries[0]);
+      setSelected(v == null ? null : e.entries[0]);
       close();
       onChange(v, e);
     },
@@ -156,12 +156,13 @@ export const Single = <
 };
 
 export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Omit<Input.TextProps, "value"> {
+  extends Omit<Input.TextProps, "value" | "onFocus"> {
   tagKey: keyof E | ((e: E) => string | number);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
   allowNone?: boolean;
+  onFocus: () => void;
 }
 
 const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -190,7 +191,6 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   // Runs to set the value of the input to the item selected from the list.
   useEffect(() => {
-    console.log("selected", selected);
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
@@ -206,13 +206,13 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = (e) => {
     setInternalValue("");
-    onFocus?.(e);
+    onFocus?.();
   };
 
   const handleClick: React.MouseEventHandler<HTMLInputElement> = (e) => {
     if (visible) return;
     e.preventDefault();
-    onFocus?.(e);
+    onFocus?.();
   };
 
   const handleClear = (): void => {

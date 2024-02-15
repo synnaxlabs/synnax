@@ -11,7 +11,8 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu, Tree, Channel, telem } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Channel, telem } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
@@ -155,16 +156,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
             Clear Alias Under {activeRange.name}
           </Menu.Item>
-          <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
-            Plot for {activeRange.name}
-          </Menu.Item>
         </>
       )}
     </Menu.Menu>
   );
 };
 
-export const Item: Tree.Item = (props): ReactElement => {
+export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
   const alias = Channel.useAlias(Number(new ontology.ID(props.entry.key).key));
   return (
     <Tree.DefaultItem

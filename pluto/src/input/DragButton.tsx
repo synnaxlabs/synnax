@@ -31,11 +31,18 @@ export interface DragButtonExtensionProps {
 export interface DragButtonProps
   extends Omit<
       Button.IconProps,
-      "direction" | "onChange" | "onDragStart" | "children" | "value"
+      | "direction"
+      | "onChange"
+      | "onDragStart"
+      | "children"
+      | "value"
+      | "onDragEnd"
+      | "onBlur"
     >,
     Control<number>,
     DragButtonExtensionProps {
   onDragEnd?: (value: number) => void;
+  onBlur?: () => void;
 }
 
 const calculateValue = (
@@ -112,7 +119,7 @@ export const DragButton = ({
       [onChange, normalDragScale, normalDragThreshold],
     ),
     onEnd: useCallback(
-      (b: box.Box, __, e) => {
+      (b: box.Box, _: unknown) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
         value = calculateValue(
@@ -127,7 +134,7 @@ export const DragButton = ({
         vRef.current.dragging = false;
         Cursor.clearGlobalStyle();
         onDragEnd?.(value);
-        props.onBlur?.(e);
+        props.onBlur?.();
       },
       [props.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
     ),

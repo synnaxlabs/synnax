@@ -25,7 +25,7 @@ export interface TextDigest {
 
 export interface TextProps
   extends Omit<BaseText.TextProps, "level" | "wrap">,
-    TextDigest {
+    Omit<TextDigest, "children"> {
   level?: BaseText.Level;
   hideIcon?: boolean;
   noColor?: boolean;
@@ -50,7 +50,7 @@ const CoreText = ({
 export interface TextCenteredProps extends TextProps {}
 
 const TextCentered = ({ style, ...props }: TextCenteredProps): ReactElement => (
-  <Align.Center style={style}>
+  <Align.Center style={style} grow>
     <CoreText {...props} />
   </Align.Center>
 );

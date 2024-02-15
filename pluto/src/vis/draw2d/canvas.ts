@@ -251,8 +251,8 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dirtyWidth?: unknown,
     dirtyHeight?: unknown,
   ): void {
-    // @ts-expect-error - typescript overloads cause issues here
     this.wrapped.putImageData(
+      // @ts-expect-error - typescript overloads cause issues here
       imagedata,
       dx,
       dy,

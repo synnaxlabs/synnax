@@ -73,7 +73,6 @@ export const List = (): ReactElement => {
   const dispatch = useDispatch();
   const ranges = useSelectMultiple();
   const selectedRange = useSelect();
-  const client = Synnax.use();
 
   const handleAddOrEdit = (key?: string): void => {
     const layout = editLayout(key == null ? "Create Range" : "Edit Range");
@@ -87,10 +86,7 @@ export const List = (): ReactElement => {
     dispatch(remove({ keys }));
   };
 
-  console.log(selectedRange?.key);
-
   const handleSelect = (key: string): void => {
-    console.log(key);
     dispatch(setActive(key));
   };
 
@@ -195,7 +191,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
   const client = Synnax.use();
   const [labels, setLabels] = useState<label.Label[]>([]);
   useAsyncEffect(async () => {
-    if (client == null || labels.length > 0) return;
+    if (client == null || labels.length > 0 || !entry.persisted) return;
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);

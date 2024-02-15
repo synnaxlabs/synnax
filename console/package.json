@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
-    "build": "tauri build --debug",
+    "build": "tauri build",
     "dev-vite": "vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",
@@ -35,7 +35,6 @@
     "react-icons": "^4.12.0",
     "react-redux": "^9.0.4",
     "uuid": "^9.0.1",
-    "vite-plugin-svgr": "^4.2.0",
     "zod": "3.22.4"
   },
   "devDependencies": {
@@ -48,10 +47,10 @@
     "eslint": "^8.55.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "eslint-plugin-prettier": "^5.0.1",
-    "prettier": "3.1.1",
+    "prettier": "3.2.5",
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.3.3",
-    "vite": "^5.0.8",
+    "vite": "^5.1.2",
     "vite-tsconfig-paths": "^4.2.2"
   }
 }

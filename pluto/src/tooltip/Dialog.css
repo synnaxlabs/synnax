@@ -18,6 +18,7 @@
     background: var(--pluto-gray-l1);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
+    box-shadow: var(--pluto-shadow-menu);
     padding: 1rem;
 
     &.pluto--center {

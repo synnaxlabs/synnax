@@ -139,8 +139,8 @@ const handleAddToNewPlot = async ({
 const handleEdit = ({
   selection: { resources },
   placeLayout,
-}: Ontology.TreeContextMenuProps) => {
-  placeLayout({ ...editLayout, key: resources[0].id.key });
+}: Ontology.TreeContextMenuProps): void => {
+  placeLayout({ ...editLayout("Edit Range"), key: resources[0].id.key });
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

@@ -166,7 +166,8 @@ export class LinePlot extends aether.Composite<
       removeCanvasScissor();
       removeGLScissor();
     }
-    return ({ canvases }) => {
+    instrumentation.L.debug("rendered", { key: this.key });
+    return async ({ canvases }) => {
       this.eraser.erase(
         renderCtx,
         this.state.container,

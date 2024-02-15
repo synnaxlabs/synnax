@@ -58,13 +58,15 @@ export interface BarContentProps extends Omit<Align.SpaceProps<"div">, "ref"> {
 }
 
 const contentFactory =
-  (pos: spatial.Alignment | ""): FunctionComponent<BarContentProps> =>
+  (
+    pos: spatial.Alignment | "" | "absolute-center",
+  ): FunctionComponent<BarContentProps> =>
   // eslint-disable-next-line react/display-name
   ({ bordered = false, className, ...props }: BarContentProps): ReactElement => (
     <Align.Space
       className={CSS(
         CSS.BE("navbar", "content"),
-        CSS.align(pos),
+        pos === "absolute-center" ? CSS.M(pos) : CSS.align(pos),
         pos !== "" && bordered && CSS.bordered(pos),
         className,
       )}

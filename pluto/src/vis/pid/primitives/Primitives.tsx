@@ -13,6 +13,7 @@ import {
   type ReactElement,
   useRef,
   type PropsWithChildren,
+  type MouseEventHandler,
 } from "react";
 
 import { dimensions, type location, direction, xy } from "@synnaxlabs/x";
@@ -21,7 +22,6 @@ import {
   Handle as RFHandle,
   Position as RFPosition,
   useUpdateNodeInternals,
-  NodeResizer,
 } from "reactflow";
 
 import { Button as CoreButton } from "@/button";
@@ -882,12 +882,11 @@ export const Value = ({
 }: ValueProps): ReactElement => {
   const borderColor = Color.cssString(color);
   const theme = Theming.use();
-  let textColor = "var(--pluto-gray-l0)";
-  if (color != null) {
+  let textColor: string | undefined = "var(--pluto-gray-l0)";
+  if (color != null)
     textColor = Color.cssString(
       new Color.Color(color).pickByContrast(theme.colors.gray.l0, theme.colors.gray.l9),
     );
-  }
   return (
     <Div
       className={CSS(CSS.B("value"), className)}
@@ -919,7 +918,9 @@ export const Value = ({
   );
 };
 
-export interface SwitchProps extends ToggleProps, DivProps {}
+export interface SwitchProps extends Omit<ToggleProps, "onClick">, OrientableProps {
+  onClick: MouseEventHandler<HTMLInputElement>;
+}
 
 export const Switch = ({
   triggered,
@@ -927,11 +928,10 @@ export const Switch = ({
   color,
   onClick,
   orientation = "left",
-  ...props
 }: SwitchProps): ReactElement => {
   return (
     <Div orientation={orientation}>
-      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} {...props} />
+      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -940,8 +940,9 @@ export const Switch = ({
   );
 };
 
-export interface ButtonProps extends DivProps {
+export interface ButtonProps extends Omit<DivProps, "onClick"> {
   label?: string;
+  onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
 export const Button = ({

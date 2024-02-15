@@ -10,7 +10,7 @@
 import { type ReactElement, memo, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
-import { Mosaic as Core, useDebouncedCallback } from "@synnaxlabs/pluto";
+import { Mosaic as Core, Eraser, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
@@ -26,7 +26,13 @@ import {
 import { LinePlot } from "@/lineplot";
 import { Workspace } from "@/workspace";
 
-const emptyContent = <Logo.Watermark />;
+const EmptyContent = (): ReactElement => (
+  <Eraser.Eraser>
+    <Logo.Watermark />;
+  </Eraser.Eraser>
+);
+
+const emptyContent = <EmptyContent />;
 
 export interface LayoutMosaicProps extends Pick<Core.MosaicProps, "onCreate"> {}
 

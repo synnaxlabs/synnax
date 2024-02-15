@@ -22,7 +22,7 @@ import { type Destructor, compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type theming } from "@/aetherIndex";
+import { type theming } from "@/ether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
@@ -162,7 +162,6 @@ export class Controller
 
   private async release(): Promise<void> {
     await this.writer?.close();
-    if (this.deleted) return;
     this.setState((p) => ({ ...p, status: "released" }));
     if (this.writer != null)
       this.internal.addStatus({
@@ -376,8 +375,18 @@ export class AuthoritySource
 
   async value(): Promise<status.Spec> {
     this.maybeRevalidate();
-    const state = this.prov.get(this.props.channel);
+
     const time = TimeStamp.now();
+    if (this.props.channel === 0)
+      return {
+        key: this.controller.key,
+        variant: "disabled",
+        message: "No Channel",
+        time,
+        data: { valid: false, authority: 0 },
+      };
+
+    const state = this.prov.get(this.props.channel);
 
     if (state == null)
       return {
@@ -385,7 +394,7 @@ export class AuthoritySource
         variant: "disabled",
         message: "Uncontrolled",
         time,
-        data: { color: undefined, authority: 0 },
+        data: { valid: true, color: undefined, authority: 0 },
       };
 
     return {
@@ -393,7 +402,7 @@ export class AuthoritySource
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
-      data: { color: state.subjectColor, authority: state.authority },
+      data: { valid: true, color: state.subjectColor, authority: state.authority },
     };
   }
 

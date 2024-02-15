@@ -52,7 +52,7 @@ with client.new_writer(sy.TimeStamp.now(), [time_ch.key, data_ch.key]) as writer
                 }
             )
         )
-        time.sleep(0.025)
+        time.sleep(0.01)
         # print("Wrote", t, d)
         i += 1
         if i % 500 == 0:

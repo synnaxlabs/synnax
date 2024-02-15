@@ -51,7 +51,7 @@ export interface MultipleProps<
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
   tagKey?: keyof E | ((e: E) => string | number);
-  renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
+  renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
 }
@@ -100,19 +100,27 @@ export const Multiple = <
 }: MultipleProps<K, E>): ReactElement => {
   const { ref, visible, open } = Dropdown.use();
   const [selected, setSelected] = useState<readonly E[]>([]);
+  const [loading, setLoading] = useState(false);
   const searchMode = searcher != null;
 
   // This hook makes sure we have the selected entries fetched to render their tags
   // properly.
   useAsyncEffect(async () => {
+    setLoading(true);
     if (selectValueIsZero(value)) setSelected([]);
     const inSelected = selected.map((v) => v.key);
     const nextValue = toArray(value);
     if (compare.unorderedPrimitiveArrays(inSelected, nextValue) === compare.EQUAL)
       return;
     let nextSelected: E[] = [];
-    if (searchMode) nextSelected = await searcher.retrieve(nextValue);
-    else if (data != null) nextSelected = data.filter((v) => nextValue.includes(v.key));
+    if (searchMode) {
+      try {
+        nextSelected = await searcher.retrieve(nextValue);
+      } finally {
+        setLoading(false);
+      }
+    } else if (data != null)
+      nextSelected = data.filter((v) => nextValue.includes(v.key));
     setSelected(nextSelected);
   }, [searcher, searchMode, value, data]);
 
@@ -135,6 +143,7 @@ export const Multiple = <
         ref={ref}
         visible={visible}
         location={location}
+        className={CSS.B("select")}
         {...props}
         matchTriggerWidth
       >
@@ -145,6 +154,7 @@ export const Multiple = <
               selectedKeys={value}
               className={className}
               onChange={onChange}
+              loading={loading}
               selected={selected}
               onFocus={open}
               tagKey={tagKey}
@@ -172,24 +182,27 @@ export const Multiple = <
 };
 
 interface SelectMultipleInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Input.TextProps {
+  extends Omit<Input.TextProps, "onFocus"> {
+  loading: boolean;
   selectedKeys: K | K[];
   selected: readonly E[];
   tagKey: keyof E | ((e: E) => string | number);
   visible: boolean;
-  renderTag?: RenderProp<SelectMultipleTagProps<K, E>>;
+  renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
+  onFocus?: () => void;
 }
 
 const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   selectedKeys,
+  loading,
   selected,
   onChange,
   onFocus,
   visible,
   tagKey,
-  renderTag = componentRenderProp(SelectMultipleTag),
+  renderTag = componentRenderProp(MultipleTag),
   placeholder = "Select...",
   onTagDragStart,
   onTagDragEnd,
@@ -216,12 +229,12 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const handleFocus: Input.TextProps["onFocus"] = (e) => {
     if (!visible) onChange("");
-    onFocus?.(e);
+    onFocus?.();
   };
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (visible) return;
-    onFocus?.(e);
+    onFocus?.();
   };
 
   const handleBlur = (): void => {
@@ -260,6 +273,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
             key: k,
             entryKey: k,
             tagKey,
+            loading,
             entry: e,
             onClose: () => onSelect?.(k),
             onDragStart: (ev) => onTagDragStart?.(ev, k),
@@ -272,29 +286,37 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   );
 };
 
-interface SelectMultipleTagProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+export interface MultipleTagProps<
+  K extends Key,
+  E extends KeyedRenderableRecord<K, E>,
+> {
   key: K;
   entryKey: K;
   tagKey: keyof E | ((e: E) => string | number);
   entry?: E;
   color?: Color.Crude;
+  loading: boolean;
   onClose?: () => void;
   onDragStart: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-const SelectMultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+export const MultipleTag = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   entryKey,
   tagKey,
   entry,
+  loading,
   ...props
-}: SelectMultipleTagProps<K, E>): ReactElement => {
+}: MultipleTagProps<K, E>): ReactElement => {
   let v: RenderableValue = entryKey;
   if (entry != null) v = typeof tagKey === "function" ? tagKey(entry) : entry[tagKey];
   return (
     <Tag.Tag
       size="small"
       variant="outlined"
+      className={CSS(
+        entry == null && !loading && CSS.BEM("select-multiple", "tag", "invalid"),
+      )}
       draggable
       {...props}
       key={entryKey.toString()}

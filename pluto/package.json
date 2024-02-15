@@ -96,10 +96,10 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
-    "./aether": {
-      "import": "./dist/aether.js",
-      "require": "./dist/aether.cjs",
-      "types": "./dist/aetherIndex.d.ts"
+    "./ether": {
+      "import": "./dist/ether.js",
+      "require": "./dist/ether.cjs",
+      "types": "./dist/ether.d.ts"
     },
     "./align": {
       "import": "./dist/align.js",

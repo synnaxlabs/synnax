@@ -20,7 +20,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
-        aether: path.resolve(".", "src/aetherIndex.ts"),
+        ether: path.resolve(".", "src/ether.ts"),
         tabs: path.resolve(".", "src/tabs/index.ts"),
         theming: path.resolve(".", "src/theming/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),

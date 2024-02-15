@@ -12,8 +12,7 @@ import { type ReactElement, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Header, Nav, componentRenderProp, Status } from "@synnaxlabs/pluto";
+import { Nav, componentRenderProp, Status } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -110,7 +109,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Input.HFItem>
             <Input.HFItem<number> name="port" className={CSS.BE("input", "port")}>
-              {(p) => <Input.Text showDragHandle={false} placeholder="9090" {...p} />}
+              {(p) => <Input.Text placeholder="9090" {...p} />}
             </Input.HFItem>
           </Align.Space>
           <Input.HFItem<string> name="username">

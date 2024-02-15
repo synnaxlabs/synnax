@@ -13,7 +13,6 @@ import { Icon } from "@synnaxlabs/media";
 import { TimeSpan, toArray } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
-import { type SpaceElementType } from "@/align/Space";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
@@ -38,8 +37,8 @@ export interface BaseProps
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
-export type ButtonProps<E extends SpaceElementType = "button"> = Omit<
-  Text.WithIconProps<E>,
+export type ButtonProps = Omit<
+  Text.WithIconProps<"button">,
   "size" | "startIcon" | "endIcon" | "level"
 > &
   ButtonExtensionProps &
@@ -66,8 +65,8 @@ export type ButtonProps<E extends SpaceElementType = "button"> = Omit<
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
  */
-export const Core = Tooltip.wrap(
-  <E extends SpaceElementType>({
+export const Button = Tooltip.wrap(
+  ({
     size = "medium",
     variant = "filled",
     type = "button",
@@ -82,19 +81,18 @@ export const Core = Tooltip.wrap(
     delay = 0,
     onClick,
     ...props
-  }: ButtonProps<E>): ReactElement => {
+  }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
 
-    const handleClick: ButtonProps<E>["onClick"] = (e) => {
+    const handleClick: ButtonProps["onClick"] = (e) => {
       if (disabled) return;
       const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
       if (span.isZero) return onClick?.(e);
     };
 
     return (
-      // @ts-expect-error
-      <Text.WithIcon<E, any>
+      <Text.WithIcon<"button", any>
         el="button"
         className={CSS(
           CSS.B("btn"),
@@ -118,7 +116,3 @@ export const Core = Tooltip.wrap(
     );
   },
 );
-
-export const Button = Core as <E extends SpaceElementType = "button">(
-  props: ButtonProps<E>,
-) => ReactElement;

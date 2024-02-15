@@ -207,26 +207,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);
-      const OFFSET = 20;
       valid.forEach(({ key: variant, data }, i) => {
         const spec = Core.SYMBOLS[variant as Core.Variant];
         if (spec == null) return;
-        const zoomXY = xy.construct(pid.viewport.zoom);
-        const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
-          .magnify({
-            x: 1 / zoomXY.x,
-            y: 1 / zoomXY.y,
-          })
-          .translate(xy.scale(pid.viewport.position, -1));
+        const pos = calculatePos(
+          region,
+          { x: event.clientX, y: event.clientY },
+          viewportRef.current,
+        );
         dispatch(
           addElement({
             layoutKey,
             key: nanoid(),
             node: {
-              position: s.pos({
-                x: event.clientX + OFFSET * i,
-                y: event.clientY + OFFSET * i,
-              }),
+              position: pos,
               zIndex: spec.zIndex,
             },
             props: {
@@ -281,15 +275,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     );
   }, [dispatch, pid.editable]);
 
-  Triggers.use({
-    triggers: [["MouseLeft", "MouseLeft"]],
-    region: ref,
-    callback: handleDoubleClick,
-  });
-
   return (
     <div
       ref={ref}
+      onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
       <Control.Controller

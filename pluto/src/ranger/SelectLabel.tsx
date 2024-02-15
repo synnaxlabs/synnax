@@ -45,7 +45,10 @@ export const SelectLabels = (props: SelectLabelsProps): ReactElement => {
       {...props}
       searcher={client?.labels}
       columns={labelColumns}
-      renderTag={(v) => <Tag.Tag color={v.entry.color}>{v.entry.name}</Tag.Tag>}
+      renderTag={(v) => {
+        if (v.entry == null) return <Tag.Tag color="gray">{v.entryKey}</Tag.Tag>;
+        return <Tag.Tag color={v.entry.color}>{v.entry.name}</Tag.Tag>;
+      }}
     />
   );
 };

@@ -154,7 +154,7 @@ export class Base<P extends z.ZodTypeAny> extends observe.Observer<void> {
     return this.schema;
   }
 
-  cleanup(): void {}
+  async cleanup(): Promise<void> {}
 }
 
 export class AbstractSource<P extends z.ZodTypeAny> extends Base<P> {}
@@ -221,7 +221,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
           await source.value(),
         ]),
       ),
-    );
+    ) as Record<string, I>;
     return this.transform(values);
   }
 

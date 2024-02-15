@@ -236,7 +236,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * @param next - The new state to set on the component. This can be the state object
    * or a pure function that takes in the previous state and returns the next state.
    */
-  setState(next: state.SetArg<z.input<S> | z.output<S>>): void {
+  setState(next: state.SetArg<z.input<S> | z.output<S>, z.output<S>>): void {
     const nextState: z.input<S> = state.executeSetter(next, this._state);
     this._prevState = { ...this._state };
     this._state = prettyParse(this._schema, nextState, `${this.type}:${this.key}`);
@@ -351,8 +351,6 @@ export class Composite<
     super(u);
     this._children = [];
   }
-
-  internalMemo: Record<string, any>;
 
   /** @returns a readonly array of the children of the component. */
   get children(): readonly C[] {
@@ -495,11 +493,7 @@ export class Root extends Composite<typeof aetherRootState> {
   static readonly schema = aetherRootState;
   schema = Root.schema;
 
-  static render(props: RootProps): Root {
-    return new Root(props);
-  }
-
-  private constructor({ worker: wrap, registry, instrumentation }: RootProps) {
+  constructor({ worker: wrap, registry, instrumentation }: RootProps) {
     const ctx = new Context(wrap, registry, new Map());
     const u = { ctx, ...Root.ZERO_UPDATE };
     super(u);
@@ -522,4 +516,4 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 }
 
-export const render = Root.render;
+export const render = (props: RootProps): Root => new Root(props);

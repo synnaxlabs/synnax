@@ -213,8 +213,17 @@ export interface FourWayValveProps
 
 export const FourWayValve = Aether.wrap<SymbolProps<FourWayValveProps>>(
   "FourWayValve",
-  ({ aetherKey, control, label, onChange, orientation, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+  ({
+    aetherKey,
+    control,
+    label,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={orientation}>
@@ -249,11 +258,12 @@ export const AngledValve = Aether.wrap<SymbolProps<AngledValveProps>>(
     label,
     control,
     onChange,
-    orientation,
+    orientation = "left",
     color,
-    ...props
+    source,
+    sink,
   }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={swapXLocation(orientation)}>
@@ -283,8 +293,17 @@ export interface PumpProps
 
 export const Pump = Aether.wrap<SymbolProps<PumpProps>>(
   "Pump",
-  ({ aetherKey, label, control, onChange, orientation, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={orientation}>
@@ -684,6 +703,7 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => {
         width: 60,
         height: 25,
       }}
+      units={"psi"}
     >
       <Text.Text level="p">50.00</Text.Text>
     </Primitives.Value>

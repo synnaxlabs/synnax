@@ -41,7 +41,6 @@ export const themeChangeEffect: MiddlewareEffect<
   FixThemeContrastPayload
 > = ({ dispatch, getState }) => {
   const theme = Layout.selectRawTheme(getState());
-  console.log(theme);
   dispatch(fixThemeContrast({ theme }));
 };
 

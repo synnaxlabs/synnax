@@ -16,7 +16,11 @@ import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
-import { type UseSelectProps, useSelect } from "@/hooks/useSelect";
+import {
+  type UseSelectProps,
+  useSelect,
+  type UseSelectOnChangeExtra,
+} from "@/hooks/useSelect";
 import { type Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { List } from "@/select/List";
@@ -34,16 +38,14 @@ export interface ButtonOptionProps<
   title: E[keyof E];
 }
 
-export interface ButtonProps<
+export type ButtonProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Input.Control<K>,
-    Omit<Align.PackProps, "children" | "onChange">,
-    Pick<UseSelectProps, "allowNone" | "allowMultiple"> {
-  children?: RenderProp<ButtonOptionProps<K, E>>;
-  entryRenderKey?: keyof E;
-  data: E[];
-}
+> = UseSelectProps<K, E> &
+  Omit<Align.PackProps, "children" | "onChange"> & {
+    children?: RenderProp<ButtonOptionProps<K, E>>;
+    entryRenderKey?: keyof E;
+  };
 
 export const Button = <
   K extends Key = Key,
@@ -56,15 +58,17 @@ export const Button = <
   allowNone = false,
   allowMultiple = false,
   data,
+  replaceOnSingle,
   ...props
 }: ButtonProps<K, E>): JSX.Element => {
-  const { onSelect } = useSelect({
+  const { onSelect } = useSelect<K, E>({
     allowMultiple,
     allowNone,
+    replaceOnSingle,
     data,
-    value: [value],
-    onChange: ([v]) => onChange(v),
-  });
+    value,
+    onChange,
+  } as const as UseSelectProps<K, E>);
 
   return (
     <Align.Pack {...props}>
@@ -114,7 +118,7 @@ export interface DropdownButtonProps<
     Pick<CoreButton.ButtonProps, "disabled"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
-  renderKey?: keyof E;
+  tagKey?: keyof E;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
@@ -150,17 +154,19 @@ export const DropdownButton = <
   value,
   columns = [],
   children = defaultButton,
-  renderKey = "key",
+  tagKey = "key",
   allowNone = false,
   onChange,
   disabled,
   hideColumnHeader = true,
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { ref, visible, toggle, close } = Dropdown.use();
-  const [selected, setSelected] = useState<E | null>(data.find((e) => e.key === value));
+  const [selected, setSelected] = useState<E | null>(
+    data?.find((e) => e.key === value) ?? null,
+  );
 
   const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
-    ([next]: K[], e): void => {
+    ([next]: K[], e: UseSelectOnChangeExtra<K, E>): void => {
       close();
       if (next == null) {
         setSelected(null);
@@ -177,7 +183,7 @@ export const DropdownButton = <
       <Dropdown.Dialog visible={visible} ref={ref} matchTriggerWidth>
         {children({
           selected,
-          renderKey,
+          renderKey: tagKey,
           toggle,
           visible,
           disabled,

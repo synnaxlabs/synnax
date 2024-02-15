@@ -44,12 +44,12 @@ export type Crude = z.infer<typeof crudeZ>;
  * not given, the y coordinate is assumed to be the same as the x coordinate.
  */
 export const construct = (x: Crude, y?: number): XY => {
+  if (typeof x === "object" && "x" in x) return x;
   if (typeof x === "number") return { x, y: y ?? x };
   if (Array.isArray(x)) return { x: x[0], y: x[1] };
   if ("signedWidth" in x) return { x: x.signedWidth, y: x.signedHeight };
   if ("clientX" in x) return { x: x.clientX, y: x.clientY };
-  if ("width" in x) return { x: x.width, y: x.height };
-  return { ...x };
+  return { x: x.width, y: x.height };
 };
 
 /** An x and y coordinate of zero */
@@ -165,6 +165,12 @@ export const isNan = (a: Crude): boolean => {
   const xy = construct(a);
   return Number.isNaN(xy.x) || Number.isNaN(xy.y);
 };
+
+/** @returns true if both the x and y coordinates of the given coordinate are finite. */
+export const isFinite = (a: Crude): boolean => {
+  const xy = construct(a);
+  return Number.isFinite(xy.x) && Number.isFinite(xy.y);
+}
 
 /** @returns the coordinate represented as a couple of the form [x, y]. */
 export const couple = (a: Crude): NumberCouple => {

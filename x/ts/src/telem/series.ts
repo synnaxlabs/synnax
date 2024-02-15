@@ -184,7 +184,6 @@ export class Series  {
   
   acquire(gl?: GLBufferController): void {
     this._refCount++;
-    console.log(this.key, this._refCount)
     if (gl != null) this.updateGLBuffer(gl);
   }
 

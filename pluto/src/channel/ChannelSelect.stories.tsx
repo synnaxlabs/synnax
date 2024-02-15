@@ -20,8 +20,8 @@ const story: Meta<typeof SelectMultiple> = {
 };
 
 export const Multiple = (): ReactElement => {
-  const [value, setValue] = useState<readonly channel.Key[]>([]);
-  const [value2, setValue2] = useState<readonly channel.Key[]>([]);
+  const [value, setValue] = useState<channel.Key[]>([]);
+  const [value2, setValue2] = useState<channel.Key[]>([]);
   return (
     <>
       <SelectMultiple value={value} onChange={setValue} />

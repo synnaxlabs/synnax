@@ -60,12 +60,12 @@
 }
 
 .react-flow__edges {
-    /* z-index:  6 !important; */
+    z-index:  6 !important;
 }
 
 .pluto-diagram {
     &.pluto--editable {
-        & .pluto-symbol-primitive {
+        & .pluto-symbol-primitive,.pluto-control-chip {
             pointer-events: none;
         }
 

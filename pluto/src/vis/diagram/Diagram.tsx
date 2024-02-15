@@ -40,6 +40,7 @@ import ReactFlow, {
   ConnectionMode,
   updateEdge,
   type EdgeProps as RFEdgeProps,
+  SelectionMode,
 } from "reactflow";
 
 import { Aether } from "@/aether";
@@ -48,6 +49,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs, useMemoCompare } from "@/hooks";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
@@ -205,6 +207,8 @@ const Core = Aether.wrap<DiagramProps>(
       },
     });
 
+    const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
+
     const triggers = useMemoCompare(
       () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareModeConfigs,
@@ -284,22 +288,32 @@ const Core = Aether.wrap<DiagramProps>(
     const handleEdgesChange = useCallback(
       (changes: RFEdgeChange[]) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e)),
+          edgeConverter(
+            edgesRef.current,
+            (e) => rfApplyEdgeChanges(changes, e),
+            defaultEdgeColor,
+          ),
         ),
-      [onEdgesChange],
+      [onEdgesChange, defaultEdgeColor],
     );
 
     const handleEdgeUpdate = useCallback(
       (oldEdge: RFEdge, newConnection: RFConnection) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e)),
+          edgeConverter(
+            edgesRef.current,
+            (e) => updateEdge(oldEdge, newConnection, e),
+            defaultEdgeColor,
+          ),
         ),
       [],
     );
 
     const handleConnect = useCallback(
       (conn: RFConnection) => {
-        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e)));
+        onEdgesChange(
+          edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
+        );
       },
       [onEdgesChange],
     );
@@ -382,11 +396,14 @@ const Core = Aether.wrap<DiagramProps>(
             connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
             minZoom={0.5}
-            maxZoom={1.1}
+            maxZoom={1}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
-            selectionMode="partial"
+            fitViewOptions={{
+              padding: 0,
+            }}
+            selectionMode={SelectionMode.Partial}
             proOptions={{
               hideAttribution: true,
             }}

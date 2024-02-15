@@ -38,7 +38,7 @@ interface InternalState {
   addStatus: status.Aggregate;
 }
 
-const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"];
+const CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d"];
 
 export const useInitialViewport = (): Viewport => {
   const flow = useReactFlow();
@@ -86,7 +86,7 @@ export class Diagram extends aether.Composite<
       clearScissor();
     }
 
-    return () =>
+    return async () =>
       this.eraser.erase(
         this.internal.renderCtx,
         this.state.region,

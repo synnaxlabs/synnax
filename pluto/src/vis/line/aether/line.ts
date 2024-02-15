@@ -179,6 +179,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
+    if (this.deleted) return;
     this.internalAfterUpdate().catch(() => {
       this.internal.instrumentation.L.error("afterUpdate", {
         key: this.key,
@@ -216,13 +217,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.xTelem.value();
-    return b;
+    return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.yTelem.value();
-    return b;
+    return (await this.internal.yTelem.value())[0];
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {
@@ -244,7 +243,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       key,
       color,
       label,
-      position: { x: NaN, y: NaN },
+      position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
     };
 

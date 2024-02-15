@@ -13,7 +13,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [lib({ name: "client" })],
   build: {
-    minify: false,
+    minify: true,
     rollupOptions: {
       external: "zod",
     },

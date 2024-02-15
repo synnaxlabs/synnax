@@ -47,6 +47,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "logo-color": theme.colors.logo,
     "error-m1": theme.colors.error.m1.hex,
     "error-z": theme.colors.error.z.hex,
+    ...createHexOpacityVariants("error-z", theme.colors.error.z, OPACITIES),
     "error-p1": theme.colors.error.p1.hex,
     white: theme.colors.white.hex,
     "white-rgb": theme.colors.white.rgbString,

@@ -34,6 +34,7 @@ export const Tag = ({
   color,
   icon,
   onClose,
+  className,
   onDragStart,
   ...props
 }: TagProps): ReactElement => {
@@ -57,7 +58,11 @@ export const Tag = ({
     <Text.WithIcon
       startIcon={icon}
       endIcon={closeIcon}
-      className={CSS(CSS.B("tag"), onClose != null && CSS.BM("tag", "closeable"))}
+      className={CSS(
+        className,
+        CSS.B("tag"),
+        onClose != null && CSS.BM("tag", "closeable"),
+      )}
       level={Text.ComponentSizeLevels[size]}
       noWrap
       align="center"

@@ -152,7 +152,8 @@ export const ToggleControlForm: MultiPropertyInput<
   );
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
-  const handleSourceChange = (v: channel.Key): void => {
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
     const t = telem.sourcePipeline("boolean", {
       connections: [
         {
@@ -169,7 +170,8 @@ export const ToggleControlForm: MultiPropertyInput<
     onChange({ ...value, source: t });
   };
 
-  const handleSinkChange = (v: channel.Key): void => {
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [
         {

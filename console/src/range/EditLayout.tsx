@@ -10,17 +10,9 @@
 import { useRef, type ReactElement, useState, useMemo } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { TimeRange, TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
+import { TimeRange, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import {
-  Align,
-  Button,
-  Nav,
-  Synnax,
-  Ranger,
-  Text,
-  useAsyncEffect,
-} from "@synnaxlabs/pluto";
+import { Align, Button, Nav, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { FormProvider, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
@@ -74,7 +66,8 @@ export const EditLayout = ({
     labels: [],
   };
   const isCreate = layoutKey === RANGE_WINDOW_KEY;
-  const isRemoteEdit = client != null && !isCreate && range != null;
+  const isEdit = client != null && !isCreate && range != null;
+  const isRemoteEdit = isEdit && range?.variant === "static" && range.persisted;
 
   if (range != null && range.variant === "static")
     defaultValues = {
@@ -98,11 +91,10 @@ export const EditLayout = ({
       end: rng.timeRange.start.valueOf(),
       labels: [],
     });
-  }, [isRemoteEdit]);
+  }, [isEdit]);
 
   const dispatch = useDispatch();
   const savePermanently = useRef(false);
-  const isPersistedEdit = !isCreate && range?.variant === "static" && range.persisted;
 
   const onSubmit = async ({
     name,
@@ -117,7 +109,7 @@ export const EditLayout = ({
     // remove leading and trailing whitespace
     const key = isCreate ? uuidv4() : layoutKey;
 
-    const persisted = savePermanently.current || isPersistedEdit;
+    const persisted = savePermanently.current || isRemoteEdit;
 
     if (persisted && client != null) {
       try {
