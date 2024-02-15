@@ -224,6 +224,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		sCtx.Go(func(_ context.Context) error {
+			defer cancel()
 			return srv.Serve()
 		}, xsignal.WithKey("server"))
 		defer srv.Stop()
@@ -239,7 +240,7 @@ func start(cmd *cobra.Command) {
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		ins.L.Fatal("shutdown failed", zap.Error(err))
+		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
 	ins.L.Info("shutdown successful")
 }

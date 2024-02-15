@@ -136,7 +136,7 @@ func (s *Server) Stop() {
 	for _, b := range s.Branches {
 		b.Stop()
 	}
-	<-s.wg.Stopped()
+	_ = s.wg.Wait()
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {

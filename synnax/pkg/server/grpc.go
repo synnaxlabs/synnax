@@ -46,8 +46,12 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	return filterCloserError(g.server.Serve(ctx.Lis))
 }
 
-// Stop implements Branch.
-func (g *GRPCBranch) Stop() { g.server.GracefulStop() }
+// Stop implements Branch. Stop is safe to call even if Serve has not been called.
+func (g *GRPCBranch) Stop() {
+	if g.server != nil {
+		g.server.GracefulStop()
+	}
+}
 
 func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {

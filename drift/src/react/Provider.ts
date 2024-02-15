@@ -9,12 +9,11 @@
 
 import { ReactElement, useState, createElement } from "react";
 
-import type { Action, AnyAction, EnhancedStore } from "@reduxjs/toolkit";
+import type { Action, UnknownAction, EnhancedStore } from "@reduxjs/toolkit";
 import { Provider } from "react-redux";
 import type { ProviderProps as BaseProps } from "react-redux";
 
 import { Enhancers } from "@/configureStore";
-import { Middlewares } from "@/middleware";
 import { StoreState } from "@/state";
 
 /**
@@ -23,11 +22,10 @@ import { StoreState } from "@/state";
  */
 export interface ProviderProps<
   S extends StoreState,
-  A extends Action = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>,
+  A extends Action = UnknownAction,
   E extends Enhancers = Enhancers
 > extends Omit<BaseProps<A, S>, "store"> {
-  store: Promise<EnhancedStore<S, A, M, E>> | EnhancedStore<S, A, M, E>;
+  store: Promise<EnhancedStore<S, A, E>> | EnhancedStore<S, A, E>;
   emptyContent?: ReactElement | null;
 }
 
@@ -41,15 +39,14 @@ export interface ProviderProps<
  */
 export const DriftProvider = <
   S extends StoreState,
-  A extends Action<unknown> = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>,
+  A extends Action<string> = UnknownAction,
   E extends Enhancers = Enhancers
 >({
   store: storeOrPromise,
   emptyContent = null,
   children,
-}: ProviderProps<S, A, M, E>): ReactElement | null => {
-  const [store, setStore] = useState<EnhancedStore<S, A, M, E> | null>(null);
+}: ProviderProps<S, A, E>): ReactElement | null => {
+  const [store, setStore] = useState<EnhancedStore<S, A, E> | null>(null);
   const [error, setError] = useState<Error | null>(null);
   if (error != null) {
     setError(null);

@@ -17,13 +17,14 @@ import {
   Synnax,
   Text,
   componentRenderProp,
+  Menu as PMenu,
 } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
 import { type RenderableCluster } from "@/cluster/core";
 import { useSelect, useSelectMany } from "@/cluster/selectors";
-import { setActive } from "@/cluster/slice";
+import { remove, setActive } from "@/cluster/slice";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -31,7 +32,10 @@ import { setNavdrawerVisible } from "@/layout/slice";
 
 import "@/cluster/Toolbar.css";
 
+import { LOCAL_KEY } from "./local";
+
 const Content = (): ReactElement => {
+  const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const data = Object.values(useSelectMany());
   const active = useSelect();
@@ -46,8 +50,45 @@ const Content = (): ReactElement => {
     },
   ];
 
-  const handleSelect = (key: string | null): void => {
+  const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
+  };
+
+  const handleRemove = (keys: string[]): void => {
+    dispatch(remove({ keys }));
+  };
+
+  const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuProps): ReactElement => {
+    const handleSelect = (menuKey: string): void => {
+      if (key == null) return;
+      switch (menuKey) {
+        case "remove":
+          return handleRemove([key]);
+        case "connect":
+          return handleConnect([key]);
+        case "disconnect":
+          return handleConnect([]);
+      }
+    };
+
+    return (
+      <PMenu.Menu onChange={handleSelect}>
+        {key !== LOCAL_KEY && (
+          <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
+            Remove
+          </PMenu.Item>
+        )}
+        {key === active?.key ? (
+          <PMenu.Item startIcon={<Icon.Disconnect />} size="small" itemKey="disconnect">
+            Disconnect
+          </PMenu.Item>
+        ) : (
+          <PMenu.Item startIcon={<Icon.Connect />} size="small" itemKey="connect">
+            Connect
+          </PMenu.Item>
+        )}
+      </PMenu.Menu>
+    );
   };
 
   return (
@@ -56,15 +97,21 @@ const Content = (): ReactElement => {
         <ToolbarTitle icon={<Icon.Cluster />}>Clusters</ToolbarTitle>
         <Header.Actions>{actions}</Header.Actions>
       </ToolbarHeader>
-      <List.List<string, RenderableCluster>
-        data={data}
-        emptyContent={<NoneConnected />}
-      >
-        <List.Selector value={selected} onChange={handleSelect} allowMultiple={false} />
-        <List.Core.Virtual itemHeight={30}>
-          {componentRenderProp(ListItem)}
-        </List.Core.Virtual>
-      </List.List>
+      <PMenu.ContextMenu menu={(props) => <ContextMenu {...props} />} {...menuProps}>
+        <List.List<string, RenderableCluster>
+          data={data}
+          emptyContent={<NoneConnected />}
+        >
+          <List.Selector
+            value={selected}
+            onChange={handleConnect}
+            allowMultiple={false}
+          />
+          <List.Core.Virtual itemHeight={30}>
+            {componentRenderProp(ListItem)}
+          </List.Core.Virtual>
+        </List.List>
+      </PMenu.ContextMenu>
     </Align.Space>
   );
 };
@@ -76,6 +123,7 @@ const ListItem = ({
   style,
 }: List.ItemProps<string, RenderableCluster>): ReactElement => (
   <Align.Space
+    id={key}
     direction="x"
     align="center"
     justify="spaceBetween"
@@ -83,6 +131,7 @@ const ListItem = ({
     className={CSS(
       CSS.BE("cluster-toolbar-list", "item"),
       selected && CSS.M("selected"),
+      PMenu.CONTEXT_TARGET,
     )}
     style={style}
   >

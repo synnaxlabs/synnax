@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Store } from "@reduxjs/toolkit";
-import { combineReducers } from "@reduxjs/toolkit";
+import type { Store, ThunkMiddleware, type Middleware } from "@reduxjs/toolkit";
+import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
@@ -83,13 +83,14 @@ const newStore = async (): Promise<RootStore> => {
   return (await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [
-      ...def(),
-      ...LinePlot.MIDDLEWARE,
-      ...Layout.MIDDLEWARE,
-      ...PID.MIDDLEWARE,
-      persistMiddleware,
-    ],
+    middleware: (def) =>
+      new Tuple(
+        ...def(),
+        ...LinePlot.MIDDLEWARE,
+        ...Layout.MIDDLEWARE,
+        ...PID.MIDDLEWARE,
+        persistMiddleware,
+      ),
     reducer,
     enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,

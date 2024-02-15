@@ -20,7 +20,6 @@ import { variantColors } from "./colors";
 
 export interface TextDigest {
   variant: Variant;
-  children?: string | number;
 }
 
 export interface TextProps

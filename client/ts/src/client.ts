@@ -29,6 +29,7 @@ export const synnaxPropsZ = z.object({
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
+  name: z.string().optional(),
 });
 
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
@@ -96,6 +97,7 @@ export default class Synnax {
     this.connectivity = new connection.Checker(
       this.transport.unary,
       connectivityPollFrequency,
+      props.name,
     );
     this.ontology = new ontology.Client(this.transport.unary, this.telem);
     const rangeRetriever = new ranger.Retriever(this.transport.unary);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type AnyAction,
+  type UnknownAction,
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
@@ -38,14 +38,14 @@ export const open = async <S extends RequiredState>({
   let state = (await db.get(PERSISTED_STATE_KEY)) ?? undefined;
   if (state != null) state = await reconcileVersions(state);
 
-  const persist = debounce((store: MiddlewareAPI<Dispatch<AnyAction>, S>) => {
+  const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
     if (appWindow.label !== MAIN_WINDOW) return;
     // We need to make a deep copy here to make immer happy
     // when we do exclusions.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-    void db.set(PERSISTED_STATE_KEY, filtered);
-  }, 1000);
+    db.set(PERSISTED_STATE_KEY, filtered).catch(console.error);
+  }, 500);
 
   return [
     state,

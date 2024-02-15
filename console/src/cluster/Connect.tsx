@@ -22,14 +22,13 @@ import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
+import { useSelectMany } from "@/cluster/selectors";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
-
-const formSchema = synnaxPropsZ.extend({ name: z.string() });
 
 export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
@@ -55,6 +54,14 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const dispatch = useDispatch();
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
+
+  const names = useSelectMany().map((c) => c.name);
+
+  const formSchema = synnaxPropsZ.extend({
+    name: z.string().refine((n) => !names.includes(n), {
+      message: "A cluster with this name already exists",
+    }),
+  });
 
   const methods = useForm({ resolver: zodResolver(formSchema) });
   const { getValues, trigger, control: c, handleSubmit: _handleSubmit } = methods;

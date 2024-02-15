@@ -157,7 +157,7 @@ export const List = (): ReactElement => {
           Create New
         </PMenu.Item>
         <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
-          Set Active
+          Set as Active Range
         </PMenu.Item>
         <Divider.Divider direction="x" padded />
         <Menu.Item.HardReload />

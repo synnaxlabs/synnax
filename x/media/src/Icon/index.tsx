@@ -90,7 +90,7 @@ import {
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp } from "react-icons/tb";
+import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp, TbPlugConnected, TbPlugConnectedX} from "react-icons/tb";
 
 import "@/Icon/Icon.css";
 
@@ -228,6 +228,8 @@ export const Icon: IconType = {
     Top: MdAlignVerticalTop,
     Bottom: MdAlignVerticalBottom,
   },
+  Connect: TbPlugConnected,
+  Disconnect: TbPlugConnectedX,
   Hardware: MdHardware,
   Module: RiSoundModuleFill,
   Save: MdSaveAlt,
@@ -337,4 +339,6 @@ export interface IconType {
   Hardware: IconFC;
   Module: IconFC;
   Save: IconFC;
+  Connect: IconFC;
+  Disconnect: IconFC;
 }
