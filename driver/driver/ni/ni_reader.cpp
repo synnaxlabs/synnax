@@ -29,46 +29,44 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
     this->stream_rate = stream_rate;
     this->channels = channels;
     this->acq_rate = acquisition_rate;
-    // iterate through channels, check name and determine what tasks nbeed to be created
-    for(auto &channel : channels){
-//        std::cout << "Device name: " << channel.name.c_str() << std::endl;
+
+    for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
             case ANALOG_VOLTAGE_IN:
                 DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL);
                 taskType = ANALOG_READER;
-//                numChannels++;
                 break;
-            case THERMOCOUPLE_IN: //TODO: double check the function calls below (elham)
-//                DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL);
+            case THERMOCOUPLE_IN:               //TODO: Implement
+                // DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL);
                 taskType = ANALOG_READER;
                 break;
-            case ANALOG_CURRENT_IN://TODO: double check the function calls below (elham)
-//                DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL);
+            case ANALOG_CURRENT_IN:             //TODO: Implement
+                // DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL);
                 taskType = ANALOG_READER;
                 break;
-            case DIGITAL_IN://TODO: double check the function calls below (elham)
+            case DIGITAL_IN:
                 DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
                 taskType = DIGITAL_READER;
                 break;
-            case DIGITAL_OUT://TODO: double check the function calls below (elham)
-//                DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
+            case DIGITAL_OUT:                   //TODO: Implement
+                // DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
                 taskType = DIGITAL_WRITER;
                 break;
         }
-        numChannels++; // change to handle indewx channels
+        numChannels++; // change to handle index channels
     }
 
-//    std::cout << "Configuring clock" << std::endl;
     if( taskType == ANALOG_READER){
         int err = DAQmxCfgSampClkTiming(taskHandle, "", acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, acquisition_rate);
-//        printf("DAQmx Error: %s\n",err);
+        if(err < 0){
+            printf("DAQmx Error: %d\n",err);
+        }
     }
-//    std::cout << "Configuring clock finished" << std::endl;
+
     this->numSamplesPerChannel =  std::floor(acquisition_rate/stream_rate);
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
     this->digitalData = new uInt32[bufferSize];
-//    std::cout << " finished configuring taskHandle" << std::endl;
 }
 
 freighter::Error ni::niDaqReader::configure(synnax::Module config){
@@ -82,9 +80,7 @@ freighter::Error ni::niDaqReader::start(){
 
 freighter::Error ni::niDaqReader::stop(){
     int daqmx_err = DAQmxStopTask(taskHandle);
-//    printf("DAQmx Error: %s\n",daqmx_err);
     daqmx_err = DAQmxClearTask(taskHandle);
-//    printf("DAQmx Error: %s\n",daqmx_err);
     delete[] data; // free the data buffer
     delete[] digitalData; // free the digital data buffer
     return freighter::NIL;
@@ -115,17 +111,14 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
                 << "Final timestamp: " << final_timestamp << std::endl
                 << "Diff: " << diff << std::endl;
 
+    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t incr = diff/this->numSamplesPerChannel;
-    //print increment
-    std::cout << "Increment:                " << incr << std::endl;
-    //print what it would be if we used the acq rate
-    std::cout << "Increment using acq rate: " << (1e9/acq_rate) << std::endl;
+
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < samplesRead; ++i) {
-        time_index[i] = initial_timestamp + (std::uint64_t)(incr*i);  // time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
+        time_index[i] = initial_timestamp + (std::uint64_t)(incr*i);
     }
-
 
     // construct synnax frame
     std::vector<float> data_vec(samplesRead);

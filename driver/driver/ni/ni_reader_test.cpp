@@ -20,7 +20,6 @@ TEST(NiReaderTests, testReadandInitAnalog){
 
     // create a channel config vector
     std::vector<ni::channel_config> channel_configs;
-    channel_configs.push_back(ni::channel_config({"", 0,  ni::INDEX_CHANNEL ,  0, 0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai0", 65531,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai1", 65532,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai2", 65533,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
@@ -29,6 +28,7 @@ TEST(NiReaderTests, testReadandInitAnalog){
     channel_configs.push_back(ni::channel_config({"Dev1/ai5", 65536,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai6", 65537,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai7", 65538,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
+    channel_configs.push_back(ni::channel_config({"", 0,  ni::INDEX_CHANNEL ,  0, 0}));
 
     reader.init(channel_configs, 1000, 20);
     reader.start();
