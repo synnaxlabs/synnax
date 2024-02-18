@@ -13,6 +13,7 @@
 #include <memory>
 #include <utility>
 #include "nlohmann/json.hpp"
+#include "driver/ni/ni_module.h"
 
 using json = nlohmann::json;
 
@@ -32,8 +33,10 @@ namespace module {
 
     class Factory {
     public:
-        virtual std::unique_ptr<Module> configure(
-                const std::shared_ptr<synnax::Synnax> &client, const synnax::Module &module, bool &valid_config, json &config_err) = 0;
+        virtual std::unique_ptr<Module> createModule(const std::shared_ptr<synnax::Synnax> &client,
+                                                    const json &config,
+                                                    bool &valid_config,
+                                                    json &config_err) = 0;
 
         virtual ~Factory() = default;
     };

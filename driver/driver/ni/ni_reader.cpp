@@ -18,8 +18,6 @@
 #include <chrono>
 #include <stdio.h>
 
-//#include "<cmath>"
-
 using json = nlohmann::json;
 using namespace ni;
 
@@ -89,7 +87,7 @@ freighter::Error ni::niDaqReader::stop(){
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     signed long samplesRead = 0;
     char errBuff[2048] = {'\0'};
-    float64 flush[1000]; // used to flush buffer before performing a read
+    float64 flush[1000];                     // to flush buffer before performing a read
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
 
@@ -107,9 +105,9 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 
     uint64_t diff = final_timestamp - initial_timestamp;
 
-    std::cout   << "Initial timestamp: " << initial_timestamp << std::endl
-                << "Final timestamp: " << final_timestamp << std::endl
-                << "Diff: " << diff << std::endl;
+//    std::cout   << "Initial timestamp: " << initial_timestamp << std::endl
+//                << "Final timestamp: " << final_timestamp << std::endl
+//                << "Diff: " << diff << std::endl;
 
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t incr = diff/this->numSamplesPerChannel;
@@ -120,7 +118,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr*i);
     }
 
-    // construct synnax frame
+    // construct synnax frame and populate it
     std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
@@ -136,8 +134,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
             data_index++;
         }
     }
-
-    freighter::Error error = freighter::NIL;
+    freighter::Error error = freighter::NIL; // TODO: implement error handling
     return {std::move(f), error};
 }
 

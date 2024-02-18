@@ -15,8 +15,6 @@
 #include "driver/pipeline/acqReader.h"
 #include "driver/modules/module.h"
 
-
-
 namespace ni {
     typedef enum {
         ANALOG_VOLTAGE_IN,
@@ -33,7 +31,7 @@ namespace ni {
         DIGITAL_WRITER,
     } TaskType;
 
-    typedef struct channel_config {
+    typedef struct channel_config { //TODO: replace with json parsing
         std::string name;
         uint32_t channel_key;
         ChannelType channelType;
@@ -42,7 +40,8 @@ namespace ni {
 
         //TODO: implement a calibration class later and put that in here too
     } channel_config;
-    class niDaqReader : public  daq::AcqReader { // I need the public keyword to be able to store pointer to niDaqreader in a pointer to acqReader
+
+    class niDaqReader : public daq::AcqReader { // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         niDaqReader(TaskHandle taskHandle);
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
@@ -65,7 +64,5 @@ namespace ni {
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
     };
-}
 
-//class Factory {
-//};
+}

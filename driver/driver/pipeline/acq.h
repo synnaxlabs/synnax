@@ -27,6 +27,7 @@ public:
              std::shared_ptr<synnax::Synnax> client,
              std::unique_ptr<daq::AcqReader> daq_reader);
     Acq();
+
 private:
     /// @brief threading.
 //    std::atomic<bool> running = std::atomic_bool(false);
