@@ -60,7 +60,7 @@ TEST(AcqTests, testAcqNi){
 
     // make and init daqReade unique ptrr
     auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(channel_configs, 50, 10);
+    reader->init(channel_configs, 200, 20);
 
     // create a test writer
     auto now = synnax::TimeStamp::now();
@@ -71,12 +71,12 @@ TEST(AcqTests, testAcqNi){
             synnax::Subject{"test_writer"},
     };
 
-
     // instantiate the acq
     auto acq = Acq::Acq(writerConfig, client, std::move(reader));
+    printf("Initialized acq");
 //    std::cout << "Starting acq" << std::endl;
     acq.start();
-    std::this_thread::sleep_for(std::chrono::seconds(60)); // let the acq run for 10 seconds, should expect frames to be commited
+    std::this_thread::sleep_for(std::chrono::seconds(200)); // let the acq run for 10 seconds, should expect frames to be commited
 //    std::cout << "Stopping acq" << std::endl;
     acq.stop();
 

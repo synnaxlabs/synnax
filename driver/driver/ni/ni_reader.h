@@ -36,8 +36,6 @@ namespace ni {
     typedef struct channel_config {
         std::string name;
         uint32_t channel_key;
-//    uint64_t port;
-//    uint64_t line;
         ChannelType channelType;
         float min_val;
         float max_val;
@@ -66,8 +64,6 @@ namespace ni {
         uInt32* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
-        std::uint64_t getTimeStamp();
-        uint64_t readIteration = 0;
     };
 }
 

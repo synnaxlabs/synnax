@@ -11,9 +11,9 @@
 
 TEST(NiReaderTests, testReadandInitAnalog){
     //TODO add asserts (elham)
-
     std::cout << "Test read and init Analog: " << std::endl;
-    //create task
+
+//    create task
     TaskHandle taskHandle;
     DAQmxCreateTask("",&taskHandle);
     auto reader = ni::niDaqReader(taskHandle);
@@ -33,9 +33,9 @@ TEST(NiReaderTests, testReadandInitAnalog){
     reader.init(channel_configs, 1000, 20);
     reader.start();
     auto [frame, err] = reader.read();
-    auto [frame1, err1] = reader.read();
     std::cout << "Frame size: " <<  frame.size() << std::endl;
-    //iterate through each series and print the data
+
+//    iterate through each series and print the data
     for (int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
@@ -76,7 +76,7 @@ TEST(NiReaderTests, testReadandInitDigital){
     reader.start();
     auto [frame, err] = reader.read();
 
-    std::cout << "Frame size: " <<  frame.size() << std::endl;
+//    std::cout << "Frame size: " <<  frame.size() << std::endl;
 
     //iterate through each series and print the data
     for(int i = 0; i < frame.series->size(); i++){
