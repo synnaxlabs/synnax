@@ -106,6 +106,22 @@ func (db *DB) TryClose() error {
 	}
 }
 
+// Read at the unary level
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
+	iter := db.OpenIterator(IterRange(tr))
+	if err != nil {
+		return
+	}
+	defer func() { err = iter.Close() }()
+	if !iter.SeekFirst(ctx) {
+		return
+	}
+	for iter.Next(ctx, telem.TimeSpanMax) {
+		frame = frame.AppendFrame(iter.Value())
+	}
+	return
+}
+
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	bounds := db.Domain.GetBounds()
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: bounds})
@@ -123,7 +139,6 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	if ok := i.SeekLE(ctx, tr.End); !ok {
 		return errors.New("End TS not found")
-
 	}
 	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
 		Start: tr.End,

@@ -65,6 +65,10 @@ func (s *subFS) Remove(name string) error {
 	return s.FS.Remove(path.Join(s.dir, name))
 }
 
+func (s *subFS) Rename(oldName string, newName string) error {
+	return s.FS.Rename(path.Join(s.dir, oldName), path.Join(s.dir, newName))
+}
+
 type defaultFS struct {
 	perm os.FileMode
 }

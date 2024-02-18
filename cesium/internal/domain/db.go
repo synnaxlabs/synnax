@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"io"
+	"os"
+	"strconv"
 )
 
 var (
@@ -169,13 +171,6 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
-	// add to tombstones
-	if deleteEnd-deleteStart > 1 {
-		for _, p := range db.idx.mu.pointers[deleteStart+1 : deleteEnd] {
-			db.idx.insertTombstone(ctx, p)
-		}
-	}
-
 	if deleteEnd != deleteStart {
 		// remove end of start pointer
 		db.idx.insertTombstone(ctx, pointer{
@@ -187,6 +182,10 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 			offset:  start.offset + uint32(startOffset),
 			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
 		})
+
+		for _, p := range db.idx.mu.pointers[deleteStart+1 : deleteEnd] {
+			db.idx.insertTombstone(ctx, p)
+		}
 
 		// remove start of end pointer
 		db.idx.insertTombstone(ctx, pointer{
@@ -244,33 +243,80 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 	return nil
 }
 
-func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead int64) error {
+func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
-	//buf := make([]byte, maxSizeRead)
-	//
-	//for fileKey, tombstones := range db.idx.mu.tombstones {
-	//	r, err := db.files.acquireReader(ctx, fileKey)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	f, err := db.FS.Open(strconv.Itoa(int(fileKey))+"_temp", os.O_RDWR)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	tombstoneAt := 0
-	//	pointerAt := 0
-	//	totalPointers := len(db.idx.mu.pointers)
-	//
-	//	for pointerAt < totalPointers{
-	//		if(db.idx.mu.pointers[pointerAt].)
-	//	}
-	//
-	//}
+	for fileKey, tombstones := range db.idx.mu.tombstones {
+		var (
+			cumuOffset   uint32 = 0
+			pointerPtr          = 0
+			tombstonePtr        = 0
+		)
+
+		r, err := db.files.acquireReader(ctx, fileKey)
+		if err != nil {
+			return err
+		}
+		f, err := db.FS.Open(strconv.Itoa(int(fileKey))+"_temp.domain", os.O_CREATE|os.O_RDWR)
+		if err != nil {
+			return err
+		}
+
+		for pointerPtr < len(db.idx.mu.pointers) {
+			currentPointer := &db.idx.mu.pointers[pointerPtr]
+			if currentPointer.fileKey != fileKey {
+				pointerPtr++
+				continue
+			}
+
+			for tombstonePtr < len(tombstones) && currentPointer.offset > tombstones[tombstonePtr].offset {
+				cumuOffset += db.idx.mu.tombstones[fileKey][tombstonePtr].length
+				tombstonePtr++
+			}
+
+			n := 0
+
+			for n < int(currentPointer.length) {
+				buf := make([]byte, minInt(maxSizeRead, currentPointer.length))
+				_n, err := r.ReadAt(buf, int64(currentPointer.offset)+int64(n))
+				if err != nil && err != io.EOF {
+					return err
+				}
+				_, err = f.WriteAt(buf, int64(currentPointer.offset)+int64(n)-int64(cumuOffset))
+				if err != nil {
+					return err
+				}
+				n = _n
+			}
+			currentPointer.offset -= cumuOffset
+			pointerPtr += 1
+		}
+
+		err = db.FS.Remove(strconv.Itoa(int(fileKey)) + ".domain")
+		if err != nil {
+			return err
+		}
+		err = db.FS.Rename(strconv.Itoa(int(fileKey))+"_temp.domain", strconv.Itoa(int(fileKey))+".domain")
+		if err != nil {
+			return err
+		}
+
+		err = db.files.removeFile(fileKey)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func minInt(a uint32, b uint32) int {
+	if a > b {
+		return int(b)
+	} else {
+		return int(a)
+	}
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.

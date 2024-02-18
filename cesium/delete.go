@@ -77,3 +77,14 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 
 	return udb.Delete(ctx, tr)
 }
+
+func (db *DB) GCTombstone(ctx context.Context, ch ChannelKey, maxsizeRead uint32) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	udb, uok := db.unaryDBs[ch]
+	if !uok {
+		return ChannelNotFound
+	}
+
+	return udb.Domain.CollectTombstone(ctx, maxsizeRead)
+}
