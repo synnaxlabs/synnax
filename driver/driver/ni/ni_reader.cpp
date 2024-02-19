@@ -103,9 +103,8 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
         printf("DAQmx Error: %s\n",errBuff);
     }
 
-    uint64_t diff = final_timestamp - initial_timestamp;
-
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    uint64_t diff = final_timestamp - initial_timestamp;
     uint64_t incr = diff/this->numSamplesPerChannel;
 
     // Construct and populate index channel
@@ -114,7 +113,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr*i);
     }
 
-    // construct synnax frame and populate it
+    // Construct and populate synnax frame
     std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
@@ -138,7 +137,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     char errBuff[2048]={'\0'};
     float64 flush[1000];                     // to flush buffer before performing a read
     signed long flushRead;
-    synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
+    synnax::Frame f = synnax::Frame(numChannels);
 
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -151,17 +150,17 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
         printf("DAQmx Error: %s\n",errBuff);
     }
 
-    uint64_t diff = final_timestamp - initial_timestamp;
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    uint64_t diff = final_timestamp - initial_timestamp;
     uint64_t incr = diff/this->numSamplesPerChannel;
 
-    // Construct index channel
+    // Construct and populate index channel
     std::vector<std::uint64_t> time_index(numSamplesPerChannel);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
         time_index[i] = initial_timestamp + (std::uint64_t )(incr*i);
     }
 
-    // construct synnax frame
+    // Construct and populate synnax frame
     std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
