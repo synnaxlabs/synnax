@@ -19,18 +19,11 @@
 
 class NiAnalogReaderTask : public module {
 public:
-    std::vector <channel_config> channels;
     Acq acq_pipeline;
-    std::uint64_t acq_rate;
-    std::uint64_t stream_rate;
-    std::uint64_t num_channels;
-
-
     NiAnalogReaderTask() = default;
-
-    freighter::Error init(std::unique_ptr<daq::AcqReader> daq_reader,
-                          std::unique_ptr<synnax::WriterConfig> writer_config,
-                          std::unique_ptr<synnax::StreamerConfig> streamer_config);
+    freighter::Error init(const std::shared_ptr<synnax::Synnax> client,
+                          std::unique_ptr<daq::AcqReader> daq_reader,
+                          std::unique_ptr<synnax::WriterConfig> writer_config);
 
     freighter::Error startAcquisition();
     freighter::Error stopAcquisition();
@@ -42,7 +35,7 @@ public:
 
 class niTaskFactory : public module::Factory {
 public:
-    std::unique_ptr<module::Module> createModule(const std::shared_ptr<synnax::Synnax> &client,
+    std::unique_ptr<module::Module> createModule(const std::shared_ptr<synnax::Synnax> &client, // TODO: make const? because i need to pass it into daq reade rwhich needs access but does it need write access
                                                  const json &config,
                                                  bool &valid_config,
                                                  json &config_err);

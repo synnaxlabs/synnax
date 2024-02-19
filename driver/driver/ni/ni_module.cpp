@@ -6,17 +6,10 @@
 
 /* NiAnalogReaderTask */
 
-freighter::Error NiAnalogReaderTask::init(std::uint64_t acq_r, std::uint64_t stream_r, uint64_t num_channels,
-                                          std::unique_ptr<daq::AcqReader> daq_reader,
-                                          std::unique_ptr<synnax::WriterConfig> writer_config,
-                                          std::unique_ptr<synnax::StreamerConfig> streamer_config){
+freighter::Error NiAnalogReaderTask::init(std::unique_ptr<daq::AcqReader> daq_reader,
+                                          std::unique_ptr<synnax::WriterConfig> writer_config){
 
-    acq_rate = acq_r;
-    stream_rate = stream_r;
-    channels.resize(num_channels);
-
-    acq_pipeline = Acq(std::move(writer_config), std::move(streamer_config, std::move(daq_reader)));
-
+    acq_pipeline = Acq(std::move(writer_config), std::move(client), std::move(daq_reader)));
     return freighter::TYPE_NIL;
 }
 
@@ -111,6 +104,6 @@ std::<unique_ptr<NiAnalogReaderTask>> niTaskFactory::createAnalogReaderTask(cons
     auto daq_reader = std::make_unique<ni::niDaqReader>();
     daq_reader->init(channels, acq_rate, stream_rate);
 
+
 }
-```
 
