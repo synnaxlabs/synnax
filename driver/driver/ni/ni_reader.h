@@ -23,6 +23,7 @@ namespace ni {
         DIGITAL_IN,
         DIGITAL_OUT,
         INDEX_CHANNEL,
+        INVALID_CHANNEL
     } ChannelType;
 
     typedef enum {
@@ -45,6 +46,7 @@ namespace ni {
     public:
         niDaqReader(TaskHandle taskHandle);
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
+        void init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair <synnax::Frame, freighter::Error> read();
         freighter::Error configure(synnax::Module config);
         freighter::Error stop();

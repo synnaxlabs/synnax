@@ -24,7 +24,7 @@ public:
     void start();
     void stop();
     Acq::Acq(synnax::WriterConfig writer_config,
-             std::shared_ptr<synnax::Synnax> client,
+             std::shared_ptr<synnax::Synnax> client, //TODO: make const?
              std::unique_ptr<daq::AcqReader> daq_reader);
     Acq();
 

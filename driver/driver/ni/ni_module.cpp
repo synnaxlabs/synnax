@@ -70,7 +70,7 @@ std::unique_ptr<module::Module> niTaskFactory::createModule(const std::shared_pt
     // create module
     auto type = conifg["channels"][0]["type"]
     if (type == "analogVoltageInput"){
-        return createAnalogReaderTask(); // TODO: implict cast from unique_ptr of NiAnalogReaderTask to unique_ptr of module::Module?
+        return createAnalogReaderTask(config, config_err); // TODO: implict cast from unique_ptr of NiAnalogReaderTask to unique_ptr of module::Module?
     }
    else {
         valid_config = false;
@@ -80,4 +80,37 @@ std::unique_ptr<module::Module> niTaskFactory::createModule(const std::shared_pt
 }
 
 
+std::<unique_ptr<NiAnalogReaderTask>> niTaskFactory::createAnalogReaderTask(const json &config, json &config_err){
+    std::vector<channel_config> channels;
+    std::uint64_t acq_rate;
+    std::uint64_t stream_rate;
+    std::uint64_t num_channels;
+
+    // parse config
+    json channels = config["channels"];
+    acq_rate = config["acq_rate"];
+    stream_rate = config["stream_rate"];
+
+    // create vector of channel keys to construct writer
+    std::vector<synnax::ChannelKey> channel_keys;
+    for (auto &channel : channels){
+        channel_keys.push_back(channel["key"]);
+    }
+
+    // Concatenate analog_reader  with device name
+    std::string writerName = config["device"] + "_analog_reader"; //TODO:  Is this the right convention?
+
+    // create writer config
+    auto writer_config = std::make_unique<synnax::WriterConfig>(channel_keys,
+                                                                synnax::TimeStamp::now(),
+                                                                synnax::ABSOLUTTE,
+                                                                synnax::Subject{writerName});
+
+
+    // create module
+    auto daq_reader = std::make_unique<ni::niDaqReader>();
+    daq_reader->init(channels, acq_rate, stream_rate);
+
+}
+```
 

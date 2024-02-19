@@ -25,16 +25,20 @@ public:
     std::uint64_t stream_rate;
     std::uint64_t num_channels;
 
-    NiAnalogReaderTask(channels, acq_rate, stream_rate) : channels(channels), acq_rate(acq_rate), stream_rate(stream_rate) {}
 
-    freighter::Error init(std::uint64_t acq_r, std::uint64_t stream_r, uint64_t num_channels,
-                          std::unique_ptr<daq::AcqReader> daq_reader,
+    NiAnalogReaderTask() = default;
+
+    freighter::Error init(std::unique_ptr<daq::AcqReader> daq_reader,
                           std::unique_ptr<synnax::WriterConfig> writer_config,
                           std::unique_ptr<synnax::StreamerConfig> streamer_config);
 
     freighter::Error startAcquisition();
     freighter::Error stopAcquisition();
 }
+
+// TODO: createDigitalReaderTask
+// TODO: createDigitalWriterTask
+
 
 class niTaskFactory : public module::Factory {
 public:
@@ -44,7 +48,7 @@ public:
                                                  json &config_err);
 
 private:
-    std::<unique_ptr<NiAnalogReaderTask>> createAnalogReaderTask(json &config, json &config_err);
+    std::<unique_ptr<NiAnalogReaderTask>> createAnalogReaderTask(const json &config, json &config_err);
 
     bool validChannelConfig(const json &config, json &config_err);
 

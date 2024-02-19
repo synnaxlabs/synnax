@@ -23,6 +23,29 @@ using namespace ni;
 
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
+void ni::niDaqReader::init(json channels, uint64_t acquisition_rate, uint64_t stream_rate) {
+    std::vector<channel_config> channel_configs;
+    for (auto &channel : channels) {
+        channel_config config;
+        config.name = channel["name"].get<std::string>();
+        config.channel_key = channel["channel_key"].get<uint32_t>();
+        config.min_val = channel["min_val"].get<float>();
+        config.max_val = channel["max_val"].get<float>();
+        config.channelType = (type == "analogVoltageInput") ? ANALOG_VOLTAGE_IN
+                            : (type == "thermocoupleInput") ? THERMOCOUPLE_IN
+                            : (type == "analogCurrentInput") ? ANALOG_CURRENT_IN
+                            : (type == "digitalInput") ? DIGITAL_IN
+                            : (type == "digitalOutput") ? DIGITAL_OUT
+                            : (type == "index") ? INDEX_CHANNEL
+                            : INVALID_CHANNEL;
+        channel_configs.push_back(config);
+    }
+    // todo need to add an index channel
+    init(channel_configs, acquisition_rate, stream_rate);
+}
+
+// TODO: I wan tto make a producer consumer model here instead? This works for now but come back to
+
 void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
     this->stream_rate = stream_rate;
     this->channels = channels;
@@ -51,7 +74,7 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
                 taskType = DIGITAL_WRITER;
                 break;
         }
-        numChannels++; // change to handle index channels
+        this->numChannels++; // change to handle index channels
     }
 
     if( taskType == ANALOG_READER){
