@@ -48,8 +48,7 @@ private:
 
     bool validChannelConfig(const json &config, json &config_err);
 
-//    std::<unique_ptr<NiDigitalReaderTask>> createDigitalReaderTask(const std::shared_ptr<synnax::Synnax> &client,
-//                                                                  const synnax::Module &module,
-//                                                                  bool &valid_config,
-//                                                                  json &config_err);
+    // TODO: createDigitalReaderTask
+    // TODO: createDigitalWriterTask
+    
 };

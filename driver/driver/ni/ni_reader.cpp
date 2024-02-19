@@ -105,10 +105,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 
     uint64_t diff = final_timestamp - initial_timestamp;
 
-//    std::cout   << "Initial timestamp: " << initial_timestamp << std::endl
-//                << "Final timestamp: " << final_timestamp << std::endl
-//                << "Diff: " << diff << std::endl;
-
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t incr = diff/this->numSamplesPerChannel;
 
@@ -129,7 +125,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
             for(int j = 0; j < samplesRead; j++){
                 data_vec[j] = data[data_index*samplesRead + j];
             }
-            std::cout << std::endl;
             f.add(channels[i].channel_key, synnax::Series(data_vec));
             data_index++;
         }
@@ -141,18 +136,29 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048]={'\0'};
+    float64 flush[1000];                     // to flush buffer before performing a read
+    signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels); // make a synnax frame
 
+
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
-    printf("Acquired %d samples\n",(int)samplesRead);
-//    DAQmxGetExtendedErrorInfo(errBuff,2048);
-//    printf("DAQmx Error: %s\n",errBuff);// TODO: uncomment this line
+    auto err = DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+    if (err < 0) {
+        std::cout << "ERROR" << std::endl;
+        DAQmxGetExtendedErrorInfo(errBuff,2048);
+        printf("DAQmx Error: %s\n",errBuff);
+    }
+
+    uint64_t diff = final_timestamp - initial_timestamp;
+    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    uint64_t incr = diff/this->numSamplesPerChannel;
 
     // Construct index channel
     std::vector<std::uint64_t> time_index(numSamplesPerChannel);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
-        time_index[i] = initial_timestamp + ((1e9/acq_rate)*i);  // time_index[i] = initial_timestamp + ((synnax::NANOSECOND/acq_rate)*i).value;
+        time_index[i] = initial_timestamp + (std::uint64_t )(incr*i);
     }
 
     // construct synnax frame

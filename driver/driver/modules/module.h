@@ -13,7 +13,6 @@
 #include <memory>
 #include <utility>
 #include "nlohmann/json.hpp"
-#include "driver/ni/ni_module.h"
 
 using json = nlohmann::json;
 
