@@ -22,7 +22,11 @@ import {
 import { type Retriever } from "@/ontology/retriever";
 
 export type ResourceChange = change.Change<ID, Resource>;
+export type ResourceSet = change.Set<ID, Resource>;
+export type ResourceDelete = change.Delete<ID, Resource>;
 export type RelationshipChange = change.Change<Relationship, undefined>;
+export type RelationshipSet = change.Set<Relationship, undefined>;
+export type RelationshipDelete = change.Delete<Relationship, undefined>;
 
 const RESOURCE_SET_NAME = "sy_ontology_resource_set";
 const RESOURCE_DELETE_NAME = "sy_ontology_resource_delete";

@@ -13,6 +13,9 @@ package task
 
 import (
 	"context"
+	"fmt"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -27,11 +30,13 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Group    *group.Service
-	Rack     *rack.Service
-	Signals  *signals.Provider
+	DB           *gorp.DB
+	Ontology     *ontology.Ontology
+	Group        *group.Service
+	Rack         *rack.Service
+	Signals      *signals.Provider
+	HostProvider core.HostProvider
+	Channel      channel.Writeable
 }
 
 var (
@@ -46,6 +51,8 @@ func (c Config) Override(other Config) Config {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -56,6 +63,8 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
+	validate.NotNil(v, "signals", c.Signals)
+	validate.NotNil(v, "hostProvider", c.HostProvider)
 	return v.Error()
 }
 
@@ -81,6 +90,23 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 	s.shutdownSignals = cdcS
+
+	hostKey := cfg.HostProvider.HostKey()
+	channels := &[]channel.Channel{
+		{
+			Name:        fmt.Sprintf("sy_node_%s_task_cmd", hostKey),
+			DataType:    telem.JSONT,
+			Virtual:     true,
+			Leaseholder: hostKey,
+		},
+		{
+			Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
+			DataType:    telem.JSONT,
+			Virtual:     true,
+			Leaseholder: hostKey,
+		},
+	}
+	err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)
 	return
 }
 

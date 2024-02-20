@@ -41,6 +41,8 @@ import ReactFlow, {
   updateEdge,
   type EdgeProps as RFEdgeProps,
   SelectionMode,
+  type FitViewOptions,
+  type ProOptions,
 } from "reactflow";
 
 import { Aether } from "@/aether";
@@ -144,6 +146,16 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   edgesUpdatable: false,
   nodesFocusable: false,
   edgeUpdaterRadius: 0,
+};
+
+const FIT_VIEW_OPTIONS: FitViewOptions = {
+  padding: 0,
+  maxZoom: 1,
+  minZoom: 0.5,
+};
+
+const PRO_OPTIONS: ProOptions = {
+  hideAttribution: true,
 };
 
 export interface DiagramProps
@@ -315,7 +327,7 @@ const Core = Aether.wrap<DiagramProps>(
           edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
         );
       },
-      [onEdgesChange],
+      [onEdgesChange, defaultEdgeColor],
     );
 
     const handleEdgeSegmentsChange = useCallback(
@@ -396,17 +408,13 @@ const Core = Aether.wrap<DiagramProps>(
             connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
             minZoom={0.5}
-            maxZoom={1}
+            maxZoom={1.2}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
-            fitViewOptions={{
-              padding: 0,
-            }}
+            fitViewOptions={FIT_VIEW_OPTIONS}
             selectionMode={SelectionMode.Partial}
-            proOptions={{
-              hideAttribution: true,
-            }}
+            proOptions={PRO_OPTIONS}
             {...props}
             style={{
               [CSS.var("diagram-zoom")]: viewport.zoom,
@@ -476,7 +484,7 @@ export const FitViewControl = ({
   return (
     <Button.Icon
       onClick={(e) => {
-        fitView();
+        fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}

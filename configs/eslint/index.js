@@ -71,6 +71,7 @@ module.exports = {
         "@typescript-eslint/no-confusing-void-expression": "off",
         "@typescript-eslint/ban-types": "off",
         "react/no-unescaped-entities": "off",
+        "@typescript-eslint/non-nullable-type-assertion-style": "off",
     },
     settings: {
         "import/resolver": {

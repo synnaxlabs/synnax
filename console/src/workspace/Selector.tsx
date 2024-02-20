@@ -100,30 +100,31 @@ export const Selector = (): ReactElement => {
             value={active == null ? [] : [active.key]}
             onChange={handleChange}
             allowMultiple={false}
-          />
-          <List.Search searcher={client?.workspaces}>
-            {(p) => (
-              <Input.Text
-                size="large"
-                placeholder={
-                  <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
-                    Search Workspaces
-                  </Text.WithIcon>
-                }
-                {...p}
-              >
-                <Button.Button
-                  startIcon={<Icon.Add />}
-                  variant="outlined"
-                  onClick={() => place(createWindowLayout())}
-                  iconSpacing="small"
+          >
+            <List.Search searcher={client?.workspaces}>
+              {(p) => (
+                <Input.Text
+                  size="large"
+                  placeholder={
+                    <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                      Search Workspaces
+                    </Text.WithIcon>
+                  }
+                  {...p}
                 >
-                  New
-                </Button.Button>
-              </Input.Text>
-            )}
-          </List.Search>
-          <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+                  <Button.Button
+                    startIcon={<Icon.Add />}
+                    variant="outlined"
+                    onClick={() => place(createWindowLayout())}
+                    iconSpacing="small"
+                  >
+                    New
+                  </Button.Button>
+                </Input.Text>
+              )}
+            </List.Search>
+            <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+          </List.Selector>
         </List.List>
       </Align.Pack>
     </Dropdown.Dialog>

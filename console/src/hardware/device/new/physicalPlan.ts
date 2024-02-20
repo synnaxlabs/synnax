@@ -307,7 +307,6 @@ export const buildPhysicalDevicePlan = (
   input: EnrichedProperties,
   identifier: string,
 ): PhysicalPlan => {
-  console.log(input);
   const plan: PhysicalPlan = {
     ...input,
     groups: [],

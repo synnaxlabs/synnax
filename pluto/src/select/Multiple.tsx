@@ -35,7 +35,7 @@ import { selectValueIsZero, type UseSelectMultipleProps } from "@/hooks/useSelec
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
-import { List } from "@/select/List";
+import { Core } from "@/select/List";
 import { Tag } from "@/tag";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
@@ -98,7 +98,7 @@ export const Multiple = <
   style,
   ...props
 }: MultipleProps<K, E>): ReactElement => {
-  const { ref, visible, open } = Dropdown.use();
+  const { visible, open, close } = Dropdown.use();
   const [selected, setSelected] = useState<readonly E[]>([]);
   const [loading, setLoading] = useState(false);
   const searchMode = searcher != null;
@@ -138,46 +138,40 @@ export const Multiple = <
   );
 
   return (
-    <CoreList.List<K, E> data={data} emptyContent={emptyContent}>
-      <Dropdown.Dialog
-        ref={ref}
-        visible={visible}
-        location={location}
-        className={CSS.B("select")}
-        {...props}
-        matchTriggerWidth
-      >
-        <InputWrapper<K, E> searcher={searcher}>
-          {({ onChange, value: inputValue }) => (
-            <MultipleInput<K, E>
-              value={inputValue}
-              selectedKeys={value}
-              className={className}
-              onChange={onChange}
-              loading={loading}
-              selected={selected}
-              onFocus={open}
-              tagKey={tagKey}
-              visible={visible}
-              renderTag={renderTag}
-              placeholder={placeholder}
-              onTagDragStart={onTagDragStart}
-              onTagDragEnd={onTagDragEnd}
-              style={style}
-            />
-          )}
-        </InputWrapper>
-        <List<K, E>
-          visible={visible}
-          value={value}
-          onChange={handleChange}
-          allowNone={allowNone}
-          replaceOnSingle={replaceOnSingle}
-          columns={columns}
-          allowMultiple
-        />
-      </Dropdown.Dialog>
-    </CoreList.List>
+    <Core<K, E>
+      close={close}
+      open={open}
+      data={data}
+      emtpyContent={emptyContent}
+      visible={visible}
+      value={value}
+      onChange={handleChange}
+      allowNone={allowNone}
+      replaceOnSingle={replaceOnSingle}
+      columns={columns}
+      allowMultiple
+    >
+      <InputWrapper<K, E> searcher={searcher}>
+        {({ onChange, value: inputValue }) => (
+          <MultipleInput<K, E>
+            value={inputValue}
+            selectedKeys={value}
+            className={className}
+            onChange={onChange}
+            loading={loading}
+            selected={selected}
+            onFocus={open}
+            tagKey={tagKey}
+            visible={visible}
+            renderTag={renderTag}
+            placeholder={placeholder}
+            onTagDragStart={onTagDragStart}
+            onTagDragEnd={onTagDragEnd}
+            style={style}
+          />
+        )}
+      </InputWrapper>
+    </Core>
   );
 };
 
@@ -210,22 +204,12 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   className,
   ...props
 }: SelectMultipleInputProps<K, E>): ReactElement => {
-  const {
-    select: { onSelect, clear },
-  } = CoreList.useContext<K, E>();
+  const { onSelect, clear } = CoreList.useSelectionUtils();
   const ref = useRef<HTMLInputElement>(null);
 
   useLayoutEffect(() => {
     if (visible) ref.current?.focus();
-    // // Notice how we don't call onChange with an empty value here. This is so
-    // // we preserve the previous search result in the list even after we clear
-    // // the box when a value is selected.
-    // else setValue("");
   }, [visible, selected]);
-
-  const handleChange = (v: string): void => {
-    onChange(v);
-  };
 
   const handleFocus: Input.TextProps["onFocus"] = (e) => {
     if (!visible) onChange("");
@@ -253,7 +237,7 @@ const MultipleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       onBlur={handleBlur}
       placeholder={placeholder}
       value={value}
-      onChange={handleChange}
+      onChange={onChange}
       onFocus={handleFocus}
       autoComplete="off"
       autoCapitalize="off"

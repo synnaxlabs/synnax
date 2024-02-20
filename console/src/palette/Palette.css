@@ -24,7 +24,7 @@
 
 .console-notifications {
     .console-notification {
-        padding: 1.5rem;
+        padding: 1rem;
         &:not(:last-child) {
             border-bottom: var(--pluto-border);
         }

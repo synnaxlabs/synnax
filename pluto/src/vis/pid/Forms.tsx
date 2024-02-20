@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type FC, useState, useEffect } from "react";
+import { useCallback, type ReactElement, type FC, useEffect } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import { type location, type dimensions, type xy, type bounds } from "@synnaxlabs/x";

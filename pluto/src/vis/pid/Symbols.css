@@ -18,9 +18,7 @@
 }
 
 .pluto-symbol__label {
-    transform: scale(0.85);
+    transform: scale(0.9);
     max-inline-size: 150px;
     overflow-wrap: break-word;
 }
-
-.pluto-diagram.pluto-editable .pluto-control-state

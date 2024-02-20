@@ -71,6 +71,7 @@ export type CreateWindowPayload = WindowProps & {
   prerenderLabel?: string;
 };
 export type CloseWindowPayload = MaybeKeyPayload;
+export type ReloadWindowPayload = MaybeKeyPayload;
 export type SetWindowClosedPayload = MaybeKeyPayload;
 export type FocusWindowPayload = MaybeKeyPayload;
 export type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
@@ -119,7 +120,8 @@ export type Payload =
   | SetWindowTitlePayload
   | FocusWindowPayload
   | SetWindowDecorationsPayload
-  | SetConfigPayload;
+  | SetConfigPayload
+  | ReloadWindowPayload;
 
 /** Type representing all possible actions that are drift related. */
 export type Action = PayloadAction<Payload>;
@@ -282,18 +284,33 @@ const slice = createSlice({
     }),
     closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
       const win = s.windows[label];
-      if (win == null) return;
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      win.stage = "closing";
+      if (win == null || win.processCount > 0) return;
       delete s.windows[label];
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.labelKeys[label];
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.keyLabels[win.key];
     }),
+    reloadWindow: assertLabel<ReloadWindowPayload>((s, a) => {
+      const win = s.windows[a.payload.label];
+      win.stage = "reloading";
+      if (win == null || win.processCount > 0) return;
+      window.location.reload();
+    }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
-    completeProcess: assertLabel<MaybeKeyPayload>(
-      incrementCounter("processCount", true),
-    ),
+    completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
+      incrementCounter("processCount", true)(s, a)
+      const win = s.windows[a.payload.label];
+      if (win.processCount === 0) {
+        if (win.stage === "reloading") {
+          window.location.reload();
+        } else {
+          s.windows[a.payload.label].visible = false;
+          delete s.windows[a.payload.label];
+          delete s.labelKeys[a.payload.label];
+          delete s.keyLabels[win.key]
+        }
+      }
+    }),
     setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPaylod>) => {
       s.windows[a.payload.key].error = a.payload.message;
     },
@@ -346,6 +363,7 @@ export const {
     completeProcess,
     setWindowError,
     focusWindow,
+    reloadWindow,
     setWindowMinimized,
     setWindowMaximized,
     setWindowVisible,

@@ -7,45 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { CSSProperties } from "react";
-import type React from "react";
-
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
-
-import { type Text } from "@/text";
-import { type RenderProp } from "@/util/renderProp";
-
-type RenderF<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> = RenderProp<{
-  key: string | number | symbol;
-  entry: E;
-  style: CSSProperties;
-}>;
-
-export interface ColumnSpec<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
-  /** The key of the object to render. */
-  key: keyof E | string;
-  /** A custom render function for each item in the colummn. */
-  render?: RenderF<K, E>;
-  stringer?: (entry: E) => string;
-  /** The name/title of the column. */
-  name: string;
-  /** Whether the column is visible by default. */
-  visible?: boolean;
-  /**
-   * The width of the column in pixels. Used to structure the list as a table.
-   * If not provided, the column will be sized to fit the content. This should
-   * always be specified when the render function is provided.
-   */
-  width?: number;
-  cWidth?: number;
-  shade?: Text.Shade;
-}
 
 export interface ItemProps<
   K extends Key = Key,
@@ -53,10 +15,13 @@ export interface ItemProps<
 > {
   entry: E;
   index: number;
-  style: React.CSSProperties;
   selected: boolean;
-  columns: Array<ColumnSpec<K, E>>;
   hovered: boolean;
   onSelect?: (key: K) => void;
   className?: string;
+  translate?: number;
 }
+
+export type ItemRenderProp<K extends Key, E extends KeyedRenderableRecord<K, E>> = (
+  props: ItemProps<K, E> & { key: K },
+) => React.ReactElement;

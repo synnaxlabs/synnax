@@ -74,7 +74,6 @@ export class StreamChannelValue
 
   async read(): Promise<void> {
     try {
-      this.valid = true;
       const { channel } = this.props;
       const now = TimeStamp.now()
         .sub(TimeStamp.seconds(10))
@@ -86,6 +85,7 @@ export class StreamChannelValue
       first.acquire();
       this.leadingBuffer = first;
       await this.updateStreamHandler();
+      this.valid = true;
     } catch (e) {
       console.error(e);
     }

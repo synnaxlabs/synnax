@@ -19,7 +19,7 @@
           {
             "name": "bin/sy",
             "sidecar": true,
-            "args": ["start", "-mi", "-l","localhost:9090"]
+            "args": ["start", "-i", "-l","localhost:9090", "-d", "~/.console/synnax/data"]
           }
         ]
       }

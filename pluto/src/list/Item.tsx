@@ -20,7 +20,7 @@ import "@/list/Item.css";
 
 export interface ItemFrameProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
   extends Omit<ItemProps<K, E>, "columns">,
-    Omit<Align.SpaceProps, "key" | "style" | "onSelect"> {
+    Omit<Align.SpaceProps, "key" | "style" | "onSelect" | "translate"> {
   draggingOver?: boolean;
   rightAligned?: boolean;
 }
@@ -33,15 +33,13 @@ export const ItemFrame = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
   className,
   draggingOver = false,
   rightAligned = false,
+  translate,
   ...props
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
     id={entry.key.toString()}
     direction="x"
     onClick={() => onSelect?.(entry.key)}
-    onContextMenu={() => {
-      !selected && onSelect?.(entry.key);
-    }}
     className={CSS(
       className,
       CONTEXT_TARGET,
@@ -51,6 +49,10 @@ export const ItemFrame = <K extends Key, E extends KeyedRenderableRecord<K, E>>(
       CSS.BE("list", "item"),
       CSS.selected(selected),
     )}
+    style={{
+      position: translate != null ? "absolute" : "relative",
+      transform: `translateY(${translate}px)`,
+    }}
     {...props}
   />
 );

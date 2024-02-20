@@ -21,6 +21,9 @@ import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
 import { hardware } from "./hardware";
+import { device } from "./hardware/device";
+import { rack } from "./hardware/rack";
+import { task } from "./hardware/task";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -112,11 +115,22 @@ export default class Synnax {
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
-    this.hardware = new hardware.Client(
-      new hardware.Retriever(this.transport.unary),
-      new hardware.Writer(this.transport.unary),
+    const devices = new device.Client(
+      new device.Retriever(this.transport.unary),
+      new device.Writer(this.transport.unary),
       this.telem,
-    )
+    );
+    const taskRetriever = new task.Retriever(this.transport.unary);
+    const taskWriter = new task.Writer(this.transport.unary);
+    const tasks = new task.Client(taskRetriever, taskWriter);
+    const racks = new rack.Client(
+      new rack.Retriever(this.transport.unary),
+      new rack.Writer(this.transport.unary),
+      this.telem,
+      taskWriter,
+      taskRetriever,
+    );
+    this.hardware = new hardware.Client(tasks, racks, devices);
   }
 
   close(): void {

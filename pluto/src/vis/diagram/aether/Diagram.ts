@@ -86,14 +86,10 @@ export class Diagram extends aether.Composite<
       clearScissor();
     }
 
-    return async () =>
-      this.eraser.erase(
-        this.internal.renderCtx,
-        this.state.region,
-        this.prevState.region,
-        this.state.clearOverscan,
-        CANVASES,
-      );
+    const eraseRegion = box.copy(this.state.region);
+    return async () => {
+      this.internal.renderCtx.erase(eraseRegion, this.state.clearOverscan, ...CANVASES);
+    };
   }
 
   private requestRender(): void {

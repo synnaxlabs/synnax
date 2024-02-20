@@ -39,17 +39,19 @@ export type Crude = z.infer<typeof crudeZ>;
 /**
  * @constructs XY
  * @param x - A crude representation of the XY coordinate as a number, number couple,
- * dimensions, signed dimensions, or client XY.
+ * dimensions, signed dimensions, or mouse event. If it's a mouse event, the clientX and
+ * clientY coordinates are preferred over the x and y coordinates.
  * @param y - If x is a number, the y coordinate. If x is a number and this argument is
  * not given, the y coordinate is assumed to be the same as the x coordinate.
  */
 export const construct = (x: Crude, y?: number): XY => {
-  if (typeof x === "object" && "x" in x) return x;
+  // The order in which we execute these checks is very important.
   if (typeof x === "number") return { x, y: y ?? x };
   if (Array.isArray(x)) return { x: x[0], y: x[1] };
   if ("signedWidth" in x) return { x: x.signedWidth, y: x.signedHeight };
   if ("clientX" in x) return { x: x.clientX, y: x.clientY };
-  return { x: x.width, y: x.height };
+  if ("width" in x) return { x: x.width, y: x.height };
+  return { x: x.x, y: x.y };
 };
 
 /** An x and y coordinate of zero */

@@ -167,14 +167,9 @@ export class LinePlot extends aether.Composite<
       removeGLScissor();
     }
     instrumentation.L.debug("rendered", { key: this.key });
+    const eraseRegion = box.copy(this.state.container);
     return async ({ canvases }) => {
-      this.eraser.erase(
-        renderCtx,
-        this.state.container,
-        this.prevState.container,
-        this.state.clearOverscan,
-        canvases,
-      );
+      renderCtx.erase(eraseRegion, this.state.clearOverscan, ...canvases);
     };
   }
 

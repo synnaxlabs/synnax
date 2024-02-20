@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.15.17",
+  "version": "0.16.1",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -26,7 +26,6 @@
     "@synnaxlabs/x": "workspace:*",
     "@tauri-apps/api": "^1.5.3",
     "@tanstack/react-query": "^5.18.1",
-    "@tauri-apps/api": "^1.5.2",
     "nanoid": "^5.0.4",
     "proxy-memoize": "2.0.5",
     "react": "^18.2.0",

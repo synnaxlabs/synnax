@@ -20,9 +20,12 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { usePrevious } from "@/hooks/ref";
-import { useContext } from "@/list/Context";
-import { type ItemProps } from "@/list/types";
-import { type RenderProp } from "@/util/renderProp";
+import { type ItemRenderProp } from "@/list/types";
+
+import { useDataContext } from "./Data";
+import { useHoverContext } from "./Hover";
+import { useInfiniteContext } from "./Infinite";
+import { useSelection, useSelectionContext, useSelectionUtils } from "./Selector";
 
 import "@/list/Core.css";
 
@@ -31,7 +34,7 @@ export interface VirtualCoreProps<
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
-  children: RenderProp<ItemProps<K, E>>;
+  children: ItemRenderProp<K, E>;
   overscan?: number;
 }
 
@@ -46,14 +49,11 @@ const VirtualCore = <
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
-  const {
-    data,
-    emptyContent,
-    columnar: { columns },
-    hover,
-    select,
-    infinite: { hasMore, onFetchMore },
-  } = useContext<K, E>();
+  const { hasMore, onFetchMore } = useInfiniteContext();
+  const { hover: hoverValue, setHover } = useHoverContext();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const selected = useSelection();
+  const { onSelect } = useSelectionUtils();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: data.length,
@@ -67,7 +67,10 @@ const VirtualCore = <
   // // Whenever the data changes, scroll to the top of the list
   useLayoutEffect(() => {
     if (prev == null || prev.length === 0) return;
-    if (data.length > 0 && data[0].key !== prev[0].key) virtualizer?.scrollToIndex(0);
+    if (data.length > 0 && data[0].key !== prev[0].key) {
+      virtualizer?.scrollToIndex(0);
+      setHover(0);
+    }
   }, [data]);
 
   const items = virtualizer.getVirtualItems();
@@ -98,16 +101,13 @@ const VirtualCore = <
           {items.map(({ index, start }) => {
             const entry = data[index];
             return children({
+              key: entry.key,
               index,
-              onSelect: select.onSelect,
+              onSelect,
               entry,
-              columns,
-              selected: select.value.includes(entry.key),
-              hovered: index === hover.value,
-              style: {
-                transform: `translateY(${start}px)`,
-                position: "absolute",
-              },
+              selected: selected.includes(entry.key),
+              hovered: index === hoverValue,
+              translate: start,
             });
           })}
         </div>
@@ -121,10 +121,13 @@ export const Core = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
   props: Omit<Align.SpaceProps, "children"> & {
-    children: RenderProp<ItemProps<K, E>>;
+    children: ItemRenderProp<K, E>;
   },
 ): ReactElement => {
-  const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const { hover } = useHoverContext();
+  const { selected } = useSelectionContext();
+  const { onSelect } = useSelectionUtils();
 
   return (
     <Align.Space className={CSS.BE("list", "container")} {...props} empty>
@@ -134,13 +137,12 @@ export const Core = <
         <>
           {data.map((entry, index) =>
             props.children({
+              key: entry.key,
               index,
-              onSelect: select.onSelect,
+              onSelect,
               entry,
-              columns: columnar.columns,
-              selected: select.value.includes(entry.key),
-              hovered: index === hover.value,
-              style: {},
+              selected: selected.includes(entry.key),
+              hovered: index === hover,
             }),
           )}
         </>

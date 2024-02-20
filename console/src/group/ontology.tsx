@@ -11,7 +11,8 @@ import { type ReactElement } from "react";
 
 import { UnexpectedError, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { Ontology } from "@/ontology";
 
@@ -33,7 +34,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
 
   return (
-    <Menu.Menu onChange={onSelect} size="large" iconSpacing="medium">
+    <Menu.Menu onChange={onSelect} level="small" size="small" iconSpacing="medium">
       <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>
@@ -70,7 +71,8 @@ const ungroupSelection = async ({
     throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
 
   const id = selection.resources[0].id;
-  const children = Tree.findNode(state.nodes, id.toString())?.children ?? [];
+  const children =
+    Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
   const parentID = new ontology.ID(selection.parent.key);
   await client.ontology.moveChildren(
     id,
@@ -78,22 +80,24 @@ const ungroupSelection = async ({
     ...children.map((c) => new ontology.ID(c.key)),
   );
   await client.ontology.groups.delete(id.key);
-  let nextNodes = Tree.moveNode(
-    state.nodes,
-    parentID.toString(),
-    ...children.map((c) => c.key),
-  );
-  nextNodes = Tree.removeNode(nextNodes, id.toString());
+  let nextNodes = Tree.moveNode({
+    tree: state.nodes,
+    destination: parentID.toString(),
+    keys: children.map((c) => c.key),
+  });
+  nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
   state.setNodes([...nextNodes]);
 };
 
-const NEW_GROUP_NAME = "New Group";
+const NEW_GROUP_NAME = "New Group Name";
 
 export const canGroupSelection = (
   selection: Ontology.TreeContextMenuProps["selection"],
 ): boolean => getAllNodesOfMinDepth(selection.nodes).length > 1;
 
-const getAllNodesOfMinDepth = (nodes: Tree.NodeWithDepth[]): Tree.NodeWithDepth[] => {
+const getAllNodesOfMinDepth = (
+  nodes: Tree.NodeWithPosition[],
+): Tree.NodeWithPosition[] => {
   if (nodes.length === 0) return [];
   const depths = nodes.map(({ depth }) => depth).sort((a, b) => a - b);
   const minDepth = depths[0];
@@ -106,27 +110,34 @@ export const fromSelection = async ({
   services,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-  const nodesOfMinDepth = getAllNodesOfMinDepth(selection.nodes).map(({ key }) => key);
+  const nodesOfMinDepth = getAllNodesOfMinDepth(selection.nodes);
+  const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
   const resourcesToGroup = selection.resources
-    .filter(({ id }) => nodesOfMinDepth.includes(id.toString()))
+    .filter(({ id }) => nodesOfMinDepthKeys.includes(id.toString()))
     .map(({ id }) => id);
   const parentID = new ontology.ID(selection.parent.key);
   const g = await client.ontology.groups.create(parentID, NEW_GROUP_NAME);
   const otgID = new ontology.ID({ type: "group", key: g.key.toString() });
   const res = await client.ontology.retrieve(otgID);
   await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
-  let nextNodes = Tree.setNode(
-    state.nodes,
-    selection.parent.key,
-    ...Ontology.toTreeNodes(services, [res]),
-  );
-  nextNodes = Tree.moveNode(
-    state.nodes,
-    res.id.toString(),
-    ...resourcesToGroup.map((id) => id.toString()),
-  );
+  const newGroupNode = Ontology.toTreeNode(services, res);
+  newGroupNode.forcePosition = nodesOfMinDepth[0].position;
+  let nextNodes = Tree.setNode({
+    tree: state.nodes,
+    destination: selection.parent.key,
+    additions: newGroupNode,
+  });
+  nextNodes = Tree.moveNode({
+    tree: state.nodes,
+    destination: res.id.toString(),
+    keys: resourcesToGroup.map((id) => id.toString()),
+  });
   state.setNodes([...nextNodes]);
   state.setResources([...state.resources, res]);
+  state.setSelection([res.id.toString()]);
+  setTimeout(() => {
+    Tree.startRenaming(res.id.toString());
+  }, 20);
 };
 
 const handleRename: Ontology.HandleTreeRename = ({
@@ -138,10 +149,14 @@ const handleRename: Ontology.HandleTreeRename = ({
   void (async () => {
     if (client == null || id.type !== "group") return;
     await client.ontology.groups.rename(id.key, name);
-    const next = Tree.updateNode(nodes, id.toString(), (node) => ({
-      ...node,
-      name,
-    }));
+    const next = Tree.updateNode({
+      tree: nodes,
+      key: id.toString(),
+      updater: (node) => ({
+        ...node,
+        name,
+      }),
+    });
     setNodes([...next]);
   })();
 };

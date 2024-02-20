@@ -81,9 +81,13 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
     const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
       value.toString(),
     );
-    const [isValueValid, setIsValueValid] = useState(true);
+    const [isValueValid, setIsValueValid, isValueValidRef] =
+      useCombinedStateAndRef<boolean>(true);
+    const valueRef = useSyncedRef(value);
 
     const updateActualValue = useCallback(() => {
+      // This just means we never actually modified the input
+      if (isValueValidRef.current) return;
       setIsValueValid(true);
       let ok = false;
       let v = 0;
@@ -96,7 +100,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       if (ok) {
         onChange?.(bounds.clamp(propsBounds, v));
       } else {
-        setInternalValue(value.toString());
+        setInternalValue(valueRef.current.toString());
       }
     }, [onChange, setInternalValue]);
 
@@ -141,7 +145,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       [onChange, setIsValueValid],
     );
 
-    if (dragScale == null) {
+    if (dragScale == null && bounds.isFinite(propsBounds)) {
       // make X 5% of the bounds and Y 10% of the bounds
       dragScale = {
         x: bounds.span(propsBounds) * 0.01,
@@ -160,7 +164,11 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
         selectOnFocus={selectOnFocus}
         // When the user hits 'Enter', we should try to evaluate the input and update the
         // actual value.
-        onKeyDown={(e) => Triggers.eventKey(e) === "Enter" && updateActualValue()}
+        onKeyDown={(e) => {
+          if (Triggers.eventKey(e) !== "Enter") return;
+          updateActualValue();
+          onBlur?.();
+        }}
         onBlur={handleBlur}
         {...props}
       >

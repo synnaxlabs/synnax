@@ -13,6 +13,7 @@ package rack
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -28,11 +29,12 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
-	Group    *group.Service
-	Host     core.HostProvider
-	Signals  *signals.Provider
+	DB           *gorp.DB
+	Ontology     *ontology.Ontology
+	Group        *group.Service
+	HostProvider core.HostProvider
+	Signals      *signals.Provider
+	Channel      channel.Writeable
 }
 
 var (
@@ -45,8 +47,9 @@ func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Host = override.Nil(c.Host, other.Host)
+	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -56,7 +59,9 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "host", c.Host)
+	validate.NotNil(v, "host", c.HostProvider)
+	validate.NotNil(v, "signals", c.Signals)
+	validate.NotNil(v, "channel", c.Channel)
 	return v.Error()
 }
 
@@ -81,7 +86,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 
-	counterKey := []byte(cfg.Host.HostKey().String() + localKeyCounterSuffix)
+	counterKey := []byte(cfg.HostProvider.HostKey().String() + localKeyCounterSuffix)
 	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
 	if err != nil {
 		return nil, err
@@ -107,7 +112,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		group: s.group,
 		newKey: func() (Key, error) {
 			n, err := s.localKeyCounter.Add(1)
-			return NewKey(s.Host.HostKey(), uint16(n)), err
+			return NewKey(s.HostProvider.HostKey(), uint16(n)), err
 		},
 	}
 }

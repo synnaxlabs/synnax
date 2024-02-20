@@ -22,8 +22,8 @@ import { type Destructor, compare } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type theming } from "@/ether";
 import { alamos } from "@/alamos/aether";
+import { type theming } from "@/ether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";

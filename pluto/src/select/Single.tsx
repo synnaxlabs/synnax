@@ -34,7 +34,7 @@ import {
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
-import { List } from "@/select/List";
+import { Core } from "@/select/List";
 
 import "@/select/Single.css";
 
@@ -86,7 +86,7 @@ export const Single = <
   disabled,
   ...props
 }: SingleProps<K, E>): ReactElement => {
-  const { ref, visible, open, close } = Dropdown.use();
+  const { visible, open, close } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
@@ -118,40 +118,35 @@ export const Single = <
   );
 
   return (
-    <CoreList.List<K, E> data={data} emptyContent={emptyContent}>
-      <Dropdown.Dialog
-        ref={ref}
-        visible={visible}
-        className={CSS.B("select")}
-        matchTriggerWidth
-        {...props}
-      >
-        <InputWrapper<K, E> searcher={searcher}>
-          {({ onChange }) => (
-            <SingleInput<K, E>
-              variant={variant}
-              onChange={onChange}
-              onFocus={open}
-              selected={selected}
-              tagKey={tagKey}
-              visible={visible}
-              allowNone={allowNone}
-              className={className}
-              disabled={disabled}
-            />
-          )}
-        </InputWrapper>
-        <List<K, E>
-          allowMultiple={false}
-          visible={visible}
-          value={value}
-          hideColumnHeader={hideColumnHeader}
-          onChange={handleChange}
-          allowNone={allowNone}
-          columns={columns}
-        />
-      </Dropdown.Dialog>
-    </CoreList.List>
+    <Core<K, E>
+      close={close}
+      open={open}
+      data={data}
+      emtpyContent={emptyContent}
+      allowMultiple={false}
+      visible={visible}
+      value={value}
+      hideColumnHeader={hideColumnHeader}
+      onChange={handleChange}
+      allowNone={allowNone}
+      columns={columns}
+    >
+      <InputWrapper<K, E> searcher={searcher}>
+        {({ onChange }) => (
+          <SingleInput<K, E>
+            variant={variant}
+            onChange={onChange}
+            onFocus={open}
+            selected={selected}
+            tagKey={tagKey}
+            visible={visible}
+            allowNone={allowNone}
+            className={className}
+            disabled={disabled}
+          />
+        )}
+      </InputWrapper>
+    </Core>
   );
 };
 
@@ -177,9 +172,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   className,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
-  const {
-    select: { clear },
-  } = CoreList.useContext();
+  const { clear } = CoreList.useSelectionContext();
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the

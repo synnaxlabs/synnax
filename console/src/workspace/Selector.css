@@ -23,6 +23,8 @@
             flex-shrink: 1;
             overflow: hidden;
             margin-right: auto;
+            text-wrap: none;
+            text-overflow: ellipsis;
         }
     }
 

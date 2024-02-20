@@ -23,6 +23,13 @@ export interface Cluster {
 /** Represents the state of the locally running Synnax cluster */
 export interface LocalClusterState {
   pid: number;
+  state:
+    | "startCommanded"
+    | "starting"
+    | "running"
+    | "stopCommanded"
+    | "stopping"
+    | "stopped";
 }
 
 /** A subset of Cluster that satisfies RenderableRecord */

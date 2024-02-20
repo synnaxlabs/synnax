@@ -1,21 +1,20 @@
-import { useEffect, type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
+import { Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
-import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { useFormContext, useFormState, useWatch } from "react-hook-form";
 
 import { CSS } from "@/css";
 import { SelectModel } from "@/hardware/configure/ni/SelectModel";
 import { SelectVendor } from "@/hardware/device/new/SelectVendor";
-import { type Configuration, type Vendor } from "@/hardware/device/new/types";
+import { type Vendor } from "@/hardware/device/new/types";
 
 import "@/hardware/device/new/PropertiesForm.css";
 
 const MIN_IDENTIFIER_LENGTH = 3;
 const MAX_IDENTIFIER_LENGTH = 5;
 
-const extrapolateIdentifier = (identifier: string): string => {
+export const extrapolateIdentifier = (identifier: string): string => {
   const words = identifier.split(" ");
   let toGrabFromFirst = MIN_IDENTIFIER_LENGTH - words.length + 1;
   if (toGrabFromFirst < 1) toGrabFromFirst = 1;
@@ -27,17 +26,10 @@ const extrapolateIdentifier = (identifier: string): string => {
 };
 
 export const PropertiesForm = (): ReactElement => {
-  const { setValue } = useFormContext<Configuration>();
-
-  const name = useWatch<Configuration>({ name: "properties.name" }) as string;
-  const identifier: string = useWatch<Configuration>({
-    name: "properties.identifier",
-  }) as string;
-  const id = useFormState({ name: "properties.identifier" });
-  if (!id.isDirty && name !== "") {
-    const newIdentifier = extrapolateIdentifier(name);
-    if (newIdentifier !== identifier) setValue("properties.identifier", newIdentifier);
-  }
+  Form.useFieldListener<string, string>("properties.name", (state, { set, get }) => {
+    const id = get("properties.identifier");
+    if (!id.touched) set("properties.identifier", extrapolateIdentifier(state.value));
+  });
 
   return (
     <Align.Center>
@@ -53,15 +45,15 @@ export const PropertiesForm = (): ReactElement => {
           Confirm the details of your device and give it a name.
         </Text.Text>
         <Align.Space direction="y" align="stretch" className={CSS.B("fields")}>
-          <Input.HFItem<Vendor> name="properties.vendor" label="Vendor">
-            {(props) => <SelectVendor {...props} />}
-          </Input.HFItem>
-          <Input.HFItem<string> name="properties.key" label="Serial Number" />
-          <Input.HFItem<string> name="properties.model" label="Model">
+          <Form.Field<Vendor> path="properties.vendor" label="Vendor">
+            {(p) => <SelectVendor {...p} />}
+          </Form.Field>
+          <Form.Field<string> path="properties.key" label="Serial Number" />
+          <Form.Field<string> path="properties.model" label="Model">
             {(props) => <SelectModel {...props} />}
-          </Input.HFItem>
-          <Input.HFItem<string> name="properties.name" label="Name" />
-          <Input.HFItem<string> name="properties.identifier" label="Identifier" />
+          </Form.Field>
+          <Form.Field<string> path="properties.name" label="Name" />
+          <Form.Field<string> path="properties.identifier" label="Identifier" />
         </Align.Space>
       </Align.Space>
     </Align.Center>

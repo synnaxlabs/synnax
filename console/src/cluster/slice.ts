@@ -33,6 +33,8 @@ export interface SliceState {
  */
 export const SLICE_NAME = "cluster";
 
+export const LOCAL_CLUSTER_KEY = "local";
+
 /**
  * Represents a partial view of a larger store that contains the cluster slice. This is
  * typically used for hooks that accept the entire store state as a parameter but only
@@ -75,7 +77,6 @@ export const {
       clusters[cluster.key] = cluster;
     },
     remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
-      console.log(keys);
       for (const key of keys) {
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete clusters[key];
@@ -88,7 +89,7 @@ export const {
       state,
       { payload: localState }: PayloadAction<SetLocalStatePayload>,
     ) => {
-      state.localState = localState;
+      state.localState = { ...state.localState, ...localState };
     },
   },
 });

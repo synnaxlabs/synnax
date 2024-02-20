@@ -18,10 +18,12 @@ import {
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
-import { useContext } from "@/list/Context";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
+
+import { useDataUtilContext } from "./Data";
+import { useInfiniteUtilContext } from "./Infinite";
 
 export interface SearchProps<
   K extends Key = Key,
@@ -69,11 +71,9 @@ export const Search = <
   const promiseOut = useRef<boolean>(false);
   const hasMore = useRef(true);
   const offset = useRef(0);
-  const {
-    setSourceData,
-    setEmptyContent,
-    infinite: { setOnFetchMore, setHasMore },
-  } = useContext<K, E>();
+  const { setSourceData, setEmptyContent } = useDataUtilContext<K, E>();
+  const { setHasMore, setOnFetchMore } = useInfiniteUtilContext();
+
   useEffect(() => setEmptyContent(NO_TERM), [setEmptyContent]);
 
   const handleFetchMore = useCallback(

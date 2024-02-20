@@ -13,14 +13,11 @@ package hardware
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/telem"
 )
 
 type Config = rack.Config
@@ -40,12 +37,12 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	rackService, err := rack.OpenService(ctx, cfg)
+	rackSvc, err := rack.OpenService(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	deviceService, err := device.OpenService(ctx, device.Config{
+	deviceSvc, err := device.OpenService(ctx, device.Config{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Group:    cfg.Group,
@@ -55,24 +52,18 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	moduleService, err := task.OpenService(ctx, task.Config{
-		DB:       cfg.DB,
-		Ontology: cfg.Ontology,
-		Group:    cfg.Group,
-		Rack:     rackService,
-		Signals:  cfg.Signals,
+	taskSvc, err := task.OpenService(ctx, task.Config{
+		DB:           cfg.DB,
+		Ontology:     cfg.Ontology,
+		Group:        cfg.Group,
+		Rack:         rackSvc,
+		Signals:      cfg.Signals,
+		Channel:      cfg.Channel,
+		HostProvider: cfg.HostProvider,
 	})
 	if err != nil {
 		return nil, err
 	}
-	svc := &Service{Rack: rackService, Task: moduleService, Device: deviceService}
-	if cfg.Signals != nil {
-		return svc, cfg.Signals.Channel.Create(ctx, &channel.Channel{
-			Name:        "sy_node_1_comms",
-			DataType:    telem.JSONT,
-			Leaseholder: core.Free,
-			Virtual:     true,
-		})
-	}
+	svc := &Service{Rack: rackSvc, Task: taskSvc, Device: deviceSvc}
 	return svc, nil
 }

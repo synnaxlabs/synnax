@@ -33,7 +33,7 @@ export interface CoreProps<L extends text.Level = text.Level> {
   weight?: number;
 }
 
-export type TextProps<L extends text.Level = "h1"> = Omit<
+export type TextProps<L extends text.Level = text.Level> = Omit<
   Generic.ElementProps<L>,
   "el" | "color" | "children"
 > &
@@ -41,7 +41,7 @@ export type TextProps<L extends text.Level = "h1"> = Omit<
 
 const CoreText = <L extends text.Level = text.Level>(
   {
-    level = "p" as L,
+    level = "p",
     color,
     className,
     style,
@@ -53,7 +53,6 @@ const CoreText = <L extends text.Level = text.Level>(
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>,
 ): ReactElement => (
-  // @ts-expect-error
   <Generic.Element<L>
     el={level}
     ref={ref}
@@ -65,7 +64,7 @@ const CoreText = <L extends text.Level = text.Level>(
   </Generic.Element>
 );
 
-export const Text = forwardRef(CoreText) as <L extends text.Level = "h1">(
+export const Text = forwardRef(CoreText) as <L extends text.Level = text.Level>(
   props: TextProps<L>,
 ) => ReactElement;
 

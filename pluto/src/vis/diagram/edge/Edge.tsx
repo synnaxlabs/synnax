@@ -60,7 +60,6 @@ export const CustomConnectionLine = ({
   // select an element with 'react-flow__handle-connecting' class
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
-  console.log(toNodeHandle, fromPosition, toPosition);
   if (toNodeHandle != null) {
     const res = location.outer.safeParse(toNodeHandle[1]);
     if (res.success) toPosition = res.data as Position;

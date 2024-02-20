@@ -43,7 +43,6 @@ import { Workspace } from "@/workspace";
 import "@/layouts/LayoutMain/Nav.css";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
-  Cluster.Toolbar,
   Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
@@ -210,12 +209,11 @@ export const NavBottom = (): ReactElement => {
       <Nav.Bar.Start>
         <Vis.NavControls />
       </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end">
-        <Triggers.Status variant="info" />
+      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
         <Divider.Divider />
         <Version.Badge level="p" />
         <Divider.Divider />
-        <Cluster.NameBadge />
+        <Cluster.Dropdown />
         <Divider.Divider />
         <Cluster.ConnectionBadge />
       </Nav.Bar.End>

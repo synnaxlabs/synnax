@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState, memo, useMemo } from "react";
 
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Menu,
-  Tree as Core,
   Synnax,
   useAsyncEffect,
   Haul,
@@ -21,6 +20,7 @@ import {
   componentRenderProp,
   type state,
 } from "@synnaxlabs/pluto";
+import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -89,18 +89,21 @@ const handleResourcesChange = async (
     .filter(({ variant }) => variant === "delete")
     .map(({ key }) => key);
   const updated = changes
-    .filter(({ variant }) => variant === "set")
-    .map(({ value }) => value as ontology.Resource);
+    .filter(({ variant, value }) => variant === "set" && value != null)
+    .map(({ value }) => value) as ontology.Resource[];
   setResources(updateResources(resources, updated, removed));
-  let nextTree = Core.removeNode(nodes, ...removed.map((id) => id.toString()));
+  let nextTree = Core.removeNode({
+    tree: nodes,
+    keys: removed.map((id) => id.toString()),
+  });
   nextTree = updated.reduce(
     (nextTree, node) =>
-      Core.updateNode(
-        nextTree,
-        node.id.toString(),
-        (n) => ({ ...n, ...toTreeNode(services, node) }),
-        false,
-      ),
+      Core.updateNode({
+        tree: nextTree,
+        key: node.id.toString(),
+        updater: (n) => ({ ...n, ...toTreeNode(services, node) }),
+        throwOnMissing: false,
+      }),
     nextTree,
   );
   setNodes([...nextTree]);
@@ -119,7 +122,7 @@ const handleRelationshipsChange = async (
   const removed = changes
     .filter(({ variant }) => variant === "delete")
     .map(({ key: { to } }) => to.toString());
-  let nextTree = Core.removeNode(nodes, ...removed);
+  let nextTree = Core.removeNode({ tree: nodes, keys: removed });
 
   const allSets = changes
     .filter(({ variant }) => variant === "set")
@@ -127,10 +130,10 @@ const handleRelationshipsChange = async (
 
   // Find all the parent nodes in the current tree that are visible i.e. they
   // may need children added.
-  const visibleSetNodes = Core.findNodes(
-    nextTree,
-    allSets.map(({ from }) => from.toString()),
-  ).map(({ key }) => key.toString());
+  const visibleSetNodes = Core.findNodes({
+    tree: nextTree,
+    keys: allSets.map(({ from }) => from.toString()),
+  }).map(({ key }) => key.toString());
 
   // Get all the relationships that relate to those visibe nodes.
   const visibleSets = allSets.filter(({ from }) =>
@@ -148,14 +151,14 @@ const handleRelationshipsChange = async (
   // Update the tree.
   nextTree = visibleSets.reduce(
     (nextTree, { from, to }) =>
-      Core.setNode(
-        nextTree,
-        from.toString(),
-        ...toTreeNodes(
+      Core.setNode({
+        tree: nextTree,
+        destination: from.toString(),
+        additions: toTreeNodes(
           services,
           updatedResources.filter(({ id }) => id.toString() === to.toString()),
         ),
-      ),
+      }),
     nextTree,
   );
 
@@ -172,9 +175,11 @@ export const Tree = (): ReactElement => {
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const menuProps = Menu.useContextMenu();
 
+  // Processes incoming changes to the ontology from the cluster.
   useAsyncEffect(async () => {
     if (client == null) return;
     await loadInitialTree(client, services, setNodes, setResources);
@@ -219,7 +224,10 @@ export const Tree = (): ReactElement => {
       const svc = services[otgID.type];
       if (!svc.canDrop({ source, items })) return [];
       // Find the parent where the node is being dropped.
-      const parent = Core.findNodeParent(nodesSnapshot, source.key as string);
+      const parent = Core.findNodeParent({
+        tree: nodesSnapshot,
+        key: source.key.toString(),
+      });
       if (parent == null) return [];
       void (async () => {
         if (client == null) return;
@@ -230,11 +238,11 @@ export const Tree = (): ReactElement => {
           ...dropped.map(({ key }) => new ontology.ID(key as string)),
         );
         // Move the nodes in the tree.
-        const next = Core.moveNode(
-          nodesSnapshot,
-          key,
-          ...dropped.map(({ key }) => key as string),
-        );
+        const next = Core.moveNode({
+          tree: nodesSnapshot,
+          destination: key,
+          keys: dropped.map(({ key }) => key as string),
+        });
         setNodes([...next]);
       })();
       return dropped;
@@ -252,7 +260,11 @@ export const Tree = (): ReactElement => {
           setLoading(clicked);
           const resources = await client.ontology.retrieveChildren(id, true, true);
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode(nodesRef.current, clicked, ...converted);
+          const nextTree = Core.setNode({
+            tree: nodesRef.current,
+            destination: clicked,
+            additions: converted,
+          });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
             // Dedupe any resources that already exist.
@@ -310,7 +322,12 @@ export const Tree = (): ReactElement => {
     [client, store, placeLayout, removeLayout, resourcesRef],
   );
 
-  const treeProps = Core.use({ onExpand: handleExpand, nodes });
+  const treeProps = Core.use({
+    onExpand: handleExpand,
+    nodes,
+    selected,
+    onSelectedChange: setSelected,
+  });
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
@@ -324,15 +341,15 @@ export const Tree = (): ReactElement => {
       const resources = resourcesRef.current;
       const nodeSnapshot = nodesRef.current;
 
-      const selectedNodes = Core.findNodes(nodeSnapshot, keys);
+      const selectedNodes = Core.findNodes({ tree: nodeSnapshot, keys });
       const selectedResources = resources.filter(({ key }) => keys.includes(key));
 
-      const parent = Core.findNodeParent(
-        nodeSnapshot,
+      const parent = Core.findNodeParent({
+        tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
-        selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
-      );
+        key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
+      });
       // No parent means no valid contex menu.
       if (parent == null) return null;
 
@@ -353,6 +370,7 @@ export const Tree = (): ReactElement => {
           nodes: nodeSnapshot,
           resources,
           setNodes,
+          setSelection: setSelected,
           setResources,
         },
       };
@@ -373,18 +391,19 @@ export const Tree = (): ReactElement => {
       resourcesRef,
       nodesRef,
       treeProps.selected,
+      setSelected,
     ],
   );
 
-  const AdapterItem = useCallback(
-    (props: Core.ItemProps): ReactElement => {
-      const id = new ontology.ID(props.entry.key);
-      const Item = services[id.type]?.Item ?? Core.DefaultItem;
-      return (
-        <Item key={props.entry.key} loading={loading === props.entry.key} {...props} />
-      );
-    },
-    [loading, client, removeLayout, placeLayout, services],
+  const item = useCallback(
+    (props: Core.ItemProps): ReactElement => (
+      <AdapterItem
+        loading={props.entry.key === loading}
+        services={services}
+        {...props}
+      />
+    ),
+    [services, loading],
   );
 
   return (
@@ -399,8 +418,22 @@ export const Tree = (): ReactElement => {
         onDoubleClick={handleDoubleClick}
         {...treeProps}
       >
-        {componentRenderProp(AdapterItem)}
+        {item}
       </Core.Tree>
     </Menu.ContextMenu>
   );
 };
+
+interface AdapterItemProps extends Core.ItemProps {
+  loading: boolean;
+  services: Services;
+}
+
+const AdapterItem = memo<AdapterItemProps>(
+  ({ loading, services, ...props }): ReactElement => {
+    const id = new ontology.ID(props.entry.key);
+    const Item = useMemo(() => services[id.type]?.Item ?? Core.DefaultItem, [id.type]);
+    return <Item key={props.entry.key} loading={loading} {...props} />;
+  },
+);
+AdapterItem.displayName = "AdapterItem";

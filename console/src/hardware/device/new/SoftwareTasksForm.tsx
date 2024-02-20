@@ -1,10 +1,17 @@
 import { useState, type ReactElement, useMemo, useEffect } from "react";
 
-import { Align, Button, Channel, Header, Select, Status } from "@synnaxlabs/pluto";
+import {
+  Align,
+  Button,
+  Channel,
+  Form,
+  Header,
+  Select,
+  Status,
+} from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 
 import { CSS } from "@/css";
 import {
@@ -13,9 +20,15 @@ import {
   type NIChannel,
   type NITask,
 } from "@/hardware/configure/ni/types";
-import { type Configuration } from "@/hardware/device/new/types";
+import {
+  type PhysicalChannelPlan,
+  type Configuration,
+  type PhysicalGroupPlan,
+} from "@/hardware/device/new/types";
 
 import "@/hardware/device/new/SoftwareTasksForm.css";
+
+import { useFormContext } from "react-hook-form";
 
 interface MostRecentSelectedState {
   type: "task" | "channel";
@@ -34,6 +47,7 @@ export const SoftwareTasksForm = (): ReactElement => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
   const handleSelectTask = (key: string, index: number): void => {
+    console.log("handleSelectTask", key, index);
     setSelectedTask({ key, index });
     setMostRecentSelected({ type: "task", index });
   };
@@ -50,11 +64,13 @@ export const SoftwareTasksForm = (): ReactElement => {
       </Text.Text>
       <Align.Space direction="x" className={CSS.B("config")} empty>
         <TaskList selectedTask={selectedTask?.key} onSelectTask={handleSelectTask} />
-        <ChannelList
-          selectedChannels={selectedChannels}
-          selectedTaskIndex={mostRecentSelected?.index ?? 0}
-          onSelectChannels={handleSelectChannels}
-        />
+        {selectedTask != null && (
+          <ChannelList
+            selectedChannels={selectedChannels}
+            selectedTaskIndex={selectedTask?.index}
+            onSelectChannels={handleSelectChannels}
+          />
+        )}
         {mostRecentSelected != null && (
           <Details selected={mostRecentSelected} taskIndex={selectedTask?.index} />
         )}
@@ -64,29 +80,33 @@ export const SoftwareTasksForm = (): ReactElement => {
 };
 
 interface TaskListProps {
-  selectedTask: string | undefined;
+  selectedTask: string | null;
   onSelectTask: (key: string, index: number) => void;
 }
 
 const TaskList = ({ selectedTask, onSelectTask }: TaskListProps): ReactElement => {
-  const { fields } = useFieldArray<Configuration>({
-    name: "softwarePlan.tasks",
+  const { value } = Form.useFieldArray<NITask>({
+    path: "softwarePlan.tasks",
   });
+  console.log(value);
   return (
     <Align.Space className={CSS.B("tasks")} grow empty>
       <Header.Header level="h3">
         <Header.Title level="h3">Tasks</Header.Title>
       </Header.Header>
-      <List.List<string, NITask> data={fields as unknown as NITask[]}>
+      <List.List<string, NITask> data={value}>
         <List.Selector<string, NITask>
           allowMultiple={false}
-          // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
-          value={selectedTask as string}
-          onChange={([key], { clickedIndex }) =>
+          allowNone={false}
+          value={selectedTask}
+          onChange={(key, { clickedIndex }) =>
             clickedIndex != null && onSelectTask(key, clickedIndex)
           }
-        />
-        <List.Core<string, NITask>>{(props) => <TaskListItem {...props} />}</List.Core>
+        >
+          <List.Core<string, NITask>>
+            {(props) => <TaskListItem {...props} />}
+          </List.Core>
+        </List.Selector>
       </List.List>
     </Align.Space>
   );
@@ -117,18 +137,18 @@ interface ChannelListProps {
 
 const ChannelList = ({
   selectedChannels,
-  selectedTaskIndex: selectedGroupIndex,
+  selectedTaskIndex,
   onSelectChannels,
 }: ChannelListProps): ReactElement => {
-  const channels = useWatch<Configuration>({
-    name: `softwarePlan.tasks.${selectedGroupIndex}.config.channels`,
+  const { value } = Form.useFieldArray<NIChannel>({
+    path: `softwarePlan.tasks.${selectedTaskIndex}.config.channels`,
   });
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <Header.Header level="h3">
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <List.List<string, NIChannel> data={channels as NIChannel[]}>
+      <List.List<string, NIChannel> data={value}>
         <List.Selector<string, NIChannel>
           value={selectedChannels}
           allowNone={false}
@@ -136,10 +156,11 @@ const ChannelList = ({
             clickedIndex != null && onSelectChannels(keys, clickedIndex)
           }
           replaceOnSingle
-        />
-        <List.Core<string, NIChannel> grow>
-          {(props) => <ChannelListItem {...props} groupIndex={selectedGroupIndex} />}
-        </List.Core>
+        >
+          <List.Core<string, NIChannel> grow>
+            {(props) => <ChannelListItem {...props} groupIndex={selectedTaskIndex} />}
+          </List.Core>
+        </List.Selector>
       </List.List>
     </Align.Space>
   );
@@ -153,18 +174,28 @@ export const ChannelListItem = ({
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
+  const childValues = Form.useChildFieldValues<NIChannel>({
+    path: `softwarePlan.tasks.${groupIndex}.config.channels.${props.index}`,
+    allowNull: true,
+  });
+  if (childValues == null) return <></>;
   return (
-    <List.ItemFrame {...props} justify="spaceBetween" align="center">
+    <List.ItemFrame
+      {...props}
+      entry={childValues}
+      justify="spaceBetween"
+      align="center"
+    >
       <Align.Space direction="y" size="small">
         <Align.Space direction="x">
-          <Text.Text level="small" weight={500} shade={6} style={{ width: "3rem" }}>
-            {entry.port} {hasLine && `/${entry.line}`}
+          <Text.Text level="p" weight={500} shade={6} style={{ width: "3rem" }}>
+            {childValues.port} {hasLine && `/${entry.line}`}
           </Text.Text>
-          <Text.Text level="small" weight={500} shade={9}>
-            {entry.name}
+          <Text.Text level="p" weight={500} shade={9}>
+            {childValues.name}
           </Text.Text>
         </Align.Space>
-        <Text.Text level="small" shade={6}>
+        <Text.Text level="p" shade={6}>
           {CHANNEL_TYPE_DISPLAY[entry.type]}
         </Text.Text>
       </Align.Space>
@@ -200,12 +231,12 @@ interface DetailsPorps {
 }
 
 const Details = ({ selected, taskIndex }: DetailsPorps): ReactElement | null => {
-  console.log(selected, taskIndex);
   if (taskIndex == null) return null;
   if (selected.type === "task") {
     return <></>;
     // return <TaskForm index={selected.index} />;
   }
+  console.log(taskIndex);
   return (
     <ChannelForm
       key={`${taskIndex}-${selected.index}`}
@@ -221,37 +252,41 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
-  const [scaleType, setScaleType] = useState("none");
+  const { get } = Form.useContext();
+  const [scaleType, setScaleType] = useState(
+    get<LinearScale>(
+      `softwarePlan.tasks.${taskIndex}.config.channels.${index}.scale`,
+      true,
+    )?.value?.type ?? "none",
+  );
+  console.log(scaleType);
   const prefix = `softwarePlan.tasks.${taskIndex}.config.channels.${index}`;
-  const channel = useWatch<NIChannel>({
-    name: prefix,
-  });
-  const { getValues } = useFormContext<Configuration>();
 
   // We should only need to do this on first render, since the groups are static.
   const channelOptions = useMemo(
     () =>
-      getValues(`physicalPlan.groups`)
-        .map((g) => g.channels)
+      get<PhysicalGroupPlan[]>(`physicalPlan.groups`, false)
+        .value.map((g) => g.channels)
         .flat(),
     [],
   );
 
-  const hasLine = "line" in channel;
   return (
     <Align.Space className={CSS.B("details")}>
       <Text.Text level="h3">Channel Properties</Text.Text>
-      <Input.HFItem<number> label="Port" name={`${prefix}.port`}>
+      <Form.Field<number> label="Port" path={`${prefix}.port`}>
         {(p) => <Input.Numeric {...p} />}
-      </Input.HFItem>
-      {hasLine && (
-        <Input.HFItem<number> label="Line" name={`${prefix}.line`}>
-          {(p) => <Input.Numeric {...p} />}
-        </Input.HFItem>
-      )}
-      <Input.HFItem<string> label="Channel" name={`${prefix}.channel`}>
+      </Form.Field>
+      {/* <Form.Field<number>
+        label="Line"
+        path={`${prefix}.line`}
+        visible={(fs) => fs.value !== 0}
+      >
+        {(p) => <Input.Numeric {...p} />}
+      </Form.Field> */}
+      <Form.Field<string> label="Channel" path={`${prefix}.channel`}>
         {(p) => <Channel.SelectSingle data={channelOptions} {...p} />}
-      </Input.HFItem>
+      </Form.Field>
       <SelectScale value={scaleType} onChange={setScaleType} />
       {scaleType === "two-point-linear" && <LinearTwoPoint name={`${prefix}.scale`} />}
     </Align.Space>
@@ -293,16 +328,15 @@ interface LinearTwoPointProps {
 }
 
 const LinearTwoPoint = ({ name }: LinearTwoPointProps): ReactElement => {
-  console.log(name);
-  const value = useWatch({
-    name,
-  }) as LinearScale;
-  const isValid = value != null && value.type === "linear";
-  const { setValue } = useFormContext<Configuration>();
+  const value = Form.useField({
+    path: name,
+    allowNull: true,
+  });
+  console.log(value);
+  const isValid = value.value != null && value.value.type === "linear";
   useEffect(() => {
-    console.log(isValid);
     if (isValid) return;
-    setValue(name, {
+    value?.onChange({
       type: "linear",
       one: { x: 0, y: 0 },
       two: { x: 1, y: 1 },
@@ -312,20 +346,20 @@ const LinearTwoPoint = ({ name }: LinearTwoPointProps): ReactElement => {
   return (
     <Align.Space direction="y" grow>
       <Align.Space direction="x">
-        <Input.HFItem label="Raw Min" name={`${name}.one.x`} grow>
+        <Form.Field<number> label="Raw Min" path={`${name}.one.x`} grow>
           {(p) => <Input.Numeric {...p} />}
-        </Input.HFItem>
-        <Input.HFItem label="Raw Max" name={`${name}.two.x`} grow>
+        </Form.Field>
+        <Form.Field<number> label="Raw Max" path={`${name}.two.x`} grow>
           {(p) => <Input.Numeric {...p} />}
-        </Input.HFItem>
+        </Form.Field>
       </Align.Space>
       <Align.Space direction="x">
-        <Input.HFItem label="Scaled Min" name={`${name}.one.y`} grow>
+        <Form.Field<number> label="Scaled Min" path={`${name}.one.y`} grow>
           {(p) => <Input.Numeric {...p} />}
-        </Input.HFItem>
-        <Input.HFItem label="Scaled Max" name={`${name}.two.y`} grow>
+        </Form.Field>
+        <Form.Field<number> label="Scaled Max" path={`${name}.two.y`} grow>
           {(p) => <Input.Numeric {...p} />}
-        </Input.HFItem>
+        </Form.Field>
       </Align.Space>
     </Align.Space>
   );

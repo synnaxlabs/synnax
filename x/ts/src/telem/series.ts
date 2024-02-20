@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nan, type z } from "zod";
-
 import { nanoid } from "nanoid";
+import { type z } from "zod";
+
 import { compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
@@ -23,8 +23,6 @@ import {
   type TimeStamp,
   type CrudeDataType,
 } from "@/telem/telem";
-import { Destructor }from "@/destructor";
-import { observe } from "@/observe";
 
 export type SampleValue = number | bigint;
 
@@ -59,11 +57,11 @@ interface BaseSeriesProps {
   key?: string;
 }
 
-export interface SeriesProps  extends BaseSeriesProps{
+export interface SeriesProps extends BaseSeriesProps {
   data: ArrayBuffer | NativeTypedArray;
 }
 
-export interface SeriesAllocProps extends BaseSeriesProps{
+export interface SeriesAllocProps extends BaseSeriesProps {
   length: number;
   dataType: CrudeDataType;
 }
@@ -81,7 +79,7 @@ export interface SeriesMemInfo {
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
-export class Series  {
+export class Series {
   key: string = "";
   /** The data type of the array */
   readonly dataType: DataType;
@@ -108,12 +106,7 @@ export class Series  {
   /** Tracks the number of entities currently using this array. */
   private _refCount: number = 0;
 
-
-  static alloc({
-    length,
-    dataType,
-    ...props
-  }: SeriesAllocProps): Series {
+  static alloc({ length, dataType, ...props }: SeriesAllocProps): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
@@ -132,7 +125,7 @@ export class Series  {
     for (let i = 0; i < length; i++) {
       data[i] = BigInt(start.add(rate.span(i)).valueOf());
     }
-    return new Series({data, dataType: DataType.TIMESTAMP, timeRange});
+    return new Series({ data, dataType: DataType.TIMESTAMP, timeRange });
   }
 
   get refCount(): number {
@@ -141,14 +134,14 @@ export class Series  {
 
   static fromStrings(data: string[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(data.join("\n") + "\n");
-    return new Series({data: buffer, dataType: DataType.STRING, timeRange});
+    return new Series({ data: buffer, dataType: DataType.STRING, timeRange });
   }
 
   static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(
       data.map((d) => JSON.stringify(d)).join("\n") + "\n",
     );
-    return new Series({data: buffer, dataType: DataType.JSON, timeRange});
+    return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
 
   constructor({
@@ -181,7 +174,7 @@ export class Series  {
       bufferUsage: glBufferUsage,
     };
   }
-  
+
   acquire(gl?: GLBufferController): void {
     this._refCount++;
     if (gl != null) this.updateGLBuffer(gl);
@@ -307,7 +300,7 @@ export class Series  {
       sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment,
-  });
+    });
   }
 
   private calcRawMax(): SampleValue {
@@ -464,7 +457,6 @@ export class Series  {
     return bounds.construct(this.alignment, this.alignment + this.length);
   }
 
-
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
     if (this.gl.buffer == null) return;
     gl.deleteBuffer(this.gl.buffer);
@@ -488,7 +480,7 @@ export class Series  {
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + start,
-  });
+    });
   }
 
   reAlign(alignment: number): Series {
@@ -499,7 +491,7 @@ export class Series  {
       sampleOffset: this.sampleOffset,
       glBufferUsage: "static",
       alignment,
-     });
+    });
   }
 }
 

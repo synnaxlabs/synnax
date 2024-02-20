@@ -7,18 +7,55 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect } from "react";
+import {
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useMemo,
+  type ReactElement,
+} from "react";
 
-import { toArray, type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type KeyedRenderableRecord, nullToArr } from "@synnaxlabs/x";
 
-import { useSyncedRef } from "@/hooks/ref";
 import { useSelect, type UseSelectProps } from "@/hooks/useSelect";
-import { useContext } from "@/list/Context";
+
+import { useSyncedRef } from "..";
+
+import { useGetTransformedData } from "./Data";
+
+interface SelectContextValue<K extends Key = Key> {
+  selected: K[];
+}
+
+interface SelectUtilContextValue<K extends Key = Key> {
+  onSelect: (key: K) => void;
+  clear: () => void;
+  getSelected: () => K[];
+}
 
 export type SelectorProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> = Omit<UseSelectProps<K, E>, "data">;
+> = PropsWithChildren<Omit<UseSelectProps<K, E>, "data">>;
+
+const SelectionContext = createContext<SelectContextValue>({
+  selected: [],
+});
+
+const SelectionUtilContext = createContext<SelectUtilContextValue>({
+  onSelect: () => {},
+  clear: () => {},
+  getSelected: () => [],
+});
+
+export const useSelectionContext = <K extends Key = Key>(): SelectContextValue<K> =>
+  useContext(SelectionContext) as unknown as SelectContextValue<K>;
+
+export const useSelection = <K extends Key = Key>(): K[] =>
+  useSelectionContext<K>().selected;
+
+export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue<K> =>
+  useContext(SelectionUtilContext) as unknown as SelectUtilContextValue<K>;
 
 /**
  * Implements selection behavior for a list.
@@ -31,34 +68,35 @@ export const Selector = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   value,
+  children,
   ...props
-}: SelectorProps<K, E>): null => {
-  const {
-    data,
-    select: { setOnSelect, setClear, onChange },
-  } = useContext<K, E>();
-
+}: SelectorProps<K, E>): ReactElement => {
+  const getData = useGetTransformedData<K, E>();
   const { onSelect, clear } = useSelect<K, E>({
-    data,
+    data: getData,
     value,
     ...props,
   } as const as UseSelectProps<K, E>);
-
-  const onSelectRef = useSyncedRef(onSelect);
-
-  const handleSelect = useCallback(
-    (key: K) => onSelectRef.current?.(key),
-    [onSelectRef],
+  const selectedRef = useSyncedRef(value);
+  const ctxValue: SelectContextValue<K> = useMemo(
+    () => ({ selected: nullToArr(value) }),
+    [value],
   );
-
-  useEffect(() => {
-    setOnSelect(() => handleSelect);
-    setClear(() => clear);
-  }, [handleSelect, clear]);
-
-  useEffect(() => {
-    onChange(value === null ? [] : toArray(value));
-  }, [value]);
-
-  return null;
+  const utilCtxValue: SelectUtilContextValue<K> = useMemo(
+    () => ({
+      onSelect,
+      clear,
+      getSelected: () => nullToArr(selectedRef.current),
+    }),
+    [onSelect, clear],
+  );
+  return (
+    <SelectionUtilContext.Provider
+      value={utilCtxValue as unknown as SelectUtilContextValue}
+    >
+      <SelectionContext.Provider value={ctxValue as unknown as SelectContextValue}>
+        {children}
+      </SelectionContext.Provider>
+    </SelectionUtilContext.Provider>
+  );
 };

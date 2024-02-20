@@ -69,7 +69,7 @@ export type UseSelectSingleProps<K extends Key, E extends KeyedRecord<K, E>> = O
 >;
 
 export interface UseSelectMultipleProps<K extends Key, E extends KeyedRecord<K, E>> {
-  data: E[];
+  data: E[] | (() => E[]);
   allowMultiple?: true;
   replaceOnSingle?: boolean;
   allowNone?: boolean;
@@ -149,7 +149,8 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
   );
 
   useEffect(() => {
-    const data = dataRef.current;
+    let data = dataRef.current;
+    if (!Array.isArray(data)) data = data();
     // If for some reason the value is empty and it shouldn't be, automatically set
     // it to the new value..
     if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
@@ -165,7 +166,8 @@ export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
   const onSelect = useCallback(
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
-      const data = dataRef.current;
+      let data = dataRef.current;
+      if (!Array.isArray(data)) data = data();
       let nextSelected: K[] = [];
       const value = toArray(valueRef.current).filter((v) => v != null) as K[];
       if (allowMultiple === false) {

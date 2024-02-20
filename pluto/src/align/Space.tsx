@@ -118,7 +118,6 @@ const CoreSpace = <E extends SpaceElementType>(
   if (shrink != null) style.flexShrink = Number(shrink);
 
   return (
-    // @ts-expect-error
     <Generic.Element<E>
       el={el}
       ref={ref}

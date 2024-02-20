@@ -10,7 +10,8 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type Synnax, type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree, type Haul } from "@synnaxlabs/pluto";
+import { Menu, type Haul } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 import { toArray } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
@@ -46,7 +47,6 @@ const handleDelete = async ({
   client,
   store,
   selection: { resources },
-  state: { nodes, setNodes },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const keys = resources.map((r) => r.id.key);
   await client.ranges.delete(keys);
@@ -64,10 +64,14 @@ const handleRename: Ontology.HandleTreeRename = ({
   void (async () => {
     if (client == null || id.type !== "range") return;
     await client.ranges.rename(id.key, name);
-    const next = Tree.updateNode(state.nodes, id.toString(), (node) => ({
-      ...node,
-      name,
-    }));
+    const next = Tree.updateNode({
+      tree: state.nodes,
+      key: id.toString(),
+      updater: (node) => ({
+        ...node,
+        name,
+      }),
+    });
     state.setNodes([...next]);
     const existing = select(store.getState(), id.key);
     if (existing == null) return;

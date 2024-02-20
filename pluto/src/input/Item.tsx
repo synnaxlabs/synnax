@@ -113,7 +113,6 @@ export const HFItem = <I extends Value = string | number, O extends Value = I>({
   const { field, fieldState } = useController({
     rules,
     name,
-    shouldUnregister,
   });
   const { trigger } = useFormContext();
   if (label == null) label = camelToTitle(name);

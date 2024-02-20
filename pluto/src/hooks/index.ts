@@ -15,3 +15,4 @@ export * from "@/hooks/effect";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/ref";
+export * from "@/hooks/useSelect";

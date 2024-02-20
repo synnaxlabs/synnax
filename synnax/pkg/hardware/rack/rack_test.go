@@ -26,10 +26,10 @@ var _ = Describe("Rack", Ordered, func() {
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Host:     mock.StaticHostKeyProvider(1),
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
 		}))
 	})
 	BeforeEach(func() {

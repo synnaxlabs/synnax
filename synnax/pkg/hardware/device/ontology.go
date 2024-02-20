@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"strconv"
 )
 
 const OntologyType ontology.Type = "device"
@@ -60,12 +59,8 @@ func (s *Service) Schema() *schema.Schema { return _schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k, err := strconv.Atoi(key)
-	if err != nil {
-		return ontology.Resource{}, err
-	}
 	var r Device
-	err = s.NewRetrieve().WhereKeys(string(k)).Entry(&r).Exec(ctx, tx)
+	err := s.NewRetrieve().WhereKeys(key).Entry(&r).Exec(ctx, tx)
 	return newResource(r), err
 }
 

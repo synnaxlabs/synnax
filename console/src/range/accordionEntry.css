@@ -14,15 +14,6 @@
         font-weight: 450;
     }
 
-    &:hover {
-        background: var(--pluto-gray-l2);
-    }
-
-    &.pluto--selected {
-        background: var(--pluto-primary-z-10);
-        border-right-color: var(--pluto-primary-z);
-    }
-
     & .save-button {
         position: absolute;
         top: 1rem;

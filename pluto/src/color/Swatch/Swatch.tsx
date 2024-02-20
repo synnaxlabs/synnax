@@ -40,7 +40,7 @@ export const Swatch = ({
   draggable = true,
   ...props
 }: SwatchProps): ReactElement => {
-  const { visible, open, ref } = Dropdown.use({ onVisibleChange, initialVisible });
+  const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
 
   const bg = Theming.use().colors.gray.l0;
 
@@ -95,8 +95,8 @@ export const Swatch = ({
 
   return (
     <Dropdown.Dialog
+      close={close}
       visible={visible}
-      ref={ref}
       className={CSS.BE("color-swatch", "dropdown")}
       keepMounted={false}
     >

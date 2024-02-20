@@ -10,6 +10,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"os"
 	"os/signal"
@@ -69,6 +70,10 @@ will bootstrap a new cluster.
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
+var (
+	stopKeyWord = "stop"
+)
+
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
@@ -98,6 +103,15 @@ func start(cmd *cobra.Command) {
 
 	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
+
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			if scanner.Text() == stopKeyWord {
+				interruptC <- os.Interrupt
+			}
+		}
+	}()
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
@@ -164,11 +178,12 @@ func start(cmd *cobra.Command) {
 			Signals:  dist.Signals,
 		})
 		deviceSvc, err := hardware.OpenService(ctx, hardware.Config{
-			DB:       gorpDB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Host:     dist.Cluster,
-			Signals:  dist.Signals,
+			DB:           gorpDB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: dist.Cluster,
+			Signals:      dist.Signals,
+			Channel:      dist.Channel,
 		})
 		if err != nil {
 			return err

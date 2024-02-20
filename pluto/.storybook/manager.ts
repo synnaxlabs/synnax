@@ -45,6 +45,8 @@ const lightGrayScale= Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 );
 
+const fontFamily = "'Inter Variable', sans-serif";
+
 const synnaxBase = {
   key: "synnax-base",
   name: "Synnax Base",

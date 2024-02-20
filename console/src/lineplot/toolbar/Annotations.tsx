@@ -16,7 +16,6 @@ import {
   Divider,
   Header,
   Input,
-  List,
   Status,
   componentRenderProp,
   Select,
@@ -25,6 +24,7 @@ import {
   Menu,
   Text,
 } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/pluto/list";
 import { nanoid } from "nanoid";
 import { useDispatch } from "react-redux";
 
@@ -285,34 +285,35 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
               allowNone={false}
               replaceOnSingle
               onChange={setAllSelected}
-            />
-            <List.Core.Virtual<string, RuleState>
-              itemHeight={27}
-              style={{ height: "100%", width: 200 }}
             >
-              {({ onSelect, selected, style, entry: { key, label } }) => (
-                <Button.Button
-                  key={key}
-                  id={key}
-                  className={CSS(
-                    Menu.CONTEXT_TARGET,
-                    selected && Menu.CONTEXT_SELECTED,
-                  )}
-                  onClick={() => {
-                    onSelect?.(key);
-                  }}
-                  style={{
-                    ...style,
-                    width: "100%",
-                    backgroundColor: selected ? "var(--pluto-primary-z-20)" : "",
-                    borderRadius: 0,
-                  }}
-                  variant="text"
-                >
-                  {label}
-                </Button.Button>
-              )}
-            </List.Core.Virtual>
+              <List.Core.Virtual<string, RuleState>
+                itemHeight={27}
+                style={{ height: "100%", width: 200 }}
+              >
+                {({ onSelect, selected, style, entry: { key, label } }) => (
+                  <Button.Button
+                    key={key}
+                    id={key}
+                    className={CSS(
+                      Menu.CONTEXT_TARGET,
+                      selected && Menu.CONTEXT_SELECTED,
+                    )}
+                    onClick={() => {
+                      onSelect?.(key);
+                    }}
+                    style={{
+                      ...style,
+                      width: "100%",
+                      backgroundColor: selected ? "var(--pluto-primary-z-20)" : "",
+                      borderRadius: 0,
+                    }}
+                    variant="text"
+                  >
+                    {label}
+                  </Button.Button>
+                )}
+              </List.Core.Virtual>
+            </List.Selector>
           </List.List>
         </Menu.ContextMenu>
       </Align.Space>

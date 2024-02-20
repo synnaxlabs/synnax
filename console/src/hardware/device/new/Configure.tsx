@@ -1,19 +1,26 @@
 import { type ReactElement, useCallback } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { type hardware } from "@synnaxlabs/client";
-import { Button, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { FormProvider, useForm } from "react-hook-form";
-import { v4 as uuidv4 } from "uuid";
 
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/configure/ni/enrich";
+import { type NITask } from "@/hardware/configure/ni/types";
 import { PhysicalPlanForm } from "@/hardware/device/new/PhysicalPlanForm";
-import { PropertiesForm } from "@/hardware/device/new/PropertiesForm";
-import { configurationZ, type Configuration } from "@/hardware/device/new/types";
+import {
+  extrapolateIdentifier,
+  PropertiesForm,
+} from "@/hardware/device/new/PropertiesForm";
+import {
+  configurationZ,
+  type Configuration,
+  type EnrichedProperties,
+  type SoftwarePlan,
+  type PhysicalPlan,
+} from "@/hardware/device/new/types";
 import { type Layout } from "@/layout";
 
 import { buildPhysicalDevicePlan } from "./physicalPlan";
@@ -22,8 +29,6 @@ import { SoftwareTasksForm } from "./SoftwareTasksForm";
 
 import "@/hardware/device/new/Configure.css";
 
-import { type NITask } from "@/hardware/configure/ni/types";
-
 const makeDefaultValues = (device: hardware.DevicePayload): Configuration => {
   return {
     properties: {
@@ -31,7 +36,7 @@ const makeDefaultValues = (device: hardware.DevicePayload): Configuration => {
       name: device.name,
       vendor: device.make,
       model: device.model,
-      identifier: "",
+      identifier: extrapolateIdentifier(device.name),
       location: "Dev1",
       analogInput: { portCount: 0 },
       analogOutput: { portCount: 0 },
@@ -68,19 +73,6 @@ interface ConfigureInternalProps {
 
 const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => {
   const client = Synnax.use();
-  const methods = useForm<Configuration>({
-    defaultValues: makeDefaultValues(device),
-    mode: "onBlur",
-    reValidateMode: "onBlur",
-    criteriaMode: "all",
-    resolver: async (data, context, options) => {
-      console.log(
-        "validation result",
-        await zodResolver(configurationZ)(data, context, options),
-      );
-      return await zodResolver(configurationZ)(data, context, options);
-    },
-  });
 
   const TABS: Tabs.TabSpec[] = [
     {
@@ -113,35 +105,42 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     [tabsProps.onSelect],
   );
 
+  const methods = Form.use<typeof configurationZ>({
+    initialValues: makeDefaultValues(device),
+    schema: configurationZ,
+  });
+
   const handleNext = (): void => {
     void (async () => {
       if (tabsProps.selected === "properties") {
-        const ok = await methods.trigger("properties");
+        const ok = methods.validate("properties");
         if (!ok) return;
-        const existingPlan = methods.getValues().physicalPlan;
+        const existingPlan = methods.get<PhysicalPlan>("physicalPlan").value;
         if (existingPlan.groups.length === 0) {
-          const enriched = enrich(methods.getValues().properties);
+          const enriched = enrich(methods.get<EnrichedProperties>("properties").value);
           const plan = buildPhysicalDevicePlan(
             enriched,
-            methods.getValues().properties.identifier,
+            methods.get<string>("properties.identifier").value,
           );
-          methods.setValue("physicalPlan.groups", plan.groups);
+          methods.set("physicalPlan.groups", plan.groups);
         }
         tabsProps.onSelect?.("physicalPlan");
       } else if (tabsProps.selected === "physicalPlan") {
-        const ok = await methods.trigger("physicalPlan");
+        const ok = methods.validate("physicalPlan");
         if (!ok) return;
-        const existingPlan = methods.getValues().softwarePlan;
+        const existingPlan = methods.get<SoftwarePlan>("softwarePlan", false).value;
         if (existingPlan.tasks.length === 0) {
-          const { properties, physicalPlan } = methods.getValues();
+          const properties = methods.get<EnrichedProperties>("properties", false).value;
+          const physicalPlan = methods.get<PhysicalPlan>("physicalPlan", false).value;
           const tasks = buildSoftwareTasks(properties, physicalPlan);
-          methods.setValue("softwarePlan.tasks", tasks);
+          console.log("physicalPlan", tasks);
+          methods.set("softwarePlan.tasks", tasks);
         }
         tabsProps.onSelect?.("softwareTasks");
       } else if (tabsProps.selected === "softwareTasks") {
-        const ok = await methods.trigger("softwarePlan");
+        const ok = methods.validate("softwarePlan");
         if (!ok) return;
-        const groups = methods.getValues().physicalPlan.groups;
+        const groups = methods.get<PhysicalPlan>("physicalPlan", false).value.groups;
         if (client == null) return;
         const rack = await client.hardware.retrieveRack(device.rack);
         const output = new Map<string, number>();
@@ -169,17 +168,17 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
             });
             rawIdx.synnaxChannel = idx.key;
             g.channels.forEach((c) => {
-              output.set(c.key, c.synnaxChannel!);
+              output.set(c.key, c.synnaxChannel);
             });
           }),
         );
 
-        const tasks = methods.getValues().softwarePlan.tasks as NITask[];
+        const tasks = methods.get<NITask[]>("softwarePlan.tasks", false).value;
         if (client == null) return;
 
         tasks.forEach((t) => {
           t.config.channels.forEach((c) => {
-            c.channel = output.get(c.key)!;
+            c.channel = output.get(c.key) as string;
           });
         });
 
@@ -195,7 +194,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
 
   return (
     <Align.Space className={CSS.B("device-new-configure")} empty>
-      <FormProvider {...methods}>
+      <Form.Form {...methods}>
         <Tabs.Tabs
           direction="x"
           {...tabsProps}
@@ -209,7 +208,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
             <Button.Button onClick={handleNext}>Next Step</Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
-      </FormProvider>
+      </Form.Form>
     </Align.Space>
   );
 };

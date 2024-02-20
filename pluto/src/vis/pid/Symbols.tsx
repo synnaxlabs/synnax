@@ -673,7 +673,7 @@ interface AdjustBoxProps {
   position: xy.XY;
 }
 
-const LABEL_SCALE = 0.85;
+const LABEL_SCALE = 0.9;
 
 const adjustBox = ({
   labelOrientation,

@@ -80,10 +80,11 @@ const columns = [
 
 export const Column: StoryFn<typeof List> = () => (
   <List.List data={data}>
-    <List.Column.Header columns={columns} />
-    <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
-      {List.Column.Item}
-    </List.Core.Virtual>
+    <List.Column.Header columns={columns}>
+      <List.Core.Virtual itemHeight={List.Column.itemHeight} style={{ height: "80vh" }}>
+        {List.Column.Item}
+      </List.Core.Virtual>
+    </List.Column.Header>
   </List.List>
 );
 

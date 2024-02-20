@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, useState } from "react";
+import { useCallback, type ReactElement, useState, useEffect } from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
@@ -22,8 +22,8 @@ import {
   type UseSelectOnChangeExtra,
 } from "@/hooks/useSelect";
 import { type Input } from "@/input";
-import { List as CoreList } from "@/list";
-import { List } from "@/select/List";
+import { type List as CoreList } from "@/list";
+import { Core } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/select/Button.css";
@@ -160,13 +160,17 @@ export const DropdownButton = <
   disabled,
   hideColumnHeader = true,
 }: DropdownButtonProps<K, E>): ReactElement => {
-  const { ref, visible, toggle, close } = Dropdown.use();
+  const { close, visible, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(
     data?.find((e) => e.key === value) ?? null,
   );
 
+  useEffect(() => {
+    setSelected(data?.find((e) => e.key === value) ?? null);
+  }, [data, value]);
+
   const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
-    ([next]: K[], e: UseSelectOnChangeExtra<K, E>): void => {
+    (next: K, e: UseSelectOnChangeExtra<K, E>): void => {
       close();
       if (next == null) {
         setSelected(null);
@@ -179,25 +183,25 @@ export const DropdownButton = <
   );
 
   return (
-    <CoreList.List data={data}>
-      <Dropdown.Dialog visible={visible} ref={ref} matchTriggerWidth>
-        {children({
-          selected,
-          renderKey: tagKey,
-          toggle,
-          visible,
-          disabled,
-        })}
-        <List<K, E>
-          visible={visible}
-          value={[value]}
-          onChange={handleChange}
-          allowMultiple={false}
-          allowNone={allowNone}
-          columns={columns}
-          hideColumnHeader={hideColumnHeader}
-        />
-      </Dropdown.Dialog>
-    </CoreList.List>
+    <Core<K, E>
+      close={close}
+      matchTriggerWidth
+      data={data}
+      visible={visible}
+      value={[value]}
+      onChange={handleChange}
+      allowMultiple={false}
+      allowNone={allowNone}
+      columns={columns}
+      hideColumnHeader={hideColumnHeader}
+    >
+      {children({
+        selected,
+        renderKey: tagKey,
+        toggle,
+        visible,
+        disabled,
+      })}
+    </Core>
   );
 };

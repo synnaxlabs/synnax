@@ -174,10 +174,11 @@ export const List = (): ReactElement => {
             onChange={handleSelect}
             allowMultiple={false}
             allowNone={true}
-          />
-          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
-            {componentRenderProp(ListItem)}
-          </Core.Core>
+          >
+            <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+              {componentRenderProp(ListItem)}
+            </Core.Core>
+          </Core.Selector>
         </Core.List>
       </div>
     </PMenu.ContextMenu>

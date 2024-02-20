@@ -50,7 +50,7 @@
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
-    background: none;
+    background: var(--pluto-gray-l0);
     border: var(--pluto-border-width) solid var(--pluto-border-color);
 
     &:hover:not(.pluto--disabled) {

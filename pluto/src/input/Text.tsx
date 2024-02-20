@@ -90,7 +90,7 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
           autoCorrect="off"
           onFocus={(e) => {
             onFocus?.(e);
-            if (selectOnFocus) setTimeout(() => e.target.select(), 0);
+            if (selectOnFocus) setTimeout(() => e.target.select(), 2);
           }}
           className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
           {...props}

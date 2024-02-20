@@ -20,6 +20,8 @@ import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
 
+import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
+
 export interface DragButtonExtensionProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;
@@ -94,12 +96,13 @@ export const DragButton = ({
     if (dragDirection === "y") return xy.construct(0, scale.y);
     return scale;
   }, [dragScale, dragDirection]);
+
   const normalDragThreshold = useMemo(
     () => (dragThreshold != null ? xy.construct(dragThreshold) : null),
     [dragThreshold],
   );
 
-  useVirtualCursorDrag({
+  useVirtualCursorDragWebKit({
     ref: elRef,
     onMove: useCallback(
       (b: box.Box) => {
