@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/x",
   "private": false,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
