@@ -142,7 +142,7 @@ export const Logo = ({
   const Internal = VARIANTS[variant];
   return (
     <Internal
-      className={clsx(`synnax-logo--${color}`, `synnax-logo--${variant}`, className)}
+      className={clsx('synnax-logo',`synnax-logo--${color}`, `synnax-logo--${variant}`, className)}
       {...props}
     />
   );

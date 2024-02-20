@@ -23,6 +23,7 @@
 /// std.
 #include <mutex>
 
+/// @brief converts a grpc::Status to a freighter::Error.
 freighter::Error errorFromGRPCStatus(grpc::Status status)
 {
     if (status.ok())
@@ -32,6 +33,8 @@ freighter::Error errorFromGRPCStatus(grpc::Status status)
     return {status.error_message()};
 }
 
+/// @brief an internal method for reading the entire contents of certificate files
+/// into a string.
 std::string readFile(const std::string &path) {
     std::string data;
     FILE *f = fopen(path.c_str(), "r");
@@ -122,7 +125,7 @@ public:
     }
 
     /// @brief Streamer send.
-    freighter::Error send(request_t &request) override
+    freighter::Error send(request_t &request) const override
     {
         if (stream->Write(request))
             return freighter::NIL;
@@ -130,7 +133,7 @@ public:
     }
 
     /// @brief Streamer read.
-    std::pair<response_t, freighter::Error> receive() override
+    std::pair<response_t, freighter::Error> receive() const override
     {
         response_t res;
         if (stream->Read(&res))
@@ -144,7 +147,7 @@ public:
     }
 
     /// @brief Closing streamer.
-    freighter::Error closeSend() override
+    freighter::Error closeSend() const override
     {
         stream->WritesDone();
         return freighter::NIL;
@@ -158,8 +161,6 @@ private:
 
     /// Stub to manage connection.
     std::unique_ptr<typename rpc_t::Stub> stub;
-
-
 
     /// Last target managed.
     std::string last_target;

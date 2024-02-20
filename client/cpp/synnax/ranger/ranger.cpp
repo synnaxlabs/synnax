@@ -59,7 +59,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByName(const std::string
     req.add_names(name);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
-    if (res.ranges_size() == 0) return {Range(), freighter::Error(synnax::NO_RESULTS, "no ranges found matching " + name)};
+    if (res.ranges_size() == 0) return {Range(), freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + name)};
     if (res.ranges_size() > 1) return {Range(), freighter::Error(synnax::MULTIPLE_RESULTS, "multiple ranges found matching " + name)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);

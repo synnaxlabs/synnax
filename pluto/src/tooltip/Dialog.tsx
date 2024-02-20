@@ -16,6 +16,7 @@ import {
   useState,
   useId,
   isValidElement,
+  useCallback,
 } from "react";
 
 import {
@@ -84,6 +85,39 @@ const bestLocation = <C extends location.Location>(
   return options[0];
 };
 
+export const chooseLocation = (
+  cornerOrLocation: location.Outer | Partial<location.XY> | undefined,
+  target: box.Box,
+  window: box.Box,
+): location.XY => {
+  const parse = location.location.safeParse(cornerOrLocation);
+  const chooseRemainingLocation = (first: location.Location): location.Location => {
+    let preferences: location.Location[];
+    if (first === "center") {
+      preferences = OUTER_LOCATION_PREFERENCES;
+    } else if (location.isX(first)) preferences = ["center", ...Y_LOCATION_PREFERENCES];
+    else preferences = ["center", ...X_LOCATION_PREFERENCES];
+    return location.construct(bestLocation(target, window, preferences));
+  };
+
+  if (parse.success) {
+    return location.constructXY(parse.data, chooseRemainingLocation(parse.data));
+  } else if (cornerOrLocation != null) {
+    const v = { ...cornerOrLocation } as Partial<location.XY>;
+    if (v.x == null && v.y != null)
+      v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
+    else if (v.y == null && v.x != null)
+      v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
+    else if (v.x == null && v.y == null) {
+      v.x = bestLocation(target, window, LOCATION_PREFERENCES) as location.X;
+      v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
+    }
+    return location.constructXY(v as location.XY);
+  }
+  const chosen = bestLocation(target, window, LOCATION_PREFERENCES);
+  return location.constructXY(chosen, chooseRemainingLocation(chosen));
+};
+
 const getRenderRoot = (target: HTMLElement): HTMLElement => {
   // get the first parent with a transform property or the body
   const el: HTMLElement | null = target;
@@ -127,97 +161,83 @@ export const Dialog = ({
   location: cornerOrLocation,
   hide = false,
 }: DialogProps): ReactElement => {
-  const config = useConfig();
-  const parsedDelay = new TimeSpan(delay ?? config.delay);
+  const { startAccelerating, delay: configDelay } = useConfig();
+  const parsedDelay = new TimeSpan(delay ?? configDelay);
   const [state, setState] = useState<State | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
   const visibleCleanup = useRef<Destructor | null>(null);
 
-  const handleVisibleChange = (e: React.MouseEvent, visible: boolean): void => {
-    if (!visible || hide) {
-      visibleCleanup.current?.();
-      return setState(null);
-    }
-    config.startAccelerating();
-    const container = box.construct(resolveTarget(e.target as HTMLElement, id));
-    if (!box.contains(container, xy.construct(e))) {
-      visibleCleanup.current?.();
-      return setState(null);
-    }
-    const window = box.construct(document.documentElement);
-    const parse = location.location.safeParse(cornerOrLocation);
-    const root = box.construct(document.body);
-
-    const chooseRemainingLocation = (first: location.Location): location.Location => {
-      let preferences: location.Location[];
-      if (first === "center") {
-        preferences = OUTER_LOCATION_PREFERENCES;
-      } else if (location.isX(first))
-        preferences = ["center", ...Y_LOCATION_PREFERENCES];
-      else preferences = ["center", ...X_LOCATION_PREFERENCES];
-      return location.construct(bestLocation(container, window, preferences));
-    };
-
-    let xyLoc: location.XY = location.CENTER;
-    if (parse.success) {
-      xyLoc = location.constructXY(parse.data, chooseRemainingLocation(parse.data));
-    } else if (cornerOrLocation != null) {
-      const v = cornerOrLocation as Partial<location.XY>;
-      if (v.x == null && v.y != null)
-        v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
-      else if (v.y == null && v.x != null)
-        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
-      else if (v.x == null && v.y == null) {
-        v.x = bestLocation(container, window, LOCATION_PREFERENCES) as location.X;
-        v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
+  const handleVisibleChange = useCallback(
+    (e: React.MouseEvent, visible: boolean): void => {
+      if (!visible || hide) {
+        visibleCleanup.current?.();
+        return setState(null);
       }
-      xyLoc = location.constructXY(v as location.XY);
-    } else {
-      const chosen = bestLocation(container, window, LOCATION_PREFERENCES);
-      xyLoc = location.constructXY(chosen, chooseRemainingLocation(chosen));
-    }
+      startAccelerating();
+      const targetBox = box.construct(resolveTarget(e.target as HTMLElement, id));
+      if (!box.contains(targetBox, xy.construct(e))) {
+        visibleCleanup.current?.();
+        return setState(null);
+      }
+      const window = box.construct(document.documentElement);
+      const xyLoc = chooseLocation(cornerOrLocation, targetBox, window);
 
-    let pos = box.xyLoc(container, xyLoc);
-    console.log(pos);
-    const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
-    console.log(xyLoc, translate, container);
-    if (translate != null) pos = translate(pos, container);
+      let pos = box.xyLoc(targetBox, xyLoc);
+      const translate = LOCATION_TRANSLATIONS[location.xyToString(xyLoc)];
+      if (translate != null) pos = translate(pos, targetBox);
 
-    setState({
-      location: xyLoc,
-      position: xy.translate(pos, xy.scale(box.topLeft(root), -1)),
-      triggerDims: box.dims(container),
-    });
+      const root = box.construct(document.body);
+      setState({
+        location: xyLoc,
+        position: xy.translate(pos, xy.scale(box.topLeft(root), -1)),
+        triggerDims: box.dims(targetBox),
+      });
 
-    visibleCleanup.current?.();
-    const handleMove = (e: MouseEvent): void => {
-      const cursor = xy.construct(e);
-      if (box.contains(container, cursor)) return;
-      setState(null);
-      document.removeEventListener("mousemove", handleMove);
-      visibleCleanup.current = null;
-      if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-    };
+      visibleCleanup.current?.();
+      const handleMove = (e: MouseEvent): void => {
+        const cursor = xy.construct(e);
+        if (box.contains(targetBox, cursor)) return;
+        setState(null);
+        document.removeEventListener("mousemove", handleMove);
+        visibleCleanup.current = null;
+        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+      };
 
-    document.addEventListener("mousemove", handleMove);
-    visibleCleanup.current = () =>
-      document.removeEventListener("mousemove", handleMove);
-  };
+      document.addEventListener("mousemove", handleMove);
+      visibleCleanup.current = () =>
+        document.removeEventListener("mousemove", handleMove);
+      document.addEventListener(
+        "mousedown",
+        () => {
+          setState(null);
+          visibleCleanup.current?.();
+        },
+        { once: true },
+      );
+    },
+    [startAccelerating, cornerOrLocation, hide, id, parsedDelay.milliseconds],
+  );
 
   if (hide && state != null) setState(null);
 
-  const handleMouseEnter = (e: React.MouseEvent): void => {
-    timeoutRef.current = setTimeout(
-      () => handleVisibleChange(e, true),
-      parsedDelay.milliseconds,
-    );
-  };
+  const handleMouseEnter = useCallback(
+    (e: React.MouseEvent): void => {
+      timeoutRef.current = setTimeout(
+        () => handleVisibleChange(e, true),
+        parsedDelay.milliseconds,
+      );
+    },
+    [handleVisibleChange, parsedDelay.milliseconds],
+  );
 
-  const handleMouseLeave = (e: React.MouseEvent): void => {
-    if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
-    handleVisibleChange(e, false);
-  };
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent): void => {
+      if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+      handleVisibleChange(e, false);
+    },
+    [handleVisibleChange],
+  );
 
   const [tip, children_] = children;
 
@@ -248,6 +268,13 @@ export const Dialog = ({
         id,
         onMouseEnter: handleMouseEnter,
         onMouseLeave: handleMouseLeave,
+        onMouseDown: useCallback(
+          (e: React.MouseEvent) => {
+            handleMouseLeave(e);
+            children_.props.onMouseDown?.(e);
+          },
+          [handleVisibleChange],
+        ),
       })}
     </>
   );

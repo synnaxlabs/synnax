@@ -41,6 +41,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
         this.internal.synnax?.close();
         this.internal.synnax = null;
       }
+      set(this.ctx, this.internal);
       return;
     }
 

@@ -51,7 +51,8 @@ export const Indicator = Aether.wrap<IndicatorProps>(
     }, [memoProps, setState]);
 
     let parsedColor: Color.Crude;
-    if (status.data?.color != null) parsedColor = status.data.color;
+    if (status.data?.color != null)
+      parsedColor = Color.Color.z.parse(status.data.color);
     else if (color != null && !color.isZero) parsedColor = color;
     else parsedColor = "var(--pluto-gray-l8)";
 

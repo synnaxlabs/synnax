@@ -40,6 +40,9 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         addElement({
           layoutKey,
           key: nanoid(),
+          node: {
+            zIndex: spec.zIndex,
+          },
           props: {
             variant,
             ...initialProps,
@@ -60,7 +63,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       <List.Core direction="x" className={CSS.B("pid-symbols")} wrap>
         {(p) => (
           <SymbolsButton
-            key={p.entry.type}
+            key={p.key}
             el={p.entry}
             onClick={() => handleAddElement(p.entry.type)}
             theme={theme}

@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/pluto",
   "private": false,
-  "version": "0.12.0",
+  "version": "0.15.0",
   "type": "module",
   "scripts": {
     "build": "vite build",
@@ -26,6 +26,7 @@
     "clsx": "^2.0.0",
     "d3-scale": "^4.0.2",
     "fuse.js": "^7.0.0",
+    "mathjs": "^12.3.1",
     "nanoid": "^5.0.4",
     "proxy-memoize": "1.2.0",
     "react": "^18.2.0",
@@ -95,10 +96,10 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
-    "./aether": {
-      "import": "./dist/aether.js",
-      "require": "./dist/aether.cjs",
-      "types": "./dist/aetherIndex.d.ts"
+    "./ether": {
+      "import": "./dist/ether.js",
+      "require": "./dist/ether.cjs",
+      "types": "./dist/ether.d.ts"
     },
     "./align": {
       "import": "./dist/align.js",
@@ -164,6 +165,16 @@
       "import": "./dist/list.js",
       "require": "./dist/list.cjs",
       "types": "./dist/list/index.d.ts"
+    },
+    "./color": {
+      "import": "./dist/color.js",
+      "require": "./dist/color.cjs",
+      "types": "./dist/color/index.d.ts"
+    },
+    "./css": {
+      "import": "./dist/css.js",
+      "require": "./dist/css.cjs",
+      "types": "./dist/css/index.d.ts"
     },
     "./dist/*": "./dist/*"
   },

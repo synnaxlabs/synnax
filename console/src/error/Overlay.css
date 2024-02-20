@@ -1,0 +1,20 @@
+.console-error-overlay {
+    height: 100vh;
+    & .console-dialog {
+        max-width: 1200px;
+    }
+
+    & .console-details {
+        max-width: 650px;
+    }
+
+    & .console-stack {
+        max-height: 700px;
+        overflow: auto;
+    }
+
+
+    & .synnax-logo {
+        width: 150px;
+    }
+}

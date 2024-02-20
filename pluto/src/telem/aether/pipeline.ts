@@ -84,7 +84,8 @@ export class SourcePipeline<V>
     Object.entries(segments).forEach(([id, spec]) => {
       const t = factory.create(spec);
       if (t == null) return;
-      this.sources[id] = t;
+      // Safe to do a cast here because we validated props with zod.
+      this.sources[id] = t as Source<any>;
     });
 
     connections.forEach(({ from, to }) => {
@@ -103,8 +104,10 @@ export class SourcePipeline<V>
     return this.outlet.onChange(handler);
   }
 
-  cleanup(): void {
-    Object.values(this.sources).forEach((source) => source.cleanup?.());
+  async cleanup(): Promise<void> {
+    await Promise.all(
+      Object.values(this.sources).map(async (source) => await source.cleanup?.()),
+    );
   }
 }
 
@@ -152,7 +155,8 @@ export class SinkPipeline<V>
     Object.entries(segments).forEach(([id, spec]) => {
       const t = factory.create(spec);
       if (t == null) return;
-      this.sinks[id] = t;
+      // Safe to cast here because we validated props with zod.
+      this.sinks[id] = t as Sink<any>;
     });
 
     connections.forEach(({ from, to }) => {
@@ -169,8 +173,10 @@ export class SinkPipeline<V>
     return await this.inlet.set(value);
   }
 
-  cleanup(): void {
-    Object.values(this.sinks).forEach((sink) => sink.cleanup?.());
+  async cleanup(): Promise<void> {
+    await Promise.all(
+      Object.values(this.sinks).map(async (sink) => await sink.cleanup?.()),
+    );
   }
 }
 

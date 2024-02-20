@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useEffect,
+  useState,
+  createContext,
+  type PropsWithChildren,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -21,34 +28,85 @@ import {
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useContext } from "@/list/Context";
-import { type ItemProps, type ColumnSpec as ListColumnT } from "@/list/types";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
+import { useRequiredContext } from "@/hooks/useRequiredContext";
+import { useDataUtilContext, useSourceData } from "@/list/Data";
+import { ItemFrame, type ItemFrameProps } from "@/list/Item";
+import { type ItemProps } from "@/list/types";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { type RenderProp } from "@/util/renderProp";
 
 import "@/list/Column.css";
 
+type RenderF<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+> = RenderProp<{
+  key: string | number | symbol;
+  entry: E;
+  style: CSSProperties;
+}>;
+
+export interface ColumnSpec<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+> {
+  /** The key of the object to render. */
+  key: keyof E | string;
+  /** A custom render function for each item in the colummn. */
+  render?: RenderF<K, E>;
+  stringer?: (entry: E) => string;
+  /** The name/title of the column. */
+  name: string;
+  /** Whether the column is visible by default. */
+  visible?: boolean;
+  /**
+   * The width of the column in pixels. Used to structure the list as a table.
+   * If not provided, the column will be sized to fit the content. This should
+   * always be specified when the render function is provided.
+   */
+  width?: number;
+  cWidth?: number;
+  shade?: Text.Shade;
+}
+
+interface ColumnContextValue<
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+> {
+  columns: Array<ColumnSpec<K, E>>;
+}
+
+export const ColumnContext = createContext<ColumnContextValue | null>(null);
+
+const useColumnContext = <
+  K extends Key = Key,
+  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+>(): ColumnContextValue<K, E> => useRequiredContext(ColumnContext);
+
 type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
 
-export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecord<K>> {
-  columns: Array<ListColumnT<K, E>>;
+export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+  extends PropsWithChildren<{}> {
+  hide?: boolean;
+  columns: Array<ColumnSpec<K, E>>;
 }
 
 const SORT_TRANSFORM = "sort";
 
 const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+  hide = false,
   columns: initialColumns,
+  children,
 }: ColumnHeaderProps<K, E>): ReactElement => {
-  const {
-    columnar: { columns, setColumns },
-    sourceData,
-    setTransform,
-    deleteTransform,
-  } = useContext<K, E>();
+  const sourceData = useSourceData<K, E>();
+  const { setTransform, deleteTransform } = useDataUtilContext<K, E>();
 
   const font = Theming.useTypography("p").toString();
   const [sort, setSort] = useState<SortState<E>>([null, false]);
+  const [ctxValue, setCtxValue] = useState<ColumnContextValue<K, E>>({
+    columns: initialColumns,
+  });
 
   const onSort = (k: keyof E): void => {
     const [prevSort, prevDir] = sort;
@@ -67,40 +125,48 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   };
 
   useEffect(() => {
-    setColumns((prev) =>
-      columnWidths(prev.length === 0 ? initialColumns : prev, sourceData, font),
-    );
+    setCtxValue((prev) => ({
+      columns: columnWidths(
+        prev.columns.length === 0 ? initialColumns : prev.columns,
+        sourceData,
+        font,
+      ),
+    }));
   }, [font, sourceData, initialColumns]);
 
   return (
-    <Align.Space
-      direction="x"
-      size="medium"
-      className={CSS.BE("list-col-header", "container")}
-    >
-      {columns
-        .filter(({ visible = true }) => visible)
-        .map(({ key, cWidth: width, name }) => {
-          const [sortKey, dir] = sort;
-          let endIcon;
-          const entry = sourceData[0];
-          if (key === sortKey) endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
-          return (
-            <Text.WithIcon
-              className={CSS.BE("list-col-header", "item")}
-              key={key.toString()}
-              justify="spaceBetween"
-              level="p"
-              endIcon={endIcon}
-              style={{ width }}
-              shrink={false}
-              onClick={() => entry != null && key in entry && onSort(key as keyof E)}
-            >
-              {name}
-            </Text.WithIcon>
-          );
-        })}
-    </Align.Space>
+    <ColumnContext.Provider value={ctxValue}>
+      <Align.Space
+        direction="x"
+        size="medium"
+        className={CSS(CSS.BE("list-col-header", "container"), CSS.visible(!hide))}
+      >
+        {ctxValue.columns
+          .filter(({ visible = true }) => visible)
+          .map(({ key, cWidth: width, name }) => {
+            const [sortKey, dir] = sort;
+            let endIcon;
+            const entry = sourceData[0];
+            if (key === sortKey)
+              endIcon = dir ? <Icon.Caret.Up /> : <Icon.Caret.Down />;
+            return (
+              <Text.WithIcon
+                className={CSS.BE("list-col-header", "item")}
+                key={key.toString()}
+                justify="spaceBetween"
+                level="p"
+                endIcon={endIcon}
+                style={{ width }}
+                shrink={false}
+                onClick={() => entry != null && key in entry && onSort(key as keyof E)}
+              >
+                {name}
+              </Text.WithIcon>
+            );
+          })}
+      </Align.Space>
+      {children}
+    </ColumnContext.Provider>
   );
 };
 
@@ -109,38 +175,31 @@ const Item = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   entry,
-  selected,
-  columns,
   onSelect,
-  index,
-  hovered,
+  className,
   ...props
-}: ItemProps<K, E>): ReactElement => {
-  const handleSelect = (): void => onSelect?.(entry.key);
+}: ItemProps<K, E> & ItemFrameProps<K, E>): ReactElement => {
+  const { columns } = useColumnContext<K, E>();
   return (
-    <Align.Space
-      id={entry.key.toString()}
+    <ItemFrame<K, E>
+      key={entry.key.toString()}
+      entry={entry}
+      onSelect={onSelect}
       className={CSS(
-        CONTEXT_TARGET,
+        className,
         CSS.BE("list-col-item", "container"),
         onSelect != null && CSS.BEM("list-col-item", "container", "selectable"),
-        hovered && CSS.BEM("list-col-item", "container", "hovered"),
-        selected && CSS.BEM("list-col-item", "container", "selected"),
-        selected && CONTEXT_SELECTED,
       )}
-      direction="x"
-      onClick={handleSelect}
-      onContextMenu={handleSelect}
       align="center"
-      {...props}
       size="medium"
+      {...props}
     >
       {columns
         .filter(({ visible = true }) => visible)
         .map((col) => (
           <ListColumnValue key={col.key.toString()} entry={entry} col={col} />
         ))}
-    </Align.Space>
+    </ItemFrame>
   );
 };
 
@@ -149,7 +208,7 @@ interface ListColumnValueProps<
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 > {
   entry: E;
-  col: ListColumnT<K, E>;
+  col: ColumnSpec<K, E>;
 }
 
 const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
@@ -167,7 +226,13 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   if (col.stringer != null) rv = col.stringer(entry);
   else rv = entry[col.key as keyof E];
   return (
-    <Text.Text key={col.key.toString()} level="p" style={style}>
+    <Text.Text
+      className={CSS.BE("list-col-item-value", col.key.toString())}
+      key={col.key.toString()}
+      level="p"
+      style={style}
+      shade={col.shade}
+    >
       {convertRenderV(rv)}
     </Text.Text>
   );
@@ -177,10 +242,10 @@ const columnWidths = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
-  columns: Array<ListColumnT<K, E>>,
+  columns: Array<ColumnSpec<K, E>>,
   data: E[],
   font: string,
-): Array<ListColumnT<K, E>> => {
+): Array<ColumnSpec<K, E>> => {
   const le = longestEntries(data, columns);
   return columns.map((col) => {
     if (col.width != null) col.cWidth = col.width;
@@ -198,7 +263,7 @@ const longestEntries = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >(
   data: E[],
-  columns: Array<ListColumnT<K, E>>,
+  columns: Array<ColumnSpec<K, E>>,
 ): Record<keyof E, string> => {
   const longest = {} as const as Record<keyof E, string>;
   data.forEach((entry: E) =>
@@ -242,5 +307,5 @@ export const Column = {
    */
   Item,
   /** The default height of a column list item. */
-  itemHeight: 30,
+  itemHeight: 36,
 };

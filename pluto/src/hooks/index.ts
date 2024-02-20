@@ -10,7 +10,6 @@
 export * from "@/hooks/useClickOutside";
 export * from "@/hooks/useFilter";
 export * from "@/hooks/useTransforms";
-export * from "@/memo/useMemoCompare";
 export * from "@/hooks/effect";
 export * from "@/hooks/useResize";
 export * from "@/hooks/useDebouncedCallback";

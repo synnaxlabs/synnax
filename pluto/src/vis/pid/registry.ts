@@ -90,7 +90,11 @@ export interface Spec<P extends object> {
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<SymbolProps<P>>;
+  zIndex: number;
 }
+
+const Z_INDEX_UPPER = 4;
+const Z_INDEX_LOWER = 2;
 
 const VARIANTS = [
   "threeWayValve",
@@ -163,6 +167,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
     orientation: "left",
   }),
   Preview: ThreeWayValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const valve: Spec<ValveProps> = {
@@ -181,6 +186,7 @@ const valve: Spec<ValveProps> = {
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: ValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
@@ -199,6 +205,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: SolenoidValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const fourWayValve: Spec<ValveProps> = {
@@ -214,8 +221,10 @@ const fourWayValve: Spec<ValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: FourWayValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const angledValve: Spec<AngledValveProps> = {
@@ -231,8 +240,10 @@ const angledValve: Spec<AngledValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: AngledValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const pump: Spec<PumpProps> = {
@@ -248,8 +259,10 @@ const pump: Spec<PumpProps> = {
       orientation: "top",
     },
     orientation: "left",
+    ...ZERO_TOGGLE_PROPS,
   }),
   Preview: PumpPreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const tank: Spec<TankProps> = {
@@ -271,6 +284,7 @@ const tank: Spec<TankProps> = {
     orientation: "left",
   }),
   Preview: TankPreview,
+  zIndex: Z_INDEX_LOWER,
 };
 
 const reliefValve: Spec<ReliefValveProps> = {
@@ -288,6 +302,7 @@ const reliefValve: Spec<ReliefValveProps> = {
     orientation: "left",
   }),
   Preview: ReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const regulator: Spec<RegulatorProps> = {
@@ -305,6 +320,7 @@ const regulator: Spec<RegulatorProps> = {
     orientation: "left",
   }),
   Preview: RegulatorPreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const burstDisc: Spec<ReliefValveProps> = {
@@ -322,6 +338,7 @@ const burstDisc: Spec<ReliefValveProps> = {
     orientation: "left",
   }),
   Preview: BurstDiscPreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const cap: Spec<ReliefValveProps> = {
@@ -339,6 +356,7 @@ const cap: Spec<ReliefValveProps> = {
     orientation: "left",
   }),
   Preview: CapPreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const manualValve: Spec<ManualValveProps> = {
@@ -356,6 +374,7 @@ const manualValve: Spec<ManualValveProps> = {
     orientation: "left",
   }),
   Preview: ManualValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const filter: Spec<FilterProps> = {
@@ -373,6 +392,7 @@ const filter: Spec<FilterProps> = {
     orientation: "left",
   }),
   Preview: FilterPreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const needleValve: Spec<NeedleValveProps> = {
@@ -389,6 +409,7 @@ const needleValve: Spec<NeedleValveProps> = {
     orientation: "left",
   }),
   Preview: NeedleValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const checkValve: Spec<CheckValveProps> = {
@@ -406,6 +427,7 @@ const checkValve: Spec<CheckValveProps> = {
     orientation: "left",
   }),
   Preview: CheckValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const orifice: Spec<OrificeProps> = {
@@ -423,6 +445,7 @@ const orifice: Spec<OrificeProps> = {
     orientation: "left",
   }),
   Preview: OrificePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const angledReliefValve: Spec<ReliefValveProps> = {
@@ -440,6 +463,7 @@ const angledReliefValve: Spec<ReliefValveProps> = {
     orientation: "left",
   }),
   Preview: AngledReliefValvePreview,
+  zIndex: Z_INDEX_UPPER,
 };
 
 const value: Spec<ValueProps> = {
@@ -450,7 +474,7 @@ const value: Spec<ValueProps> = {
   Preview: ValuePreview,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
-    level: "small",
+    level: "h5",
     label: {
       label: "Value",
       level: "p",
@@ -461,16 +485,17 @@ const value: Spec<ValueProps> = {
       connections: [
         {
           from: "valueStream",
-          to: "stringify",
+          to: "stringifier",
         },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: 0 }),
-        stringify: telem.stringifyNumber({ precision: 2 }),
+        stringifier: telem.stringifyNumber({ precision: 2 }),
       },
-      outlet: "stringify",
+      outlet: "stringifier",
     }),
   }),
+  zIndex: Z_INDEX_UPPER,
 };
 
 const button: Spec<ButtonProps> = {
@@ -500,6 +525,7 @@ const button: Spec<ButtonProps> = {
       inlet: "setpoint",
     }),
   }),
+  zIndex: Z_INDEX_UPPER,
 };
 
 const switch_: Spec<SwitchProps> = {
@@ -517,6 +543,7 @@ const switch_: Spec<SwitchProps> = {
     orientation: "left",
     ...ZERO_TOGGLE_PROPS,
   }),
+  zIndex: Z_INDEX_UPPER,
 };
 
 export const SYMBOLS: Record<Variant, Spec<any>> = {

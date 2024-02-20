@@ -7,23 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useLayoutEffect } from "react";
+import { useLayoutEffect } from "react";
 
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqualProps } from "@/memo";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { text } from "@/text/core";
 import { Value } from "@/vis/value/aether/value";
 
 export const corePropsZ = Value.z
   .omit({ font: true })
   .partial({ color: true })
-  .extend({ level: Text.levelZ.optional() });
+  .extend({ level: text.levelZ.optional() });
 
 export interface UseProps extends z.input<typeof corePropsZ> {
   aetherKey: string;
+}
+
+export interface UseReturn {
+  width: number;
 }
 
 export const use = ({
@@ -32,25 +35,25 @@ export const use = ({
   telem,
   color,
   precision,
-  width,
+  minWidth,
   level = "small",
-}: UseProps): ReactElement | null => {
-  const font = Theming.useTypography(level);
+}: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqualProps({
     box,
     telem,
     color,
     precision,
-    width,
-    font: font.toString(),
+    level,
+    minWidth,
   });
 
-  const [, , setState] = Aether.use({
+  const [, state, setState] = Aether.use({
     aetherKey,
     type: Value.TYPE,
     schema: Value.z,
     initialState: memoProps,
   });
+
   useLayoutEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return null;
+  return { width: state.width ?? state.minWidth };
 };

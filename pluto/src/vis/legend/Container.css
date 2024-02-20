@@ -13,8 +13,11 @@
     position: absolute;
     cursor: grabbing;
     padding: 1rem;
-    z-index: 100;
-    background: var(--pluto-gray-l0);
+    z-index: 4;
+    backdrop-filter: blur(3rem);
+    background-color: var(--pluto-gray-l0-30);
+    -webkit-backdrop-filter: blur(3rem);
+    border-radius: 1rem;
     max-height: 50%;
     overflow-y: auto;
     overflow-x: hidden;

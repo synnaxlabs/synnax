@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type FC } from "react";
+import { useCallback, type ReactElement, type FC, useEffect } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import { type location, type dimensions, type xy, type bounds } from "@synnaxlabs/x";
@@ -39,8 +39,6 @@ import { SelectOrientation } from "./SelectOrientation";
 
 import "@/vis/pid/Forms.css";
 
-import { Core } from "@/telem/client/client";
-
 export interface SymbolFormProps<P extends object> {
   value: P;
   onChange: (value: P) => void;
@@ -54,10 +52,6 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   {
     tabKey: "control",
     name: "Control",
-  },
-  {
-    tabKey: "tooltip",
-    name: "Tooltip",
   },
 ];
 
@@ -158,7 +152,8 @@ export const ToggleControlForm: MultiPropertyInput<
   );
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
-  const handleSourceChange = (v: channel.Key): void => {
+  const handleSourceChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
     const t = telem.sourcePipeline("boolean", {
       connections: [
         {
@@ -175,7 +170,8 @@ export const ToggleControlForm: MultiPropertyInput<
     onChange({ ...value, source: t });
   };
 
-  const handleSinkChange = (v: channel.Key): void => {
+  const handleSinkChange = (v: channel.Key | null): void => {
+    v = v ?? 0;
     const t = telem.sinkPipeline("boolean", {
       connections: [
         {
@@ -366,15 +362,18 @@ const VALUE_FORM_TABS: Tabs.Tab[] = [
   },
 ];
 
-const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
-  value,
-  onChange,
-}): ReactElement => {
+const ValueTelemetryForm: MultiPropertyInput<{
+  telem: telem.StringSourceSpec;
+  tooltip: string[];
+}> = ({ value, onChange }): ReactElement => {
   const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
   );
-  const handleSourceChange = (v: channel.Key): void => {
+  const stringifier = telem.stringifyNumberProps.parse(
+    sourceP.segments.stringifier.props,
+  );
+  const handleSourceChange = (v: channel.Key | null): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
         {
@@ -383,10 +382,9 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
         },
       ],
       segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
+        valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
-          precision: 2,
-          suffix: " psi",
+          precision: stringifier.precision ?? 2,
         }),
       },
       outlet: "stringifier",
@@ -394,10 +392,41 @@ const ValueTelemetryForm: PropertyInput<"telem", telem.StringSourceSpec> = ({
     onChange({ ...value, telem: t });
   };
 
+  const handlePrecisionChange = (precision: number): void => {
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "stringifier",
+        },
+      ],
+      segments: {
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        stringifier: telem.stringifyNumber({
+          precision,
+        }),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
+  const c = Channel.useName(source.channel);
+  useEffect(() => {
+    onChange({ ...value, tooltip: [c] });
+  }, [c]);
+
   return (
     <FormWrapper direction="y">
       <Input.Item label="Input Channel">
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+      </Input.Item>
+      <Input.Item label="Percision" align="start">
+        <Input.Numeric
+          value={stringifier.precision ?? 2}
+          bounds={{ lower: 0, upper: 10 }}
+          onChange={handlePrecisionChange}
+        />
       </Input.Item>
     </FormWrapper>
   );
@@ -410,7 +439,24 @@ export const ValueForm = ({ value, onChange }: ValueFormProps): ReactElement => 
         case "telemetry":
           return <ValueTelemetryForm value={value} onChange={onChange} />;
         default: {
-          return <CommonNonToggleForm value={value} onChange={onChange} />;
+          return (
+            <FormWrapper direction="x">
+              <Align.Space direction="y" grow>
+                <LabelControls value={value} onChange={onChange} />
+                <Align.Space direction="x">
+                  <ColorControl value={value} onChange={onChange} />
+
+                  <Input.Item label="Units" align="start">
+                    <Input.Text
+                      value={value.units ?? ""}
+                      onChange={(v) => onChange({ ...value, units: v })}
+                    />
+                  </Input.Item>
+                </Align.Space>
+              </Align.Space>
+              <OrientationControl value={value} onChange={onChange} />
+            </FormWrapper>
+          );
         }
       }
     },

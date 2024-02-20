@@ -22,7 +22,8 @@ pnpm dev:pluto
 
 If you make a change to an upstream dependency, you will need to rebuild
 it in order for the changes to reflect in the development server. For more
-information on this process, see the [Typescript Build Guide](../docs/tech/typescript/build.md).
+information on this process, see
+the [Typescript Build Guide](../docs/tech/typescript/build.md).
 
 ### Important Note
 
@@ -60,7 +61,8 @@ pnpm build:pluto
 
 # Codebase Structure
 
-Pluto maintains a flat directory structure that leverages ES modules as isolated units of functionality.
+Pluto maintains a flat directory structure that leverages ES modules as isolated units
+of functionality.
 
 ## Module Naming Conventions and Imports
 
@@ -71,12 +73,12 @@ component is named `Icon`. When using the component in another module, we would 
 it as follows:
 
 ```tsx
-import { Use } from "@/button"
+import {Use} from "@/button"
 
 const MyComponent = () => {
-  return (
-    <Use.Icon />
-  )
+    return (
+        <Use.Icon/>
+    )
 }
 ```
 
@@ -114,6 +116,24 @@ This means that uppercase (main thread) modules are typically **extensions** of 
 lowercase (worker thread) modules. For example, the `Color` module *re-exports* the
 `color.Color` class as `Color.Color` along with the `Color.Picker` and `Color.Swatch`
 and other main thread-specific tooling.
+
+## Z-Indexining
+
+<!-- Make a Table-->
+
+| Name                  | Z-Index | Notes                                                                              |
+|-----------------------|---------|------------------------------------------------------------------------------------|
+| Lower 2D Canvas       | -3      | Used for items that should render below the upper 2D and GL canvases such as Axes. |
+| GL Canvas             | -2      | WebGL rendering for lines.                                                         |
+| Upper 2D Canvas       | 3       | Upper 2D canvas for rendering items above other canvases, such as tooltips         |
+| Default HTML Tooltips | 9       | Strictly above everything                                                          |
+| Dropdown              | 5       | Above everything except for tooltips                                               |
+| Dropdown Input        | 6       | Above the dropdown to ensure shadows and border are ok.                            |
+| HTML Legend           | 4       | Above the upper and lower 2d canvases                                              |
+| Context Menu          | 8       | Above everything but below tooltips                                                |
+| Mosaic Mask           | 7       | Above everything but below tooltips and context                                    |
+| Lower P&IDElements    | 2       | Below the upper 2D canvas                                                          |
+| Upper P&ID Elements   | 4       | Above the upper P&ID elements                                                      |
 
 ## Documentation
 

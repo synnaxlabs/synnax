@@ -66,11 +66,11 @@ doc_channels = [
 
 doc_channels = client.channels.create(doc_channels, retrieve_if_name_exists=True)
 
-rate = (sy.Rate.HZ * 30).period.seconds
+rate = (sy.Rate.HZ * 40).period.seconds
 
 state = {
     **{ch.key: 0 for ch in doa_channels},
-    **{ch.key: 0 for ch in ai_channels},
+    **{ch.key: i for i, ch in enumerate(ai_channels)},
 }
 
 doc_channels_to_ack = {cmd.key: doa_channels[i].key for i, cmd in enumerate(doc_channels)}
@@ -100,6 +100,9 @@ with client.new_streamer([c.key for c in doc_channels]) as streamer:
                         state[ai_channels[math.floor(j /2)].key] += 1
                     else:
                         state[ai_channels[math.floor(j / 2)].key] -= 1
+
+            for j, ch in enumerate(ai_channels):
+                state[ch.key] = j + math.sin(i / 1000)
 
             ok = writer.write(state)
             if not ok:

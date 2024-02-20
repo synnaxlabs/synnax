@@ -297,7 +297,7 @@ var _ = Describe("Control", func() {
 							_, exists = g2.Authorize()
 							Expect(exists).To(BeFalse())
 							t = g1.SetAuthority(control.Absolute - 1)
-							Expect(t.Occurred()).To(BeFalse())
+							Expect(t.Occurred()).To(BeTrue())
 							_, exists = g2.Authorize()
 							Expect(exists).To(BeFalse())
 							_, exists = g1.Authorize()

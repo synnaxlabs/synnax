@@ -58,6 +58,7 @@ export const Simple = ({
               value={color}
               onChange={(c) => onEntryChange?.({ key, color: c, label })}
               onVisibleChange={setPickerVisible}
+              draggable={false}
               size="small"
             />
             <Text.MaybeEditable

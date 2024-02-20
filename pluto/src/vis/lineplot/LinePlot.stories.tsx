@@ -11,7 +11,7 @@ import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
-import { telem } from "@/aetherIndex";
+import { telem } from "@/ether";
 import { staticTelem } from "@/telem/aether/static";
 import { Canvas } from "@/vis/canvas";
 import { LinePlot } from "@/vis/lineplot";

@@ -30,9 +30,9 @@ var _ = Describe("Counter", Ordered, func() {
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
 	})
-	Describe("PersistedCounter", func() {
+	Describe("AtomicInt64Counter", func() {
 		Context("Name Counter", Ordered, func() {
-			var c *kv.PersistedCounter
+			var c *kv.AtomicInt64Counter
 			BeforeAll(func() {
 				var err error
 				c, err = kv.OpenCounter(ctx, db, []byte("test"))

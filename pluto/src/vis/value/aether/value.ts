@@ -13,6 +13,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
 import { telem } from "@/telem/aether";
+import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
@@ -22,10 +23,11 @@ import { render } from "@/vis/render";
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
-  font: z.string().optional().default(""),
+  font: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
-  width: z.number().optional().default(100),
+  minWidth: z.number().optional().default(60),
+  width: z.number().optional(),
 });
 
 export interface ValueProps {
@@ -33,6 +35,7 @@ export interface ValueProps {
 }
 
 interface InternalState {
+  theme: theming.Theme;
   render: render.Context;
   telem: telem.StringSource;
   requestRender: render.RequestF | null;
@@ -48,23 +51,30 @@ export class Value
   schema = Value.z;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(console.error);
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.render = render.Context.use(this.ctx);
-    const theme = theming.use(this.ctx);
-    if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
-    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.l8;
+    i.theme = theming.use(this.ctx);
+    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
-    i.telem = telem.useSource(this.ctx, this.state.telem, i.telem);
+    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }
 
   afterDelete(): void {
+    this.internalAfterDelete().catch(console.error);
+  }
+
+  private async internalAfterDelete(): Promise<void> {
     const { requestRender, telem, render: renderCtx } = this.internal;
-    telem.cleanup?.();
+    await telem.cleanup?.();
     if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "lower2d");
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "upper2d");
     else requestRender(render.REASON_LAYOUT);
   }
 
@@ -75,29 +85,41 @@ export class Value
   }
 
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
-    const { render: renderCtx, telem } = this.internal;
+    const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
-    const canvas = renderCtx.lower2d.applyScale(viewportScale);
+    const canvas = renderCtx.upper2d.applyScale(viewportScale);
     const value = await telem.value();
     canvas.font = this.state.font;
-    const dims = dimensions(value, this.state.font, canvas);
+    const height = theme.typography[this.state.font].size * theme.sizes.base;
+    const width = dimensions(
+      value,
+      fontString(this.internal.theme, this.state.font),
+      canvas,
+    ).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
-    if (this.state.width < dims.width)
-      this.setState((p) => ({ ...p, width: dims.width }));
+    const requiredWidth = width + theme.sizes.base * 4;
+
+    if (
+      this.state.width == null ||
+      this.state.width < requiredWidth ||
+      this.state.minWidth > requiredWidth
+    ) {
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+    }
 
     const labelPosition = xy.couple(
       xy.translate(
         box.topLeft(b),
         {
-          x: box.width(b) / 2,
+          x: 0,
           y: box.height(b) / 2,
         },
         {
-          y: dims.height / 2,
-          x: -dims.width / 2,
+          y: height / 2,
+          x: 12,
         },
       ),
     );

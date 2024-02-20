@@ -16,12 +16,25 @@
 #include "synnax/framer/framer.h"
 #include "synnax/ranger/ranger.h"
 #include "synnax/channel/channel.h"
+#include "synnax/device/device.h"
 #include "synnax/transport.h"
+#include "synnax/errors/errors.h"
 
 using namespace synnax;
 
 
 namespace synnax {
+///// @brief Internal namespace. Do not use.
+//namespace priv {
+///// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
+//void check_little_endian() {
+//    int num = 1;
+//    if (*(char *) &num == 1) return;
+//    std::cout
+//            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+//            << std::endl;
+//}
+//}
 
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
@@ -56,9 +69,12 @@ public:
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
+    /// @brief Client for managing devices and their configuration.
+    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
+//        priv::check_little_endian();
         auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file, cfg.client_key_file);
         auto auth_mw = std::make_shared<AuthMiddleware>(
                 std::move(t.auth_login), cfg.username, cfg.password);
@@ -75,6 +91,14 @@ public:
                 std::move(t.range_clear_active)
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
+        devices = DeviceClient(
+                std::move(t.rack_create_client),
+                std::move(t.rack_retrieve),
+                std::move(t.rack_delete),
+                t.module_create,
+                t.module_retrieve,
+                t.module_delete
+        );
     }
 };
 }

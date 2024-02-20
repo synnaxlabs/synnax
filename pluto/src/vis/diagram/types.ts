@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 import type * as rf from "reactflow";
 
@@ -99,15 +98,15 @@ export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
 /** Translates edges from their react-flow representation to their pluto representation */
 export const translateEdgesBackward = (
   edges: Array<rf.Edge<RFEdgeData>>,
-  defaultData?: RFEdgeData,
+  defaultColor: Color.Crude,
 ): Edge[] =>
   edges.map((edge) => {
-    if (edge.data == null) edge.data = { segments: [], selected: false };
+    if (edge.data == null) edge.data = { segments: [], color: defaultColor };
     return {
       key: edge.id,
-      segments: edge.data.segments,
-      selected: edge.selected,
-      color: edge.data?.color,
+      segments: edge.data?.segments ?? [],
+      selected: edge.selected ?? false,
+      color: edge.data?.color ?? defaultColor,
       ...edge,
     };
   });
@@ -136,4 +135,5 @@ export const nodeConverter = (
 export const edgeConverter = (
   edges: Edge[],
   f: (edges: rf.Edge[]) => rf.Edge[],
-): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)));
+  color: Color.Crude,
+): Edge[] => translateEdgesBackward(f(translateEdgesForward(edges)), color);

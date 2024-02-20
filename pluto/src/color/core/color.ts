@@ -213,6 +213,14 @@ export class Color {
     return best;
   }
 
+  get isDark(): boolean {
+    return this.luminance < 0.5;
+  }
+
+  get isLight(): boolean {
+    return !this.isDark;
+  }
+
   static readonly z = z
     .union([hexZ, rgbaZ, rgbZ, z.instanceof(Color), crudeColor])
     .transform((v) => new Color(v as string));

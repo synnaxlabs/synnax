@@ -28,14 +28,14 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("lineplot")
 	validate.NotNil(v, "DB", c.DB)

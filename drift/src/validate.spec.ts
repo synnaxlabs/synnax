@@ -17,6 +17,7 @@ describe("validate", () => {
   });
   it("should throw an error if an action type is undefined or an empty string", () => {
     expect(() => validateAction({ action: { type: "" } })).toThrowError();
+    // @ts-ignore
     expect(() => validateAction({ action: { type: undefined } })).toThrowError();
   });
   it("should not throw an error for a valid action", () => {

@@ -14,7 +14,7 @@ import { type status } from "@/status/aether";
 import { type telem } from "@/telem/aether";
 
 class Noop extends observe.Observer<void> implements telem.Telem {
-  cleanup(): void {}
+  async cleanup(): Promise<void> {}
 }
 
 class NoopBooleanSink extends Noop implements telem.BooleanSink {

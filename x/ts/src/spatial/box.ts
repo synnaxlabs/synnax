@@ -115,6 +115,11 @@ export const construct = (
   return b;
 };
 
+export const resize = (
+  b: Box,
+  dims: dimensions.Dimensions,
+): Box => construct(b.one, dims);
+
 /**
  * Checks if a box contains a point or another box.
  *

@@ -51,9 +51,27 @@ export const Date = (): ReactElement => {
   );
 };
 
+export const DateTime = (): ReactElement => {
+  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  return (
+    <>
+      <Input.DateTime value={value} onChange={setValue} />;
+      <Text.DateTime level="h1" format="dateTime" suppliedTZ="UTC" displayTZ="UTC">
+        {value}
+      </Text.DateTime>
+      <h1>{new TimeStamp(value).fString("ISO", "UTC")}</h1>
+    </>
+  );
+};
+
 export const Number = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
   return <Input.Numeric value={value} onChange={setValue} />;
+};
+
+export const TextArea = (): ReactElement => {
+  const [value, setValue] = useState("");
+  return <Input.TextArea value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

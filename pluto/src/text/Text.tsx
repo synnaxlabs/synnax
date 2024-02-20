@@ -12,44 +12,51 @@ import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
-import { type Level } from "@/text/types";
+import { type text } from "@/text/core";
 
 import "@/text/Text.css";
 
-export interface CoreProps<L extends Level = "h1"> {
+/* Shade sets the shade color of the text */
+export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
+export interface CoreProps<L extends text.Level = text.Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
-  children?: (string | number) | Array<string | number>;
+  children?: (string | number | boolean) | Array<string | number | boolean>;
   /* The color of the text */
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
+  shade?: Shade;
+  /* Weight sets the weight of the text */
+  weight?: number;
 }
 
-export type TextProps<L extends Level = "h1"> = Omit<
+export type TextProps<L extends text.Level = text.Level> = Omit<
   Generic.ElementProps<L>,
   "el" | "color" | "children"
 > &
   CoreProps<L>;
 
-const CoreText = <L extends Level = "h1">(
+const CoreText = <L extends text.Level = text.Level>(
   {
-    level = "h1" as L,
+    level = "p",
     color,
     className,
     style,
     children,
     noWrap = false,
+    shade,
+    weight,
     ...props
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>,
 ): ReactElement => (
-  // @ts-expect-error
   <Generic.Element<L>
     el={level}
     ref={ref}
-    style={{ color: Color.cssString(color), ...style }}
+    style={{ color: evalColor(color, shade), fontWeight: weight, ...style }}
     className={CSS(CSS.B("text"), CSS.BM("text", level), CSS.noWrap(noWrap), className)}
     {...props}
   >
@@ -57,6 +64,12 @@ const CoreText = <L extends Level = "h1">(
   </Generic.Element>
 );
 
-export const Text = forwardRef(CoreText) as <L extends Level = "h1">(
+export const Text = forwardRef(CoreText) as <L extends text.Level = text.Level>(
   props: TextProps<L>,
 ) => ReactElement;
+
+const evalColor = (color?: Color.Crude, shade?: number): string | undefined => {
+  if (color != null) return Color.cssString(color);
+  if (shade != null) return Color.cssString(`var(--pluto-gray-l${shade})`);
+  return undefined;
+};

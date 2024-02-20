@@ -12,38 +12,48 @@ import { type CSSProperties, type ReactElement, useCallback, useEffect } from "r
 import { control as clientControl } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { TimeStamp } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { Button } from "@/button";
+import { CSS } from "@/css";
 import { useMemoDeepEqualProps } from "@/memo";
 import { type Status } from "@/status";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 
 export interface ChipProps
-  extends Pick<typeof control.chipStateZ, "source" | "sink">,
+  extends Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,
     Omit<Button.IconProps, "onClick" | "children"> {}
 
 interface ChipStyle {
   message: string;
   chipColor: string;
   buttonStyle?: CSSProperties;
+  disabled?: boolean;
 }
 
 const tooltipMessage = (status: Status.Spec): ChipStyle => {
   switch (status.variant) {
     case "disabled":
+      if (status.data?.valid === true)
+        return {
+          message: "Uncontrolled. Click to take control.",
+          chipColor: "var(--pluto-gray-l10)",
+        };
       return {
-        message: "Uncontrolled. Click to take control.",
-        chipColor: "var(--pluto-gray-l10)",
+        message: "No channel connected",
+        chipColor: "var(--pluto-gray-l5)",
+        disabled: true,
       };
+
     case "error":
       return {
         message: "Not controlled by you. Click to take absolute control.",
         chipColor: "var(--pluto-error-z)",
       };
     case "success":
-      if (status.data?.authority === clientControl.Authority.ABSOLUTE)
+      if (status.data?.authority === clientControl.Authority.ABSOLUTE.valueOf())
         return {
           message: "You have absolute control. Click to release.",
           chipColor: "var(--pluto-secondary-z)",
@@ -65,7 +75,7 @@ const tooltipMessage = (status: Status.Spec): ChipStyle => {
 
 export const Chip = Aether.wrap<ChipProps>(
   "Chip",
-  ({ aetherKey, source, sink, ...props }): ReactElement => {
+  ({ aetherKey, source, sink, className, ...props }): ReactElement => {
     const memoProps = useMemoDeepEqualProps({ source, sink });
     const [, { status }, setState] = Aether.use({
       aetherKey,
@@ -96,11 +106,13 @@ export const Chip = Aether.wrap<ChipProps>(
       [setState],
     );
 
-    const { message, chipColor, buttonStyle } = tooltipMessage(status);
+    const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
 
     return (
       <Button.Icon
         variant="text"
+        className={CSS(CSS.B("control-chip"), className)}
+        disabled={disabled}
         onClick={handleToggle}
         tooltip={<Text.Text level="small">{message}</Text.Text>}
         style={buttonStyle}

@@ -13,7 +13,10 @@ import React, {
   type ReactNode,
   useContext,
   useState,
+  useCallback,
 } from "react";
+
+import { direction } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -55,10 +58,13 @@ export const useStatic = ({
 }: UseStaticTabsProps): TabsContextValue => {
   const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
 
-  const handleSelect = (key: string): void => {
-    setSelected(key);
-    onSelect?.(key);
-  };
+  const handleSelect = useCallback(
+    (key: string): void => {
+      setSelected(key);
+      onSelect?.(key);
+    },
+    [setSelected, onSelect],
+  );
 
   return {
     tabs,
@@ -114,6 +120,7 @@ export const Tabs = ({
   onDragOver,
   onDrop,
   size = "medium",
+  direction: dir = "y",
   ...props
 }: TabsProps): ReactElement => (
   <Align.Space
@@ -121,6 +128,7 @@ export const Tabs = ({
     className={CSS(CSS.B("tabs"), className)}
     onDragOver={onDragOver}
     onDrop={onDrop}
+    direction={dir}
     {...props}
   >
     <TabsContext.Provider
@@ -139,7 +147,7 @@ export const Tabs = ({
         onDrop,
       }}
     >
-      <Selector size={size} />
+      <Selector size={size} direction={direction.swap(dir)} />
       <Content />
     </TabsContext.Provider>
   </Align.Space>
@@ -164,7 +172,12 @@ export const Content = (): ReactElement | null => {
     <div
       className={CSS.B("tabs-content")}
       onClick={() => onSelect?.(selected)}
-      style={{ width: "100%", height: "100%" }}
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        overflow: "hidden",
+      }}
     >
       {content}
     </div>

@@ -98,7 +98,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     >
       <ToolbarHeader>
         <ToolbarTitle icon={<Icon.PID />}>{name}</ToolbarTitle>
-        <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
+        <Tabs.Selector style={{ borderBottom: "none" }} />
       </ToolbarHeader>
       <Tabs.Content />
     </Tabs.Provider>

@@ -14,6 +14,8 @@ import { Align, Synnax } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
+import { Cluster } from "@/cluster";
+import { NewDevice } from "@/hardware/device/new";
 import { Layout } from "@/layout";
 import { usePlacer } from "@/layout/hooks";
 import {
@@ -50,6 +52,9 @@ export const LayoutMain = (): ReactElement => {
   const client = Synnax.use();
   const store = useStore();
   const placer = usePlacer();
+  // NewDevice.useListenForChanges();
+
+  Cluster.useLocalServer();
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {

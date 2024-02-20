@@ -43,6 +43,7 @@ const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   pid: PID.Toolbar,
   lineplot: LinePlot.Toolbar,
   table: Table.Toolbar,
+  hardwareStatus: () => <></>,
   vis: SelectVis,
 };
 const NoVis = (): ReactElement => {

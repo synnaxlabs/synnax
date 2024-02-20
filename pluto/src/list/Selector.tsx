@@ -7,53 +7,94 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
-
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
-
 import {
-  useSelectMultiple,
-  type UseSelectMultipleProps,
-} from "@/hooks/useSelectMultiple";
-import { useContext } from "@/list/Context";
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useMemo,
+  type ReactElement,
+} from "react";
 
-export interface SelectorProps<
+import { type Key, type KeyedRenderableRecord, nullToArr } from "@synnaxlabs/x";
+
+import { useSyncedRef } from "@/hooks";
+import { useGetTransformedData } from "@/list/Data";
+import { useSelect, type UseSelectProps } from "@/list/useSelect";
+
+interface SelectContextValue<K extends Key = Key> {
+  selected: K[];
+}
+
+interface SelectUtilContextValue<K extends Key = Key> {
+  onSelect: (key: K) => void;
+  clear: () => void;
+  getSelected: () => K[];
+}
+
+export type SelectorProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<UseSelectMultipleProps<K, E>, "data"> {}
+> = PropsWithChildren<Omit<UseSelectProps<K, E>, "data">>;
+
+const SelectionContext = createContext<SelectContextValue>({
+  selected: [],
+});
+
+const SelectionUtilContext = createContext<SelectUtilContextValue>({
+  onSelect: () => {},
+  clear: () => {},
+  getSelected: () => [],
+});
+
+export const useSelectionContext = <K extends Key = Key>(): SelectContextValue<K> =>
+  useContext(SelectionContext) as unknown as SelectContextValue<K>;
+
+export const useSelection = <K extends Key = Key>(): K[] =>
+  useSelectionContext<K>().selected;
+
+export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue<K> =>
+  useContext(SelectionUtilContext) as unknown as SelectUtilContextValue<K>;
 
 /**
  * Implements selection behavior for a list.
  *
  * @param props - The props for the List.Selector component. These props are identical
- * to the props for {@link useSelectMultiple} hook.
+ * to the props for {@link useSelect} hook.
  */
 export const Selector = <
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   value,
+  children,
   ...props
-}: SelectorProps<K, E>): null => {
-  const {
-    data,
-    select: { setOnSelect, setClear, onChange },
-  } = useContext<K, E>();
-
-  const { onSelect, clear } = useSelectMultiple({
-    data,
+}: SelectorProps<K, E>): ReactElement => {
+  const getData = useGetTransformedData<K, E>();
+  const { onSelect, clear } = useSelect<K, E>({
+    data: getData,
     value,
     ...props,
-  });
-
-  useEffect(() => {
-    setOnSelect(() => onSelect);
-    setClear(() => clear);
-  }, [onSelect, clear]);
-
-  useEffect(() => {
-    onChange(value);
-  }, [value]);
-
-  return null;
+  } as const as UseSelectProps<K, E>);
+  const selectedRef = useSyncedRef(value);
+  const ctxValue: SelectContextValue<K> = useMemo(
+    () => ({ selected: nullToArr(value) }),
+    [value],
+  );
+  const utilCtxValue: SelectUtilContextValue<K> = useMemo(
+    () => ({
+      onSelect,
+      clear,
+      getSelected: () => nullToArr(selectedRef.current),
+    }),
+    [onSelect, clear],
+  );
+  return (
+    <SelectionUtilContext.Provider
+      value={utilCtxValue as unknown as SelectUtilContextValue}
+    >
+      <SelectionContext.Provider value={ctxValue as unknown as SelectContextValue}>
+        {children}
+      </SelectionContext.Provider>
+    </SelectionUtilContext.Provider>
+  );
 };

@@ -46,7 +46,7 @@ const setLayoutReqZ = z.object({
 
 const setLayoutResZ = z.object({});
 
-export type Response = z.infer<typeof createResZ>;
+export type CreateResponse = z.infer<typeof createResZ>;
 
 const CREATE_ENDPOINT = "/workspace/create";
 const DELETE_ENDPOINT = "/workspace/delete";

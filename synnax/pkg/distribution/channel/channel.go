@@ -62,8 +62,6 @@ func (c Key) Bytes() []byte {
 	return b
 }
 
-const strKeySep = "-"
-
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
 

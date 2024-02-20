@@ -32,20 +32,27 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
   schema = toggleStateZ;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(console.error);
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { sink: sinkProps, source: sourceProps } = this.state;
-    this.internal.source = telem.useSource(this.ctx, sourceProps, this.internal.source);
-    this.internal.sink = telem.useSink(this.ctx, sinkProps, this.internal.sink);
+    this.internal.source = await telem.useSource(
+      this.ctx,
+      sourceProps,
+      this.internal.source,
+    );
+    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
 
-    if (this.state.triggered && !this.prevState.triggered)
+    if (this.state.triggered && !this.prevState.triggered) {
       this.internal.sink.set(!this.state.enabled).catch(console.error);
+    }
 
-    void (async () => {
-      await this.updateEnabledState();
-      this.internal.stopListening?.();
-      this.internal.stopListening = this.internal.source.onChange(() => {
-        void this.updateEnabledState();
-      });
-    })();
+    await this.updateEnabledState();
+    this.internal.stopListening?.();
+    this.internal.stopListening = this.internal.source.onChange(() => {
+      void this.updateEnabledState();
+    });
   }
 
   private async updateEnabledState(): Promise<void> {
@@ -55,8 +62,13 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
   }
 
   afterDelete(): void {
-    this.internal.source.cleanup?.();
-    this.internal.sink.cleanup?.();
+    this.internalAfterDelete().catch(console.error);
+  }
+
+  private async internalAfterDelete(): Promise<void> {
+    this.internal.stopListening();
+    await this.internal.source.cleanup?.();
+    await this.internal.sink.cleanup?.();
   }
 
   render(): void {}

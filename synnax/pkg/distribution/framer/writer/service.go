@@ -117,7 +117,7 @@ func (c Config) toStorage() ts.WriterConfig {
 	}
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
@@ -129,7 +129,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
@@ -168,18 +168,18 @@ var (
 	DefaultServiceConfig = ServiceConfig{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
-	validate.NotNil(v, "HostResolver", cfg.HostResolver)
+	validate.NotNil(v, "HostProvider", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
 	//validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)

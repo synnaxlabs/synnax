@@ -45,13 +45,14 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
   selection: {
     parent: Tree.Node;
     resources: ontology.Resource[];
-    nodes: Tree.NodeWithDepth[];
+    nodes: Tree.NodeWithPosition[];
   };
   state: {
     resources: ontology.Resource[];
     nodes: Tree.Node[];
     setNodes: (nodes: Tree.Node[]) => void;
     setResources: (resources: ontology.Resource[]) => void;
+    setSelection: (keys: string[]) => void;
   };
 }
 

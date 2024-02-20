@@ -16,7 +16,7 @@ import { useMenuContext } from "@/menu/Menu";
 import "@/menu/Item.css";
 
 const menuItemFactory =
-  <E extends Pick<Button.ButtonProps, "className" | "onClick">>(
+  <E extends Pick<Button.ButtonProps, "className" | "onClick" | "size">>(
     Base: FunctionComponent<E>,
     defaultProps?: Partial<E>,
   ): FunctionComponent<E & { itemKey: string }> =>

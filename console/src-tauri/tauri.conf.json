@@ -8,11 +8,21 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.15.2"
+    "version": "0.16.0"
   },
   "tauri": {
     "allowlist": {
-      "all": true
+      "all": true,
+      "shell": {
+        "sidecar": true,
+        "scope": [
+          {
+            "name": "bin/sy",
+            "sidecar": true,
+            "args": ["start", "-i", "-l","localhost:9090", "-d", "~/.console/synnax/data"]
+          }
+        ]
+      }
     },
     "bundle": {
       "active": true,
@@ -21,7 +31,9 @@
       "deb": {
         "depends": []
       },
-      "externalBin": [],
+      "externalBin": [
+            "bin/sy"
+      ],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -68,7 +80,7 @@
         "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": true,
+        "visible": false,
         "acceptFirstMouse": false
       }
     ]

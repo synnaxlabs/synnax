@@ -15,12 +15,13 @@ import {
   useRef,
 } from "react";
 
-import { box, direction, xy } from "@synnaxlabs/x";
+import { box, direction, location, xy } from "@synnaxlabs/x";
 import {
   BaseEdge,
   type EdgeProps as RFEdgeProps,
   useReactFlow,
   type ConnectionLineComponentProps,
+  type Position,
 } from "reactflow";
 
 import { Color } from "@/color";
@@ -31,8 +32,6 @@ import { type Key } from "@/triggers/triggers";
 import { connector } from "@/vis/diagram/edge/connector";
 
 import { selectNodeBox } from "../util";
-
-import { calculateLineDirection } from "@/vis/diagram/edge/edgeUtils";
 
 import "@/vis/diagram/edge/Edge.css";
 
@@ -61,8 +60,10 @@ export const CustomConnectionLine = ({
   // select an element with 'react-flow__handle-connecting' class
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
-  if (toNodeHandle != null) toPosition = toNodeHandle[1];
-
+  if (toNodeHandle != null) {
+    const res = location.outer.safeParse(toNodeHandle[1]);
+    if (res.success) toPosition = res.data as Position;
+  }
   const conn = connector.buildNew({
     sourcePos: xy.construct(fromX, fromY),
     targetPos: xy.construct(toX, toY),
@@ -119,17 +120,18 @@ export const Edge = ({
   const targetPosEq = xy.equals(targetPos, targetPosRef.current);
 
   const flow = useReactFlow();
-  const [segments, setSegments, segRef] = useCombinedStateAndRef<Segment[]>(() =>
-    propsSegments.length > 0
-      ? propsSegments
-      : connector.buildNew({
-          sourcePos,
-          targetPos,
-          sourceOrientation,
-          targetOrientation,
-          sourceBox: selectNodeBox(flow, source),
-          targetBox: selectNodeBox(flow, target),
-        }),
+  const [segments, setSegments, segRef] = useCombinedStateAndRef<connector.Segment[]>(
+    () =>
+      propsSegments.length > 0
+        ? propsSegments
+        : connector.buildNew({
+            sourcePos,
+            targetPos,
+            sourceOrientation,
+            targetOrientation,
+            sourceBox: selectNodeBox(flow, source),
+            targetBox: selectNodeBox(flow, target),
+          }),
   );
 
   const targetOrientationRef = useRef(targetOrientation);
@@ -234,7 +236,6 @@ export const Edge = ({
       <BaseEdge
         path={calcPath(points)}
         style={{ ...style, stroke: Color.cssString(color) }}
-        interactionWidth={6}
         {...props}
       />
       {selected &&

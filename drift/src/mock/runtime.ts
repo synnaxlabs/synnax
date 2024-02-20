@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
 import { Event, Runtime } from "@/runtime";
 import { StoreState } from "@/state";
 import { WindowProps } from "@/window";
 import { dimensions, xy } from "@synnaxlabs/x";
 
-export class MockRuntime<S extends StoreState, A extends Action = AnyAction>
+export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
   implements Runtime<S, A>
 {
   _isMain = false;

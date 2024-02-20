@@ -20,16 +20,25 @@ export interface ToggleExtensionProps extends Input.Control<boolean> {
 }
 
 const toggleFactory =
-  <E extends Pick<ButtonProps, "className" | "variant">>(
+  <E extends Pick<ButtonProps, "className" | "variant" | "onClick">>(
     Base: FunctionComponent<E>,
   ): FunctionComponent<Omit<E, "value" | "onChange"> & ToggleExtensionProps> =>
   // eslint-disable-next-line react/display-name
-  ({ value, checkedVariant = "filled", uncheckedVariant = "outlined", ...props }) => (
+  ({
+    value,
+    onClick,
+    checkedVariant = "filled",
+    uncheckedVariant = "outlined",
+    ...props
+  }) => (
     // @ts-expect-error
     <Base
       {...props}
       checked={value}
-      onClick={() => props.onChange(!value)}
+      onClick={(e) => {
+        onClick?.(e);
+        props.onChange(!value);
+      }}
       className={CSS(CSS.B("btn-toggle"), props.className)}
       variant={value ? checkedVariant : uncheckedVariant}
     />

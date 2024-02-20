@@ -15,6 +15,7 @@ import { render } from "@/vis/render";
 
 export const eraserStateZ = z.object({
   region: box.box,
+  enabled: z.boolean().optional().default(false),
 });
 
 interface InternalState {
@@ -28,8 +29,9 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
   private readonly eraser: render.Eraser = new render.Eraser();
 
   afterUpdate(): void {
+    if (this.deleted) return;
     this.internal.render = render.Context.use(this.ctx);
-    this.internal.render.loop.set({
+    void this.internal.render.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",
@@ -37,16 +39,24 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
     });
   }
 
-  async render(): Promise<render.Cleanup> {
-    return async ({ canvases }) => {
-      this.eraser.erase(
-        this.internal.render,
-        this.state.region,
-        this.prevState.region,
-        xy.construct(0),
-        canvases,
-      );
-    };
+  afterDelete(): void {
+    void this.internal.render.loop.set({
+      key: `${this.type}-${this.key}`,
+      render: this.render.bind(this),
+      priority: "high",
+      canvases: ["gl", "lower2d", "upper2d"],
+    });
+  }
+
+  async render(): Promise<undefined> {
+    if (this.deleted || !this.state.enabled) return;
+    this.internal.render.erase(
+      this.state.region,
+      xy.construct(0),
+      "gl",
+      "lower2d",
+      "upper2d",
+    );
   }
 }
 

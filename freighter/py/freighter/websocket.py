@@ -172,7 +172,6 @@ class WebsocketClient(AsyncMiddlewareCollector):
             try:
                 if self.__secure and "ssl" not in self.__kwargs:
                     self.__kwargs["ssl"] = ssl._create_unverified_context()
-                print("PING TIMEOUT: 180")
                 ws = await connect(
                     self.__endpoint.child(target).stringify(),
                     extra_headers=headers,

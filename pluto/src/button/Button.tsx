@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC, type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { type Optional, toArray } from "@synnaxlabs/x";
+import { TimeSpan, toArray } from "@synnaxlabs/x";
 
 import { type Align } from "@/align";
-import { type SpaceElementType } from "@/align/Space";
 import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Text } from "@/text";
@@ -38,15 +37,18 @@ export interface BaseProps
     ButtonExtensionProps {}
 
 /** The props for the {@link Button} component. */
-export type ButtonProps<E extends SpaceElementType = "button"> = Optional<
-  Omit<Text.WithIconProps<E>, "size" | "startIcon" | "endIcon">,
-  "level"
+export type ButtonProps = Omit<
+  Text.WithIconProps<"button">,
+  "size" | "startIcon" | "endIcon" | "level"
 > &
-  ButtonExtensionProps & {
+  ButtonExtensionProps &
+  BaseProps & {
+    level?: Text.Level;
     startIcon?: ReactElement | ReactElement[];
     endIcon?: ReactElement | ReactElement[];
     iconSpacing?: Align.SpaceProps["size"];
     disabled?: boolean;
+    delay?: number | TimeSpan;
   };
 
 /**
@@ -63,10 +65,11 @@ export type ButtonProps<E extends SpaceElementType = "button"> = Optional<
  * @param props.endIcon - The same as {@link startIcon}, but renders after the button
  * text.
  */
-export const Core = Tooltip.wrap(
-  <E extends SpaceElementType>({
+export const Button = Tooltip.wrap(
+  ({
     size = "medium",
     variant = "filled",
+    type = "button",
     className,
     children,
     iconSpacing,
@@ -75,14 +78,21 @@ export const Core = Tooltip.wrap(
     loading = false,
     level,
     startIcon = [] as ReactElement[],
+    delay = 0,
     onClick,
     ...props
-  }: ButtonProps<E>): ReactElement => {
+  }: ButtonProps): ReactElement => {
     if (loading) startIcon = [...toArray(startIcon), <Icon.Loading key="loader" />];
     if (iconSpacing == null) iconSpacing = size === "small" ? "small" : "medium";
+
+    const handleClick: ButtonProps["onClick"] = (e) => {
+      if (disabled) return;
+      const span = delay instanceof TimeSpan ? delay : TimeSpan.milliseconds(delay);
+      if (span.isZero) return onClick?.(e);
+    };
+
     return (
-      // @ts-expect-error
-      <Text.WithIcon<E, any>
+      <Text.WithIcon<"button", any>
         el="button"
         className={CSS(
           CSS.B("btn"),
@@ -92,11 +102,12 @@ export const Core = Tooltip.wrap(
           CSS.BM("btn", variant),
           className,
         )}
+        type={type}
         level={level ?? Text.ComponentSizeLevels[size]}
         size={iconSpacing}
-        onClick={!disabled ? onClick : undefined}
+        onClick={handleClick}
         noWrap
-        color={color(variant, disabled, props.color)}
+        color={color(variant, disabled, props.color, props.shade)}
         startIcon={startIcon}
         {...props}
       >
@@ -105,7 +116,3 @@ export const Core = Tooltip.wrap(
     );
   },
 );
-
-export const Button = Core as <E extends SpaceElementType = "button">(
-  props: ButtonProps<E>,
-) => ReactElement;

@@ -62,8 +62,8 @@ class MemoizedSource<V> implements telem.Source<V> {
     return await this.wrapped.value();
   }
 
-  cleanup(): void {
-    this.wrapped.cleanup?.();
+  async cleanup(): Promise<void> {
+    await this.wrapped.cleanup?.();
   }
 
   onChange(handler: Handler<void>): Destructor {
@@ -90,8 +90,8 @@ class MemoizedSink<V> implements telem.Sink<V> {
     return await this.wrapped.set(value);
   }
 
-  cleanup(): void {
-    this.wrapped.cleanup?.();
+  async cleanup(): Promise<void> {
+    await this.wrapped.cleanup?.();
   }
 
   shouldUpdate(prov: Provider, spec: Spec): boolean {
@@ -99,28 +99,28 @@ class MemoizedSink<V> implements telem.Sink<V> {
   }
 }
 
-export const useSource = <V>(
+export const useSource = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: telem.Source<V>,
-): telem.Source<V> => {
+): Promise<telem.Source<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    prev.cleanup?.();
+    await prev.cleanup?.();
   }
   return new MemoizedSource<V>(prov.create(spec), prov, spec);
 };
 
-export const useSink = <V>(
+export const useSink = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: telem.Sink<V>,
-): telem.Sink<V> => {
+): Promise<telem.Sink<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
-    prev.cleanup?.();
+    await prev.cleanup?.();
   }
   return new MemoizedSink<V>(prov.create(spec), prov, spec);
 };

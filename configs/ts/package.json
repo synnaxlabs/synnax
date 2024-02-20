@@ -1,7 +1,7 @@
 {
     "name": "@synnaxlabs/tsconfig",
     "version": "0.0.1",
-    "private": true,
+    "private": false,
     "publishConfig": {
         "access": "public"
     },

@@ -15,12 +15,13 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
+import { type CompoundTelemFactory } from "@/telem/aether/factory";
 import { client } from "@/telem/client";
 
-import { type CompoundTelemFactory } from "./factory";
-
 export type ProviderState = z.input<typeof providerStateZ>;
-export const providerStateZ = z.object({});
+export const providerStateZ = z.object({
+  invalidateCacheCmd: z.number().optional().default(0),
+});
 
 interface InternalState {
   instrumentation: Instrumentation;

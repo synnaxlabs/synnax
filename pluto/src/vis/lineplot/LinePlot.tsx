@@ -28,7 +28,11 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps, useEffectCompare } from "@/hooks";
+import {
+  useMemoDeepEqualProps,
+  useEffectCompare,
+  useCombinedStateAndRef,
+} from "@/hooks";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
@@ -112,7 +116,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     hold,
     ...props
   }): ReactElement => {
-    const [lines, setLines] = useState<LineState>([]);
+    const [lines, setLines, linesRef] = useCombinedStateAndRef<LineState>([]);
 
     const aetherMemoProps = useMemoDeepEqualProps({ clearOverscan, hold });
 
@@ -187,9 +191,10 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     );
 
     const setLine = useCallback(
-      (meta: LineSpec) =>
-        setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
-      [setLines],
+      (meta: LineSpec) => {
+        setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
+      },
+      [setLines, setViewport],
     );
 
     const removeLine = useCallback(

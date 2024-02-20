@@ -328,6 +328,11 @@ export class TimeStamp extends Number implements Stringer {
     return remainder(this, divisor);
   }
 
+  /** @returns true if the day portion TimeStamp is today, false otherwise. */
+  get isToday(): boolean {
+    return this.truncate(TimeSpan.DAY).equals(TimeStamp.now().truncate(TimeSpan.DAY));
+  }
+
   truncate(span: TimeSpan | TimeStamp): TimeStamp {
     return this.sub(this.remainder(span));
   }
@@ -893,6 +898,15 @@ export class TimeRange implements Stringer {
     return this.start.beforeEq(other) && this.end.after(other);
   }
 
+  boundBy(other: TimeRange): TimeRange {
+    const next = new TimeRange(this.start, this.end);
+    if (other.start.after(this.start)) next.start = other.start;
+    if (other.start.after(this.end)) next.end = other.start;
+    if (other.end.before(this.end)) next.end = other.end;
+    if (other.end.before(this.start)) next.start = other.end;
+    return next;
+  }
+
   /** The maximum possible time range. */
   static readonly MAX = new TimeRange(TimeStamp.MIN, TimeStamp.MAX);
 
@@ -1058,6 +1072,25 @@ export class DataType extends String implements Stringer {
     [DataType.JSON.toString(), Density.UNKNOWN],
     [DataType.UUID.toString(), Density.BIT128],
   ]);
+
+  /** All the data types. */
+  static readonly ALL = [
+    DataType.UNKNOWN,
+    DataType.FLOAT64,
+    DataType.FLOAT32,
+    DataType.INT64,
+    DataType.INT32,
+    DataType.INT16,
+    DataType.INT8,
+    DataType.UINT64,
+    DataType.UINT32,
+    DataType.UINT16,
+    DataType.UINT8,
+    DataType.TIMESTAMP,
+    DataType.UUID,
+    DataType.STRING,
+    DataType.JSON,
+  ];
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];
 

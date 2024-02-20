@@ -20,5 +20,5 @@
 .pluto-canvas--upper2d {
     /* pass through all user events */
     pointer-events: none;
-    z-index: 7;
+    z-index: 3;
 }

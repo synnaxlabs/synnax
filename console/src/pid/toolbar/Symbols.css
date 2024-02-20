@@ -26,7 +26,7 @@
     max-height: 110px;
     margin: 1rem 0.5rem;
 
-    & small {
+    & > small {
         color: var(--pluto-gray-l7) !important;
     }
 

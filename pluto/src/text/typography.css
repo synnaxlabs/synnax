@@ -21,7 +21,8 @@ li,
 th,
 td,
 text,
-input {
+input,
+textarea {
     font-family: var(--pluto-font-family);
     color: var(--pluto-text-color);
     fill: var(--pluto-text-color);
@@ -29,25 +30,26 @@ input {
     margin: 0;
 }
 
-h1 {
+
+h1,.pluto-text--h1 {
     font-size: var(--pluto-h1-size);
     line-height: var(--pluto-h1-line-height);
     font-weight: var(--pluto-h1-weight);
 }
 
-h2 {
+h2,.pluto-text--h2 {
     font-size: var(--pluto-h2-size);
     line-height: var(--pluto-h2-line-height);
     font-weight: var(--pluto-h2-weight);
 }
 
-h3 {
+h3,.pluto-text--h3 {
     font-size: var(--pluto-h3-size);
     line-height: var(--pluto-h3-line-height);
     font-weight: var(--pluto-h3-weight);
 }
 
-h4 {
+h4,.pluto-text--h4 {
     font-size: var(--pluto-h4-size);
     line-height: var(--pluto-h4-line-height);
     font-weight: var(--pluto-h4-weight);

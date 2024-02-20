@@ -10,7 +10,8 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Status, PID, Color, Input, Align, Button, Diagram } from "@synnaxlabs/pluto";
+import { Status, PID, Input, Align, Button, Diagram } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
 import { box, location, xy } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
@@ -89,11 +90,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       .filter((el) => el !== null) as Diagram.NodeLayout[];
 
     return (
-      <Align.Space
-        className={CSS.B("pid-properties-multi")}
-        align="start"
-        direction="x"
-      >
+      <Align.Space className={CSS.B("pid-properties-pad")} align="start" direction="x">
         <Input.Item label="Selection Colors" align="start">
           <Align.Space direction="y">
             {Object.entries(groups).map(([hex, elements]) => {
@@ -153,16 +150,8 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
 
   const selected = elements[0];
 
-  if (selected.type === "edge") {
-    return (
-      <Color.Swatch
-        value={selected.edge.color ?? Color.ZERO}
-        onChange={(color) => {
-          handleChange(selected.key, { color: color.hex });
-        }}
-      />
-    );
-  }
+  if (selected.type === "edge")
+    return <EdgeProperties edge={selected} onChange={handleChange} />;
 
   const C = PID.SYMBOLS[selected.props.variant as PID.Variant];
 
@@ -173,6 +162,27 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
         value={selected.props}
         onChange={(props) => handleChange(selected.key, props)}
       />
+    </Align.Space>
+  );
+};
+
+interface EdgePropertiesProps {
+  edge: ElementInfo;
+  onChange: (key: string, props: any) => void;
+}
+
+const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
+  if (edge.type !== "edge") return <></>;
+  return (
+    <Align.Space className={CSS.B("pid-properties-pad")} size="small" align="start">
+      <Input.Item label="Color" align="start">
+        <Color.Swatch
+          value={edge.edge.color ?? Color.ZERO}
+          onChange={(color) => {
+            onChange(edge.key, { color: color.hex });
+          }}
+        />
+      </Input.Item>
     </Align.Space>
   );
 };

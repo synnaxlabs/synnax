@@ -7,39 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { useCallback, type ReactElement } from "react";
 
 import { direction } from "@synnaxlabs/x";
 import {
   type UseControllerProps,
   useController,
-  type FieldValues,
-  type FieldPath,
+  useFormContext,
 } from "react-hook-form";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
+import { Text } from "@/input/Text";
 import { type Control, type Value } from "@/input/types";
 import { camelToTitle } from "@/util/case";
-
-import { type RenderProp } from "..";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/input/Item.css";
-
-interface ItemExtensionProps extends Align.SpaceExtensionProps {
-  label?: string;
-  showLabel?: boolean;
-  helpText?: string;
-  className?: string;
-  style?: React.CSSProperties;
-}
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
   showLabel?: boolean;
   helpText?: string;
+  padHelpText?: boolean;
 }
 
 const maybeDefaultAlignment = (
@@ -59,6 +51,7 @@ export const Item = ({
   children,
   align,
   size = "small",
+  padHelpText = false,
   ...props
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
@@ -66,15 +59,15 @@ export const Item = ({
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
-        {helpText != null && <HelpText>{helpText}</HelpText>}
+        {(padHelpText || helpText != null) && <HelpText>{helpText}</HelpText>}
       </Align.Space>
     );
   else
     inputAndHelp = (
-      <>
+      <Align.Space direction="y" size={1 / 3}>
         {children}
-        {helpText != null && <HelpText>{helpText}</HelpText>}
-      </>
+        {(padHelpText || helpText != null) && <HelpText>{helpText}</HelpText>}
+      </Align.Space>
     );
 
   return (
@@ -94,38 +87,53 @@ export const Item = ({
 export type ItemControlledProps<
   I extends Value = string | number,
   O extends Value = I,
-  F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>,
-> = ItemExtensionProps &
-  UseControllerProps<F, TName> & {
-    children: RenderProp<Control<I, O>>;
+> = Omit<ItemProps, "children"> &
+  Omit<UseControllerProps<any, string>, "controller"> & {
+    children?: RenderProp<
+      Control<I, O> & { onBlur?: () => void; ref?: React.Ref<any> }
+    >;
+    alsoValidate?: string[];
+    padHelpText?: boolean;
   };
 
-export const ItemControlled = <
-  I extends Value = string | number,
-  O extends Value = I,
-  F extends FieldValues = FieldValues,
-  TName extends FieldPath<F> = FieldPath<F>,
->({
+const defaultChild = componentRenderProp(Text);
+
+export const HFItem = <I extends Value = string | number, O extends Value = I>({
   name,
   rules,
-  control,
   shouldUnregister,
   defaultValue,
   label,
-  children,
+  children = defaultChild as unknown as RenderProp<Control<I, O>>,
+  alsoValidate,
+  padHelpText = true,
+  ref: _,
   ...props
-}: ItemControlledProps<I, O, F, TName>): ReactElement => {
-  const { field, fieldState } = useController<F, TName>({
-    control,
+}: ItemControlledProps<I, O>): ReactElement => {
+  const { field, fieldState } = useController({
     rules,
     name,
-    shouldUnregister,
   });
+  const { trigger } = useFormContext();
   if (label == null) label = camelToTitle(name);
+
+  const handleBlur = useCallback(() => {
+    field.onBlur();
+    if (alsoValidate != null) void trigger(alsoValidate);
+  }, [field.onBlur, trigger, alsoValidate, name]);
+
   return (
-    <Item ref={field.ref} label={label} helpText={fieldState.error?.message} {...props}>
-      {children({ value: field.value, onChange: field.onChange })}
+    <Item
+      label={label}
+      padHelpText={padHelpText}
+      helpText={fieldState.error?.message}
+      {...props}
+    >
+      {children({
+        onChange: field.onChange,
+        value: field.value,
+        onBlur: handleBlur,
+      })}
     </Item>
   );
 };

@@ -33,7 +33,7 @@ export interface ConfigProps
 }
 
 const ZERO_TOOLTIP_CONFIG: ContextValue = {
-  delay: TimeSpan.milliseconds(400),
+  delay: TimeSpan.milliseconds(750),
   startAccelerating: () => {},
 };
 

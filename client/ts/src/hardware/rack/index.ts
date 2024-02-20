@@ -1,0 +1,1 @@
+export * as rack from "@/hardware/rack/external";

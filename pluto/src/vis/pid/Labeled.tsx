@@ -53,24 +53,28 @@ export const Labeled = forwardRef<HTMLDivElement, LabeledProps>(
           marginTop: orientation === "top" ? 1 : 0,
           ...style,
         }}
-        align="center"
-        justify="center"
+        size={2 / 3}
         direction={orientation}
         ref={ref}
         className={CSS(CSS.B("symbol"), className)}
+        align="center"
+        justify="center"
         {...props}
       >
-        <Text.Editable
-          value={value}
-          onChange={useCallback(
-            (label) =>
-              onChange({
-                label: { label, level, orientation },
-              }),
-            [onChange, level],
-          )}
-          level={level}
-        />
+        {value.length > 0 && (
+          <Text.Editable
+            className={CSS.BE("symbol", "label")}
+            value={value}
+            onChange={useCallback(
+              (label) =>
+                onChange({
+                  label: { label, level, orientation },
+                }),
+              [onChange, level],
+            )}
+            level={level}
+          />
+        )}
         {children}
       </Align.Space>
     );

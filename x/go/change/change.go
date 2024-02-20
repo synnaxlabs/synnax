@@ -17,8 +17,8 @@ const (
 	Delete
 )
 
-// Change is a mutation to a generic key-value pair. This change can either be a 'Set'
-// or a 'Delete'. In the case of a 'Set', the Value field will be populated with the
+// Change is a mutation to a generic key-value pair. This change can either be a 'Label'
+// or a 'Delete'. In the case of a 'Label', the Value field will be populated with the
 // new value. In the case of a 'Delete', the Value field will be the zero value of the
 // type of the Value field.
 type Change[K, V any] struct {

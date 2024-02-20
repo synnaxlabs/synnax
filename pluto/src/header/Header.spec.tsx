@@ -12,7 +12,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vitest } from "vitest";
 
-import { Header } from ".";
+import { Header } from "@/header";
 
 describe("Header", () => {
   describe("Header.Title", () => {

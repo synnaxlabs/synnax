@@ -196,7 +196,7 @@ class Iterator:
             raise exc
 
     def __iter__(self):
-        self.seek_first()
+        print(self.seek_first())
         return self
 
     def __next__(self):

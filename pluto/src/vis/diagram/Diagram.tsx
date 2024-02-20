@@ -40,6 +40,9 @@ import ReactFlow, {
   ConnectionMode,
   updateEdge,
   type EdgeProps as RFEdgeProps,
+  SelectionMode,
+  type FitViewOptions,
+  type ProOptions,
 } from "reactflow";
 
 import { Aether } from "@/aether";
@@ -48,6 +51,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useCombinedRefs, useMemoCompare } from "@/hooks";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { type RenderProp } from "@/util/renderProp";
 import { Viewport as CoreViewport } from "@/viewport";
@@ -144,6 +148,16 @@ const NOT_EDITABLE_PROPS: ReactFlowProps = {
   edgeUpdaterRadius: 0,
 };
 
+const FIT_VIEW_OPTIONS: FitViewOptions = {
+  padding: 0,
+  maxZoom: 1,
+  minZoom: 0.5,
+};
+
+const PRO_OPTIONS: ProOptions = {
+  hideAttribution: true,
+};
+
 export interface DiagramProps
   extends UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError"> {
@@ -204,6 +218,8 @@ const Core = Aether.wrap<DiagramProps>(
         zoom: viewport.zoom,
       },
     });
+
+    const defaultEdgeColor = Theming.use().colors.gray.l9.hex;
 
     const triggers = useMemoCompare(
       () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
@@ -284,24 +300,34 @@ const Core = Aether.wrap<DiagramProps>(
     const handleEdgesChange = useCallback(
       (changes: RFEdgeChange[]) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => rfApplyEdgeChanges(changes, e)),
+          edgeConverter(
+            edgesRef.current,
+            (e) => rfApplyEdgeChanges(changes, e),
+            defaultEdgeColor,
+          ),
         ),
-      [onEdgesChange],
+      [onEdgesChange, defaultEdgeColor],
     );
 
     const handleEdgeUpdate = useCallback(
       (oldEdge: RFEdge, newConnection: RFConnection) =>
         onEdgesChange(
-          edgeConverter(edgesRef.current, (e) => updateEdge(oldEdge, newConnection, e)),
+          edgeConverter(
+            edgesRef.current,
+            (e) => updateEdge(oldEdge, newConnection, e),
+            defaultEdgeColor,
+          ),
         ),
       [],
     );
 
     const handleConnect = useCallback(
       (conn: RFConnection) => {
-        onEdgesChange(edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e)));
+        onEdgesChange(
+          edgeConverter(edgesRef.current, (e) => rfAddEdge(conn, e), defaultEdgeColor),
+        );
       },
-      [onEdgesChange],
+      [onEdgesChange, defaultEdgeColor],
     );
 
     const handleEdgeSegmentsChange = useCallback(
@@ -382,13 +408,13 @@ const Core = Aether.wrap<DiagramProps>(
             connectionLineComponent={CustomConnectionLine}
             elevateEdgesOnSelect
             minZoom={0.5}
-            maxZoom={1.1}
+            maxZoom={1.2}
             isValidConnection={isValidConnection}
             connectionMode={ConnectionMode.Loose}
             snapGrid={[3, 3]}
-            proOptions={{
-              hideAttribution: true,
-            }}
+            fitViewOptions={FIT_VIEW_OPTIONS}
+            selectionMode={SelectionMode.Partial}
+            proOptions={PRO_OPTIONS}
             {...props}
             style={{
               [CSS.var("diagram-zoom")]: viewport.zoom,
@@ -458,7 +484,7 @@ export const FitViewControl = ({
   return (
     <Button.Icon
       onClick={(e) => {
-        fitView();
+        fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}

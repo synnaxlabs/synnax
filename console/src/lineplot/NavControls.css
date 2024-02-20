@@ -12,17 +12,17 @@
 
 .console-nav-controls {
     .console-control__pause.pluto-btn--filled {
-        background: var(--pluto-error-z);
-        border: var(--pluto-error-z);
+        background: var(--pluto-secondary-z);
+        border: var(--pluto-secondary-z);
 
         &:hover {
-            background: var(--pluto-error-p1);
-            border: var(--pluto-error-p1);
+            background: var(--pluto-secondary-p1);
+            border: var(--pluto-secondary-p1);
         }
 
         &:active {
-            background: var(--pluto-error-m1);
-            border: var(--pluto-error-m1);
+            background: var(--pluto-secondary-m1);
+            border: var(--pluto-secondary-m1);
         }
     }
 }

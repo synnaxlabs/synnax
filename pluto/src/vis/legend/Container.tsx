@@ -135,7 +135,7 @@ export const Container = memo(
         {...props}
         onDrag={preventDefault}
         onDragEnd={preventDefault}
-        size="small"
+        empty
       />
     );
   },

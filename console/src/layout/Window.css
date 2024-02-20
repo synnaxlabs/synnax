@@ -9,6 +9,19 @@
  * included in the file licenses/APL.txt.
  */
 
+ html {
+    overflow: hidden;
+ }
+
+ body {
+    overflow: hidden;
+ }
+
+
+ #root {
+    overflow: hidden;
+ }
+
 .console-main {
     height: 100%;
     width: 100%;

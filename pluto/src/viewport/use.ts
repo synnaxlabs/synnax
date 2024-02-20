@@ -99,7 +99,7 @@ const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
 
 const D = box.construct(0, 0, 1, 1, location.TOP_LEFT);
 
-const DEFAULT_THRESHOLD = { width: 30, height: 30 };
+const DEFAULT_THRESHOLD = { width: 30, height: 50 };
 
 export const use = ({
   onChange,

@@ -15,9 +15,9 @@ import { createWindowLayout } from "./Create";
 
 export const createCommand: Command = {
   key: "workspace-create",
-  name: "Create a workspace",
+  name: "Create a Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createWindowLayout),
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createWindowLayout()),
 };
 
 export const COMMANDS = [createCommand];

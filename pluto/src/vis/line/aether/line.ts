@@ -39,6 +39,11 @@ export const stateZ = z.object({
   downsample: z.number().min(1).max(50).optional().default(1),
 });
 
+const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
+  if (series === -1 || index === -1 || series >= data.length) return NaN;
+  return Number(data[series].at(index));
+};
+
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.output<typeof stateZ>;
 
@@ -82,7 +87,7 @@ export class Context extends render.GLProgram {
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
+    this.translationBuffer = ctx.gl.createBuffer()!;
   }
 
   bindPropsAndState(
@@ -174,9 +179,19 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   schema: typeof stateZ = stateZ;
 
   afterUpdate(): void {
+    if (this.deleted) return;
+    this.internalAfterUpdate().catch(() => {
+      this.internal.instrumentation.L.error("afterUpdate", {
+        key: this.key,
+        reason: "failed",
+      });
+    });
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
-    i.xTelem = telem.useSource(this.ctx, this.state.x, i.xTelem);
-    i.yTelem = telem.useSource(this.ctx, this.state.y, i.yTelem);
+    i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
+    i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
     i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
     i.prog = Context.use(this.ctx);
     i.requestRender = render.Controller.useRequest(this.ctx);
@@ -186,44 +201,74 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   afterDelete(): void {
+    this.internalAfterDelete().catch(() => {
+      this.internal.instrumentation.L.error("afterDelete", {
+        key: this.key,
+        reason: "failed",
+      });
+    });
+  }
+
+  private async internalAfterDelete(): Promise<void> {
     const { internal: i } = this;
-    i.xTelem.cleanup?.();
-    i.yTelem.cleanup?.();
+    await i.xTelem.cleanup?.();
+    await i.yTelem.cleanup?.();
     i.requestRender(render.REASON_LAYOUT);
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.xTelem.value();
-    return b;
+    return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    const [b] = await this.internal.yTelem.value();
-    return b;
+    return (await this.internal.yTelem.value())[0];
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {
-    const { xTelem } = this.internal;
-    const [, data] = await xTelem.value();
+    const { xTelem, yTelem } = this.internal;
+    const [, xData] = await xTelem.value();
     let [index, series] = [-1, -1];
-    data.find((x, i) => {
+    xData.find((x, i) => {
       const v = x.binarySearch(target);
-      const valid = v !== -1 && v !== x.length;
+      // The returned value gives us the insert position, so anything that is not
+      // a valid index is not a valid value.
+      const valid = v >= 0 && v < x.length;
       if (valid) [index, series] = [v, i];
+      // We can stop the search if we have found a valid value.
       return valid;
     });
-
-    const value = await this.xyValue(series, index);
     const { key } = this;
     const { color, label } = this.state;
-    const position = {
-      x: props.dataToDecimalScale.x.pos(value.x),
-      y: props.dataToDecimalScale.y.pos(value.y),
+    const result = {
+      key,
+      color,
+      label,
+      position: { x: 0, y: 0 },
+      value: { x: NaN, y: NaN },
     };
-    return { key, color, label, value, position };
+
+    if (index === -1 || series === -1) return result;
+
+    const xSeries = xData[series];
+    result.value.x = safelyGetDataValue(series, index, xData);
+    const [, yData] = await yTelem.value();
+    const ySeries = yData.find((ys) =>
+      bounds.contains(ys.alignmentBounds, xSeries.alignment + index),
+    );
+    if (ySeries == null) return result;
+
+    const alignmentDiff = ySeries.alignment - xSeries.alignment;
+    result.value.y = Number(ySeries.at(index - alignmentDiff));
+
+    result.position = {
+      x: props.dataToDecimalScale.x.pos(result.value.x),
+      y: props.dataToDecimalScale.y.pos(result.value.y),
+    };
+    return result;
   }
 
   async render(props: LineProps): Promise<void> {
+    if (this.deleted) return;
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
@@ -247,21 +292,6 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       prog.draw(op, instances);
     });
     clearProg();
-  }
-
-  private async xyValue(series: number, index: number): Promise<xy.XY> {
-    const { xTelem, yTelem } = this.internal;
-    const [, x] = await xTelem.value();
-    const [, y] = await yTelem.value();
-    return xy.construct(
-      this.getValue(series, index, x),
-      this.getValue(series, index, y),
-    );
-  }
-
-  private getValue(series: number, index: number, data: Series[]): number {
-    if (series === -1 || index === -1 || series >= data.length) return NaN;
-    return Number(data[series].at(index));
   }
 }
 
@@ -325,30 +355,31 @@ const buildDrawOperations = (
 
   const ops: DrawOperation[] = [];
 
-  x.forEach((xs) => {
-    const b = bounds.construct(xs.alignment, xs.alignment + xs.length);
-    const ySeries = y.filter((y) =>
-      bounds.overlapsWith(b, bounds.construct(y.alignment, y.alignment + y.length)),
-    );
-    ySeries.forEach((ys) => {
-      if (
-        ys._timeRange != null &&
-        xs._timeRange != null &&
-        !ys.timeRange.overlapsWith(xs.timeRange)
-      )
-        return;
+  x.forEach((xSeries) => {
+    const compatibleYSeries = findSeriesThatOverlapWith(xSeries, y);
+    compatibleYSeries.forEach((ySeries) => {
       let xOffset = 0;
       let yOffset = 0;
-      if (xs.alignment < ys.alignment) xOffset = ys.alignment - xs.alignment;
-      else if (ys.alignment < xs.alignment) yOffset = xs.alignment - ys.alignment;
-      const count = Math.min(xs.length - xOffset, ys.length - yOffset);
-      if (count > 0) {
+
+      // This means that the x series starts before the y series.
+      if (xSeries.alignment < ySeries.alignment)
+        xOffset = ySeries.alignment - xSeries.alignment;
+      // This means that the y series starts before the x series.
+      else if (ySeries.alignment < xSeries.alignment)
+        yOffset = xSeries.alignment - ySeries.alignment;
+
+      const amountOfOverlap = Math.min(
+        xSeries.length - xOffset,
+        ySeries.length - yOffset,
+      );
+
+      if (amountOfOverlap > 0) {
         ops.push({
-          x: xs,
-          y: ys,
+          x: xSeries,
+          y: ySeries,
           xOffset,
           yOffset,
-          count,
+          count: amountOfOverlap,
           downsample,
         });
       }
@@ -357,6 +388,23 @@ const buildDrawOperations = (
 
   return ops;
 };
+
+const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
+  y.filter((ys) => {
+    // This is just a runtime check that both series' have time ranges defined.
+    const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
+    if (!haveTimeRanges) return false;
+    // If the time ranges of the x and y series overlap, we meet the first condition
+    // for drawing them together.
+    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
+    // If the 'indexes' of the x and y series overlap, we meet the second condition
+    // for drawing them together.
+    const alignmentsOverlap = bounds.overlapsWith(
+      x.alignmentBounds,
+      ys.alignmentBounds,
+    );
+    return timeRangesOverlap && alignmentsOverlap;
+  });
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({

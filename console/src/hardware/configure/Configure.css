@@ -1,0 +1,37 @@
+
+.console-configure {
+    height: 100%;
+
+    & > .console-properties {
+        padding: 5rem;
+    }
+
+    & .console-channels {
+        flex-grow: 1;
+        border-top: var(--pluto-border);
+
+        & .console-list {
+            border-right: var(--pluto-border);
+        }
+
+        & .console-properties {
+            padding: 5rem 2rem;
+        }
+
+        & .console-list-item {
+            padding: 2rem;
+            border-bottom: var(--pluto-border);
+            cursor: pointer;
+            
+            
+
+            &.pluto--selected {
+                background: var(--pluto-primary-z-10);
+            }
+        }
+    }
+
+    & .console-footer__end {
+        padding: 1rem;
+    }
+}

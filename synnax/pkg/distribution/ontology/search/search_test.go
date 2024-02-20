@@ -39,6 +39,52 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "October 27 Gooster",
 			}, "Gooster"),
+			Entry("Underscores in term", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "gse_ai_15",
+			}, "ai_15"),
+			Entry("Captialization", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "BBTPC",
+			}, "BTTPC"),
+			Entry("Upper and lowercase", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "BBTPC",
+			}, "bttpc"),
+			Entry("Close Match in Multi-Word Term", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "BBTPC Sim",
+			}, "BTTPC"),
+			Entry("Partial Match Beginning", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "Channel",
+			}, "ch"),
+		)
+		DescribeTable("No Results",
+			func(resource schema.Resource, term string) {
+				Expect(idx.Index([]schema.Resource{resource})).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "test",
+					Term: term,
+				}))
+				Expect(res).To(HaveLen(0))
+			},
+			Entry("No Match", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "test",
+			}, "nope"),
+			Entry("Multiple words no match", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "October 28 Gooster",
+			}, "December Gooster"),
+			Entry("Underscores no match", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "gse_ai_15",
+			}, "ai_26"),
+			Entry("Partial No Match", schema.Resource{
+				ID:   ontology.ID{Type: "test", Key: "1"},
+				Name: "Channel",
+			}, "nn"),
 		)
 	})
 })

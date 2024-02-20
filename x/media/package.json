@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/media",
   "private": false,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",
@@ -38,7 +38,18 @@
     "vite": "^4.5.0",
     "vitest": "^0.34.6"
   },
-  "main": "dist/media.cjs.js",
-  "module": "dist/media.es.js",
-  "types": "dist/index.d.ts"
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/media.cjs.js",
+  "module": "./dist/media.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/media.es.js",
+      "require": "./dist/media.cjs.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./dist/*": "./dist/*"
+  }
 }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Action, AnyAction, Reducer, enh } from "@reduxjs/toolkit";
+import { Action, UnknownAction, Reducer, enh } from "@reduxjs/toolkit";
 
-export const undoable = <S, A extends Action = AnyAction>(reducer: Reducer<S, A>) => {
+export const undoable = <S, A extends Action = UnknownAction>(reducer: Reducer<S, A>) => {
   const initialState = {
     past: [],
     present: reducer(undefined, {}),

@@ -20,21 +20,32 @@ export interface UseProps {
   aetherKey: string;
 }
 
-export const use = ({ aetherKey }: UseProps): ((region: box.Box) => void) => {
+export interface UseReturn {
+  setEnabled: (enabled: boolean) => void;
+  erase: (region: box.Box) => void;
+}
+
+export const use = ({ aetherKey }: UseProps): UseReturn => {
   const [, { region }, setState] = Aether.use({
     aetherKey,
     type: eraser.Eraser.TYPE,
     schema: eraser.eraserStateZ,
-    initialState: { region: box.ZERO },
+    initialState: { region: box.ZERO, enabled: true },
   });
   const regionRef = useSyncedRef(region);
-  return useCallback(
+  const erase = useCallback(
     (b: box.Box) => {
       if (box.equals(b, regionRef.current)) return;
       setState((p) => ({ ...p, region: b }));
     },
     [setState],
   );
+  const setEnabled = useCallback(
+    (enabled: boolean) => setState((p) => ({ ...p, enabled })),
+    [setState],
+  );
+
+  return { setEnabled, erase };
 };
 
 export interface EraserProps extends PropsWithChildren {}
@@ -42,7 +53,7 @@ export interface EraserProps extends PropsWithChildren {}
 export const Eraser = Aether.wrap<EraserProps>(
   eraser.Eraser.TYPE,
   ({ aetherKey, children }) => {
-    const erase = use({ aetherKey });
+    const { erase } = use({ aetherKey });
     const ref = useResize(erase);
     return (
       <div ref={ref} className={CSS(CSS.inheritDims())}>

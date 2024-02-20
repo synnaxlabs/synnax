@@ -22,6 +22,10 @@ from synnax.ranger import RangeWriter, RangeRetriever
 from synnax.ranger.client import RangeClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from synnax.signals.signals import Registry
+from synnax.hardware.client import Client as HardwareClient
+from synnax.hardware.writer import Writer as HardwareWriter
+from synnax.hardware.retrieve import Retriever as HardwareRetriever
 
 
 class Synnax(Client):
@@ -49,6 +53,8 @@ class Synnax(Client):
     channels: ChannelClient
     ranges: RangeClient
     control: ControlClient
+    signals: Registry
+    hardware: HardwareClient
 
     __client: Transport
 
@@ -102,14 +108,18 @@ class Synnax(Client):
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
+        self.signals = Registry(frame_client=self, channels=ch_retriever)
         self.ranges = RangeClient(
             unary_client=self._transport.unary,
             frame_client=self,
             channel_retriever=ch_retriever,
             writer=range_creator,
             retriever=range_retriever,
+            signals=self.signals
         )
         self.control = ControlClient(self, ch_retriever)
+        self.hardware = HardwareClient(HardwareWriter(client=self._transport.unary),
+                                       HardwareRetriever(client=self._transport.unary))
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or
@@ -145,4 +155,5 @@ def _configure_transport(
         )
         auth.authenticate()
         t.use(*auth.middleware())
+        t.use_async(*auth.async_middleware())
     return t

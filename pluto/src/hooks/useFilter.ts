@@ -14,7 +14,7 @@ import {
   type Key,
   type TermSearcher,
 } from "@synnaxlabs/x";
-import Fuse from "fuse.js";
+import Fuse, { type IFuseOptions } from "fuse.js";
 
 import { proxyMemo } from "@/memo";
 
@@ -27,12 +27,12 @@ export interface CreateFilterTransformProps<
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
 
-const defaultOpts: Fuse.IFuseOptions<UnknownRecord<UnknownRecord>> = {
+const defaultOpts: IFuseOptions<UnknownRecord<UnknownRecord>> = {
   threshold: 0.3,
 };
 
 export const fuseFilter =
-  (opts?: Fuse.IFuseOptions<UnknownRecord>) =>
+  (opts?: IFuseOptions<UnknownRecord>) =>
   <K extends Key, E extends KeyedRecord<K, E>>(
     data: E[],
   ): TermSearcher<string, K, E> => {

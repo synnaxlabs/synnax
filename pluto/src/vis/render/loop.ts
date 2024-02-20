@@ -54,7 +54,7 @@ export interface Request {
  * functions should clear canvases and other resources that need to be freed from
  * the previous render.
  */
-export type Cleanup = (req: Request) => void;
+export type Cleanup = (req: Request) => Promise<void>;
 
 export type Priority = "high" | "low";
 
@@ -63,9 +63,15 @@ const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
 /**
  * Implements the core rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
+ *
+ * --------------------------------- VERY IMPORTANT NOTE -------------------------------
+ *
+ * This loop intentially permits race conditions on teh requests map access. We tried
+ * lockign this with an async mutex, but this resulted in a significant performance
+ * hit for high-speed rendering for live telemetry. We've decided
+ *
  */
 export class Loop {
-  /** Protect concurrent access on the requests map. */
   private readonly mutex = new Mutex();
   /** Stores the current requests for rendering. */
   private readonly requests = new Map<string, Request>();
@@ -87,17 +93,20 @@ export class Loop {
    * @param req - The request to set.
    */
   async set(req: Request): Promise<void> {
-    await this.mutex.runExclusive((): undefined => {
-      const existing = this.requests.get(req.key);
-      if (existing == null) {
-        this.requests.set(req.key, req);
-        return;
-      }
+    let releaser: (() => void) | undefined;
+    if (req.priority === "high") {
+      releaser = await this.mutex.acquire();
+    }
+    const existing = this.requests.get(req.key);
+    if (existing == null) {
+      this.requests.set(req.key, req);
+    } else {
       const priorityOK =
         PRIORITY_ORDER[req.priority] >= PRIORITY_ORDER[existing.priority];
       const canvasesOK = req.canvases.length >= existing.canvases.length;
       if (priorityOK && canvasesOK) this.requests.set(req.key, req);
-    });
+    }
+    releaser?.();
   }
 
   /** Execute the render. */
@@ -109,16 +118,20 @@ export class Loop {
         /** Execute all of our cleanup functions BEFORE we re-render. */
         const req = queue.get(k);
         if (req != null) {
-          f(req);
+          await f(req);
           cleanup.delete(k);
         }
       }
       /** Render components. */
       for (const req of queue.values()) {
-        const cleanup = await req.render();
-        // We're safe to set the cleanup function here because we know that req.key
-        // is unique in the queue.
-        if (cleanup != null) this.cleanup.set(req.key, cleanup);
+        try {
+          const cleanup = await req.render();
+          // We're safe to set the cleanup function here because we know that req.key
+          // is unique in the queue.
+          if (cleanup != null) this.cleanup.set(req.key, cleanup);
+        } catch (e) {
+          console.error(e);
+        }
       }
       this.requests.clear();
     });

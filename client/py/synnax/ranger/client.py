@@ -6,8 +6,8 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-
-from typing import overload
+import functools
+from typing import overload, Callable
 
 from freighter import UnaryClient
 
@@ -30,6 +30,10 @@ from synnax.ranger.payload import (
 from synnax.ranger.range import Range
 from synnax.ranger.retrieve import RangeRetriever
 from synnax.telem import TimeRange
+from synnax.signals.signals import Registry
+from synnax.state import LatestState
+
+RANGE_SET_CHANNEL = "sy_range_set"
 
 
 class RangeClient:
@@ -39,6 +43,7 @@ class RangeClient:
     __writer: RangeWriter
     __unary_client: UnaryClient
     __active: Active
+    __signals: Registry
 
     def __init__(
         self,
@@ -47,6 +52,7 @@ class RangeClient:
         writer: RangeWriter,
         retriever: RangeRetriever,
         channel_retriever: ChannelRetriever,
+        signals: Registry,
     ) -> None:
         self.__unary_client = unary_client
         self.__frame_client = frame_client
@@ -54,6 +60,7 @@ class RangeClient:
         self.__retriever = retriever
         self.__channel_retriever = channel_retriever
         self.__active = Active(self.__unary_client)
+        self.__signals = signals
 
     @overload
     def create(
@@ -218,3 +225,22 @@ class RangeClient:
             )
             for r in ranges
         ]
+
+    def on_create(self, f: Callable[[Range], None]):
+        @functools.wraps(f)
+        def wrapper(state: LatestState):
+            d = state[RANGE_SET_CHANNEL]
+            f(Range(
+                name=d["name"],
+                key=d["key"],
+                time_range=TimeRange(
+                    start=d["time_range"]["start"],
+                    end=d["time_range"]["end"],
+                ),
+                _frame_client=self.__frame_client,
+                _channel_retriever=self.__channel_retriever,
+                _kv=KV(d["key"], self.__unary_client),
+                _aliaser=Aliaser(d["key"], self.__unary_client),
+            ))
+
+        return self.__signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)

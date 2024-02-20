@@ -9,15 +9,15 @@
 
 import { type ReactElement } from "react";
 
-import { Icon } from "@synnaxlabs/media";
+import { Icon, type IconProps } from "@synnaxlabs/media";
 
 import { type status } from "@/status/aether";
 import { variantColors } from "@/status/colors";
 
-export interface CircleProps {
+export interface CircleProps extends IconProps {
   variant: status.Variant;
 }
 
-export const Circle = ({ variant }: CircleProps): ReactElement => {
-  return <Icon.Circle color={variantColors[variant]} />;
+export const Circle = ({ variant, ...props }: CircleProps): ReactElement => {
+  return <Icon.Circle color={variantColors[variant]} {...props} />;
 };

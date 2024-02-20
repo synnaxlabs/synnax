@@ -29,7 +29,7 @@ import (
 // demand represents a demand for streaming data from a specific entity.
 // this entity should generate a unique address (preferably through address.Rand)
 // and use it throughout its lifecycle. To update the requested keys, the entity
-// should send a demand with variant Set, and to remove the demand, it should
+// should send a demand with variant Label, and to remove the demand, it should
 // send a demand with variant Delete.
 type demand = changex.Change[address.Address, Request]
 
@@ -131,7 +131,7 @@ func (t *tapper) updateTaps(
 		}
 	}
 
-	// Rename or close any taps we don't need
+	// Update or close any taps we don't need
 	for nk, tc := range t.taps {
 		if keys, ok := nodeDemands[nk]; ok {
 			// If we still need the tap, send the updated key set

@@ -7,21 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-} from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
-import { useTransforms } from "@/hooks";
-import { useStateRef } from "@/hooks/ref";
-import { Provider } from "@/list/Context";
-import { type ColumnSpec } from "@/list/types";
+import { DataProvider } from "./Data";
+import { InfiniteProvider } from "./Infinite";
 
 export interface ListProps<
   K extends Key = Key,
@@ -48,68 +39,64 @@ export const List = <
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
 >({
   children,
-  data: propsData,
+  data,
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
-  const [columns, setColumns] = useState<Array<ColumnSpec<K, E>>>([]);
-  const [selected, setSelected] = useState<K[]>([]);
-  const [hover, setHover] = useState<number>(-1);
-  const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
-  const [clear, setClear] = useState<(() => void) | undefined>(undefined);
-  const { transform, setTransform, deleteTransform } = useTransforms<E>({});
-  const [data, setData] = useState<E[]>(() => propsData ?? []);
-  useEffect(() => {
-    if (propsData != null) setData(propsData);
-  }, [propsData]);
-  const transformedData = useMemo(() => transform(data), [data, transform]);
-  const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(
-    emptyContent,
-  );
-  const [fetchMoreRef, setFetchMoreRef] = useStateRef<() => void>(() => {});
-  const [hasMore, setHasMore] = useState<boolean>(true);
-
-  const handleSetFetchMoreRef = useCallback(
-    (ref: () => void): void => setFetchMoreRef(() => ref),
-    [setFetchMoreRef],
-  );
-
-  const onFetchMore = useCallback((): void => fetchMoreRef.current?.(), [fetchMoreRef]);
-
   return (
-    <Provider<K, E>
-      value={{
-        setEmptyContent,
-        sourceData: data,
-        data: transformedData,
-        setSourceData: setData,
-        deleteTransform,
-        setTransform,
-        hover: {
-          value: hover,
-          onChange: setHover,
-        },
-        emptyContent: emptyContent ?? emptyContent_,
-        columnar: {
-          columns,
-          setColumns,
-        },
-        select: {
-          value: selected,
-          onChange: setSelected,
-          setOnSelect,
-          onSelect,
-          clear,
-          setClear,
-        },
-        infinite: {
-          onFetchMore,
-          setOnFetchMore: handleSetFetchMoreRef,
-          hasMore,
-          setHasMore,
-        },
-      }}
-    >
-      {children}
-    </Provider>
+    <InfiniteProvider>
+      <DataProvider<K, E> data={data} emptyContent={emptyContent}>
+        {children}
+      </DataProvider>
+    </InfiniteProvider>
   );
 };
+
+type NestedKeys<T> =
+  Cleanup<T> extends infer U
+    ? U extends object
+      ?
+          | ValueOf<{ [K in keyof U]-?: (x: PrefixKeys<NestedKeys<U[K]>, K>) => void }>
+          | ((x: U) => void) extends (x: infer I) => void
+        ? { [K in keyof I]: I[K] }
+        : never
+      : U
+    : never;
+
+type Cleanup<T> = 0 extends 1 & T
+  ? unknown
+  : T extends readonly any[]
+    ? Exclude<keyof T, keyof any[]> extends never
+      ? Record<`${number}`, T[number]>
+      : Omit<T, keyof any[]>
+    : T;
+
+type PrefixKeys<V, K extends PropertyKey> = V extends object
+  ? {
+      [P in keyof V as `${Extract<K, string | number>}.${Extract<P, string | number>}`]: V[P];
+    }
+  : { [P in K]: V };
+
+type ValueOf<T> = T[keyof T];
+
+type Test = NestedKeys<Example>;
+
+const test: Test = {
+  a: "test",
+  dogs: {
+    0: { name: "test" },
+  },
+  tasks: {
+    channels: {
+      0: {
+        ports: {
+          0: {
+            line: "test",
+          },
+        },
+      },
+    },
+  },
+};
+
+type T = ValueOf<Test>;
+const v: T["tasks.channels.0.ports.0.line"] = "test";

@@ -9,12 +9,12 @@
 
 import { type ReactElement } from "react";
 
-import { Status, Button, Select, Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Status, Button, Select, Align } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 
 import { Layout } from "@/layout";
 import { listColumns } from "@/range/accordionEntry";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 
 export interface SelectMultipleRangesProps
@@ -48,7 +48,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(defineWindowLayout);
+          newLayout(editLayout);
         }}
       >
         Define a Range

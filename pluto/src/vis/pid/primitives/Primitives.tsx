@@ -13,6 +13,7 @@ import {
   type ReactElement,
   useRef,
   type PropsWithChildren,
+  type MouseEventHandler,
 } from "react";
 
 import { dimensions, type location, direction, xy } from "@synnaxlabs/x";
@@ -27,6 +28,7 @@ import { Button as CoreButton } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Input } from "@/input";
+import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 import "@/vis/pid/primitives/Primitives.css";
@@ -65,7 +67,7 @@ export interface SVGBasedPrimitiveProps extends OrientableProps {
 }
 
 export interface DivProps
-  extends Omit<ComponentPropsWithoutRef<"div">, "color">,
+  extends Omit<ComponentPropsWithoutRef<"div">, "color" | "onResize">,
     OrientableProps {}
 
 interface ToggleProps
@@ -153,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   }, [orientation]);
   return (
     <>
-      <span ref={ref} />
+      {/* <span ref={ref} /> */}
       {children}
     </>
   );
@@ -648,12 +650,6 @@ type BorderRadius =
   | Record<location.CornerXYString, number>
   | DetailedBorderRadius;
 
-export interface TankProps extends DivProps {
-  dimensions?: dimensions.Dimensions;
-  borderRadius?: BorderRadius;
-  color?: Color.Crude;
-}
-
 const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
   if (typeof radius === "number")
     return {
@@ -688,11 +684,19 @@ const cssBorderRadius = (radius: DetailedBorderRadius): string => {
 const DEFAULT_DIMENSIONS = { width: 40, height: 80 };
 const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
 
+export interface TankProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+  borderRadius?: BorderRadius;
+  color?: Color.Crude;
+  onResize?: (dimensions: dimensions.Dimensions) => void;
+}
+
 export const Tank = ({
   className,
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   color,
+  onResize,
   ...props
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);
@@ -864,6 +868,7 @@ export const AngledReliefValve = ({
 export interface ValueProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: Color.Crude;
+  units?: string;
 }
 
 export const Value = ({
@@ -871,27 +876,51 @@ export const Value = ({
   color,
   dimensions,
   orientation,
+  units = "psi",
+  children,
   ...props
-}: ValueProps): ReactElement => (
-  <Div
-    className={CSS(CSS.B("value"), className)}
-    {...props}
-    style={{
-      borderColor: Color.cssString(color),
-      ...dimensions,
-    }}
-  >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation="left" left={-2} top={50} id="1" />
-      <Handle location="right" orientation="left" left={102} top={50} id="2" />
-      <Handle location="top" orientation="left" left={50} top={-2} id="3" />
-      <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
-    </HandleBoundary>
-    {props.children}
-  </Div>
-);
+}: ValueProps): ReactElement => {
+  const borderColor = Color.cssString(color);
+  const theme = Theming.use();
+  let textColor: string | undefined = "var(--pluto-gray-l0)";
+  if (color != null)
+    textColor = Color.cssString(
+      new Color.Color(color).pickByContrast(theme.colors.gray.l0, theme.colors.gray.l9),
+    );
+  return (
+    <Div
+      className={CSS(CSS.B("value"), className)}
+      {...props}
+      style={{
+        borderColor,
+        height: dimensions?.height,
+        width: "100%",
+      }}
+    >
+      <div
+        className={CSS.BE("value", "content")}
+        style={{ flexGrow: 1, minWidth: dimensions?.width, inlineSize: 80 }}
+      >
+        {children}
+      </div>
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={-2} top={50} id="1" />
+        <Handle location="right" orientation="left" left={102} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={-2} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("value", "units")} style={{ background: borderColor }}>
+        <Text.Text level="small" color={textColor}>
+          {units}
+        </Text.Text>
+      </div>
+    </Div>
+  );
+};
 
-export interface SwitchProps extends ToggleProps, DivProps {}
+export interface SwitchProps extends Omit<ToggleProps, "onClick">, OrientableProps {
+  onClick: MouseEventHandler<HTMLInputElement>;
+}
 
 export const Switch = ({
   triggered,
@@ -899,11 +928,10 @@ export const Switch = ({
   color,
   onClick,
   orientation = "left",
-  ...props
 }: SwitchProps): ReactElement => {
   return (
     <Div orientation={orientation}>
-      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} {...props} />
+      <Input.Switch value={enabled} onClick={onClick} onChange={() => {}} />
       <HandleBoundary orientation={orientation}>
         <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
         <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -912,8 +940,9 @@ export const Switch = ({
   );
 };
 
-export interface ButtonProps extends DivProps {
+export interface ButtonProps extends Omit<DivProps, "onClick"> {
   label?: string;
+  onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
 export const Button = ({

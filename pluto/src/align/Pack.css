@@ -21,11 +21,11 @@
     --pluto-pack--middle: 0 !important;
     --all: var(--pluto-pack-br);
 
+    
+
     &.pluto--rounded {
-        --pluto-pack-br: var(--pluto-border-radius);
+        --pluto-pack-br: 2px;
     }
-
-
 
     &.pluto--bordered {
         border: none !important;

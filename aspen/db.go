@@ -49,8 +49,8 @@ type Resolver interface {
 	Resolve(key node.Key) (address.Address, error)
 }
 
-type Host interface {
-	// Host returns the host Node (i.e. the node that Host is called on).
+type HostProvider interface {
+	// Host returns the host Node (i.e. the node that HostProvider is called on).
 	Host() node.Node
 	// HostKey returns the Name of the host node.
 	HostKey() node.Key
@@ -58,7 +58,7 @@ type Host interface {
 
 type HostResolver interface {
 	Resolver
-	Host
+	HostProvider
 }
 
 type (

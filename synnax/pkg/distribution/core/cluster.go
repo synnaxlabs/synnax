@@ -20,6 +20,7 @@ type (
 	NodeChange    = aspen.NodeChange
 	Cluster       = aspen.Cluster
 	HostResolver  = aspen.HostResolver
+	HostProvider  = aspen.HostProvider
 	Resolver      = aspen.Resolver
 	ClusterState  = aspen.ClusterState
 	ClusterChange = aspen.ClusterChange

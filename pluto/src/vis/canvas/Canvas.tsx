@@ -70,7 +70,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
     const handleResize = useCallback(
       (region: box.Box) => {
         if (canvases.current.bootstrapped)
-          setState((p) => ({
+          setState(() => ({
             bootstrapped: true,
             region,
             dpr: window.devicePixelRatio,

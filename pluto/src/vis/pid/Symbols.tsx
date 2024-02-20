@@ -9,7 +9,8 @@
 
 import { useState, type ReactElement } from "react";
 
-import { box, type xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
+import { box, xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
+import { useViewport } from "reactflow";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -19,8 +20,8 @@ import { useResize } from "@/hooks";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
+import { Tooltip } from "@/tooltip";
 import { Button as CoreButton } from "@/vis/button";
-import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 import { Labeled, type LabelExtensionProps } from "@/vis/pid/Labeled";
 import { Primitives } from "@/vis/pid/primitives";
 import { Toggle } from "@/vis/toggle";
@@ -212,8 +213,17 @@ export interface FourWayValveProps
 
 export const FourWayValve = Aether.wrap<SymbolProps<FourWayValveProps>>(
   "FourWayValve",
-  ({ aetherKey, control, label, onChange, orientation, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+  ({
+    aetherKey,
+    control,
+    label,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={orientation}>
@@ -248,11 +258,12 @@ export const AngledValve = Aether.wrap<SymbolProps<AngledValveProps>>(
     label,
     control,
     onChange,
-    orientation,
+    orientation = "left",
     color,
-    ...props
+    source,
+    sink,
   }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={swapXLocation(orientation)}>
@@ -282,8 +293,17 @@ export interface PumpProps
 
 export const Pump = Aether.wrap<SymbolProps<PumpProps>>(
   "Pump",
-  ({ aetherKey, label, control, onChange, orientation, color }): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({ aetherKey });
+  ({
+    aetherKey,
+    label,
+    control,
+    onChange,
+    orientation,
+    color,
+    source,
+    sink,
+  }): ReactElement => {
+    const { enabled, triggered, toggle } = Toggle.use({ aetherKey, source, sink });
     return (
       <Labeled {...label} onChange={onChange}>
         <ControlState {...control} orientation={orientation}>
@@ -314,6 +334,7 @@ export const Tank = Aether.wrap<SymbolProps<TankProps>>(
     return (
       <Labeled {...label} onChange={onChange}>
         <Primitives.Tank
+          onResize={(dims) => onChange({ dimensions: dims })}
           orientation={orientation}
           color={color}
           dimensions={dimensions}
@@ -545,6 +566,12 @@ export interface ValueProps
   label?: LabelExtensionProps;
   color?: Color.Crude;
   textColor?: Color.Crude;
+  tooltip?: string[];
+}
+
+interface ValueDimensionsState {
+  outerBox: box.Box;
+  labelBox: box.Box;
 }
 
 export const Value = Aether.wrap<SymbolProps<ValueProps>>(
@@ -555,100 +582,117 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     level = "p",
     position,
     className,
-    children,
     textColor,
     color,
-    precision,
-    width,
     telem,
+    units,
     onChange,
+    tooltip,
   }): ReactElement => {
     const font = Theming.useTypography(level);
-    const [box_, setBox] = useState<box.Box>(box.ZERO);
+    const [dimensions, setDimensions] = useState<ValueDimensionsState>({
+      outerBox: box.ZERO,
+      labelBox: box.ZERO,
+    });
 
-    const valueBoxHeight = (font.lineHeight + 2) * font.baseSize + 2;
-    const resizeRef = useResize(setBox, {});
+    const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
+    const resizeRef = useResize((b) => {
+      // Find the element with the class pluto-symbol__label that is underneath
+      // the 'react-flow__node' with the data-id of aetherKey
+      const label = document.querySelector(
+        `.react-flow__node[data-id="${aetherKey}"] .pluto-symbol__label`,
+      );
+      let labelBox = { ...box.ZERO };
+      if (label != null) {
+        labelBox = box.construct(label);
+        labelBox = box.resize(labelBox, {
+          width: box.width(labelBox),
+          height: box.height(labelBox),
+        });
+      }
+      setDimensions({ outerBox: b, labelBox });
+    }, {});
 
-    const zoom = useInitialViewport().zoom;
+    const zoom = useViewport().zoom;
 
-    const adjustedBox = adjustBox(
-      label?.orientation ?? "top",
+    const adjustedBox = adjustBox({
+      labelOrientation: label?.orientation ?? "top",
       zoom,
-      box_,
       valueBoxHeight,
       position,
-    );
+      ...dimensions,
+    });
 
-    CoreValue.use({
+    const { width: oWidth } = CoreValue.use({
       aetherKey,
       color: textColor,
       level,
       box: adjustedBox,
       telem,
-      precision,
-      width,
+      minWidth: 60,
     });
 
     return (
-      <Labeled
-        className={CSS(className, CSS.B("value-labeled"))}
-        align="center"
-        ref={resizeRef}
-        onChange={onChange}
-        {...label}
+      <Tooltip.Dialog
+        location={{ y: "top" }}
+        hide={tooltip == null || tooltip.length === 0}
       >
-        <Primitives.Value
-          color={color}
-          dimensions={{
-            height: valueBoxHeight,
-            width: 100,
-          }}
+        <Align.Space direction="y">
+          {tooltip?.map((t, i) => (
+            <Text.Text key={i} level="small">
+              {t}
+            </Text.Text>
+          ))}
+        </Align.Space>
+        <Labeled
+          className={CSS(className, CSS.B("value-labeled"))}
+          ref={resizeRef}
+          onChange={onChange}
+          {...label}
         >
-          {children}
-        </Primitives.Value>
-      </Labeled>
+          <Primitives.Value
+            color={color}
+            dimensions={{
+              height: valueBoxHeight,
+              width: oWidth,
+            }}
+            units={units}
+          />
+        </Labeled>
+      </Tooltip.Dialog>
     );
   },
 );
 
-const adjustBox = (
-  labelOrientation: location.Outer,
-  zoom: number,
-  b: box.Box,
-  valueBoxHeight: number,
-  position?: xy.XY,
-): box.Box => {
-  if (labelOrientation === "left") {
-    return box.construct(
-      (position?.x ?? box.left(b)) + box.width(b) / zoom - 100,
-      position?.y ?? box.top(b),
-      100,
-      valueBoxHeight,
-    );
-  }
-  if (labelOrientation === "right") {
-    return box.construct(
-      position?.x ?? box.left(b),
-      position?.y ?? box.top(b),
-      100,
-      valueBoxHeight,
-    );
-  }
-  if (labelOrientation === "bottom") {
-    return box.construct(
-      position?.x ?? box.left(b),
-      position?.y ?? box.top(b),
-      box.width(b) / zoom,
-      valueBoxHeight,
-    );
-  }
+interface AdjustBoxProps {
+  labelOrientation: location.Outer;
+  zoom: number;
+  outerBox: box.Box;
+  labelBox: box.Box;
+  valueBoxHeight: number;
+  position: xy.XY;
+}
 
-  return box.construct(
-    position?.x ?? box.left(b),
-    (position?.y ?? box.top(b)) + box.height(b) / zoom - valueBoxHeight,
-    box.width(b) / zoom,
-    valueBoxHeight,
-  );
+const LABEL_SCALE = 0.9;
+
+const adjustBox = ({
+  labelOrientation,
+  zoom,
+  outerBox,
+  labelBox,
+  valueBoxHeight,
+  position,
+}: AdjustBoxProps): box.Box => {
+  const labelDims = xy.scale(box.dims(labelBox), 1 / (LABEL_SCALE * zoom));
+  const dir = direction.construct(labelOrientation);
+  if (dir === "x")
+    position = xy.translateY(
+      position,
+      Math.max((labelDims.y - valueBoxHeight) / 2 - 1, 0),
+    );
+  if (labelOrientation === "left") position = xy.translateX(position, labelDims.x + 4);
+  if (labelOrientation === "top") position = xy.translateY(position, labelDims.y + 4);
+  return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 
 export const ValuePreview = ({ color }: ValueProps): ReactElement => {
@@ -659,8 +703,9 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => {
         width: 60,
         height: 25,
       }}
+      units={"psi"}
     >
-      <Text.Text level="small">500 psi</Text.Text>
+      <Text.Text level="p">50.00</Text.Text>
     </Primitives.Value>
   );
 };

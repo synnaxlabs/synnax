@@ -126,11 +126,13 @@ func (r *region[E]) unprotectedUpdate(
 	g *Gate[E],
 	auth control.Authority,
 ) (t Transfer) {
+	prevAuth := g.Authority
 	g.Authority = auth
 
 	// Gate is in control, should it not be?
 	if g == r.curr {
 		t.From = g.State()
+		t.From.Authority = prevAuth
 		for og := range r.gates {
 			var (
 				isGate     = og == g
@@ -238,7 +240,7 @@ var (
 	DefaultGateConfig = GateConfig{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c GateConfig) Validate() error {
 	v := validate.New("gate config")
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
@@ -246,7 +248,7 @@ func (c GateConfig) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c GateConfig) Override(other GateConfig) GateConfig {
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Subject.Key = override.String(c.Subject.Key, other.Subject.Key)

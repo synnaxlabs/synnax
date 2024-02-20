@@ -79,7 +79,7 @@ var (
 	}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
 	validate.NotNil(v, "cesium", c.DB)
@@ -87,7 +87,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -198,7 +198,7 @@ func (o *Ontology) RegisterService(s Service) {
 
 	d1 := s.OnChange(o.ResourceObserver.Notify)
 
-	// Set up a change handler to index new resources.
+	// Label up a change handler to index new resources.
 	d2 := s.OnChange(func(ctx context.Context, i iter.Nexter[schema.Change]) {
 		err := o.search.Index.WithTx(func(tx search.Tx) error {
 			for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {

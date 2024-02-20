@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { nanoid } from "nanoid";
 import { type z } from "zod";
 
+import { compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
@@ -21,7 +23,6 @@ import {
   type TimeStamp,
   type CrudeDataType,
 } from "@/telem/telem";
-import { compare } from "@/compare";
 
 export type SampleValue = number | bigint;
 
@@ -39,20 +40,47 @@ interface GL {
 }
 
 export interface SeriesDigest {
+  key: string;
   dataType: string;
   sampleOffset: SampleValue;
-  alignment: number;
+  alignment: bounds.Bounds;
   timeRange?: string;
   length: number;
 }
 
+interface BaseSeriesProps {
+  dataType?: CrudeDataType;
+  timeRange?: TimeRange;
+  sampleOffset?: SampleValue;
+  glBufferUsage?: GLBufferUsage;
+  alignment?: number;
+  key?: string;
+}
+
+export interface SeriesProps extends BaseSeriesProps {
+  data: ArrayBuffer | NativeTypedArray;
+}
+
+export interface SeriesAllocProps extends BaseSeriesProps {
+  length: number;
+  dataType: CrudeDataType;
+}
+
 const FULL_BUFFER = -1;
+
+export interface SeriesMemInfo {
+  key: string;
+  length: number;
+  byteLength: Size;
+  glBuffer: boolean;
+}
 
 /**
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
 export class Series {
+  key: string = "";
   /** The data type of the array */
   readonly dataType: DataType;
   /**
@@ -78,36 +106,26 @@ export class Series {
   /** Tracks the number of entities currently using this array. */
   private _refCount: number = 0;
 
-  static alloc(
-    length: number,
-    dataType: CrudeDataType,
-    timeRange?: TimeRange,
-    sampleOffset?: SampleValue,
-    glBufferUsage: GLBufferUsage = "static",
-    alignment: number = 0,
-  ): Series {
+  static alloc({ length, dataType, ...props }: SeriesAllocProps): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
-    const arr = new Series(
-      data.buffer,
+    const arr = new Series({
+      data: data.buffer,
       dataType,
-      timeRange,
-      sampleOffset,
-      glBufferUsage,
-      alignment,
-    );
+      ...props,
+    });
     arr.writePos = 0;
     return arr;
   }
 
   static generateTimestamps(length: number, rate: Rate, start: TimeStamp): Series {
-    const tr = start.spanRange(rate.span(length));
+    const timeRange = start.spanRange(rate.span(length));
     const data = new BigInt64Array(length);
     for (let i = 0; i < length; i++) {
       data[i] = BigInt(start.add(rate.span(i)).valueOf());
     }
-    return new Series(data, DataType.TIMESTAMP, tr);
+    return new Series({ data, dataType: DataType.TIMESTAMP, timeRange });
   }
 
   get refCount(): number {
@@ -116,24 +134,25 @@ export class Series {
 
   static fromStrings(data: string[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(data.join("\n") + "\n");
-    return new Series(buffer, DataType.STRING, timeRange);
+    return new Series({ data: buffer, dataType: DataType.STRING, timeRange });
   }
 
   static fromJSON<T>(data: T[], timeRange?: TimeRange): Series {
     const buffer = new TextEncoder().encode(
       data.map((d) => JSON.stringify(d)).join("\n") + "\n",
     );
-    return new Series(buffer, DataType.JSON, timeRange);
+    return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
 
-  constructor(
-    data: ArrayBuffer | NativeTypedArray,
-    dataType?: CrudeDataType,
-    timeRange?: TimeRange,
-    sampleOffset?: SampleValue,
-    glBufferUsage: GLBufferUsage = "static",
-    alignment: number = 0,
-  ) {
+  constructor({
+    data,
+    dataType,
+    timeRange,
+    sampleOffset = 0,
+    glBufferUsage = "static",
+    alignment = 0,
+    key = nanoid(),
+  }: SeriesProps) {
     if (dataType == null && !(data instanceof ArrayBuffer)) {
       this.dataType = new DataType(data);
     } else if (dataType != null) {
@@ -143,6 +162,7 @@ export class Series {
         "must provide a data type when constructing a Series from a buffer",
       );
     }
+    this.key = key;
     this.alignment = alignment;
     this.sampleOffset = sampleOffset ?? 0;
     this._data = data;
@@ -204,6 +224,22 @@ export class Series {
     return new TextDecoder().decode(this.buffer).split("\n").slice(0, -1);
   }
 
+  toUUIDs(): string[] {
+    if (!this.dataType.equals(DataType.UUID))
+      throw new Error("cannot convert non-uuid series to uuids");
+    const den = DataType.UUID.density.valueOf();
+    const r = Array(this.length);
+
+    for (let i = 0; i < this.length; i++) {
+      const v = this.buffer.slice(i * den, (i + 1) * den);
+      const id = Array.from(new Uint8Array(v), (b) => b.toString(16).padStart(2, "0"))
+        .join("")
+        .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
+      r[i] = id;
+    }
+    return r;
+  }
+
   parseJSON<Z extends z.ZodTypeAny>(schema: Z): Array<z.output<Z>> {
     if (!this.dataType.equals(DataType.JSON))
       throw new Error("cannot convert non-string series to strings");
@@ -217,7 +253,7 @@ export class Series {
   /** @returns the time range of this array. */
   get timeRange(): TimeRange {
     validateFieldNotNull("timeRange", this._timeRange);
-    return this._timeRange as TimeRange;
+    return this._timeRange!;
   }
 
   /** @returns the capacity of the underlying buffer in bytes. */
@@ -257,14 +293,14 @@ export class Series {
     for (let i = 0; i < this.length; i++) {
       data[i] = convertDataType(this.dataType, target, this.data[i], sampleOffset);
     }
-    return new Series(
-      data.buffer,
-      target,
-      this._timeRange,
+    return new Series({
+      data: data.buffer,
+      dataType: target,
+      timeRange: this._timeRange,
       sampleOffset,
-      this.gl.bufferUsage,
-      this.alignment,
-    );
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment,
+    });
   }
 
   private calcRawMax(): SampleValue {
@@ -367,7 +403,9 @@ export class Series {
     const { buffer, bufferUsage, prevBuffer } = this.gl;
 
     // If no buffer has been created yet, create one.
-    if (buffer == null) this.gl.buffer = gl.createBuffer();
+    if (buffer == null) {
+      this.gl.buffer = gl.createBuffer();
+    }
     // If the current write position is the same as the previous buffer, we're already
     // up date.
     if (this.writePos === prevBuffer) return;
@@ -397,12 +435,26 @@ export class Series {
 
   get digest(): SeriesDigest {
     return {
+      key: this.key,
       dataType: this.dataType.toString(),
       sampleOffset: this.sampleOffset,
-      alignment: this.alignment,
+      alignment: this.alignmentBounds,
       timeRange: this._timeRange?.toString(),
       length: this.length,
     };
+  }
+
+  get memInfo(): SeriesMemInfo {
+    return {
+      key: this.key,
+      length: this.length,
+      byteLength: this.byteLength,
+      glBuffer: this.gl.buffer != null,
+    };
+  }
+
+  get alignmentBounds(): bounds.Bounds {
+    return bounds.construct(this.alignment, this.alignment + this.length);
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
@@ -419,26 +471,27 @@ export class Series {
   }
 
   slice(start: number, end?: number): Series {
-    const d = this.data.slice(start, end);
-    return new Series(
-      d,
-      this.dataType,
-      TimeRange.ZERO,
-      this.sampleOffset,
-      this.gl.bufferUsage,
-      this.alignment + start,
-    );
+    if (start <= 0 && (end == null || end >= this.length)) return this;
+    const data = this.data.slice(start, end);
+    return new Series({
+      data,
+      dataType: this.dataType,
+      timeRange: this._timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment + start,
+    });
   }
 
   reAlign(alignment: number): Series {
-    return new Series(
-      this.buffer,
-      this.dataType,
-      TimeRange.ZERO,
-      this.sampleOffset,
-      "static",
+    return new Series({
+      data: this.buffer,
+      dataType: this.dataType,
+      timeRange: TimeRange.ZERO,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: "static",
       alignment,
-    );
+    });
   }
 }
 

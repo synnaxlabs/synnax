@@ -11,6 +11,7 @@
 
 .pluto-input-help-text {
     margin-left: 1rem;
+    height: var(--pluto-small-line-height);
 }
 
 .pluto-input-help-text--error {

@@ -3,7 +3,7 @@ import { type Box } from "@synnaxlabs/x/dist/spatial/box";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { color } from "@/aetherIndex";
+import { color } from "@/ether";
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
@@ -39,7 +39,7 @@ export class Table extends aether.Composite<
 
   afterUpdate(): void {
     this.internal.renderCtx = render.Context.use(this.ctx);
-    this.internal.renderCtx.loop.set({
+    void this.internal.renderCtx.loop.set({
       key: this.key,
       render: async () => await this.render(),
       canvases: ["upper2d"],
@@ -123,8 +123,16 @@ export class StringTD
   schema = stringTDStateZ;
 
   afterUpdate(): void {
+    this.internalAfterUpdate().catch(console.error);
+  }
+
+  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
-    i.stringSource = telem.useSource(this.ctx, this.state.stringSource, i.stringSource);
+    i.stringSource = await telem.useSource(
+      this.ctx,
+      this.state.stringSource,
+      i.stringSource,
+    );
     i.draw = new Draw2D(render.Context.use(this.ctx).upper2d, theming.use(this.ctx));
   }
 

@@ -27,18 +27,27 @@ export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
   schema = buttonStateZ;
 
   afterUpdate(): void {
-    const { internal: i } = this;
-    i.sink = telem.useSink(this.ctx, this.state.sink, i.sink);
+    this.internalAfterUpdate().catch(console.error);
+  }
 
-    if (this.state.trigger > this.prevState.trigger)
+  private async internalAfterUpdate(): Promise<void> {
+    const { sink: sinkProps } = this.state;
+    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
+
+    if (this.state.trigger > this.prevState.trigger) {
       this.internal.sink.set(true).catch(console.error);
+    }
   }
 
   render(): void {}
 
   afterDelete(): void {
+    this.internalAfterDelete().catch(console.error);
+  }
+
+  private async internalAfterDelete(): Promise<void> {
     const { internal: i } = this;
-    i.sink.cleanup?.();
+    await i.sink.cleanup?.();
   }
 }
 

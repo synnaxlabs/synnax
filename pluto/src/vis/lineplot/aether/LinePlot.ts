@@ -157,19 +157,19 @@ export class LinePlot extends aether.Composite<
       await this.renderMeasures(plot, canvases);
       renderCtx.gl.flush();
     } catch (e) {
-      this.internal.aggregate({ variant: "error", message: (e as Error).message });
+      this.internal.aggregate({
+        key: `${this.type}-${this.key}`,
+        variant: "error",
+        message: (e as Error).message,
+      });
     } finally {
       removeCanvasScissor();
       removeGLScissor();
     }
-    return ({ canvases }) => {
-      this.eraser.erase(
-        renderCtx,
-        this.state.container,
-        this.prevState.container,
-        this.state.clearOverscan,
-        canvases,
-      );
+    instrumentation.L.debug("rendered", { key: this.key });
+    const eraseRegion = box.copy(this.state.container);
+    return async ({ canvases }) => {
+      renderCtx.erase(eraseRegion, this.state.clearOverscan, ...canvases);
     };
   }
 

@@ -90,6 +90,14 @@ type Resource struct {
 	Data Data `json:"data" msgpack:"data"`
 }
 
+func ResourceIDs(resources []Resource) []ID {
+	ids := make([]ID, 0, len(resources))
+	for _, r := range resources {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
 type Change = change.Change[ID, Resource]
 
 // BleveType returns the type of the entity for use search indexing,

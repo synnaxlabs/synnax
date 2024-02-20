@@ -10,7 +10,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 
-import { type Cluster } from "@/cluster/core";
+import { type LocalClusterState, type Cluster } from "@/cluster/core";
 
 /** The state of the cluster slice. */
 export interface SliceState {
@@ -21,6 +21,10 @@ export interface SliceState {
    * to be present in this record.
    */
   clusters: Record<string, Cluster>;
+  /**
+   * Tracks the local cluster state.
+   */
+  localState: LocalClusterState;
 }
 
 /**
@@ -28,6 +32,8 @@ export interface SliceState {
  * NOTE: This must be the name of the slice in the store, or else all selectors will fail.
  */
 export const SLICE_NAME = "cluster";
+
+export const LOCAL_CLUSTER_KEY = "local";
 
 /**
  * Represents a partial view of a larger store that contains the cluster slice. This is
@@ -41,12 +47,21 @@ export interface StoreState {
 const initialState: SliceState = {
   activeCluster: null,
   clusters: {},
+  localState: {
+    pid: 0,
+  },
 };
 
 /** Signature for the setCluster action. */
 export type SetPayload = Cluster;
 /** Signature for the setActiveCluster action. */
 export type SetActivePayload = string | null;
+/** Signature for the setLocalState action. */
+export type SetLocalStatePayload = LocalClusterState;
+/**  */
+export interface RemovePayload {
+  keys: string[];
+}
 
 export const {
   actions,
@@ -61,8 +76,20 @@ export const {
     set: ({ clusters }, { payload: cluster }: PayloadAction<SetPayload>) => {
       clusters[cluster.key] = cluster;
     },
+    remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+      for (const key of keys) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete clusters[key];
+      }
+    },
     setActive: (state, { payload: key }: PayloadAction<SetActivePayload>) => {
       state.activeCluster = key;
+    },
+    setLocalState: (
+      state,
+      { payload: localState }: PayloadAction<SetLocalStatePayload>,
+    ) => {
+      state.localState = { ...state.localState, ...localState };
     },
   },
 });
@@ -78,6 +105,8 @@ export const {
    * @params payload - The key of the cluster to set as active.
    */
   setActive,
+  setLocalState,
+  remove,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

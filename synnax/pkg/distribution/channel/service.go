@@ -61,7 +61,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Authority } from "@synnaxlabs/client";
 import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -33,33 +34,46 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
   schema = chipStateZ;
 
   afterUpdate(): void {
+    this.asyncAfterUpdate().catch(console.error);
+  }
+
+  private async asyncAfterUpdate(): Promise<void> {
     const { sink: sinkProps, source: sourceProps } = this.state;
-    this.internal.source = telem.useSource(this.ctx, sourceProps, this.internal.source);
-    this.internal.sink = telem.useSink(this.ctx, sinkProps, this.internal.sink);
+    this.internal.source = await telem.useSource(
+      this.ctx,
+      sourceProps,
+      this.internal.source,
+    );
+    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
 
-    if (this.state.triggered && !this.prevState.triggered)
+    if (this.state.triggered && !this.prevState.triggered) {
       this.internal.sink
-        .set(this.state.status.variant !== "success")
+        .set(this.state.status.data?.authority !== Authority.ABSOLUTE.valueOf())
         .catch(console.error);
+    }
 
-    void (async () => {
-      await this.updateEnabledState();
-      this.internal.stopListening?.();
-      this.internal.stopListening = this.internal.source.onChange(() => {
-        void this.updateEnabledState();
-      });
-    })();
+    await this.updateEnabledState();
+    this.internal.stopListening?.();
+    this.internal.stopListening = this.internal.source.onChange(() => {
+      void this.updateEnabledState();
+    });
   }
 
   private async updateEnabledState(): Promise<void> {
     const nextStatus = await this.internal.source.value();
-    if (!nextStatus.time.equals(this.state.status.time))
+    if (!nextStatus.time.equals(this.state.status.time)) {
       this.setState((p) => ({ ...p, status: nextStatus, triggered: false }));
+    }
   }
 
   afterDelete(): void {
-    this.internal.source.cleanup?.();
-    this.internal.sink.cleanup?.();
+    this.asyncAfterDelete().catch(console.error);
+  }
+
+  private async asyncAfterDelete(): Promise<void> {
+    this.internal.stopListening();
+    await this.internal.source.cleanup?.();
+    await this.internal.sink.cleanup?.();
   }
 
   render(): void {}
