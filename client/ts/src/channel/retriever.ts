@@ -22,7 +22,6 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
-import { QueryError } from "@/errors";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),

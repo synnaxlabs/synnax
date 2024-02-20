@@ -130,6 +130,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 		if req.Rack.IsValid() {
 			r = r.WhereRack(req.Rack)
 		}
+		res.Tasks = make([]task.Task, 0, len(req.Keys))
 		return r.Entries(&res.Tasks).Exec(ctx, tx)
 	})
 }

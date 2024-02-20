@@ -23,7 +23,7 @@ describe("Hardware", () => {
           config: { a: "dog" },
           type: "ni",
         });
-        expect(m.key).toBeGreaterThan(0n);
+        expect(m.key).not.toHaveLength(0);
         const rackKey = BigInt(m.key) >> 32n;
         expect(Number(rackKey)).toBe(r.key);
       });
@@ -39,7 +39,7 @@ describe("Hardware", () => {
         const retrieved = await client.hardware.tasks.retrieve(m.key);
         expect(retrieved.key).toBe(m.key);
         expect(retrieved.name).toBe("test");
-        expect(retrieved.config).toBe("dog");
+        expect(retrieved.config).toStrictEqual({ a: "dog" });
         expect(retrieved.type).toBe("ni");
       });
     });

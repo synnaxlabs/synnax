@@ -18,11 +18,10 @@ import {
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useRequiredContext } from "@/hooks/useRequiredContext";
 import { useTransforms, type UseTransformsReturn } from "@/hooks/useTransforms";
 import { type state } from "@/state";
-
-import { useCombinedStateAndRef, useSyncedRef } from "..";
 
 export interface DataContextValue<
   K extends Key = Key,

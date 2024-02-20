@@ -31,7 +31,7 @@ import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { selectValueIsZero, type UseSelectMultipleProps } from "@/hooks/useSelect";
+import { selectValueIsZero, type UseSelectMultipleProps } from "@/list/useSelect";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";

@@ -21,8 +21,9 @@ describe("Input", () => {
     const onChange = vi.fn();
     const c = render(<Input.Text value="" placeholder="Hello" onChange={onChange} />);
     expect(onChange).not.toHaveBeenCalled();
-    const input = c.getByPlaceholderText("Hello");
-    fireEvent.change(input, { target: { value: "Hello" } });
+    const input = c.getByText("Hello").parentElement?.parentElement?.children[1];
+    expect(input).not.toBeUndefined();
+    fireEvent.change(input as HTMLInputElement, { target: { value: "Hello" } });
     expect(onChange).toHaveBeenCalled();
   });
   it("should programatically set the input value when the prop is passed", () => {

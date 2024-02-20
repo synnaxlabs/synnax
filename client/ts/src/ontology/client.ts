@@ -16,7 +16,7 @@ import { type ID, type Resource } from "@/ontology/payload";
 import { Retriever } from "@/ontology/retriever";
 import { Writer } from "@/ontology/writer";
 
-import { QueryError } from "..";
+import { QueryError } from "@/errors";
 
 import { ChangeTracker } from "@/ontology/signals";
 

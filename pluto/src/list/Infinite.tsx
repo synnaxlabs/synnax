@@ -17,9 +17,7 @@ import {
   useState,
 } from "react";
 
-import { useRequiredContext } from "@/hooks/useRequiredContext";
-
-import { useStateRef } from "..";
+import { useStateRef } from "@/hooks";
 
 export interface InfiniteContextValue {
   hasMore: boolean;

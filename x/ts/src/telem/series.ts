@@ -476,7 +476,7 @@ export class Series {
     return new Series({
       data,
       dataType: this.dataType,
-      timeRange: this.timeRange,
+      timeRange: this._timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
       alignment: this.alignment + start,

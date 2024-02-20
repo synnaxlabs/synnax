@@ -61,6 +61,9 @@ module.exports = {
                 warnOnUnassignedImports: true,
             },
         ],
+        "no-restricted-imports": ["error", {
+            "patterns": [".*"]
+        }],
         "import/no-unresolved": [2],
         "import/named": "off",
         "react/react-in-jsx-scope": "off",

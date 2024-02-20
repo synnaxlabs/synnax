@@ -17,14 +17,13 @@ import {
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { type Optional } from "@synnaxlabs/x";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef, useCombinedStateAndRef } from "@/hooks";
-import { type UseSelectOnChangeExtra, type UseSelectProps } from "@/hooks/useSelect";
 import { List } from "@/list";
+import { type UseSelectOnChangeExtra, type UseSelectProps } from "@/list/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";

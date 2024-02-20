@@ -20,7 +20,7 @@ import {
   type UseSelectProps,
   useSelect,
   type UseSelectOnChangeExtra,
-} from "@/hooks/useSelect";
+} from "@/list/useSelect";
 import { type Input } from "@/input";
 import { type List as CoreList } from "@/list";
 import { Core } from "@/select/List";

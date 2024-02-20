@@ -30,7 +30,7 @@ import {
   selectValueIsZero,
   type UseSelectSingleProps,
   type UseSelectOnChangeExtra,
-} from "@/hooks/useSelect";
+} from "@/list/useSelect";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";

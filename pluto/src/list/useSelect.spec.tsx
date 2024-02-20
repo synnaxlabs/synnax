@@ -12,7 +12,7 @@ import { useState } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { type UseSelectMultipleProps, useSelect } from "@/hooks/useSelect";
+import { type UseSelectMultipleProps, useSelect } from "@/list/useSelect";
 
 interface Entry {
   key: string;

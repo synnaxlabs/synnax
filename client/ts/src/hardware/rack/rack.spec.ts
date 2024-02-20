@@ -19,4 +19,11 @@ describe("Rack", () => {
       expect(retrieved.name).toBe("test");
     });
   });
+  describe("tasks", () => {
+    it("should list the tasks on a rack", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      const tasks = await r.listTasks();
+      expect(tasks).toHaveLength(0);
+    });
+  })
 });

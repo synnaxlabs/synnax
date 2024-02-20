@@ -20,12 +20,10 @@ import {
 
 import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
 
+import { useCombinedStateAndRef } from "@/hooks";
+import { useGetTransformedData } from "@/list/Data";
+import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
-
-import { useCombinedStateAndRef } from "..";
-
-import { useGetTransformedData } from "./Data";
-import { useSelectionUtils } from "./Selector";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface HoverProps<

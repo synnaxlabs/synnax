@@ -17,11 +17,9 @@ import {
 
 import { type Key, type KeyedRenderableRecord, nullToArr } from "@synnaxlabs/x";
 
-import { useSelect, type UseSelectProps } from "@/hooks/useSelect";
-
-import { useSyncedRef } from "..";
-
-import { useGetTransformedData } from "./Data";
+import { useSyncedRef } from "@/hooks";
+import { useGetTransformedData } from "@/list/Data";
+import { useSelect, type UseSelectProps } from "@/list/useSelect";
 
 interface SelectContextValue<K extends Key = Key> {
   selected: K[];

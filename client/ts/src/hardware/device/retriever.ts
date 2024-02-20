@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
 
-const RETRIEVE_ENDPOINT = "/hardware/task/create";
+const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 
 const retrieveDeviceReqZ = z.object({
   keys: deviceKeyZ.array(),

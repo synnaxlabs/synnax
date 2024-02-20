@@ -41,7 +41,7 @@ export class Client {
       multi = false;
       params.keys = [rack];
     } else params.keys = toArray(rack);
-    const res = await this.retriever.retrieve({});
+    const res = await this.retriever.retrieve(params);
     return multi ? res : res[0];
   }
 }

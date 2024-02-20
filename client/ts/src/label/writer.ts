@@ -82,7 +82,7 @@ export class Writer {
   async remove(id: ontology.ID, labels: Key[]): Promise<void> {
     await sendRequired<typeof removeReqZ, typeof emptyResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      REMOVE_ENDPOINT,
       { id, labels },
       emptyResZ,
     );
