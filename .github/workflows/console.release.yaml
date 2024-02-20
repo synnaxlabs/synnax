@@ -1,8 +1,8 @@
 name: "Console Release"
 on:
   push:
-#    branches:
-#      - main
+    branches:
+      - main
   workflow_dispatch:
 
 env:

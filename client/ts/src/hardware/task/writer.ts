@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
-import { NewTask, Task, newTaskZ, taskKeyZ, taskZ } from "@/hardware/task/payload";
-import { UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 
+import {
+  type NewTask,
+  type Task,
+  newTaskZ,
+  taskKeyZ,
+  taskZ,
+} from "@/hardware/task/payload";
 
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
@@ -30,28 +36,28 @@ const deleteReqZ = z.object({
 const deleteResZ = z.object({});
 
 export class Writer {
-    private readonly client: UnaryClient;
-    
-    constructor(client: UnaryClient) {
-        this.client = client;
-    }
-    
-    async create(tasks: NewTask[]): Promise<Task[]> {
-        const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-            this.client,
-            CREATE_ENDPOINT,
-            { tasks: tasks.map((t) => ({...t, config: JSON.stringify(t.config)})) },
-            createResZ,
-        );
-        return res.tasks;
-    }
-    
-    async delete(keys: bigint[]): Promise<void> {
-        await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-            this.client,
-            DELETE_ENDPOINT,
-            { keys },
-            deleteResZ,
-        );
-    }
+  private readonly client: UnaryClient;
+
+  constructor(client: UnaryClient) {
+    this.client = client;
+  }
+
+  async create(tasks: NewTask[]): Promise<Task[]> {
+    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+      this.client,
+      CREATE_ENDPOINT,
+      { tasks: tasks.map((t) => ({ ...t, config: JSON.stringify(t.config) })) },
+      createResZ,
+    );
+    return res.tasks;
+  }
+
+  async delete(keys: bigint[]): Promise<void> {
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      DELETE_ENDPOINT,
+      { keys },
+      deleteResZ,
+    );
+  }
 }
