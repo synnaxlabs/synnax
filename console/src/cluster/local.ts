@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { useAsyncWindowLifecycle, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
+import { path } from "@tauri-apps/api";
 import { Child, Command, type EventEmitter } from "@tauri-apps/api/shell";
 import { useDispatch } from "react-redux";
 
 import { useSelectLocalState } from "@/cluster/selectors";
 import { setLocalState, set, LOCAL_CLUSTER_KEY, setActive } from "@/cluster/slice";
-
-import { testConnection } from "./testConnection";
+import { testConnection } from "@/cluster/testConnection";
 
 // The name of the sidecar binary.
 const BINARY_NAME = "bin/sy";
@@ -45,7 +45,15 @@ export const useLocalServer = (): void => {
       await new Child(pid).kill();
     }
 
-    const command = Command.sidecar(BINARY_NAME);
+    const dataPath = (await path.homeDir()) + "/.synnax/console/synnax-data";
+    const command = Command.sidecar(BINARY_NAME, [
+      "start",
+      "-i",
+      "-l",
+      "localhost:9090",
+      "-d",
+      dataPath,
+    ]);
     const serverProcess = await command.spawn();
 
     d(setLocalState({ pid: serverProcess.pid, state: "starting" }));

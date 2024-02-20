@@ -19,7 +19,7 @@ import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List as PList } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { useFieldArray, useForm } from "react-hook-form";
 import { v4 as uuidv4 } from "uuid";
 import { type z } from "zod";

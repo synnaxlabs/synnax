@@ -25,7 +25,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";

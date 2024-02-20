@@ -9,7 +9,7 @@
 
 import { useRef } from "react";
 
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 /**
  * @returns a unique key that persists for the lifetime of the component.

@@ -91,11 +91,10 @@ export class StateProvider extends aether.Composite<
     this.internal.palette = theme.colors.visualization.palettes.default;
     this.internal.defaultColor = theme.colors.gray.l6;
     const nextClient = synnax.use(this.ctx);
-    if (nextClient === this.internal.client) return;
+    if (this.internal.client != null && nextClient === this.internal.client) return;
     this.internal.client = nextClient;
     this.ctx.set(CONTEXT_KEY, this);
     if (this.internal.client != null) {
-      // stop if we're already tracking
       if (this.tracker != null) {
         this.disconnectTrackerChange?.();
         this.tracker
@@ -103,11 +102,9 @@ export class StateProvider extends aether.Composite<
           .catch((e) => this.internal.instrumentation.L.error("error", { error: e }));
         this.tracker = undefined;
       }
-      console.log("starting state tracker");
       this.internal.instrumentation.L.debug("starting state tracker");
       void this.startUpdating(this.internal.client);
     } else {
-      console.log("stopping state tracker");
       this.internal.instrumentation.L.debug("stopping state tracker");
       this.disconnectTrackerChange?.();
       this.tracker

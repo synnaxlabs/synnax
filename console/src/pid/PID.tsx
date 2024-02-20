@@ -26,7 +26,7 @@ import {
   PID as Core,
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord, box, scale, xy } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";

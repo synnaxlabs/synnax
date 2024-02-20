@@ -25,7 +25,7 @@ import {
   type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";
 

@@ -19,7 +19,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 
 import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
@@ -28,11 +27,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import {
-  useMemoDeepEqualProps,
-  useEffectCompare,
-  useCombinedStateAndRef,
-} from "@/hooks";
+import { useEffectCompare, useCombinedStateAndRef } from "@/hooks";
+import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";

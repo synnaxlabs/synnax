@@ -15,7 +15,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps } from "@/hooks";
+import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";

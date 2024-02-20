@@ -60,3 +60,4 @@ export { Progress } from "@/progress";
 export * from "@/hooks";
 export * from "@/util/renderProp";
 export { Form } from "@/form";
+export * from "@/memo";

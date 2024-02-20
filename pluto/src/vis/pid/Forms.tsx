@@ -24,6 +24,7 @@ import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { type Button as CoreButton } from "@/vis/button";
 import { type LabelExtensionProps } from "@/vis/pid/Labeled";
+import { SelectOrientation } from "@/vis/pid/SelectOrientation";
 import {
   type ThreeWayValveProps,
   type ReliefValveProps,
@@ -34,8 +35,6 @@ import {
   type ButtonProps,
 } from "@/vis/pid/Symbols";
 import { type Toggle } from "@/vis/toggle";
-
-import { SelectOrientation } from "./SelectOrientation";
 
 import "@/vis/pid/Forms.css";
 

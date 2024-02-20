@@ -15,7 +15,7 @@ import {
 } from "react";
 
 import { Align, Text, PID, Theming, Haul, Input, List } from "@synnaxlabs/pluto";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";

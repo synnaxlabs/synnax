@@ -20,7 +20,7 @@ import {
   toArray,
   box,
 } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 import { type Layout } from "@/layout";
 import { Vis } from "@/vis";

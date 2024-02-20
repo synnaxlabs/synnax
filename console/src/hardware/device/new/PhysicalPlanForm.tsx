@@ -13,7 +13,7 @@ import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 import { CSS } from "@/css";
 import {

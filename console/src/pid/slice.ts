@@ -12,7 +12,7 @@ import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
 import { type Layout } from "@/layout";

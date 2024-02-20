@@ -14,12 +14,12 @@
     "allowlist": {
       "all": true,
       "shell": {
-        "sidecar": true,
+        "all": true,
         "scope": [
           {
             "name": "bin/sy",
             "sidecar": true,
-            "args": ["start", "-i", "-l","localhost:9090", "-d", "~/.console/synnax/data"]
+            "args": ["start", "-i", "-l","localhost:9090", "-d", {"validator": "\\S+"}]
           }
         ]
       }
@@ -80,7 +80,7 @@
         "fileDropEnabled": false,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": false,
+        "visible": true,
         "acceptFirstMouse": false
       }
     ]
