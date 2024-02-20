@@ -16,7 +16,7 @@ export const taskZ = z.object({
   key: taskKeyZ,
   name: z.string(),
   type: z.string(),
-  config: z.record(z.unknown()).or(z.string().transform((c) => JSON.parse(c))),
+  config: z.record(z.unknown()).or(z.string().transform((c) => JSON.parse(c))) as z.ZodType<UnknownRecord>,
 });
 
 export const newTaskZ = taskZ
