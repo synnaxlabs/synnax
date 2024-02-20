@@ -63,7 +63,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
-	validate.NotNil(v, "signals", c.Signals)
 	validate.NotNil(v, "hostProvider", c.HostProvider)
 	return v.Error()
 }
@@ -81,8 +80,30 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	s = &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 
+	if cfg.Channel != nil {
+		hostKey := cfg.HostProvider.HostKey()
+		channels := &[]channel.Channel{
+			{
+				Name:        fmt.Sprintf("sy_node_%s_task_cmd", hostKey),
+				DataType:    telem.JSONT,
+				Virtual:     true,
+				Leaseholder: hostKey,
+			},
+			{
+				Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
+				DataType:    telem.JSONT,
+				Virtual:     true,
+				Leaseholder: hostKey,
+			},
+		}
+		err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)
+		if err != nil {
+			return
+		}
+	}
+
 	if cfg.Signals == nil {
-		return s, nil
+		return
 	}
 
 	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
@@ -91,22 +112,6 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s.shutdownSignals = cdcS
 
-	hostKey := cfg.HostProvider.HostKey()
-	channels := &[]channel.Channel{
-		{
-			Name:        fmt.Sprintf("sy_node_%s_task_cmd", hostKey),
-			DataType:    telem.JSONT,
-			Virtual:     true,
-			Leaseholder: hostKey,
-		},
-		{
-			Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
-			DataType:    telem.JSONT,
-			Virtual:     true,
-			Leaseholder: hostKey,
-		},
-	}
-	err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)
 	return
 }
 

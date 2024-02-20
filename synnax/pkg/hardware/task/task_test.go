@@ -29,10 +29,11 @@ var _ = Describe("Task", Ordered, func() {
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{DB: db, Ontology: otg, Group: g, HostProvider: mock.StaticHostKeyProvider(1)}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Rack:     rackSvc,
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			Rack:         rackSvc,
+			HostProvider: mock.StaticHostKeyProvider(1),
 		}))
 		rack_ = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, rack_)).To(Succeed())

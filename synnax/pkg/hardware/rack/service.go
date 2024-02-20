@@ -60,8 +60,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "host", c.HostProvider)
-	validate.NotNil(v, "signals", c.Signals)
-	validate.NotNil(v, "channel", c.Channel)
 	return v.Error()
 }
 
