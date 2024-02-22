@@ -38,6 +38,6 @@
     "eslint-config-synnaxlabs": "workspace:*",
     "gray-matter": "^4.0.3",
     "remove-markdown": "^0.5.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.3.3"
   }
 }

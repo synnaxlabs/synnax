@@ -59,7 +59,7 @@
     "eslint": "^8.48.0",
     "eslint-plugin-prettier": "^5.0.0",
     "eslint_d": "^12.2.1",
-    "prettier": "3.0.3",
+    "prettier": "3.2.5",
     "turbo": "^1.10.16"
   },
   "engines": {
@@ -78,7 +78,7 @@
       "vite-plugin-dts": "3.7.2",
       "@vitejs/plugin-react": "^4.2.0",
       "vitest": "1.2.2",
-      "@vitest/coverage-v8": "1.1.0",
+      "@vitest/coverage-v8": "1.2.2",
       "typescript": "^5.3.3",
       "proxy-memoize": "1.2.0",
       "@tanstack/react-virtual": "3.0.0-beta.54",
