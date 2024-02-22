@@ -28,7 +28,7 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=\${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
       - name: Publish TSConfig
-        working-directory: tsconfig
+        working-directory: configs/ts
         run: |
           pnpm publish --access public
         env:
