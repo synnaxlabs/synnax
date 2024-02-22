@@ -23,15 +23,6 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: Run Tests
-        run: |
-          pnpm run test
-
-      - name: Version Package
-        id: version
-        run: |
-          echo ::set-output name=version::$(pnpm version patch --no-git-tag-version)
-
       - name: Configure NPM
         run: |
           echo "//registry.npmjs.org/:_authToken=\${{ secrets.NPM_TOKEN }}" > ~/.npmrc
@@ -46,6 +37,7 @@ jobs:
       - name: Publish X
         working-directory: x/ts
         run: |
+          pnp build:x
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -53,6 +45,7 @@ jobs:
       - name: Publish Media
         working-directory: x/media
         run: |
+          pnpm build:media
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -60,6 +53,7 @@ jobs:
       - name: Publish Alamos
         working-directory: alamos/ts
         run: |
+          pnpm build:alamos
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -67,6 +61,7 @@ jobs:
       - name: Publish Freighter
         working-directory: freighter/ts
         run: |
+          pnpm build:freighter
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -75,6 +70,7 @@ jobs:
       - name: Publish Client
         working-directory: client/ts
         run: |
+          pnpm build:client
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -82,6 +78,7 @@ jobs:
       - name: Publish Pluto
         working-directory: pluto/ts
         run: |
+          pnpm build:pluto
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
