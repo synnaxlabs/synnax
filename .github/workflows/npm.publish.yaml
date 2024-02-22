@@ -1,0 +1,91 @@
+name: Publish Package
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '14'
+
+      - name: Install Dependencies
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Run Tests
+        run: |
+          pnpm run test
+
+      - name: Version Package
+        id: version
+        run: |
+          echo ::set-output name=version::$(pnpm version patch --no-git-tag-version)
+
+      - name: Configure NPM
+        run: |
+          echo "//registry.npmjs.org/:_authToken=\${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish TSConfig
+        working-directory: tsconfig
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish X
+        working-directory: x/ts
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Media
+        working-directory: x/media
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Alamos
+        working-directory: alamos/ts
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Freighter
+        working-directory: freighter/ts
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+
+      - name: Publish Client
+        working-directory: client/ts
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Pluto
+        working-directory: pluto/ts
+        run: |
+          pnpm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+
+
+
