@@ -237,7 +237,7 @@ export const DefaultItem = memo(
       onDragStart: handleDragStart,
       onClick: () => onSelect?.(key),
       style: {
-        position: "absolute",
+        position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${depth * 1.5 + 1}rem`,
       },
