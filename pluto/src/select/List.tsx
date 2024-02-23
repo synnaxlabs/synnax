@@ -41,6 +41,7 @@ const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
       children,
       columns,
       visible,
+      replaceOnSingle,
       ...props
     }: SelectListProps,
     ref,
@@ -51,6 +52,7 @@ const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
         onChange={onChange}
         allowMultiple={allowMultiple}
         allowNone={allowNone}
+        replaceOnSingle={replaceOnSingle}
       >
         <Dropdown.Dialog
           ref={ref}

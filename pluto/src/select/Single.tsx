@@ -26,20 +26,23 @@ import {
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
+import { Input } from "@/input";
+import { List as CoreList } from "@/list";
 import {
   selectValueIsZero,
   type UseSelectSingleProps,
   type UseSelectOnChangeExtra,
 } from "@/list/useSelect";
-import { Input } from "@/input";
-import { List as CoreList } from "@/list";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 
 import "@/select/Single.css";
 
 export interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "variant">,
+  extends Omit<
+      Dropdown.DialogProps,
+      "onChange" | "visible" | "children" | "variant" | "close"
+    >,
     Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
@@ -130,6 +133,7 @@ export const Single = <
       onChange={handleChange}
       allowNone={allowNone}
       columns={columns}
+      {...props}
     >
       <InputWrapper<K, E> searcher={searcher}>
         {({ onChange }) => (
@@ -172,7 +176,7 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   className,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
-  const { clear } = CoreList.useSelectionContext();
+  const { clear } = CoreList.useSelectionUtils();
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the

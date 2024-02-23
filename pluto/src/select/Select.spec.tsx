@@ -13,6 +13,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type List } from "@/list";
+import { type UseSelectOnChangeExtra } from "@/list/useSelect";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
@@ -54,8 +55,20 @@ const mockOptions: MockRecord[] = [
   },
 ];
 
-const SelectMultiple = (): ReactElement => {
+interface SelectMultipleProps
+  extends Partial<Select.MultipleProps<string, MockRecord>> {}
+
+const SelectMultiple = (props: SelectMultipleProps): ReactElement => {
   const [value, setValue] = useState<string[]>([]);
+
+  const handleChange = (
+    v: string[],
+    extra: UseSelectOnChangeExtra<string, MockRecord>,
+  ): void => {
+    props.onChange?.(v, extra);
+    setValue(v);
+  };
+
   return (
     <Triggers.Provider>
       <Select.Multiple<string, MockRecord>
@@ -63,22 +76,40 @@ const SelectMultiple = (): ReactElement => {
         data={mockOptions}
         tagKey="name"
         value={value}
-        onChange={setValue}
+        onChange={handleChange}
+        {...props}
       />
     </Triggers.Provider>
   );
 };
 
-const SelectSingle = (): ReactElement => {
+export interface SelectSingleProps
+  extends Partial<Select.SingleProps<string, MockRecord>> {}
+
+const SelectSingle = ({
+  onChange,
+  value: propsValue,
+  ...props
+}: SelectSingleProps): ReactElement => {
   const [value, setValue] = useState<string | null>(null);
+
+  const handleChange = (
+    v: string | null,
+    extra: UseSelectOnChangeExtra<string, MockRecord>,
+  ): void => {
+    onChange?.(v, extra);
+    setValue(v);
+  };
+
   return (
     <Triggers.Provider>
       <Select.Single<string, MockRecord>
         columns={mockColumns}
         data={mockOptions}
         tagKey="name"
-        value={value}
-        onChange={setValue}
+        value={propsValue ?? value}
+        onChange={handleChange}
+        {...props}
       />
     </Triggers.Provider>
   );
@@ -140,6 +171,29 @@ describe("Select", () => {
       expect(j2.length).toBe(1);
       expect(j3.length).toBe(1);
     });
+    it("should call the onChange handler when the user selects an item", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectMultiple onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      expect(onChange).toHaveBeenCalledWith(["1"], {
+        clicked: mockOptions[0].key,
+        clickedIndex: 0,
+        entries: [mockOptions[0]],
+      });
+    });
+    it("should call the onChange handler when the clears the selection", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectMultiple onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      expect(onChange).toHaveBeenCalledWith([], {
+        clicked: null,
+        clickedIndex: 0,
+        entries: [],
+      });
+    });
   });
   describe("Select.Single", () => {
     it("should render a search input", () => {
@@ -172,6 +226,26 @@ describe("Select", () => {
       fireEvent.click(c.getByLabelText("clear"));
       const input = c.queryByDisplayValue("John");
       expect(input).toBeFalsy();
+    });
+    it("should call the onChange handler when the user selects an item", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectSingle onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      expect(onChange).toHaveBeenCalled();
+    });
+    it("should call the onChange handler when the user clears the input", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectSingle onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      expect(onChange).toHaveBeenCalledTimes(2);
+      expect(onChange).toHaveBeenCalledWith(null, {
+        clicked: null,
+        clickedIndex: 0,
+        entries: [],
+      });
     });
   });
 });
