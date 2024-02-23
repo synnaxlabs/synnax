@@ -23,16 +23,12 @@ jobs:
           npm install -g pnpm
           pnpm install
 
-      - name: Configure NPM
-        run: |
-          echo "//registry.npmjs.org/:_authToken=\${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: Publish TSConfig
-        working-directory: configs/ts
-        run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish TSConfig
+      #   working-directory: configs/ts
+      #   run: |
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish X
         working-directory: x/ts
