@@ -27,67 +27,14 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      # - name: Publish TSConfig
-      #   working-directory: configs/ts
-      #   run: |
-      #     pnpm publish --access public
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Build X
-        run: |
-          pnpm build:x
-
-      - name: Publish X
-        working-directory: x/ts
-        run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Build Media
-        run: |
-          pnpm build:media
-
-      - name: Publish Media
-        working-directory: media/ts
-        run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Build Freighter
-        run: |
-          pnpm build:freighter
-
-      - name: Publish Freighter
-        working-directory: freighter/ts
-        run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Build Client
-        run: |
-          pnpm build:client
-
-      - name: Publish Client
-        working-directory: client/ts
-        run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Build Pluto
+      - name: Build
         run: |
           pnpm build:pluto
 
-      - name: Publish Pluto
-        working-directory: pluto/ts
+      - name: Publish
         run: |
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          pnpm publish -r --access public
+
 
 
 
