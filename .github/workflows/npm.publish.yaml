@@ -33,7 +33,7 @@ jobs:
       - name: Publish X
         working-directory: x/ts
         run: |
-          pnp build:x
+          pnpm build:x
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
