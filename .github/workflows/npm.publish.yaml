@@ -30,54 +30,57 @@ jobs:
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Build X
+        run: |
+          pnpm build:x
+
       - name: Publish X
         working-directory: x/ts
         run: |
-          pnpm build:x
           pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish Media
-        working-directory: x/media
-        run: |
-          pnpm build:media
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish Media
+      #   working-directory: x/media
+      #   run: |
+      #     pnpm build:media
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish Alamos
-        working-directory: alamos/ts
-        run: |
-          pnpm build:alamos
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish Alamos
+      #   working-directory: alamos/ts
+      #   run: |
+      #     pnpm build:alamos
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish Freighter
-        working-directory: freighter/ts
-        run: |
-          pnpm build:freighter
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish Freighter
+      #   working-directory: freighter/ts
+      #   run: |
+      #     pnpm build:freighter
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
 
-      - name: Publish Client
-        working-directory: client/ts
-        run: |
-          pnpm build:client
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish Client
+      #   working-directory: client/ts
+      #   run: |
+      #     pnpm build:client
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish Pluto
-        working-directory: pluto/ts
-        run: |
-          pnpm build:pluto
-          pnpm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish Pluto
+      #   working-directory: pluto/ts
+      #   run: |
+      #     pnpm build:pluto
+      #     pnpm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
 
 
