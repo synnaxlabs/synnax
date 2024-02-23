@@ -31,9 +31,9 @@ import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { selectValueIsZero, type UseSelectMultipleProps } from "@/list/useSelect";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
+import { selectValueIsZero, type UseSelectMultipleProps } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { Tag } from "@/tag";
@@ -44,7 +44,7 @@ import "@/select/Multiple.css";
 export interface MultipleProps<
   K extends Key = Key,
   E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children">,
+> extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder"> {
